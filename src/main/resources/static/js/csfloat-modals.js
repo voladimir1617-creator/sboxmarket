@@ -335,6 +335,7 @@ export function LoadoutLabModal({ onClose, me }) {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const created = await createLoadout({ name: newName, visibility: 'PUBLIC' });
+    if (created && created.error) { alert(created.error); return; }
     setNewName('');
     setCreating(false);
     if (created && created.id) openLoadout(created.id);
@@ -342,7 +343,8 @@ export function LoadoutLabModal({ onClose, me }) {
 
   const handleSlot = async (slot, itemId) => {
     if (!viewing) return;
-    await setLoadoutSlot(viewing.loadout.id, slot, itemId);
+    const res = await setLoadoutSlot(viewing.loadout.id, slot, itemId);
+    if (res && res.error) { alert(res.error); return; }
     const fresh = await fetchLoadout(viewing.loadout.id);
     setViewing(fresh);
   };
@@ -350,7 +352,8 @@ export function LoadoutLabModal({ onClose, me }) {
   const handleGenerate = async () => {
     if (!viewing) return;
     const b = budget ? parseFloat(budget) : 10000;
-    await generateLoadout(viewing.loadout.id, b);
+    const res = await generateLoadout(viewing.loadout.id, b);
+    if (res && res.error) { alert(res.error); return; }
     const fresh = await fetchLoadout(viewing.loadout.id);
     setViewing(fresh);
   };
@@ -358,7 +361,8 @@ export function LoadoutLabModal({ onClose, me }) {
   const handleDelete = async () => {
     if (!viewing) return;
     if (!confirm('Delete this loadout?')) return;
-    await deleteLoadout(viewing.loadout.id);
+    const res = await deleteLoadout(viewing.loadout.id);
+    if (res && res.error) { alert(res.error); return; }
     setViewing(null);
     setTab('mine');
     load();
