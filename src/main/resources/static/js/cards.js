@@ -12,12 +12,6 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       disc > 0 && h('div', { className: 'grid-discount' }, `−${disc}%`),
-      h('div', {
-        className: `grid-trend-bot ${trendFlat ? 'flat' : trendUp ? 'up' : 'down'}`,
-        style: { top: 'auto', bottom: 12, left: 12 }
-      },
-        trendFlat ? '━ 0%' : trendUp ? `▲ ${item.trendPercent}%` : `▼ ${Math.abs(item.trendPercent)}%`
-      ),
       onToggleStar && h('button', {
         className: `grid-star ${starred ? 'on' : ''}`,
         onClick: e => { e.stopPropagation(); onToggleStar(item.id); },
@@ -31,17 +25,12 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         h('div', null,
           h('div', { className: 'grid-price' },
             fmt(listing.price),
-            // Small Steam icon next to the price — opens the Steam Community
-            // Market listings page for this item in a new tab. stopPropagation
-            // inside SteamMarketLink prevents the card click handler from firing.
             h(SteamMarketLink, { item, compact: true })
           ),
           item.steamPrice && parseFloat(item.steamPrice) > parseFloat(listing.price) &&
-            h('div', { className: 'grid-steam-price' }, 'Steam ' + fmt(item.steamPrice))
+            h('div', { className: 'grid-steam-price' }, fmt(item.steamPrice))
         ),
-        listingCount > 1
-          ? h('div', { className: 'grid-supply' }, listingCount + ' listings')
-          : h('div', { className: 'grid-supply' }, Number(item.supply).toLocaleString() + ' supply')
+        listingCount > 1 && h('div', { className: 'grid-supply' }, listingCount + ' listings')
       )
     )
   );
