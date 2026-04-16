@@ -773,13 +773,16 @@
       /* min() wrapper means cards never exceed the available column width,
          so at high browser zoom (say 175%) cards shrink into the remaining
          space instead of forcing a horizontal scroll. */
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, clamp(164px, calc(150px + 0.6vw), 188px)), 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 220px));
       gap: var(--card-gap);
+      justify-content: center;
     }
     .grid-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 10px;
+      max-width: 240px;
+      width: 100%;
       cursor: pointer;
       transition:
         transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -3298,8 +3301,9 @@
     .hero-tab-cta:hover { color: var(--accent-2); }
     .hero-tab-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 220px));
       gap: var(--card-gap);
+      justify-content: center;
     }
 
     /* Fee calculator panel — distinct section band above the footer.
