@@ -96,9 +96,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               item.steamPrice
                 ? h('div', null,
                     h('div', { className: 'modal-stat-val', style: { textDecoration: 'line-through', color: 'var(--text-muted)' } }, fmt(item.steamPrice)),
-                    h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--green)', marginTop: 2 } },
-                      `Save ${discountPct(item.lowestPrice, item.steamPrice)}%`
-                    )
+                    discountPct(item.lowestPrice, item.steamPrice) > 0
+                      ? h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--green)', marginTop: 2 } },
+                          `Save ${discountPct(item.lowestPrice, item.steamPrice)}%`
+                        )
+                      : null
                   )
                 : h('div', { className: 'modal-stat-val' }, '—')
             ),
