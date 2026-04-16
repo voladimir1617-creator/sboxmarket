@@ -192,7 +192,8 @@ export function BuyOrdersModal({ onClose, me, preselectedItem }) {
 
   const cancel = async (id) => {
     if (!confirm('Cancel this buy order?')) return;
-    await deleteBuyOrder(id);
+    const res = await deleteBuyOrder(id);
+    if (res && res.error) { alert(res.error); return; }
     load();
   };
 

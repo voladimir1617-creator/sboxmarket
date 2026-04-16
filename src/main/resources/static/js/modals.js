@@ -1195,7 +1195,8 @@ function ProfileSupportTab() {
 
   const resolve = async () => {
     if (!viewing?.ticket) return;
-    await resolveSupportTicket(viewing.ticket.id);
+    const res = await resolveSupportTicket(viewing.ticket.id);
+    if (res && res.error) { alert(res.error); return; }
     setViewing(await fetchSupportTicket(viewing.ticket.id));
     load();
   };
