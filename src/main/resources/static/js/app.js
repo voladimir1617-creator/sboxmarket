@@ -983,20 +983,6 @@ export function App() {
       ))
     ),
 
-    /* TRENDING */
-    trending.length > 0 && h('section', { className: 'trending' },
-      h('div', { className: 'section-header' },
-        h('div', { className: 'section-title' },
-          h('div', { className: 'section-title-dot' }),
-          'Trending Now'
-        ),
-        h('a', { className: 'section-action', href: '#', onClick: e => { e.preventDefault(); setSort('rarity'); } }, 'View all →')
-      ),
-      h('div', { className: 'trending-row' },
-        trending.map(l => h(TrendCard, { key: l.id, listing: l, onClick: () => openModal(l) }))
-      )
-    ),
-
     /* HERO TABS — only render when there's actually something to show.
        Avoids leaving a ~300px empty panel on a fresh / zero-listing state. */
     ((heroTabs.topDeals || []).length > 0 || (heroTabs.newest || []).length > 0 || (heroTabs.unique || []).length > 0) && (
