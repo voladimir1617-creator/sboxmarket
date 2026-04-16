@@ -1325,7 +1325,7 @@ export function App() {
     routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me }),
     routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, loadoutId: route.params?.id }),
     routeName === 'notifications' && h(NotificationsModal, { onClose: () => navigate(paths.market()), me }),
-    routeName === 'support'       && h(FaqModal,           { onClose: () => navigate(paths.market()) }),
+    routeName === 'support'       && h(ProfileModal,        { onClose: () => navigate(paths.market()), me, wallet, transactions, onRefresh: loadWallet, initialTab: 'support' }),
     // Staff panels — role-gated. Non-staff users who type the URL hit a
     // plain Help modal so they're not stuck on a blank page.
     routeName === 'admin' && (isAdmin

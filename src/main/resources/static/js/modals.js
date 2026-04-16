@@ -409,8 +409,8 @@ export function SettingsModal({ onClose }) {
 }
 
 // ── Profile (tabbed — mirrors the CSFloat profile screen) ───────
-export function ProfileModal({ onClose, me, wallet, transactions, onRefresh }) {
-  const [tab, setTab]             = useState('personal');
+export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, initialTab }) {
+  const [tab, setTab]             = useState(initialTab || 'personal');
   const [profile, setProfile]     = useState(null);
   const [privacy, setPrivacy]     = useState(() => localStorage.getItem('sb_privacy') === '1');
   const [syncing, setSyncing]     = useState(false);
