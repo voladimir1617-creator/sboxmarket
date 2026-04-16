@@ -68,6 +68,7 @@ class StripeService {
 
         def params = SessionCreateParams.builder()
             .setMode(SessionCreateParams.Mode.PAYMENT)
+            .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
             .setSuccessUrl(successUrl + "&session_id={CHECKOUT_SESSION_ID}")
             .setCancelUrl(cancelUrl)
             .addLineItem(
