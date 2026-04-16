@@ -244,6 +244,9 @@ class StripeService {
             case "refund.created":
                 log.info("Refund created via Stripe dashboard: ${event.id}")
                 break
+            case "charge.refunded":
+                log.info("Charge refunded (incl. partial): ${event.id}")
+                break
             default:
                 log.debug("Ignoring Stripe event: ${event.type}")
         }
