@@ -91,7 +91,7 @@ class SboxApiService {
     List<Map> fetchRemoteCatalogue() {
         try {
             def conn = (HttpURLConnection) new URL(SCMM_API).openConnection()
-            conn.setRequestProperty('User-Agent', 'SBoxMarket/1.0 (+https://sboxmarket.local)')
+            conn.setRequestProperty('User-Agent', 'SBoxMarket/1.0 (+https://skinbox.market)')
             conn.setRequestProperty('Accept', 'application/json')
             conn.connectTimeout = 10_000
             conn.readTimeout    = 15_000

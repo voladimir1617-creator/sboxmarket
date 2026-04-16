@@ -31,7 +31,7 @@ class SteamInventoryService {
         if (!steamId64) return []
         def url = "https://steamcommunity.com/inventory/${steamId64}/${SBOX_APP_ID}/${CONTEXT_ID}?l=english&count=500"
         def conn = (HttpURLConnection) new URL(url).openConnection()
-        conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://sboxmarket.local)')
+        conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
         conn.setRequestProperty('Accept', 'application/json')
         conn.connectTimeout = 8_000
         conn.readTimeout    = 10_000
