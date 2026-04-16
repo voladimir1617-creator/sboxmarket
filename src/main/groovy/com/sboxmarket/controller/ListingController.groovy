@@ -269,6 +269,9 @@ class ListingController {
     @PostMapping("/away")
     ResponseEntity<Map> awayMode(@RequestBody Map body, HttpServletRequest req) {
         def userId = requireUser(req)
+        if (body?.hidden == null) {
+            throw new com.sboxmarket.exception.BadRequestException("MISSING_FIELD", "'hidden' field is required (true or false)")
+        }
         def hidden = body.hidden as Boolean
         def affected = listingService.setAwayMode(userId, hidden)
         ResponseEntity.ok([hidden: hidden, affected: affected])

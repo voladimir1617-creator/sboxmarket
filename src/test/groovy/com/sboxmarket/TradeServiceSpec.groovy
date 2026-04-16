@@ -285,6 +285,139 @@ class TradeServiceSpec extends Specification {
         thrown(NotFoundException)
     }
 
+    // ── ban checks (bugs #59-60) ────────────────────────────────
+
+    def "dispute rejects banned users (bug #59)"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("banned") }
+        tradeRepository.findById(_) >> Optional.of(tradeIn('PENDING_SELLER_ACCEPT'))
+
+        when:
+        service.dispute(10L, 1L, 'reason')
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "cancel rejects banned participants (bug #60)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(_) >> Optional.of(t)
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("banned") }
+
+        when:
+        service.cancel(10L, 1L, 'reason')
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "cancel by admin does NOT check ban on the admin actor (bug #60)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when:
+        service.cancel(999L, 1L, 'admin override')
+
+        then:
+        // Admin path — should NOT call banGuard for the actor, only adminAuthorization
+        1 * adminAuthorization.requireAdmin(999L)
+        0 * banGuard.assertNotBanned(999L)
+        t.state == 'CANCELLED'
+    }
+
+    // ── audit subjects (bug #61) ──────────────────────────────────
+
+    def "dispute logs the counterparty as audit subject (bug #61)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_ACCEPT')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        def auditService = Mock(com.sboxmarket.service.AuditService)
+        service.auditService = auditService
+
+        when:
+        service.dispute(10L, 1L, 'seller ghosted')
+
+        then:
+        // Buyer (10) disputes → subject should be seller (20)
+        1 * auditService.log('TRADE_DISPUTED', 10L, 20L, 1L, _)
+    }
+
+    def "cancel logs the counterparty as audit subject (bug #61)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def auditService = Mock(com.sboxmarket.service.AuditService)
+        service.auditService = auditService
+
+        when:
+        service.cancel(20L, 1L, 'seller cancels')
+
+        then:
+        // Seller (20) cancels → subject should be buyer (10)
+        1 * auditService.log('TRADE_CANCELLED', 20L, 10L, 1L, _)
+    }
+
+    // ── price validation (bug #63) ────────────────────────────────
+
+    def "open rejects zero price (bug #63)"() {
+        when:
+        service.open(100L, 1L, 'Hat', 10L, 500L, 20L, 600L, BigDecimal.ZERO)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "open rejects negative price (bug #63)"() {
+        when:
+        service.open(100L, 1L, 'Hat', 10L, 500L, 20L, 600L, new BigDecimal("-5"))
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "open rejects price over 100k cap (bug #63)"() {
+        when:
+        service.open(100L, 1L, 'Hat', 10L, 500L, 20L, 600L, new BigDecimal("100001"))
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    // ── sweeper + banned seller (bug #65) ─────────────────────────
+
+    def "sweepPendingConfirm auto-cancels trades where seller is banned (bug #65)"() {
+        given:
+        def stale = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L])
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findPendingConfirmOlderThan(_) >> [stale]
+        banGuard.isBanned(20L) >> true
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when:
+        service.sweepPendingConfirm()
+
+        then:
+        stale.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal("50.00")
+        1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
+    }
+
     // ── sweepPendingConfirm (auto-release) ────────────────────────
 
     def "sweepPendingConfirm is a no-op when the repository returns empty"() {

@@ -12,8 +12,10 @@ import { API } from './utils.js';
   window.__sboxFetchPatched = true;
   const native = window.fetch.bind(window);
   const csrfToken = () => {
-    const m = document.cookie.match(/(?:^|; )sbox_csrf=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
+    try {
+      const m = document.cookie.match(/(?:^|; )sbox_csrf=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch { return ''; }
   };
   window.fetch = function patchedFetch(input, init) {
     const req = init || {};
@@ -37,6 +39,29 @@ async function safeJson(url, opts) {
   } catch (e) {
     console.error(`[${url}] fetch failed:`, e);
     return null;
+  }
+}
+
+/**
+ * Safe wrapper for write operations (POST/PUT/DELETE). Unlike safeJson
+ * (which returns null on error), write ops need to surface the server's
+ * error message so the UI can show it. Returns the parsed JSON on success,
+ * or { error: "...", code: "..." } on failure — never throws.
+ */
+async function writeJson(url, opts) {
+  try {
+    const r = await fetch(url, opts);
+    let body;
+    try { body = await r.json(); } catch { body = null; }
+    if (!r.ok) {
+      const msg = body?.error || body?.message || `Request failed (HTTP ${r.status})`;
+      const code = body?.code || 'SERVER_ERROR';
+      return { error: msg, code };
+    }
+    return body;
+  } catch (e) {
+    console.error(`[${url}] write failed:`, e);
+    return { error: 'Network error — please try again', code: 'NETWORK_ERROR' };
   }
 }
 
@@ -77,8 +102,7 @@ export async function fetchSimilar(itemId) {
 }
 
 export async function buyListing(id) {
-  const r = await fetch(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
 }
 
 export async function fetchInventory() {
@@ -96,20 +120,18 @@ export async function fetchPublicStall(userId) {
 }
 
 export async function relistItem(listingId, price) {
-  const r = await fetch(`${API}/listings/sell`, {
+  return writeJson(`${API}/listings/sell`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ listingId, price })
   });
-  return r.json();
 }
 
 export async function cancelListing(listingId) {
-  const r = await fetch(`${API}/listings/${listingId}`, {
+  return writeJson(`${API}/listings/${listingId}`, {
     method: 'DELETE', credentials: 'same-origin'
   });
-  return r.json();
 }
 
 // ── Wallet ──────────────────────────────────────────────────────
@@ -126,30 +148,27 @@ export async function fetchTransactions() {
 }
 
 export async function depositFunds(amount) {
-  const r = await fetch(`${API}/wallet/deposit`, {
+  return writeJson(`${API}/wallet/deposit`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount })
   });
-  return r.json();
 }
 
 export async function withdrawFunds(amount, destination, totpCode) {
-  const r = await fetch(`${API}/wallet/withdraw`, {
+  return writeJson(`${API}/wallet/withdraw`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount, destination, totpCode })
   });
-  return r.json();
 }
 
 export async function confirmDeposit(sessionId) {
-  const r = await fetch(`${API}/wallet/confirm-deposit?sessionId=${encodeURIComponent(sessionId)}`, {
+  return writeJson(`${API}/wallet/confirm-deposit?sessionId=${encodeURIComponent(sessionId)}`, {
     method: 'POST', credentials: 'same-origin'
   });
-  return r.json();
 }
 
 // ── Steam auth ──────────────────────────────────────────────────
@@ -178,38 +197,33 @@ export async function fetchOutgoingOffers() {
 }
 
 export async function makeOffer(listingId, amount) {
-  const r = await fetch(`${API}/offers`, {
+  return writeJson(`${API}/offers`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ listingId, amount })
   });
-  return r.json();
 }
 
 export async function acceptOffer(offerId) {
-  const r = await fetch(`${API}/offers/${offerId}/accept`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/offers/${offerId}/accept`, { method: 'POST', credentials: 'same-origin' });
 }
 
 export async function rejectOffer(offerId) {
-  const r = await fetch(`${API}/offers/${offerId}/reject`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/offers/${offerId}/reject`, { method: 'POST', credentials: 'same-origin' });
 }
 
 export async function cancelOffer(offerId) {
-  const r = await fetch(`${API}/offers/${offerId}`, { method: 'DELETE', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/offers/${offerId}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
 export async function counterOffer(offerId, amount) {
-  const r = await fetch(`${API}/offers/${offerId}/counter`, {
+  return writeJson(`${API}/offers/${offerId}/counter`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount })
   });
-  return r.json();
 }
 
 export async function fetchOfferThread(listingId) {
@@ -224,29 +238,26 @@ export async function fetchBuyOrders() {
 }
 
 export async function createBuyOrder(payload) {
-  const r = await fetch(`${API}/buy-orders`, {
+  return writeJson(`${API}/buy-orders`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  return r.json();
 }
 
 export async function deleteBuyOrder(id) {
-  const r = await fetch(`${API}/buy-orders/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/buy-orders/${id}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
 // ── Bids / Auctions ─────────────────────────────────────────────
 export async function placeBid(listingId, amount, maxAmount) {
-  const r = await fetch(`${API}/bids`, {
+  return writeJson(`${API}/bids`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ listingId, amount, maxAmount })
   });
-  return r.json();
 }
 
 export async function fetchBidHistory(listingId) {
@@ -301,33 +312,30 @@ export async function fetchLoadout(id) {
 }
 
 export async function createLoadout(payload) {
-  const r = await fetch(`${API}/loadouts`, {
+  return writeJson(`${API}/loadouts`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  return r.json();
 }
 
 export async function setLoadoutSlot(id, slot, itemId) {
-  const r = await fetch(`${API}/loadouts/${id}/slot/${encodeURIComponent(slot)}`, {
+  return writeJson(`${API}/loadouts/${id}/slot/${encodeURIComponent(slot)}`, {
     method: 'PUT',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ itemId })
   });
-  return r.json();
 }
 
 export async function generateLoadout(id, budget) {
-  const r = await fetch(`${API}/loadouts/${id}/generate`, {
+  return writeJson(`${API}/loadouts/${id}/generate`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ budget })
   });
-  return r.json();
 }
 
 export async function favoriteLoadout(id) {
@@ -350,20 +358,18 @@ export async function adminWithdrawals(status = 'PENDING') {
   return Array.isArray(data) ? data : [];
 }
 export async function adminApproveWithdrawal(id, payoutRef) {
-  const r = await fetch(`${API}/admin/withdrawals/${id}/approve`, {
+  return writeJson(`${API}/admin/withdrawals/${id}/approve`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ payoutRef })
   });
-  return r.json();
 }
 export async function adminRejectWithdrawal(id, reason) {
-  const r = await fetch(`${API}/admin/withdrawals/${id}/reject`, {
+  return writeJson(`${API}/admin/withdrawals/${id}/reject`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 export async function adminUsers(search) {
   const q = search ? '?search=' + encodeURIComponent(search) : '';
@@ -371,40 +377,34 @@ export async function adminUsers(search) {
   return Array.isArray(data) ? data : [];
 }
 export async function adminBanUser(id, reason) {
-  const r = await fetch(`${API}/admin/users/${id}/ban`, {
+  return writeJson(`${API}/admin/users/${id}/ban`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 export async function adminUnbanUser(id) {
-  const r = await fetch(`${API}/admin/users/${id}/unban`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/admin/users/${id}/unban`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function adminGrant(id) {
-  const r = await fetch(`${API}/admin/users/${id}/grant-admin`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/admin/users/${id}/grant-admin`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function adminRevoke(id) {
-  const r = await fetch(`${API}/admin/users/${id}/revoke-admin`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/admin/users/${id}/revoke-admin`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function adminCreditWallet(id, amount, note) {
-  const r = await fetch(`${API}/admin/users/${id}/credit`, {
+  return writeJson(`${API}/admin/users/${id}/credit`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount, note })
   });
-  return r.json();
 }
 export async function adminRemoveListing(id, reason) {
-  const r = await fetch(`${API}/admin/listings/${id}/remove`, {
+  return writeJson(`${API}/admin/listings/${id}/remove`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 export async function adminTickets(status) {
   const q = status ? '?status=' + encodeURIComponent(status) : '';
@@ -413,36 +413,32 @@ export async function adminTickets(status) {
 }
 export async function adminTicket(id) { return safeJson(`${API}/admin/tickets/${id}`); }
 export async function adminTicketReply(id, body) {
-  const r = await fetch(`${API}/admin/tickets/${id}/reply`, {
+  return writeJson(`${API}/admin/tickets/${id}/reply`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ body })
   });
-  return r.json();
 }
 export async function adminCloseTicket(id) {
-  const r = await fetch(`${API}/admin/tickets/${id}/close`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/admin/tickets/${id}/close`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function adminTrades(state = 'ALL') {
   const data = await safeJson(`${API}/admin/trades?state=${encodeURIComponent(state)}`);
   return Array.isArray(data) ? data : [];
 }
 export async function adminReleaseTrade(id, reason) {
-  const r = await fetch(`${API}/admin/trades/${id}/release`, {
+  return writeJson(`${API}/admin/trades/${id}/release`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 export async function adminCancelTrade(id, reason) {
-  const r = await fetch(`${API}/admin/trades/${id}/cancel`, {
+  return writeJson(`${API}/admin/trades/${id}/cancel`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 export async function adminAudit(params = {}) {
   const q = new URLSearchParams();
@@ -458,26 +454,23 @@ export async function adminFraudSignals() {
   return Array.isArray(data) ? data : [];
 }
 export async function adminRefundDeposit(id, amount) {
-  const r = await fetch(`${API}/admin/deposits/${id}/refund`, {
+  return writeJson(`${API}/admin/deposits/${id}/refund`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount })
   });
-  return r.json();
 }
 export async function adminSimulateListings(count = 20) {
-  const r = await fetch(`${API}/admin/simulate/listings`, {
+  return writeJson(`${API}/admin/simulate/listings`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ count })
   });
-  return r.json();
 }
 export async function adminClearSimulated() {
-  const r = await fetch(`${API}/admin/simulate/clear`, {
+  return writeJson(`${API}/admin/simulate/clear`, {
     method: 'POST', credentials: 'same-origin'
   });
-  return r.json();
 }
 export async function adminCountSimulated() {
   return (await safeJson(`${API}/admin/simulate/count`)) || { count: 0 };
@@ -491,12 +484,11 @@ export async function adminSyncScmm() {
 }
 // ── Reviews ─────────────────────────────────────────────────────
 export async function leaveReview(tradeId, rating, comment) {
-  const r = await fetch(`${API}/reviews`, {
+  return writeJson(`${API}/reviews`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tradeId, rating, comment })
   });
-  return r.json();
 }
 export async function fetchReviewsForUser(userId) {
   const data = await safeJson(`${API}/reviews/user/${userId}`);
@@ -525,43 +517,38 @@ export async function csrTickets(status) {
 }
 export async function csrTicket(id) { return safeJson(`${API}/csr/tickets/${id}`); }
 export async function csrTicketReply(id, body) {
-  const r = await fetch(`${API}/csr/tickets/${id}/reply`, {
+  return writeJson(`${API}/csr/tickets/${id}/reply`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ body })
   });
-  return r.json();
 }
 export async function csrCloseTicket(id) {
-  const r = await fetch(`${API}/csr/tickets/${id}/close`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/csr/tickets/${id}/close`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function csrGoodwill(userId, amount, note) {
-  const r = await fetch(`${API}/csr/users/${userId}/goodwill`, {
+  return writeJson(`${API}/csr/users/${userId}/goodwill`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount, note })
   });
-  return r.json();
 }
 export async function csrFlagListing(id, reason) {
-  const r = await fetch(`${API}/csr/listings/${id}/flag`, {
+  return writeJson(`${API}/csr/listings/${id}/flag`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 
 // ── Cart (bulk checkout) ────────────────────────────────────────
 export async function checkoutCart(listingIds) {
-  const r = await fetch(`${API}/cart/checkout`, {
+  return writeJson(`${API}/cart/checkout`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ listingIds })
   });
-  return r.json();
 }
 
 // ── Trades (escrow state machine) ───────────────────────────────
@@ -570,72 +557,62 @@ export async function fetchTrades() {
   return Array.isArray(data) ? data : [];
 }
 export async function tradeAccept(id) {
-  const r = await fetch(`${API}/trades/${id}/accept`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/trades/${id}/accept`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function tradeMarkSent(id) {
-  const r = await fetch(`${API}/trades/${id}/sent`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/trades/${id}/sent`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function tradeConfirm(id) {
-  const r = await fetch(`${API}/trades/${id}/confirm`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/trades/${id}/confirm`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function tradeDispute(id, reason) {
-  const r = await fetch(`${API}/trades/${id}/dispute`, {
+  return writeJson(`${API}/trades/${id}/dispute`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 export async function tradeCancel(id, reason) {
-  const r = await fetch(`${API}/trades/${id}/cancel`, {
+  return writeJson(`${API}/trades/${id}/cancel`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
-  return r.json();
 }
 
 // ── 2FA + email (profile-level hardening) ──────────────────────
 export async function setEmail(email) {
-  const r = await fetch(`${API}/profile/email`, {
+  return writeJson(`${API}/profile/email`, {
     method: 'PUT', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email })
   });
-  return r.json();
 }
 export async function verifyEmail(token) {
-  const r = await fetch(`${API}/profile/email/verify`, {
+  return writeJson(`${API}/profile/email/verify`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token })
   });
-  return r.json();
 }
 export async function enroll2fa() {
-  const r = await fetch(`${API}/profile/2fa/enroll`, { method: 'POST', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/profile/2fa/enroll`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function confirm2fa(code) {
-  const r = await fetch(`${API}/profile/2fa/confirm`, {
+  return writeJson(`${API}/profile/2fa/confirm`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code })
   });
-  return r.json();
 }
 export async function disable2fa(code) {
-  const r = await fetch(`${API}/profile/2fa/disable`, {
+  return writeJson(`${API}/profile/2fa/disable`, {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code })
   });
-  return r.json();
 }
 
 // ── Profile aggregate ───────────────────────────────────────────
@@ -659,13 +636,12 @@ export async function syncSteam() {
 }
 
 export async function listFromSteam(assetId, price) {
-  const r = await fetch(`${API}/steam/list`, {
+  return writeJson(`${API}/steam/list`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ assetId, price })
   });
-  return r.json();
 }
 
 // ── Support tickets ─────────────────────────────────────────────
@@ -679,30 +655,27 @@ export async function fetchSupportTicket(id) {
 }
 
 export async function createSupportTicket(payload) {
-  const r = await fetch(`${API}/support/tickets`, {
+  return writeJson(`${API}/support/tickets`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  return r.json();
 }
 
 export async function replySupportTicket(id, body) {
-  const r = await fetch(`${API}/support/tickets/${id}/reply`, {
+  return writeJson(`${API}/support/tickets/${id}/reply`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ body })
   });
-  return r.json();
 }
 
 export async function resolveSupportTicket(id) {
-  const r = await fetch(`${API}/support/tickets/${id}/resolve`, {
+  return writeJson(`${API}/support/tickets/${id}/resolve`, {
     method: 'POST', credentials: 'same-origin'
   });
-  return r.json();
 }
 
 // ── API keys ────────────────────────────────────────────────────
@@ -712,37 +685,33 @@ export async function fetchApiKeys() {
 }
 
 export async function createApiKey(label) {
-  const r = await fetch(`${API}/api-keys`, {
+  return writeJson(`${API}/api-keys`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ label })
   });
-  return r.json();
 }
 
 export async function revokeApiKey(id) {
-  const r = await fetch(`${API}/api-keys/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  return r.json();
+  return writeJson(`${API}/api-keys/${id}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
 // ── My Stall ────────────────────────────────────────────────────
 export async function updateStallListing(id, patch) {
-  const r = await fetch(`${API}/listings/${id}/stall`, {
+  return writeJson(`${API}/listings/${id}/stall`, {
     method: 'PUT',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch)
   });
-  return r.json();
 }
 
 export async function setAwayMode(hidden) {
-  const r = await fetch(`${API}/listings/away`, {
+  return writeJson(`${API}/listings/away`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hidden })
   });
-  return r.json();
 }

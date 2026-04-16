@@ -80,6 +80,8 @@ class TradeService {
                Long sellerUserId, Long sellerWalletId,
                BigDecimal price) {
         banGuard.assertNotBanned(buyerUserId)
+        require(price != null && price > BigDecimal.ZERO, "Trade price must be positive")
+        require(price <= new BigDecimal("100000"), "Trade price exceeds maximum (\$100,000)")
         def trade = new Trade(
             listingId:      listingId,
             itemId:         itemId,
@@ -154,8 +156,16 @@ class TradeService {
         t.settledAt = System.currentTimeMillis()
         tradeRepository.save(t)
 
+        if (t.sellerWalletId == null) {
+            log.warn("Trade #{} VERIFIED but sellerWalletId is null — seller credit skipped. " +
+                     "Manual payout required for \${}", t.id, t.price - t.feeAmount)
+        }
         if (t.sellerWalletId != null) {
             def sellerWallet = walletRepository.findById(t.sellerWalletId).orElse(null)
+            if (sellerWallet == null) {
+                log.warn("Trade #{} VERIFIED but seller wallet {} not found — credit skipped. " +
+                         "Manual payout required for \${}", t.id, t.sellerWalletId, t.price - t.feeAmount)
+            }
             if (sellerWallet != null) {
                 def credit = (t.price - t.feeAmount)
                 sellerWallet.balance = sellerWallet.balance + credit
@@ -185,6 +195,7 @@ class TradeService {
 
     @Transactional
     Trade dispute(Long actorUserId, Long tradeId, String reason) {
+        banGuard.assertNotBanned(actorUserId)
         def t = get(tradeId)
         if (actorUserId != t.buyerUserId && actorUserId != t.sellerUserId) {
             throw new ForbiddenException("Only participants can dispute a trade")
@@ -198,7 +209,9 @@ class TradeService {
         // would render on the dispute review page.
         t.note = textSanitizer.medium(reason)
         transitionTo(t, 'DISPUTED')
-        auditService?.log('TRADE_DISPUTED', actorUserId, null, t.id, "Disputed: ${t.note ?: '(none)'}")
+        // Log the counterparty as the audit subject so admins can search by either side
+        def disputeSubject = (actorUserId == t.buyerUserId) ? t.sellerUserId : t.buyerUserId
+        auditService?.log('TRADE_DISPUTED', actorUserId, disputeSubject, t.id, "Disputed: ${t.note ?: '(none)'}")
         t
     }
 
@@ -208,28 +221,15 @@ class TradeService {
         // Either participant OR an admin/CSR may cancel.
         if (actorUserId != t.buyerUserId && actorUserId != t.sellerUserId) {
             adminAuthorization.requireAdmin(actorUserId)
+        } else {
+            // Participant path — banned users can't cancel trades themselves.
+            // Admins calling cancel bypass this (they already passed the admin check).
+            banGuard.assertNotBanned(actorUserId)
         }
         require(t.state != 'VERIFIED' && t.state != 'CANCELLED',
             "Trade cannot be cancelled in state ${t.state}")
 
-        // Refund the buyer wallet.
-        if (t.buyerWalletId != null) {
-            def buyerWallet = walletRepository.findById(t.buyerWalletId).orElse(null)
-            if (buyerWallet != null) {
-                buyerWallet.balance = buyerWallet.balance + t.price
-                walletRepository.save(buyerWallet)
-                transactionRepository.save(new Transaction(
-                    walletId:        buyerWallet.id,
-                    type:            'REFUND',
-                    status:          'COMPLETED',
-                    amount:          t.price,
-                    currency:        buyerWallet.currency,
-                    stripeReference: 'trade_cancel',
-                    description:     "Trade cancelled — refunded ${t.itemName}",
-                    listingId:       t.listingId
-                ))
-            }
-        }
+        refundBuyer(t)
         // Sanitize the user-supplied reason before it lands in the trade
         // note AND the notification body. React auto-escapes, but defense
         // in depth stops a crafted payload from riding through every UI
@@ -244,7 +244,10 @@ class TradeService {
             notificationService?.push(t.sellerUserId, 'TRADE_CANCELLED',
                 "Trade cancelled", cleanReason, t.id)
         }
-        auditService?.log('TRADE_CANCELLED', actorUserId, null, t.id, "Cancelled: ${cleanReason ?: '(none)'}")
+        // Log the counterparty as the audit subject
+        def cancelSubject = (actorUserId == t.buyerUserId) ? t.sellerUserId :
+                            (actorUserId == t.sellerUserId) ? t.buyerUserId : t.buyerUserId
+        auditService?.log('TRADE_CANCELLED', actorUserId, cancelSubject, t.id, "Cancelled: ${cleanReason ?: '(none)'}")
         t
     }
 
@@ -267,6 +270,25 @@ class TradeService {
 
     private static void require(boolean cond, String msg) {
         if (!cond) throw new BadRequestException("INVALID_STATE", msg)
+    }
+
+    /** Refund the buyer wallet — shared by cancel() and the sweeper's banned-seller path. */
+    private void refundBuyer(Trade t) {
+        if (t.buyerWalletId == null) return
+        def buyerWallet = walletRepository.findById(t.buyerWalletId).orElse(null)
+        if (buyerWallet == null) return
+        buyerWallet.balance = buyerWallet.balance + t.price
+        walletRepository.save(buyerWallet)
+        transactionRepository.save(new Transaction(
+            walletId:        buyerWallet.id,
+            type:            'REFUND',
+            status:          'COMPLETED',
+            amount:          t.price,
+            currency:        buyerWallet.currency,
+            stripeReference: 'trade_cancel',
+            description:     "Trade cancelled — refunded ${t.itemName}",
+            listingId:       t.listingId
+        ))
     }
 
     // ── Scheduled sweeper ────────────────────────────────────────────
@@ -293,9 +315,23 @@ class TradeService {
         log.info("Trade sweeper: ${candidates.size()} stale trades found, auto-releasing")
         candidates.each { trade ->
             try {
-                release(trade)
-                auditService?.log('TRADE_AUTO_RELEASED', null, null, trade.id,
-                    "Auto-released after ${autoReleaseDays}d no-confirm window")
+                // If the seller was banned mid-trade, refund the buyer instead
+                // of releasing funds to a sanctioned account.
+                if (trade.sellerUserId != null && banGuard.isBanned(trade.sellerUserId)) {
+                    log.info("Trade #{} seller is banned — auto-cancelling with buyer refund instead of release", trade.id)
+                    refundBuyer(trade)
+                    trade.note = "Automatically cancelled — seller account banned"
+                    trade.settledAt = System.currentTimeMillis()
+                    transitionTo(trade, 'CANCELLED')
+                    notificationService?.push(trade.buyerUserId, 'TRADE_CANCELLED',
+                        "Trade cancelled · refund issued", trade.note, trade.id)
+                    auditService?.log('TRADE_AUTO_CANCELLED', null, trade.sellerUserId, trade.id,
+                        "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
+                } else {
+                    release(trade)
+                    auditService?.log('TRADE_AUTO_RELEASED', null, null, trade.id,
+                        "Auto-released after ${autoReleaseDays}d no-confirm window")
+                }
             } catch (Exception e) {
                 log.warn("Trade sweeper failed on ${trade.id}: ${e.message}")
             }

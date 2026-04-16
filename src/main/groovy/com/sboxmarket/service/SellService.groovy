@@ -7,6 +7,7 @@ import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Listing
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
@@ -26,7 +27,9 @@ class SellService {
 
     @Autowired ListingRepository listingRepository
     @Autowired ItemRepository itemRepository
+    @Autowired TradeRepository tradeRepository
     @Autowired @Lazy BuyOrderService buyOrderService
+    @Autowired @Lazy TradeService tradeService
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
 
@@ -90,6 +93,18 @@ class SellService {
         }
         if (listing.status != 'ACTIVE') {
             throw new ListingNotAvailableException(listingId)
+        }
+        // If there's an active trade in escrow for this listing, cancel it
+        // and refund the buyer before we return the item to inventory.
+        // Without this, a buyer's funds could be trapped in escrow forever
+        // once the listing is removed from the marketplace.
+        def openTrade = tradeRepository.findByListingId(listingId)
+        if (openTrade != null && openTrade.state != 'VERIFIED' && openTrade.state != 'CANCELLED') {
+            try {
+                tradeService.cancel(sellerUserId, openTrade.id, "Seller cancelled listing")
+            } catch (Exception e) {
+                log.warn("Failed to auto-cancel trade {} on listing cancel: {}", openTrade.id, e.message)
+            }
         }
         // Return the item to inventory. The ListingRepository.findOwnedBy
         // query orders by `soldAt DESC`, so stamping the cancellation time

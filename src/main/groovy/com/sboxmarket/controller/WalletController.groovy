@@ -86,11 +86,11 @@ class WalletController {
     ResponseEntity<List<Transaction>> getTransactions(HttpServletRequest req) {
         def wallet = currentWallet(req)
         if (wallet == null) return ResponseEntity.ok([])
-        // Hard-cap at 500 so a user with years of history doesn't ship
-        // thousands of rows in one JSON response. The Transactions tab
-        // client-side paginates within this set.
-        def txs = transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id)
-        ResponseEntity.ok(txs.size() > 500 ? txs.subList(0, 500) : txs)
+        // SQL-level LIMIT 500 so only 500 rows leave the database.
+        // Previous code loaded everything then sliced in memory.
+        def txs = transactionRepository.findByWalletIdOrderByCreatedAtDesc(
+            wallet.id, org.springframework.data.domain.PageRequest.of(0, 500))
+        ResponseEntity.ok(txs)
     }
 
     @PostMapping("/deposit")

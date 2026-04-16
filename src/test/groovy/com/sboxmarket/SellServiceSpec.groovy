@@ -8,8 +8,10 @@ import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.service.BuyOrderService
 import com.sboxmarket.service.SellService
+import com.sboxmarket.service.TradeService
 import com.sboxmarket.service.TextSanitizer
 import com.sboxmarket.service.security.BanGuard
 import spock.lang.Specification
@@ -25,7 +27,9 @@ class SellServiceSpec extends Specification {
 
     ListingRepository listingRepository = Mock()
     ItemRepository    itemRepository    = Mock()
+    TradeRepository   tradeRepository   = Mock()
     BuyOrderService   buyOrderService   = Mock()
+    TradeService      tradeService      = Mock()
     BanGuard          banGuard          = Mock()
     TextSanitizer     textSanitizer     = Mock() {
         cleanShort(_) >> { String s -> s }
@@ -35,7 +39,9 @@ class SellServiceSpec extends Specification {
     SellService service = new SellService(
         listingRepository: listingRepository,
         itemRepository:    itemRepository,
+        tradeRepository:   tradeRepository,
         buyOrderService:   buyOrderService,
+        tradeService:      tradeService,
         banGuard:          banGuard,
         textSanitizer:     textSanitizer
     )
@@ -179,5 +185,49 @@ class SellServiceSpec extends Specification {
 
         then:
         thrown(ListingNotAvailableException)
+    }
+
+    def "cancelListing auto-cancels open trades on the listing (bug #69)"() {
+        given:
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            item: new Item(id: 1L, name: 'x')
+        )
+        def openTrade = new com.sboxmarket.model.Trade(
+            id: 5L, listingId: 100L, state: 'PENDING_SELLER_SEND',
+            buyerUserId: 20L, sellerUserId: 10L
+        )
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        tradeRepository.findByListingId(100L) >> openTrade
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        1 * tradeService.cancel(10L, 5L, "Seller cancelled listing")
+        listing.status == 'SOLD'
+    }
+
+    def "cancelListing skips already-settled trades (bug #69)"() {
+        given:
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            item: new Item(id: 1L, name: 'x')
+        )
+        def settledTrade = new com.sboxmarket.model.Trade(
+            id: 5L, listingId: 100L, state: 'VERIFIED',
+            buyerUserId: 20L, sellerUserId: 10L
+        )
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        tradeRepository.findByListingId(100L) >> settledTrade
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        0 * tradeService.cancel(_, _, _)
+        listing.status == 'SOLD'
     }
 }

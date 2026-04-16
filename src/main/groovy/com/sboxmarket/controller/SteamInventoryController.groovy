@@ -99,6 +99,9 @@ class SteamInventoryController {
         def assetId = body?.assetId?.toString()
         def priceRaw = body?.price
         if (!assetId)  throw new BadRequestException("INVALID_ASSET", "assetId is required")
+        // Steam asset IDs are numeric strings. Reject arrays, objects, or
+        // non-numeric payloads that would bypass the inventory ownership check.
+        if (!assetId.matches(/^\d+$/)) throw new BadRequestException("INVALID_ASSET", "assetId must be numeric")
         if (!priceRaw) throw new BadRequestException("INVALID_PRICE", "price is required")
         BigDecimal price
         try {

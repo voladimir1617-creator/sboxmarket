@@ -72,6 +72,37 @@ class SecurityGuardsSpec extends Specification {
         noExceptionThrown()
     }
 
+    // ── BanGuard.isBanned (non-throwing variant) ───────────────────
+
+    def "isBanned returns false for null userId"() {
+        expect:
+        !banGuard.isBanned(null)
+    }
+
+    def "isBanned returns false for non-banned user"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, banned: false))
+
+        expect:
+        !banGuard.isBanned(10L)
+    }
+
+    def "isBanned returns true for banned user"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, banned: true))
+
+        expect:
+        banGuard.isBanned(10L)
+    }
+
+    def "isBanned returns false for unknown user id"() {
+        given:
+        steamUserRepository.findById(_) >> Optional.empty()
+
+        expect:
+        !banGuard.isBanned(999L)
+    }
+
     // ── AdminAuthorization ────────────────────────────────────────
 
     def "requireAdmin passes for a user with role=ADMIN"() {

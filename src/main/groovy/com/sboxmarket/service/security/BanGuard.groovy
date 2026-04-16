@@ -25,4 +25,11 @@ class BanGuard {
             throw new ForbiddenException("Your account is banned: " + (user.banReason ?: 'contact support'))
         }
     }
+
+    /** Non-throwing variant for background jobs (sweeper) that need a boolean check. */
+    boolean isBanned(Long userId) {
+        if (userId == null) return false
+        def user = steamUserRepository.findById(userId).orElse(null)
+        user != null && Boolean.TRUE.equals(user.banned)
+    }
 }

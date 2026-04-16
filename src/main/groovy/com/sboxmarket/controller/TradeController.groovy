@@ -1,5 +1,6 @@
 package com.sboxmarket.controller
 
+import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Trade
 import com.sboxmarket.service.TradeService
@@ -61,11 +62,20 @@ class TradeController {
 
     @PostMapping("/{id}/dispute")
     ResponseEntity<Trade> dispute(@PathVariable Long id, @RequestBody(required = false) Map body, HttpServletRequest req) {
-        ResponseEntity.ok(tradeService.dispute(requireUser(req), id, body?.reason as String))
+        def reason = capReason(body?.reason as String)
+        ResponseEntity.ok(tradeService.dispute(requireUser(req), id, reason))
     }
 
     @PostMapping("/{id}/cancel")
     ResponseEntity<Trade> cancel(@PathVariable Long id, @RequestBody(required = false) Map body, HttpServletRequest req) {
-        ResponseEntity.ok(tradeService.cancel(requireUser(req), id, body?.reason as String))
+        def reason = capReason(body?.reason as String)
+        ResponseEntity.ok(tradeService.cancel(requireUser(req), id, reason))
+    }
+
+    private static String capReason(String raw) {
+        if (raw != null && raw.length() > 2000) {
+            throw new BadRequestException("REASON_TOO_LONG", "Reason must be under 2000 characters")
+        }
+        raw
     }
 }

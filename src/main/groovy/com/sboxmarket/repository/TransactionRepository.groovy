@@ -1,6 +1,7 @@
 package com.sboxmarket.repository
 
 import com.sboxmarket.model.Transaction
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -10,6 +11,10 @@ import org.springframework.stereotype.Repository
 interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
     List<Transaction> findByWalletIdOrderByCreatedAtDesc(Long walletId)
+
+    /** Paginated variant — loads at most `pageable.pageSize` rows instead of the
+     *  entire wallet history. Used by WalletController. */
+    List<Transaction> findByWalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable)
 
     Transaction findByStripeReference(String stripeReference)
 
