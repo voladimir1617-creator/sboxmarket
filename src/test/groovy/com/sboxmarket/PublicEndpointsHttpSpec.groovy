@@ -313,4 +313,104 @@ class PublicEndpointsHttpSpec extends Specification {
         r.response.status == 404
         r.response.contentAsString.contains('"code":"NOT_FOUND"')
     }
+
+    // ── Trade endpoints require auth ──────────────────────────────
+
+    def "GET /api/trades returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/trades')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "POST /api/trades/999/accept returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.post('/api/trades/999/accept')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "POST /api/trades/999/dispute returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/trades/999/dispute')
+                .contentType('application/json')
+                .content('{"reason":"test"}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    // ── Support endpoints require auth ────────────────────────────
+
+    def "GET /api/support/tickets returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/support/tickets')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "POST /api/support/tickets returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/support/tickets')
+                .contentType('application/json')
+                .content('{"subject":"test","body":"test"}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    // ── Review endpoint is public for reads ───────────────────────
+
+    def "GET /api/reviews/user/999 returns 200 + empty list (public)"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/reviews/user/999')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString == '[]'
+    }
+
+    def "GET /api/reviews/user/999/summary returns 200 with count 0 (public)"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/reviews/user/999/summary')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('"count"')
+    }
+
+    // ── Wallet requires auth for write operations ─────────────────
+
+    def "POST /api/wallet/withdraw returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/wallet/withdraw')
+                .contentType('application/json')
+                .content('{"amount":10,"destination":"test"}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    // ── Offer write operations require auth ───────────────────────
+
+    def "POST /api/offers returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/offers')
+                .contentType('application/json')
+                .content('{"listingId":1,"amount":10}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
 }
