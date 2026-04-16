@@ -112,6 +112,12 @@
       :root { --page-padding: 16px; }
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: static; max-height: none; }
+      /* Collapse sidebar filters to horizontal scrollable chips */
+      .filter-section { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 10px 14px; -webkit-overflow-scrolling: touch; }
+      .filter-section::-webkit-scrollbar { display: none; }
+      .filter-title { white-space: nowrap; padding: 6px 0; font-size: 12px; margin-right: 6px; }
+      .filter-option { white-space: nowrap; flex-shrink: 0; padding: 6px 14px; border-radius: 999px; font-size: 12px; }
+      .filter-divider { display: none; }
     }
     @media (max-width: 768px) {
       :root { --page-padding: 12px; --toolbar-height: 88px; }
