@@ -235,6 +235,15 @@ class StripeService {
                 def session = (Session) event.dataObjectDeserializer.object.orElse(null)
                 if (session != null) failTransaction(session.id, "expired")
                 break
+            case "payment_intent.succeeded":
+                log.info("PaymentIntent succeeded: ${event.id}")
+                break
+            case "payment_intent.payment_failed":
+                log.warn("PaymentIntent failed: ${event.id}")
+                break
+            case "refund.created":
+                log.info("Refund created via Stripe dashboard: ${event.id}")
+                break
             default:
                 log.debug("Ignoring Stripe event: ${event.type}")
         }
