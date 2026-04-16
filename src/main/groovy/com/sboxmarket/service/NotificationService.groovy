@@ -21,14 +21,15 @@ class NotificationService {
     @Autowired NotificationRepository notificationRepository
 
     @Transactional
-    Notification push(Long userId, String kind, String title, String body = null, Long refId = null) {
+    Notification push(Long userId, String kind, String title, String body = null, Long refId = null, String path = null) {
         if (userId == null) return null
         def n = new Notification(
             userId: userId,
             kind:   kind,
             title:  title,
             body:   body,
-            refId:  refId
+            refId:  refId,
+            path:   path
         )
         notificationRepository.save(n)
     }

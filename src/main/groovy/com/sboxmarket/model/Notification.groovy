@@ -35,6 +35,12 @@ class Notification {
     @Column
     Long refId
 
+    /** Optional in-app route the notification drills down to when clicked
+     *  (e.g. "/item/42", "/profile", "/buy-orders"). Stored at push time so
+     *  the frontend doesn't have to re-derive the target from (kind, refId). */
+    @Column(length = 160)
+    String path
+
     @Column(nullable = false)
     Boolean read = false
 

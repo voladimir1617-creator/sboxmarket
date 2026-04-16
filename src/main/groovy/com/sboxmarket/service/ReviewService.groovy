@@ -89,11 +89,32 @@ class ReviewService {
             notificationService?.push(trade.sellerUserId, 'REVIEW_RECEIVED',
                 "New ${rating}★ review",
                 "${author?.displayName ?: 'A buyer'} left feedback on ${trade.itemName}",
-                row.id)
+                row.id, '/profile')
             auditService?.log('REVIEW_CREATED', fromUserId, trade.sellerUserId, row.id,
                 "Review: ${rating}★")
         }
         row
+    }
+
+    /** All verified trades between a given buyer and seller, each tagged
+     *  with whether the buyer has already reviewed the trade. Empty when
+     *  the buyer hasn't traded with the seller yet. */
+    List<Map> eligibleTradesFor(Long buyerUserId, Long sellerUserId) {
+        if (tradeRepository == null || buyerUserId == null || sellerUserId == null) return []
+        if (buyerUserId == sellerUserId) return []
+        def trades = tradeRepository.findVerifiedBetween(buyerUserId, sellerUserId)
+        if (trades.isEmpty()) return []
+        def existing = reviewRepository.findByFromUserId(buyerUserId)
+        def reviewedTradeIds = existing.collect { it.tradeId } as Set
+        trades.collect { t ->
+            [
+                tradeId:   t.id,
+                itemName:  t.itemName,
+                price:     t.price,
+                settledAt: t.settledAt ?: t.updatedAt,
+                reviewed:  reviewedTradeIds.contains(t.id)
+            ]
+        }
     }
 
     List<Review> listForUser(Long toUserId) {

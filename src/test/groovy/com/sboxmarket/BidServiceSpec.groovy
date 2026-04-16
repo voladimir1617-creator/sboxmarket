@@ -111,7 +111,7 @@ class BidServiceSpec extends Specification {
         service.placeBid(10L, 'Alice', 100L, new BigDecimal("25"), null)
 
         then:
-        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L)
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, _)
     }
 
     def "placeBid does NOT notify when the same user raises their own bid"() {

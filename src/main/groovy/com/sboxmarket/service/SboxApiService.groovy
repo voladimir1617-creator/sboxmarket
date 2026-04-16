@@ -85,6 +85,7 @@ class SboxApiService {
 
     @Autowired ItemRepository itemRepository
     @Autowired ListingRepository listingRepository
+    @Autowired(required = false) PriceHistoryService priceHistoryService
 
     /** Consistency check the background sync uses. Never throws — returns an
      *  empty map on any upstream failure so the scheduler keeps ticking. */
@@ -172,6 +173,7 @@ class SboxApiService {
 
             def existing = existingByName[name.toLowerCase()]
             if (existing != null) {
+                priceHistoryService?.record(existing, price ?: existing.lowestPrice)
                 existing.category    = category
                 existing.rarity      = rarity
                 existing.imageUrl    = iconUrl ?: existing.imageUrl
@@ -205,6 +207,7 @@ class SboxApiService {
                     createdAt:    now
                 )
                 itemRepository.save(item)
+                priceHistoryService?.record(item, price)
                 existingByName[name.toLowerCase()] = item
                 created++
             }

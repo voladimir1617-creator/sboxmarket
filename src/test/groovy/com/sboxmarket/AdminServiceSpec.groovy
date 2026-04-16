@@ -75,7 +75,7 @@ class AdminServiceSpec extends Specification {
         result.banned == true
         result.banReason == 'bad behaviour'
         activeListing.status == 'CANCELLED'
-        1 * notificationService.push(20L, 'ACCOUNT_BANNED', _, _, _)
+        1 * notificationService.push(20L, 'ACCOUNT_BANNED', _, _, _, _)
     }
 
     def "banUser forbids self-ban"() {

@@ -66,7 +66,7 @@ class ReviewServiceSpec extends Specification {
 
         then:
         1 * banGuard.assertNotBanned(10L)
-        1 * notificationService.push(20L, 'REVIEW_RECEIVED', _, _, _)
+        1 * notificationService.push(20L, 'REVIEW_RECEIVED', _, _, _, _)
         row.rating == 5
         row.fromUserId == 10L
         row.toUserId == 20L

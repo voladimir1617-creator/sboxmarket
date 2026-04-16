@@ -57,7 +57,7 @@ class SteamSyncServiceSpec extends Specification {
         service.syncOne(user)
 
         then:
-        1 * notificationService.push(10L, 'STEAM_INVENTORY', _, _, _)
+        1 * notificationService.push(10L, 'STEAM_INVENTORY', _, _, _, _)
     }
 
     def "syncOne does NOT notify when inventory stayed the same"() {

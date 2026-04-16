@@ -184,7 +184,7 @@ class CsrService {
 
         notificationService?.push(t.userId, 'SUPPORT_REPLY',
             "New reply on ticket #${t.id}",
-            t.subject, t.id)
+            t.subject, t.id, '/support')
         msg
     }
 
@@ -241,7 +241,7 @@ class CsrService {
 
         notificationService?.push(targetUserId, 'CSR_CREDIT',
             "Goodwill credit · +\$${amount.toPlainString()}",
-            note, null)
+            note, null, '/wallet')
 
         log.info("CSR ${csrUserId} issued goodwill \$${amount} to user ${targetUserId}: ${note}")
         [walletId: wallet.id, newBalance: wallet.balance, cap: cap]

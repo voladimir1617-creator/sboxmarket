@@ -505,6 +505,13 @@ export async function fetchReviewsForUser(userId) {
 export async function fetchReviewSummary(userId) {
   return (await safeJson(`${API}/reviews/user/${userId}/summary`)) || { count: 0, average: null };
 }
+/** Verified trades between the viewer and this seller, each tagged with
+ *  whether the viewer has already reviewed it. Drives the "Leave a review"
+ *  CTA on the public stall page. Returns [] for anonymous viewers. */
+export async function fetchEligibleReviews(sellerUserId) {
+  const data = await safeJson(`${API}/reviews/eligible/${sellerUserId}`);
+  return Array.isArray(data) ? data : [];
+}
 
 // ── CSR ─────────────────────────────────────────────────────────
 export async function csrCheck() {

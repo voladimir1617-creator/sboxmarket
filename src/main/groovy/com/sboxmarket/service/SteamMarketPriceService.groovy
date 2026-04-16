@@ -33,6 +33,7 @@ class SteamMarketPriceService {
     static final long SYNC_INTERVAL_MS = 30L * 60L * 1000L
 
     @Autowired ItemRepository itemRepository
+    @Autowired(required = false) PriceHistoryService priceHistoryService
 
     // 10-min initial delay so a container restart doesn't immediately burn
     // 5 × 30s of 429-backoff when the IP is still in Steam's cooldown window.
@@ -82,6 +83,7 @@ class SteamMarketPriceService {
                     }
 
                     itemRepository.save(item)
+                    priceHistoryService?.record(item, bestPrice)
                     updated++
                 } else {
                     skipped++

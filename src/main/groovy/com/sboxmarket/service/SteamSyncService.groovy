@@ -87,7 +87,7 @@ class SteamSyncService {
         if (now > before) {
             notificationService?.push(user.id, 'STEAM_INVENTORY',
                 "New Steam inventory items",
-                "${now - before} new item(s) ready to list", null)
+                "${now - before} new item(s) ready to list", null, '/sell')
         }
     }
 

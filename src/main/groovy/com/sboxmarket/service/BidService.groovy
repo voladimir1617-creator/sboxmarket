@@ -112,7 +112,8 @@ class BidService {
                 'AUCTION_OUTBID',
                 "You were outbid on ${listing.item?.name}",
                 "New top bid: \$${amount.toPlainString()}",
-                listingId
+                listingId,
+                listing.item?.id != null ? "/item/${listing.item.id}" : null
             )
         }
 
@@ -205,7 +206,8 @@ class BidService {
             listing.status = 'EXPIRED'
             listingRepository.save(listing)
             notificationService.push(winnerId, 'AUCTION_LOST',
-                "Auction lost — insufficient balance", listing.item?.name, listing.id)
+                "Auction lost — insufficient balance", listing.item?.name, listing.id,
+                listing.item?.id != null ? "/item/${listing.item.id}" : null)
             return
         }
 
@@ -248,7 +250,8 @@ class BidService {
 
         notificationService.push(winnerId, 'AUCTION_WON',
             "You won · ${listing.item?.name}",
-            "Final bid \$${listing.currentBid.toPlainString()}", listing.id)
+            "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
+            '/profile')
 
         // Mark losing bids
         def bids = bidRepository.findByListing(listing.id)
@@ -258,7 +261,8 @@ class BidService {
         losers*.bidderUserId.unique().each { uid ->
             notificationService.push(uid, 'AUCTION_LOST',
                 "Auction lost · ${listing.item?.name}",
-                "Winning bid \$${listing.currentBid.toPlainString()}", listing.id)
+                "Winning bid \$${listing.currentBid.toPlainString()}", listing.id,
+                listing.item?.id != null ? "/item/${listing.item.id}" : null)
         }
 
         log.info("Auction ${listing.id} settled — winner=${winnerId}, price=\$${listing.currentBid}")

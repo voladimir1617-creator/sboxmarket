@@ -1,6 +1,23 @@
 // Top-right nav icons: notification bell + theme picker.
 import { h, React, useState, useEffect, useCallback, timeAgo } from './utils.js';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from './api.js';
+import { navigate, paths } from './router.js';
+
+// Route a notification to the right page when the server didn't supply one.
+// Kept in sync with kindFallbackPath in csfloat-modals.js — any new event kind
+// should be handled in both places or (better) carry a server-side `path`.
+function fallbackPath(kind) {
+  if (!kind) return '/profile';
+  const k = kind.toUpperCase();
+  if (k === 'DEPOSIT_COMPLETE' || k.startsWith('WITHDRAWAL_') ||
+      k === 'ADMIN_CREDIT' || k === 'ADMIN_DEBIT' || k === 'CSR_CREDIT') return paths.wallet();
+  if (k === 'BUY_ORDER_FILLED') return paths.buyorders();
+  if (k === 'OFFER_RECEIVED' || k === 'OFFER_ACCEPTED' || k === 'OFFER_REJECTED') return paths.offers();
+  if (k === 'SUPPORT_REPLY') return paths.support();
+  if (k === 'STEAM_INVENTORY') return paths.sell();
+  if (k === 'LISTING_REMOVED') return paths.mystall();
+  return paths.profile();
+}
 
 // Map server `kind` → icon glyph for the dropdown.
 const KIND_ICONS = {
@@ -55,9 +72,12 @@ export function NotificationBell({ me }) {
 
   const onItemClick = async (n) => {
     if (!n.read) {
-      await markNotificationRead(n.id);
-      load();
+      try { await markNotificationRead(n.id); } catch (_) {}
     }
+    setOpen(false);
+    const target = n.path || fallbackPath(n.kind);
+    if (target) navigate(target);
+    else load();
   };
 
   return h('div', { ref: wrapRef, style: { position: 'relative' } },

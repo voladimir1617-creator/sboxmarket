@@ -113,7 +113,7 @@ class CsrServiceSpec extends Specification {
         msg.author == 'STAFF'
         msg.body == 'here is the answer'
         ticket.status == 'WAITING_USER'
-        1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _)
+        1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _, _)
     }
 
     def "reply refuses empty body"() {
@@ -180,7 +180,7 @@ class CsrServiceSpec extends Specification {
         1 * transactionRepository.save({ Transaction tx ->
             tx.type == 'ADJUSTMENT_CREDIT' && tx.amount == new BigDecimal("20")
         })
-        1 * notificationService.push(10L, 'CSR_CREDIT', _, _, _)
+        1 * notificationService.push(10L, 'CSR_CREDIT', _, _, _, _)
     }
 
     def "issueGoodwillCredit refuses amounts over the cap"() {

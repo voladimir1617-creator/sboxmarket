@@ -4,7 +4,8 @@ import { h, React, useState, useEffect, useCallback, useMemo, fmt } from './util
 import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
-  adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser
+  adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
+  fetchEligibleReviews, leaveReview
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -327,24 +328,51 @@ export function App() {
 
   // Public stall page data — loaded whenever we hit /stall/:id.
   // Reviews are fetched in parallel with the listings payload so the
-  // rating chip + "Recent reviews" block render together.
+  // rating chip + "Recent reviews" block render together. Eligible trades
+  // only populate when a signed-in viewer loads someone else's stall.
   const [stallData, setStallData] = useState(null);
   const [stallReviews, setStallReviews] = useState(null);
+  const [eligibleTrades, setEligibleTrades] = useState([]);
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
-      setStallData(null); setStallReviews(null); return;
+      setStallData(null); setStallReviews(null); setEligibleTrades([]); return;
     }
     let alive = true;
     Promise.all([
       fetchPublicStall(route.params.id),
-      fetchReviewsForUser(route.params.id)
-    ]).then(([stall, reviews]) => {
+      fetchReviewsForUser(route.params.id),
+      me ? fetchEligibleReviews(route.params.id) : Promise.resolve([])
+    ]).then(([stall, reviews, eligible]) => {
       if (!alive) return;
       setStallData(stall);
       setStallReviews(reviews);
+      setEligibleTrades(Array.isArray(eligible) ? eligible : []);
     });
     return () => { alive = false; };
-  }, [routeName, route.params?.id]);
+  }, [routeName, route.params?.id, me?.user?.id]);
+
+  // Inline review form state (lives on the stall page).
+  const [reviewTradeId, setReviewTradeId] = useState(null);
+  const [reviewStars, setReviewStars]     = useState(5);
+  const [reviewText, setReviewText]       = useState('');
+  const [reviewBusy, setReviewBusy]       = useState(false);
+  const submitStallReview = async () => {
+    if (!reviewTradeId) return;
+    setReviewBusy(true);
+    try {
+      const res = await leaveReview(reviewTradeId, reviewStars, reviewText || '');
+      if (res && !res.error) {
+        setReviewTradeId(null); setReviewText(''); setReviewStars(5);
+        // Refresh reviews + eligibility so the UI reflects the new state.
+        const [reviews, eligible] = await Promise.all([
+          fetchReviewsForUser(route.params.id),
+          fetchEligibleReviews(route.params.id)
+        ]);
+        setStallReviews(reviews);
+        setEligibleTrades(Array.isArray(eligible) ? eligible : []);
+      }
+    } finally { setReviewBusy(false); }
+  };
 
   // privacy mode — hides balance + sensitive amounts across the whole UI
   const [privacy, setPrivacy] = useState(() => localStorage.getItem('sb_privacy') === '1');
@@ -383,25 +411,33 @@ export function App() {
   };
   const removeFromCart = (id) => setCart(c => c.filter(x => x.id !== id));
   const clearCart = () => setCart([]);
+  // Confirmation gate so buyers see a summary before bulk checkout fires.
+  // Without this the "Buy Now" button on /cart silently paid-and-trade-opened
+  // every row, and if one failed the user had no reviewable explanation.
+  const [cartConfirmOpen, setCartConfirmOpen] = useState(false);
+  const [cartBusy, setCartBusy] = useState(false);
   const doCheckout = async () => {
     if (cart.length === 0) return;
-    const ids = cart.map(x => x.id);
-    const res = await checkoutCart(ids);
-    if (res && res.error) {
-      showToast(res.error, 'err');
-    } else if (res && res.results) {
-      const ok = res.successful || 0;
-      const fail = res.failed || 0;
-      showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
-      // Remove everything that succeeded
-      const failedIds = new Set(res.results.filter(r => r.status !== 'OK').map(r => r.listingId));
-      setCart(c => c.filter(x => failedIds.has(x.id)));
-      await loadWallet();
-      load();
-      navigate(paths.market());
-    } else {
-      showToast('Checkout failed', 'err');
-    }
+    setCartBusy(true);
+    try {
+      const ids = cart.map(x => x.id);
+      const res = await checkoutCart(ids);
+      if (res && res.error) {
+        showToast(res.error, 'err');
+      } else if (res && res.results) {
+        const ok = res.successful || 0;
+        const fail = res.failed || 0;
+        showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
+        const failedIds = new Set(res.results.filter(r => r.status !== 'OK').map(r => r.listingId));
+        setCart(c => c.filter(x => failedIds.has(x.id)));
+        setCartConfirmOpen(false);
+        await loadWallet();
+        load();
+        if (failedIds.size === 0) navigate(paths.profile());
+      } else {
+        showToast('Checkout failed', 'err');
+      }
+    } finally { setCartBusy(false); }
   };
 
   // watchlist (localStorage)
@@ -1208,11 +1244,21 @@ export function App() {
                 )
               )
             ),
+            stallData.away && h('div', { className: 'stall-away-banner' },
+              h('span', { className: 'stall-away-dot' }),
+              h('div', null,
+                h('div', { className: 'stall-away-title' }, 'Seller is away'),
+                h('div', { className: 'stall-away-sub' },
+                  `All ${stallData.awayCount || 'active'} listings are temporarily hidden until the seller is back. You can still view their stall and leave a review.`)
+              )
+            ),
             stallData.count === 0
               ? h('div', { className: 'empty-inline' },
-                  h('div', { className: 'empty-icon' }, '🏪'),
+                  h('div', { className: 'empty-icon' }, stallData.away ? '🌙' : '🏪'),
                   h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
-                    'This seller has no active listings right now.'))
+                    stallData.away
+                      ? 'The seller will be back soon — check back later or watchlist one of their items.'
+                      : 'This seller has no active listings right now.'))
               : h('div', { className: 'listing-grid' },
                   stallData.listings.map(l => h(GridCard, {
                     key: l.id,
@@ -1222,6 +1268,62 @@ export function App() {
                     onToggleStar: toggleStar
                   }))
                 ),
+            // "Leave a review" CTA — only shows up when the signed-in viewer
+            // has at least one VERIFIED trade with this seller. Every trade
+            // in `eligibleTrades` is already filtered server-side so there's
+            // nothing more to check here.
+            eligibleTrades.length > 0 && h('div', { className: 'stall-review-cta' },
+              h('div', { className: 'stall-review-cta-head' },
+                h('span', { className: 'section-title-dot' }),
+                reviewTradeId ? 'Leave a review' : 'Leave a review'
+              ),
+              !reviewTradeId && h('div', { className: 'stall-review-cta-rows' },
+                eligibleTrades.slice(0, 6).map(t => h('div', { key: t.tradeId, className: 'stall-review-cta-row' },
+                  h('div', { style: { flex: 1, minWidth: 0 } },
+                    h('div', { className: 'stall-review-cta-item' }, t.itemName || 'Trade'),
+                    h('div', { className: 'stall-review-cta-sub' },
+                      '$' + Number(t.price || 0).toFixed(2),
+                      ' · ', new Date(t.settledAt || Date.now()).toLocaleDateString())
+                  ),
+                  t.reviewed
+                    ? h('span', { className: 'stall-review-done' }, '✓ Reviewed')
+                    : h('button', {
+                        className: 'btn btn-primary-outline',
+                        onClick: () => { setReviewTradeId(t.tradeId); setReviewStars(5); setReviewText(''); }
+                      }, 'Write review')
+                ))
+              ),
+              reviewTradeId && h('div', { className: 'stall-review-form' },
+                h('div', { className: 'stall-review-stars-picker' },
+                  [1, 2, 3, 4, 5].map(n => h('button', {
+                    key: n,
+                    type: 'button',
+                    className: `star-btn ${reviewStars >= n ? 'on' : ''}`,
+                    onClick: () => setReviewStars(n),
+                    'aria-label': `${n} star${n === 1 ? '' : 's'}`
+                  }, reviewStars >= n ? '★' : '☆'))
+                ),
+                h('textarea', {
+                  className: 'stall-review-text',
+                  value: reviewText,
+                  maxLength: 500,
+                  placeholder: 'Tell buyers what the transaction was like (optional, 500 chars max)',
+                  onChange: (e) => setReviewText(e.target.value)
+                }),
+                h('div', { className: 'stall-review-actions' },
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    onClick: () => setReviewTradeId(null),
+                    disabled: reviewBusy
+                  }, 'Cancel'),
+                  h('button', {
+                    className: 'btn btn-primary',
+                    onClick: submitStallReview,
+                    disabled: reviewBusy
+                  }, reviewBusy ? 'Sending…' : 'Submit review')
+                )
+              )
+            ),
             // Recent reviews strip — only shows when the seller has feedback.
             // Reviews are trade-anchored so every entry is a real buyer who
             // actually traded with this user (see ReviewService.leaveReview).
@@ -1289,10 +1391,46 @@ export function App() {
               ),
               h('div', { style: { display: 'flex', gap: 10 } },
                 h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
-                h('button', { className: 'btn btn-accent', onClick: doCheckout }, 'Buy Now · ' + fmt(cartTotal))
+                h('button', { className: 'btn btn-accent', onClick: () => setCartConfirmOpen(true) }, 'Checkout · ' + fmt(cartTotal))
               )
             )
           )
+    ),
+    cartConfirmOpen && h('div', { className: 'cart-confirm-backdrop', onClick: () => !cartBusy && setCartConfirmOpen(false) },
+      h('div', { className: 'cart-confirm-panel', onClick: e => e.stopPropagation() },
+        h('div', { className: 'cart-confirm-head' },
+          h('div', { className: 'cart-confirm-title' }, 'Confirm purchase'),
+          h('div', { className: 'cart-confirm-sub' },
+            `Buying ${cart.length} item${cart.length === 1 ? '' : 's'} · funds held in escrow until each seller delivers.`)
+        ),
+        h('div', { className: 'cart-confirm-list' },
+          cart.slice(0, 12).map(it => h('div', { key: it.id, className: 'cart-confirm-row' },
+            h('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
+            h('div', { className: 'cart-confirm-amt' }, fmt(it.price))
+          )),
+          cart.length > 12 && h('div', { className: 'cart-confirm-more' }, `+ ${cart.length - 12} more`)
+        ),
+        h('div', { className: 'cart-confirm-total' },
+          h('div', null,
+            h('div', { className: 'cart-confirm-total-label' }, 'Total charged to wallet'),
+            h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.')
+          ),
+          h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal))
+        ),
+        h('div', { className: 'cart-confirm-actions' },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)' },
+            onClick: () => setCartConfirmOpen(false),
+            disabled: cartBusy
+          }, 'Cancel'),
+          h('button', {
+            className: 'btn btn-accent',
+            onClick: doCheckout,
+            disabled: cartBusy || cart.length === 0
+          }, cartBusy ? 'Placing order…' : `Confirm · ${fmt(cartTotal)}`)
+        )
+      )
     ),
     routeName === 'faq'           && h(FaqModal,        { onClose: () => navigate(paths.market()) }),
     routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()) }),

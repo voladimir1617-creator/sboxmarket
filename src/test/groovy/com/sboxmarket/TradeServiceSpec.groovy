@@ -79,8 +79,8 @@ class TradeServiceSpec extends Specification {
         1 * banGuard.assertNotBanned(10L)
         trade.state == 'PENDING_SELLER_ACCEPT'
         trade.feeAmount == new BigDecimal("1.00")
-        1 * notificationService.push(10L, 'TRADE_OPENED', _, _, _)
-        1 * notificationService.push(20L, 'TRADE_REQUESTED', _, _, _)
+        1 * notificationService.push(10L, 'TRADE_OPENED', _, _, _, _)
+        1 * notificationService.push(20L, 'TRADE_REQUESTED', _, _, _, _)
     }
 
     def "open skips seller-accept and goes to PENDING_BUYER_CONFIRM when there is no seller"() {
@@ -92,8 +92,8 @@ class TradeServiceSpec extends Specification {
 
         then:
         trade.state == 'PENDING_BUYER_CONFIRM'
-        1 * notificationService.push(10L, 'TRADE_OPENED', _, _, _)
-        0 * notificationService.push(_, 'TRADE_REQUESTED', _, _, _)
+        1 * notificationService.push(10L, 'TRADE_OPENED', _, _, _, _)
+        0 * notificationService.push(_, 'TRADE_REQUESTED', _, _, _, _)
     }
 
     // ── sellerAccept / sellerMarkSent ─────────────────────────────
@@ -110,7 +110,7 @@ class TradeServiceSpec extends Specification {
         then:
         1 * banGuard.assertNotBanned(20L)
         t.state == 'PENDING_SELLER_SEND'
-        1 * notificationService.push(10L, 'TRADE_ACCEPTED', _, _, _)
+        1 * notificationService.push(10L, 'TRADE_ACCEPTED', _, _, _, _)
     }
 
     def "sellerAccept forbids a non-seller"() {
@@ -146,7 +146,7 @@ class TradeServiceSpec extends Specification {
 
         then:
         t.state == 'PENDING_BUYER_CONFIRM'
-        1 * notificationService.push(10L, 'TRADE_SENT', _, _, _)
+        1 * notificationService.push(10L, 'TRADE_SENT', _, _, _, _)
     }
 
     // ── buyerConfirm → release ────────────────────────────────────
@@ -171,8 +171,8 @@ class TradeServiceSpec extends Specification {
         1 * transactionRepository.save({ Transaction tx ->
             tx.type == 'SALE' && tx.amount == new BigDecimal("49.00")
         })
-        1 * notificationService.push(10L, 'TRADE_VERIFIED', _, _, _)
-        1 * notificationService.push(20L, 'TRADE_VERIFIED', _, _, _)
+        1 * notificationService.push(10L, 'TRADE_VERIFIED', _, _, _, _)
+        1 * notificationService.push(20L, 'TRADE_VERIFIED', _, _, _, _)
     }
 
     def "buyerConfirm forbids a non-buyer"() {

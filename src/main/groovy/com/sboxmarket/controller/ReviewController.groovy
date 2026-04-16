@@ -69,4 +69,14 @@ class ReviewController {
     ResponseEntity<Map> summary(@PathVariable Long id) {
         ResponseEntity.ok(reviewService.summaryForUser(id))
     }
+
+    /** Reviewable trades between the signed-in viewer (as buyer) and a given
+     *  seller. Each entry carries a `reviewed` flag so the UI can disable
+     *  rows the viewer has already written a review for. Backs the
+     *  "Leave a review" CTA on /stall/{sellerId}. */
+    @GetMapping("/eligible/{sellerId}")
+    ResponseEntity<List<Map>> eligible(@PathVariable Long sellerId, HttpServletRequest req) {
+        def uid = requireUser(req)
+        ResponseEntity.ok(reviewService.eligibleTradesFor(uid, sellerId))
+    }
 }

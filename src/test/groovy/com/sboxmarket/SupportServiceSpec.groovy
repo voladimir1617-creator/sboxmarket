@@ -62,7 +62,7 @@ class SupportServiceSpec extends Specification {
         ticket.status == 'WAITING_USER'
         // USER message + STAFF auto-reply
         2 * messageRepository.save({ SupportMessage m -> m.ticketId == 1L })
-        1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _)
+        1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _, _)
     }
 
     def "create auto-reply picks a category-specific template"() {

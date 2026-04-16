@@ -98,11 +98,11 @@ class TradeService {
 
         notificationService?.push(buyerUserId, 'TRADE_OPENED',
             "Escrow opened for ${itemName}",
-            "Waiting for seller to accept the trade", trade.id)
+            "Waiting for seller to accept the trade", trade.id, '/profile')
         if (sellerUserId != null) {
             notificationService?.push(sellerUserId, 'TRADE_REQUESTED',
                 "New sale: ${itemName}",
-                "Accept the trade and send the Steam offer to release funds.", trade.id)
+                "Accept the trade and send the Steam offer to release funds.", trade.id, '/profile')
         }
         trade
     }
@@ -118,7 +118,7 @@ class TradeService {
         transitionTo(t, 'PENDING_SELLER_SEND')
         notificationService?.push(t.buyerUserId, 'TRADE_ACCEPTED',
             "Seller accepted ${t.itemName}",
-            "The seller now has to send the Steam trade offer.", t.id)
+            "The seller now has to send the Steam trade offer.", t.id, '/profile')
         t
     }
 
@@ -131,7 +131,7 @@ class TradeService {
         transitionTo(t, 'PENDING_BUYER_CONFIRM')
         notificationService?.push(t.buyerUserId, 'TRADE_SENT',
             "Steam trade offer sent · ${t.itemName}",
-            "Confirm the trade on Steam and then click Confirm Receipt.", t.id)
+            "Confirm the trade on Steam and then click Confirm Receipt.", t.id, '/profile')
         t
     }
 
@@ -183,11 +183,11 @@ class TradeService {
             }
         }
         notificationService?.push(t.buyerUserId, 'TRADE_VERIFIED',
-            "Trade verified · ${t.itemName}", null, t.id)
+            "Trade verified · ${t.itemName}", null, t.id, '/profile')
         if (t.sellerUserId != null) {
             notificationService?.push(t.sellerUserId, 'TRADE_VERIFIED',
                 "Funds released · ${t.itemName}",
-                "\$${(t.price - t.feeAmount)} credited to your wallet.", t.id)
+                "\$${(t.price - t.feeAmount)} credited to your wallet.", t.id, '/wallet')
         }
         auditService?.log('TRADE_VERIFIED', t.buyerUserId, t.sellerUserId, t.id,
             "Verified trade #${t.id} for \$${t.price}")
@@ -239,10 +239,10 @@ class TradeService {
         t.settledAt = System.currentTimeMillis()
         transitionTo(t, 'CANCELLED')
         notificationService?.push(t.buyerUserId, 'TRADE_CANCELLED',
-            "Trade cancelled · refund issued", cleanReason, t.id)
+            "Trade cancelled · refund issued", cleanReason, t.id, '/profile')
         if (t.sellerUserId != null) {
             notificationService?.push(t.sellerUserId, 'TRADE_CANCELLED',
-                "Trade cancelled", cleanReason, t.id)
+                "Trade cancelled", cleanReason, t.id, '/profile')
         }
         // Log the counterparty as the audit subject
         def cancelSubject = (actorUserId == t.buyerUserId) ? t.sellerUserId :
@@ -324,7 +324,7 @@ class TradeService {
                     trade.settledAt = System.currentTimeMillis()
                     transitionTo(trade, 'CANCELLED')
                     notificationService?.push(trade.buyerUserId, 'TRADE_CANCELLED',
-                        "Trade cancelled · refund issued", trade.note, trade.id)
+                        "Trade cancelled · refund issued", trade.note, trade.id, '/profile')
                     auditService?.log('TRADE_AUTO_CANCELLED', null, trade.sellerUserId, trade.id,
                         "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
                 } else {

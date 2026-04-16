@@ -6,6 +6,7 @@
 import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon } from './primitives.js';
 import { InfoModal } from './info-modal.js';
+import { navigate, paths } from './router.js';
 import {
   fetchDatabase, fetchBuyOrders, createBuyOrder, deleteBuyOrder,
   fetchPublicLoadouts, fetchMyLoadouts, fetchLoadout, createLoadout,
@@ -498,7 +499,16 @@ export function NotificationsModal({ onClose, me }) {
       h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to see your notifications.')));
 
   const clear = async () => { await markAllNotificationsRead(); load(); };
-  const open = async (n) => { if (!n.read) { await markNotificationRead(n.id); load(); } };
+  // Click → mark read, then navigate. Server-supplied `path` wins; otherwise
+  // fall back to a (kind, refId) map so older notifications written before
+  // V13 still drill down to something useful.
+  const open = async (n) => {
+    if (!n.read) { try { await markNotificationRead(n.id); } catch (_) {} }
+    const target = n.path || kindFallbackPath(n.kind, n.refId);
+    if (onClose) onClose();
+    if (target) navigate(target);
+    else load();
+  };
 
   // Group items by local-calendar day and label each bucket.
   const groups = useMemo(() => {
@@ -562,6 +572,31 @@ function dayLabel(d) {
   if (same(d, today)) return 'Today';
   if (same(d, yest))  return 'Yesterday';
   return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+// Kind-based routing fallback for notifications that don't carry a server
+// `path`. Everything trade/purchase/wallet/support flows to the right tab so
+// the click always lands on something meaningful.
+function kindFallbackPath(kind, refId) {
+  if (!kind) return '/profile';
+  const k = kind.toUpperCase();
+  if (k === 'DEPOSIT_COMPLETE' || k.startsWith('WITHDRAWAL_') ||
+      k === 'ADMIN_CREDIT' || k === 'ADMIN_DEBIT' || k === 'CSR_CREDIT') {
+    return paths.wallet();
+  }
+  if (k === 'BUY_ORDER_FILLED') return paths.buyorders();
+  if (k === 'OFFER_RECEIVED' || k === 'OFFER_ACCEPTED' || k === 'OFFER_REJECTED') {
+    return paths.offers();
+  }
+  if (k === 'SUPPORT_REPLY') return paths.support();
+  if (k === 'STEAM_INVENTORY') return paths.sell();
+  if (k === 'REVIEW_RECEIVED') return paths.profile();
+  if (k === 'LISTING_REMOVED') return paths.mystall();
+  if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_') ||
+      k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
+    return paths.profile();
+  }
+  return paths.profile();
 }
 
 function kindIcon(kind) {

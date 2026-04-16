@@ -228,7 +228,7 @@ class BuyOrderServiceSpec extends Specification {
         then:
         1 * purchaseService.buy(600L, 20L, 100L)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.quantity == 0 && o.status == 'FILLED' })
-        1 * notificationService.push(20L, 'BUY_ORDER_FILLED', _, _, _)
+        1 * notificationService.push(20L, 'BUY_ORDER_FILLED', _, _, _, _)
     }
 
     def "tryMatch skips self-trades (seller and buyer are same user)"() {

@@ -254,7 +254,7 @@ class AdminService {
 
         notificationService?.push(targetUserId, 'ACCOUNT_BANNED',
             "Your account has been banned",
-            user.banReason, null)
+            user.banReason, null, '/profile')
 
         auditService?.log(AuditService.USER_BANNED, adminUserId, targetUserId, null,
             "Banned user ${user.steamId64}: ${reason ?: '(no reason)'}")
@@ -357,7 +357,7 @@ class AdminService {
         notificationService?.push(targetUserId,
             amount > BigDecimal.ZERO ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT',
             "Wallet adjusted by staff · ${amount > 0 ? '+' : ''}\$${amount.toPlainString()}",
-            note ?: '', null)
+            note ?: '', null, '/wallet')
 
         auditService?.log(AuditService.ADMIN_CREDIT, adminUserId, targetUserId, wallet.id,
             "Adjusted wallet ${wallet.username} by \$${amount}: ${note ?: '(no note)'}")
@@ -380,7 +380,8 @@ class AdminService {
         if (listing.sellerUserId != null) {
             notificationService?.push(listing.sellerUserId, 'LISTING_REMOVED',
                 "Your listing was removed by staff",
-                "${listing.item?.name}: ${cleanReason}", listing.id)
+                "${listing.item?.name}: ${cleanReason}", listing.id,
+                listing.item?.id != null ? "/item/${listing.item.id}" : '/me/stall')
         }
         auditService?.log(AuditService.LISTING_FORCE_CANCELLED, adminUserId, listing.sellerUserId, listing.id,
             "Force-cancelled listing ${listing.item?.name}: ${cleanReason}")
@@ -434,7 +435,7 @@ class AdminService {
 
         notificationService?.push(t.userId, 'SUPPORT_REPLY',
             "New reply on ticket #${t.id}",
-            t.subject, t.id)
+            t.subject, t.id, '/support')
         msg
     }
 
@@ -501,9 +502,9 @@ class AdminService {
         [id: cancelled.id, state: cancelled.state]
     }
 
-    private void notifyWalletOwner(Long walletId, String kind, String title, String body, Long refId) {
+    private void notifyWalletOwner(Long walletId, String kind, String title, String body, Long refId, String path = '/wallet') {
         def id = walletOwnerId(walletId)
-        if (id != null) notificationService?.push(id, kind, title, body, refId)
+        if (id != null) notificationService?.push(id, kind, title, body, refId, path)
     }
 
     /** Resolve the SteamUser.id that owns a given wallet, or null for non-steam wallets. */

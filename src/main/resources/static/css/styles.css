@@ -4209,6 +4209,218 @@
     }
     .stall-rating-count { color: var(--text-muted); font-weight: 500; }
 
+    /* ─────────── STALL AWAY-MODE BANNER ─────────── */
+    .stall-away-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin: 18px 0 20px;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02));
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 10px;
+    }
+    .stall-away-dot {
+      width: 10px;
+      height: 10px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+      flex-shrink: 0;
+    }
+    .stall-away-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #f59e0b;
+      margin-bottom: 2px;
+    }
+    .stall-away-sub {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ─────────── CART CONFIRMATION MODAL ─────────── */
+    .cart-confirm-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 18, 0.72);
+      backdrop-filter: blur(6px);
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .cart-confirm-panel {
+      width: 100%;
+      max-width: 520px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 26px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+    }
+    .cart-confirm-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .cart-confirm-sub {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .cart-confirm-list {
+      margin-top: 18px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .cart-confirm-row {
+      display: flex;
+      gap: 14px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-bottom: 1px dashed var(--border);
+    }
+    .cart-confirm-row:last-child { border-bottom: none; }
+    .cart-confirm-amt { color: var(--text-primary); font-weight: 600; }
+    .cart-confirm-more {
+      padding: 6px 0 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .cart-confirm-total {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--accent-border);
+      border-radius: 10px;
+    }
+    .cart-confirm-total-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .cart-confirm-total-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .cart-confirm-total-amt {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .cart-confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    /* ─────────── STALL REVIEW CTA (inline) ─────────── */
+    .stall-review-cta {
+      margin-top: 32px;
+      padding: 22px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .stall-review-cta-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+    }
+    .stall-review-cta-rows { display: grid; gap: 8px; }
+    .stall-review-cta-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .stall-review-cta-item {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stall-review-cta-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .stall-review-done {
+      font-size: 12px;
+      color: #4ade80;
+      font-weight: 600;
+      padding: 6px 10px;
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: 6px;
+    }
+    .stall-review-form { margin-top: 6px; }
+    .stall-review-stars-picker {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .star-btn {
+      background: none;
+      border: none;
+      color: var(--border);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 2px 4px;
+      transition: color 0.12s, transform 0.12s;
+    }
+    .star-btn:hover { transform: scale(1.12); }
+    .star-btn.on { color: #fbbf24; }
+    .stall-review-text {
+      width: 100%;
+      min-height: 80px;
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      resize: vertical;
+    }
+    .stall-review-text:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .stall-review-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
     /* ─────────── STALL REVIEWS BLOCK ─────────── */
     .stall-reviews {
       margin-top: 32px;
@@ -4301,6 +4513,71 @@
       background: rgba(248, 113, 113, 0.85);
       color: #fff;
       box-shadow: 0 4px 12px rgba(248, 113, 113, 0.35);
+    }
+    .watchlist-alert-hit {
+      position: absolute;
+      top: 44px;
+      left: 12px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #1ea5ff, #4dc8ff);
+      border-radius: 6px;
+      letter-spacing: 0.03em;
+      box-shadow: 0 4px 12px rgba(30, 165, 255, 0.5);
+    }
+    .watchlist-alert-bar {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .watchlist-alert-bar > * { pointer-events: auto; }
+    .watchlist-alert-btn {
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: rgba(15, 20, 36, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .watchlist-alert-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent-border);
+    }
+    .watchlist-alert-btn.set {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: rgba(30, 165, 255, 0.1);
+    }
+    .watchlist-alert-edit {
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      background: rgba(15, 20, 36, 0.97);
+      border: 1px solid var(--accent-border);
+      border-radius: 6px;
+    }
+    .watchlist-alert-edit input {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 8px;
+      font-size: 12px;
+      color: var(--text-primary);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .watchlist-alert-edit input:focus {
+      outline: none;
+      border-color: var(--accent);
     }
 
     /* ════════════════════════════════════════════════════════════

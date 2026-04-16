@@ -158,7 +158,12 @@ class ListingController {
     ResponseEntity<Map> publicStall(@PathVariable Long userId) {
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) return ResponseEntity.notFound().build()
-        def active = listingService.findActiveVisibleBySeller(userId)
+        def visible = listingService.findActiveVisibleBySeller(userId)
+        // Derive away-mode: seller has active listings but all of them are
+        // hidden. Lets the UI show "This seller is away" instead of an
+        // indistinguishable "no active listings" empty state.
+        def totalActive = listingService.findActiveBySeller(userId).size()
+        def away = visible.isEmpty() && totalActive > 0
         def ratingSummary = reviewService?.summaryForUser(userId) ?: [count: 0, average: null]
         ResponseEntity.ok([
             seller: [
@@ -167,8 +172,10 @@ class ListingController {
                 avatarUrl:   user.avatarUrl,
                 joinedAt:    user.createdAt
             ],
-            listings:  active,
-            count:     active.size(),
+            listings:  visible,
+            count:     visible.size(),
+            away:      away,
+            awayCount: away ? totalActive : 0,
             rating:    ratingSummary
         ])
     }

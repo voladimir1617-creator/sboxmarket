@@ -134,7 +134,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           )
         ),
         h('div', { className: 'chart-wrap' },
-          h(Sparkline, { data: slicedHistory, color: trendUp ? '#4ade80' : trendFlat ? '#60a5fa' : '#f87171', height: 150 })
+          slicedHistory && slicedHistory.length >= 2
+            ? h(Sparkline, { data: slicedHistory, color: trendUp ? '#4ade80' : trendFlat ? '#60a5fa' : '#f87171', height: 150 })
+            : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
+                'Price history will appear here after the next market sync.')
         ),
 
         thread && thread.length > 0 && h('div', null,
@@ -1773,6 +1776,25 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     try { return JSON.parse(localStorage.getItem('sb_watchlist_snap') || '{}'); }
     catch { return {}; }
   });
+  // Per-item alert targets in localStorage. Each card gets a popover where
+  // the user can type a target price ("tell me when this drops below $X").
+  // Triggered alerts show a distinctive badge and a toast when the modal
+  // opens. Persisted across sessions, survives a reload.
+  const [alerts, setAlerts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sb_watchlist_alerts') || '{}'); }
+    catch { return {}; }
+  });
+  const [editingAlert, setEditingAlert] = useState(null);
+  const [alertDraft, setAlertDraft] = useState('');
+  const saveAlert = (itemId, value) => {
+    const n = parseFloat(value);
+    const next = { ...alerts };
+    if (!isFinite(n) || n <= 0) delete next[itemId];
+    else next[itemId] = n;
+    setAlerts(next);
+    localStorage.setItem('sb_watchlist_alerts', JSON.stringify(next));
+    setEditingAlert(null);
+  };
 
   // The parent passes in the currently-filtered marketplace view, which
   // means a watchlisted item is invisible here whenever it falls outside
@@ -1857,9 +1879,11 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     const cur = parseFloat(l.price);
     const delta = snap != null ? cur - snap : 0;
     const pct = snap && snap > 0 ? (delta / snap) * 100 : 0;
-    return { listing: l, snap, delta, pct };
+    const target = alerts[l.item.id];
+    const alertHit = target != null && !l.__noListing && isFinite(cur) && cur <= target;
+    return { listing: l, snap, delta, pct, target, alertHit };
   });
-  const filtered = showDropsOnly ? rows.filter(r => r.delta < 0) : rows;
+  const filtered = showDropsOnly ? rows.filter(r => r.delta < 0 || r.alertHit) : rows;
 
   return h(InfoModal, { title: `Watchlist · ${starred.length} items`, onClose },
     starred.length === 0
@@ -1915,6 +1939,48 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
                     r.delta < 0 ? '▼ ' : '▲ ',
                     fmt(Math.abs(r.delta)),
                     ' (', (r.pct >= 0 ? '+' : ''), r.pct.toFixed(1), '%)'
+                  ),
+                  r.alertHit && h('div', { className: 'watchlist-alert-hit', title: `Alert target: ${fmt(r.target)}` },
+                    '🔔 Alert hit'),
+                  // Alert control strip — click to set, edit, or clear a
+                  // per-item price target. Persisted in sb_watchlist_alerts.
+                  !r.listing.__noListing && h('div', { className: 'watchlist-alert-bar' },
+                    editingAlert === r.listing.item.id
+                      ? h('div', { className: 'watchlist-alert-edit' },
+                          h('input', {
+                            type: 'number',
+                            step: '0.01',
+                            min: '0',
+                            placeholder: 'Target price',
+                            value: alertDraft,
+                            autoFocus: true,
+                            onChange: (e) => setAlertDraft(e.target.value),
+                            onKeyDown: (e) => {
+                              if (e.key === 'Enter') saveAlert(r.listing.item.id, alertDraft);
+                              if (e.key === 'Escape') setEditingAlert(null);
+                            }
+                          }),
+                          h('button', {
+                            className: 'btn btn-accent',
+                            style: { padding: '4px 10px', fontSize: 11 },
+                            onClick: () => saveAlert(r.listing.item.id, alertDraft)
+                          }, 'Set'),
+                          r.target != null && h('button', {
+                            className: 'btn btn-ghost',
+                            style: { padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)' },
+                            onClick: () => saveAlert(r.listing.item.id, '')
+                          }, 'Clear')
+                        )
+                      : h('button', {
+                          className: 'watchlist-alert-btn ' + (r.target != null ? 'set' : ''),
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            setEditingAlert(r.listing.item.id);
+                            setAlertDraft(r.target != null ? String(r.target) : '');
+                          }
+                        }, r.target != null
+                          ? `🔔 Alert ≤ ${fmt(r.target)}`
+                          : '🔔 Set price alert')
                   )
                 )))
         )

@@ -18,6 +18,18 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     @Query("SELECT t FROM Trade t WHERE (t.buyerUserId = :uid OR t.sellerUserId = :uid) ORDER BY t.createdAt DESC")
     List<Trade> findByParticipant(@Param("uid") Long uid)
 
+    /** Verified trades between a given buyer and seller — drives the
+     *  "Leave a review" CTA on the public stall page so a viewer only
+     *  sees the prompt for sellers they've actually transacted with. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.buyerUserId  = :buyerId
+          AND t.sellerUserId = :sellerId
+          AND t.state        = 'VERIFIED'
+        ORDER BY t.settledAt DESC
+    """)
+    List<Trade> findVerifiedBetween(@Param("buyerId") Long buyerId, @Param("sellerId") Long sellerId)
+
     @Query("SELECT t FROM Trade t WHERE t.state IN :states ORDER BY t.updatedAt ASC")
     List<Trade> findByStateIn(@Param("states") List<String> states)
 

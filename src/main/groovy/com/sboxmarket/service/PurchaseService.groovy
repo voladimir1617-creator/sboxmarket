@@ -135,7 +135,8 @@ class PurchaseService {
                 notificationService.push(buyerUserId, 'ITEM_PURCHASED',
                     "Purchased ${listing.item.name}",
                     "Paid \$${listing.price.toPlainString()} from balance",
-                    listing.id)
+                    listing.id,
+                    '/profile')
                 // For P2P trades, the seller notification is sent by
                 // TradeService.open() as TRADE_REQUESTED — don't duplicate
                 // it here with a premature TRADE_VERIFIED.

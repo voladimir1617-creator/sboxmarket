@@ -100,7 +100,7 @@ class SupportService {
 
         notificationService?.push(userId, 'SUPPORT_REPLY',
             "Support opened · #${ticket.id}",
-            "A support agent has replied to your ticket", ticket.id)
+            "A support agent has replied to your ticket", ticket.id, '/support')
         ticket
     }
 
