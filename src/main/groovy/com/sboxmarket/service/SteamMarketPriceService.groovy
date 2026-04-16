@@ -72,8 +72,9 @@ class SteamMarketPriceService {
                 failed++
             }
 
-            // Throttle: 1.5s between requests to stay under Steam's rate limit
-            try { Thread.sleep(1500L) }
+            // Throttle: 3s between requests — Steam's priceoverview is
+            // stricter than documented, 1.5s triggers 429s after ~20 items.
+            try { Thread.sleep(3000L) }
             catch (InterruptedException ie) {
                 Thread.currentThread().interrupt()
                 break
@@ -100,8 +101,8 @@ class SteamMarketPriceService {
 
         int status = conn.responseCode
         if (status == 429) {
-            log.warn("Steam Market rate-limited (429) — backing off")
-            Thread.sleep(5000L)
+            log.warn("Steam Market rate-limited (429) — backing off 10s")
+            Thread.sleep(10000L)
             return null
         }
         if (status != 200) return null
