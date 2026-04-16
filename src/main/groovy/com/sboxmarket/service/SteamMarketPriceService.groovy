@@ -29,7 +29,11 @@ class SteamMarketPriceService {
 
     @Autowired ItemRepository itemRepository
 
-    @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 3L * 60L * 1000L)
+    // 10-min initial delay so a container restart doesn't immediately burn
+    // 5 × 30s of 429-backoff when the IP is still in Steam's cooldown window.
+    // The first sync is not urgent — prices from the previous cycle are still
+    // valid in the database.
+    @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 10L * 60L * 1000L)
     @Transactional
     void syncPricesFromSteam() {
         def items = itemRepository.findAll()
