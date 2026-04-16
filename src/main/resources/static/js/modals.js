@@ -820,17 +820,25 @@ function ProfileTradesTab({ me, privacy }) {
       ? trades.filter(t => !['VERIFIED','CANCELLED'].includes(t.state))
       : trades.filter(t => t.state === filter);
 
-  const onAccept  = async (id) => { setBusy(true); try { await tradeAccept(id);  await load(); } finally { setBusy(false); } };
-  const onSent    = async (id) => { setBusy(true); try { await tradeMarkSent(id); await load(); } finally { setBusy(false); } };
-  const onConfirm = async (id) => { setBusy(true); try { await tradeConfirm(id); await load(); } finally { setBusy(false); } };
+  const tradeOp = async (fn, ...args) => {
+    setBusy(true);
+    try {
+      const res = await fn(...args);
+      if (res && res.error) { alert(res.error); return; }
+      await load();
+    } finally { setBusy(false); }
+  };
+  const onAccept  = (id) => tradeOp(tradeAccept, id);
+  const onSent    = (id) => tradeOp(tradeMarkSent, id);
+  const onConfirm = (id) => tradeOp(tradeConfirm, id);
   const onDispute = async (id) => {
     const reason = prompt('Why are you disputing this trade?');
     if (!reason) return;
-    setBusy(true); try { await tradeDispute(id, reason); await load(); } finally { setBusy(false); }
+    tradeOp(tradeDispute, id, reason);
   };
   const onCancel  = async (id) => {
     if (!confirm('Cancel this trade? The buyer will be refunded.')) return;
-    setBusy(true); try { await tradeCancel(id, 'User cancelled'); await load(); } finally { setBusy(false); }
+    tradeOp(tradeCancel, id, 'User cancelled');
   };
 
   const STATE_LABEL = {
@@ -1166,7 +1174,8 @@ function ProfileSupportTab() {
     if (!form.subject.trim() || !form.body.trim()) return;
     setBusy(true);
     try {
-      await createSupportTicket(form);
+      const res = await createSupportTicket(form);
+      if (res && res.error) { alert(res.error); return; }
       setCreating(false);
       setForm({ subject: '', category: 'OTHER', body: '' });
       load();
@@ -1177,7 +1186,8 @@ function ProfileSupportTab() {
     if (!reply.trim() || !viewing?.ticket) return;
     setBusy(true);
     try {
-      await replySupportTicket(viewing.ticket.id, reply);
+      const res = await replySupportTicket(viewing.ticket.id, reply);
+      if (res && res.error) { alert(res.error); return; }
       setReply('');
       setViewing(await fetchSupportTicket(viewing.ticket.id));
     } finally { setBusy(false); }
@@ -1262,6 +1272,7 @@ function ProfileDevelopersTab() {
     setBusy(true);
     try {
       const res = await createApiKey(label || 'Untitled');
+      if (res && res.error) { alert(res.error); return; }
       setNewKey(res);
       setLabel('');
       load();
@@ -1270,7 +1281,8 @@ function ProfileDevelopersTab() {
 
   const revoke = async (id) => {
     if (!confirm('Revoke this API key? Applications using it will stop working immediately.')) return;
-    await revokeApiKey(id);
+    const res = await revokeApiKey(id);
+    if (res && res.error) { alert(res.error); return; }
     load();
   };
 
@@ -1556,7 +1568,8 @@ export function MyStallModal({ onClose, me, onRefresh }) {
 
   const doCancel = async (id) => {
     if (!confirm('Remove this listing?')) return;
-    await cancelListing(id);
+    const res = await cancelListing(id);
+    if (res && res.error) { alert(res.error); return; }
     load();
     onRefresh && onRefresh();
   };
@@ -1568,24 +1581,27 @@ export function MyStallModal({ onClose, me, onRefresh }) {
   };
 
   const saveEdit = async (id) => {
-    await updateStallListing(id, {
+    const res = await updateStallListing(id, {
       price: parseFloat(editPrice),
       description: editDesc
     });
+    if (res && res.error) { alert(res.error); return; }
     setEditing(null);
     load();
     onRefresh && onRefresh();
   };
 
   const toggleHidden = async (l) => {
-    await updateStallListing(l.id, { hidden: !l.hidden });
+    const res = await updateStallListing(l.id, { hidden: !l.hidden });
+    if (res && res.error) { alert(res.error); return; }
     load();
   };
 
   const toggleAway = async () => {
     const next = !away;
     setAway(next);
-    await setAwayMode(next);
+    const res = await setAwayMode(next);
+    if (res && res.error) { setAway(!next); alert(res.error); return; }
     load();
   };
 

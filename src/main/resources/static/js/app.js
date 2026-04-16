@@ -399,7 +399,9 @@ export function App() {
     if (cart.length === 0) return;
     const ids = cart.map(x => x.id);
     const res = await checkoutCart(ids);
-    if (res && res.results) {
+    if (res && res.error) {
+      showToast(res.error, 'err');
+    } else if (res && res.results) {
       const ok = res.successful || 0;
       const fail = res.failed || 0;
       showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
