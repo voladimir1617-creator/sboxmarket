@@ -96,7 +96,18 @@ class StripeService {
         def idemKey = "dep_${walletId}_${(amountCents)}_${System.currentTimeMillis().intdiv(60_000)}"
         def reqOpts = RequestOptions.builder().setIdempotencyKey(idemKey).build()
 
-        def session = Session.create(params, reqOpts)
+        // Stripe SDK throws checked StripeException. Groovy doesn't
+        // enforce checked exceptions at compile time, but Spring's CGLIB
+        // @Transactional proxy DOES — an undeclared checked exception
+        // gets wrapped in UndeclaredThrowableException → 500. Catch it
+        // here and rethrow as a runtime exception the proxy can pass.
+        def session
+        try {
+            session = Session.create(params, reqOpts)
+        } catch (Exception e) {
+            log.error("Stripe session creation failed for wallet $walletId: ${e.message}")
+            throw new IllegalStateException("Stripe checkout session could not be created — try again", e)
+        }
 
         def tx = new Transaction(
             walletId:        walletId,
