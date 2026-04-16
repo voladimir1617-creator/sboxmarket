@@ -85,32 +85,6 @@ class ListingService {
         saved
     }
 
-    @Transactional
-    Listing buyListing(Long listingId) {
-        def listing = getById(listingId)
-        if (listing.status != 'ACTIVE') {
-            throw new IllegalStateException("Listing is not active")
-        }
-        listing.status = 'SOLD'
-        listing.soldAt = System.currentTimeMillis()
-
-        def item = listing.item
-        item.totalSold++
-        itemRepository.save(item)
-
-        def saved = listingRepository.save(listing)
-        updateItemFloorPrice(item.id)
-        saved
-    }
-
-    @Transactional
-    void cancelListing(Long listingId) {
-        def listing = getById(listingId)
-        listing.status = 'CANCELLED'
-        listingRepository.save(listing)
-        updateItemFloorPrice(listing.item.id)
-    }
-
     List<Listing> findActiveBySeller(Long sellerUserId) {
         listingRepository.findActiveBySeller(sellerUserId)
     }

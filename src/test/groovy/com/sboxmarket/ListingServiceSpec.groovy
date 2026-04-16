@@ -170,58 +170,8 @@ class ListingServiceSpec extends Specification {
         1 * listingRepository.saveAll({ List<Listing> list -> list.size() == 2 })
     }
 
-    // ── buyListing ────────────────────────────────────────────────
-
-    def "buyListing marks listing SOLD and bumps item totalSold"() {
-        given:
-        def item = itemFor(1L, 'Wizard', 'Limited')
-        item.totalSold = 3
-        def listing = listingFor(item: item, status: 'ACTIVE')
-        listingRepository.findById(100L) >> Optional.of(listing)
-        listingRepository.save(_) >> { args -> args[0] }
-        listingRepository.findCheapestForItem(1L) >> []
-        itemRepository.findById(1L) >> Optional.of(item)
-        itemRepository.save(_) >> { args -> args[0] }
-
-        when:
-        def result = service.buyListing(100L)
-
-        then:
-        result.status == 'SOLD'
-        result.soldAt != null
-        item.totalSold == 4
-    }
-
-    def "buyListing refuses non-ACTIVE listings"() {
-        given:
-        listingRepository.findById(_) >> Optional.of(listingFor(status: 'SOLD'))
-
-        when:
-        service.buyListing(100L)
-
-        then:
-        thrown(IllegalStateException)
-    }
-
-    // ── cancelListing ─────────────────────────────────────────────
-
-    def "cancelListing marks CANCELLED and refreshes item floor"() {
-        given:
-        def item = itemFor(1L)
-        def listing = listingFor(item: item, status: 'ACTIVE')
-        listingRepository.findById(100L) >> Optional.of(listing)
-        listingRepository.save(_) >> { args -> args[0] }
-        listingRepository.findCheapestForItem(1L) >> []
-        itemRepository.findById(1L) >> Optional.of(item)
-        itemRepository.save(_) >> { args -> args[0] }
-
-        when:
-        service.cancelListing(100L)
-
-        then:
-        listing.status == 'CANCELLED'
-        item.lowestPrice == BigDecimal.ZERO  // no more active listings
-    }
+    // buyListing + cancelListing removed — both were dead code superseded
+    // by PurchaseService.buy and SellService.cancelListing respectively.
 
     // ── createListing ─────────────────────────────────────────────
 
