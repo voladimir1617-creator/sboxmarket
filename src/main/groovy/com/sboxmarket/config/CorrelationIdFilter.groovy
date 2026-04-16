@@ -97,6 +97,15 @@ class CorrelationIdFilter extends OncePerRequestFilter {
             resp.setHeader("Expires", "0")
         }
 
+        // Static assets — cache at the Cloudflare edge for 4 hours so
+        // EU users don't round-trip to the origin on every page load.
+        // JS/CSS/fonts/images are fingerprinted by content, so a 4-hour
+        // TTL is safe — a code deploy just changes the file content and
+        // Cloudflare fetches the new version on the next miss.
+        if (path != null && path.matches('.*\\.(js|css|woff2?|svg|png|ico|jpg|webp)$')) {
+            resp.setHeader("Cache-Control", "public, max-age=14400")
+        }
+
         try {
             chain.doFilter(req, resp)
         } finally {
