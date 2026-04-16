@@ -122,8 +122,8 @@ export function SiteFooter() {
         h('a', { href: paths.help() }, 'Help Center'),
         h('a', { href: paths.faq() }, 'FAQ'),
         h('a', { href: paths.support() }, 'Support'),
-        h('a', { href: '#' }, 'Fees & Pricing'),
-        h('a', { href: '#' }, 'API Docs')
+        h('a', { href: paths.faq() }, 'Fees & Pricing'),
+        h('a', { href: paths.settings() }, 'Settings')
       ),
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Legal'),
