@@ -1,5 +1,6 @@
 package com.sboxmarket.controller
 
+import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Review
 import com.sboxmarket.service.ReviewService
@@ -36,8 +37,18 @@ class ReviewController {
     @PostMapping
     ResponseEntity<Map> leaveReview(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
-        def tradeId = body?.tradeId == null ? null : (body.tradeId as Long)
-        def rating  = body?.rating  == null ? null : (body.rating as Integer)
+        Long tradeId
+        Integer rating
+        try {
+            tradeId = body?.tradeId == null ? null : Long.valueOf(body.tradeId.toString())
+        } catch (NumberFormatException ignored) {
+            throw new BadRequestException("INVALID_TRADE_ID", "tradeId must be a number")
+        }
+        try {
+            rating = body?.rating == null ? null : Integer.valueOf(body.rating.toString())
+        } catch (NumberFormatException ignored) {
+            throw new BadRequestException("INVALID_RATING", "rating must be a number (1-5)")
+        }
         def comment = body?.comment as String
         def review = reviewService.leaveReview(uid, tradeId, rating, comment)
         ResponseEntity.ok([
