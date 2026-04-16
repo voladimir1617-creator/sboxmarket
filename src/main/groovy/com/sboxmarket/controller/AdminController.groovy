@@ -239,7 +239,13 @@ class AdminController {
                                       @RequestBody(required = false) Map body,
                                       HttpServletRequest req) {
         requireAdmin(req)
-        def amount = body?.amount == null ? null : new BigDecimal(body.amount.toString())
+        BigDecimal amount = null
+        if (body?.amount != null) {
+            try { amount = new BigDecimal(body.amount.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
+            }
+        }
         ResponseEntity.ok(stripeService.refundDeposit(id, amount))
     }
 
@@ -249,7 +255,11 @@ class AdminController {
     ResponseEntity<Map> simulateListings(@RequestBody(required = false) Map body,
                                          HttpServletRequest req) {
         def uid = requireAdmin(req)
-        int count = (body?.count ?: 20) as int
+        int count
+        try { count = (body?.count ?: 20) as int }
+        catch (Exception ignored) { count = 20 }
+        if (count < 1) count = 1
+        if (count > 200) count = 200
         ResponseEntity.ok(adminSimulatorService.simulateListings(uid, count))
     }
 
