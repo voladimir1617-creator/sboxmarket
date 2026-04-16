@@ -105,6 +105,14 @@ export async function buyListing(id) {
   return writeJson(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
 }
 
+/** Fetch all listings for a specific item by its item ID.
+ *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
+ *  general /api/listings query which doesn't support itemId filtering. */
+export async function fetchListingsForItem(itemId) {
+  const data = await safeJson(`${API}/listings/item/${itemId}`);
+  return Array.isArray(data) ? data : [];
+}
+
 export async function fetchInventory() {
   const data = await safeJson(`${API}/listings/inventory`);
   return Array.isArray(data) ? data : [];

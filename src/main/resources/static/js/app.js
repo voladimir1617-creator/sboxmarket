@@ -2,7 +2,7 @@
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { h, React, useState, useEffect, useCallback, useMemo, fmt } from './utils.js';
 import {
-  fetchListings, fetchHistory, buyListing,
+  fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser
 } from './api.js';
@@ -628,7 +628,7 @@ export function App() {
     (async () => {
       try {
         const [itemListings, history] = await Promise.all([
-          fetchListings({ itemId: route.params.id }),
+          fetchListingsForItem(route.params.id),
           fetchHistory(route.params.id)
         ]);
         if (!alive) return;
@@ -824,6 +824,10 @@ export function App() {
                   : (me.displayName || 'U').substring(0, 2).toUpperCase()
               ),
               h('span', { className: 'user-chip-name' }, me.displayName || 'Player'),
+              menuOpen && h('div', {
+                className: 'user-menu-backdrop',
+                onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
+              }),
               menuOpen && h('div', { className: 'user-menu', onClick: e => e.stopPropagation() },
                 h('a', { className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18 }), 'Profile'),
                 h('div', { className: 'user-menu-divider' }),
