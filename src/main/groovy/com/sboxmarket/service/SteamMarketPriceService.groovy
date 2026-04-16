@@ -35,15 +35,25 @@ class SteamMarketPriceService {
         def items = itemRepository.findAll()
         if (items.isEmpty()) return
 
-        int updated = 0, failed = 0, skipped = 0
+        int updated = 0, failed = 0, skipped = 0, consecutive429s = 0
         log.info("Steam Market price sync starting — ${items.size()} items")
 
         for (def item : items) {
             if (!item.name) { skipped++; continue }
 
+            // Circuit breaker: if Steam has 429'd us 5 times in a row,
+            // stop this sync cycle entirely and wait for the next one.
+            // Continuing to loop just wastes 30s × N in sleep with no
+            // progress and fills the log with warnings.
+            if (consecutive429s >= 5) {
+                log.warn("Steam Market: 5 consecutive 429s — aborting sync, will retry next cycle")
+                break
+            }
+
             try {
                 def prices = fetchSteamPrice(item.name)
-                if (prices == null) { skipped++; continue }
+                if (prices == null) { consecutive429s++; skipped++; continue }
+                consecutive429s = 0  // successful fetch resets the counter
 
                 def lowestPrice = prices.lowest
                 def medianPrice = prices.median
