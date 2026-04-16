@@ -413,4 +413,106 @@ class PublicEndpointsHttpSpec extends Specification {
         then:
         r.response.status == 401
     }
+
+    // ── Stripe webhook rejects invalid signatures ─────────────────
+
+    def "POST /api/stripe/webhook rejects invalid signature with 400"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/stripe/webhook')
+                .contentType('application/json')
+                .content('{"type":"checkout.session.completed"}')
+                .header('Stripe-Signature', 'invalid_sig')
+        ).andReturn()
+
+        then:
+        // Stripe SDK throws SignatureVerificationException → SecurityException → 400
+        r.response.status == 400
+        r.response.contentAsString.contains('invalid signature')
+    }
+
+    def "POST /api/stripe/webhook rejects missing signature with 400"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/stripe/webhook')
+                .contentType('application/json')
+                .content('{"type":"checkout.session.completed"}')
+        ).andReturn()
+
+        then:
+        // No Stripe-Signature header → sig defaults to "" → verification fails → 400
+        r.response.status == 400
+    }
+
+    // ── Buy order + bid auth gates ────────────────────────────────
+
+    def "POST /api/buy-orders returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/buy-orders')
+                .contentType('application/json')
+                .content('{"itemId":1,"maxPrice":10,"quantity":1}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "POST /api/bids returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/bids')
+                .contentType('application/json')
+                .content('{"listingId":1,"amount":10}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    // ── API key auth gates ────────────────────────────────────────
+
+    def "GET /api/api-keys returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/api-keys')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "POST /api/api-keys returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/api-keys')
+                .contentType('application/json')
+                .content('{"label":"test"}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    // ── Loadout write operations require auth ─────────────────────
+
+    def "POST /api/loadouts returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(
+            MockMvcRequestBuilders.post('/api/loadouts')
+                .contentType('application/json')
+                .content('{"name":"My Set","visibility":"PUBLIC"}')
+        ).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    // ── Steam inventory requires auth ─────────────────────────────
+
+    def "GET /api/steam/inventory returns 401 without a session"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/steam/inventory')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
 }
