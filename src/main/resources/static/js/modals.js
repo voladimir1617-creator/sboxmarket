@@ -2052,25 +2052,36 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                 )
               ),
 
-              tab === 'withdraw' && h('div', { style: { marginTop: 16 } },
-                h('div', { className: 'wallet-input-label' }, 'Destination'),
-                h('input', {
-                  className: 'price-input',
-                  style: { width: '100%', padding: '12px 14px', fontSize: 13 },
-                  placeholder: 'acct_1ABC… · Stripe Connect account or payout notes',
-                  value: dest,
-                  onChange: e => setDest(e.target.value)
-                }),
-                h('div', { className: 'wallet-input-label', style: { marginTop: 14 } },
-                  'Two-factor code (only if you enabled 2FA)'),
-                h('input', {
-                  className: 'wallet-amount-input',
-                  type: 'text', inputMode: 'numeric', maxLength: 6,
-                  placeholder: '000000',
-                  value: totpCode,
-                  onChange: e => setTotpCode(e.target.value.replace(/\D/g, '')),
-                  style: { letterSpacing: '4px' }
-                })
+              tab === 'withdraw' && h('div', { className: 'withdraw-steps' },
+                h('div', { className: 'withdraw-step' },
+                  h('div', { className: 'withdraw-step-num' }, '2'),
+                  h('div', { className: 'withdraw-step-content' },
+                    h('div', { className: 'withdraw-step-title' }, 'Payout destination'),
+                    h('input', {
+                      className: 'wallet-amount-input',
+                      style: { marginTop: 8 },
+                      placeholder: 'Email, bank account, or Stripe Connect ID',
+                      value: dest,
+                      onChange: e => setDest(e.target.value)
+                    }),
+                    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 } },
+                      'Your payout will be processed within 1-2 business days.')
+                  )
+                ),
+                h('div', { className: 'withdraw-step' },
+                  h('div', { className: 'withdraw-step-num' }, '3'),
+                  h('div', { className: 'withdraw-step-content' },
+                    h('div', { className: 'withdraw-step-title' }, 'Security verification'),
+                    h('input', {
+                      className: 'wallet-amount-input',
+                      type: 'text', inputMode: 'numeric', maxLength: 6,
+                      placeholder: '6-digit 2FA code (if enabled)',
+                      value: totpCode,
+                      onChange: e => setTotpCode(e.target.value.replace(/\D/g, '')),
+                      style: { letterSpacing: '4px', marginTop: 8 }
+                    })
+                  )
+                )
               ),
 
               error && h('div', { className: 'wallet-error' }, error),
@@ -2078,15 +2089,16 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                 className: 'btn btn-accent wallet-submit',
                 disabled: busy || !amt,
                 onClick: submit
-              }, busy ? 'Processing…' : tab === 'deposit' ? (wallet.stripeLive ? 'Continue to Stripe →' : 'Deposit (dev mode)') : 'Request Withdrawal'),
-              h('div', { className: 'wallet-note' },
-                tab === 'deposit'
-                  ? (wallet.stripeLive
-                      ? 'You will be redirected to Stripe Checkout. The $0.30 Stripe fee is waived for deposits above $250.'
-                      : 'Dev mode: no Stripe keys configured — funds credited instantly for local testing.')
-                  : (wallet.stripeLive
-                      ? 'Payouts require a Stripe Connect destination. Withdrawals are PENDING until an admin approves them.'
-                      : 'Dev mode: balance debited immediately and withdrawal marked completed.')
+              }, busy ? 'Processing…' : tab === 'deposit' ? (wallet.stripeLive ? 'Continue to Stripe →' : 'Deposit (dev mode)') : `Withdraw ${amt > 0 ? fmt(withdrawNet) : ''}`),
+              tab === 'withdraw' && h('div', { className: 'wallet-note' },
+                h('span', null, 'You can only withdraw balance obtained through item sales. You have '),
+                h('strong', { style: { color: 'var(--accent)' } }, fmt(wallet.balance)),
+                h('span', null, ' in withdrawable balance.')
+              ),
+              tab === 'deposit' && h('div', { className: 'wallet-note' },
+                wallet.stripeLive
+                  ? 'You will be redirected to Stripe Checkout.'
+                  : 'Dev mode: no Stripe keys configured — funds credited instantly for local testing.'
               ),
               tab === 'deposit' && h('div', { className: 'wallet-stripe-row' },
                 h('a', {

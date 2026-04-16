@@ -748,7 +748,7 @@ export function App() {
   return h('div', {
     className: `site-root ${chatHidden ? 'chat-hidden' : ''} ${isFullPage ? 'full-page-mode' : ''}`
   },
-    h(ChatPanel, { hidden: chatHidden, onToggle: () => setChatHidden(v => !v), me }),
+    /* Chat removed — was placeholder with fake messages */
 
     /* NAV — full-width bar, aligned inner row clamped to content-max */
     h('nav', { className: 'nav' },

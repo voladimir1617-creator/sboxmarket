@@ -2310,6 +2310,20 @@
       font-weight: 800;
     }
 
+    .withdraw-steps { margin-top: 18px; display: flex; flex-direction: column; gap: 18px; }
+    .withdraw-step {
+      display: flex; gap: 14px; align-items: flex-start;
+    }
+    .withdraw-step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      color: var(--accent); font-weight: 800; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .withdraw-step-content { flex: 1; }
+    .withdraw-step-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+
     .wallet-submit {
       width: 100%;
       margin-top: 18px;
