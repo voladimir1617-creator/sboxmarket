@@ -72,12 +72,12 @@ class SteamMarketPriceService {
                 failed++
             }
 
-            // Throttle: 5s between requests. Steam's priceoverview
-            // rate limit is ~20 req/min. 3s worked alone but triggered
-            // 429s when concurrent Steam CDN traffic (k6, user browsing)
-            // added to the same IP's request budget. 5s = 12 req/min,
-            // well under the limit. 80 items = ~7 min per full sync.
-            try { Thread.sleep(5000L) }
+            // Throttle: 8s between requests. Steam's priceoverview
+            // enforces a hard per-IP limit. Previous values (1.5s, 3s,
+            // 5s) all triggered 429s under real traffic. 8s = ~7.5
+            // req/min, safely below the observed limit. 80 items =
+            // ~11 min per full sync, well within the 15-min cycle.
+            try { Thread.sleep(8000L) }
             catch (InterruptedException ie) {
                 Thread.currentThread().interrupt()
                 break
@@ -104,8 +104,8 @@ class SteamMarketPriceService {
 
         int status = conn.responseCode
         if (status == 429) {
-            log.warn("Steam Market rate-limited (429) — backing off 10s")
-            Thread.sleep(10000L)
+            log.warn("Steam Market rate-limited (429) — backing off 30s")
+            Thread.sleep(30000L)
             return null
         }
         if (status != 200) return null
