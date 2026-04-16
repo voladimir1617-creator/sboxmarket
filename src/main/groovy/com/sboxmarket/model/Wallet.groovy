@@ -1,6 +1,7 @@
 package com.sboxmarket.model
 
 import jakarta.persistence.*
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 @Entity
@@ -21,6 +22,7 @@ class Wallet {
      * debit never lands. Nullable in SQL + default 0 in Groovy so the
      * column is safe to backfill on existing rows.
      */
+    @JsonIgnore
     @Version
     @Column
     Integer version = 0

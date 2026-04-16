@@ -1,6 +1,7 @@
 package com.sboxmarket.model
 
 import jakarta.persistence.*
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 /**
@@ -45,6 +46,7 @@ class Trade {
      * the second commit fails with ObjectOptimisticLockingFailureException
      * and rolls back the duplicate credit.
      */
+    @JsonIgnore
     @Version
     @Column
     Integer version = 0
@@ -79,10 +81,12 @@ class Trade {
     String state = "PENDING_SELLER_ACCEPT"
 
     /** Buyer wallet id — we hold this so the cancel path can refund quickly. */
+    @JsonIgnore
     @Column
     Long buyerWalletId
 
     /** Seller wallet id — credited on VERIFIED. */
+    @JsonIgnore
     @Column
     Long sellerWalletId
 

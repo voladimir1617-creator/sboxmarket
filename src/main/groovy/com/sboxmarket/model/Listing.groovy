@@ -1,5 +1,6 @@
 package com.sboxmarket.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import jakarta.validation.constraints.*
 
@@ -24,6 +25,7 @@ class Listing {
      * Nullable in SQL + default 0 in Groovy so the column is safe to add to
      * existing rows under ddl-auto=update without a data backfill.
      */
+    @JsonIgnore
     @Version
     @Column
     Integer version = 0
