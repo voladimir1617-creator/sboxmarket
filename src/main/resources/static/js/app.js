@@ -8,7 +8,7 @@ import {
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
-import { ChatPanel } from './chat.js';
+// Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
   ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, TradesModal,
@@ -316,7 +316,7 @@ export function App() {
   const [signinOpen, setSigninOpen]     = useState(false);
 
   // layout
-  const [chatHidden, setChatHidden]     = useState(false);
+  const chatHidden = true; // chat removed
   const [heroTab, setHeroTab]           = useState('topDeals');
   const [feeInput, setFeeInput]         = useState('100');
 
