@@ -215,15 +215,14 @@ class SboxApiService {
     }
 
     /**
-     * Scheduled sync — runs on a 30-minute cadence. The first tick is
-     * delayed 2 minutes after startup so we don't fight the initial seed.
+     * DISABLED — operator requested SCMM removal. Item discovery now
+     * happens organically when users list from their Steam inventory.
+     * Prices come from SteamMarketPriceService. Supply data retained
+     * from the existing catalogue. The manual admin endpoint
+     * /api/admin/sync-scmm still works for one-off imports if needed.
      */
-    @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 2L * 60L * 1000L)
+    // @Scheduled — intentionally removed
     void scheduledSync() {
-        try {
-            syncFromScmm()
-        } catch (Exception e) {
-            log.error("Scheduled SCMM sync failed: ${e.message}")
-        }
+        log.info("SCMM scheduled sync is disabled — items are discovered via Steam inventory")
     }
 }
