@@ -28,3 +28,5 @@ Disallow: /buyorders
 Disallow: /watchlist
 Disallow: /notifications
 Disallow: /settings
+
+Sitemap: https://skinbox.market/sitemap.xml
