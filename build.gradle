@@ -1,0 +1,78 @@
+plugins {
+    id 'groovy'
+    id 'org.springframework.boot' version '3.2.3'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.sboxmarket'
+version = '1.0.0'
+sourceCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Groovy
+    implementation 'org.apache.groovy:groovy:4.0.18'
+    implementation 'org.apache.groovy:groovy-json:4.0.18'
+    implementation 'org.apache.groovy:groovy-xml:4.0.18'
+
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // JavaMail wrapper. Used by EmailService to send verification emails
+    // when SMTP_HOST is set; otherwise EmailService falls back to a
+    // log-only sink so local dev and CI never need an SMTP relay.
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // Database
+    runtimeOnly 'com.h2database:h2'
+    // Postgres runtime for the prod profile (no effect in dev)
+    runtimeOnly 'org.postgresql:postgresql'
+    // Flyway for prod schema migrations — runs at startup BEFORE JPA validates.
+    // flyway-core 9.22.x (managed by Spring Boot 3.2) supports Postgres out
+    // of the box without needing a separate flyway-database-postgresql module.
+    implementation 'org.flywaydb:flyway-core'
+
+    // Utils
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // Stripe
+    implementation 'com.stripe:stripe-java:24.16.0'
+
+    // Sentry — runtime error tracking + performance monitoring.
+    // Spring Boot auto-config picks up SENTRY_DSN from the environment;
+    // when unset, the SDK is a silent no-op so dev/CI aren't affected.
+    implementation 'io.sentry:sentry-spring-boot-starter-jakarta:7.6.0'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Spock 2.4-M6 restores @Autowired field injection into Groovy specs
+    // with Spring Boot 3.2 — the 2.3 line was silently leaving fields null
+    // under this exact JVM/Gradle/Groovy combination. The M-release is the
+    // latest on maven central as of 2026-04 and has been stable in CI for
+    // us through 2.3 → 2.4 upgrade testing.
+    testImplementation 'org.spockframework:spock-core:2.4-M6-groovy-4.0'
+    testImplementation 'org.spockframework:spock-spring:2.4-M6-groovy-4.0'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'short'
+    }
+}
+
+// Required so Spring can read @RequestParam / @PathVariable names from
+// compiled Groovy method parameters via reflection.
+tasks.withType(GroovyCompile).configureEach {
+    groovyOptions.parameters = true
+}
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-parameters'
+}

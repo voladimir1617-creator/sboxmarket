@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trade Safety — SkinBox</title>
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .legal-doc { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); line-height: 1.7; font-size: 15px; }
+    .legal-doc h1 { font-size: 32px; margin-bottom: 8px; }
+    .legal-doc .legal-meta { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+    .legal-doc h2 { font-size: 20px; margin: 32px 0 12px; color: var(--text-primary); }
+    .legal-doc p, .legal-doc li { color: var(--text-secondary); }
+    .legal-doc ul, .legal-doc ol { padding-left: 24px; margin-bottom: 16px; }
+    .legal-doc li { margin-bottom: 6px; }
+    .legal-doc strong { color: var(--text-primary); }
+    .legal-doc a { color: var(--accent); }
+    .legal-doc .callout {
+      background: rgba(30, 165, 255, 0.08);
+      border: 1px solid rgba(30, 165, 255, 0.35);
+      color: #bae6fd;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin: 24px 0;
+      font-size: 14px;
+    }
+    .legal-doc .callout strong { color: var(--accent); }
+    .legal-back { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+    .legal-back:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="legal-doc">
+    <a class="legal-back" href="/">← Back to SkinBox</a>
+    <h1>Trade Safety</h1>
+    <div class="legal-meta">Last updated: 14 April 2026 · Read this before you trade anything.</div>
+
+    <div class="callout">
+      <strong>SkinBox is not the custodian of your items.</strong> Skins live in Steam.
+      When you sell, Steam sends a trade offer from a SkinBox bot to your inventory.
+      You must accept that offer within the Steam confirmation window or the sale
+      fails. That's the only safe path. Any other path is a scam.
+    </div>
+
+    <h2>Never do any of these</h2>
+    <ul>
+      <li><strong>Never accept a trade offer from an account you do not recognize.</strong> Our bots have documented names listed on the <a href="/help">Help page</a>.</li>
+      <li><strong>Never paste your Steam password or Steam Guard code on a website that isn't steamcommunity.com.</strong> SkinBox uses Steam OpenID. You will be redirected to the real Steam login — check the URL bar.</li>
+      <li><strong>Never DM trade with another SkinBox user outside the platform.</strong> The entire value SkinBox provides is escrow and dispute resolution. Side deals bypass both and are the single biggest source of loss on peer-to-peer markets.</li>
+      <li><strong>Never send items to a "middle man".</strong> There is no such thing on SkinBox. Our bots take the items, Stripe holds the cash, both release simultaneously on trade confirmation.</li>
+      <li><strong>Never trust a "support agent" who DMs you on Discord, Steam, or Telegram.</strong> Our only support channel is <a href="mailto:support@skinbox.example">support@skinbox.example</a> and the in-app support form.</li>
+      <li><strong>Never install a browser extension that claims to inflate your SkinBox listings, auto-accept trades, or "boost" your earnings.</strong> These are keyloggers.</li>
+    </ul>
+
+    <h2>How to verify a trade offer is really from SkinBox</h2>
+    <ol>
+      <li>After you click "Sell" on SkinBox, wait for a trade offer that appears in your Steam mobile app or the Steam desktop client.</li>
+      <li>Click the trade offer and inspect the counterparty's profile. The SkinBox bot account will have: a Steam level we disclose on the <a href="/help">Help page</a>, a matching avatar, and a bio that includes your SkinBox order ID.</li>
+      <li>Verify that the items in the offer exactly match what you listed. If a single item is different — even if the name looks identical — <strong>decline the offer</strong> and contact support.</li>
+      <li>Accept the offer using Steam Guard Mobile Authenticator. Never accept via email confirmation alone.</li>
+    </ol>
+
+    <h2>What happens if a trade fails</h2>
+    <ul>
+      <li>If the offer expires before you accept it, your listing returns to the queue. No money moves. No loss.</li>
+      <li>If you accepted the offer but Steam put it on a 7-day trade hold, the cash in your wallet is also held for 7 days. After that it's released.</li>
+      <li>If the bot is hacked (we defend against this with mobile authenticator + per-bot spending limits), we cover any confirmed loss up to our published insurance cap. <strong>This is the only case in which SkinBox covers skin losses.</strong></li>
+    </ul>
+
+    <h2>Reporting a scam</h2>
+    <p>
+      Email <a href="mailto:abuse@skinbox.example">abuse@skinbox.example</a> with:
+    </p>
+    <ul>
+      <li>Your SkinBox username and the timestamp of the incident.</li>
+      <li>Screenshots of the scam (trade offer, DM, email, whatever).</li>
+      <li>The Steam profile URL of the scammer.</li>
+    </ul>
+    <p>
+      We triage within 24 hours and ban offending accounts from SkinBox. We also share
+      scammer data with other marketplaces in the community.
+    </p>
+
+    <h2>What SkinBox can't do</h2>
+    <p>
+      We can't reverse a Steam trade after the 7-day hold. We can't compensate you for
+      items you sent off-platform. We can't hunt down scammers in your jurisdiction.
+      The best defence is prevention — and that starts with reading this page.
+    </p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,72 @@
+# Systemd service for a non-container deployment.
+#
+# Install:
+#   sudo cp deploy/skinbox.service /etc/systemd/system/skinbox.service
+#   sudo useradd --system --home /opt/skinbox --shell /sbin/nologin skinbox
+#   sudo mkdir -p /opt/skinbox /var/log/skinbox /etc/skinbox
+#   sudo chown -R skinbox:skinbox /opt/skinbox /var/log/skinbox
+#   sudo cp build/libs/sboxmarket-1.0.0.jar /opt/skinbox/skinbox.jar
+#   sudo cp deploy/skinbox.env.example /etc/skinbox/skinbox.env
+#   # edit /etc/skinbox/skinbox.env with real secrets
+#   sudo chmod 600 /etc/skinbox/skinbox.env
+#   sudo systemctl daemon-reload && sudo systemctl enable --now skinbox
+#
+# Logs:
+#   journalctl -u skinbox -f
+#   tail -f /var/log/skinbox/skinbox.log
+
+[Unit]
+Description=SkinBox Marketplace
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=skinbox
+Group=skinbox
+WorkingDirectory=/opt/skinbox
+
+# All secrets live here; the file is chmod 600 and owned by the skinbox user.
+EnvironmentFile=/etc/skinbox/skinbox.env
+
+# Hardened exec — grant only the capabilities the JVM actually needs.
+ExecStart=/usr/bin/java \
+  -XX:+UseG1GC \
+  -XX:MaxRAMPercentage=75.0 \
+  -Djava.security.egd=file:/dev/./urandom \
+  -jar /opt/skinbox/skinbox.jar
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# Sandboxing — each line tightens what the process can see/do. Together
+# these reduce the blast radius of a JVM RCE to "read-only filesystem,
+# no /dev, no /proc peeking, no capabilities, no new namespaces". The
+# JVM still needs its own heap + PrivateTmp so `MemoryDenyWriteExecute`
+# stays off (it would block the JIT compiler).
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/skinbox /opt/skinbox/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+ProtectProc=invisible
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+MemoryDenyWriteExecute=false
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

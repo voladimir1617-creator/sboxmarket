@@ -1,0 +1,186 @@
+server:
+  port: ${SERVER_PORT:8080}
+  # Session cookie hardening — HttpOnly is always on, Secure + SameSite
+  # controlled by env so local HTTP dev still works.
+  servlet:
+    session:
+      timeout: 45m
+      cookie:
+        http-only: true
+        secure: ${COOKIE_SECURE:false}
+        same-site: ${COOKIE_SAME_SITE:lax}
+        name: SBOX_SESSION
+  # Gzip small JSON + static assets so we don't need Nginx for compression.
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/css,application/javascript,image/svg+xml
+    min-response-size: 1024
+
+# Cap request bodies to 2MB. The only JSON payloads we accept are small
+# objects (offers, bids, deposits, support messages) and a 50-item cart.
+# Anything larger is abuse. Without this ceiling a client could POST a
+# 100MB body and hold a Tomcat worker hostage until the OOM killer fires.
+spring.servlet.multipart:
+  max-file-size: 2MB
+  max-request-size: 2MB
+
+spring:
+  application:
+    name: sboxmarket
+
+  datasource:
+    # File-mode H2 — wallet balances, listings, transactions, offers all persist
+    # across server restarts. Swap to PostgreSQL in production via env vars below,
+    # e.g. SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/skinbox
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/sboxmarket;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;MODE=PostgreSQL}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+  jpa:
+    database-platform: ${SPRING_JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+    hibernate:
+      ddl-auto: ${SPRING_JPA_DDL:update}
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  # Flyway is enabled only in the prod profile. In dev we let JPA's
+  # ddl-auto: update handle schema evolution so developers don't have to
+  # hand-write a migration for every entity tweak.
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # ── Email (optional) ──────────────────────────────────────────
+  # When SMTP_HOST is set, EmailService switches from its log-sink
+  # fallback to real delivery via JavaMailSender. Works with any RFC-5321
+  # relay (Postmark / SES / Resend / Mailgun / Gmail app password). Leave
+  # unset for local dev and CI — tokens end up in the server log instead.
+  mail:
+    host:     ${SMTP_HOST:}
+    port:     ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS:true}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+  h2:
+    console:
+      # H2 console is OFF by default — even in local dev — because the
+      # endpoint takes no authentication and lets anyone run arbitrary SQL
+      # (including DROP TABLE) against the database AND leak the server's
+      # filesystem path. If a developer genuinely needs it, explicitly
+      # opt in by exporting H2_CONSOLE=true for that session only.
+      enabled: ${H2_CONSOLE:false}
+      path: /h2-console
+
+# Actuator — disabled completely. Setting `management.server.port=-1` tells
+# Spring Boot NOT to register the actuator servlet at all, so even the root
+# `/actuator` discovery endpoint (which previously leaked `{_links: {...}}`
+# to anonymous callers) returns 404. Developers who need actuator locally
+# can opt back in with ACTUATOR_PORT=8081 — a separate management port,
+# never the public one.
+management:
+  server:
+    port: ${ACTUATOR_PORT:-1}
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: ''
+  endpoint:
+    health:
+      show-details: never
+      enabled: false
+
+# Extra security toggles read by CorrelationIdFilter, CsrfFilter, and the
+# global exception handler.
+security:
+  # Set to `true` in production to enable HSTS (HTTP-over-TLS only).
+  hsts: ${SECURITY_HSTS:false}
+  # Comma-separated list of origins allowed to hit /api/**. Defaults to `*`
+  # for local dev but MUST be locked down in production.
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+  # CSRF filter — leave ON unless you are testing individual endpoints.
+  csrf-enabled: ${SECURITY_CSRF:true}
+  # When ON, the GlobalExceptionHandler echoes the request path and the raw
+  # exception message back to the client for easier debugging. OFF by default
+  # because "Listing not found: 99999999" is a free resource-enumeration hint.
+  # Developers can opt in with SECURITY_VERBOSE_ERRORS=true for a session.
+  verbose-errors: ${SECURITY_VERBOSE_ERRORS:false}
+
+# Swagger/OpenAPI — OFF by default. Flip SWAGGER_ENABLED=true only when you
+# need to generate a schema or debug a specific endpoint. The full OpenAPI
+# spec lists every parameter of every endpoint and is an attacker's
+# blueprint.
+springdoc:
+  api-docs:
+    path: /api-docs
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SWAGGER_ENABLED:false}
+    operationsSorter: method
+
+stripe:
+  secret-key:     ${STRIPE_SECRET_KEY:sk_test_replace_me}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY:pk_test_replace_me}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_replace_me}
+  success-url:    ${STRIPE_SUCCESS_URL:http://localhost:8080/?deposit=success}
+  cancel-url:     ${STRIPE_CANCEL_URL:http://localhost:8080/?deposit=cancel}
+  currency:       usd
+
+steam:
+  api-key:    ${STEAM_API_KEY:}
+  realm:      ${STEAM_REALM:http://localhost:8080/}
+  return-url: ${STEAM_RETURN_URL:http://localhost:8080/api/auth/steam/return}
+
+admin:
+  # Comma-separated list of Steam ID 64s that get auto-promoted to ADMIN on
+  # login. The default below bakes in the operator's Steam ID so they're
+  # admin automatically on first boot with no env-var setup. Override at
+  # deploy time by setting ADMIN_BOOTSTRAP_STEAM_IDS (comma-separated) to
+  # add more admins or swap the owner.
+  bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS:76561199839805014}
+
+csr:
+  # Maximum size of a single CSR goodwill credit, in USD. Anything above
+  # this requires a full admin to approve. Defaults to $25 per adjustment.
+  credit-cap: ${CSR_CREDIT_CAP:25.00}
+
+trade:
+  # Days a trade can sit in PENDING_BUYER_CONFIRM before the sweeper
+  # auto-releases funds to the seller. 8 days matches the Steam trade hold
+  # window. Shorten during incidents via TRADE_AUTO_RELEASE_DAYS=1.
+  auto-release-days: ${TRADE_AUTO_RELEASE_DAYS:8}
+
+# Outgoing-email settings read by EmailService.
+app:
+  email:
+    from:      ${EMAIL_FROM:no-reply@skinbox.local}
+    from-name: ${EMAIL_FROM_NAME:SkinBox}
+  public-url:  ${APP_PUBLIC_URL:http://localhost:8080}
+
+# Sentry — error tracking + performance. Set SENTRY_DSN in the environment
+# to enable. When unset the SDK is a silent no-op.
+sentry:
+  dsn: ${SENTRY_DSN:}
+  traces-sample-rate: 0.1
+  environment: ${SENTRY_ENV:development}
+  send-default-pii: false
+
+logging:
+  level:
+    com.sboxmarket: DEBUG
+    org.springframework.web: INFO

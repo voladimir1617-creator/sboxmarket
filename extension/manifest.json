@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "SkinBox Inventory Valuer",
+  "short_name": "SkinBox",
+  "version": "1.0.0",
+  "description": "Value your s&box Steam inventory in real time. Compares Steam Community Market prices against live SkinBox marketplace listings.",
+  "author": "SkinBox",
+  "homepage_url": "https://skinbox.example",
+
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://steamcommunity.com/*",
+    "https://*.steamcommunity.com/*",
+    "https://steamcommunity-a.akamaihd.net/*",
+    "http://localhost:8080/*",
+    "http://localhost:8090/*",
+    "https://skinbox.example/*",
+    "https://*.skinbox.example/*"
+  ],
+
+  "action": {
+    "default_title": "SkinBox Valuer",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://steamcommunity.com/id/*/inventory*",
+        "https://steamcommunity.com/profiles/*/inventory*",
+        "https://steamcommunity.com/my/inventory*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "skinbox-valuer@skinbox.example",
+      "strict_min_version": "109.0"
+    }
+  }
+}

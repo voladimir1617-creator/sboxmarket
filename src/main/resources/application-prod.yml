@@ -1,0 +1,120 @@
+###
+# Production profile — activate with SPRING_PROFILES_ACTIVE=prod
+#
+# This profile LOCKS DOWN everything the `default` profile leaves open for
+# developer convenience. Ship env vars for every secret; never commit real
+# keys.
+###
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        same-site: strict
+  # Tomcat tuning — pinch abusive clients without hurting legitimate users.
+  # `max-http-request-header-size` caps an entire cookie-loaded header to 16KB;
+  # a crafted client sending a 1MB Cookie line gets a 431 immediately instead
+  # of burning a worker thread. `max-swallow-size` puts a ceiling on how much
+  # Tomcat will read from an aborted request body. `connection-timeout` slices
+  # a Slowloris-style attack down to a predictable cap.
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 2MB
+    max-http-form-post-size: 2MB
+    connection-timeout: 10s
+    keep-alive-timeout: 15s
+    threads:
+      max: 200
+      min-spare: 20
+
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-migration-naming: true
+  datasource:
+    # Postgres-ready. Override at deploy time:
+    #   SPRING_DATASOURCE_URL=jdbc:postgresql://db.host:5432/skinbox
+    #   SPRING_DATASOURCE_DRIVER=org.postgresql.Driver
+    #   SPRING_DATASOURCE_USERNAME=skinbox
+    #   SPRING_DATASOURCE_PASSWORD=<env>
+    url:              ${SPRING_DATASOURCE_URL}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+    username:         ${SPRING_DATASOURCE_USERNAME}
+    password:         ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    database-platform: ${SPRING_JPA_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
+    hibernate:
+      # Never auto-mutate prod schemas. Use Flyway / Liquibase migrations.
+      ddl-auto: validate
+  h2:
+    console:
+      enabled: false
+
+# Actuator: disabled entirely in production. management.server.port=-1
+# tells Spring Boot not to register the actuator servlet — even /actuator
+# root returns 404. Ops can enable it on a private management port only
+# (e.g. ACTUATOR_PORT=9090) behind a firewall rule.
+management:
+  server:
+    port: ${ACTUATOR_PORT:-1}
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: ''
+  endpoint:
+    health:
+      show-details: never
+      enabled: false
+
+# Lock OpenAPI / Swagger off in prod by default. Flip SWAGGER_ENABLED=true
+# temporarily for incident debugging.
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+security:
+  hsts: true
+  csrf-enabled: true
+  verbose-errors: false
+  # CORS_ALLOWED_ORIGINS MUST be set explicitly — e.g.
+  #   CORS_ALLOWED_ORIGINS=https://skinbox.example
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+# Logging — log to files with rotation instead of stdout spam. Ops tooling
+# reads /var/log/skinbox/skinbox.log.
+logging:
+  level:
+    com.sboxmarket:        INFO
+    org.springframework:   WARN
+    org.hibernate:         WARN
+  file:
+    name: ${LOG_FILE:/var/log/skinbox/skinbox.log}
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${LOG_FILE:/var/log/skinbox/skinbox.log}.%d{yyyy-MM-dd}.%i.gz
+      max-file-size: 20MB
+      max-history: 30
+      total-size-cap: 2GB
+
+admin:
+  # Set ADMIN_BOOTSTRAP_STEAM_IDS in the environment to a comma-separated
+  # list of Steam ID64s that should get ADMIN role on login.
+  bootstrap-steam-ids: ${ADMIN_BOOTSTRAP_STEAM_IDS}
+
+stripe:
+  secret-key:      ${STRIPE_SECRET_KEY}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY}
+  webhook-secret:  ${STRIPE_WEBHOOK_SECRET}
+  success-url:     ${STRIPE_SUCCESS_URL}
+  cancel-url:      ${STRIPE_CANCEL_URL}
+
+steam:
+  api-key:    ${STEAM_API_KEY:}
+  realm:      ${STEAM_REALM}
+  return-url: ${STEAM_RETURN_URL}

@@ -1,0 +1,30 @@
+# Default: allow search engines to crawl the marketplace + catalog + legal bits
+# we actively surface.
+User-agent: *
+Allow: /$
+Allow: /css/
+Allow: /js/
+Allow: /img/
+Allow: /legal/terms.html
+Allow: /legal/trade-safety.html
+Allow: /legal/disclaimer.html
+Allow: /legal/acceptable-use.html
+Allow: /legal/cookies.html
+
+# Hide private / authenticated surfaces and the two legal docs we keep
+# reachable by URL but don't want indexed or linked from search results.
+Disallow: /legal/privacy.html
+Disallow: /legal/refunds.html
+Disallow: /api/
+Disallow: /admin
+Disallow: /csr
+Disallow: /profile
+Disallow: /wallet
+Disallow: /cart
+Disallow: /sell
+Disallow: /mystall
+Disallow: /offers
+Disallow: /buyorders
+Disallow: /watchlist
+Disallow: /notifications
+Disallow: /settings

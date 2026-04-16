@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SkinBox Valuer</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:       #070b18;
+    --bg-2:     #0a1020;
+    --card:     #101a2e;
+    --border:   #1b2542;
+    --accent:   #1ea5ff;
+    --accent-2: #4dc8ff;
+    --text:     #eaf1ff;
+    --muted:    #8b98b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    width: 300px;
+    margin: 0;
+    padding: 18px 18px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    background:
+      radial-gradient(400px 200px at 50% -60px, rgba(30, 165, 255, 0.14), transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 50% 20%, rgba(77, 200, 255, 0.24) 0%, transparent 65%),
+      linear-gradient(135deg, #1a2a4d 0%, #0a1428 100%);
+    border: 1px solid rgba(77, 200, 255, 0.38);
+    box-shadow: 0 0 20px rgba(30, 165, 255, 0.45), 0 3px 10px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    padding: 2px;
+    flex-shrink: 0;
+  }
+  .logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+  .wordmark {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(180deg, #ffffff 0%, #c8d4f0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .tagline {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  p { margin: 8px 0; color: var(--muted); }
+  p strong { color: var(--text); }
+  .steps {
+    margin: 10px 0;
+    padding-left: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .steps li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .steps li .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #051018;
+    font-weight: 800;
+    font-size: 11px;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .cta {
+    display: block;
+    margin-top: 14px;
+    padding: 12px;
+    background: linear-gradient(180deg, var(--accent-2) 0%, var(--accent) 100%);
+    color: #051018;
+    font-weight: 800;
+    text-decoration: none;
+    text-align: center;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 4px 14px rgba(30, 165, 255, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(30, 165, 255, 0.5);
+  }
+  .foot {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .foot a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <img src="icons/icon128.png" alt="SkinBox">
+    </div>
+    <div class="wordmark">
+      <h1>SkinBox Valuer</h1>
+      <div class="tagline">s&box Inventory · Live</div>
+    </div>
+  </div>
+
+  <p>Compares your s&amp;box Steam inventory against <strong>Steam Community Market</strong> prices and <strong>live SkinBox marketplace</strong> listings, side-by-side.</p>
+
+  <ul class="steps">
+    <li><span class="num">1</span>Open your Steam inventory page</li>
+    <li><span class="num">2</span>Wait for the floating panel to appear</li>
+    <li><span class="num">3</span>See where you'd get more for every item</li>
+  </ul>
+
+  <a class="cta" href="https://steamcommunity.com/my/inventory" target="_blank" rel="noopener">Open my inventory →</a>
+
+  <div class="foot">
+    <span>v1.0.0</span>
+    <a href="https://skinbox.example" target="_blank" rel="noopener">skinbox.example</a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+# Build
+build/
+.gradle/
+out/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+
+# Runtime data
+data/
+*.db
+*.mv.db
+*.trace.db
+logs/
+
+# Environment / secrets
+.env
+*.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node (if ever added)
+node_modules/
+
+# Docker
+docker-compose.override.yml
+
+# Claude memory (project-local, not committed)
+.claude/

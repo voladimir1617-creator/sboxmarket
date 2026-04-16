@@ -1,0 +1,26 @@
+# Gradle build output — the Dockerfile rebuilds inside a fresh container.
+build/
+.gradle/
+
+# IDE + editor
+.idea/
+.vscode/
+*.iml
+
+# Local database files — we never want the dev H2 state baked into an image.
+data/
+
+# Runtime logs
+logs/
+*.log
+
+# Memory from the AI assistant session
+.claude/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Env files (secrets never go into an image)
+.env
+.env.*

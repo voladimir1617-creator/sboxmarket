@@ -1,0 +1,43 @@
+server:
+  port: 0  # random port per test run
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:sboxmarket-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: false
+  h2:
+    console:
+      enabled: false
+
+stripe:
+  secret-key:     sk_test_replace_me
+  publishable-key: pk_test_replace_me
+  webhook-secret: whsec_replace_me
+  success-url:    http://localhost/?deposit=success
+  cancel-url:     http://localhost/?deposit=cancel
+  currency:       usd
+
+steam:
+  api-key: ""
+  realm:   http://localhost/
+  return-url: http://localhost/api/auth/steam/return
+
+# CSRF filter off in tests — the integration specs drive the app via
+# MockMvc which can't round-trip a browser cookie, and CSRF behaviour is
+# covered separately by dedicated unit tests over CsrfFilter itself.
+security:
+  csrf-enabled: false
+  verbose-errors: true
+  cors-allowed-origins: "*"
+
+logging:
+  level:
+    com.sboxmarket: INFO
