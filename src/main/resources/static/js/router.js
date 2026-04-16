@@ -15,6 +15,7 @@ import { React, useState, useEffect } from './utils.js';
 
 const ROUTES = [
   { name: 'market',        pattern: /^\/?$/                                         },
+  { name: 'market',        pattern: /^\/market\/?$/                                 },
   { name: 'market',        pattern: /^\/search\/?$/                                 },
   { name: 'cart',          pattern: /^\/cart\/?$/                                   },
   { name: 'database',      pattern: /^\/db\/?$/                                     },
