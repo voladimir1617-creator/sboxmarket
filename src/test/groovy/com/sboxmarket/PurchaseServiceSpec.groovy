@@ -197,6 +197,37 @@ class PurchaseServiceSpec extends Specification {
         0 * txRepo.save({ it.type == 'SALE' })
     }
 
+    // ── Trade creation failure rolls back the whole buy (bug #75) ──
+
+    def "buy rolls back when TradeService.open fails on a P2P listing (bug #75)"() {
+        given: "a P2P listing where trade creation will fail"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("200.00"), currency: 'USD')
+        def seller = new SteamUser(id: 2L, steamId64: '222')
+        def sellerWallet = new Wallet(id: 500L, username: 'steam_222', balance: new BigDecimal("0.00"))
+        def listing = new Listing(
+            id: 5L,
+            item: new Item(id: 10L, name: 'Wizard Hat'),
+            price: new BigDecimal("100.00"),
+            status: 'ACTIVE',
+            sellerUserId: 2L
+        )
+        def tradeService = Mock(TradeService)
+        service.tradeService = tradeService
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(2L) >> Optional.of(seller)
+        walletRepo.findByUsername('steam_222') >> sellerWallet
+        // TradeService.open() throws — the buy must NOT complete
+        tradeService.open(_, _, _, _, _, _, _, _) >> { throw new RuntimeException("DB error") }
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        // Exception propagates — @Transactional rolls everything back
+        thrown(RuntimeException)
+    }
+
     // ── AUCTION guard (bug #29) ───────────────────────────────────
 
     def "buy refuses to bypass an AUCTION via the BUY_NOW path"() {

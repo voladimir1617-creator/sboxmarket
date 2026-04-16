@@ -103,22 +103,22 @@ class PurchaseService {
         // For system listings (sellerUserId == null), there's no
         // counterparty to trade with, so no escrow is needed.
         if (listing.sellerUserId != null) {
+            // P2P escrow is CRITICAL — without the Trade row, the buyer
+            // has no way to confirm receipt, dispute, or get a refund.
+            // If this fails, the entire transaction must roll back so the
+            // buyer isn't debited for a trade that doesn't exist.
             def sellerUser = steamUserRepository?.findById(listing.sellerUserId)?.orElse(null)
             def sellerWallet = sellerUser ? walletRepository.findByUsername("steam_${sellerUser.steamId64}") : null
-            try {
-                tradeService?.open(
-                    listing.id,
-                    listing.item?.id,
-                    listing.item?.name,
-                    buyerUserId,
-                    buyerWalletId,
-                    listing.sellerUserId,
-                    sellerWallet?.id,
-                    listing.price
-                )
-            } catch (Exception e) {
-                log.warn("Trade record creation failed for listing ${listing.id}: ${e.message}")
-            }
+            tradeService?.open(
+                listing.id,
+                listing.item?.id,
+                listing.item?.name,
+                buyerUserId,
+                buyerWalletId,
+                listing.sellerUserId,
+                sellerWallet?.id,
+                listing.price
+            )
         }
 
         // Append-only audit trail — fires after the transaction is persisted
@@ -136,12 +136,9 @@ class PurchaseService {
                     "Purchased ${listing.item.name}",
                     "Paid \$${listing.price.toPlainString()} from balance",
                     listing.id)
-                if (listing.sellerUserId != null) {
-                    notificationService.push(listing.sellerUserId, 'TRADE_VERIFIED',
-                        "Sold ${listing.item.name}",
-                        "Buyer paid \$${listing.price.toPlainString()}",
-                        listing.id)
-                }
+                // For P2P trades, the seller notification is sent by
+                // TradeService.open() as TRADE_REQUESTED — don't duplicate
+                // it here with a premature TRADE_VERIFIED.
             } catch (Exception e) {
                 log.warn("notification fire failed: ${e.message}")
             }
