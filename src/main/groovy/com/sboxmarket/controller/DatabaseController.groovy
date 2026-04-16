@@ -41,6 +41,10 @@ class DatabaseController {
         // Cap user-controlled free-text so a 100kB `q=AAAA…` payload can't
         // burn a full-table scan. Category and rarity are enum-ish so a
         // long string means "attacker probing".
+        // Strip null bytes — Postgres rejects 0x00 in UTF-8 strings.
+        if (q != null)        q = q.replace('\u0000', '')
+        if (category != null) category = category.replace('\u0000', '')
+        if (rarity != null)   rarity = rarity.replace('\u0000', '')
         if (q != null && q.length() > 100) q = q.substring(0, 100)
         if (category != null && category.length() > 40) category = 'All'
         if (rarity   != null && rarity.length()   > 40) rarity   = 'All'

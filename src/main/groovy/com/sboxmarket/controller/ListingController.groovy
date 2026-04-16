@@ -63,9 +63,15 @@ class ListingController {
         // LIKE scan. Whitelist sort / category / rarity so a crafted value
         // can't smuggle past the service-layer switch.
         if (search != null) {
+            // Strip null bytes — Postgres rejects 0x00 in UTF-8 strings
+            // with "invalid byte sequence for encoding UTF8". A crafted
+            // `?search=%00` from a scanner triggers a 500 without this.
+            search = search.replace('\u0000', '')
             if (search.length() > 100) search = search.substring(0, 100)
         }
         if (sort != null && !(sort in ['price_asc','price_desc','newest','rarity'])) sort = 'price_asc'
+        if (category != null) category = category.replace('\u0000', '')
+        if (rarity   != null) rarity   = rarity.replace('\u0000', '')
         if (category != null && category.length() > 40) category = 'All'
         if (rarity   != null && rarity.length()   > 40) rarity   = 'All'
 
