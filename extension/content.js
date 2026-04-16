@@ -24,7 +24,7 @@
   const SKINBOX_ORIGINS = [
     'http://localhost:8080',
     'http://localhost:8090',
-    'https://skinbox.example'
+    'https://skinbox.market'
   ];
 
   // ── State ────────────────────────────────────────────────────

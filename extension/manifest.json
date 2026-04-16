@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "description": "Value your s&box Steam inventory in real time. Compares Steam Community Market prices against live SkinBox marketplace listings.",
   "author": "SkinBox",
-  "homepage_url": "https://skinbox.example",
+  "homepage_url": "https://skinbox.market",
 
   "permissions": ["storage"],
   "host_permissions": [
@@ -14,8 +14,8 @@
     "https://steamcommunity-a.akamaihd.net/*",
     "http://localhost:8080/*",
     "http://localhost:8090/*",
-    "https://skinbox.example/*",
-    "https://*.skinbox.example/*"
+    "https://skinbox.market/*",
+    "https://*.skinbox.market/*"
   ],
 
   "action": {
@@ -50,7 +50,7 @@
 
   "browser_specific_settings": {
     "gecko": {
-      "id": "skinbox-valuer@skinbox.example",
+      "id": "skinbox-valuer@skinbox.market",
       "strict_min_version": "109.0"
     }
   }
