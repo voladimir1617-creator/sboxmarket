@@ -983,21 +983,6 @@ export function App() {
       ))
     ),
 
-    /* RECENT SALES TICKER */
-    recentSales.length > 0 && h('section', { className: 'ticker-section' },
-      h('div', { className: 'ticker' },
-        h('div', { className: 'ticker-label' }, 'LIVE SALES'),
-        h('div', { className: 'ticker-track' },
-          [...recentSales, ...recentSales].map((s, i) => h('div', { key: i, className: 'ticker-item' },
-            h('div', { className: 'ticker-thumb' }, h(ItemImage, { item: s.listing.item, variant: 'thumb' })),
-            h('span', { className: 'ticker-name' }, s.listing.item.name),
-            h('span', { className: 'ticker-price' }, fmt(s.listing.price)),
-            h('span', { className: 'ticker-time' }, s.time)
-          ))
-        )
-      )
-    ),
-
     /* TRENDING */
     trending.length > 0 && h('section', { className: 'trending' },
       h('div', { className: 'section-header' },
@@ -1204,6 +1189,21 @@ export function App() {
                     )
                   )
                 )
+      )
+    ),
+
+    /* RECENT SALES TICKER — below the marketplace grid */
+    recentSales.length > 0 && h('section', { className: 'ticker-section' },
+      h('div', { className: 'ticker' },
+        h('div', { className: 'ticker-label' }, 'LIVE SALES'),
+        h('div', { className: 'ticker-track' },
+          [...recentSales, ...recentSales].map((s, i) => h('div', { key: i, className: 'ticker-item' },
+            h('div', { className: 'ticker-thumb' }, h(ItemImage, { item: s.listing.item, variant: 'thumb' })),
+            h('span', { className: 'ticker-name' }, s.listing.item.name),
+            h('span', { className: 'ticker-price' }, fmt(s.listing.price)),
+            h('span', { className: 'ticker-time' }, s.time)
+          ))
+        )
       )
     ),
 
