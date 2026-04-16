@@ -193,8 +193,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         )
       ),
 
-      offerOpen && h('div', { style: { padding: '0 30px 14px' } },
-        h('div', { className: 'wallet-input-label' }, 'Make an offer (must be below floor)'),
+      false && h('div', { style: { padding: '0 30px 14px' } },
+        h('div', { className: 'wallet-input-label' }, 'Make an offer (must be below floor) [moved below]'),
         h('div', { style: { display: 'flex', gap: 10 } },
           h('input', {
             className: 'wallet-amount-input',
@@ -255,6 +255,38 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           cartHas && cartHas(listings[0].id) ? ' In Cart' : ' Add to Cart'),
         h(SteamMarketLink, { item }),
         h('button', { className: 'btn btn-ghost btn-wishlist', style: { border: '1px solid var(--border)' } }, '♡')
+      ),
+
+      offerOpen && h('div', { style: { padding: '14px 30px', background: 'var(--bg-secondary)', borderRadius: 8, margin: '10px 30px' } },
+        h('div', { className: 'wallet-input-label', style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' } }, 'Your offer (must be below asking price)'),
+        h('div', { style: { display: 'flex', gap: 10 } },
+          h('input', {
+            className: 'wallet-amount-input',
+            type: 'number', min: '0.01', step: '0.01',
+            placeholder: (parseFloat(item.lowestPrice) * 0.85).toFixed(2),
+            value: offerAmt,
+            onChange: e => setOfferAmt(e.target.value),
+            style: { flex: 1 },
+            autoFocus: true
+          }),
+          h('button', {
+            className: 'btn btn-accent',
+            style: { padding: '0 22px', fontSize: 13 },
+            disabled: offerBusy || !offerAmt,
+            onClick: async () => {
+              setOfferErr('');
+              setOfferBusy(true);
+              try {
+                const res = await onMakeOffer(listings[0]?.id, parseFloat(offerAmt));
+                if (res && res.error) { setOfferErr(res.message || res.error); return; }
+                setOfferOpen(false);
+                setOfferAmt('');
+                onClose();
+              } finally { setOfferBusy(false); }
+            }
+          }, offerBusy ? '...' : 'Send Offer')
+        ),
+        offerErr && h('div', { style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
       )
     )
   );
