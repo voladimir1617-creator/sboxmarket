@@ -163,6 +163,12 @@ class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private static String clientIp(HttpServletRequest req) {
+        // Prefer Cloudflare's CF-Connecting-IP — it's a single IP that
+        // Cloudflare sets from the TCP peer, not spoofable by the client.
+        // Fall back to X-Forwarded-For (first entry) for non-Cloudflare
+        // deployments, then to the direct remoteAddr.
+        def cf = req.getHeader('CF-Connecting-IP')
+        if (cf) return cf.trim()
         def xff = req.getHeader('X-Forwarded-For')
         if (xff) return xff.split(',')[0].trim()
         req.remoteAddr
