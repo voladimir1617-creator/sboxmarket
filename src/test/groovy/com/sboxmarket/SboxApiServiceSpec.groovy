@@ -106,7 +106,9 @@ class SboxApiServiceSpec extends Specification {
         then:
         result.created == 0
         result.updated == 1
-        existing.lowestPrice == new BigDecimal("5.00")  // bumped from the new row
+        // SCMM no longer overwrites lowestPrice — that comes from
+        // SteamMarketPriceService. SCMM only updates metadata.
+        existing.lowestPrice == new BigDecimal("3.00")  // unchanged — prices come from Steam now
     }
 
     def "syncFromScmm is case-insensitive on the name key"() {

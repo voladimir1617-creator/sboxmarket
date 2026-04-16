@@ -179,9 +179,13 @@ class SboxApiService {
                 existing.accentColor = accent
                 existing.supply      = supply ?: existing.supply
                 existing.totalSold   = totalSold ?: existing.totalSold
-                existing.lowestPrice = price
+                // DO NOT overwrite lowestPrice or trendPercent — those
+                // come from SteamMarketPriceService which fetches
+                // directly from Steam's priceoverview endpoint. SCMM
+                // prices are their own marketplace prices, not Steam's.
+                // Only set steamPrice as a reference point for the
+                // "Steam price" label on item cards.
                 existing.steamPrice  = steamPrice
-                existing.trendPercent = trendInt
                 itemRepository.save(existing)
                 updated++
             } else {
