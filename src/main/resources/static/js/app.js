@@ -858,7 +858,7 @@ export function App() {
             )
           : h('button', {
               className: 'steam-btn',
-              onClick: () => setSigninOpen(true),
+              onClick: () => { window.location.href = '/api/auth/steam/login'; },
               type: 'button'
             },
               h('div', { className: 'steam-btn-icon' },
@@ -883,21 +883,6 @@ export function App() {
       )
       )
     ),
-
-    /* Pre-signin modal — collects ToS agreement + email before redirecting
-       to Steam OpenID. Email is stored in localStorage so the app can fire
-       a verification token as soon as the user lands back from Steam. */
-    signinOpen && h(PreSigninModal, {
-      onClose: () => setSigninOpen(false),
-      onAccept: (email, marketing) => {
-        // Remember the email for post-Steam-return verification flow.
-        try { localStorage.setItem('sb_pending_email', email); } catch {}
-        try { localStorage.setItem('sb_marketing_opt_in', marketing ? '1' : '0'); } catch {}
-        try { localStorage.setItem('sb_tos_accepted', String(Date.now())); } catch {}
-        // Redirect to Steam OpenID — existing backend flow.
-        window.location.href = '/api/auth/steam/login';
-      }
-    }),
 
     /* HERO — single-row banner. Signed-in users just see the welcome +
        action buttons; signed-out users also get the marketing tagline.
