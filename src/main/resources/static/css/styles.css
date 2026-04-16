@@ -2834,6 +2834,8 @@
       color: var(--text-muted);
       line-height: 1.55;
       max-width: 640px;
+      min-width: 0;
+      word-wrap: break-word;
     }
 
     @media (max-width: 960px) {
