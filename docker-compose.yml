@@ -47,6 +47,11 @@ services:
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://skinbox.market}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENV: ${SENTRY_ENV:-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      SECURITY_HSTS: ${SECURITY_HSTS:-true}
+      SECURITY_CSRF: ${SECURITY_CSRF:-true}
+      TRADE_AUTO_RELEASE_DAYS: ${TRADE_AUTO_RELEASE_DAYS:-8}
     restart: unless-stopped
 
 volumes:
