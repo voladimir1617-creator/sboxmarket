@@ -2284,6 +2284,7 @@
       cursor: pointer;
     }
     .wallet-quick-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-border); }
+    .wallet-quick-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     .wallet-fee-breakdown {
       margin-top: 18px;
@@ -2520,7 +2521,7 @@
 
     .profile-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 14px;
     }
     .profile-stat {

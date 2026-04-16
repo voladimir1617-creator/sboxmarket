@@ -2020,19 +2020,30 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                   })
             )
           : h('div', null,
-              h('div', { className: 'wallet-input-label' },
-                tab === 'deposit' ? 'Amount to Deposit (USD)' : 'Amount to Withdraw (USD)'),
-              h('input', {
-                className: 'wallet-amount-input',
-                type: 'number', min: '0', max: '10000', step: '0.01',
-                placeholder: '0.00',
-                value: amount,
-                onChange: e => setAmount(e.target.value),
-                'aria-label': tab === 'deposit' ? 'Deposit amount' : 'Withdrawal amount'
-              }),
-              h('div', { className: 'wallet-quick' },
-                presets.map(a =>
-                  h('button', { key: a, className: 'wallet-quick-btn', onClick: () => setAmount(String(a)) }, '$' + a)
+              h('div', { className: 'withdraw-step', style: { marginBottom: 8 } },
+                h('div', { className: 'withdraw-step-num' }, '1'),
+                h('div', { className: 'withdraw-step-content' },
+                  h('div', { className: 'withdraw-step-title' },
+                    tab === 'deposit' ? 'Enter an amount' : 'Enter withdrawal amount'),
+                  h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 } },
+                    h('span', { style: { fontSize: 20, fontWeight: 700, color: 'var(--text-muted)' } }, '$'),
+                    h('input', {
+                      className: 'wallet-amount-input',
+                      style: { flex: 1, fontSize: 18, fontWeight: 700 },
+                      type: 'number', min: '0', max: '10000', step: '0.01',
+                      placeholder: '0.00',
+                      value: amount,
+                      onChange: e => setAmount(e.target.value),
+                      'aria-label': tab === 'deposit' ? 'Deposit amount' : 'Withdrawal amount'
+                    })
+                  ),
+                  h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 } },
+                    'Or select a suggested amount'),
+                  h('div', { className: 'wallet-quick' },
+                    presets.map(a =>
+                      h('button', { key: a, className: `wallet-quick-btn ${String(a) === amount ? 'active' : ''}`, onClick: () => setAmount(String(a)) }, '$' + a)
+                    )
+                  )
                 )
               ),
 
