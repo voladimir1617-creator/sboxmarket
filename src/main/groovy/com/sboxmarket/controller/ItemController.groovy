@@ -27,6 +27,10 @@ class ItemController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice
     ) {
+        if (q != null) q = q.replace('\u0000', '')
+        if (category != null) category = category.replace('\u0000', '')
+        if (rarity != null) rarity = rarity.replace('\u0000', '')
+        if (q != null && q.length() > 100) q = q.substring(0, 100)
         def items = itemService.search(q, category, rarity, sort, minPrice, maxPrice)
         ResponseEntity.ok(items)
     }

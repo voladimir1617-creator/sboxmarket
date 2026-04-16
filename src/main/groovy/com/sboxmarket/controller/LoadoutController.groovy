@@ -28,6 +28,8 @@ class LoadoutController {
 
     @GetMapping("/discover")
     ResponseEntity<List<Loadout>> discover(@RequestParam(required = false) String search) {
+        if (search != null) search = search.replace('\u0000', '')
+        if (search != null && search.length() > 100) search = search.substring(0, 100)
         ResponseEntity.ok(loadoutService.listPublic(search))
     }
 
