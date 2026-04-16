@@ -11,7 +11,14 @@ server:
     session:
       cookie:
         secure: true
-        same-site: strict
+        # Lax, not Strict — Steam OpenID and Stripe Checkout both
+        # redirect the browser back to skinbox.market from their
+        # domains. SameSite=Strict blocks the session cookie on those
+        # cross-site top-level navigations, causing the session to
+        # appear lost after login/deposit. Lax sends cookies on
+        # top-level GETs (redirects) but not on cross-site POSTs,
+        # which is the correct balance for OAuth/OpenID flows.
+        same-site: lax
   # Tomcat tuning — pinch abusive clients without hurting legitimate users.
   # `max-http-request-header-size` caps an entire cookie-loaded header to 16KB;
   # a crafted client sending a 1MB Cookie line gets a 431 immediately instead
