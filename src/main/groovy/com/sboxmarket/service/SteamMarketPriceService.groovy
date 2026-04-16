@@ -25,7 +25,12 @@ import org.springframework.transaction.annotation.Transactional
 class SteamMarketPriceService {
 
     static final String SBOX_APP_ID = '590830'
-    static final long SYNC_INTERVAL_MS = 15L * 60L * 1000L
+    // 30 minutes between sync cycles. Previous value (15 min) caused too-frequent
+    // retries during Steam IP bans — each 429 retry resets Steam's cooldown timer,
+    // extending the ban indefinitely. 30 min gives Steam enough breathing room
+    // while still keeping prices reasonably fresh. 80 items × 8s = ~11 min per
+    // full sync, well within the 30-min window.
+    static final long SYNC_INTERVAL_MS = 30L * 60L * 1000L
 
     @Autowired ItemRepository itemRepository
 

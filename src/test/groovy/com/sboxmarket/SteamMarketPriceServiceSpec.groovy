@@ -72,9 +72,9 @@ class SteamMarketPriceServiceSpec extends Specification {
         SteamMarketPriceService.SBOX_APP_ID == '590830'
     }
 
-    def "sync interval is 15 minutes"() {
+    def "sync interval is 30 minutes"() {
         expect:
-        SteamMarketPriceService.SYNC_INTERVAL_MS == 15L * 60L * 1000L
+        SteamMarketPriceService.SYNC_INTERVAL_MS == 30L * 60L * 1000L
     }
 
     // ── Helper to invoke the private method ─────────────────────
