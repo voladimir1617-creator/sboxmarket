@@ -72,9 +72,12 @@ class SteamMarketPriceService {
                 failed++
             }
 
-            // Throttle: 3s between requests — Steam's priceoverview is
-            // stricter than documented, 1.5s triggers 429s after ~20 items.
-            try { Thread.sleep(3000L) }
+            // Throttle: 5s between requests. Steam's priceoverview
+            // rate limit is ~20 req/min. 3s worked alone but triggered
+            // 429s when concurrent Steam CDN traffic (k6, user browsing)
+            // added to the same IP's request budget. 5s = 12 req/min,
+            // well under the limit. 80 items = ~7 min per full sync.
+            try { Thread.sleep(5000L) }
             catch (InterruptedException ie) {
                 Thread.currentThread().interrupt()
                 break
