@@ -65,6 +65,8 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         resp.setHeader("X-Frame-Options", "DENY")
         resp.setHeader("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        resp.setHeader("Cross-Origin-Opener-Policy", "same-origin")
+        resp.setHeader("Cross-Origin-Resource-Policy", "same-origin")
         resp.setHeader("Content-Security-Policy", CSP_HEADER)
         if (enableHsts) {
             resp.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")

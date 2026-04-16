@@ -74,6 +74,8 @@ class CorrelationIdFilterSpec extends Specification {
         resp.getHeader('X-Frame-Options') == 'DENY'
         resp.getHeader('Referrer-Policy') == 'strict-origin-when-cross-origin'
         resp.getHeader('Permissions-Policy')?.contains('geolocation=()')
+        resp.getHeader('Cross-Origin-Opener-Policy') == 'same-origin'
+        resp.getHeader('Cross-Origin-Resource-Policy') == 'same-origin'
         def csp = resp.getHeader('Content-Security-Policy')
         csp?.contains("default-src 'self'")
         // img-src must include api.qrserver.com so the 2FA enrollment QR
