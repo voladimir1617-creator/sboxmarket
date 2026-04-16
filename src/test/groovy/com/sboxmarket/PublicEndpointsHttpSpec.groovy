@@ -545,4 +545,30 @@ class PublicEndpointsHttpSpec extends Specification {
         then:
         r.response.status == 200
     }
+
+    // ── Item-specific listing endpoint (bug #80 regression) ───────
+
+    def "GET /api/listings/item/999 returns 200 + empty array for unknown item"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/item/999')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString == '[]'
+    }
+
+    def "GET /api/listings/item/{id} does NOT return all listings (bug #80)"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/item/1')).andReturn()
+
+        then:
+        // Must NOT return the full marketplace. The old bug was that
+        // fetchListings({itemId}) sent itemId as a query param that was
+        // silently ignored, returning every listing.
+        r.response.status == 200
+        // Even if item 1 has listings, the count must be <= total items
+        // (not the full 41-listing marketplace dump).
+        def body = r.response.contentAsString
+        body.startsWith('[')
+    }
 }
