@@ -461,6 +461,29 @@ export function App() {
   }, []);
   useEffect(() => { loadMe(); }, [loadMe]);
 
+  // Session heartbeat — checks /api/auth/steam/me every 5 minutes.
+  // If the backend session has expired (45-min timeout), clear the
+  // frontend auth state so the user sees "Sign in" instead of ghost
+  // 401 errors on every action. Shows a toast on expiry.
+  useEffect(() => {
+    if (!meLoaded) return;
+    const interval = setInterval(async () => {
+      if (!me) return;
+      const fresh = await fetchMe();
+      if (!fresh) {
+        setMe(null);
+        setIsAdmin(false);
+        setIsCsrRole(false);
+        // Show a non-blocking notification instead of silent 401s
+        try {
+          const ev = new CustomEvent('sbx-toast', { detail: { text: 'Session expired — please sign in again', kind: 'warn' } });
+          window.dispatchEvent(ev);
+        } catch {}
+      }
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [me, meLoaded]);
+
   // wallet load
   const loadWallet = useCallback(async () => {
     try {
