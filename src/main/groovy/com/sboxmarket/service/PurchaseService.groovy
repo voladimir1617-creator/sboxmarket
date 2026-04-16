@@ -37,6 +37,7 @@ class PurchaseService {
     // Needed to resolve the seller's wallet via their Steam64 — every other
     // service keys wallets on `"steam_${steamId64}"`, not the numeric user id.
     @Autowired(required = false) SteamUserRepository steamUserRepository
+    @Autowired(required = false) TradeService tradeService
 
     @Transactional
     Map buy(Long buyerWalletId, Long buyerUserId, Long listingId) {
@@ -93,29 +94,30 @@ class PurchaseService {
         )
         transactionRepository.save(buyerTx)
 
-        // If a real seller user exists, credit their wallet (minus 2% platform fee).
-        // Wallet usernames are keyed on "steam_${steamId64}" everywhere in the
-        // app. The previous version hit "steam_user_${sellerUserId}" which
-        // never matched a real wallet, so sellers were silently unpaid on
-        // every BuyNow purchase.
-        if (listing.sellerUserId != null && steamUserRepository != null) {
-            def sellerUser = steamUserRepository.findById(listing.sellerUserId).orElse(null)
+        // P2P escrow: when a real seller exists, DON'T credit them
+        // immediately. Create a Trade record that holds the buyer's
+        // funds in escrow until the Steam trade offer is completed.
+        // The seller gets paid only after the buyer clicks "Confirm
+        // Receipt" (or the 8-day auto-release window passes).
+        //
+        // For system listings (sellerUserId == null), there's no
+        // counterparty to trade with, so no escrow is needed.
+        if (listing.sellerUserId != null) {
+            def sellerUser = steamUserRepository?.findById(listing.sellerUserId)?.orElse(null)
             def sellerWallet = sellerUser ? walletRepository.findByUsername("steam_${sellerUser.steamId64}") : null
-            if (sellerWallet != null) {
-                def fee = (listing.price * new BigDecimal('0.02')).setScale(2, BigDecimal.ROUND_HALF_UP)
-                def credit = listing.price - fee
-                sellerWallet.balance = sellerWallet.balance + credit
-                walletRepository.save(sellerWallet)
-                transactionRepository.save(new Transaction(
-                    walletId       : sellerWallet.id,
-                    type           : 'SALE',
-                    status         : 'COMPLETED',
-                    amount         : credit,
-                    currency       : sellerWallet.currency,
-                    stripeReference: 'wallet',
-                    description    : "Sold ${listing.item.name} (-\$${fee} fee)",
-                    listingId      : listing.id
-                ))
+            try {
+                tradeService?.open(
+                    listing.id,
+                    listing.item?.id,
+                    listing.item?.name,
+                    buyerUserId,
+                    buyerWalletId,
+                    listing.sellerUserId,
+                    sellerWallet?.id,
+                    listing.price
+                )
+            } catch (Exception e) {
+                log.warn("Trade record creation failed for listing ${listing.id}: ${e.message}")
             }
         }
 

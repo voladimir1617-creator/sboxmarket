@@ -13,6 +13,7 @@ import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.PurchaseService
+import com.sboxmarket.service.TradeService
 import com.sboxmarket.service.security.BanGuard
 import spock.lang.Specification
 import spock.lang.Subject
@@ -131,7 +132,7 @@ class PurchaseServiceSpec extends Specification {
         ex.code == "OWN_LISTING"
     }
 
-    def "buy credits the seller's wallet via steamId64 lookup (minus 2% fee)"() {
+    def "buy creates a P2P escrow Trade instead of crediting the seller immediately"() {
         given: "a buyer with funds, a seller with a wallet, an active listing at \$100"
         def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("200.00"), currency: 'USD')
         def seller = new SteamUser(id: 2L, steamId64: '222')
@@ -144,6 +145,8 @@ class PurchaseServiceSpec extends Specification {
             sellerName: 'Bob',
             sellerUserId: 2L
         )
+        def tradeService = Mock(TradeService)
+        service.tradeService = tradeService
         walletRepo.findById(1L) >> Optional.of(buyer)
         listingRepo.findById(5L) >> Optional.of(listing)
         steamUserRepo.findById(2L) >> Optional.of(seller)
@@ -154,14 +157,16 @@ class PurchaseServiceSpec extends Specification {
 
         then:
         result.newBalance == new BigDecimal("100.00")
-        // Seller credited with \$100 - 2% = \$98
-        sellerWallet.balance == new BigDecimal("98.00")
-        // Two saves: buyer debit + seller credit
-        1 * walletRepo.save({ Wallet w -> w.username == 'steam_111' && w.balance == new BigDecimal("100.00") })
-        1 * walletRepo.save({ Wallet w -> w.username == 'steam_222' && w.balance == new BigDecimal("98.00") })
-        // One transaction for each side
-        1 * txRepo.save({ it.type == 'PURCHASE' && it.amount == new BigDecimal("100.00") })
-        1 * txRepo.save({ it.type == 'SALE'     && it.amount == new BigDecimal("98.00") })
+        // Buyer was debited
+        1 * walletRepo.save({ Wallet w -> w.balance == new BigDecimal("100.00") })
+        // Seller was NOT credited immediately — funds held in escrow
+        sellerWallet.balance == new BigDecimal("0.00")
+        // A Trade record was created for the P2P escrow
+        1 * tradeService.open(5L, 10L, 'Wizard Hat', 999L, 1L, 2L, 500L, new BigDecimal("100.00"))
+        // Purchase tx recorded on buyer side
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+        // NO immediate SALE tx — that happens when the buyer confirms receipt
+        0 * txRepo.save({ it.type == 'SALE' })
     }
 
     def "buy still completes when seller has no wallet (falls through gracefully)"() {
