@@ -112,6 +112,8 @@
       :root { --page-padding: 16px; }
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: static; max-height: none; }
+      .nav-right { gap: 10px; }
+      .nav-link { padding: 10px 12px; font-size: 13px; }
       /* Collapse sidebar filters to horizontal scrollable chips */
       .filter-section { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 10px 14px; -webkit-overflow-scrolling: touch; }
       .filter-section::-webkit-scrollbar { display: none; }
@@ -475,9 +477,12 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 16px;
-      gap: 16px;
-      flex-wrap: wrap;
+      gap: 12px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
+    .section-header::-webkit-scrollbar { display: none; }
     .section-title {
       font-size: 16px;
       font-weight: 700;
