@@ -515,4 +515,34 @@ class PublicEndpointsHttpSpec extends Specification {
         then:
         r.response.status == 401
     }
+
+    // ── SEO assets ────────────────────────────────────────────────
+
+    def "GET /sitemap.xml returns 200 with XML content"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/sitemap.xml')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('skinbox.market')
+        r.response.contentAsString.contains('urlset')
+    }
+
+    def "GET /robots.txt includes Sitemap directive"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/robots.txt')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('Sitemap:')
+        r.response.contentAsString.contains('skinbox.market/sitemap.xml')
+    }
+
+    def "GET /favicon.ico returns 200"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/favicon.ico')).andReturn()
+
+        then:
+        r.response.status == 200
+    }
 }
