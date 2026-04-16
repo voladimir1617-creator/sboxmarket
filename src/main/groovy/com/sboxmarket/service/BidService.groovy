@@ -36,6 +36,7 @@ class BidService {
     @Autowired TransactionRepository transactionRepository
     @Autowired SteamUserRepository steamUserRepository
     @Autowired NotificationService notificationService
+    @Autowired(required = false) TradeService tradeService
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
 
@@ -226,28 +227,23 @@ class BidService {
             listingId:       listing.id
         ))
 
-        // Credit seller minus 2% fee
-        if (listing.sellerUserId != null) {
+        // P2P escrow: auction wins go through the same trade flow as
+        // BUY_NOW purchases so the seller must deliver before getting paid.
+        // Without this, auction sellers were credited immediately with no
+        // confirm/dispute/cancel flow for the buyer.
+        if (listing.sellerUserId != null && tradeService != null) {
             def sellerUser = steamUserRepository.findById(listing.sellerUserId).orElse(null)
-            if (sellerUser != null) {
-                def sellerWallet = walletRepository.findByUsername("steam_${sellerUser.steamId64}")
-                if (sellerWallet != null) {
-                    def fee = (listing.currentBid * new BigDecimal("0.02")).setScale(2, BigDecimal.ROUND_HALF_UP)
-                    def credit = listing.currentBid - fee
-                    sellerWallet.balance = sellerWallet.balance + credit
-                    walletRepository.save(sellerWallet)
-                    transactionRepository.save(new Transaction(
-                        walletId:        sellerWallet.id,
-                        type:            'SALE',
-                        status:          'COMPLETED',
-                        amount:          credit,
-                        currency:        sellerWallet.currency,
-                        stripeReference: 'auction',
-                        description:     "Auction sold · ${listing.item?.name} (-\$${fee})",
-                        listingId:       listing.id
-                    ))
-                }
-            }
+            def sellerWallet = sellerUser ? walletRepository.findByUsername("steam_${sellerUser.steamId64}") : null
+            tradeService.open(
+                listing.id,
+                listing.item?.id,
+                listing.item?.name,
+                winnerId,
+                wallet.id,
+                listing.sellerUserId,
+                sellerWallet?.id,
+                listing.currentBid
+            )
         }
 
         notificationService.push(winnerId, 'AUCTION_WON',
