@@ -221,22 +221,10 @@ export function PreSigninModal({ onClose, onAccept }) {
           }),
           h('span', null,
             'I agree to the ',
-            h('a', { href: '#', onClick: e => e.preventDefault() }, 'Terms of Service'),
+            h('a', { href: '/legal/terms.html', target: '_blank', rel: 'noopener' }, 'Terms of Service'),
             ' and ',
-            h('a', { href: '#', onClick: e => e.preventDefault() }, 'Privacy Policy'),
+            h('a', { href: '/legal/privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy Policy'),
             '.'
-          )
-        ),
-
-        h('label', { className: 'presignin-check' },
-          h('input', {
-            type: 'checkbox',
-            checked: marketing,
-            onChange: e => setMarketing(e.target.checked)
-          }),
-          h('span', null,
-            'Send me occasional product updates and price-drop alerts. ',
-            h('span', { style: { color: 'var(--text-muted)', fontSize: 10 } }, '(optional)')
           )
         ),
 
