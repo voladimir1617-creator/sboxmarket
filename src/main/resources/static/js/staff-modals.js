@@ -460,12 +460,20 @@ function AdminUsersTab({ me }) {
   const doUnban = async (u) => {
     if (!confirm(`Unban ${u.displayName || u.steamId64}?`)) return;
     setBusy(true);
-    try { await adminUnbanUser(u.id); await load(); } finally { setBusy(false); }
+    try {
+      const res = await adminUnbanUser(u.id);
+      if (res && res.error) { alert(res.error); return; }
+      await load();
+    } finally { setBusy(false); }
   };
   const doGrant = async (u) => {
     if (!confirm(`Grant ADMIN role to ${u.displayName || u.steamId64}?`)) return;
     setBusy(true);
-    try { await adminGrant(u.id); await load(); } finally { setBusy(false); }
+    try {
+      const res = await adminGrant(u.id);
+      if (res && res.error) { alert(res.error); return; }
+      await load();
+    } finally { setBusy(false); }
   };
   const doRevoke = async (u) => {
     if (!confirm(`Revoke ADMIN role from ${u.displayName || u.steamId64}?`)) return;
@@ -572,7 +580,8 @@ function AdminTicketsTab() {
     if (!reply.trim() || !viewing?.ticket) return;
     setBusy(true);
     try {
-      await adminTicketReply(viewing.ticket.id, reply);
+      const res = await adminTicketReply(viewing.ticket.id, reply);
+      if (res && res.error) { alert(res.error); return; }
       setReply('');
       setView(await adminTicket(viewing.ticket.id));
       load();
@@ -580,7 +589,8 @@ function AdminTicketsTab() {
   };
   const closeTicket = async () => {
     if (!viewing?.ticket) return;
-    await adminCloseTicket(viewing.ticket.id);
+    const res = await adminCloseTicket(viewing.ticket.id);
+    if (res && res.error) { alert(res.error); return; }
     setView(await adminTicket(viewing.ticket.id));
     load();
   };
@@ -794,7 +804,8 @@ function CsrTicketsTab() {
     if (!reply.trim() || !viewing?.ticket) return;
     setBusy(true);
     try {
-      await csrTicketReply(viewing.ticket.id, reply);
+      const res = await csrTicketReply(viewing.ticket.id, reply);
+      if (res && res.error) { alert(res.error); return; }
       setReply('');
       setView(await csrTicket(viewing.ticket.id));
       load();
@@ -802,7 +813,8 @@ function CsrTicketsTab() {
   };
   const closeTicket = async () => {
     if (!viewing?.ticket) return;
-    await csrCloseTicket(viewing.ticket.id);
+    const res = await csrCloseTicket(viewing.ticket.id);
+    if (res && res.error) { alert(res.error); return; }
     setView(await csrTicket(viewing.ticket.id));
     load();
   };
