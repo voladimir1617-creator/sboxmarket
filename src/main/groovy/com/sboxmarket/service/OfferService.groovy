@@ -520,7 +520,15 @@ class OfferService {
         if (stale.isEmpty()) return
         stale.each { offer ->
             try {
-                offer.status = 'CANCELLED'
+                // EXPIRED (not CANCELLED) because the sweeper closing a
+                // stale offer is a seller-side failure to respond. The
+                // response-rate query from batch 97 puts EXPIRED rows in
+                // the engagement denominator (seller had a chance and
+                // didn't act) but excludes CANCELLED (buyer withdrew).
+                // Labeling the sweeper output CANCELLED inflated every
+                // seller's response-rate stat — their no-responses were
+                // invisible to the denominator.
+                offer.status = 'EXPIRED'
                 offer.updatedAt = System.currentTimeMillis()
                 offerRepository.save(offer)
                 notificationService?.push(

@@ -316,6 +316,38 @@ class OfferServiceSpec extends Specification {
         1 * notificationService.push(99L, 'OFFER_RECEIVED', _, _, _, '/offers')
     }
 
+    // ── sweepStaleOffers ──────────────────────────────────────────
+
+    def "sweepStaleOffers flips stale offers to EXPIRED, not CANCELLED (batch 129 bug)"() {
+        given:
+        def stale = pendingOffer(id: 1L, amount: new BigDecimal("20"))
+        offerRepository.findStalePending(_) >> [stale]
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.sweepStaleOffers()
+
+        then:
+        // EXPIRED is the seller-side "didn't respond" status — counts
+        // in countSellerEngagedTotal's denominator. CANCELLED would
+        // hide this from the seller's response-rate stat and silently
+        // inflate it.
+        stale.status == 'EXPIRED'
+        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, _, '/offers')
+    }
+
+    def "sweepStaleOffers is a no-op when nothing is stale"() {
+        given:
+        offerRepository.findStalePending(_) >> []
+
+        when:
+        service.sweepStaleOffers()
+
+        then:
+        0 * offerRepository.save(_)
+        0 * notificationService.push(*_)
+    }
+
     def "counterOffer blocks any user from countering on a system listing (bug #53)"() {
         given:
         def original = pendingOffer(seller: null)
