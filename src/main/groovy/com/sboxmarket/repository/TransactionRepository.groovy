@@ -28,6 +28,21 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
         @Param('since')  Long since
     )
 
+    /** Same shape as `sumByTypeSinceCompleted` but bounded at both ends.
+     *  Used by the admin dashboard 24h delta — compare last-24h vs the
+     *  prior 24h window. One query per cell instead of loading rows. */
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+        WHERE t.type = :type AND t.status = :status
+          AND t.createdAt >= :fromTs AND t.createdAt < :toTs
+    """)
+    BigDecimal sumByTypeInRange(
+        @Param('type')   String type,
+        @Param('status') String status,
+        @Param('fromTs') Long fromTs,
+        @Param('toTs')   Long toTs
+    )
+
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.type = :type AND t.status = :status")
     long countByTypeStatus(@Param('type') String type, @Param('status') String status)
 

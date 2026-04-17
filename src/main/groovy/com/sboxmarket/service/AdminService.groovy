@@ -105,10 +105,17 @@ class AdminService {
         // dashboard used to load every wallet, transaction, ticket, and
         // user row over the wire just to count them; now each figure is
         // one indexed COUNT or SUM.
-        def since24h = System.currentTimeMillis() - 86_400_000L
+        def now = System.currentTimeMillis()
+        def since24h = now - 86_400_000L
+        def since48h = now - 2L * 86_400_000L
         def totalEscrow  = walletRepository.sumAllBalances() ?: BigDecimal.ZERO
         def deposits24h  = transactionRepository.sumByTypeSinceCompleted('DEPOSIT', 'COMPLETED', since24h) ?: BigDecimal.ZERO
         def sales24h     = transactionRepository.sumByTypeSinceCompleted('SALE',    'COMPLETED', since24h) ?: BigDecimal.ZERO
+        // Prior 24h window [now-48h, now-24h) — lets the dashboard render
+        // a "+N% vs yesterday" delta per volume stat. One extra SQL
+        // aggregate per stat; still cheap vs the old scan.
+        def depositsPrior24h = transactionRepository.sumByTypeInRange('DEPOSIT', 'COMPLETED', since48h, since24h) ?: BigDecimal.ZERO
+        def salesPrior24h    = transactionRepository.sumByTypeInRange('SALE',    'COMPLETED', since48h, since24h) ?: BigDecimal.ZERO
         def pendingCount = transactionRepository.countByTypeStatus('WITHDRAW', 'PENDING')
         def pendingAmt   = transactionRepository.sumByTypeStatus('WITHDRAW', 'PENDING') ?: BigDecimal.ZERO
 
@@ -118,7 +125,9 @@ class AdminService {
             activeListings:           listingRepository.countActive(),
             totalEscrow:              (totalEscrow as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             deposits24h:              (deposits24h as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            depositsPrior24h:         (depositsPrior24h as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             sales24h:                 (sales24h as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            salesPrior24h:            (salesPrior24h as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             pendingWithdrawals:       pendingCount,
             pendingWithdrawalsAmount: (pendingAmt as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             openTickets:              supportTicketRepository.countOpen(),

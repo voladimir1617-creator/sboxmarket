@@ -1853,7 +1853,38 @@ function ProfileDevelopersTab() {
       h('div', { style: { fontSize: 11, color: 'var(--yellow)', fontWeight: 700, marginBottom: 6, letterSpacing: 0.4 } },
         '⚠ COPY THIS NOW — it will not be shown again'),
       h('div', { className: 'api-key-token' }, newKey.token),
-      h('button', { className: 'btn btn-ghost', style: { marginTop: 10, border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: () => setNewKey(null) }, 'Dismiss')
+      h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
+        h('button', {
+          className: 'btn btn-accent',
+          style: { padding: '6px 14px', fontSize: 11 },
+          onClick: async () => {
+            try {
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(newKey.token);
+                alert('Key copied. Paste it into your bot / extension config now.');
+              } else {
+                window.prompt('Copy the API key:', newKey.token);
+              }
+            } catch (_) {
+              window.prompt('Copy the API key:', newKey.token);
+            }
+          }
+        }, '⎘ Copy key'),
+        h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+          href: 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify({
+            label: newKey.label, token: newKey.token, createdAt: newKey.createdAt
+          }, null, 2)),
+          download: `skinbox-api-key-${(newKey.label || 'key').replace(/[^a-z0-9]+/gi, '-')}.json`,
+          title: 'Download the key as a JSON file (safer than a paste for long-term storage)'
+        }, '⇣ Download .json'),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+          onClick: () => setNewKey(null)
+        }, 'Dismiss')
+      )
     ),
     keys === null
       ? h('div', { className: 'spinner' })

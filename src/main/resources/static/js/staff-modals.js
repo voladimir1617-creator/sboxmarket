@@ -588,19 +588,40 @@ function AdminDashboardTab() {
   const [stats, setStats] = useState(null);
   useEffect(() => { adminStats().then(setStats); }, []);
   if (!stats) return h('div', { className: 'spinner' });
-  const Stat = (label, val, cls) =>
+  // Compute a % delta vs the prior 24h window. When the prior bucket
+  // is 0 we render either "+new" (current has volume) or no delta
+  // (both zero — nothing interesting to compare).
+  const delta = (current, prior) => {
+    const c = parseFloat(current) || 0;
+    const p = parseFloat(prior) || 0;
+    if (p === 0 && c === 0) return null;
+    if (p === 0) return { pct: null, direction: 'up', label: 'new' };
+    const pct = ((c - p) / p) * 100;
+    return { pct, direction: pct >= 0 ? 'up' : 'down' };
+  };
+  const Stat = (label, val, cls, dlt) =>
     h('div', { className: 'admin-stat' },
       h('div', { className: 'admin-stat-label' }, label),
-      h('div', { className: `admin-stat-val ${cls || ''}` }, val)
+      h('div', { className: `admin-stat-val ${cls || ''}` }, val),
+      dlt && h('div', {
+        className: `admin-stat-delta ${dlt.direction === 'up' ? 'up' : 'down'}`,
+        title: 'vs. the prior 24 h window'
+      },
+        dlt.direction === 'up' ? '▲ ' : '▼ ',
+        dlt.pct == null ? dlt.label : `${dlt.pct >= 0 ? '+' : ''}${dlt.pct.toFixed(0)}%`,
+        ' vs yesterday'
+      )
     );
+  const depositDelta = delta(stats.deposits24h, stats.depositsPrior24h);
+  const salesDelta   = delta(stats.sales24h,    stats.salesPrior24h);
   return h('div', { className: 'profile-panel' },
     h('div', { className: 'admin-stats-grid' },
       Stat('Registered Users',     Number(stats.users || 0).toLocaleString()),
       Stat('Catalogue Items',      Number(stats.items || 0).toLocaleString()),
       Stat('Active Listings',      Number(stats.activeListings || 0).toLocaleString()),
       Stat('Total Escrow',         fmt(stats.totalEscrow || 0), 'accent'),
-      Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green'),
-      Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green'),
+      Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green', depositDelta),
+      Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta),
       Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow'),
       Stat('Open Tickets',         Number(stats.openTickets || 0)),
       Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '')
@@ -1044,7 +1065,26 @@ function AdminTicketsTab() {
           h('div', { className: 'support-msg-body' }, m.body)
         ))
       ),
-      viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
+      // Canned-response templates. Click a chip to populate the reply
+      // input; admin can still edit before sending. Saves typing the
+      // same "investigating, will follow up within 24h" boilerplate on
+      // every deposit/trade/refund ticket. Selected chip state is local
+      // to the open ticket view.
+      viewing.ticket.status !== 'RESOLVED' && h('div', { className: 'ticket-templates' },
+        [
+          { id: 'greet',     label: '👋 Greet',     body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
+          { id: 'deposit',   label: '💳 Deposit',   body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
+          { id: 'trade',     label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page. Let me know if you need me to nudge them.' },
+          { id: 'refund',    label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it — Stripe-side chargebacks would go through your card issuer instead.' },
+          { id: 'resolved',  label: '✓ Resolved',  body: 'Glad that\'s sorted. I\'m marking this resolved — reply here any time if anything else comes up.' }
+        ].map(tpl => h('button', {
+          key: tpl.id,
+          className: 'wallet-tx-filter-chip',
+          onClick: () => setReply(tpl.body),
+          title: tpl.body
+        }, tpl.label))
+      ),
+      viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Staff reply…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
       )
@@ -1267,7 +1307,23 @@ function CsrTicketsTab() {
           h('div', { className: 'support-msg-body' }, m.body)
         ))
       ),
-      viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
+      // Same canned-response templates as the admin view — lets CSRs
+      // drop a standard reply in one click.
+      viewing.ticket.status !== 'RESOLVED' && h('div', { className: 'ticket-templates' },
+        [
+          { id: 'greet',    label: '👋 Greet',    body: 'Hi — thanks for reaching out. I\'m looking into this now and will follow up within 24 hours.' },
+          { id: 'deposit',  label: '💳 Deposit',  body: 'Can you share the Stripe session id from your Wallet → History tab? Most deposits clear within 2 minutes; if yours hasn\'t, I\'ll check the Stripe side for a hold or decline.' },
+          { id: 'trade',    label: '⇄ Trade',     body: 'Trades sit in escrow until the buyer confirms — typically within 8 days. If the seller hasn\'t sent the Steam offer yet, their trade URL is on their stall page.' },
+          { id: 'refund',   label: '↩ Refund',    body: 'I can issue a refund to your sboxmarket wallet balance for this trade. Confirm you\'d like that and I\'ll process it.' },
+          { id: 'resolved', label: '✓ Resolved',  body: 'Glad that\'s sorted. I\'m marking this resolved — reply here any time if anything else comes up.' }
+        ].map(tpl => h('button', {
+          key: tpl.id,
+          className: 'wallet-tx-filter-chip',
+          onClick: () => setReply(tpl.body),
+          title: tpl.body
+        }, tpl.label))
+      ),
+      viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
         h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply as CSR…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') sendReply(); } }),
         h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: sendReply }, 'Send')
       )
