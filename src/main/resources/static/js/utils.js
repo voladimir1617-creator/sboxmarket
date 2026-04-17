@@ -60,3 +60,22 @@ export function discountPct(listingPrice, steamPrice) {
   if (s <= 0 || p >= s) return 0;
   return Math.round((1 - p / s) * 100);
 }
+
+// Kicks off the Steam OpenID flow. Before navigating to the login
+// endpoint, stash the current pathname+search in sessionStorage so the
+// client can bounce the user back to where they were after the Steam
+// callback redirects to `/?login=success`. Only stashes real pages —
+// ignores `/` and URLs that already carry `login=...` so a post-login
+// reload doesn't loop.
+export function signInWithSteam() {
+  try {
+    const cur = window.location.pathname + window.location.search;
+    const params = new URLSearchParams(window.location.search);
+    const isLoginLanding = params.has('login');
+    const isRootNoParams = window.location.pathname === '/' && !window.location.search;
+    if (!isLoginLanding && !isRootNoParams) {
+      sessionStorage.setItem('sb_login_return_url', cur);
+    }
+  } catch (_) { /* sessionStorage unavailable — still fire the redirect */ }
+  window.location.href = '/api/auth/steam/login';
+}

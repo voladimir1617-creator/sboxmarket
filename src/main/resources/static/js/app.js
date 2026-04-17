@@ -1,6 +1,6 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
-import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo, signInWithSteam } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -1701,7 +1701,24 @@ export function App() {
     let dirty = false;
     if (state === 'success' && sid) { confirmDeposit(sid).then(() => loadWallet()); dirty = true; }
     else if (state === 'cancel')     { dirty = true; }
-    if (login === 'success')         { loadMe().then(() => loadWallet()); dirty = true; }
+    if (login === 'success') {
+      loadMe().then(() => loadWallet());
+      dirty = true;
+      // Return-after-login: signInWithSteam() stashed the page the
+      // user was on before the OpenID hop. Pop it and send them back
+      // so "Sign in to buy" lands on the item they cared about,
+      // not the homepage. Stash is cleared whether or not we use it.
+      try {
+        const back = sessionStorage.getItem('sb_login_return_url');
+        sessionStorage.removeItem('sb_login_return_url');
+        if (back && back !== '/' && !/[?&]login=/.test(back)) {
+          // Replace first so Back doesn't cycle through /?login=success.
+          window.history.replaceState({}, '', window.location.pathname);
+          navigate(back);
+          return;
+        }
+      } catch (_) { /* no sessionStorage — stay on / */ }
+    }
     else if (login === 'failed')     { alert('Steam sign-in failed. Please try again.'); dirty = true; }
     if (dirty) window.history.replaceState({}, '', window.location.pathname);
   }, [loadWallet, loadMe]);
@@ -2131,7 +2148,7 @@ export function App() {
             )
           : h('button', {
               className: 'steam-btn',
-              onClick: () => { window.location.href = '/api/auth/steam/login'; },
+              onClick: () => { signInWithSteam(); },
               type: 'button'
             },
               h('div', { className: 'steam-btn-icon' },
@@ -3196,7 +3213,7 @@ export function App() {
                 !me
                   ? h('button', {
                       className: 'btn btn-accent',
-                      onClick: () => { window.location.href = '/api/auth/steam/login'; },
+                      onClick: () => { signInWithSteam(); },
                       title: 'Sign in with Steam before checking out'
                     }, 'Sign in to checkout · ' + fmt(cartTotal))
                   : h('button', {

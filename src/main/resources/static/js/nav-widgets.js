@@ -1,5 +1,5 @@
 // Top-right nav icons: notification bell + theme picker.
-import { h, React, useState, useEffect, useCallback, timeAgo } from './utils.js';
+import { h, React, useState, useEffect, useCallback, timeAgo, signInWithSteam } from './utils.js';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from './api.js';
 import { navigate, paths } from './router.js';
 
@@ -189,7 +189,7 @@ export function NotificationBell({ me }) {
                 h('button', {
                   className: 'btn btn-accent',
                   style: { padding: '6px 14px', fontSize: 12 },
-                  onClick: () => { window.location.href = '/api/auth/steam/login'; }
+                  onClick: () => { signInWithSteam(); }
                 }, 'Sign in with Steam')
               ))
         : items.slice(0, 12).map(n => h('div', {

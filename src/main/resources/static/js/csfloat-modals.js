@@ -3,7 +3,7 @@
 //
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
-import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, signInWithSteam } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths } from './router.js';
@@ -1012,7 +1012,7 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
       !me
         ? h('button', {
             className: 'btn btn-accent',
-            onClick: () => { window.location.href = '/api/auth/steam/login'; }
+            onClick: () => { signInWithSteam(); }
           }, 'Sign in to bid')
         : h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit },
             busy ? 'Placing…' : 'Place Bid')

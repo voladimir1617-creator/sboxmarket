@@ -1,6 +1,6 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
-import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, discountPct } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, discountPct, signInWithSteam } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon } from './primitives.js';
 import { GridCard } from './cards.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -489,7 +489,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         !me && listings[0]
           ? h('button', {
               className: 'btn btn-accent',
-              onClick: () => { window.location.href = '/api/auth/steam/login'; },
+              onClick: () => { signInWithSteam(); },
               'aria-label': 'Sign in with Steam to buy this listing'
             }, `Sign in to buy · ${fmt(listings[0].price)}`)
           : h('button', {
@@ -508,7 +508,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           ? h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)' },
-              onClick: () => { window.location.href = '/api/auth/steam/login'; },
+              onClick: () => { signInWithSteam(); },
               disabled: !listings[0]
             }, 'Sign in to make offer')
           : h('button', {

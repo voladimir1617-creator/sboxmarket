@@ -6,7 +6,7 @@
 // full-width page region instead of an overlay. CSS handles the difference.
 // This is how we make /profile, /wallet, /help, /admin, etc. look like real
 // pages in CSFloat's shape without rewriting every modal body.
-import { h } from './utils.js';
+import { h, signInWithSteam } from './utils.js';
 
 export function InfoModal({ title, onClose, children }) {
   return h('div', { className: 'modal-backdrop', onClick: onClose },
@@ -32,7 +32,7 @@ export function SignInNeededEmptyState({ what }) {
       `Sign in with your Steam account to see ${what}.`),
     h('button', {
       className: 'btn btn-accent',
-      onClick: () => { window.location.href = '/api/auth/steam/login'; }
+      onClick: () => { signInWithSteam(); }
     }, 'Sign in with Steam')
   );
 }
