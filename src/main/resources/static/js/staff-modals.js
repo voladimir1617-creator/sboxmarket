@@ -1580,6 +1580,33 @@ function AdminUsersTab({ me }) {
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
             href: `/stall/${detailUser.id}`, target: '_blank', rel: 'noopener noreferrer'
           }, 'Open stall ↗'),
+          // Quick-jump to the audit log filtered on this user as the
+          // subject. Same page the admin would land on if they typed
+          // the id into the audit filter — just one click instead.
+          h('a', {
+            className: 'btn btn-ghost',
+            style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
+            href: `/admin#audit?subject=${detailUser.id}`,
+            onClick: (e) => {
+              // Hash-based routing isn't wired — intercept, flip the
+              // detail modal, and swap the admin tab to audit with the
+              // user's id prefilled. For now, close drawer + open a
+              // new tab with the filter in the URL.
+              e.preventDefault();
+              setDetailUser(null);
+              // Surface the user's id for the admin to paste into the
+              // subject filter. The audit tab doesn't currently read
+              // the URL fragment, so a clipboard copy is the safer UX.
+              try {
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(detailUser.id.toString());
+                  alert(`User id ${detailUser.id} copied. Paste into the Audit Log "Subject user #id" box.`);
+                } else {
+                  window.prompt('Paste into Audit Log subject filter:', detailUser.id.toString());
+                }
+              } catch (_) { window.prompt('Paste into Audit Log subject filter:', detailUser.id.toString()); }
+            }
+          }, '📜 Audit'),
           // Reset 2FA — support flow for users who have lost access to
           // their TOTP authenticator. Admin-gated action (not CSR). The
           // target gets a notification + must re-enrol next session.
