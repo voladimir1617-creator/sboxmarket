@@ -311,4 +311,11 @@ class OfferService {
 
     List<Offer> incoming(Long sellerUserId) { offerRepository.findBySeller(sellerUserId) }
     List<Offer> outgoing(Long buyerUserId)  { offerRepository.findByBuyer(buyerUserId) }
+
+    long countPendingIncoming(Long sellerUserId) {
+        offerRepository.countPendingBySeller(sellerUserId)
+    }
+    long countPendingOutgoing(Long buyerUserId) {
+        offerRepository.countPendingByBuyer(buyerUserId)
+    }
 }

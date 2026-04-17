@@ -37,6 +37,20 @@ class OfferController {
         ResponseEntity.ok(offerService.outgoing(requireUser(req)))
     }
 
+    /** Two-value badge source for the nav — "how many offers need my
+     *  attention". Seller side is PENDING incoming (actionable); buyer
+     *  side is PENDING outgoing (awaiting counterparty). Frontend shows
+     *  the seller count because that's the actionable one; buyer count is
+     *  included so a future design can split them. */
+    @GetMapping("/counts")
+    ResponseEntity<Map> counts(HttpServletRequest req) {
+        def uid = requireUser(req)
+        ResponseEntity.ok([
+            incomingPending: offerService.countPendingIncoming(uid),
+            outgoingPending: offerService.countPendingOutgoing(uid)
+        ])
+    }
+
     @PostMapping
     ResponseEntity<Map> create(@Valid @RequestBody CreateOfferRequest body, HttpServletRequest req) {
         def uid = requireUser(req)

@@ -525,6 +525,13 @@ export async function fetchRecentSales(itemId) {
   const data = await safeJson(`${API}/items/${itemId}/recent-sales`);
   return Array.isArray(data) ? data : [];
 }
+/** Pending offer counts keyed by role — backs the nav offers badge.
+ *  Returns { incomingPending, outgoingPending } — the nav surfaces
+ *  incoming (actionable for the seller) as the primary count. */
+export async function fetchOfferCounts() {
+  const data = await safeJson(`${API}/offers/counts`);
+  return data && typeof data === 'object' ? data : { incomingPending: 0, outgoingPending: 0 };
+}
 
 // ── CSR ─────────────────────────────────────────────────────────
 export async function csrCheck() {

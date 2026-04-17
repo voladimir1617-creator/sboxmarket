@@ -4264,6 +4264,34 @@
       line-height: 1.5;
     }
 
+    /* ─────────── LISTING TYPE TOGGLE ─────────── */
+    .type-toggle {
+      display: inline-flex;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .type-toggle-btn {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: color 0.12s, background 0.12s;
+    }
+    .type-toggle-btn:hover { color: var(--text-primary); }
+    .type-toggle-btn.active {
+      background: var(--accent);
+      color: #0d1320;
+      box-shadow: 0 2px 6px rgba(30, 165, 255, 0.28);
+    }
+
     /* ─────────── RECENT SALES STRIP ─────────── */
     .recent-sales-list {
       display: grid;

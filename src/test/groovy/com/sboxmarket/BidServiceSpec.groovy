@@ -128,6 +128,45 @@ class BidServiceSpec extends Specification {
         0 * notificationService.push(*_)
     }
 
+    def "placeBid extends expiresAt when bid lands inside the 30s anti-snipe window"() {
+        given:
+        def now = System.currentTimeMillis()
+        // 10 seconds left — well inside the soft-close window
+        def listing = auctionListing(currentBid: new BigDecimal("20"),
+                                     currentBidderId: 7L,
+                                     expiresAt: now + 10_000L)
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal("25"), null)
+
+        then:
+        // Anti-sniping: the close should be at least ~25s out now (we
+        // extend by 30s, give a generous lower bound to avoid clock flakes)
+        listing.expiresAt >= now + 25_000L
+    }
+
+    def "placeBid does NOT extend expiresAt when bid lands well before the anti-snipe window"() {
+        given:
+        def now = System.currentTimeMillis()
+        def originalExpiry = now + 600_000L  // 10 minutes left
+        def listing = auctionListing(currentBid: new BigDecimal("20"),
+                                     currentBidderId: 7L,
+                                     expiresAt: originalExpiry)
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal("25"), null)
+
+        then:
+        // No extension when the auction isn't close to ending
+        listing.expiresAt == originalExpiry
+    }
+
     // ── guard rails ───────────────────────────────────────────────
 
     def "placeBid refuses zero/negative/null amounts"() {

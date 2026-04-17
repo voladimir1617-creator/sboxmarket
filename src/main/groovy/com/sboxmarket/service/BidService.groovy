@@ -30,6 +30,14 @@ class BidService {
     // Minimum bid increment in dollars — keeps a cheap floor so bid wars don't spin.
     private static final BigDecimal INCREMENT = new BigDecimal("0.05")
 
+    /** Anti-snipe window. If a bid lands within this many ms of the auction
+     *  close, push `expiresAt` out so the close is always a fair contest,
+     *  not a "who can curl faster" latency race. CSFloat / eBay call this a
+     *  "soft close". Default 30s, nudges auctions that would have closed
+     *  in <30s to close at `now + SNIPE_EXTEND`. */
+    private static final long SNIPE_WINDOW_MS = 30_000L
+    private static final long SNIPE_EXTEND_MS = 30_000L
+
     @Autowired ListingRepository listingRepository
     @Autowired BidRepository bidRepository
     @Autowired WalletRepository walletRepository
@@ -104,6 +112,23 @@ class BidService {
         listing.currentBidderId   = bidderUserId
         listing.currentBidderName = bidderName
         listing.bidCount          = (listing.bidCount ?: 0) + 1
+        // Soft close — anti-sniping. A bid that lands inside the final
+        // SNIPE_WINDOW_MS window extends the auction by SNIPE_EXTEND_MS so
+        // every competing bidder gets a fair chance to react. Without this
+        // the auction collapsed into a latency race in the final seconds,
+        // a known failure mode on eBay-style marketplaces. We never shorten
+        // the auction, only extend it.
+        if (listing.expiresAt != null) {
+            def now = System.currentTimeMillis()
+            def timeLeft = listing.expiresAt - now
+            if (timeLeft > 0 && timeLeft <= SNIPE_WINDOW_MS) {
+                def newExpiresAt = now + SNIPE_EXTEND_MS
+                if (newExpiresAt > listing.expiresAt) {
+                    listing.expiresAt = newExpiresAt
+                    log.info("Auction ${listingId} soft-closed — extended to +${SNIPE_EXTEND_MS}ms by bid from ${bidderUserId}")
+                }
+            }
+        }
         listingRepository.save(listing)
 
         if (previousTopId != null && previousTopId != bidderUserId) {

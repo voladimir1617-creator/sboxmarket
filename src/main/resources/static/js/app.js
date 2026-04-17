@@ -5,7 +5,7 @@ import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
-  fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon
+  fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -23,6 +23,33 @@ import { AdminModal, CsrModal } from './staff-modals.js';
 import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor } from './router.js';
+
+// ── Nav offers badge — actionable pending-incoming count. Only signed-in
+// users see it; polls every 45s; clicking navigates to /offers.
+function NavOffersBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const d = await fetchOfferCounts();
+        if (alive) setCount(Number(d?.incomingPending || 0));
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 45_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return h('a', {
+    className: 'nav-icon-btn',
+    href: paths.offers(),
+    title: count > 0 ? `${count} offer${count === 1 ? '' : 's'} awaiting` : 'Offers',
+    'aria-label': count > 0 ? `Offers (${count} pending)` : 'Offers'
+  },
+    h(MaterialIcon, { name: 'price_check', size: 18 }),
+    count > 0 && h('div', { className: 'nav-icon-badge' }, count > 99 ? '99+' : count)
+  );
+}
 
 // ── Auctions ending soon — polls /api/listings/ending-soon every 30s so
 // the rail stays within ~30s of truth. Only renders when there's at least
@@ -440,6 +467,11 @@ export function App() {
   const [sort, setSort]                 = useState('price_desc');
   const [minPrice, setMinPrice]         = useState('');
   const [maxPrice, setMaxPrice]         = useState('');
+  // Listing-type filter. Three values: 'ALL' | 'BUY_NOW' | 'AUCTION'. We
+  // apply this client-side on top of the server response so users can
+  // toggle instantly without a roundtrip. Buy-now includes null
+  // listingType for historical rows.
+  const [listingTypeFilter, setListingTypeFilter] = useState('ALL');
 
   // item detail
   const [selected, setSelected]         = useState(null);
@@ -924,21 +956,26 @@ export function App() {
   // Matches CSFloat's grid layout and fixes the watchlist "starring one
   // card highlights every card of the same item" confusion.
   const dedupedListings = useMemo(() => {
+    // Apply the listing-type filter before dedup so "Auction only" doesn't
+    // pick the buy-now as the representative card for an item that has both.
+    const filteredByType = listingTypeFilter === 'ALL'
+      ? listings
+      : listings.filter(l => listingTypeFilter === 'AUCTION'
+          ? l?.listingType === 'AUCTION'
+          : l?.listingType !== 'AUCTION');
     const byItem = {};
-    listings.filter(l => l?.item).forEach(l => {
+    filteredByType.filter(l => l?.item).forEach(l => {
       const current = byItem[l.item.id];
       if (!current || parseFloat(l.price) < parseFloat(current.listing.price)) {
         byItem[l.item.id] = { listing: l, count: 1 };
       }
       if (current) current.count++;
     });
-    // Second pass — recount listings per item so the "1 listing" badges
-    // are accurate even after we swap the representative listing.
     const counts = {};
-    listings.forEach(l => { if (l?.item) counts[l.item.id] = (counts[l.item.id] || 0) + 1; });
+    filteredByType.forEach(l => { if (l?.item) counts[l.item.id] = (counts[l.item.id] || 0) + 1; });
     return Object.values(byItem)
       .map(e => ({ ...e.listing, __listingCount: counts[e.listing.item.id] || 1 }));
-  }, [listings]);
+  }, [listings, listingTypeFilter]);
 
   // Full-page routes vs overlay routes. CSFloat-style: most destinations
   // are real pages that replace the marketplace body; only the item detail
@@ -980,6 +1017,10 @@ export function App() {
         h('a', { className: `nav-link ${routeName === 'help' || routeName === 'faq' ? 'active' : ''}`, href: paths.help() }, 'Help'),
       ),
       h('div', { className: 'nav-right' },
+        // Offers inbox icon + actionable pending-incoming badge. Clicking
+        // jumps to /offers. Polls every 45s while signed in — offers are
+        // less real-time than notifications so a slower cadence is fine.
+        me && h(NavOffersBadge, null),
         h(NotificationBell, { me }),
         h(ThemePicker, null),
         h('a', {
@@ -1303,6 +1344,18 @@ export function App() {
             h('option', { value: 'price_asc' },  'Price: Low → High'),
             h('option', { value: 'newest' },     'Newest First'),
             h('option', { value: 'rarity' },     'Lowest Supply'),
+          ),
+          // Listing-type toggle — three buttons, single active. Purely
+          // client-side; server already returns both types and we filter
+          // before dedup. Defaults to ALL so anon users see the full grid.
+          h('div', { className: 'type-toggle', role: 'group', 'aria-label': 'Listing type' },
+            [{ id: 'ALL', label: 'All' }, { id: 'BUY_NOW', label: 'Buy Now' }, { id: 'AUCTION', label: 'Auction' }]
+              .map(opt => h('button', {
+                key: opt.id,
+                className: `type-toggle-btn ${listingTypeFilter === opt.id ? 'active' : ''}`,
+                onClick: () => setListingTypeFilter(opt.id),
+                'aria-pressed': listingTypeFilter === opt.id
+              }, opt.label))
           ),
           h('div', { className: 'view-btns', role: 'group', 'aria-label': 'View mode' },
             h('button', { className: `view-btn ${view === 'grid' ? 'active' : ''}`,  onClick: () => setView('grid'), 'aria-label': 'Grid view',  'aria-pressed': view === 'grid' },  '⊞'),

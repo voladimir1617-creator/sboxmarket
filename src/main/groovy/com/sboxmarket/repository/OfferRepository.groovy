@@ -27,4 +27,10 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
 
     @Query("SELECT COUNT(o) FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING'")
     long countPendingByBuyer(@Param("uid") Long buyerUserId)
+
+    /** Incoming-offer count for a seller — drives the nav badge so sellers
+     *  see "3 offers waiting" without opening the Offers tab. PENDING only
+     *  (accepted/rejected/countered are terminal from the seller's view). */
+    @Query("SELECT COUNT(o) FROM Offer o WHERE o.sellerUserId = :uid AND o.status = 'PENDING'")
+    long countPendingBySeller(@Param("uid") Long sellerUserId)
 }
