@@ -40,6 +40,7 @@ function readMuted() {
 const KIND_ICONS = {
   ITEM_PURCHASED:    '🛒',
   TRADE_VERIFIED:    '✓',
+  REVIEW_REMINDER:   '★',
   AUCTION_WON:       '🏆',
   AUCTION_LOST:      '✕',
   AUCTION_OUTBID:    '↑',

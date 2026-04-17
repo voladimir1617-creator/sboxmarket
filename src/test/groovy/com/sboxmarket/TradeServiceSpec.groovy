@@ -173,6 +173,10 @@ class TradeServiceSpec extends Specification {
         })
         1 * notificationService.push(10L, 'TRADE_VERIFIED', _, _, _, _)
         1 * notificationService.push(20L, 'TRADE_VERIFIED', _, _, _, _)
+        // Review-nudge for the buyer — deep-links to the seller's stall so
+        // the "Leave a review" CTA is one click away. Only fires when the
+        // trade has a real sellerUserId (system listings stay silent).
+        1 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, _, '/stall/20')
     }
 
     def "buyerConfirm forbids a non-buyer"() {

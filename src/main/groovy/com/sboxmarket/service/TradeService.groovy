@@ -330,6 +330,16 @@ class TradeService {
             notificationService?.push(t.sellerUserId, 'TRADE_VERIFIED',
                 "Funds released · ${t.itemName}",
                 "\$${(t.price - t.feeAmount)} credited to your wallet.", t.id, '/wallet')
+            // Review nudge — deep-links the buyer to the seller's
+            // stall, where the "Leave a review" CTA already surfaces
+            // every verified trade (eligibleTrades from ReviewService).
+            // Distinct kind from TRADE_VERIFIED so a user who muted
+            // wallet notifications still gets this one, and the bell
+            // icon maps it to a star glyph.
+            notificationService?.push(t.buyerUserId, 'REVIEW_REMINDER',
+                "How did the trade go?",
+                "Leave a review for the seller — takes 10 seconds.",
+                t.id, "/stall/${t.sellerUserId}".toString())
         }
         auditService?.log('TRADE_VERIFIED', t.buyerUserId, t.sellerUserId, t.id,
             "Verified trade #${t.id} for \$${t.price}")
