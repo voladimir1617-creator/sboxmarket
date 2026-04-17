@@ -304,4 +304,31 @@ class BuyOrderServiceSpec extends Specification {
         n == 0L
         0 * buyOrderRepository.countActiveForItem(_)
     }
+
+    // ── bestBidForItem ────────────────────────────────────────────
+
+    def "bestBidForItem forwards to the repo and returns the top bid"() {
+        given:
+        buyOrderRepository.findBestBidForItem(42L) >> new BigDecimal("25.50")
+
+        expect:
+        service.bestBidForItem(42L) == new BigDecimal("25.50")
+    }
+
+    def "bestBidForItem returns ZERO when the repo returns null (no demand)"() {
+        given:
+        buyOrderRepository.findBestBidForItem(42L) >> null
+
+        expect:
+        service.bestBidForItem(42L) == BigDecimal.ZERO
+    }
+
+    def "bestBidForItem returns ZERO for null item id without hitting the repo"() {
+        when:
+        def b = service.bestBidForItem(null)
+
+        then:
+        b == BigDecimal.ZERO
+        0 * buyOrderRepository.findBestBidForItem(_)
+    }
 }

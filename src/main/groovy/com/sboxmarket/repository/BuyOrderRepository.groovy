@@ -24,6 +24,17 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
     @Query("SELECT COUNT(b) FROM BuyOrder b WHERE b.status = 'ACTIVE' AND b.itemId = :itemId")
     long countActiveForItem(@Param("itemId") Long itemId)
 
+    /** Top-of-book: highest maxPrice among ACTIVE buy orders pinned to
+     *  this item. Powers the "Best bid \$X" chip on item detail — a
+     *  sell-side signal showing the cheapest way to auto-match. */
+    @Query("""
+        SELECT COALESCE(MAX(b.maxPrice), 0) FROM BuyOrder b
+        WHERE b.status = 'ACTIVE'
+          AND b.quantity > 0
+          AND b.itemId = :itemId
+    """)
+    BigDecimal findBestBidForItem(@Param("itemId") Long itemId)
+
     @Query("""
         SELECT b FROM BuyOrder b
         WHERE b.status = 'ACTIVE'

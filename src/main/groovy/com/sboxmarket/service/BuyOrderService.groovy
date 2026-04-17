@@ -84,6 +84,13 @@ class BuyOrderService {
         buyOrderRepository.findByBuyer(buyerUserId)
     }
 
+    /** Top-of-book for an item — highest maxPrice among ACTIVE buy
+     *  orders pinned to the item. Returns 0 when no demand. */
+    BigDecimal bestBidForItem(Long itemId) {
+        if (itemId == null) return BigDecimal.ZERO
+        buyOrderRepository.findBestBidForItem(itemId) ?: BigDecimal.ZERO
+    }
+
     /** Public demand-count for an item — used by the item detail modal
      *  to render a "N buyers want this" chip. Aggregate only; no
      *  counterparty identities are exposed. */

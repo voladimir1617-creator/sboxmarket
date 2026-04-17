@@ -65,9 +65,11 @@ class BuyOrderController {
      *  surfaced — this is an aggregate-only signal. */
     @GetMapping("/count/item/{id}")
     ResponseEntity<Map> countForItem(@PathVariable Long id) {
+        def best = buyOrderService.bestBidForItem(id)
         ResponseEntity.ok([
-            itemId: id,
-            count:  buyOrderService.countActiveForItem(id)
+            itemId:  id,
+            count:   buyOrderService.countActiveForItem(id),
+            bestBid: (best != null && best > BigDecimal.ZERO) ? best : null
         ])
     }
 

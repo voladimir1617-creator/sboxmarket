@@ -70,13 +70,17 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // Active buy-orders count — social-proof chip in the header. Tells
   // sellers there's live demand for this exact item at ≥ $X. Pure
   // aggregate, no counterparty identities exposed.
-  const [buyOrderCount, setBuyOrderCount] = useState(0);
+  const [buyOrderInfo, setBuyOrderInfo] = useState({ count: 0, bestBid: null });
   useEffect(() => {
     if (!item?.id) return;
     let alive = true;
-    fetchBuyOrderCountForItem(item.id).then(n => { if (alive) setBuyOrderCount(n); });
+    fetchBuyOrderCountForItem(item.id).then(info => {
+      if (alive) setBuyOrderInfo(info || { count: 0, bestBid: null });
+    });
     return () => { alive = false; };
   }, [item?.id]);
+  const buyOrderCount = buyOrderInfo.count;
+  const bestBid = buyOrderInfo.bestBid;
   // Trade velocity — "N sold · 7d" activity chip in the header. Social
   // proof via realised sales (complement to the buy-order count which
   // shows demand without transactions). Payload also includes the
@@ -203,6 +207,15 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ' buyer', buyOrderCount === 1 ? '' : 's',
             ' want', buyOrderCount === 1 ? 's' : '', ' this right now'
           ),
+          // Best-bid chip — top-of-book from the buy-order side. Pairs
+          // with the demand count: "N want this" tells you whether
+          // there's pressure, "Best bid $X" tells you the cheapest way
+          // to auto-match. Silent when no standing bids.
+          bestBid != null && bestBid > 0 &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.4)', color: '#fbbf24' } },
+              'Best bid · ',
+              h('span', { className: 'modal-demand-chip-num' }, fmt(bestBid))
+            ),
           // Velocity chip — social proof via realised sales, complement
           // to the demand chip. Shows "N sold this week" when there's
           // any 7d activity; "N sold this month" fallback when slower.
