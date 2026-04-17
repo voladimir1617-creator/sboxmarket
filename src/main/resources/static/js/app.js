@@ -2406,7 +2406,9 @@ export function App() {
     routeName === 'watchlist'     && h(WatchlistModal,  {
       onClose: () => navigate(paths.market()),
       watchlist, allListings: listings,
-      onOpen: openModal, onToggleStar: toggleStar
+      onOpen: openModal, onToggleStar: toggleStar,
+      onAddToCart: me ? addToCart : null,
+      cartHas: (id) => cart.some(c => c.id === id)
     }),
     routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); } }),
     routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, preselectedItem: preselectedBuyItem }),

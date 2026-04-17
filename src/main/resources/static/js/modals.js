@@ -11,7 +11,7 @@ import {
   fetchOfferThread, fetchSimilar,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
-  fetchBuyOrders, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
+  fetchBuyOrders, deleteBuyOrder, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
@@ -1004,7 +1004,18 @@ function ProfileTransactionsTab({ transactions, privacy }) {
 function ProfileBuyOrdersTab() {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState('ACTIVE');
-  useEffect(() => { fetchBuyOrders().then(setOrders); }, []);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => { fetchBuyOrders().then(setOrders); }, []);
+  useEffect(() => { load(); }, [load]);
+  const cancelOrder = async (o) => {
+    if (!confirm(`Cancel buy order for "${o.itemName || 'item'}"? Any remaining quantity is freed.`)) return;
+    setBusy(true);
+    try {
+      const res = await deleteBuyOrder(o.id);
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      load();
+    } finally { setBusy(false); }
+  };
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, '🛒'),
@@ -1041,7 +1052,16 @@ function ProfileBuyOrdersTab() {
             ),
             h('div', { style: { textAlign: 'right' } },
               h('div', { className: 'buyorder-cap' }, '≤ ' + fmt(o.maxPrice)),
-              h('div', { className: `buyorder-status ${o.status}` }, o.status)
+              h('div', { className: `buyorder-status ${o.status}` }, o.status),
+              // Cancel button — only shown while the order still has
+              // remaining fillable quantity. Fills / cancels terminate
+              // the row so the button hides.
+              o.status === 'ACTIVE' && h('button', {
+                className: 'btn btn-ghost',
+                style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
+                disabled: busy,
+                onClick: () => cancelOrder(o)
+              }, '✕ Cancel')
             )
           ))
         )
@@ -2648,7 +2668,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
 }
 
 // ── Watchlist ───────────────────────────────────────────────────
-export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onToggleStar }) {
+export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onToggleStar, onAddToCart, cartHas }) {
   // Dedupe by item id (one card per item) and compute price drop since the
   // item was first starred. We store a { itemId → price } snapshot in
   // localStorage so each card can show "−$X since you watchlisted" even
@@ -2787,6 +2807,22 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
               onClick: () => setShowDropsOnly(true)
             }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length)),
             h('div', { style: { flex: 1 } }),
+            // Add every watchlisted listing that's still actively for
+            // sale to the cart in one click. Skips rows that have no
+            // real listing yet (NO_LISTINGS badge) and items already
+            // in the cart. Only shown when there's at least one
+            // add-able row + a signed-in user (backend gates checkout).
+            onAddToCart && (() => {
+              const addable = rows.filter(r => !r.listing.__noListing &&
+                !(cartHas && cartHas(r.listing.id)));
+              if (addable.length === 0) return null;
+              return h('button', {
+                className: 'btn btn-ghost',
+                style: { border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '6px 12px', fontSize: 11 },
+                onClick: () => addable.forEach(r => onAddToCart(r.listing)),
+                title: `Add ${addable.length} listing${addable.length === 1 ? '' : 's'} to your cart`
+              }, '+ Add all ' + addable.length + ' to cart');
+            })(),
             // Bulk clear — asks before wiping every starred item. Also
             // drops price snapshots + alert targets so a re-star doesn't
             // resurrect stale state.

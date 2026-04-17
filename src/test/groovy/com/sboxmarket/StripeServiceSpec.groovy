@@ -237,4 +237,80 @@ class StripeServiceSpec extends Specification {
         then:
         thrown(IllegalStateException)
     }
+
+    // ── cancelPendingWithdrawal ───────────────────────────────────
+
+    def "cancelPendingWithdrawal credits the wallet back and flips the tx to CANCELLED"() {
+        given:
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("60.00"))
+        def tx = new Transaction(id: 9L, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',
+            amount: new BigDecimal("40.00"), description: 'Withdrawal request')
+        transactionRepository.findById(9L) >> Optional.of(tx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction t -> t }
+
+        when:
+        def result = service.cancelPendingWithdrawal(500L, 9L)
+
+        then:
+        wallet.balance == new BigDecimal("100.00")
+        tx.status == 'CANCELLED'
+        tx.description.contains('cancelled by user')
+        result.status == 'CANCELLED'
+        result.newBalance == new BigDecimal("100.00")
+    }
+
+    def "cancelPendingWithdrawal refuses a tx the wallet does not own"() {
+        given:
+        def tx = new Transaction(id: 9L, walletId: 999L /* different wallet */,
+            type: 'WITHDRAW', status: 'PENDING', amount: new BigDecimal("40"))
+        transactionRepository.findById(9L) >> Optional.of(tx)
+
+        when:
+        service.cancelPendingWithdrawal(500L, 9L)
+
+        then:
+        thrown(IllegalStateException)
+        0 * walletRepository.save(_)
+    }
+
+    def "cancelPendingWithdrawal refuses a non-WITHDRAW transaction"() {
+        given:
+        def tx = new Transaction(id: 9L, walletId: 500L, type: 'DEPOSIT',
+            status: 'PENDING', amount: new BigDecimal("40"))
+        transactionRepository.findById(9L) >> Optional.of(tx)
+
+        when:
+        service.cancelPendingWithdrawal(500L, 9L)
+
+        then:
+        thrown(IllegalArgumentException)
+        0 * walletRepository.save(_)
+    }
+
+    def "cancelPendingWithdrawal refuses already-COMPLETED rows"() {
+        given:
+        def tx = new Transaction(id: 9L, walletId: 500L, type: 'WITHDRAW',
+            status: 'COMPLETED', amount: new BigDecimal("40"))
+        transactionRepository.findById(9L) >> Optional.of(tx)
+
+        when:
+        service.cancelPendingWithdrawal(500L, 9L)
+
+        then:
+        thrown(IllegalStateException)
+        0 * walletRepository.save(_)
+    }
+
+    def "cancelPendingWithdrawal 404s for unknown tx id"() {
+        given:
+        transactionRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.cancelPendingWithdrawal(500L, 404L)
+
+        then:
+        thrown(NoSuchElementException)
+    }
 }
