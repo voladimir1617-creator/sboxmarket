@@ -1116,7 +1116,26 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
     ),
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Account Created'),
-      h('div', { className: 'profile-row-value' }, profile?.user?.createdAt ? new Date(profile.user.createdAt).toLocaleDateString() : '—')
+      h('div', { className: 'profile-row-value' },
+        profile?.user?.createdAt ? new Date(profile.user.createdAt).toLocaleDateString() : '—',
+        profile?.user?.createdAt && (() => {
+          const ageMs = Date.now() - profile.user.createdAt;
+          const days = Math.floor(ageMs / 86400_000);
+          let label;
+          if (days < 1)         label = 'today';
+          else if (days < 30)   label = `${days} day${days === 1 ? '' : 's'}`;
+          else if (days < 365)  label = `${Math.floor(days / 30)} month${Math.floor(days / 30) === 1 ? '' : 's'}`;
+          else                  label = `${Math.floor(days / 365)} year${Math.floor(days / 365) === 1 ? '' : 's'}`;
+          return h('span', {
+            style: {
+              marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+              background: days >= 90 ? 'rgba(34,197,94,0.15)' : 'rgba(96,165,250,0.15)',
+              color:      days >= 90 ? '#22c55e' : '#60a5fa'
+            },
+            title: days >= 90 ? 'Established account — 3+ months old' : 'Newer account'
+          }, days >= 90 ? '✓ ' + label : label);
+        })()
+      )
     ),
 
     // GDPR / right-to-copy: download a JSON blob of everything we

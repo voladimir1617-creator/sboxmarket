@@ -50,12 +50,37 @@ const FAQ = [
   {
     q: 'My purchase is stuck, what do I do?',
     a: "Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. An agent (or Clara, the automated first-responder) will reply within the hour."
+  },
+  {
+    q: 'How do I report a suspicious listing or user?',
+    a: "On any item detail page, the 🚩 button next to each active listing opens a short report form (reason + optional note). To report a user directly — e.g. chat harassment or a scam attempt before the trade opens — open the seller's stall page and hit the 🚩 Report button. Both flows route to the support queue; the reporter is notified when staff acts."
+  },
+  {
+    q: 'Is there a system status page?',
+    a: "Yes — /status.html probes the core services (marketplace, catalogue, auctions, API) every 30 seconds and shows green/amber/red for each. There's a direct link under Resources in the site footer."
+  },
+  {
+    q: 'Can I cancel a pending withdrawal?',
+    a: "Yes. Wallet → Transactions has a 'Cancel' button next to every PENDING withdrawal row. The full amount is credited back immediately and the row flips to CANCELLED. You don't need to wait for an admin rejection."
   }
 ];
 
 const SHORTCUTS = [
   { keys: '/',      desc: 'Focus the marketplace search box' },
+  { keys: '?',      desc: 'Toggle the keyboard shortcut cheat-sheet overlay' },
   { keys: 'Esc',    desc: 'Close the current item detail / modal / page' },
+  { keys: 'g m',    desc: 'Go to Market' },
+  { keys: 'g d',    desc: 'Go to Item Database' },
+  { keys: 'g p',    desc: 'Go to Profile' },
+  { keys: 'g w',    desc: 'Go to Wallet' },
+  { keys: 'g c',    desc: 'Go to Cart' },
+  { keys: 'g l',    desc: 'Go to Loadout Lab' },
+  { keys: 'g s',    desc: 'Go to Sell Items' },
+  { keys: 'g f',    desc: 'Go to Watchlist' },
+  { keys: 'g n',    desc: 'Go to Notifications' },
+  { keys: 'g o',    desc: 'Go to Offers' },
+  { keys: 'g b',    desc: 'Go to Buy Orders' },
+  { keys: 'g h',    desc: 'Go to Help Center' },
   { keys: 'Ctrl+click balance', desc: 'Toggle privacy mode — masks every dollar amount across the UI' },
 ];
 
@@ -70,6 +95,12 @@ const STEPS = [
 
 export function HelpModal({ onClose }) {
   const [openIdx, setOpenIdx] = useState(0);
+  const [search, setSearch]   = useState('');
+  const q = search.trim().toLowerCase();
+  const filteredFaq = q.length === 0
+    ? FAQ.map((item, origIdx) => ({ ...item, origIdx }))
+    : FAQ.map((item, origIdx) => ({ ...item, origIdx }))
+         .filter(item => item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q));
   return h(InfoModal, { title: 'Help Center', onClose },
     h('div', { className: 'help-intro' },
       h(MaterialIcon, { name: 'info', size: 22 }),
@@ -93,17 +124,27 @@ export function HelpModal({ onClose }) {
 
     h('div', { className: 'help-section-title' },
       h(MaterialIcon, { name: 'quiz', size: 18 }), 'Frequently Asked Questions'),
-    h('div', { className: 'help-faq' },
-      FAQ.map((item, i) => h('div', {
-        key: i, className: `help-faq-row ${openIdx === i ? 'open' : ''}`
-      },
-        h('button', { className: 'help-faq-q', onClick: () => setOpenIdx(openIdx === i ? -1 : i) },
-          h('span', null, item.q),
-          h(MaterialIcon, { name: openIdx === i ? 'expand_less' : 'expand_more', size: 20 })
+    h('input', {
+      className: 'price-input',
+      style: { width: '100%', marginBottom: 10, fontSize: 13 },
+      placeholder: '🔎 Search FAQs…',
+      value: search,
+      onChange: e => setSearch(e.target.value)
+    }),
+    filteredFaq.length === 0
+      ? h('div', { style: { fontSize: 13, color: 'var(--text-muted)', padding: '20px 0', textAlign: 'center' } },
+          'No FAQs match "' + q + '". Try a different keyword or open a support ticket below.')
+      : h('div', { className: 'help-faq' },
+          filteredFaq.map(item => h('div', {
+            key: item.origIdx, className: `help-faq-row ${openIdx === item.origIdx ? 'open' : ''}`
+          },
+            h('button', { className: 'help-faq-q', onClick: () => setOpenIdx(openIdx === item.origIdx ? -1 : item.origIdx) },
+              h('span', null, item.q),
+              h(MaterialIcon, { name: openIdx === item.origIdx ? 'expand_less' : 'expand_more', size: 20 })
+            ),
+            openIdx === item.origIdx && h('div', { className: 'help-faq-a' }, item.a)
+          ))
         ),
-        openIdx === i && h('div', { className: 'help-faq-a' }, item.a)
-      ))
-    ),
 
     h('div', { className: 'help-section-title' },
       h(MaterialIcon, { name: 'keyboard', size: 18 }), 'Keyboard Shortcuts'),
