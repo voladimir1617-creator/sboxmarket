@@ -2835,6 +2835,10 @@ export function MyStallModal({ onClose, me, onRefresh }) {
   const [editing, setEditing] = useState(null); // listing id being edited inline
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc]   = useState('');
+  // Auto-accept offer discount (0..50 stored as integer percent in the
+  // UI, converted to 0..1 fraction on save). Empty string = no auto-
+  // accept (listing.maxDiscount stays null).
+  const [editAutoPct, setEditAutoPct] = useState('');
   const [away, setAway] = useState(false);
   const load = useCallback(() => { fetchMyStall().then(setStall); }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
@@ -2863,13 +2867,27 @@ export function MyStallModal({ onClose, me, onRefresh }) {
     setEditing(l.id);
     setEditPrice(parseFloat(l.price).toFixed(2));
     setEditDesc(l.description || '');
+    // Backend ships the fraction (0.20). The UI edits as an integer
+    // percent (20). Empty string when no auto-accept is set so the
+    // input placeholder stays readable.
+    const md = parseFloat(l.maxDiscount);
+    setEditAutoPct(isFinite(md) && md > 0 ? Math.round(md * 100).toString() : '');
   };
 
   const saveEdit = async (id) => {
-    const res = await updateStallListing(id, {
+    const patch = {
       price: parseFloat(editPrice),
       description: editDesc
-    });
+    };
+    // Translate the integer percent back to a 0..1 fraction. Empty
+    // string / 0 clears the auto-accept so the seller opts out.
+    const pct = parseFloat(editAutoPct);
+    if (editAutoPct.trim() === '' || !isFinite(pct) || pct <= 0) {
+      patch.maxDiscount = null;
+    } else {
+      patch.maxDiscount = Math.min(50, Math.max(1, pct)) / 100;
+    }
+    const res = await updateStallListing(id, patch);
     if (res && res.error) { alert(res.error); return; }
     setEditing(null);
     load();
@@ -2983,7 +3001,16 @@ export function MyStallModal({ onClose, me, onRefresh }) {
               editing === l.id
                 ? h('div', { style: { marginTop: 6, display: 'flex', gap: 6 } },
                     h('input', { className: 'price-input', value: editPrice, onChange: e => setEditPrice(e.target.value), placeholder: 'price', style: { width: 90 } }),
-                    h('input', { className: 'price-input', value: editDesc, maxLength: 32, onChange: e => setEditDesc(e.target.value), placeholder: 'description (32 chars)', style: { flex: 1 } })
+                    h('input', { className: 'price-input', value: editDesc, maxLength: 32, onChange: e => setEditDesc(e.target.value), placeholder: 'description (32 chars)', style: { flex: 1 } }),
+                    h('input', {
+                      className: 'price-input',
+                      value: editAutoPct,
+                      onChange: e => setEditAutoPct(e.target.value.replace(/[^0-9]/g, '')),
+                      placeholder: 'auto %',
+                      title: 'Auto-accept offers at or above this % discount (blank = off). e.g. 20 = accept offers ≥ 80% of ask.',
+                      inputMode: 'numeric',
+                      style: { width: 80 }
+                    })
                   )
                 : h('div', { className: 'item-sub' },
                     l.item.category + ' · listed ' + timeAgo(l.listedAt),
