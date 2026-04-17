@@ -441,6 +441,16 @@ export function SettingsModal({ onClose }) {
 }
 
 // ── Profile (tabbed — mirrors the CSFloat profile screen) ───────
+// Tiny fetch helper used by the profile badge effects — avoids double-
+// catching per call site. Returns the parsed body on 2xx, null otherwise.
+async function safeFetchJson(url) {
+  try {
+    const r = await fetch(url, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+}
+
 export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, initialTab }) {
   const [tab, setTab]             = useState(initialTab || 'personal');
   const [profile, setProfile]     = useState(null);
@@ -469,13 +479,42 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     finally { setSyncing(false); }
   };
 
+  // Actionable-trade count — trades where the signed-in user is the
+  // blocking party. Drives the red pip on the Trades tab so users see
+  // at-a-glance that a trade needs their input. Fetched once at profile-
+  // modal open; refreshes when the tab becomes active. Offer count is
+  // pulled from the existing /offers/counts endpoint so the tab
+  // mirrors the nav badge.
+  const [actionableTradeCount, setActionableTradeCount] = useState(0);
+  const [pendingOfferCount, setPendingOfferCount]       = useState(0);
+  useEffect(() => {
+    if (!me) return;
+    let alive = true;
+    (async () => {
+      try {
+        const [tr, oc] = await Promise.all([
+          fetch('/api/trades', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []),
+          safeFetchJson('/api/offers/counts')
+        ]);
+        if (!alive) return;
+        const tradeN = (Array.isArray(tr) ? tr : []).filter(t =>
+          (t.sellerUserId === me.id && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND'].includes(t.state)) ||
+          (t.buyerUserId  === me.id && t.state === 'PENDING_BUYER_CONFIRM')
+        ).length;
+        setActionableTradeCount(tradeN);
+        setPendingOfferCount(Number(oc?.incomingPending || 0));
+      } catch (_) {}
+    })();
+    return () => { alive = false; };
+  }, [me?.id, tab]);
+
   const TABS = [
     { id: 'personal',     label: 'Personal Info' },
     { id: 'transactions', label: 'Transactions' },
     { id: 'buyorders',    label: 'Buy Orders' },
     { id: 'autobids',     label: 'Auto-Bids' },
-    { id: 'trades',       label: 'Trades' },
-    { id: 'offers',       label: 'Offers' },
+    { id: 'trades',       label: 'Trades', badge: actionableTradeCount },
+    { id: 'offers',       label: 'Offers', badge: pendingOfferCount },
     { id: 'support',      label: 'Support' },
     { id: 'developers',   label: 'Developers' },
   ];
@@ -535,7 +574,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         key: t.id,
         className: `profile-tab ${tab === t.id ? 'active' : ''}`,
         onClick: () => setTab(t.id)
-      }, t.label))
+      },
+        t.label,
+        t.badge > 0 && h('span', { className: 'profile-tab-badge' }, t.badge > 99 ? '99+' : t.badge)
+      ))
     ),
 
     tab === 'personal' && h(ProfilePersonalTab, { me, profile, syncing, onSync: runSync }),

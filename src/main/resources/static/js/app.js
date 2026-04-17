@@ -1782,6 +1782,33 @@ export function App() {
                   )
                 )
               ),
+              // Contact button — opens a support ticket pre-filled with
+              // the seller's id so CSR can triage a buyer's question about
+              // a specific seller. Only shown to signed-in viewers on
+              // someone else's stall (can't contact yourself).
+              me && me.id !== stallData.seller.id && h('button', {
+                className: 'stall-share-btn',
+                onClick: async () => {
+                  const reason = window.prompt(
+                    `Contact @${stallData.seller.displayName || 'seller'}\n\n` +
+                    `What do you want to ask? (goes through our support team — we don't share your email with the seller):`);
+                  if (!reason || !reason.trim()) return;
+                  const { createSupportTicket } = await import('./api.js');
+                  const res = await createSupportTicket({
+                    category: 'ACCOUNT',
+                    subject:  `Contact seller · @${stallData.seller.displayName || stallData.seller.id}`,
+                    body:     `Seller stall: /stall/${stallData.seller.id}\n\n${reason.trim()}`
+                  });
+                  if (res && (res.error || res.code)) {
+                    alert(res.message || res.error || 'Could not open ticket.');
+                  } else {
+                    alert('Your message was sent through support. You can track it in /support.');
+                  }
+                },
+                title: 'Contact this seller through support'
+              },
+                h('span', { className: 'stall-share-icon' }, '✉'),
+                'Contact'),
               // Share button copies the canonical stall URL to the clipboard.
               // Useful for sellers promoting their stall on Discord / Steam
               // groups — CSFloat has the same affordance and users expect it.

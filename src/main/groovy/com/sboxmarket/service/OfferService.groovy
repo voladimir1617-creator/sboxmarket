@@ -15,6 +15,8 @@ import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -43,6 +45,12 @@ class OfferService {
     @Autowired PurchaseService purchaseService
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
+    @Autowired(required = false) NotificationService notificationService
+
+    /** Sweeper window for auto-declining idle offers. Defaults to 7 days —
+     *  same as CSFloat's offer-expiry policy. Configurable so ops can
+     *  shorten to 24h during pricing incidents without a redeploy. */
+    @Value('${offer.auto-decline-days:7}') long autoDeclineDays
 
     @Transactional
     Offer makeOffer(Long buyerUserId, String buyerName, Long listingId, BigDecimal amount) {
@@ -317,5 +325,41 @@ class OfferService {
     }
     long countPendingOutgoing(Long buyerUserId) {
         offerRepository.countPendingByBuyer(buyerUserId)
+    }
+
+    /**
+     * Scheduled sweeper — auto-declines pending offers older than the
+     * configured window so they stop clogging the seller's incoming queue
+     * and blocking item modals where an old offer thread still shows.
+     * Fires every 6 hours; idempotent — rows that flip CANCELLED here
+     * won't match the query next tick.
+     *
+     * Notifies the buyer so they know their offer expired; the seller
+     * doesn't need a ping, the row just disappears from their queue.
+     */
+    @Scheduled(fixedDelay = 6L * 60L * 60L * 1000L, initialDelay = 10L * 60L * 1000L)
+    @Transactional
+    void sweepStaleOffers() {
+        def cutoff = System.currentTimeMillis() - (autoDeclineDays * 24L * 60L * 60L * 1000L)
+        def stale = offerRepository.findStalePending(cutoff)
+        if (stale.isEmpty()) return
+        stale.each { offer ->
+            try {
+                offer.status = 'CANCELLED'
+                offer.updatedAt = System.currentTimeMillis()
+                offerRepository.save(offer)
+                notificationService?.push(
+                    offer.buyerUserId,
+                    'OFFER_REJECTED',
+                    "Offer auto-declined after ${autoDeclineDays} days",
+                    "Your offer on listing #${offer.listingId} expired with no response.",
+                    offer.listingId,
+                    '/offers'
+                )
+            } catch (Exception e) {
+                log.warn("offer auto-decline failed for id=${offer.id}: ${e.message}")
+            }
+        }
+        log.info("Auto-declined ${stale.size()} stale offers (> ${autoDeclineDays} days idle)")
     }
 }

@@ -33,4 +33,11 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      *  (accepted/rejected/countered are terminal from the seller's view). */
     @Query("SELECT COUNT(o) FROM Offer o WHERE o.sellerUserId = :uid AND o.status = 'PENDING'")
     long countPendingBySeller(@Param("uid") Long sellerUserId)
+
+    /** Stale PENDING offers — drives the auto-decline sweeper. `updatedAt`
+     *  captures the last seller/buyer interaction (counter, partial reply,
+     *  etc.), so the 7-day window is "last meaningful activity", not
+     *  "time since first created". */
+    @Query("SELECT o FROM Offer o WHERE o.status = 'PENDING' AND o.updatedAt <= :cutoff")
+    List<Offer> findStalePending(@Param("cutoff") Long cutoff)
 }
