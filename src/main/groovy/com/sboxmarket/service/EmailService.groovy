@@ -152,6 +152,35 @@ support ticket.
         send(toEmail, subject, body)
     }
 
+    /** Deletion-request receipt. Fires from ProfileController when a
+     *  user first submits a deletion request — confirms the request
+     *  landed + gives them a cancel window. */
+    void sendDeletionRequested(String toEmail, String displayName) {
+        if (!toEmail) return
+        def subject = 'Your SkinBox deletion request was received'
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+We've received your request to delete your SkinBox account. Staff will
+review + finalise within 1-2 business days.
+
+If you change your mind, you can cancel the request before finalisation
+from Profile → Personal → Delete account → Cancel deletion request.
+
+What happens on finalise:
+  · Display name, avatar, email, trade URL cleared.
+  · Two-factor authentication wiped.
+  · Account locked — no future sign-in.
+  · Listings, trades, and transaction history stay for audit records.
+
+If you didn't request this, cancel the request immediately and open a
+support ticket — someone may have accessed your account.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Account-reinstated notice. Fires from AdminService.unbanUser. */
     void sendAccountUnbanned(String toEmail, String displayName) {
         if (!toEmail) return

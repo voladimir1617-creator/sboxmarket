@@ -321,10 +321,22 @@ class ProfileController {
     ResponseEntity<Map> requestAccountDeletion(HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException('Unknown user') }
-        if (user.deletionRequestedAt == null) {
+        boolean fresh = user.deletionRequestedAt == null
+        if (fresh) {
             user.deletionRequestedAt = System.currentTimeMillis()
             steamUserRepository.save(user)
             log.info("User ${uid} requested account deletion")
+            // Email receipt — only fires on the first request, not the
+            // no-op second-click path. Silent-fail so SMTP outages don't
+            // roll back the request. Gated on email-verified as the
+            // other security emails do.
+            if (fresh && emailService != null && Boolean.TRUE.equals(user.emailVerified) && user.email) {
+                try {
+                    emailService.sendDeletionRequested(user.email, user.displayName)
+                } catch (Exception e) {
+                    log.warn("Deletion-request email failed for user ${uid}: ${e.message}")
+                }
+            }
         }
         ResponseEntity.ok([
             requested:  true,
