@@ -1551,6 +1551,10 @@ function ProfileSupportTab() {
   const [form, setForm] = useState({ subject: '', category: 'OTHER', body: '' });
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
+  // Status filter — mirrors the backend's ticket lifecycle. 'ALL' = no
+  // filter; default is 'OPEN' which excludes RESOLVED tickets so the
+  // active queue is front and centre.
+  const [statusFilter, setStatusFilter] = useState('OPEN');
 
   const load = useCallback(async () => { setTickets(await fetchSupportTickets()); }, []);
   useEffect(() => { load(); }, [load]);
@@ -1627,25 +1631,55 @@ function ProfileSupportTab() {
       h('textarea', { className: 'wallet-amount-input', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), placeholder: 'Describe your issue…' }),
       h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
-    tickets === null
-      ? h('div', { className: 'spinner' })
-      : tickets.length === 0
-        ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '🎧'),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No tickets yet. Open one above if you need help.'))
-        : h('table', { className: 'db-table' },
-            h('thead', null, h('tr', null,
-              h('th', null, 'ID'), h('th', null, 'Subject'), h('th', null, 'Category'), h('th', null, 'Status'), h('th', { className: 'right' }, 'Updated'))),
-            h('tbody', null,
-              tickets.map(t => h('tr', { key: t.id, className: 'db-row', onClick: () => openTicket(t.id) },
-                h('td', { className: 'db-rank' }, '#' + t.id),
-                h('td', null, t.subject),
-                h('td', { className: 'db-cat' }, t.category),
-                h('td', { style: { fontSize: 10, fontWeight: 700 } }, t.status),
-                h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
-              ))
+    (() => {
+      if (tickets === null) return h('div', { className: 'spinner' });
+      if (tickets.length === 0) return h('div', { className: 'empty-inline' },
+          h('div', { className: 'empty-icon' }, '🎧'),
+          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No tickets yet. Open one above if you need help.'));
+      const filtered = statusFilter === 'ALL'
+        ? tickets
+        : statusFilter === 'OPEN'
+          ? tickets.filter(t => t.status !== 'RESOLVED')
+          : tickets.filter(t => t.status === statusFilter);
+      const counts = {
+        ALL: tickets.length,
+        OPEN: tickets.filter(t => t.status !== 'RESOLVED').length,
+        WAITING_STAFF: tickets.filter(t => t.status === 'WAITING_STAFF').length,
+        WAITING_USER:  tickets.filter(t => t.status === 'WAITING_USER').length,
+        RESOLVED:      tickets.filter(t => t.status === 'RESOLVED').length
+      };
+      return h('div', null,
+        h('div', { className: 'wallet-tx-filter-row' },
+          [
+            { id: 'ALL',           label: 'All' },
+            { id: 'OPEN',          label: 'Open' },
+            { id: 'WAITING_STAFF', label: 'Waiting staff' },
+            { id: 'WAITING_USER',  label: 'Waiting you' },
+            { id: 'RESOLVED',      label: 'Resolved' }
+          ].map(opt => h('button', {
+            key: opt.id,
+            className: `wallet-tx-filter-chip ${statusFilter === opt.id ? 'active' : ''}`,
+            onClick: () => setStatusFilter(opt.id)
+          }, `${opt.label} · ${counts[opt.id] || 0}`))
+        ),
+        filtered.length === 0
+          ? h('div', { className: 'empty-inline' },
+              h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No tickets in this filter.'))
+          : h('table', { className: 'db-table' },
+              h('thead', null, h('tr', null,
+                h('th', null, 'ID'), h('th', null, 'Subject'), h('th', null, 'Category'), h('th', null, 'Status'), h('th', { className: 'right' }, 'Updated'))),
+              h('tbody', null,
+                filtered.map(t => h('tr', { key: t.id, className: 'db-row', onClick: () => openTicket(t.id) },
+                  h('td', { className: 'db-rank' }, '#' + t.id),
+                  h('td', null, t.subject),
+                  h('td', { className: 'db-cat' }, t.category),
+                  h('td', { style: { fontSize: 10, fontWeight: 700 } }, t.status),
+                  h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
+                ))
+              )
             )
-          )
+      );
+    })()
   );
 }
 
@@ -2513,9 +2547,19 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
 }
 
 // ── Wallet (deposit/withdraw/history) ───────────────────────────
-export function WalletModal({ wallet, transactions, onClose, onRefresh, initialTab }) {
+export function WalletModal({ wallet, transactions, onClose, onRefresh, initialTab, prefillAmount }) {
   const [tab, setTab]       = useState(initialTab || 'deposit');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(prefillAmount != null ? String(prefillAmount) : '');
+  // If the app redirected from the cart low-balance warning with a
+  // shortfall amount, honor it exactly once. Subsequent tab switches or
+  // the user typing take over. Prefill flashes a yellow glow so the
+  // user sees where the number came from.
+  useEffect(() => {
+    if (prefillAmount != null && prefillAmount !== '') {
+      setAmount(String(prefillAmount));
+      setTab('deposit');
+    }
+  }, [prefillAmount]);
   const [dest, setDest]     = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [busy, setBusy]     = useState(false);

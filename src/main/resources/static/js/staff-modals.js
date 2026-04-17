@@ -702,7 +702,15 @@ function AdminUsersTab({ me }) {
         onChange: e => setSearch(e.target.value),
         onKeyDown: e => { if (e.key === 'Enter') load(); }
       }),
-      h('button', { className: 'btn btn-accent', onClick: load }, 'Search')
+      h('button', { className: 'btn btn-accent', onClick: load }, 'Search'),
+      // CSV export — hands the admin whatever's currently in the view
+      // (honors the `search` filter) via the server-rendered endpoint.
+      h('a', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11 },
+        href: search ? `/api/admin/users.csv?search=${encodeURIComponent(search)}` : '/api/admin/users.csv',
+        title: 'Export the current user list as a CSV'
+      }, '⇣ CSV')
     ),
     rows === null
       ? h('div', { className: 'spinner' })

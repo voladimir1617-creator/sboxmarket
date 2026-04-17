@@ -771,6 +771,11 @@ export function App() {
   const [transactions, setTransactions] = useState([]);
   const [walletOpen, setWalletOpen]     = useState(false);
   const [walletInitialTab, setWalletInitialTab] = useState('deposit');
+  // Deposit prefill — when the cart low-balance banner sends the user to
+  // /wallet we stash the shortfall so the deposit form opens with the
+  // right number already typed. Cleared once consumed. Also respected
+  // from the URL: /wallet?prefill=12.34
+  const [walletPrefillAmount, setWalletPrefillAmount] = useState(null);
 
   // auth
   // `meLoaded` is false until the first fetchMe() resolves. We use this
@@ -1872,9 +1877,10 @@ export function App() {
        state, others are self-contained. */
     routeName === 'wallet' && wallet && h(WalletModal, {
       wallet, transactions,
-      onClose: () => navigate(paths.market()),
+      onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); },
       onRefresh: loadWallet,
-      initialTab: walletInitialTab
+      initialTab: walletInitialTab,
+      prefillAmount: walletPrefillAmount
     }),
     routeName === 'stall' && h(InfoModal, {
       title: stallData?.seller?.displayName
@@ -2154,11 +2160,16 @@ export function App() {
               h('strong', null, 'Not enough balance. '),
               `You have ${fmt(bal)} — add ${fmt(gap)} to complete this checkout.`
             ),
-            h('a', {
+            h('button', {
               className: 'btn btn-accent',
               style: { padding: '6px 14px', fontSize: 12 },
-              href: paths.wallet(),
-              onClick: () => setCartConfirmOpen(false)
+              onClick: (e) => {
+                e.preventDefault();
+                setWalletInitialTab('deposit');
+                setWalletPrefillAmount(gap.toFixed(2));
+                setCartConfirmOpen(false);
+                navigate(paths.wallet());
+              }
             }, 'Deposit →')
           );
         })(),

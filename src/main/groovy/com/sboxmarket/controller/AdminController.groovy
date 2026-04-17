@@ -108,6 +108,45 @@ class AdminController {
         ResponseEntity.ok(adminService.listUsers(search))
     }
 
+    /** Users CSV export — used by ops for reporting, tax auditing, and
+     *  ad-hoc data pulls. Identical filter surface as /users so the CSV
+     *  represents what the admin is currently looking at. No PII beyond
+     *  what the admin panel already renders. */
+    @GetMapping(value = "/users.csv", produces = "text/csv")
+    ResponseEntity<String> usersCsv(@RequestParam(required = false) String search,
+                                    HttpServletRequest req) {
+        requireAdmin(req)
+        def rows = adminService.listUsers(search)
+        def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        df.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        def esc = { String v ->
+            if (v == null) return ''
+            if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+                return '"' + v.replace('"', '""') + '"'
+            }
+            v
+        }
+        def sb = new StringBuilder()
+        sb.append('id,steamId64,displayName,role,banned,email,emailVerified,createdAt,lastLoginAt\n')
+        rows.each { u ->
+            sb.append(u.id ?: '').append(',')
+              .append(esc(u.steamId64 ?: '')).append(',')
+              .append(esc(u.displayName ?: '')).append(',')
+              .append(esc(u.role ?: 'USER')).append(',')
+              .append((u.banned ? 'true' : 'false')).append(',')
+              .append(esc(u.email ?: '')).append(',')
+              .append((u.emailVerified ? 'true' : 'false')).append(',')
+              .append(df.format(new Date(u.createdAt ?: 0))).append(',')
+              .append(df.format(new Date(u.lastLoginAt ?: 0))).append('\n')
+        }
+        ResponseEntity.ok()
+            .header('Content-Disposition',
+                "attachment; filename=\"skinbox-users-${df.format(new Date()).replace(':','-')}.csv\"")
+            .header('Content-Type', 'text/csv; charset=utf-8')
+            .header('Cache-Control', 'no-store')
+            .body(sb.toString())
+    }
+
     @PostMapping("/users/{id}/ban")
     ResponseEntity<SteamUser> ban(@PathVariable Long id,
                                   @RequestBody(required = false) Map body,
