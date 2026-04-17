@@ -1734,6 +1734,23 @@ function ProfileBuyOrdersTab() {
                   title: `Current floor ${fmt(floor)} · gap ${fmt(gap)}`
                 }, 'Floor ' + fmt(floor) + ' · ' + label);
               })(),
+              // Queue-position chip — "#1 in queue" is green (next to
+              // fill), "#2" amber, deeper muted. Silent for basket
+              // (no-item) orders and non-ACTIVE rows per the controller
+              // contract. The engine ranks by maxPrice DESC + createdAt
+              // ASC so this is the real position, not a heuristic.
+              o.queuePosition != null && (() => {
+                const q = o.queuePosition;
+                const color = q <= 1 ? 'var(--green)'
+                            : q <= 3 ? '#fbbf24'
+                            :          'var(--text-muted)';
+                return h('div', {
+                  style: { fontSize: 10, color, marginTop: 2, fontWeight: 700 },
+                  title: q === 1
+                    ? 'You are first in line — the next matching listing fills your order'
+                    : `${q - 1} other buyer${q - 1 === 1 ? ' is' : 's are'} ahead of you for this item. Raise your max price or wait for them to fill.`
+                }, '#' + q + ' in queue');
+              })(),
               h('div', { className: `buyorder-status ${o.status}` }, o.status),
               // Cancel button — only shown while the order still has
               // remaining fillable quantity. Fills / cancels terminate

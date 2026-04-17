@@ -99,6 +99,16 @@ class BuyOrderService {
         buyOrderRepository.countActiveForItem(itemId)
     }
 
+    /** Number of buy orders ahead of the given (itemId, maxPrice,
+     *  createdAt) under the matching engine's priority. Add 1 at the
+     *  call site to get the user-facing queue position (#1, #2, …).
+     *  Returns 0 when the key is null so the controller can render
+     *  no chip for basket orders (category-only, null itemId). */
+    long countAheadInQueue(Long itemId, BigDecimal maxPrice, Long createdAt) {
+        if (itemId == null || maxPrice == null) return 0L
+        buyOrderRepository.countAheadInQueue(itemId, maxPrice, createdAt ?: 0L)
+    }
+
     @Transactional
     BuyOrder cancel(Long buyerUserId, Long orderId) {
         def o = buyOrderRepository.findById(orderId)

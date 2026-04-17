@@ -51,4 +51,24 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
         @Param("rarity")   String rarity,
         @Param("price")    BigDecimal price
     )
+
+    /** How many other ACTIVE buy orders pinned to the same item would
+     *  match a seller's listing before this one. Mirrors the ordering
+     *  the matching engine uses (`maxPrice DESC, createdAt ASC`) so
+     *  the returned value is exactly "your queue position minus 1". */
+    @Query("""
+        SELECT COUNT(b) FROM BuyOrder b
+        WHERE b.status = 'ACTIVE'
+          AND b.quantity > 0
+          AND b.itemId = :itemId
+          AND (
+            b.maxPrice > :maxPrice
+            OR (b.maxPrice = :maxPrice AND b.createdAt < :createdAt)
+          )
+    """)
+    long countAheadInQueue(
+        @Param("itemId")    Long itemId,
+        @Param("maxPrice")  BigDecimal maxPrice,
+        @Param("createdAt") Long createdAt
+    )
 }

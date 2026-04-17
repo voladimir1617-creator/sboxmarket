@@ -331,4 +331,40 @@ class BuyOrderServiceSpec extends Specification {
         b == BigDecimal.ZERO
         0 * buyOrderRepository.findBestBidForItem(_)
     }
+
+    // ── countAheadInQueue ─────────────────────────────────────────
+
+    def "countAheadInQueue returns 0 for null itemId without hitting the repo"() {
+        when:
+        def n = service.countAheadInQueue(null, new BigDecimal("10"), 1000L)
+
+        then:
+        n == 0L
+        0 * buyOrderRepository.countAheadInQueue(*_)
+    }
+
+    def "countAheadInQueue returns 0 for null maxPrice without hitting the repo"() {
+        when:
+        def n = service.countAheadInQueue(42L, null, 1000L)
+
+        then:
+        n == 0L
+        0 * buyOrderRepository.countAheadInQueue(*_)
+    }
+
+    def "countAheadInQueue forwards to the repo and substitutes 0 for null createdAt"() {
+        given:
+        buyOrderRepository.countAheadInQueue(42L, new BigDecimal("10"), 0L) >> 5L
+
+        expect:
+        service.countAheadInQueue(42L, new BigDecimal("10"), null) == 5L
+    }
+
+    def "countAheadInQueue passes the real createdAt through when present"() {
+        given:
+        buyOrderRepository.countAheadInQueue(42L, new BigDecimal("10"), 1700000000000L) >> 2L
+
+        expect:
+        service.countAheadInQueue(42L, new BigDecimal("10"), 1700000000000L) == 2L
+    }
 }

@@ -46,14 +46,27 @@ class BuyOrderController {
         def out = rows.collect { o ->
             def floor = o.itemId != null ? byId[o.itemId]?.lowestPrice : null
             def gap = (floor != null && o.maxPrice != null) ? (floor - o.maxPrice) : null
+            // Queue position — 1 + number of ACTIVE orders on the same
+            // item that would match first under the engine's
+            // `maxPrice DESC, createdAt ASC` ordering. Only meaningful
+            // for ACTIVE rows pinned to a specific item; basket
+            // (category/rarity-only) rows leave it null so the UI
+            // hides the chip cleanly.
+            Long queuePosition = null
+            if (o.status == 'ACTIVE' && o.itemId != null && o.maxPrice != null) {
+                long ahead = buyOrderService.countAheadInQueue(
+                    o.itemId, o.maxPrice, o.createdAt ?: 0L)
+                queuePosition = ahead + 1L
+            }
             [
                 id: o.id, itemId: o.itemId, itemName: o.itemName,
                 category: o.category, rarity: o.rarity,
                 maxPrice: o.maxPrice, quantity: o.quantity,
                 originalQuantity: o.originalQuantity, status: o.status,
                 createdAt: o.createdAt, updatedAt: o.updatedAt,
-                currentFloor: floor,
-                floorGap:     gap
+                currentFloor:  floor,
+                floorGap:      gap,
+                queuePosition: queuePosition
             ]
         }
         ResponseEntity.ok(out)
