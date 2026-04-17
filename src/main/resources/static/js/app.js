@@ -2975,7 +2975,18 @@ export function App() {
       cartCount === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, '🛒'),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Your cart is empty. Click any listing and add it to the cart.'))
+            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+              'Your cart is empty'),
+            h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+              'Browse the marketplace, tap the + on any listing card to queue it up, then come back here to check out.'),
+            h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+              h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →'),
+              h('a', {
+                className: 'btn btn-ghost',
+                style: { border: '1px solid var(--border)' },
+                href: '/?sort=discount'
+              }, '% Top deals')
+            ))
         : h('div', null,
             // Unavailable-rows banner — fires when the bulk freshness
             // probe came back with at least one listing that is no
