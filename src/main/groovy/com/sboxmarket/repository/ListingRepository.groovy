@@ -249,6 +249,18 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     long countSoldForItemSince(@Param('itemId') Long itemId, @Param('since') Long since)
 
+    /** Dollar volume of sold listings for an item since a cutoff.
+     *  Complement to the count — drives the "$X volume / 30d" chip on
+     *  item detail. Null-safe SUM returns 0 for items with no sales. */
+    @Query("""
+        SELECT COALESCE(SUM(l.price), 0) FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status  = 'SOLD'
+          AND l.soldAt  IS NOT NULL
+          AND l.soldAt  >= :since
+    """)
+    BigDecimal sumSoldVolumeForItemSince(@Param('itemId') Long itemId, @Param('since') Long since)
+
     /** Most-recent SOLD listing for an item — drives the "last sold" chip
      *  on item detail (different from floor = current cheapest listing).
      *  Returns a Pageable page of 1 so Spring Data doesn't need a top-1

@@ -82,11 +82,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // shows demand without transactions). Payload also includes the
   // most recent SOLD listing's price + timestamp for the "last sold"
   // chip — different data point from current floor.
-  const [velocity, setVelocity] = useState({ soldLast7d: 0, soldLast30d: 0, lastSoldPrice: null, lastSoldAt: null });
+  const [velocity, setVelocity] = useState({ soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null });
   useEffect(() => {
     if (!item?.id) return;
     let alive = true;
-    fetchItemVelocity(item.id).then(v => { if (alive) setVelocity(v || { soldLast7d: 0, soldLast30d: 0, lastSoldPrice: null, lastSoldAt: null }); });
+    fetchItemVelocity(item.id).then(v => { if (alive) setVelocity(v || { soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null }); });
     return () => { alive = false; };
   }, [item?.id]);
   useEffect(() => {
@@ -222,6 +222,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               h('span', { className: 'modal-demand-chip-num', style: { color: 'var(--text-primary)' } },
                 fmt(velocity.lastSoldPrice)),
               ' · ', timeAgo(velocity.lastSoldAt)
+            ),
+          // 30d volume chip — total dollars of sold listings for this
+          // item in the last 30 days. Complements the count chip
+          // ("N sold this month") with the $ scale. Silent when zero.
+          parseFloat(velocity.volumeLast30d) > 0 &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'rgba(96,165,250,0.12)', borderColor: 'rgba(96,165,250,0.35)', color: '#60a5fa' } },
+              h('span', { className: 'modal-demand-chip-num' }, fmt(velocity.volumeLast30d)),
+              ' volume · 30d'
             )
         )
       ),

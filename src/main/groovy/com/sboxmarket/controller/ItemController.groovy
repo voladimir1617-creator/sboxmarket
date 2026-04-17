@@ -84,10 +84,11 @@ class ItemController {
             PageRequest.of(0, 1))
         def lastRow = last?.isEmpty() ? null : last[0]
         ResponseEntity.ok([
-            soldLast7d:     listingRepository.countSoldForItemSince(id, week),
-            soldLast30d:    listingRepository.countSoldForItemSince(id, month),
-            lastSoldPrice:  lastRow?.price,
-            lastSoldAt:     lastRow?.soldAt
+            soldLast7d:      listingRepository.countSoldForItemSince(id, week),
+            soldLast30d:     listingRepository.countSoldForItemSince(id, month),
+            volumeLast30d:   listingRepository.sumSoldVolumeForItemSince(id, month) ?: BigDecimal.ZERO,
+            lastSoldPrice:   lastRow?.price,
+            lastSoldAt:      lastRow?.soldAt
         ])
     }
 
