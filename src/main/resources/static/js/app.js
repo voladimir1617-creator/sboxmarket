@@ -2146,7 +2146,22 @@ export function App() {
                   stallData.count, ' active listings',
                   stallData.seller.soldCount > 0 && ` · ${stallData.seller.soldCount} sold`,
                   ' · joined ',
-                  stallData.seller.joinedAt ? new Date(stallData.seller.joinedAt).toLocaleDateString() : '—'
+                  stallData.seller.joinedAt ? new Date(stallData.seller.joinedAt).toLocaleDateString() : '—',
+                  // Last-seen chip — green if within 24h, yellow if 7d,
+                  // muted otherwise. Softer than "online now" which we
+                  // don't actually track, but clear enough to tell a
+                  // buyer whether this seller is likely to respond.
+                  stallData.seller.lastSyncedAt && (() => {
+                    const age = Date.now() - stallData.seller.lastSyncedAt;
+                    let cls, label;
+                    if (age < 24 * 3600_000)       { cls = 'var(--green)'; label = 'Active recently'; }
+                    else if (age < 7 * 24 * 3600_000) { cls = '#fbbf24';      label = 'Active this week'; }
+                    else                              { cls = 'var(--text-muted)'; label = 'Last seen ' + timeAgo(stallData.seller.lastSyncedAt); }
+                    return h('span', {
+                      style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
+                      title: 'Last observed on Steam ' + new Date(stallData.seller.lastSyncedAt).toLocaleString()
+                    }, '· ', label);
+                  })()
                 ),
                 // Rating chip — only shows if the seller has at least one
                 // review. Uses a simple star-count visual with the average

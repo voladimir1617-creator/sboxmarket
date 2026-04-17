@@ -296,12 +296,17 @@ class ListingController {
             ((ratingSummary.count ?: 0) == 0 || ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
         ResponseEntity.ok([
             seller: [
-                id:          user.id,
-                displayName: user.displayName,
-                avatarUrl:   user.avatarUrl,
-                joinedAt:    user.createdAt,
-                verified:    verified,
-                soldCount:   soldCount
+                id:            user.id,
+                displayName:   user.displayName,
+                avatarUrl:     user.avatarUrl,
+                joinedAt:      user.createdAt,
+                // Last time we observed this account via the Steam sync
+                // loop — the closest approximation of "online". Only
+                // surfaces recency signal, not PII. Null for accounts we
+                // haven't re-synced since they signed in.
+                lastSyncedAt:  user.lastSyncedAt,
+                verified:      verified,
+                soldCount:     soldCount
             ],
             listings:  visible,
             count:     visible.size(),

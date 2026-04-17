@@ -1144,6 +1144,11 @@ function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
 function AdminUsersTab({ me }) {
   const [rows, setRows] = useState(null);
   const [search, setSearch] = useState('');
+  // Role/status chip filter — applied client-side on the loaded rows so
+  // admins can narrow to "show me every CSR" or "show me the banned
+  // accounts" without a server round-trip. Backend still filters by
+  // search text (display name / Steam ID).
+  const [roleFilter, setRoleFilter] = useState('ALL');
   const [busy, setBusy] = useState(false);
   // User detail sub-modal: loaded lazily when an admin clicks a row.
   // Shows trades + reviews received + public profile fields. Read-only
@@ -1270,12 +1275,44 @@ function AdminUsersTab({ me }) {
         title: 'Export the current user list as a CSV'
       }, '⇣ CSV')
     ),
-    rows === null
+    // Role / status chip filter — applied below the search. Counts
+    // derived from the already-fetched rows so the chip labels show
+    // exactly how many match each filter.
+    rows && rows.length > 0 && (() => {
+      const count = {
+        ALL:    rows.length,
+        USER:   rows.filter(r => (r.role || 'USER') === 'USER' && !r.banned).length,
+        CSR:    rows.filter(r => r.role === 'CSR').length,
+        ADMIN:  rows.filter(r => r.role === 'ADMIN').length,
+        BANNED: rows.filter(r => r.banned).length
+      };
+      return h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
+        [
+          { id: 'ALL',    label: 'All' },
+          { id: 'USER',   label: 'Users' },
+          { id: 'CSR',    label: 'CSRs' },
+          { id: 'ADMIN',  label: 'Admins' },
+          { id: 'BANNED', label: 'Banned' }
+        ].map(opt => h('button', {
+          key: opt.id,
+          className: `wallet-tx-filter-chip ${roleFilter === opt.id ? 'active' : ''}`,
+          onClick: () => setRoleFilter(opt.id),
+          disabled: count[opt.id] === 0 && opt.id !== 'ALL'
+        }, `${opt.label} · ${count[opt.id]}`))
+      );
+    })(),
+    (() => {
+      const visibleRows = rows === null ? null : (roleFilter === 'ALL'
+        ? rows
+        : roleFilter === 'BANNED' ? rows.filter(r => r.banned)
+        : rows.filter(r => (r.role || 'USER') === roleFilter && !r.banned));
+      return visibleRows === null
       ? h('div', { className: 'spinner' })
-      : rows.length === 0
+      : visibleRows.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, '👥'),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matching users.'))
+            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+              rows.length === 0 ? 'No matching users.' : `No users match filter "${roleFilter.toLowerCase()}".`))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
               h('th', null, 'User'),
@@ -1283,7 +1320,7 @@ function AdminUsersTab({ me }) {
               h('th', null, 'Role'),
               h('th', null, 'Status'),
               h('th', { className: 'right' }, 'Actions'))),
-            h('tbody', null, rows.map(u => h('tr', { key: u.id, className: 'db-row' },
+            h('tbody', null, visibleRows.map(u => h('tr', { key: u.id, className: 'db-row' },
               h('td', null,
                 h('div', { className: 'db-item-cell' },
                   u.avatarUrl
@@ -1330,7 +1367,8 @@ function AdminUsersTab({ me }) {
                 )
               )
             )))
-          ),
+          );
+    })(),
     // Ban-reason picker drawer — opens on "Ban" click with templates +
     // a free-text textarea. Admins pick a template to populate the box
     // and can still edit before submitting. Keeps ban-reason text
