@@ -367,4 +367,106 @@ class BuyOrderServiceSpec extends Specification {
         expect:
         service.countAheadInQueue(42L, new BigDecimal("10"), 1700000000000L) == 2L
     }
+
+    // ── update (edit) ─────────────────────────────────────────────
+
+    def "update raises maxPrice on an active order"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"), quantity: 3,
+                                     originalQuantity: 3)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        def result = service.update(10L, 7L, new BigDecimal("25"), null)
+
+        then:
+        result.maxPrice == new BigDecimal("25")
+        result.quantity == 3
+        result.updatedAt != null
+    }
+
+    def "update rejects non-positive prices"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"), quantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        service.update(10L, 7L, BigDecimal.ZERO, null)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "update rejects prices above the 100k cap"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"), quantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        service.update(10L, 7L, new BigDecimal("100001"), null)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "update refuses to grow quantity beyond the original"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"),
+                                     quantity: 2, originalQuantity: 5)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        def result = service.update(10L, 7L, null, 10)
+
+        then:
+        // Clamped to the original cap, not the requested 10.
+        result.quantity == 5
+    }
+
+    def "update allows shrinking the remaining quantity"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"),
+                                     quantity: 5, originalQuantity: 5)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        def result = service.update(10L, 7L, null, 2)
+
+        then:
+        result.quantity == 2
+    }
+
+    def "update refuses edits from a non-owner"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"), quantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        service.update(99L, 7L, new BigDecimal("20"), null)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "update refuses edits on non-ACTIVE orders"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'FILLED',
+                                     maxPrice: new BigDecimal("10"), quantity: 0)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        service.update(10L, 7L, new BigDecimal("20"), null)
+
+        then:
+        thrown(BadRequestException)
+    }
 }

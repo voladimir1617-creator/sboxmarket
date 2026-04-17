@@ -126,6 +126,31 @@ class BuyOrderController {
         ResponseEntity.ok([id: order.id, status: order.status])
     }
 
+    /** Raise / lower the max price or shrink the remaining quantity on
+     *  an ACTIVE buy order. Both fields optional; at least one should
+     *  be present. See BuyOrderService.update for the validation ladder. */
+    @PutMapping("/{id}")
+    ResponseEntity<BuyOrder> update(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        BigDecimal newMax = null
+        if (body?.maxPrice != null) {
+            try { newMax = new BigDecimal(body.maxPrice.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE",
+                    "maxPrice must be a valid number")
+            }
+        }
+        Integer newQty = null
+        if (body?.quantity != null) {
+            try { newQty = Integer.parseInt(body.quantity.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_QUANTITY",
+                    "quantity must be a whole number")
+            }
+        }
+        ResponseEntity.ok(buyOrderService.update(uid, id, newMax, newQty))
+    }
+
     /** CSV export of every buy order the caller has ever placed — the
      *  full history across ACTIVE / FILLED / CANCELLED. Mirrors the
      *  /api/wallet/transactions.csv + /api/listings/my-stall/sold.csv

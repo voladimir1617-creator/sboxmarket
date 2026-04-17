@@ -1663,6 +1663,32 @@ function ProfileBuyOrdersTab() {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState('ACTIVE');
   const [busy, setBusy] = useState(false);
+  // Edit state: which row is being edited, the in-flight draft values.
+  // Null = no edit open. Only one row editable at a time — keeps the
+  // UI simple and mirrors the MyStall inline-edit pattern.
+  const [editing, setEditing] = useState(null);
+  const [editMax, setEditMax] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const startEdit = (o) => {
+    setEditing(o.id);
+    setEditMax(o.maxPrice != null ? String(o.maxPrice) : '');
+    setEditQty(o.quantity != null ? String(o.quantity) : '');
+  };
+  const cancelEdit = () => { setEditing(null); setEditMax(''); setEditQty(''); };
+  const saveEdit = async (o) => {
+    const maxPrice = parseFloat(editMax);
+    const quantity = parseInt(editQty, 10);
+    if (!(maxPrice > 0)) { alert('Max price must be positive'); return; }
+    if (!(quantity >= 1)) { alert('Quantity must be at least 1'); return; }
+    setBusy(true);
+    try {
+      const { updateBuyOrder } = await import('./api.js');
+      const res = await updateBuyOrder(o.id, { maxPrice, quantity });
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      cancelEdit();
+      load();
+    } finally { setBusy(false); }
+  };
   const load = useCallback(() => { fetchBuyOrders().then(setOrders); }, []);
   useEffect(() => { load(); }, [load]);
   const cancelOrder = async (o) => {
@@ -1760,15 +1786,50 @@ function ProfileBuyOrdersTab() {
                 }, '#' + q + ' in queue');
               })(),
               h('div', { className: `buyorder-status ${o.status}` }, o.status),
-              // Cancel button — only shown while the order still has
-              // remaining fillable quantity. Fills / cancels terminate
-              // the row so the button hides.
-              o.status === 'ACTIVE' && h('button', {
-                className: 'btn btn-ghost',
-                style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
-                disabled: busy,
-                onClick: () => cancelOrder(o)
-              }, '✕ Cancel')
+              // Edit panel — visible when the user clicked ✎. Two
+              // compact inputs for maxPrice + quantity, save/cancel
+              // buttons. Live-reloads the row on save so the queue
+              // chip re-ranks with the new price.
+              o.status === 'ACTIVE' && editing === o.id && h('div', {
+                style: { display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }
+              },
+                h('input', {
+                  className: 'price-input',
+                  style: { width: 80, padding: '4px 6px', fontSize: 11 },
+                  type: 'number', step: '0.01', min: '0.01',
+                  value: editMax, onChange: e => setEditMax(e.target.value),
+                  placeholder: 'Max $',
+                  title: 'New max price per item'
+                }),
+                h('input', {
+                  className: 'price-input',
+                  style: { width: 52, padding: '4px 6px', fontSize: 11 },
+                  type: 'number', step: '1', min: '1',
+                  value: editQty, onChange: e => setEditQty(e.target.value),
+                  placeholder: 'Qty',
+                  title: "Remaining quantity (can't exceed original)"
+                }),
+                h('button', { className: 'buy-btn', style: { padding: '4px 10px', fontSize: 11 }, disabled: busy, onClick: () => saveEdit(o) }, 'Save'),
+                h('button', { className: 'btn btn-ghost', style: { padding: '4px 8px', fontSize: 11 }, onClick: cancelEdit }, '✕')
+              ),
+              // Edit + Cancel buttons — only shown while the order still
+              // has remaining fillable quantity AND no edit is open for
+              // another row. Fills / cancels terminate the row so the
+              // buttons hide.
+              o.status === 'ACTIVE' && editing !== o.id && h('div', { style: { display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' } },
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
+                  disabled: busy, onClick: () => startEdit(o),
+                  title: 'Adjust your max price or remaining quantity'
+                }, '✎ Edit'),
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
+                  disabled: busy,
+                  onClick: () => cancelOrder(o)
+                }, '✕ Cancel')
+              )
             )
           ))
         )

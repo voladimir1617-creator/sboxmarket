@@ -385,6 +385,18 @@ export async function deleteBuyOrder(id) {
   return writeJson(`${API}/buy-orders/${id}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
+/** Edit an ACTIVE buy order in place. Either field can be null to
+ *  leave it unchanged; the backend applies the 100k cap / quantity
+ *  bounds on its own. Shrinks remaining fills when `quantity` is
+ *  lower; refuses to grow past the original. */
+export async function updateBuyOrder(id, { maxPrice, quantity }) {
+  return writeJson(`${API}/buy-orders/${id}`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ maxPrice, quantity })
+  });
+}
+
 // ── Bids / Auctions ─────────────────────────────────────────────
 export async function placeBid(listingId, amount, maxAmount) {
   return writeJson(`${API}/bids`, {

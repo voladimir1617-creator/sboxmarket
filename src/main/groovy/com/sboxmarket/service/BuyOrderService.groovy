@@ -122,6 +122,54 @@ class BuyOrderService {
     }
 
     /**
+     * Edit a still-ACTIVE buy order: change the max price and/or the
+     * quantity. Price validation mirrors create() (positive, capped at
+     * $100k, DTO-bounded) and quantity mirrors the 1..100 floor/ceiling.
+     * Only the owner can edit. Non-ACTIVE rows are frozen — once filled
+     * or cancelled, editing would let a buyer retroactively lower a
+     * cap they've already paid at.
+     *
+     * Raising the cap is the common case (the order hasn't matched yet,
+     * buyer wants to be more competitive). Lowering the cap is also
+     * allowed — worst case the order simply stops matching at the old
+     * price, which is the user's call.
+     */
+    @Transactional
+    BuyOrder update(Long buyerUserId, Long orderId, BigDecimal newMaxPrice, Integer newQuantity) {
+        banGuard.assertNotBanned(buyerUserId)
+        def o = buyOrderRepository.findById(orderId)
+            .orElseThrow { new NotFoundException("BuyOrder", orderId) }
+        if (o.buyerUserId != buyerUserId) {
+            throw new ForbiddenException("Not your buy order")
+        }
+        if (o.status != 'ACTIVE') {
+            throw new BadRequestException("NOT_ACTIVE",
+                "Only active buy orders can be edited")
+        }
+        if (newMaxPrice != null) {
+            if (newMaxPrice <= BigDecimal.ZERO) {
+                throw new BadRequestException("INVALID_PRICE", "Max price must be positive")
+            }
+            if (newMaxPrice > new BigDecimal("100000")) {
+                throw new BadRequestException("PRICE_TOO_HIGH",
+                    "Max price must not exceed \$100,000")
+            }
+            o.maxPrice = newMaxPrice
+        }
+        if (newQuantity != null) {
+            int q = Math.min(Math.max(1, newQuantity), 100)
+            // Don't let the buyer grow the order above their original
+            // quantity — that would let them dodge the cap retroactively.
+            // Shrinking is fine (drops the remaining fills).
+            int cap = o.originalQuantity ?: o.quantity ?: 100
+            q = Math.min(q, cap)
+            o.quantity = q
+        }
+        o.updatedAt = System.currentTimeMillis()
+        buyOrderRepository.save(o)
+    }
+
+    /**
      * Called by ListingService whenever a listing becomes visible. Walks matching
      * active orders and tries to fill them. Any exception during a single match is
      * swallowed so one failed auto-purchase never blocks the listing from going live.
