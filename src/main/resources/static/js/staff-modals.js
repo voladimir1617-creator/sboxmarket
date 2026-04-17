@@ -322,8 +322,9 @@ function AdminAnnouncementsTab() {
     live.length > 0 && h('div', { style: { padding: 12, background: 'var(--bg-card)', border: '1px solid var(--accent-border)', borderRadius: 8, marginBottom: 16 } },
       h('div', { style: { fontSize: 11, color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 } }, 'LIVE NOW'),
       live.map(r => h('div', { key: r.id, style: { display: 'flex', gap: 12, padding: 6, alignItems: 'center' } },
-        h('span', { style: { fontSize: 10, fontWeight: 800, color: 'var(--text-muted)' } }, r.severity),
+        h(SeverityChip, { severity: r.severity }),
         h('span', { style: { flex: 1 } }, r.message),
+        r.expiresAt && h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } }, 'ends ' + timeAgo(r.expiresAt)),
         h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, onClick: () => deactivate(r.id) }, 'Stop')
       ))
     ),
@@ -338,11 +339,27 @@ function AdminAnnouncementsTab() {
             opacity: r.active && (!r.expiresAt || r.expiresAt > Date.now()) ? 1 : 0.55
           }
         },
-          h('span', { style: { fontSize: 10, fontWeight: 800, color: 'var(--text-muted)' } }, r.severity),
+          h(SeverityChip, { severity: r.severity }),
           h('span', { style: { flex: 1, fontSize: 13 } }, r.message),
           h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(r.createdAt))
         ))
   );
+}
+
+function SeverityChip({ severity }) {
+  const s = (severity || 'INFO').toUpperCase();
+  const cfg = {
+    INFO:    { bg: 'rgba(96,165,250,0.15)', fg: '#60a5fa', label: 'INFO' },
+    WARNING: { bg: 'rgba(251,191,36,0.15)', fg: '#fbbf24', label: 'WARN' },
+    CRITICAL:{ bg: 'rgba(248,113,113,0.15)', fg: '#f87171', label: 'CRIT' }
+  }[s] || { bg: 'var(--bg-elevated)', fg: 'var(--text-muted)', label: s };
+  return h('span', {
+    style: {
+      fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 4,
+      background: cfg.bg, color: cfg.fg, letterSpacing: 0.5,
+      fontFamily: 'JetBrains Mono, monospace', minWidth: 40, textAlign: 'center'
+    }
+  }, cfg.label);
 }
 
 // Fraud-signals triage — read-only rollup of the last 24h of audit rows.

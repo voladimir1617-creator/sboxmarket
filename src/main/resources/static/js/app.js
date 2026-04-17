@@ -631,6 +631,7 @@ export function SiteFooter() {
         h('a', { href: paths.faq() }, 'FAQ'),
         h('a', { href: paths.support() }, 'Support'),
         h('a', { href: paths.faq() }, 'Fees & Pricing'),
+        h('a', { href: '/status.html' }, 'System Status'),
         h('a', { href: paths.settings() }, 'Settings')
       ),
       h('div', { className: 'site-footer-col' },
@@ -1192,14 +1193,31 @@ export function App() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await fetchListings({
-        sort,
+      // 'discount' is a pure client-side sort — backend doesn't know
+      // about it. Fetch with a stable newest-first order and re-sort
+      // by discount percentage below. If we asked the backend for
+      // 'discount' it would 400 (unknown sort value).
+      const backendSort = sort === 'discount' ? 'newest' : sort;
+      let data = await fetchListings({
+        sort: backendSort,
         category: category !== 'All' ? category : null,
         rarity:   rarity !== 'All'   ? rarity   : null,
         minPrice: minPrice || null,
         maxPrice: maxPrice || null,
         search:   search   || null
       });
+      if (sort === 'discount') {
+        // Pct discount = (steamPrice - price) / steamPrice, clamped to
+        // zero for listings at or above Steam market. Items without a
+        // Steam reference sink to the bottom.
+        data = [...data].sort((a, b) => {
+          const ap = parseFloat(a.price) || 0, as = parseFloat(a.item?.steamPrice) || 0;
+          const bp = parseFloat(b.price) || 0, bs = parseFloat(b.item?.steamPrice) || 0;
+          const ad = (as > 0 && ap > 0 && ap < as) ? (1 - ap / as) : -1;
+          const bd = (bs > 0 && bp > 0 && bp < bs) ? (1 - bp / bs) : -1;
+          return bd - ad;
+        });
+      }
       if (silent) {
         setListings(prev => {
           const prevIds = new Set(prev.map(l => l.id));
@@ -1828,6 +1846,7 @@ export function App() {
             h('option', { value: 'price_asc' },  'Price: Low → High'),
             h('option', { value: 'newest' },     'Newest First'),
             h('option', { value: 'rarity' },     'Lowest Supply'),
+            h('option', { value: 'discount' },   'Biggest Discount'),
           ),
           // Listing-type toggle — three buttons, single active. Purely
           // client-side; server already returns both types and we filter
