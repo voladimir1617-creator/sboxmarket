@@ -24,6 +24,90 @@ import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor } from './router.js';
 
+// ── Share stall — copies the canonical URL to the clipboard with a
+// toast fallback if the browser doesn't grant clipboard-write permission.
+// Keeps the stall-hero compact; no floating-menu popover.
+function ShareStallButton({ userId, showToast }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = `${window.location.origin}/stall/${userId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'SkinBox stall', url });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+        showToast && showToast('Link copied to clipboard', 'ok');
+      } else {
+        // Last-ditch fallback: prompt so the user can copy manually.
+        window.prompt('Copy this link:', url);
+      }
+    } catch (e) {
+      window.prompt('Copy this link:', url);
+    }
+  };
+  return h('button', {
+    className: 'stall-share-btn',
+    onClick: share,
+    title: 'Copy a link to this stall',
+    'aria-label': 'Share stall'
+  },
+    h('span', { className: 'stall-share-icon' }, copied ? '✓' : '⎘'),
+    copied ? 'Copied' : 'Share stall'
+  );
+}
+
+// ── Recently viewed rail — reads sb_recently_viewed, renders a compact
+// horizontal strip that mirrors CSFloat's "Recently browsed" row. Only
+// renders when the user has at least two entries so it doesn't show up
+// on a brand-new visitor's first page view.
+function RecentlyViewedRail({ watchlist, onToggleStar }) {
+  const [rows, setRows] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
+    catch { return []; }
+  });
+  // Re-read when any navigation happens (the recently-viewed list is written
+  // from the item-detail effect, so popstate catches every update). Saves us
+  // from a cross-component event bus.
+  useEffect(() => {
+    const reload = () => {
+      try { setRows(JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]')); }
+      catch { setRows([]); }
+    };
+    window.addEventListener('popstate', reload);
+    return () => window.removeEventListener('popstate', reload);
+  }, []);
+  if (!rows || rows.length < 2) return null;
+  return h('section', { className: 'recently-viewed' },
+    h('div', { className: 'recently-viewed-head' },
+      h('span', { className: 'section-title-dot' }),
+      'Recently viewed',
+      h('button', {
+        className: 'recently-viewed-clear',
+        onClick: () => { localStorage.removeItem('sb_recently_viewed'); setRows([]); }
+      }, 'Clear')
+    ),
+    h('div', { className: 'recently-viewed-rail' },
+      rows.map(it => h('a', {
+        key: it.id,
+        href: paths.item(it.id),
+        className: 'recently-viewed-card'
+      },
+        h('div', { className: 'recently-viewed-thumb' },
+          it.imageUrl
+            ? h('img', { src: it.imageUrl, alt: it.name, loading: 'lazy' })
+            : h('div', { className: 'recently-viewed-glyph', style: { color: it.accentColor || '#60a5fa' } },
+                it.iconEmoji || '📦')
+        ),
+        h('div', { className: 'recently-viewed-name' }, it.name),
+        h('div', { className: 'recently-viewed-price' },
+          it.lowestPrice != null ? fmt(it.lowestPrice) : '—')
+      ))
+    )
+  );
+}
+
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
@@ -660,7 +744,20 @@ export function App() {
         // already have the listings loaded).
         const item = itemListings[0]?.item ||
                      listings.find(l => String(l.item?.id) === String(route.params.id))?.item;
-        if (item) setSelected({ item, listings: itemListings, history });
+        if (item) {
+          setSelected({ item, listings: itemListings, history });
+          // Track recently viewed for the homepage rail — keep the last 12,
+          // newest first, deduped by item id. Pure localStorage, no backend.
+          try {
+            const prev = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]');
+            const minimal = { id: item.id, name: item.name, category: item.category,
+              rarity: item.rarity, imageUrl: item.imageUrl, iconEmoji: item.iconEmoji,
+              accentColor: item.accentColor, lowestPrice: item.lowestPrice,
+              steamPrice: item.steamPrice, viewedAt: Date.now() };
+            const deduped = [minimal, ...prev.filter(x => x.id !== item.id)].slice(0, 12);
+            localStorage.setItem('sb_recently_viewed', JSON.stringify(deduped));
+          } catch (_) {}
+        }
       } catch (e) { console.error(e); }
       finally { if (alive) setModalLoading(false); }
     })();
@@ -1187,6 +1284,11 @@ export function App() {
       )
     ),
 
+    /* RECENTLY VIEWED RAIL — horizontal scroll strip of the last 12 items
+       the user clicked into. Pure localStorage, shown only on the market
+       route and only when there's history to display. */
+    routeName === 'market' && h(RecentlyViewedRail, { watchlist, onToggleStar }),
+
     /* RECENT SALES TICKER — below the marketplace grid */
     recentSales.length > 0 && h('section', { className: 'ticker-section' },
       h('div', { className: 'ticker' },
@@ -1226,7 +1328,7 @@ export function App() {
                   ? h('img', { src: stallData.seller.avatarUrl, alt: stallData.seller.displayName })
                   : (stallData.seller.displayName || 'U').substring(0, 2).toUpperCase()
               ),
-              h('div', null,
+              h('div', { style: { flex: 1, minWidth: 0 } },
                 h('div', { className: 'stall-name' }, stallData.seller.displayName || 'Player'),
                 h('div', { className: 'stall-meta' },
                   stallData.count, ' active listings · joined ',
@@ -1242,7 +1344,11 @@ export function App() {
                     ` · ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}`
                   )
                 )
-              )
+              ),
+              // Share button copies the canonical stall URL to the clipboard.
+              // Useful for sellers promoting their stall on Discord / Steam
+              // groups — CSFloat has the same affordance and users expect it.
+              h(ShareStallButton, { userId: stallData.seller.id, showToast })
             ),
             stallData.away && h('div', { className: 'stall-away-banner' },
               h('span', { className: 'stall-away-dot' }),

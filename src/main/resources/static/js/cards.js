@@ -1,17 +1,51 @@
 // Item card components: grid, table row, trending carousel.
-import { h, fmt, timeAgo, discountPct } from './utils.js';
+import { h, React, useState, useEffect, fmt, timeAgo, discountPct } from './utils.js';
 import { ItemImage, RarityBadge, SteamMarketLink } from './primitives.js';
+
+// ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
+function formatRemaining(ms) {
+  if (ms <= 0) return 'Ended';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+export function AuctionCountdown({ expiresAt, className }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  if (!expiresAt) return null;
+  const remaining = expiresAt - now;
+  const ending = remaining > 0 && remaining < 60 * 60 * 1000; // < 1h
+  return h('div', {
+    className: `auction-countdown${ending ? ' ending' : ''}${remaining <= 0 ? ' ended' : ''} ${className || ''}`.trim(),
+    title: remaining > 0 ? `Ends at ${new Date(expiresAt).toLocaleString()}` : 'Auction has ended'
+  },
+    h('span', { className: 'auction-countdown-dot' }),
+    formatRemaining(remaining)
+  );
+}
 
 export function GridCard({ listing, onClick, starred, onToggleStar, listingCount }) {
   const item = listing?.item;
   if (!item) return null;
   const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
   const disc = discountPct(listing.price, item.steamPrice);
-  return h('div', { className: 'grid-card', onClick },
+  const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
+  return h('div', { className: `grid-card${isAuction ? ' is-auction' : ''}`, onClick },
     h('div', { className: 'grid-thumb' },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       disc > 0 && h('div', { className: 'grid-discount' }, `−${disc}%`),
+      isAuction && h(AuctionCountdown, { expiresAt: listing.expiresAt }),
       onToggleStar && h('button', {
         className: `grid-star ${starred ? 'on' : ''}`,
         onClick: e => { e.stopPropagation(); onToggleStar(item.id); },
@@ -20,15 +54,22 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     ),
     h('div', { className: 'grid-body' },
       h('div', { className: 'grid-name' }, item.name),
-      h('div', { className: 'grid-cat' }, item.category),
+      h('div', { className: 'grid-cat' },
+        isAuction && h('span', { className: 'grid-auction-tag' }, 'AUCTION'),
+        item.category
+      ),
       h('div', { className: 'grid-footer' },
         h('div', null,
           h('div', { className: 'grid-price' },
-            fmt(listing.price),
+            isAuction && listing.currentBid
+              ? fmt(listing.currentBid)
+              : fmt(listing.price),
             h(SteamMarketLink, { item, compact: true })
           ),
-          item.steamPrice && parseFloat(item.steamPrice) > parseFloat(listing.price) &&
-            h('div', { className: 'grid-steam-price' }, fmt(item.steamPrice))
+          isAuction && listing.bidCount > 0
+            ? h('div', { className: 'grid-bid-count' }, `${listing.bidCount} bid${listing.bidCount === 1 ? '' : 's'}`)
+            : item.steamPrice && parseFloat(item.steamPrice) > parseFloat(listing.price) &&
+              h('div', { className: 'grid-steam-price' }, fmt(item.steamPrice))
         ),
         listingCount > 1 && h('div', { className: 'grid-supply' }, listingCount + ' listings')
       )

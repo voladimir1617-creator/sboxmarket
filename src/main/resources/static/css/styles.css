@@ -4209,6 +4209,29 @@
     }
     .stall-rating-count { color: var(--text-muted); font-weight: 500; }
 
+    /* ─────────── STALL SHARE BUTTON ─────────── */
+    .stall-share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.12s;
+      flex-shrink: 0;
+    }
+    .stall-share-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: rgba(30, 165, 255, 0.05);
+    }
+    .stall-share-icon { font-size: 14px; line-height: 1; }
+
     /* ─────────── STALL AWAY-MODE BANNER ─────────── */
     .stall-away-banner {
       display: flex;
@@ -4239,6 +4262,204 @@
       font-size: 12.5px;
       color: var(--text-muted);
       line-height: 1.5;
+    }
+
+    /* ─────────── RECENTLY VIEWED RAIL ─────────── */
+    .recently-viewed {
+      margin: 28px 0 8px;
+      padding: 18px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .recently-viewed-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .recently-viewed-clear {
+      margin-left: auto;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .recently-viewed-clear:hover { color: var(--text-primary); border-color: var(--accent-border); }
+    .recently-viewed-rail {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: thin;
+    }
+    .recently-viewed-rail::-webkit-scrollbar { height: 6px; }
+    .recently-viewed-rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .recently-viewed-card {
+      flex: 0 0 140px;
+      display: block;
+      padding: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: border-color 0.12s, transform 0.12s;
+    }
+    .recently-viewed-card:hover {
+      border-color: var(--accent-border);
+      transform: translateY(-2px);
+    }
+    .recently-viewed-thumb {
+      aspect-ratio: 1 / 1;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .recently-viewed-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .recently-viewed-glyph { font-size: 32px; }
+    .recently-viewed-name {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .recently-viewed-price {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* ─────────── AUCTION COUNTDOWN (grid + modal) ─────────── */
+    .auction-countdown {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #e2e7f5;
+      background: rgba(15, 20, 36, 0.88);
+      border: 1px solid rgba(96, 165, 250, 0.4);
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      backdrop-filter: blur(3px);
+      z-index: 2;
+    }
+    .auction-countdown-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #60a5fa;
+      animation: auction-pulse 1.4s ease-in-out infinite;
+    }
+    .auction-countdown.ending {
+      color: #fca5a5;
+      border-color: rgba(248, 113, 113, 0.6);
+      background: rgba(40, 8, 12, 0.92);
+    }
+    .auction-countdown.ending .auction-countdown-dot {
+      background: #f87171;
+      box-shadow: 0 0 10px rgba(248, 113, 113, 0.7);
+    }
+    .auction-countdown.ended {
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+    .auction-countdown.ended .auction-countdown-dot { animation: none; background: var(--text-muted); }
+    @keyframes auction-pulse {
+      0%, 100% { opacity: 0.6; }
+      50%      { opacity: 1; }
+    }
+    .grid-auction-tag {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 1px 6px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #60a5fa;
+      background: rgba(96, 165, 250, 0.12);
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      border-radius: 4px;
+    }
+    .grid-bid-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    /* ─────────── TRADE CONFIRMATION MODAL ─────────── */
+    .trade-confirm-modal {
+      width: 100%;
+      max-width: 460px;
+      padding: 26px 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+    }
+    .trade-confirm-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .trade-confirm-sub {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .trade-confirm-detail {
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .trade-confirm-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .trade-confirm-row:last-child { border-bottom: none; }
+    .trade-confirm-k { color: var(--text-muted); }
+    .trade-confirm-v { color: var(--text-primary); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .trade-confirm-v.muted  { color: var(--text-muted); }
+    .trade-confirm-v.accent { color: #4ade80; }
+    .trade-confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
     }
 
     /* ─────────── CART CONFIRMATION MODAL ─────────── */

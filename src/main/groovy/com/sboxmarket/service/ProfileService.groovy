@@ -53,8 +53,23 @@ class ProfileService {
 
         def net = (totalSold as BigDecimal) - (totalPurchased as BigDecimal)
 
-        def activeListings  = listingRepository.findActiveBySeller(userId).size()
-        def ownedInventory  = listingRepository.findOwnedBy(userId).size()
+        def activeListingsRows = listingRepository.findActiveBySeller(userId)
+        def activeListings  = activeListingsRows.size()
+        def activeListingsValue = activeListingsRows.inject(BigDecimal.ZERO) { sum, l ->
+            sum + (l.price ?: BigDecimal.ZERO)
+        }
+        def ownedInventoryRows = listingRepository.findOwnedBy(userId)
+        def ownedInventory  = ownedInventoryRows.size()
+        // Inventory value approximation — sum each item's current floor price.
+        // Floor is what the catalogue currently shows (either SCMM sync or
+        // Steam Market sync populated it); falls back to steamPrice if floor
+        // is null. A future "mark to market" refinement could average the
+        // last N sales instead, but floor is what CSFloat surfaces too.
+        def ownedInventoryValue = ownedInventoryRows.inject(BigDecimal.ZERO) { sum, l ->
+            def item = l.item
+            def v = item?.lowestPrice ?: item?.steamPrice ?: BigDecimal.ZERO
+            sum + v
+        }
         def openBuyOrders   = buyOrderRepository.countActiveByBuyer(userId)
         def activeAutoBids  = bidRepository.findActiveAutoBidsForUser(userId).size()
         def openOffers      = offerRepository.countPendingByBuyer(userId)
@@ -87,6 +102,14 @@ class ProfileService {
                 openBuyOrders:  openBuyOrders,
                 openOffers:     openOffers,
                 activeAutoBids: activeAutoBids
+            ],
+            // Estimated $ value of items the user currently owns + has
+            // listed for sale. The personal-tab widget surfaces these so
+            // the user can see "my portfolio is worth ~$X" at a glance.
+            portfolio: [
+                inventoryValue: ownedInventoryValue,
+                listingsValue:  activeListingsValue,
+                totalValue:     ownedInventoryValue + activeListingsValue
             ]
         ]
     }

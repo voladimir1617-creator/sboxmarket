@@ -472,11 +472,17 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       }, privacy ? '👁  Show amounts' : '🙈  Hide amounts')
     ),
 
-    /* Hero stats — amounts optionally masked */
+    /* Hero stats — amounts optionally masked. Portfolio value is new: the
+       backend sums inventory + active-listings by current floor so the user
+       sees total $ tied up at a glance. */
     h('div', { className: 'profile-stats' },
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Balance'),
         h('div', { className: 'profile-stat-val accent' }, maskAmount(wallet?.balance || 0))
+      ),
+      h('div', { className: 'profile-stat' },
+        h('div', { className: 'profile-stat-label', title: 'Value of items you own plus everything you have listed for sale, priced at the current market floor.' }, 'Portfolio'),
+        h('div', { className: 'profile-stat-val' }, privacy ? '$•••••' : fmt(profile?.portfolio?.totalValue || 0))
       ),
       h('div', { className: 'profile-stat' },
         h('div', { className: 'profile-stat-label' }, 'Total Sold'),
@@ -833,7 +839,18 @@ function ProfileTradesTab({ me, privacy }) {
   };
   const onAccept  = (id) => tradeOp(tradeAccept, id);
   const onSent    = (id) => tradeOp(tradeMarkSent, id);
-  const onConfirm = (id) => tradeOp(tradeConfirm, id);
+  // Buyer confirm is financially irreversible — it releases escrow to the
+  // seller. Gate it behind a summary modal so buyers review (item, price,
+  // fee, seller) before committing. Without this, a mis-click on "Confirm"
+  // on the wrong trade row could release funds early.
+  const [confirmTrade, setConfirmTrade] = useState(null);
+  const onConfirm = (trade) => setConfirmTrade(trade);
+  const runConfirm = async () => {
+    if (!confirmTrade) return;
+    const id = confirmTrade.id;
+    setConfirmTrade(null);
+    await tradeOp(tradeConfirm, id);
+  };
   const onDispute = async (id) => {
     const reason = prompt('Why are you disputing this trade?');
     if (!reason) return;
@@ -897,7 +914,7 @@ function ProfileTradesTab({ me, privacy }) {
                 isSeller && t.state === 'PENDING_SELLER_SEND' &&
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => onSent(t.id) }, 'Mark Sent'),
                 isBuyer && t.state === 'PENDING_BUYER_CONFIRM' &&
-                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t.id) }, 'Confirm'),
+                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => onConfirm(t) }, 'Confirm'),
                 !['VERIFIED','CANCELLED','DISPUTED'].includes(t.state) &&
                   h('button', {
                     className: 'btn btn-ghost',
@@ -1032,6 +1049,50 @@ function ProfileTradesTab({ me, privacy }) {
               disabled: reviewBusy || reviewDone
             }, reviewBusy ? 'Submitting…' : (reviewDone ? 'Saved' : 'Submit review'))
           )
+        )
+      )
+    ),
+    // Trade confirm modal — guards the buyer's final release-funds action.
+    // Shows item, price, 2% platform fee, and the estimated seller payout so
+    // the buyer sees exactly what they're confirming before escrow flips.
+    confirmTrade && h('div', { className: 'modal-backdrop', onClick: () => setConfirmTrade(null) },
+      h('div', {
+        className: 'trade-confirm-modal',
+        onClick: e => e.stopPropagation()
+      },
+        h('div', { className: 'trade-confirm-title' }, 'Confirm receipt'),
+        h('div', { className: 'trade-confirm-sub' },
+          'You are about to release funds to the seller. This cannot be undone. Only confirm if you have received the Steam trade offer and accepted it.'),
+        h('div', { className: 'trade-confirm-detail' },
+          h('div', { className: 'trade-confirm-row' },
+            h('span', { className: 'trade-confirm-k' }, 'Item'),
+            h('span', { className: 'trade-confirm-v' }, confirmTrade.itemName || ('Trade #' + confirmTrade.id))
+          ),
+          h('div', { className: 'trade-confirm-row' },
+            h('span', { className: 'trade-confirm-k' }, 'Price you paid'),
+            h('span', { className: 'trade-confirm-v' }, fmt(confirmTrade.price || 0))
+          ),
+          h('div', { className: 'trade-confirm-row' },
+            h('span', { className: 'trade-confirm-k' }, 'Platform fee (2%)'),
+            h('span', { className: 'trade-confirm-v muted' }, fmt((confirmTrade.price || 0) * 0.02))
+          ),
+          h('div', { className: 'trade-confirm-row' },
+            h('span', { className: 'trade-confirm-k' }, 'Seller will receive'),
+            h('span', { className: 'trade-confirm-v accent' }, fmt((confirmTrade.price || 0) * 0.98))
+          )
+        ),
+        h('div', { className: 'trade-confirm-actions' },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)' },
+            onClick: () => setConfirmTrade(null),
+            disabled: busy
+          }, 'Not yet'),
+          h('button', {
+            className: 'btn btn-accent',
+            onClick: runConfirm,
+            disabled: busy
+          }, busy ? 'Confirming…' : 'Release funds')
         )
       )
     )
