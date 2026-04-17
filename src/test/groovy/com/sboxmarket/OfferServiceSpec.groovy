@@ -15,6 +15,7 @@ import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.OfferRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.WalletRepository
+import com.sboxmarket.service.NotificationService
 import com.sboxmarket.service.OfferService
 import com.sboxmarket.service.PurchaseService
 import com.sboxmarket.service.TextSanitizer
@@ -42,6 +43,7 @@ class OfferServiceSpec extends Specification {
     TextSanitizer       textSanitizer       = Mock() {
         cleanShort(_) >> { String s -> s }
     }
+    NotificationService notificationService = Mock()
 
     @Subject
     OfferService service = new OfferService(
@@ -51,7 +53,8 @@ class OfferServiceSpec extends Specification {
         steamUserRepository : steamUserRepository,
         purchaseService     : purchaseService,
         banGuard            : banGuard,
-        textSanitizer       : textSanitizer
+        textSanitizer       : textSanitizer,
+        notificationService : notificationService
     )
 
     private Listing activeListing(Map args = [:]) {
@@ -229,6 +232,88 @@ class OfferServiceSpec extends Specification {
 
         then:
         thrown(OfferNotPendingException)
+    }
+
+    // ── buyerRaise ────────────────────────────────────────────────
+
+    def "buyerRaise cancels the original and opens a new PENDING at the higher amount"() {
+        given:
+        def original = pendingOffer()  // buyer 10L at $30, ask $50
+        offerRepository.findById(1L) >> Optional.of(original)
+        listingRepository.findById(100L) >> Optional.of(activeListing(price: new BigDecimal("50")))
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        def raised = service.buyerRaise(10L, 1L, new BigDecimal("40"))
+
+        then:
+        1 * banGuard.assertNotBanned(10L)
+        original.status == 'CANCELLED'
+        raised.parentOfferId == 1L
+        raised.author == 'USER'
+        raised.amount == new BigDecimal("40")
+        raised.status == 'PENDING'
+        raised.buyerUserId == 10L
+        raised.sellerUserId == 99L
+    }
+
+    def "buyerRaise refuses amounts less than or equal to the original"() {
+        given:
+        offerRepository.findById(_) >> Optional.of(pendingOffer(amount: new BigDecimal("30")))
+
+        when:
+        service.buyerRaise(10L, 1L, new BigDecimal("30"))
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "buyerRaise refuses amounts at or above the asking price"() {
+        given:
+        offerRepository.findById(_) >> Optional.of(pendingOffer())
+        listingRepository.findById(_) >> Optional.of(activeListing(price: new BigDecimal("50")))
+
+        when:
+        service.buyerRaise(10L, 1L, new BigDecimal("50"))
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "buyerRaise forbids raises from someone other than the buyer"() {
+        given:
+        offerRepository.findById(_) >> Optional.of(pendingOffer())
+
+        when:
+        service.buyerRaise(77L, 1L, new BigDecimal("40"))
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "buyerRaise refuses offers that aren't PENDING"() {
+        given:
+        offerRepository.findById(_) >> Optional.of(pendingOffer(status: 'ACCEPTED'))
+
+        when:
+        service.buyerRaise(10L, 1L, new BigDecimal("40"))
+
+        then:
+        thrown(OfferNotPendingException)
+    }
+
+    def "buyerRaise notifies the seller of the new amount"() {
+        given:
+        def original = pendingOffer(amount: new BigDecimal("25"))
+        offerRepository.findById(_) >> Optional.of(original)
+        listingRepository.findById(_) >> Optional.of(activeListing(price: new BigDecimal("50")))
+        offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 2L; o }
+
+        when:
+        service.buyerRaise(10L, 1L, new BigDecimal("40"))
+
+        then:
+        1 * notificationService.push(99L, 'OFFER_RECEIVED', _, _, _, '/offers')
     }
 
     def "counterOffer blocks any user from countering on a system listing (bug #53)"() {

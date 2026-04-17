@@ -361,6 +361,18 @@ export async function counterOffer(offerId, amount) {
   });
 }
 
+/** Buyer-side raise — lets a buyer escalate their own pending offer
+ *  without waiting for the seller. Backend cancels the original and
+ *  creates a new PENDING offer threaded via parentOfferId. */
+export async function raiseOffer(offerId, amount) {
+  return writeJson(`${API}/offers/${offerId}/raise`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount })
+  });
+}
+
 export async function fetchOfferThread(listingId) {
   const data = await safeJson(`${API}/offers/thread/${listingId}`);
   return Array.isArray(data) ? data : [];

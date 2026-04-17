@@ -130,6 +130,84 @@ class OfferService {
     }
 
     /**
+     * Buyer raise — the buyer wants to escalate their own pending offer
+     * without waiting for the seller to respond. Closes the original
+     * PENDING offer with status CANCELLED (buyer-withdraw semantics, so
+     * the seller's response-rate stat doesn't get polluted with a
+     * never-responded-to row) and opens a new PENDING offer threaded
+     * via `parentOfferId`. Only the buyer can raise; amount must be
+     * strictly greater than the old offer and strictly below the
+     * asking price (hitting asking = "just buy it").
+     */
+    @Transactional
+    Offer buyerRaise(Long buyerUserId, Long originalOfferId, BigDecimal amount) {
+        banGuard.assertNotBanned(buyerUserId)
+        if (amount == null || amount <= BigDecimal.ZERO) {
+            throw new BadRequestException("INVALID_RAISE", "Raise amount must be greater than 0")
+        }
+        def original = offerRepository.findById(originalOfferId)
+                .orElseThrow { new NotFoundException("Offer", originalOfferId) }
+        if (original.buyerUserId != buyerUserId) {
+            throw new ForbiddenException("You can only raise your own offers")
+        }
+        if (original.status != 'PENDING') {
+            throw new OfferNotPendingException(originalOfferId, original.status)
+        }
+        if (amount <= original.amount) {
+            throw new BadRequestException("RAISE_NOT_HIGHER",
+                "A raise must be above your current offer (\$${original.amount})")
+        }
+        def listing = listingRepository.findById(original.listingId)
+                .orElseThrow { new NotFoundException("Listing", original.listingId) }
+        if (amount >= listing.price) {
+            throw new BadRequestException("RAISE_AT_OR_ABOVE_ASK",
+                "At or above the ask, buy instead of offer (ask \$${listing.price})")
+        }
+
+        // Cap quantity — DTO validation bounds the initial offer at $100k;
+        // a raise must stay under that too. listing.price is already
+        // bounded, but guard anyway.
+        if (amount > new BigDecimal("100000")) {
+            throw new BadRequestException("PRICE_TOO_HIGH",
+                "Offer must not exceed \$100,000")
+        }
+
+        original.status = 'CANCELLED'
+        original.updatedAt = System.currentTimeMillis()
+        offerRepository.save(original)
+
+        def raised = new Offer(
+            listingId    : original.listingId,
+            buyerUserId  : buyerUserId,
+            sellerUserId : original.sellerUserId,
+            amount       : amount,
+            askingPrice  : listing.price,
+            buyerName    : original.buyerName,
+            itemName     : original.itemName,
+            itemImageUrl : original.itemImageUrl,
+            status       : 'PENDING',
+            author       : 'USER',
+            parentOfferId: original.id
+        )
+        def saved = offerRepository.save(raised)
+        if (original.sellerUserId != null) {
+            try {
+                notificationService?.push(
+                    original.sellerUserId,
+                    'OFFER_RECEIVED',
+                    "Buyer raised their offer on ${original.itemName}",
+                    "New offer: \$${amount.toPlainString()} (was \$${original.amount.toPlainString()})",
+                    saved.id,
+                    '/offers'
+                )
+            } catch (Exception e) {
+                log.warn("Buyer-raise notification failed for seller ${original.sellerUserId}: ${e.message}")
+            }
+        }
+        saved
+    }
+
+    /**
      * Seller counter-offer — creates a new Offer linked to the original via
      * `parentOfferId`, flips the old one to COUNTERED, and waits for the
      * buyer to accept or counter again. Mirrors CSFloat's bargaining thread.

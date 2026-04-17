@@ -98,6 +98,19 @@ class OfferController {
         ResponseEntity.ok([id: counter.id, parentOfferId: counter.parentOfferId, amount: counter.amount, status: counter.status])
     }
 
+    /** Buyer raise — a buyer escalates their own pending offer without
+     *  waiting for the seller. Cancels the original PENDING row and
+     *  creates a new PENDING offer threaded via parentOfferId. Amount
+     *  must be strictly greater than the old offer and strictly below
+     *  the asking price. */
+    @PostMapping("/{id}/raise")
+    ResponseEntity<Map> raise(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def amount = parseAmount(body?.amount)
+        def raised = offerService.buyerRaise(uid, id, amount)
+        ResponseEntity.ok([id: raised.id, parentOfferId: raised.parentOfferId, amount: raised.amount, status: raised.status])
+    }
+
     /** Defensive parse for counter-offer body.amount so a missing or
      *  malformed value returns a structured 400 instead of bubbling up
      *  through GlobalExceptionHandler as an "INTERNAL_ERROR" 500. */

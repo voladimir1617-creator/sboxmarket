@@ -2594,6 +2594,18 @@ function ProfileOffersTab() {
       await load();
     } finally { setBusy(false); }
   };
+  const doRaise = async (id) => {
+    const amt = parseFloat(counterAmt);
+    if (!amt || amt <= 0) return;
+    setBusy(true);
+    try {
+      const { raiseOffer } = await import('./api.js');
+      const res = await raiseOffer(id, amt);
+      if (res.code || res.error) { alert(res.message || res.error); return; }
+      setCounterFor(null); setCounterAmt('');
+      await load();
+    } finally { setBusy(false); }
+  };
 
   const row = (o, isIncoming) => {
     const pct = Math.round(
@@ -2659,21 +2671,40 @@ function ProfileOffersTab() {
             'aria-label': 'Reject offer', title: 'Reject'
           }, '✕')
         ),
-        isPending && !isIncoming && !isCountering && h('button', {
-          className: 'btn btn-ghost',
-          style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11, marginTop: 6 },
-          disabled: busy, onClick: () => doCancel(o.id)
-        }, 'Cancel')
+        // Outgoing pending offers — author is the buyer. Cancel is
+        // always available; Raise lets the buyer escalate without
+        // waiting for the seller to respond. Raise only makes sense on
+        // USER-authored rows (you can't raise a seller's counter —
+        // accept/reject/counter-again instead).
+        isPending && !isIncoming && !isCountering && h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
+          o.author === 'USER' && h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '5px 10px', fontSize: 11 },
+            disabled: busy,
+            onClick: () => { setCounterFor(o.id); setCounterAmt((parseFloat(o.amount) + 1).toFixed(2)); },
+            title: 'Raise your offer without waiting for the seller'
+          }, '↑ Raise'),
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+            disabled: busy, onClick: () => doCancel(o.id)
+          }, 'Cancel')
+        )
       ),
       isCountering && h('div', { className: 'offer-counter-form' },
         h('input', {
           className: 'price-input',
           type: 'number', step: '0.01', min: '0.01',
-          placeholder: 'Counter price',
+          placeholder: isIncoming ? 'Counter price' : 'Raise to',
           value: counterAmt,
           onChange: e => setCounterAmt(e.target.value)
         }),
-        h('button', { className: 'buy-btn', disabled: busy, onClick: () => doCounter(o.id) }, 'Send counter'),
+        // Submit label changes by side: seller sends a counter, buyer
+        // raises their own offer. Backend routes diverge but the inline
+        // form shape is identical — reuse the same state + input.
+        isIncoming
+          ? h('button', { className: 'buy-btn', disabled: busy, onClick: () => doCounter(o.id) }, 'Send counter')
+          : h('button', { className: 'buy-btn', disabled: busy, onClick: () => doRaise(o.id)   }, 'Raise offer'),
         h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setCounterFor(null) }, '✕')
       )
     );
