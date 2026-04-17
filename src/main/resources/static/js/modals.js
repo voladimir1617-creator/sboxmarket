@@ -3207,11 +3207,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   }, [me, loadSteam, loadInternal]);
 
   if (!me) return h(InfoModal, { title: 'Sell Items', onClose },
-    h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🔒'),
-      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 14 } }, 'Sign in with Steam to sell items.'),
-      h('a', { className: 'steam-btn', href: '/api/auth/steam/login' },
-        h('div', { className: 'steam-btn-icon' }, '◆'), 'Sign in through Steam')));
+    h(SignInNeededEmptyState, { what: 'your Steam inventory and platform inventory' }));
 
   const resync = async () => {
     setSyncing(true);
