@@ -1616,7 +1616,12 @@ export function App() {
           const prevIds = new Set(prev.map(l => l.id));
           const nextIds = new Set(data.map(l => l.id));
           const soldCount = [...prevIds].filter(id => !nextIds.has(id)).length;
-          if (soldCount > 0) {
+          // Gated by the Settings > "Sale notifications" toggle. Default
+          // is ON (sb_notifs absent or not 'false'); a user who muted
+          // the toggle sees the grid update silently. Without this
+          // check the toggle was a dead switch.
+          const saleToastsOn = localStorage.getItem('sb_notifs') !== 'false';
+          if (soldCount > 0 && saleToastsOn) {
             setToast({ text: `${soldCount} listing${soldCount === 1 ? '' : 's'} just sold`, kind: 'ok' });
             setTimeout(() => setToast(null), 3500);
           }
