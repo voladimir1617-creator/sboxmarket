@@ -161,4 +161,53 @@ class NotificationServiceSpec extends Specification {
         n == 0
         0 * notificationRepository.deleteAll(_)
     }
+
+    // ── deleteOne ─────────────────────────────────────────────────
+
+    def "deleteOne removes the user's own notification"() {
+        given:
+        def row = new Notification(id: 42L, userId: 10L, read: true)
+        notificationRepository.findById(42L) >> Optional.of(row)
+
+        when:
+        service.deleteOne(10L, 42L)
+
+        then:
+        1 * notificationRepository.delete(row)
+    }
+
+    def "deleteOne silently ignores notifications belonging to another user (no leak)"() {
+        given:
+        def row = new Notification(id: 42L, userId: 99L, read: true)
+        notificationRepository.findById(42L) >> Optional.of(row)
+
+        when:
+        service.deleteOne(10L, 42L)
+
+        then:
+        // Same response shape whether the row exists or doesn't — we
+        // don't leak ownership to a walker iterating ids.
+        0 * notificationRepository.delete(_)
+    }
+
+    def "deleteOne silently ignores unknown ids"() {
+        given:
+        notificationRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.deleteOne(10L, 999L)
+
+        then:
+        0 * notificationRepository.delete(_)
+    }
+
+    def "deleteOne short-circuits on null inputs"() {
+        when:
+        service.deleteOne(null, 42L)
+        service.deleteOne(10L, null)
+
+        then:
+        0 * notificationRepository.findById(_)
+        0 * notificationRepository.delete(_)
+    }
 }

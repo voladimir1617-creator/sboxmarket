@@ -49,4 +49,12 @@ class NotificationController {
         def deleted = notificationService.deleteAllRead(requireUser(req))
         ResponseEntity.ok([deleted: deleted])
     }
+
+    /** Delete a single notification. Silent no-op when the id is wrong
+     *  or belongs to another user — we don't leak which. */
+    @DeleteMapping("/{id}")
+    ResponseEntity<Map> deleteOne(@PathVariable Long id, HttpServletRequest req) {
+        notificationService.deleteOne(requireUser(req), id)
+        ResponseEntity.ok([ok: true, id: id])
+    }
 }

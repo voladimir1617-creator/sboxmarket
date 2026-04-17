@@ -463,6 +463,12 @@ export async function clearReadNotifications() {
     method: 'POST', credentials: 'same-origin'
   });
 }
+
+/** Delete a single notification. Silent no-op when the id doesn't
+ *  exist or isn't yours. */
+export async function deleteNotification(id) {
+  return fetch(`${API}/notifications/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+}
 export async function markAllNotificationsRead() {
   return fetch(`${API}/notifications/read-all`, { method: 'POST', credentials: 'same-origin' });
 }

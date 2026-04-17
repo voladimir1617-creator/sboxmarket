@@ -77,4 +77,17 @@ class NotificationService {
         notificationRepository.deleteAll(toDelete)
         toDelete.size()
     }
+
+    /** Delete a single notification. Silent no-op when the id doesn't
+     *  exist or belongs to another user — we don't leak which is which,
+     *  and the caller just sees "deleted" either way so a hostile user
+     *  walking ids can't confirm existence of sibling rows. */
+    @Transactional
+    void deleteOne(Long userId, Long id) {
+        if (userId == null || id == null) return
+        def n = notificationRepository.findById(id).orElse(null)
+        if (n != null && n.userId == userId) {
+            notificationRepository.delete(n)
+        }
+    }
 }

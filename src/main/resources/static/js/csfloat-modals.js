@@ -13,6 +13,7 @@ import {
   setLoadoutSlot, generateLoadout, deleteLoadout, favoriteLoadout,
   fetchListings,
   fetchNotifications, markAllNotificationsRead, markNotificationRead, clearReadNotifications,
+  deleteNotification,
   fetchBidHistory, placeBid
 } from './api.js';
 
@@ -716,7 +717,24 @@ export function NotificationsModal({ onClose, me }) {
                 n.body && h('div', { className: 'notif-feed-body' }, n.body),
                 h('div', { className: 'notif-feed-time' }, timeAgo(n.createdAt))
               ),
-              !n.read && h('div', { className: 'notif-feed-dot' })
+              !n.read && h('div', { className: 'notif-feed-dot' }),
+              // Per-row dismiss. Hardest-to-mis-click target so use a
+              // tiny ✕ with generous padding. stopPropagation so the
+              // outer row's open() doesn't fire.
+              h('button', {
+                className: 'btn btn-ghost',
+                style: {
+                  padding: '4px 8px', fontSize: 14, opacity: 0.45,
+                  border: '1px solid transparent', marginLeft: 4
+                },
+                title: 'Delete this notification',
+                'aria-label': 'Delete notification',
+                onClick: async (e) => {
+                  e.stopPropagation();
+                  try { await deleteNotification(n.id); } catch (_) {}
+                  await load();
+                }
+              }, '✕')
             ))
           ))
         )
