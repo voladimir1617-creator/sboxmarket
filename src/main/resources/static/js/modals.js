@@ -3592,6 +3592,10 @@ export function MyStallModal({ onClose, me, onRefresh }) {
   };
 
   const soldTotal = sold ? sold.reduce((s, l) => s + (parseFloat(l.price) || 0), 0) : 0;
+  // Net revenue = gross × 0.98 (2% platform fee taken at trade-
+  // verification per TradeService.release). Showing both makes the
+  // "fee already deducted" hint line concrete instead of vague.
+  const soldNet = soldTotal * 0.98;
 
   // Bulk price adjust — apply ±% to every active non-auction listing. Max
   // ±50% per pass (server cap); auctions are skipped server-side. Kept
@@ -3687,9 +3691,12 @@ export function MyStallModal({ onClose, me, onRefresh }) {
                 "You haven't sold anything yet. Listings you post will appear here once a buyer confirms."))
           : h('div', null,
               h('div', { className: 'mystall-sold-summary' },
-                h('span', { className: 'mystall-sold-label' }, 'Gross revenue · last ' + sold.length + ' sales'),
+                h('span', { className: 'mystall-sold-label' }, 'Gross · last ' + sold.length + ' sales'),
                 h('span', { className: 'mystall-sold-total' }, fmt(soldTotal)),
-                h('span', { className: 'mystall-sold-hint' }, '(2% platform fee already deducted at payout)'),
+                h('span', { className: 'mystall-sold-hint' },
+                  '· Net after 2% fee ',
+                  h('span', { style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, fmt(soldNet))
+                ),
                 h('a', {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, marginLeft: 'auto' },
