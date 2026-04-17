@@ -579,4 +579,41 @@ class OfferServiceSpec extends Specification {
         // After filtering, deltas = [60_000, 120_000, 180_000] → median 120_000
         service.typicalResponseMs(99L) == 120_000L
     }
+
+    // ── responseRatePct ────────────────────────────────────────────
+
+    def "responseRatePct returns null for a null seller id"() {
+        expect:
+        service.responseRatePct(null) == null
+    }
+
+    def "responseRatePct returns null below the five-offer noise floor without hitting the numerator query"() {
+        given:
+        offerRepository.countSellerEngagedTotal(99L) >> 4L
+
+        when:
+        def result = service.responseRatePct(99L)
+
+        then:
+        result == null
+        0 * offerRepository.countSellerResponded(_)
+    }
+
+    def "responseRatePct returns 100 when every engaged offer was resolved"() {
+        given:
+        offerRepository.countSellerEngagedTotal(99L) >> 10L
+        offerRepository.countSellerResponded(99L)    >> 10L
+
+        expect:
+        service.responseRatePct(99L) == 100.0d
+    }
+
+    def "responseRatePct returns the responded-over-total fraction as a percentage"() {
+        given:
+        offerRepository.countSellerEngagedTotal(99L) >> 20L
+        offerRepository.countSellerResponded(99L)    >> 15L
+
+        expect:
+        service.responseRatePct(99L) == 75.0d
+    }
 }

@@ -304,6 +304,11 @@ class ListingController {
         // seller has at least 3 data points so we don't mislead a
         // buyer with a one-offer noisy read.
         def typicalResponseMs = offerService?.typicalResponseMs(userId)
+        // Response rate (0–100, or null under the 5-offer noise floor)
+        // — complements typicalResponseMs. Together they render as
+        // "Typically responds in X · 92% response rate" in the stall
+        // hero and distinguish active sellers from cherry-pickers.
+        def responseRatePct   = offerService?.responseRatePct(userId)
         ResponseEntity.ok([
             seller: [
                 id:                user.id,
@@ -318,7 +323,8 @@ class ListingController {
                 verified:          verified,
                 soldCount:         soldCount,
                 followerCount:     followerCount,
-                typicalResponseMs: typicalResponseMs
+                typicalResponseMs: typicalResponseMs,
+                responseRatePct:   responseRatePct
             ],
             listings:  visible,
             count:     visible.size(),

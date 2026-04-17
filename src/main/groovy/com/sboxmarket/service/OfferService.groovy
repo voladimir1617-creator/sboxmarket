@@ -352,6 +352,24 @@ class OfferService {
     }
 
     /**
+     * Fraction of offers the seller actually engaged with — (resolved)
+     * / (resolved + expired). Returns null until the seller has at
+     * least 5 resolvable offers so the stat can't flash an alarming
+     * "0%" off a single sweeper miss. CANCELLED (buyer-withdrawn) is
+     * excluded from the denominator — it isn't a seller outcome.
+     *
+     * Buyers read this alongside the response-time chip: a 95% / 2h
+     * seller is a pro, a 20% / 2h seller is cherry-picking.
+     */
+    Double responseRatePct(Long sellerUserId) {
+        if (sellerUserId == null) return null
+        long total = offerRepository.countSellerEngagedTotal(sellerUserId)
+        if (total < 5L) return null
+        long responded = offerRepository.countSellerResponded(sellerUserId)
+        ((responded as double) / (total as double)) * 100.0d
+    }
+
+    /**
      * Seller's typical response time across their most recent resolved
      * offers — median milliseconds between offer creation and the
      * seller's action (accept / reject / counter). Returns null until

@@ -56,4 +56,27 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
         ORDER BY o.updatedAt DESC
     """)
     List<Offer> findRecentSellerResponses(@Param("uid") Long sellerUserId, Pageable pageable)
+
+    /** Offers a seller engaged with — union of resolved responses
+     *  (accept / reject / counter) and expired rows (the seller never
+     *  answered within the auto-decline window). Denominator for the
+     *  public "response rate" chip. CANCELLED is excluded because that
+     *  is a buyer-side withdrawal, not a seller-controlled outcome. */
+    @Query("""
+        SELECT COUNT(o) FROM Offer o
+        WHERE o.sellerUserId = :uid
+          AND o.author = 'USER'
+          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED','EXPIRED')
+    """)
+    long countSellerEngagedTotal(@Param("uid") Long sellerUserId)
+
+    /** Subset of {@link #countSellerEngagedTotal} that the seller
+     *  actively resolved. Numerator for the response rate chip. */
+    @Query("""
+        SELECT COUNT(o) FROM Offer o
+        WHERE o.sellerUserId = :uid
+          AND o.author = 'USER'
+          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED')
+    """)
+    long countSellerResponded(@Param("uid") Long sellerUserId)
 }

@@ -2473,6 +2473,19 @@ export function App() {
                       style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 700 },
                       title: `Median time from offer to seller response across the last ${50} offers`
                     }, '· Typically responds in ', label);
+                  })(),
+                  // Response-rate chip — companion to the response-time chip.
+                  // Green if ≥80%, amber if 50-79%, red otherwise. Hidden
+                  // until the seller has 5+ resolvable offers (denominator
+                  // noise floor). Reads "· 92% response rate" and tells a
+                  // buyer whether this seller engages with offers at all.
+                  stallData.seller.responseRatePct != null && (() => {
+                    const pct = stallData.seller.responseRatePct;
+                    const cls = pct >= 80 ? 'var(--green)' : pct >= 50 ? '#fbbf24' : 'var(--red)';
+                    return h('span', {
+                      style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
+                      title: 'Fraction of offers the seller has resolved (accepted / rejected / countered) vs. let auto-expire'
+                    }, '· ', Math.round(pct), '% response rate');
                   })()
                 ),
                 // Rating chip — only shows if the seller has at least one
