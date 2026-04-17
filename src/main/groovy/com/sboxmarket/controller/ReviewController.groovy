@@ -79,4 +79,19 @@ class ReviewController {
         def uid = requireUser(req)
         ResponseEntity.ok(reviewService.eligibleTradesFor(uid, sellerId))
     }
+
+    /** Seller replies to (or clears the reply on) a review they received.
+     *  Body: `{ "reply": "..." }`. Empty or missing reply clears. Only the
+     *  review's `toUserId` may hit this endpoint. */
+    @PostMapping("/{id}/reply")
+    ResponseEntity<Map> reply(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def replyBody = body?.reply as String
+        def saved = reviewService.replyToReview(uid, id, replyBody)
+        ResponseEntity.ok([
+            id:             saved.id,
+            sellerReply:    saved.sellerReply,
+            sellerReplyAt:  saved.sellerReplyAt
+        ])
+    }
 }

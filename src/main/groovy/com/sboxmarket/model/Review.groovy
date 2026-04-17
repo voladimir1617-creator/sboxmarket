@@ -63,4 +63,14 @@ class Review {
 
     @Column(nullable = false)
     Long createdAt = System.currentTimeMillis()
+
+    /** Seller's public reply to the review. Optional; sellers can address
+     *  the feedback directly (classic "thank you for the feedback" or
+     *  "sorry this happened, reached out via DM") so the review doesn't
+     *  sit unanswered in front of future buyers. Sanitised + capped. */
+    @Column(length = 300)
+    String sellerReply
+
+    @Column
+    Long sellerReplyAt
 }

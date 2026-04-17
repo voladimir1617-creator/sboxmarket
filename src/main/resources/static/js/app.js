@@ -6,7 +6,7 @@ import {
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
-  fetchAnnouncement
+  fetchAnnouncement, replyToReview
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -24,6 +24,134 @@ import { AdminModal, CsrModal } from './staff-modals.js';
 import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor } from './router.js';
+
+// ── Pending trade reminder — surfaces a slim banner whenever the signed-in
+// user has a trade sitting in a state where they're the actor and the
+// counterparty has been waiting > 2h. Keeps escrow moving without
+// needing a scheduled email. Polls every 60s.
+function PendingTradeReminder({ me }) {
+  const [pending, setPending] = useState([]);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sb_trade_nudge_dismissed') || '[]')); }
+    catch { return new Set(); }
+  });
+  useEffect(() => {
+    if (!me) { setPending([]); return; }
+    let alive = true;
+    const reload = async () => {
+      try {
+        const r = await fetch('/api/trades', { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const rows = await r.json();
+        const now = Date.now();
+        const stuck = (Array.isArray(rows) ? rows : []).filter(t => {
+          const mine = (t.sellerUserId === me.id && (t.state === 'PENDING_SELLER_ACCEPT' || t.state === 'PENDING_SELLER_SEND'))
+            || (t.buyerUserId === me.id && t.state === 'PENDING_BUYER_CONFIRM');
+          if (!mine) return false;
+          const age = now - (t.updatedAt || t.createdAt || now);
+          return age > 2 * 3600 * 1000; // 2h
+        });
+        if (alive) setPending(stuck);
+      } catch (_) {}
+    };
+    reload();
+    const id = setInterval(reload, 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [me?.id]);
+  const visible = pending.filter(t => !dismissed.has(t.id));
+  if (visible.length === 0) return null;
+  const dismiss = (tradeId) => {
+    const next = new Set(dismissed);
+    next.add(tradeId);
+    setDismissed(next);
+    try { localStorage.setItem('sb_trade_nudge_dismissed', JSON.stringify([...next])); } catch (_) {}
+  };
+  const t = visible[0];
+  const isSeller = t.sellerUserId === me.id;
+  const action = t.state === 'PENDING_SELLER_ACCEPT' ? 'accept the trade'
+               : t.state === 'PENDING_SELLER_SEND'   ? 'send the Steam offer'
+               :                                        'confirm receipt';
+  return h('div', { className: 'pending-trade-nudge', role: 'status' },
+    h('span', { className: 'pending-trade-nudge-icon' }, '⇄'),
+    h('div', { className: 'pending-trade-nudge-text' },
+      h('strong', null, isSeller ? 'Buyer is waiting on you' : 'Confirm your trade'),
+      ' — "', t.itemName || ('Trade #' + t.id), '": ', action, ' before the auto-release window.'
+    ),
+    h('a', {
+      className: 'pending-trade-nudge-cta',
+      href: paths.profile(),
+      onClick: () => dismiss(t.id)
+    }, 'Open trade'),
+    h('button', {
+      className: 'pending-trade-nudge-close',
+      onClick: () => dismiss(t.id),
+      title: 'Dismiss',
+      'aria-label': 'Dismiss reminder'
+    }, '✕')
+  );
+}
+
+// ── Stall review row with optional seller reply UI. Always-visible block
+// when the review carries a sellerReply; otherwise the seller themselves
+// (viewing their own stall) sees a "Reply" button that toggles an inline
+// textarea. 300-char cap mirrors the service-layer sanitiser.
+function StallReviewRow({ review, isOwner, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState('');
+  const [busy, setBusy]       = useState(false);
+  const [err, setErr]         = useState('');
+  const submit = async (clear = false) => {
+    setBusy(true); setErr('');
+    try {
+      const res = await replyToReview(review.id, clear ? '' : (draft || '').trim());
+      if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
+      setEditing(false);
+      setDraft('');
+      onSaved && onSaved();
+    } finally { setBusy(false); }
+  };
+  return h('div', { className: 'stall-review' },
+    h('div', { className: 'stall-review-head' },
+      h('span', { className: 'stall-review-stars' }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
+      h('span', { className: 'stall-review-from' }, review.fromDisplayName || 'Anonymous'),
+      h('span', { className: 'stall-review-time' },
+        new Date(review.createdAt).toLocaleDateString()
+      )
+    ),
+    review.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + review.itemName),
+    review.comment && h('div', { className: 'stall-review-body' }, review.comment),
+    review.sellerReply && !editing && h('div', { className: 'stall-review-reply' },
+      h('span', { className: 'stall-review-reply-label' }, 'Seller response'),
+      h('div', { className: 'stall-review-reply-body' }, review.sellerReply)
+    ),
+    isOwner && !editing && h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
+      h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+        onClick: () => { setDraft(review.sellerReply || ''); setEditing(true); }
+      }, review.sellerReply ? '✎ Edit reply' : '↩ Reply'),
+      review.sellerReply && h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+        onClick: () => submit(true)
+      }, 'Remove reply')
+    ),
+    isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
+      h('textarea', {
+        value: draft,
+        onChange: e => setDraft(e.target.value),
+        maxLength: 300,
+        placeholder: 'Public response to this review (300 chars max)',
+        autoFocus: true
+      }),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
+        h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditing(false); setDraft(''); setErr(''); } }, 'Cancel'),
+        h('button', { className: 'btn btn-accent', disabled: busy || !draft.trim(), onClick: () => submit(false) }, busy ? 'Saving…' : 'Post reply')
+      ),
+      err && h('div', { className: 'wallet-error' }, err)
+    )
+  );
+}
 
 // ── Announcement banner — renders the single live sitewide message.
 // Polls every 120s so banners posted mid-session still land without a
@@ -1034,6 +1162,10 @@ export function App() {
     /* Sitewide ops announcement — one row at a time, dismissible. */
     h(AnnouncementBanner, null),
 
+    /* Pending-trade reminder — nudges users whose escrow has been
+       waiting on them > 2h. Dismissible per-trade via localStorage. */
+    h(PendingTradeReminder, { me }),
+
     /* NAV — full-width bar, aligned inner row clamped to content-max */
     h('nav', { className: 'nav' },
       h('div', { className: 'nav-inner' },
@@ -1672,17 +1804,19 @@ export function App() {
                 `Recent reviews (${stallReviews.length})`
               ),
               h('div', { className: 'stall-reviews-list' },
-                stallReviews.slice(0, 10).map(r => h('div', { key: r.id, className: 'stall-review' },
-                  h('div', { className: 'stall-review-head' },
-                    h('span', { className: 'stall-review-stars' }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
-                    h('span', { className: 'stall-review-from' }, r.fromDisplayName || 'Anonymous'),
-                    h('span', { className: 'stall-review-time' },
-                      new Date(r.createdAt).toLocaleDateString()
-                    )
-                  ),
-                  r.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + r.itemName),
-                  r.comment && h('div', { className: 'stall-review-body' }, r.comment)
-                ))
+                stallReviews.slice(0, 10).map(r => h(StallReviewRow, {
+                  key: r.id,
+                  review: r,
+                  // Viewer is the seller on this stall iff their user.id
+                  // matches the stall owner's id — then the reply UI shows.
+                  isOwner: me && stallData?.seller?.id === me.id,
+                  onSaved: async () => {
+                    // Refetch the reviews list to reflect the new reply
+                    // without a page reload.
+                    const fresh = await fetchReviewsForUser(stallData.seller.id);
+                    setStallReviews(fresh);
+                  }
+                }))
               )
             )
           )

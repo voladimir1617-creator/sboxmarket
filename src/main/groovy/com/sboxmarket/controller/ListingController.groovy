@@ -154,6 +154,31 @@ class ListingController {
             userId, org.springframework.data.domain.PageRequest.of(0, 200)))
     }
 
+    /** Bulk-adjust the user's active listings by a percentage. Positive
+     *  percent = markup, negative = discount. Auction listings are skipped
+     *  — changing an auction's starting price mid-auction is confusing UX
+     *  and also opens a bid-fairness question, so we stay conservative.
+     *  Hard-clamps the resulting price to > $0 and ≤ $100k like the
+     *  single-listing editor. Returns the new total active count + the
+     *  number of rows actually touched. */
+    @PutMapping("/my-stall/bulk-adjust")
+    ResponseEntity<Map> bulkAdjustStall(@RequestBody Map body, HttpServletRequest req) {
+        def userId = requireUser(req)
+        BigDecimal pct
+        try {
+            pct = new BigDecimal((body?.percent ?: '').toString())
+        } catch (NumberFormatException ignored) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_PERCENT",
+                "percent must be a number (e.g. -5 for a 5% discount)")
+        }
+        if (pct.abs() > new BigDecimal('50')) {
+            throw new com.sboxmarket.exception.BadRequestException("PERCENT_TOO_LARGE",
+                "Single adjustment capped at ±50% — split larger changes across multiple passes")
+        }
+        def result = listingService.bulkAdjustPrices(userId, pct)
+        ResponseEntity.ok(result)
+    }
+
     /** Auctions ending within the next hour (or custom window). Powers the
      *  homepage "Ending soon" rail — high-signal surface for the buying
      *  audience since the bid pressure is about to peak. Public endpoint,

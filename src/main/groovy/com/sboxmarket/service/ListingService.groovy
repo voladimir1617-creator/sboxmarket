@@ -112,6 +112,39 @@ class ListingService {
         listingRepository.findSoldBySeller(sellerUserId, page)
     }
 
+    /** Apply a percent adjustment to every active non-auction listing owned
+     *  by the user. +10 = markup 10%, -5 = 5% discount. Auction listings
+     *  are skipped (starting price ≠ current bid once a bid lands). Result
+     *  returns the new minimum floor for each touched item so the caller
+     *  can recompute displayed prices. */
+    @Transactional
+    Map bulkAdjustPrices(Long sellerUserId, BigDecimal percent) {
+        def active = listingRepository.findActiveBySeller(sellerUserId)
+        def factor = BigDecimal.ONE + (percent / new BigDecimal('100'))
+        def touchedItemIds = new HashSet<Long>()
+        int touched = 0, skipped = 0
+        active.each { l ->
+            if (l.listingType == 'AUCTION') { skipped++; return }
+            def newPrice = (l.price * factor).setScale(2, BigDecimal.ROUND_HALF_UP)
+            // Respect the same bounds as the single-listing editor.
+            if (newPrice < new BigDecimal('0.01')) newPrice = new BigDecimal('0.01')
+            if (newPrice > new BigDecimal('100000')) newPrice = new BigDecimal('100000')
+            if (newPrice == l.price) { skipped++; return }
+            l.price = newPrice
+            touched++
+            if (l.item?.id != null) touchedItemIds.add(l.item.id)
+        }
+        if (touched > 0) {
+            listingRepository.saveAll(active.findAll { it.listingType != 'AUCTION' })
+            // Floor prices on touched items must be recomputed so the
+            // marketplace grid picks up the new cheapest listing per item.
+            touchedItemIds.each { itemId ->
+                try { updateItemFloorPrice(itemId) } catch (Exception ignore) {}
+            }
+        }
+        [touched: touched, skipped: skipped, percent: percent]
+    }
+
     List<Listing> findOwnedBy(Long buyerUserId) {
         listingRepository.findOwnedBy(buyerUserId) ?: []
     }

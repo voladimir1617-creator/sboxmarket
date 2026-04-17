@@ -96,6 +96,32 @@ class ReviewService {
         row
     }
 
+    /** Seller replies publicly to one of their received reviews. Only the
+     *  seller (the review's `toUserId`) can reply. Idempotent — calling
+     *  again overwrites the previous reply. Pass a blank/null body to
+     *  clear an existing reply. Banned sellers cannot reply. */
+    @Transactional
+    Review replyToReview(Long sellerUserId, Long reviewId, String body) {
+        banGuard.assertNotBanned(sellerUserId)
+        def review = reviewRepository.findById(reviewId)
+            .orElseThrow { new NotFoundException("Review", reviewId) }
+        if (review.toUserId != sellerUserId) {
+            throw new ForbiddenException("Only the seller can reply to this review")
+        }
+        def clean = textSanitizer.clean(body ?: '', 300)
+        if (!clean || clean.trim().isEmpty()) {
+            review.sellerReply = null
+            review.sellerReplyAt = null
+        } else {
+            review.sellerReply = clean
+            review.sellerReplyAt = System.currentTimeMillis()
+        }
+        def saved = reviewRepository.save(review)
+        auditService?.log('REVIEW_REPLIED', sellerUserId, review.fromUserId, reviewId,
+            review.sellerReply ? "Replied: ${review.sellerReply.take(120)}" : "Cleared reply")
+        saved
+    }
+
     /** All verified trades between a given buyer and seller, each tagged
      *  with whether the buyer has already reviewed the trade. Empty when
      *  the buyer hasn't traded with the seller yet. */

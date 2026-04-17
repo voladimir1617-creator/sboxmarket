@@ -6,7 +6,7 @@ import { GridCard } from './cards.js';
 import { InfoModal } from './info-modal.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import {
-  fetchInventory, fetchMyStall, fetchMyStallSold, relistItem, cancelListing,
+  fetchInventory, fetchMyStall, fetchMyStallSold, bulkAdjustStall, relistItem, cancelListing,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar,
   depositFunds, withdrawFunds, updateStallListing, setAwayMode,
@@ -1881,6 +1881,26 @@ export function MyStallModal({ onClose, me, onRefresh }) {
 
   const soldTotal = sold ? sold.reduce((s, l) => s + (parseFloat(l.price) || 0), 0) : 0;
 
+  // Bulk price adjust — apply ±% to every active non-auction listing. Max
+  // ±50% per pass (server cap); auctions are skipped server-side. Kept
+  // compact so it lives inline in the toolbar rather than a separate
+  // modal. One confirm prompt since it touches every row.
+  const bulkAdjust = async () => {
+    const raw = window.prompt(
+      'Apply a percentage adjustment to every active BUY NOW listing.\n' +
+      'Positive = markup, negative = discount. Max ±50 per pass.\n\n' +
+      'e.g. -5 for a 5% discount');
+    if (raw == null) return;
+    const pct = parseFloat(raw);
+    if (!isFinite(pct) || pct === 0) return;
+    if (Math.abs(pct) > 50) { alert('Max ±50% per pass'); return; }
+    const res = await bulkAdjustStall(pct);
+    if (res && (res.error || res.code)) { alert(res.message || res.error || 'Failed'); return; }
+    alert(`Touched ${res.touched || 0} listing${(res.touched || 0) === 1 ? '' : 's'}, skipped ${res.skipped || 0} (auctions / unchanged).`);
+    load();
+    onRefresh && onRefresh();
+  };
+
   return h(InfoModal, { title: `My Stall · ${stall.length} active`, onClose },
     h('div', { className: 'stall-toolbar' },
       h('button', {
@@ -1890,7 +1910,14 @@ export function MyStallModal({ onClose, me, onRefresh }) {
       }),
       h('span', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
         'Away Mode — ', away ? 'all listings hidden' : 'listings visible'
-      )
+      ),
+      h('div', { style: { flex: 1 } }),
+      stall.length > 0 && h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+        onClick: bulkAdjust,
+        title: 'Apply a ±% adjustment to every active BUY NOW listing'
+      }, '⚖ Bulk price adjust')
     ),
     // Active vs Sold tabs. Sold tab reveals a seller's own sale history
     // with gross revenue (pre-fee). Matches CSFloat's "My Sales" list.

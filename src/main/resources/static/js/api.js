@@ -124,6 +124,15 @@ export async function fetchMyStallSold() {
   const data = await safeJson(`${API}/listings/my-stall/sold`);
   return Array.isArray(data) ? data : [];
 }
+/** Apply a percent adjustment (±50 max) to every active non-auction
+ *  listing in the signed-in user's stall. Returns { touched, skipped }. */
+export async function bulkAdjustStall(percent) {
+  return writeJson(`${API}/listings/my-stall/bulk-adjust`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ percent })
+  });
+}
 export async function fetchMyStall() {
   const data = await safeJson(`${API}/listings/my-stall`);
   return Array.isArray(data) ? data : [];
@@ -517,6 +526,15 @@ export async function fetchReviewSummary(userId) {
 export async function fetchEligibleReviews(sellerUserId) {
   const data = await safeJson(`${API}/reviews/eligible/${sellerUserId}`);
   return Array.isArray(data) ? data : [];
+}
+/** Seller posts a public reply (or clears with empty string) on one of
+ *  their own received reviews. Only the review's toUserId can call this. */
+export async function replyToReview(reviewId, reply) {
+  return writeJson(`${API}/reviews/${reviewId}/reply`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reply })
+  });
 }
 /** Auctions ending within the next hour — powers the "Ending soon" rail
  *  on the marketplace home. Public endpoint, 20-row cap server-side. */
