@@ -3370,6 +3370,13 @@ export function MyStallModal({ onClose, me, onRefresh }) {
     onRefresh && onRefresh();
   };
 
+  // Book value — sum of ask prices across every active listing. The
+  // "liquidation ceiling": if every row sold at ask (ignoring the 2%
+  // fee), this is the seller's gross. Lives alongside the away toggle
+  // so a seller sees their total exposure at a glance.
+  const stallBookValue = stall.reduce((s, l) => s + (parseFloat(l.price) || 0), 0);
+  const pendingOfferRows = Object.keys(offerMap || {}).length;
+
   return h(InfoModal, { title: `My Stall · ${stall.length} active`, onClose },
     h('div', { className: 'stall-toolbar' },
       h('button', {
@@ -3379,6 +3386,33 @@ export function MyStallModal({ onClose, me, onRefresh }) {
       }),
       h('span', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
         'Away Mode — ', away ? 'all listings hidden' : 'listings visible'
+      ),
+      // Book-value chip — neutral signal, silent when the stall is
+      // empty so first-time sellers don't see a "$0.00" stub.
+      stall.length > 0 && h('span', {
+        style: {
+          marginLeft: 14, fontSize: 11, fontWeight: 700, color: 'var(--text-primary)',
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          padding: '4px 10px', borderRadius: 6
+        },
+        title: 'Sum of ask prices across every active listing. The "liquidation ceiling" before the 2% platform fee.'
+      },
+        'Book value · ', fmt(stallBookValue)
+      ),
+      // Pending-offers chip — compact sibling to the per-row chip,
+      // shown when at least one listing has a PENDING buyer offer so
+      // a seller who just opened the stall sees the count before
+      // scrolling. Amber tint matches the per-row chip.
+      pendingOfferRows > 0 && h('a', {
+        href: '/offers',
+        style: {
+          marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#fbbf24',
+          background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)',
+          padding: '4px 10px', borderRadius: 6, textDecoration: 'none'
+        },
+        title: `${pendingOfferRows} listing${pendingOfferRows === 1 ? '' : 's'} with pending buyer offers`
+      },
+        '💬 ', pendingOfferRows, ' ', pendingOfferRows === 1 ? 'listing' : 'listings', ' with offers'
       ),
       h('div', { style: { flex: 1 } }),
       stall.length > 0 && h('button', {
