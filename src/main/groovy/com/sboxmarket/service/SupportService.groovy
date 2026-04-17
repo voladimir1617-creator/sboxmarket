@@ -35,6 +35,10 @@ class SupportService {
             case 'TRADE':
                 return "Trade questions usually resolve themselves within the 8-day Steam hold. If the listing is " +
                        "already marked sold, the buyer has confirmed receipt and funds should release automatically."
+            case 'REFUND':
+                return "Thanks — a refund specialist will review your trade details and the item delivery status, " +
+                       "then follow up here. Typical review turnaround is under 24 hours. If you have a screenshot " +
+                       "of the Steam trade offer (or the missing / mismatched item) feel free to attach it in a reply."
             case 'ACCOUNT':
                 return "For account issues, please confirm the Steam ID64 shown in your Personal Info tab. We can " +
                        "verify your session from that value and reset anything that looks off."

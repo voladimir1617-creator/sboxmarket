@@ -409,6 +409,32 @@ export function App() {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+  // Autocomplete suggestions — keyboard-navigable dropdown showing up to 8
+  // item matches. Debounced at 180ms so typing "watch" doesn't fire 5 GETs.
+  // Closes on click-outside, Esc, or selecting a suggestion.
+  const [suggest, setSuggest]           = useState([]);
+  const [suggestOpen, setSuggestOpen]   = useState(false);
+  const [suggestIdx, setSuggestIdx]     = useState(-1);
+  useEffect(() => {
+    const q = (searchInput || '').trim();
+    if (q.length < 2) { setSuggest([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/items?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const items = await r.json();
+        setSuggest(Array.isArray(items) ? items.slice(0, 8) : []);
+      } catch (_) {}
+    }, 180);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!e.target.closest?.('.search-wrap')) setSuggestOpen(false);
+    };
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, []);
   const [category, setCategory]         = useState('All');
   const [rarity, setRarity]             = useState('All');
   const [sort, setSort]                 = useState('price_desc');
@@ -1209,15 +1235,63 @@ export function App() {
               className: 'search-input',
               placeholder: 'Search s&box skins…  (press / to focus)',
               value: searchInput,
-              onChange: e => setSearchInput(e.target.value),
-              'aria-label': 'Search listings'
+              onChange: e => { setSearchInput(e.target.value); setSuggestOpen(true); setSuggestIdx(-1); },
+              onFocus: () => { if (searchInput && suggest.length > 0) setSuggestOpen(true); },
+              onKeyDown: (e) => {
+                if (!suggestOpen || suggest.length === 0) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestIdx(i => (i + 1) % suggest.length); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIdx(i => (i - 1 + suggest.length) % suggest.length); }
+                else if (e.key === 'Enter' && suggestIdx >= 0) {
+                  e.preventDefault();
+                  const item = suggest[suggestIdx];
+                  setSuggestOpen(false); setSuggestIdx(-1);
+                  navigate(paths.item(item.id));
+                }
+                else if (e.key === 'Escape') { setSuggestOpen(false); setSuggestIdx(-1); }
+              },
+              'aria-label': 'Search listings',
+              'aria-autocomplete': 'list',
+              'aria-expanded': suggestOpen && suggest.length > 0
             }),
             searchInput && h('button', {
               className: 'search-clear',
-              onClick: () => { setSearchInput(''); setSearch(''); },
+              onClick: () => { setSearchInput(''); setSearch(''); setSuggestOpen(false); },
               title: 'Clear search',
               'aria-label': 'Clear search'
-            }, '✕')
+            }, '✕'),
+            suggestOpen && suggest.length > 0 && h('div', {
+              className: 'search-suggest',
+              role: 'listbox'
+            },
+              suggest.map((item, i) => h('div', {
+                key: item.id,
+                className: `search-suggest-row ${i === suggestIdx ? 'active' : ''}`,
+                role: 'option',
+                'aria-selected': i === suggestIdx,
+                onMouseEnter: () => setSuggestIdx(i),
+                onClick: (e) => {
+                  e.preventDefault();
+                  setSuggestOpen(false); setSuggestIdx(-1);
+                  navigate(paths.item(item.id));
+                }
+              },
+                h('div', { className: 'search-suggest-thumb' },
+                  item.imageUrl
+                    ? h('img', { src: item.imageUrl, alt: '', loading: 'lazy' })
+                    : h('span', { style: { color: item.accentColor || '#60a5fa' } }, item.iconEmoji || '📦')
+                ),
+                h('div', { className: 'search-suggest-body' },
+                  h('div', { className: 'search-suggest-name' }, item.name),
+                  h('div', { className: 'search-suggest-meta' },
+                    item.category || 'Item',
+                    item.rarity && item.rarity !== 'Standard' ? ` · ${item.rarity}` : ''
+                  )
+                ),
+                h('div', { className: 'search-suggest-price' },
+                  item.lowestPrice != null ? fmt(item.lowestPrice) : '—'
+                )
+              ))
+            )
           ),
           h('select', {
             className: 'sort-select',

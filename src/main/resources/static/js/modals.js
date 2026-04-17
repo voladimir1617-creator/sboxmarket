@@ -15,7 +15,7 @@ import {
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   setEmail, verifyEmail, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
-  fetchListings, fetchItem, leaveReview, fetchReviewSummary
+  fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales
 } from './api.js';
 
 export { InfoModal };
@@ -39,6 +39,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   useEffect(() => {
     if (!item) return;
     fetchSimilar(item.id).then(setSimilar);
+  }, [item?.id]);
+  // Recent sale rows — 10 most-recent SOLD listings for this item. Drives
+  // the "Recent sales" strip just below the price history chart. Empty
+  // array when no sales yet (freshly indexed item).
+  const [recentSales, setRecentSales] = useState([]);
+  useEffect(() => {
+    if (!item?.id) return;
+    let alive = true;
+    fetchRecentSales(item.id).then(rows => { if (alive) setRecentSales(rows || []); });
+    return () => { alive = false; };
   }, [item?.id]);
   useEffect(() => {
     const ids = [...new Set(listings.map(l => l.sellerUserId).filter(Boolean))];
@@ -138,6 +148,25 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ? h(Sparkline, { data: slicedHistory, color: trendUp ? '#4ade80' : trendFlat ? '#60a5fa' : '#f87171', height: 150 })
             : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
                 'Price history will appear here after the next market sync.')
+        ),
+
+        // Recent sales strip — buyers anchor fairness on the actual sale
+        // ladder (floor price alone tells them what sellers ASK for, not
+        // what the market PAID). Counterparties aren't surfaced — buyer
+        // privacy is non-negotiable.
+        recentSales && recentSales.length > 0 && h('div', null,
+          h('div', { className: 'modal-section-title' },
+            h('div', { className: 'section-title-dot' }),
+            `Recent sales (${recentSales.length})`
+          ),
+          h('div', { className: 'recent-sales-list' },
+            recentSales.map(s => h('div', { key: s.listingId, className: 'recent-sales-row' },
+              h('span', { className: 'recent-sales-type' },
+                s.listingType === 'AUCTION' ? 'Auction' : 'Buy now'),
+              h('span', { className: 'recent-sales-price' }, fmt(s.price)),
+              h('span', { className: 'recent-sales-time' }, timeAgo(s.soldAt))
+            ))
+          )
         ),
 
         thread && thread.length > 0 && h('div', null,
@@ -861,6 +890,37 @@ function ProfileTradesTab({ me, privacy }) {
   const [reviewErr,   setReviewErr]   = useState('');
   const [reviewDone,  setReviewDone]  = useState(false);
 
+  // Refund-request helper — fires a support ticket with the trade details
+  // baked into the subject + body so the CSR queue has full context on the
+  // first look. Optimistic: we don't block the UI on the reply, just flash
+  // a toast and the user can track it in /support.
+  const [refundBusy, setRefundBusy] = useState(false);
+  const openRefundForTrade = async (trade) => {
+    const reason = window.prompt(
+      `Refund request for "${trade.itemName || 'Trade #' + trade.id}"\n\n` +
+      `What's wrong? (item not received, item doesn't match, seller unresponsive, etc.)`);
+    if (!reason || !reason.trim()) return;
+    setRefundBusy(true);
+    try {
+      const dt = new Date(trade.settledAt || trade.updatedAt || trade.createdAt);
+      const res = await createSupportTicket({
+        category: 'REFUND',
+        subject:  `Refund request · Trade #${trade.id} · ${trade.itemName || 'item'}`,
+        body:     `Trade ID: ${trade.id}\n` +
+                  `Item: ${trade.itemName || '—'}\n` +
+                  `Price: $${(trade.price ?? 0).toString()}\n` +
+                  `Settled: ${isNaN(dt.getTime()) ? '—' : dt.toISOString()}\n` +
+                  `Counterparty: ${trade.counterpartyName || ('user #' + (trade.sellerUserId || trade.buyerUserId))}\n\n` +
+                  `Reason from buyer:\n${reason.trim()}`
+      });
+      if (res && (res.error || res.code)) {
+        alert(res.message || res.error || 'Could not open refund ticket.');
+      } else {
+        alert('Refund request submitted. A support agent will reply — track progress in Support.');
+      }
+    } finally { setRefundBusy(false); }
+  };
+
   const openReview = (trade) => {
     setReviewTrade(trade);
     setReviewStars(5);
@@ -1039,7 +1099,20 @@ function ProfileTradesTab({ me, privacy }) {
                     style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11 },
                     disabled: busy,
                     onClick: () => openReview(t)
-                  }, '★ Leave Review')
+                  }, '★ Leave Review'),
+                // Request refund — opens a support ticket pre-filled with
+                // the trade metadata (id, item, price, date). Buyer-only on
+                // VERIFIED trades; sellers have a separate dispute channel.
+                // Without this buyers had no obvious "something went wrong"
+                // path once escrow released — they'd cold-open a ticket and
+                // paste trade details by hand.
+                isBuyer && t.state === 'VERIFIED' &&
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', padding: '6px 10px', fontSize: 11 },
+                    disabled: busy,
+                    onClick: () => openRefundForTrade(t)
+                  }, '↩ Request refund')
               )
             );
           })

@@ -17,6 +17,7 @@ class ItemController {
 
     @Autowired ItemService itemService
     @Autowired ItemRepository itemRepository
+    @Autowired com.sboxmarket.repository.ListingRepository listingRepository
 
     @GetMapping
     ResponseEntity<List<Item>> search(
@@ -44,6 +45,24 @@ class ItemController {
     @GetMapping("/{id}/history")
     ResponseEntity<List<PriceHistory>> getPriceHistory(@PathVariable Long id) {
         ResponseEntity.ok(itemService.getPriceHistory(id))
+    }
+
+    /** Recent sale rows for an item (price + timestamp only — no
+     *  counterparty identities leaked). Caps at 10; CSFloat shows a
+     *  similar "Last 10 sales" strip on every item detail. */
+    @GetMapping("/{id}/recent-sales")
+    ResponseEntity<List<Map>> getRecentSales(@PathVariable Long id) {
+        def rows = listingRepository.findRecentSalesForItem(
+            id, org.springframework.data.domain.PageRequest.of(0, 10))
+        def out = rows.collect { l ->
+            [
+                listingId: l.id,
+                price:     l.price,
+                soldAt:    l.soldAt,
+                listingType: l.listingType
+            ]
+        }
+        ResponseEntity.ok(out)
     }
 
     /**

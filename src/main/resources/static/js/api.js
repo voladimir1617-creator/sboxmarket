@@ -519,6 +519,12 @@ export async function fetchAuctionsEndingSoon(withinMs) {
   const data = await safeJson(`${API}/listings/ending-soon${qs}`);
   return Array.isArray(data) ? data : [];
 }
+/** Last 10 actual sale rows for an item — powers the "Recent sales" strip
+ *  on the ItemModal. Counterparties are NOT returned (privacy). */
+export async function fetchRecentSales(itemId) {
+  const data = await safeJson(`${API}/items/${itemId}/recent-sales`);
+  return Array.isArray(data) ? data : [];
+}
 
 // ── CSR ─────────────────────────────────────────────────────────
 export async function csrCheck() {

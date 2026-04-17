@@ -145,6 +145,19 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Listing> findAuctionsEndingBefore(@Param("now") Long now, @Param("deadline") Long deadline)
 
+    /** Recent sale history for a catalogue item — drives the "Last N sales"
+     *  table on the item detail modal. Buyers use this as the anchor for
+     *  fairness ("the last 10 actually sold at $X") which the floor price
+     *  alone doesn't convey. Caller truncates; typical UI shows 10. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.item.id = :itemId
+          AND l.status  = 'SOLD'
+          AND l.soldAt IS NOT NULL
+        ORDER BY l.soldAt DESC
+    """)
+    List<Listing> findRecentSalesForItem(@Param("itemId") Long itemId, org.springframework.data.domain.Pageable page)
+
     /** Rows flagged as simulator fixtures — `AdminSimulatorService.clearSimulated`
      *  and `countSimulated` used to pull every listing and filter in Groovy.
      *  Pushing the tag filters into SQL keeps the admin sim tool fast even
