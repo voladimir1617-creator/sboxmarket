@@ -332,15 +332,32 @@ export function BuyOrdersModal({ onClose, me, preselectedItem }) {
 // features we don't port over.
 
 // ── Loadout Lab ─────────────────────────────────────────────────
-export function LoadoutLabModal({ onClose, me }) {
+export function LoadoutLabModal({ onClose, me, loadoutId }) {
   const [tab, setTab]         = useState('discover'); // discover | mine | view
   const [list, setList]       = useState(null);
   const [search, setSearch]   = useState('');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  // `null` = not loaded yet (spinner), `{ __notFound }` = real 404 so
+  // we can surface a friendly empty-state instead of spinning forever.
   const [viewing, setViewing] = useState(null);
   const [allItems, setAllItems] = useState([]);
   const [budget, setBudget]   = useState('');
+
+  // Deep-link: /loadout/:id lands here with `loadoutId` set. Jump
+  // straight to the view tab with the right row loaded instead of
+  // dumping the user on discover. Ignored when id is missing.
+  useEffect(() => {
+    if (!loadoutId) return;
+    let alive = true;
+    (async () => {
+      const data = await fetchLoadout(loadoutId);
+      if (!alive) return;
+      setViewing(data || { __notFound: true });
+      setTab('view');
+    })();
+    return () => { alive = false; };
+  }, [loadoutId]);
 
   const load = useCallback(async () => {
     setList(null);
@@ -405,6 +422,21 @@ export function LoadoutLabModal({ onClose, me }) {
     load();
   };
 
+  // 404 branch — deep-link to a missing or private loadout. Kept above
+  // the normal view so the rendered tab doesn't try to dereference
+  // viewing.loadout.ownerUserId on the sentinel object.
+  if (tab === 'view' && viewing && viewing.__notFound) {
+    return h(InfoModal, { title: 'Loadout', onClose },
+      h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
+        h('div', { className: 'empty-icon' }, '🧥'),
+        h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 } }, 'Loadout not found'),
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+          "This loadout doesn't exist, was deleted, or is private. Try Discover to browse public sets."),
+        h('button', { className: 'btn btn-accent', onClick: () => { setViewing(null); setTab('discover'); } },
+          'Browse public loadouts')
+      )
+    );
+  }
   if (tab === 'view' && viewing) {
     const isOwner = me && viewing.loadout.ownerUserId === me.id;
     const SLOT_NAMES = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories','Wild'];
