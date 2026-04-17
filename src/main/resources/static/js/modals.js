@@ -15,7 +15,8 @@ import {
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   setEmail, verifyEmail, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
-  fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales
+  fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
+  fetchReviewsForUser, replyToReview
 } from './api.js';
 
 export { InfoModal };
@@ -515,6 +516,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     { id: 'autobids',     label: 'Auto-Bids' },
     { id: 'trades',       label: 'Trades', badge: actionableTradeCount },
     { id: 'offers',       label: 'Offers', badge: pendingOfferCount },
+    { id: 'reviews',      label: 'Reviews' },
     { id: 'support',      label: 'Support' },
     { id: 'developers',   label: 'Developers' },
   ];
@@ -586,6 +588,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     tab === 'autobids'    && h(ProfileAutoBidsTab, null),
     tab === 'trades'      && h(ProfileTradesTab, { me, privacy }),
     tab === 'offers'      && h(ProfileOffersTab, null),
+    tab === 'reviews'     && h(ProfileReviewsTab, { me }),
     tab === 'support'     && h(ProfileSupportTab, null),
     tab === 'developers'  && h(ProfileDevelopersTab, null)
   );
@@ -1437,6 +1440,110 @@ function ProfileOffersTab() {
   );
 }
 
+// ── Profile "Reviews received" — surfaces the same rows buyers see on
+// the public stall page, but inside the seller's private profile + with
+// a star-rating filter and an inline reply editor per row. Re-uses the
+// `replyToReview` API from the stall view so the reply state is
+// single-sourced.
+function ProfileReviewsTab({ me }) {
+  const [rows, setRows]       = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [starFilter, setStarFilter] = useState(0);
+  const [editId, setEditId]   = useState(null);
+  const [draft, setDraft]     = useState('');
+  const [busy, setBusy]       = useState(false);
+  const load = useCallback(async () => {
+    if (!me) return;
+    const [list, sum] = await Promise.all([
+      fetchReviewsForUser(me.id),
+      fetchReviewSummary(me.id)
+    ]);
+    setRows(Array.isArray(list) ? list : []);
+    setSummary(sum || { count: 0, average: null });
+  }, [me?.id]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!me) return h(InfoModal, { title: 'Reviews' }, h('div', { className: 'empty-inline' },
+    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view reviews.')));
+  if (rows === null) return h('div', { className: 'spinner' });
+
+  const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
+  const submit = async (reviewId, clear = false) => {
+    setBusy(true);
+    try {
+      const res = await replyToReview(reviewId, clear ? '' : (draft || '').trim());
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      setEditId(null); setDraft('');
+      await load();
+    } finally { setBusy(false); }
+  };
+
+  const avgLabel = summary && summary.count > 0
+    ? `${Number(summary.average || 0).toFixed(1)} ★  ·  ${summary.count} review${summary.count === 1 ? '' : 's'}`
+    : 'No reviews yet';
+
+  return h('div', null,
+    h('div', { className: 'profile-reviews-head' },
+      h('div', { className: 'profile-reviews-avg' }, avgLabel)
+    ),
+    rows.length > 0 && h('div', { className: 'profile-reviews-filter' },
+      [0, 5, 4, 3, 2, 1].map(n => h('button', {
+        key: n,
+        className: `wallet-tx-filter-chip ${starFilter === n ? 'active' : ''}`,
+        onClick: () => setStarFilter(n)
+      }, n === 0 ? 'All' : `${n}★`))
+    ),
+    filtered.length === 0
+      ? h('div', { className: 'empty-inline' },
+          h('div', { className: 'empty-icon' }, '★'),
+          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+            rows.length === 0
+              ? 'No reviews yet. Every VERIFIED trade lets the buyer rate you 1–5 stars.'
+              : 'No reviews match this filter.'))
+      : h('div', { className: 'profile-reviews-list' },
+          filtered.map(r => h('div', { key: r.id, className: 'stall-review' },
+            h('div', { className: 'stall-review-head' },
+              h('span', { className: 'stall-review-stars' }, '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)),
+              h('span', { className: 'stall-review-from' }, r.fromDisplayName || 'Anonymous'),
+              h('span', { className: 'stall-review-time' }, new Date(r.createdAt).toLocaleDateString())
+            ),
+            r.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + r.itemName),
+            r.comment && h('div', { className: 'stall-review-body' }, r.comment),
+            r.sellerReply && editId !== r.id && h('div', { className: 'stall-review-reply' },
+              h('span', { className: 'stall-review-reply-label' }, 'Your response'),
+              h('div', { className: 'stall-review-reply-body' }, r.sellerReply)
+            ),
+            editId === r.id
+              ? h('div', { className: 'stall-review-reply-edit' },
+                  h('textarea', {
+                    value: draft,
+                    onChange: e => setDraft(e.target.value),
+                    maxLength: 300,
+                    placeholder: 'Public response (300 chars)',
+                    autoFocus: true
+                  }),
+                  h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 } },
+                    h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: () => { setEditId(null); setDraft(''); } }, 'Cancel'),
+                    h('button', { className: 'btn btn-accent', disabled: busy || !draft.trim(), onClick: () => submit(r.id, false) }, busy ? 'Saving…' : 'Post reply')
+                  )
+                )
+              : h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+                    onClick: () => { setDraft(r.sellerReply || ''); setEditId(r.id); }
+                  }, r.sellerReply ? '✎ Edit reply' : '↩ Reply'),
+                  r.sellerReply && h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+                    onClick: () => submit(r.id, true)
+                  }, 'Remove reply')
+                )
+          ))
+        )
+  );
+}
+
 function ProfileSupportTab() {
   const [tickets, setTickets] = useState(null);
   const [viewing, setViewing] = useState(null);
@@ -2275,7 +2382,7 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
           h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
         )
       : h('div', null,
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
             h('button', {
               className: `offer-tab ${!showDropsOnly ? 'active' : ''}`,
               onClick: () => setShowDropsOnly(false)
@@ -2283,7 +2390,25 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
             h('button', {
               className: `offer-tab ${showDropsOnly ? 'active' : ''}`,
               onClick: () => setShowDropsOnly(true)
-            }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length))
+            }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length)),
+            h('div', { style: { flex: 1 } }),
+            // Bulk clear — asks before wiping every starred item. Also
+            // drops price snapshots + alert targets so a re-star doesn't
+            // resurrect stale state.
+            rows.length > 0 && h('button', {
+              className: 'btn btn-ghost',
+              style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 12px', fontSize: 11 },
+              onClick: () => {
+                if (!confirm(`Clear all ${rows.length} watchlisted items?`)) return;
+                // Unstar each via the parent's handler so the app's
+                // watchlist state + price-drop indicators stay consistent.
+                starred.forEach(l => { if (l?.item?.id) onToggleStar(l.item.id); });
+                localStorage.removeItem('sb_watchlist_snap');
+                localStorage.removeItem('sb_watchlist_alerts');
+                setSnapshots({});
+                setAlerts({});
+              }
+            }, '✕ Clear all')
           ),
           filtered.length === 0
             ? h('div', { className: 'empty-inline' },

@@ -2124,6 +2124,28 @@ export function App() {
           ),
           h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal))
         ),
+        // Low-balance warning: if wallet balance is below cart total,
+        // show a red banner with the shortfall amount + a Deposit CTA.
+        // Computed client-side from the wallet the app already has; the
+        // backend's checkout will still 402 on actual insufficient-funds,
+        // but surfacing the gap here saves the user a round-trip.
+        (() => {
+          const bal = parseFloat(wallet?.balance || 0);
+          const gap = cartTotal - bal;
+          if (!(gap > 0)) return null;
+          return h('div', { className: 'cart-confirm-low-balance' },
+            h('div', null,
+              h('strong', null, 'Not enough balance. '),
+              `You have ${fmt(bal)} — add ${fmt(gap)} to complete this checkout.`
+            ),
+            h('a', {
+              className: 'btn btn-accent',
+              style: { padding: '6px 14px', fontSize: 12 },
+              href: paths.wallet(),
+              onClick: () => setCartConfirmOpen(false)
+            }, 'Deposit →')
+          );
+        })(),
         h('div', { className: 'cart-confirm-actions' },
           h('button', {
             className: 'btn btn-ghost',
@@ -2134,7 +2156,7 @@ export function App() {
           h('button', {
             className: 'btn btn-accent',
             onClick: doCheckout,
-            disabled: cartBusy || cart.length === 0
+            disabled: cartBusy || cart.length === 0 || cartTotal > parseFloat(wallet?.balance || 0)
           }, cartBusy ? 'Placing order…' : `Confirm · ${fmt(cartTotal)}`)
         )
       )

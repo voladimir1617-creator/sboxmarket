@@ -4517,6 +4517,27 @@
     }
     .announce-banner-close:hover { background: rgba(0, 0, 0, 0.28); }
 
+    /* ─────────── PROFILE REVIEWS TAB ─────────── */
+    .profile-reviews-head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .profile-reviews-avg {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .profile-reviews-filter {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .profile-reviews-list { display: flex; flex-direction: column; gap: 12px; }
+
     /* ─────────── WALLET TX TYPE FILTER ─────────── */
     .wallet-tx-filter-row {
       display: flex;
@@ -5404,6 +5425,20 @@
       font-size: 22px;
       font-weight: 800;
       color: var(--accent);
+    }
+    .cart-confirm-low-balance {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 14px;
+      padding: 12px 14px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      border-radius: 8px;
+      flex-wrap: wrap;
     }
     .cart-confirm-actions {
       display: flex;
