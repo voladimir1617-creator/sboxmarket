@@ -36,6 +36,7 @@ class ListingController {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
     @Autowired(required = false) com.sboxmarket.service.ReviewService reviewService
+    @Autowired(required = false) com.sboxmarket.service.SellerFollowService sellerFollowService
 
     @GetMapping
     ResponseEntity<?> getListings(
@@ -294,6 +295,9 @@ class ListingController {
         // can be tuned without touching clients.
         def verified = soldCount >= 10L &&
             ((ratingSummary.count ?: 0) == 0 || ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
+        // Public follower count — cheap indexed COUNT. Silently zero
+        // when the feature isn't wired in the current profile.
+        def followerCount = sellerFollowService?.countFollowers(userId) ?: 0L
         ResponseEntity.ok([
             seller: [
                 id:            user.id,
@@ -306,7 +310,8 @@ class ListingController {
                 // haven't re-synced since they signed in.
                 lastSyncedAt:  user.lastSyncedAt,
                 verified:      verified,
-                soldCount:     soldCount
+                soldCount:     soldCount,
+                followerCount: followerCount
             ],
             listings:  visible,
             count:     visible.size(),

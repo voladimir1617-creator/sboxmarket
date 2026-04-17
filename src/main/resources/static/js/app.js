@@ -2440,6 +2440,7 @@ export function App() {
                 h('div', { className: 'stall-meta' },
                   stallData.count, ' active listings',
                   stallData.seller.soldCount > 0 && ` · ${stallData.seller.soldCount} sold`,
+                  stallData.seller.followerCount > 0 && ` · ${stallData.seller.followerCount} follower${stallData.seller.followerCount === 1 ? '' : 's'}`,
                   ' · joined ',
                   stallData.seller.joinedAt ? new Date(stallData.seller.joinedAt).toLocaleDateString() : '—',
                   // Last-seen chip — green if within 24h, yellow if 7d,
