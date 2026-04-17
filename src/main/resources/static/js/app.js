@@ -2692,7 +2692,7 @@ export function App() {
        navigates back to /. Some (wallet, profile) need the shared wallet
        state, others are self-contained. */
     routeName === 'wallet' && wallet && h(WalletModal, {
-      wallet, transactions,
+      wallet, transactions, me,
       onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); },
       onRefresh: loadWallet,
       initialTab: walletInitialTab,

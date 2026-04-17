@@ -4290,7 +4290,7 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
 }
 
 // ── Wallet (deposit/withdraw/history) ───────────────────────────
-export function WalletModal({ wallet, transactions, onClose, onRefresh, initialTab, prefillAmount }) {
+export function WalletModal({ wallet, transactions, me, onClose, onRefresh, initialTab, prefillAmount }) {
   const [tab, setTab]       = useState(initialTab || 'deposit');
   const [amount, setAmount] = useState(prefillAmount != null ? String(prefillAmount) : '');
   // If the app redirected from the cart low-balance warning with a
@@ -4515,6 +4515,34 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
               );
             })()
           : h('div', null,
+              // Email-verification gate for withdrawals. Must mirror
+              // the server guard (WalletController.withdraw checks
+              // emailVerified before calling Stripe). Rendered at the
+              // top of the form so a user doesn't fill in the amount
+              // only to get a 400 on submit.
+              tab === 'withdraw' && me && !me.emailVerified && h('div', {
+                style: {
+                  padding: 12, marginBottom: 12, borderRadius: 8,
+                  background: 'rgba(251,191,36,0.12)',
+                  border: '1px solid rgba(251,191,36,0.4)',
+                  color: '#fbbf24', fontSize: 12, fontWeight: 600,
+                  display: 'flex', gap: 10, alignItems: 'flex-start'
+                }
+              },
+                h('span', { style: { fontSize: 16 } }, '⚠'),
+                h('div', { style: { flex: 1 } },
+                  h('div', { style: { fontWeight: 700, marginBottom: 4 } },
+                    me.email ? 'Verify your email before withdrawing' : 'Add an email before withdrawing'),
+                  h('div', { style: { opacity: 0.9 } },
+                    me.email
+                      ? 'We send withdrawal-approved / rejected emails to this address. Open Profile → Personal Info to click the verify link.'
+                      : 'Withdrawals require a verified email so we can contact you about payout status. Add one in Profile → Personal Info.'),
+                  h('a', {
+                    href: '/profile',
+                    style: { display: 'inline-block', marginTop: 6, color: 'inherit', fontWeight: 800, textDecoration: 'underline' }
+                  }, 'Open Profile →')
+                )
+              ),
               h('div', { className: 'withdraw-step', style: { marginBottom: 8 } },
                 h('div', { className: 'withdraw-step-num' }, '1'),
                 h('div', { className: 'withdraw-step-content' },

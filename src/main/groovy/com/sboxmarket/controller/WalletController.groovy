@@ -173,6 +173,22 @@ class WalletController {
         def wallet = currentWallet(req)
         if (wallet == null) throw new UnauthorizedException("Sign in to withdraw")
 
+        // Email verification gate. Withdrawals are the most sensitive
+        // money-out flow on the platform — gating them on a verified
+        // email address gives us a recovery channel for disputes,
+        // feeds the rejection-email notification pipeline, and raises
+        // the bar for account-takeover fraud. Admin-initiated manual
+        // payouts can still bypass this via the approveWithdrawal
+        // path (they go through the admin panel, not /api/wallet/withdraw).
+        if (!user.email) {
+            throw new com.sboxmarket.exception.BadRequestException("EMAIL_REQUIRED",
+                "Add an email address on your profile before requesting a withdrawal — we use it to confirm payout details and flag disputes.")
+        }
+        if (!Boolean.TRUE.equals(user.emailVerified)) {
+            throw new com.sboxmarket.exception.BadRequestException("EMAIL_NOT_VERIFIED",
+                "Verify your email address before requesting a withdrawal. Check Profile → Personal Info for the verify link.")
+        }
+
         // If the user has 2FA enabled, require a fresh 6-digit code on the
         // request. This is our second-factor gate on the most sensitive
         // money-out flow — session cookies alone are not enough.
