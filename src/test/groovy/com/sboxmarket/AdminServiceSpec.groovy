@@ -163,6 +163,70 @@ class AdminServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    // ── grant / revoke CSR ────────────────────────────────────────
+
+    def "grantCsr flips USER role to CSR"() {
+        given:
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'USER')
+        steamUserRepository.findById(21L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.grantCsr(1L, 21L)
+
+        then:
+        result.role == 'CSR'
+    }
+
+    def "grantCsr refuses banned accounts"() {
+        given:
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'USER', banned: true)
+        steamUserRepository.findById(21L) >> Optional.of(target)
+
+        when:
+        service.grantCsr(1L, 21L)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "grantCsr refuses ADMIN downgrade — force explicit revoke-admin first"() {
+        given:
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'ADMIN')
+        steamUserRepository.findById(21L) >> Optional.of(target)
+
+        when:
+        service.grantCsr(1L, 21L)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "revokeCsr flips CSR back to USER"() {
+        given:
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'CSR')
+        steamUserRepository.findById(21L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.revokeCsr(1L, 21L)
+
+        then:
+        result.role == 'USER'
+    }
+
+    def "revokeCsr refuses non-CSR accounts"() {
+        given:
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'USER')
+        steamUserRepository.findById(21L) >> Optional.of(target)
+
+        when:
+        service.revokeCsr(1L, 21L)
+
+        then:
+        thrown(BadRequestException)
+    }
+
     // ── approve / reject withdrawal ───────────────────────────────
 
     def "approveWithdrawal flips status COMPLETED and notifies owner"() {

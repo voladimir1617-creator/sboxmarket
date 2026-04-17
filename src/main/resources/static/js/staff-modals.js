@@ -6,6 +6,7 @@ import { InfoModal } from './info-modal.js';
 import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminBanUser, adminUnbanUser, adminGrant, adminRevoke,
+  adminGrantCsr, adminRevokeCsr,
   adminCreditWallet, adminRemoveListing, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
@@ -1063,6 +1064,24 @@ function AdminUsersTab({ me }) {
       await load();
     } finally { setBusy(false); }
   };
+  const doGrantCsr = async (u) => {
+    if (!confirm(`Grant CSR role to ${u.displayName || u.steamId64}?\n\nThey'll see the 🎧 Customer Service panel and can handle tickets + issue small goodwill credits.`)) return;
+    setBusy(true);
+    try {
+      const res = await adminGrantCsr(u.id);
+      if (res.code || res.error) { alert(res.message || res.error); return; }
+      await load();
+    } finally { setBusy(false); }
+  };
+  const doRevokeCsr = async (u) => {
+    if (!confirm(`Revoke CSR role from ${u.displayName || u.steamId64}?`)) return;
+    setBusy(true);
+    try {
+      const res = await adminRevokeCsr(u.id);
+      if (res.code || res.error) { alert(res.message || res.error); return; }
+      await load();
+    } finally { setBusy(false); }
+  };
   const doCredit = async (u) => {
     const amtStr = prompt(`Adjust wallet for ${u.displayName || u.steamId64} — positive credits, negative debits ($):`, '');
     if (!amtStr) return;
@@ -1143,6 +1162,11 @@ function AdminUsersTab({ me }) {
                     title: 'View user detail'
                   }, '🔎'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
+                  u.role === 'USER'
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(96,165,250,0.4)', color: '#60a5fa' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role' }, '+CSR')
+                    : u.role === 'CSR'
+                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(96,165,250,0.4)', color: '#60a5fa' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role' }, '−CSR')
+                      : null,
                   u.role !== 'ADMIN'
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u) }, '+Admin')
                     : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u) }, '−Admin')),
@@ -1382,6 +1406,7 @@ export function CsrModal({ onClose, me }) {
     { id: 'dashboard', label: '📊 Queue' },
     { id: 'lookup',    label: '🔎 User Lookup' },
     { id: 'tickets',   label: '🎧 Tickets' },
+    { id: 'flag',      label: '🚩 Flag Listing' },
   ];
   return h(InfoModal, { title: '🎧 Customer Service', onClose },
     h('div', { className: 'staff-banner csr' },
@@ -1398,6 +1423,81 @@ export function CsrModal({ onClose, me }) {
     tab === 'dashboard' && h(CsrDashboardTab, null),
     tab === 'lookup'    && h(CsrLookupTab, null),
     tab === 'tickets'   && h(CsrTicketsTab, null),
+    tab === 'flag'      && h(CsrFlagTab, null),
+  );
+}
+
+function CsrFlagTab() {
+  const [id, setId]        = useState('');
+  const [reason, setReason]= useState('');
+  const [busy, setBusy]    = useState(false);
+  const [result, setResult]= useState(null);
+  const REASONS = [
+    'Suspicious pricing',
+    'Suspected duplicate / scam',
+    'Wrong category or description',
+    'Prohibited item',
+    'Other (see note)'
+  ];
+  const submit = async () => {
+    const listingId = parseInt(id, 10);
+    if (!listingId) { alert('Enter a numeric listing ID.'); return; }
+    if (!reason.trim()) { alert('Pick or type a reason.'); return; }
+    setBusy(true);
+    try {
+      const res = await csrFlagListing(listingId, reason.trim());
+      if (res.error || res.code) {
+        setResult({ ok: false, msg: res.message || res.error });
+      } else {
+        setResult({ ok: true, msg: 'Flag note appended to listing #' + res.id });
+        setId(''); setReason('');
+      }
+    } finally { setBusy(false); }
+  };
+  return h('div', { className: 'profile-panel' },
+    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 } },
+      'Flagging a listing appends an admin-visible note to its description. Use when you spot something during a support chat that an admin should review. Does not remove the listing — admins take the final action.'),
+    h('div', { style: { display: 'flex', gap: 10, marginBottom: 10 } },
+      h('input', {
+        className: 'price-input',
+        style: { width: 140 },
+        placeholder: 'Listing ID',
+        value: id,
+        inputMode: 'numeric',
+        onChange: e => setId(e.target.value.replace(/[^0-9]/g, ''))
+      }),
+      h('select', {
+        className: 'price-input',
+        style: { flex: 1 },
+        value: REASONS.includes(reason) ? reason : '',
+        onChange: e => setReason(e.target.value)
+      },
+        h('option', { value: '' }, 'Pick a reason…'),
+        REASONS.map(r => h('option', { key: r, value: r }, r))
+      )
+    ),
+    h('textarea', {
+      className: 'price-input',
+      style: { width: '100%', minHeight: 70, marginBottom: 10, resize: 'vertical' },
+      placeholder: 'Additional note (optional, 500 char max)',
+      maxLength: 500,
+      value: REASONS.includes(reason) ? '' : reason,
+      onChange: e => setReason(e.target.value)
+    }),
+    h('button', {
+      className: 'btn btn-accent',
+      disabled: busy || !id || !reason.trim(),
+      onClick: submit
+    }, busy ? 'Flagging…' : '🚩 Flag listing'),
+    result && h('div', {
+      style: {
+        marginTop: 12, padding: 10, borderRadius: 6,
+        background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
+        border: '1px solid ' + (result.ok ? 'rgba(34,197,94,0.4)' : 'var(--red)'),
+        color: result.ok ? '#22c55e' : 'var(--red)',
+        fontSize: 12
+      }
+    }, result.msg)
   );
 }
 

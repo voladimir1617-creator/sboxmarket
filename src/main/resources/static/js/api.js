@@ -440,6 +440,12 @@ export async function adminGrant(id) {
 export async function adminRevoke(id) {
   return writeJson(`${API}/admin/users/${id}/revoke-admin`, { method: 'POST', credentials: 'same-origin' });
 }
+export async function adminGrantCsr(id) {
+  return writeJson(`${API}/admin/users/${id}/grant-csr`, { method: 'POST', credentials: 'same-origin' });
+}
+export async function adminRevokeCsr(id) {
+  return writeJson(`${API}/admin/users/${id}/revoke-csr`, { method: 'POST', credentials: 'same-origin' });
+}
 export async function adminCreditWallet(id, amount, note) {
   return writeJson(`${API}/admin/users/${id}/credit`, {
     method: 'POST', credentials: 'same-origin',

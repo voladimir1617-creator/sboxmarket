@@ -237,6 +237,18 @@ class AdminController {
         ResponseEntity.ok(adminService.revokeAdmin(uid, id))
     }
 
+    @PostMapping("/users/{id}/grant-csr")
+    ResponseEntity<SteamUser> grantCsr(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.grantCsr(uid, id))
+    }
+
+    @PostMapping("/users/{id}/revoke-csr")
+    ResponseEntity<SteamUser> revokeCsr(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.revokeCsr(uid, id))
+    }
+
     @PostMapping("/users/{id}/credit")
     ResponseEntity<Map> credit(@PathVariable Long id,
                                @RequestBody Map body,

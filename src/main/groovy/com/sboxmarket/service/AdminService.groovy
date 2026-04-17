@@ -390,6 +390,42 @@ class AdminService {
     }
 
     @Transactional
+    SteamUser grantCsr(Long adminUserId, Long targetUserId) {
+        requireAdmin(adminUserId)
+        def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        if (Boolean.TRUE.equals(user.banned)) {
+            throw new BadRequestException("USER_BANNED",
+                "Cannot grant CSR to a banned user — unban first")
+        }
+        if (user.role == 'ADMIN') {
+            throw new BadRequestException("ALREADY_ADMIN",
+                "User is already ADMIN — downgrade by revoking admin first")
+        }
+        user.role = 'CSR'
+        steamUserRepository.save(user)
+        auditService?.log(AuditService.CSR_GRANTED, adminUserId, targetUserId, null,
+            "Granted CSR to ${user.steamId64}")
+        log.info("Admin ${adminUserId} granted CSR to ${targetUserId}")
+        user
+    }
+
+    @Transactional
+    SteamUser revokeCsr(Long adminUserId, Long targetUserId) {
+        requireAdmin(adminUserId)
+        def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        if (user.role != 'CSR') {
+            throw new BadRequestException("NOT_CSR",
+                "User is not a CSR — nothing to revoke")
+        }
+        user.role = 'USER'
+        steamUserRepository.save(user)
+        auditService?.log(AuditService.CSR_REVOKED, adminUserId, targetUserId, null,
+            "Revoked CSR from ${user.steamId64}")
+        log.info("Admin ${adminUserId} revoked CSR from ${targetUserId}")
+        user
+    }
+
+    @Transactional
     Map creditWallet(Long adminUserId, Long targetUserId, BigDecimal amount, String note) {
         requireAdmin(adminUserId)
         if (amount == null || amount == BigDecimal.ZERO) {

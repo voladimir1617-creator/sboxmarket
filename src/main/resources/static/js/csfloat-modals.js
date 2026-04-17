@@ -513,6 +513,7 @@ export function NotificationsModal({ onClose, me }) {
   const [data, setData] = useState({ items: [], unread: 0 });
   const [filter, setFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
   const load = useCallback(async () => { setData(await fetchNotifications()); }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
@@ -561,7 +562,11 @@ export function NotificationsModal({ onClose, me }) {
       ? data.items.filter(n => !mutedSet.has(typeOf(n.kind)))
       : data.items;
     const base = filter === 'UNREAD' ? muteFiltered.filter(n => !n.read) : muteFiltered;
-    const source = (typeFilter === 'ALL') ? base : base.filter(n => typeOf(n.kind) === typeFilter);
+    const typed = (typeFilter === 'ALL') ? base : base.filter(n => typeOf(n.kind) === typeFilter);
+    const q = search.trim().toLowerCase();
+    const source = q.length === 0 ? typed : typed.filter(n =>
+      (n.title || '').toLowerCase().includes(q) ||
+      (n.body  || '').toLowerCase().includes(q));
     const buckets = {};
     source.forEach(n => {
       const d = new Date(n.createdAt);
@@ -572,7 +577,7 @@ export function NotificationsModal({ onClose, me }) {
     return Object.entries(buckets)
       .sort(([a], [b]) => (a < b ? 1 : -1))
       .map(([k, v]) => ({ key: k, label: v.label, items: v.items }));
-  }, [data.items, filter, typeFilter, mutedSet.size]);
+  }, [data.items, filter, typeFilter, search, mutedSet.size]);
 
   const count = groups.reduce((s, g) => s + g.items.length, 0);
 
@@ -585,8 +590,15 @@ export function NotificationsModal({ onClose, me }) {
       h('div', { style: { flex: 1 } }),
       data.items.length > 0 && h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: clear }, 'Mark all read')
     ),
-    // Type filter — five buckets + All. Chips show a count per bucket
-    // so the user can see immediately which categories have activity.
+    data.items.length > 5 && h('div', { style: { marginBottom: 12 } },
+      h('input', {
+        className: 'price-input',
+        style: { width: '100%', fontSize: 12 },
+        placeholder: '🔎 Search notifications…',
+        value: search,
+        onChange: e => setSearch(e.target.value)
+      })
+    ),
     data.items.length > 3 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
       [
         { id: 'ALL',      label: 'All' },
@@ -609,6 +621,7 @@ export function NotificationsModal({ onClose, me }) {
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, '🔔'),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+            search.trim() ? 'No notifications match "' + search.trim() + '".' :
             filter === 'UNREAD' ? 'No unread notifications.' : 'No notifications yet.'))
       : h('div', { className: 'notif-feed' },
           groups.map(g => h('div', { key: g.key },
