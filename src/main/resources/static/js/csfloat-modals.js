@@ -1006,7 +1006,16 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
         })()
       ),
       err && h('div', { className: 'wallet-error' }, err),
-      h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit }, busy ? 'Placing…' : 'Place Bid')
+      // Same anon-aware pattern as batches 144/145: swap the submit for
+      // a Steam-OpenID redirect so the bidder lands back on the item
+      // URL with the auction panel restored and ready for a real bid.
+      !me
+        ? h('button', {
+            className: 'btn btn-accent',
+            onClick: () => { window.location.href = '/api/auth/steam/login'; }
+          }, 'Sign in to bid')
+        : h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit },
+            busy ? 'Placing…' : 'Place Bid')
     ),
     history.length > 0 && h('div', { className: 'auction-history' },
       h('div', { className: 'modal-section-title', style: { marginTop: 16 } },
