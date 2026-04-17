@@ -258,6 +258,13 @@ class AdminController {
         ResponseEntity.ok(adminService.reset2faFor(uid, id, body?.note as String))
     }
 
+    /** Users who have requested account deletion (GDPR). */
+    @GetMapping("/users/deletion-requests")
+    ResponseEntity<List<Map>> deletionRequests(HttpServletRequest req) {
+        requireAdmin(req)
+        ResponseEntity.ok(adminService.listDeletionRequests())
+    }
+
     /** Read staff-only internal notes on a user. */
     @GetMapping("/users/{id}/notes")
     ResponseEntity<Map> readNotes(@PathVariable Long id, HttpServletRequest req) {

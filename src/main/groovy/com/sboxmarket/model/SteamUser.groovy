@@ -104,4 +104,10 @@ class SteamUser {
     @JsonIgnore
     @Column(name = 'admin_notes', columnDefinition = 'TEXT')
     String adminNotes
+
+    /** Epoch ms of the user's self-service deletion request (GDPR/DSAR).
+     *  Soft flag — nothing is actually deleted until an admin reviews
+     *  + finalises. Cancelling the request resets this to null. */
+    @Column(name = 'deletion_requested_at')
+    Long deletionRequestedAt
 }

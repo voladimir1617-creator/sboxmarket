@@ -308,6 +308,45 @@ class ProfileController {
             .body(payload)
     }
 
+    /**
+     * Self-service account-deletion request (GDPR/DSAR). Sets a soft
+     * flag; nothing is actually deleted — admins review + finalise
+     * after confirming the user has no pending withdrawals or open
+     * trades. Safe against accidental double-click: a second POST
+     * while the flag is set is a no-op and returns the existing
+     * timestamp.
+     */
+    @PostMapping('/delete-account')
+    @Transactional
+    ResponseEntity<Map> requestAccountDeletion(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException('Unknown user') }
+        if (user.deletionRequestedAt == null) {
+            user.deletionRequestedAt = System.currentTimeMillis()
+            steamUserRepository.save(user)
+            log.info("User ${uid} requested account deletion")
+        }
+        ResponseEntity.ok([
+            requested:  true,
+            requestedAt: user.deletionRequestedAt,
+            message:    'Your deletion request has been recorded. Staff will review it within 1-2 business days.'
+        ])
+    }
+
+    /** Cancel a pending deletion request. */
+    @PostMapping('/delete-account/cancel')
+    @Transactional
+    ResponseEntity<Map> cancelAccountDeletion(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException('Unknown user') }
+        if (user.deletionRequestedAt != null) {
+            user.deletionRequestedAt = null
+            steamUserRepository.save(user)
+            log.info("User ${uid} cancelled their account deletion request")
+        }
+        ResponseEntity.ok([cancelled: true])
+    }
+
     /** Resend the email-verification token. Regenerates the token (old
      *  link stops working) and re-delivers via EmailService. Rate-limited
      *  by the filter; 401 if no email is on the account yet. */

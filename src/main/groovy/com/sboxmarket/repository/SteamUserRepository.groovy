@@ -57,4 +57,14 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
         ORDER BY u.lastSyncedAt ASC NULLS FIRST
     """)
     List<SteamUser> findStaleForSync(@Param("cutoff") Long cutoff, Pageable page)
+
+    /** Users who have self-service-requested deletion and are awaiting
+     *  staff review. Oldest-first so the admin queue triages the tail.
+     *  Uses the partial index landed in V21. */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.deletionRequestedAt IS NOT NULL
+        ORDER BY u.deletionRequestedAt ASC
+    """)
+    List<SteamUser> findDeletionRequested()
 }

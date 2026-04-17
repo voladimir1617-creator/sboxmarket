@@ -458,6 +458,26 @@ class AdminService {
     }
 
     /**
+     * Users who have requested self-service deletion (GDPR/DSAR).
+     * Returned oldest-request-first so the admin queue picks up the
+     * tail of the backlog. Admin reviews each, confirms outstanding
+     * obligations are clear, then either cancels (keeps account) or
+     * bans (effective delete marker — the user can't log back in).
+     */
+    List<Map> listDeletionRequests() {
+        steamUserRepository.findDeletionRequested().collect { u ->
+            [
+                id:                    u.id,
+                steamId64:             u.steamId64,
+                displayName:           u.displayName,
+                email:                 u.email,
+                deletionRequestedAt:   u.deletionRequestedAt,
+                banned:                u.banned ?: false
+            ]
+        }
+    }
+
+    /**
      * Read + update staff-only internal notes attached to a user. Never
      * visible to the user themselves — stored in admin_notes which is
      * @JsonIgnore'd on SteamUser. Audit-logged so abuse is traceable.

@@ -1300,6 +1300,63 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
       )
     ),
 
+    // Account-deletion request — GDPR/DSAR entry point. Soft-flag: the
+    // account isn't actually deleted until staff reviews. Shows a
+    // pending-state banner + cancel button while the flag is set,
+    // otherwise a scary red "Delete account" action.
+    h('div', { className: 'profile-row' },
+      h('div', { className: 'profile-row-label' }, 'Delete account'),
+      h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
+        profile?.user?.deletionRequestedAt
+          ? h('div', null,
+              h('div', {
+                style: {
+                  padding: '8px 12px', borderRadius: 6,
+                  background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.4)',
+                  color: '#fbbf24', fontSize: 12, marginBottom: 6
+                }
+              },
+                '⏳ Deletion requested ',
+                timeAgo(profile.user.deletionRequestedAt),
+                ' — staff will finalise within 1-2 business days.'
+              ),
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 11 },
+                onClick: async () => {
+                  if (!confirm('Cancel the pending deletion request?')) return;
+                  const { cancelAccountDeletion } = await import('./api.js');
+                  const res = await cancelAccountDeletion();
+                  if (res && (res.error || res.code)) {
+                    alert(res.message || res.error);
+                    return;
+                  }
+                  location.reload();
+                }
+              }, 'Cancel deletion request')
+            )
+          : h('div', null,
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { border: '1px solid rgba(248,113,113,0.4)', color: 'var(--red)', padding: '6px 14px', fontSize: 11 },
+                onClick: async () => {
+                  if (!confirm('Request account deletion?\n\nYour account will be reviewed by staff and permanently deleted within 1-2 business days. You can cancel the request any time before finalisation. Pending withdrawals and open trades must be resolved first — staff will contact you if anything is outstanding.')) return;
+                  const { requestAccountDeletion } = await import('./api.js');
+                  const res = await requestAccountDeletion();
+                  if (res && (res.error || res.code)) {
+                    alert(res.message || res.error);
+                    return;
+                  }
+                  location.reload();
+                },
+                title: 'GDPR / data subject deletion request'
+              }, '🗑 Delete account'),
+              h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 } },
+                'Soft request. Nothing is deleted until staff reviews and finalises.')
+            )
+      )
+    ),
+
     // Recent purchases snapshot — the last 5 PURCHASE transactions so
     // the user sees their activity at a glance without switching tabs.
     // Derived from the transactions list the modal already has; if the
