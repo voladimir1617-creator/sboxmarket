@@ -58,7 +58,27 @@ class RateLimitFilter extends OncePerRequestFilter {
         // request / trade URL. Without this cap an attacker could spam
         // /api/profile/email/resend to flood a target mailbox (the resend
         // triggers an outbound SMTP send on every call).
-        '/api/profile'
+        '/api/profile',
+        // Review creation + seller reply. Prevents review-bombing and
+        // reply-flooding. Ownership + trade-verification checks are in
+        // ReviewService, but we want the cap upstream of the DB round-trip.
+        '/api/reviews',
+        // Cart checkout fires a bulk purchase loop — each loop iteration
+        // hits PurchaseService, WalletRepository, TradeService.open. An
+        // uncapped hammer on /api/cart/checkout would drag tomcat threads
+        // down even though CSRF protects it.
+        '/api/cart',
+        // Trade state transitions — accept / mark-sent / confirm / cancel /
+        // dispute. Each emits notifications + audit logs + wallet writes,
+        // so the hot path matters under concurrent abuse.
+        '/api/trades',
+        // Loadout create / favorite / delete. Not a money surface but the
+        // favorite toggle is cheap-to-call and we already have a V10 unique
+        // constraint preventing abuse — this is the belt-and-braces cap.
+        '/api/loadouts',
+        // API key management — create / rotate / revoke. No reason for a
+        // real user to burn through 20 keys in 10 seconds.
+        '/api/api-keys'
     ]
 
     // Read surfaces that take free-text and can be used to enumerate or DoS.

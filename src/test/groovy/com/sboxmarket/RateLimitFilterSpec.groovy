@@ -246,4 +246,33 @@ class RateLimitFilterSpec extends Specification {
         allowed == 20
         blocked == 10
     }
+
+    def "batch 134 new write prefixes fall into the write bucket"() {
+        // One bucket per (ip|surface-prefix) — each prefix gets its own
+        // 20-request runway even if we hit the same IP. Sweeping the new
+        // prefixes proves each surface is individually rate-limited.
+        given:
+        def prefixes = [
+            '/api/reviews',
+            '/api/cart/checkout',
+            '/api/trades/1/accept',
+            '/api/loadouts',
+            '/api/api-keys'
+        ]
+
+        when: "each endpoint independently hits 429 after 20 rapid writes"
+        def results = prefixes.collect { p ->
+            int allowed = 0
+            int blocked = 0
+            (1..25).each {
+                def resp = new MockHttpServletResponse()
+                filter.doFilter(post(p, '10.0.0.2'), resp, chain)
+                if (resp.status == 429) blocked++ else allowed++
+            }
+            [p: p, allowed: allowed, blocked: blocked]
+        }
+
+        then:
+        results.every { it.allowed == 20 && it.blocked == 5 }
+    }
 }
