@@ -110,7 +110,10 @@ class Listing {
     @Column
     Boolean hidden = false
 
-    /** Optional free-text seller description, 32 chars max (enforced at the API layer). */
+    /** Optional free-text seller description, capped at 64 chars server-side
+     *  by the ListingController.updateStall textSanitizer.clean(_, 64) call.
+     *  The column is sized to match; bumping the column would need a Flyway
+     *  migration. */
     @Column(length = 64)
     String description
 

@@ -1277,6 +1277,22 @@ export function App() {
     try { return JSON.parse(localStorage.getItem('sb_cart') || '[]'); } catch { return []; }
   });
   useEffect(() => { localStorage.setItem('sb_cart', JSON.stringify(cart)); }, [cart]);
+  // Cross-tab cart sync — the browser fires a 'storage' event in every
+  // tab EXCEPT the one that wrote the change, so this listener keeps
+  // tabs B/C up-to-date when tab A adds or removes a row. Otherwise
+  // the nav-badge count drifts until the tab is refreshed. Also used
+  // to sync the watchlist and saved-search arrays.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'sb_cart') {
+        try { setCart(JSON.parse(e.newValue || '[]')); } catch (_) {}
+      } else if (e.key === 'sb_watchlist') {
+        try { setWatchlist(JSON.parse(e.newValue || '[]')); } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   // When the user lands on /cart, ping each cart-row's listing to make
   // sure it's still ACTIVE — if the listing was sold to someone else
   // (or force-cancelled) while it was sitting in this user's cart, we

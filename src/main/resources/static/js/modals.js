@@ -3506,7 +3506,7 @@ export function MyStallModal({ onClose, me, onRefresh }) {
               editing === l.id
                 ? h('div', { style: { marginTop: 6, display: 'flex', gap: 6 } },
                     h('input', { className: 'price-input', value: editPrice, onChange: e => setEditPrice(e.target.value), placeholder: 'price', style: { width: 90 } }),
-                    h('input', { className: 'price-input', value: editDesc, maxLength: 32, onChange: e => setEditDesc(e.target.value), placeholder: 'description (32 chars)', style: { flex: 1 } }),
+                    h('input', { className: 'price-input', value: editDesc, maxLength: 64, onChange: e => setEditDesc(e.target.value), placeholder: 'description (64 chars)', style: { flex: 1 } }),
                     h('input', {
                       className: 'price-input',
                       value: editAutoPct,
