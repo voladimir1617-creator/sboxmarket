@@ -476,6 +476,37 @@ class AdminService {
     }
 
     /**
+     * Fire a test email through the real SMTP pipeline. Admins use this
+     * to validate SMTP config after changing SMTP_HOST / SMTP_PASSWORD
+     * in prod — without having to wait for a live trade event to hit
+     * the send path. Audit-logged, capped at 200-char subject + 2000-
+     * char body. Returns a { sent, smtpEnabled } map so the caller
+     * can distinguish real send vs log-sink mode.
+     */
+    @Transactional(readOnly = true)
+    Map sendTestEmail(Long adminUserId, String to, String subject, String body) {
+        requireAdmin(adminUserId)
+        if (emailService == null) {
+            throw new BadRequestException('EMAIL_UNAVAILABLE', 'Email service is not wired')
+        }
+        if (to == null || to.trim().isEmpty() || !(to.contains('@'))) {
+            throw new BadRequestException('INVALID_ADDRESS', 'Provide a valid email address')
+        }
+        def cleanSubject = textSanitizer.medium(subject ?: 'SkinBox SMTP test').take(200)
+        def cleanBody    = (body ?: 'If you received this, the SkinBox SMTP pipeline is healthy.').take(2000)
+        try {
+            emailService.send(to.trim(), cleanSubject, cleanBody)
+            auditService?.log(AuditService.ADMIN_GRANTED, adminUserId, null, null,
+                "SMTP test email sent to ${to.trim()}")
+            log.info("Admin ${adminUserId} fired SMTP test email to ${to}")
+            [sent: true, to: to.trim()]
+        } catch (Exception e) {
+            log.error("SMTP test email failed: ${e.message}", e)
+            throw new BadRequestException('SEND_FAILED', "SMTP send failed: ${e.message}")
+        }
+    }
+
+    /**
      * Users who have requested self-service deletion (GDPR/DSAR).
      * Returned oldest-request-first so the admin queue picks up the
      * tail of the backlog. Admin reviews each, confirms outstanding

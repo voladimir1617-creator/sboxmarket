@@ -119,7 +119,75 @@ function AdminHealthTab() {
            `${data.memory?.processorCount || 0} cores`),
       card('Schema version', `V${data.db?.schemaVersion || '—'}`,
            `${data.jvm?.name || 'JVM'} ${data.jvm?.version || ''}`.trim())
-    )
+    ),
+    // SMTP validation — ops changes SMTP config + wants a live test
+    // without waiting for a trade event. Sends through EmailService.send
+    // so log-sink mode is distinguishable (admin sees "sent" in the
+    // response but the mail lands in /var/log).
+    h(SmtpTestRow, null)
+  );
+}
+
+function SmtpTestRow() {
+  const [to, setTo]       = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [result, setRes]  = useState(null);
+  const submit = async () => {
+    if (!to.trim()) { alert('Enter a destination address'); return; }
+    setBusy(true); setRes(null);
+    try {
+      const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
+      const r = await fetch('/api/admin/test-email', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {})
+        },
+        body: JSON.stringify({ to: to.trim(), subject: 'SkinBox SMTP test', body: 'This is a diagnostic email from your SkinBox admin panel. If you received it, the send pipeline is healthy.' })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setRes({ ok: false, msg: j.message || j.error || `HTTP ${r.status}` }); return; }
+      setRes({ ok: true, msg: `Sent to ${j.to || to.trim()}. Check the inbox (or the server log in dev).` });
+    } catch (e) {
+      setRes({ ok: false, msg: String(e) });
+    } finally { setBusy(false); }
+  };
+  return h('div', {
+    style: {
+      marginTop: 20, padding: 14,
+      background: 'var(--bg-elevated)',
+      border: '1px solid var(--border)',
+      borderRadius: 8
+    }
+  },
+    h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 8 } },
+      '📧 SMTP test'),
+    h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 } },
+      'Fires one email through the live pipeline — useful after changing SMTP_HOST / credentials. In log-sink mode (no SMTP configured) the message lands in the server log, not the inbox.'),
+    h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+      h('input', {
+        className: 'price-input',
+        style: { flex: 1, minWidth: 240 },
+        type: 'email',
+        placeholder: 'ops@example.com',
+        value: to,
+        onChange: e => setTo(e.target.value)
+      }),
+      h('button', {
+        className: 'btn btn-accent',
+        disabled: busy || !to.trim(),
+        onClick: submit
+      }, busy ? 'Sending…' : 'Send test')
+    ),
+    result && h('div', {
+      style: {
+        marginTop: 10, padding: 8, borderRadius: 6,
+        background: result.ok ? 'rgba(34,197,94,0.1)' : 'var(--red-dim)',
+        border: '1px solid ' + (result.ok ? 'rgba(34,197,94,0.4)' : 'var(--red)'),
+        color: result.ok ? '#22c55e' : 'var(--red)',
+        fontSize: 12
+      }
+    }, result.msg)
   );
 }
 

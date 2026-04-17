@@ -389,6 +389,41 @@ class AdminServiceSpec extends Specification {
         1 * emailService.sendAccountUnbanned('user@example.com', 'Bob')
     }
 
+    // ── sendTestEmail ────────────────────────────────────────────
+
+    def "sendTestEmail dispatches through EmailService.send"() {
+        when:
+        def res = service.sendTestEmail(1L, 'ops@example.com', 'Test subject', 'Test body')
+
+        then:
+        1 * emailService.send('ops@example.com', 'Test subject', 'Test body')
+        res.sent == true
+    }
+
+    def "sendTestEmail refuses an invalid address"() {
+        when:
+        service.sendTestEmail(1L, bad, 'subj', 'body')
+
+        then:
+        thrown(BadRequestException)
+        0 * emailService.send(_, _, _)
+
+        where:
+        bad << [null, '', '   ', 'not-an-email']
+    }
+
+    def "sendTestEmail surfaces an SMTP failure as BadRequest"() {
+        given:
+        emailService.send(_, _, _) >> { throw new RuntimeException('connection refused') }
+
+        when:
+        service.sendTestEmail(1L, 'ops@example.com', 'x', 'y')
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'SEND_FAILED'
+    }
+
     // ── finalizeDeletion (GDPR) ──────────────────────────────────
 
     def "finalizeDeletion refuses when user has no pending deletion request"() {

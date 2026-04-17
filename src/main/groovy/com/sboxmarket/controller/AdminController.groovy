@@ -273,6 +273,14 @@ class AdminController {
         ResponseEntity.ok(adminService.finalizeDeletion(uid, id))
     }
 
+    /** Fire a one-off SMTP test email to validate config end-to-end. */
+    @PostMapping("/test-email")
+    ResponseEntity<Map> sendTestEmail(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.sendTestEmail(uid,
+            body?.to as String, body?.subject as String, body?.body as String))
+    }
+
     /** Redact a trade message — removes the row. Used for abuse takedowns. */
     @DeleteMapping("/trade-messages/{id}")
     ResponseEntity<Map> deleteTradeMessage(@PathVariable Long id, HttpServletRequest req) {
