@@ -675,6 +675,11 @@ function kindFallbackPath(kind, refId) {
   if (k === 'REVIEW_RECEIVED') return paths.profile();
   if (k === 'LISTING_REMOVED') return paths.mystall();
   if (k === 'REPORT_ACTIONED' || k === 'REPORT_REVIEWED') return paths.profile();
+  if (k === 'WATCHLIST_PRICE_DROP') {
+    // Notification payload carries the item id in refId — drill into
+    // the item detail so the user can act on the alert immediately.
+    return refId ? ('/item/' + refId) : paths.watchlist();
+  }
   if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_') ||
       k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
     return paths.profile();
@@ -696,7 +701,8 @@ function kindIcon(kind) {
     STEAM_INVENTORY: '🎮',
     SUPPORT_REPLY: '💬',
     LISTING_REMOVED: '⚠',
-    REPORT_ACTIONED: '🚩', REPORT_REVIEWED: '👀'
+    REPORT_ACTIONED: '🚩', REPORT_REVIEWED: '👀',
+    WATCHLIST_PRICE_DROP: '📉'
   };
   return map[kind] || '•';
 }

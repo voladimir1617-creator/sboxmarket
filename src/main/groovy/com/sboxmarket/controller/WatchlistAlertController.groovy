@@ -1,0 +1,56 @@
+package com.sboxmarket.controller
+
+import com.sboxmarket.exception.UnauthorizedException
+import com.sboxmarket.model.WatchlistAlert
+import com.sboxmarket.service.WatchlistAlertService
+import groovy.util.logging.Slf4j
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
+
+@RestController
+@RequestMapping('/api/watchlist/alerts')
+@Slf4j
+class WatchlistAlertController {
+
+    @Autowired WatchlistAlertService service
+
+    private Long requireUser(HttpServletRequest req) {
+        def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (uid == null) throw new UnauthorizedException()
+        uid
+    }
+
+    @GetMapping
+    ResponseEntity<List<WatchlistAlert>> list(HttpServletRequest req) {
+        ResponseEntity.ok(service.listForUser(requireUser(req)))
+    }
+
+    @PostMapping
+    ResponseEntity<WatchlistAlert> create(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        if (body?.itemId == null) {
+            throw new com.sboxmarket.exception.BadRequestException('MISSING_ITEM', 'itemId is required')
+        }
+        if (body?.targetPrice == null) {
+            throw new com.sboxmarket.exception.BadRequestException('MISSING_TARGET', 'targetPrice is required')
+        }
+        Long itemId
+        BigDecimal target
+        try {
+            itemId = Long.parseLong(body.itemId.toString())
+            target = new BigDecimal(body.targetPrice.toString())
+        } catch (NumberFormatException e) {
+            throw new com.sboxmarket.exception.BadRequestException('INVALID_PARAMETER', e.message)
+        }
+        ResponseEntity.ok(service.upsertAlert(uid, itemId, target))
+    }
+
+    @DeleteMapping('/{id}')
+    ResponseEntity<Map> cancel(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireUser(req)
+        service.cancelAlert(uid, id)
+        ResponseEntity.ok([id: id, status: 'CANCELLED'])
+    }
+}

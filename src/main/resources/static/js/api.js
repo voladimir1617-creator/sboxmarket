@@ -133,6 +133,24 @@ export async function fetchReportReasons() {
   return Array.isArray(data) ? data : [];
 }
 
+// ── Server-side watchlist price alerts ──────────────────────────
+export async function fetchWatchlistAlerts() {
+  const data = await safeJson(`${API}/watchlist/alerts`);
+  return Array.isArray(data) ? data : [];
+}
+export async function createWatchlistAlert(itemId, targetPrice) {
+  return writeJson(`${API}/watchlist/alerts`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itemId, targetPrice })
+  });
+}
+export async function cancelWatchlistAlert(id) {
+  return writeJson(`${API}/watchlist/alerts/${id}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+
 /** Fetch all listings for a specific item by its item ID.
  *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
  *  general /api/listings query which doesn't support itemId filtering. */
