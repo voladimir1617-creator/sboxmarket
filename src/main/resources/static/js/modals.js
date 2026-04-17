@@ -1664,7 +1664,42 @@ function ProfileTradesTab({ me, privacy }) {
                     style: { border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', padding: '6px 10px', fontSize: 11 },
                     disabled: busy,
                     onClick: () => openRefundForTrade(t)
-                  }, '↩ Request refund')
+                  }, '↩ Request refund'),
+                // Report counterparty — opens a FRAUD support ticket
+                // scoped to the specific trade. Distinct from Dispute
+                // (which is "this trade has an issue, release/cancel
+                // through the state machine"). Report is for "this
+                // counterparty behaved badly — scam, harassment" and
+                // should be escalated to support outside the trade.
+                (isSeller || isBuyer) && !['VERIFIED','CANCELLED'].includes(t.state) &&
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11, opacity: 0.7 },
+                    disabled: busy,
+                    title: 'Report the other party to support (scam / harassment)',
+                    onClick: async () => {
+                      const target = isSeller ? t.buyerUserId : t.sellerUserId;
+                      if (!target) return;
+                      const REASONS = ['Scam attempt','Harassment in chat','Impersonation','Other'];
+                      const r = window.prompt(
+                        `Report counterparty on Trade #${t.id}\n\nPick a reason by number:\n` +
+                        REASONS.map((x, i) => `  ${i + 1}) ${x}`).join('\n'), '1');
+                      if (!r) return;
+                      const idx = parseInt(r, 10);
+                      const pickedReason = (idx >= 1 && idx <= REASONS.length)
+                        ? REASONS[idx - 1] : 'Other';
+                      const ctx = window.prompt(`Reason: ${pickedReason}\n\nContext (include trade #${t.id}):`,
+                        `Trade #${t.id} · item ${t.itemName || '—'}`);
+                      if (ctx === null) return;
+                      const { reportUser } = await import('./api.js');
+                      const res = await reportUser(target, pickedReason, ctx);
+                      if (res && (res.error || res.code)) {
+                        alert(res.message || res.error || 'Could not file report.');
+                      } else {
+                        alert('Report filed. Support will review it — track in /support.');
+                      }
+                    }
+                  }, '🚩 Report')
               )
             );
           })

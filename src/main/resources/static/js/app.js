@@ -2024,6 +2024,7 @@ export function App() {
                     onClick: () => openModal(l),
                     starred: watchlist.includes(l.item.id),
                     onToggleStar: toggleStar,
+                    meId: me?.id,
                     // Quick-add to cart — signed-in only; backend gates
                     // checkout on currentUser regardless.
                     onAddToCart: me ? addToCart : null,

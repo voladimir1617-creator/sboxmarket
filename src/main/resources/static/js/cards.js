@@ -34,19 +34,41 @@ export function AuctionCountdown({ expiresAt, className }) {
   );
 }
 
-export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas }) {
+export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId }) {
   const item = listing?.item;
   if (!item) return null;
   const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
   const disc = discountPct(listing.price, item.steamPrice);
   const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
   const inCart = cartHas ? cartHas(listing.id) : false;
+  // Auction participation chip — only shown when the viewer is signed in
+  // AND is a known bidder on this auction. Green "You're winning" when
+  // you're the top bidder, amber "Outbid" when someone's above you.
+  // Computed per render; `currentBid`+`bidCount` already come down in
+  // the listing payload so no extra fetch is needed.
+  let auctionBadge = null;
+  if (isAuction && meId && listing.bidCount > 0) {
+    if (listing.currentBidderId === meId) {
+      auctionBadge = { label: "✓ You're winning", cls: 'win' };
+    } else if (listing.yourMaxBid && listing.currentBidderId !== meId) {
+      auctionBadge = { label: '↑ Outbid',          cls: 'loss' };
+    }
+  }
   return h('div', { className: `grid-card${isAuction ? ' is-auction' : ''}`, onClick },
     h('div', { className: 'grid-thumb' },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       disc > 0 && h('div', { className: 'grid-discount' }, `−${disc}%`),
       isAuction && h(AuctionCountdown, { expiresAt: listing.expiresAt }),
+      auctionBadge && h('div', {
+        className: 'grid-auction-badge',
+        style: {
+          position: 'absolute', left: 8, bottom: 8,
+          fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4,
+          background: auctionBadge.cls === 'win' ? 'rgba(34,197,94,0.85)' : 'rgba(251,191,36,0.85)',
+          color: '#0b1220', letterSpacing: 0.4
+        }
+      }, auctionBadge.label),
       // Quick-add-to-cart — only for BUY_NOW listings (auctions make no
       // sense in a cart). Stops click-propagation so clicking the button
       // doesn't also open the item modal. The cartHas prop lets the
