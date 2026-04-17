@@ -142,6 +142,23 @@ class TradeService {
         tradeMessageRepository.findByTrade(tradeId)
     }
 
+    /**
+     * Admin-only: redact (hard-delete) a trade message. Used when a
+     * participant reports abuse or when the message contains content
+     * staff needs to remove (PII, scam attempt, etc). Audit-logged.
+     */
+    @Transactional
+    void deleteMessage(Long adminUserId, Long messageId) {
+        adminAuthorization?.requireAdmin(adminUserId)
+        if (tradeMessageRepository == null) return
+        def msg = tradeMessageRepository.findById(messageId)
+            .orElseThrow { new NotFoundException('TradeMessage', messageId) }
+        tradeMessageRepository.delete(msg)
+        auditService?.log('TRADE_MESSAGE_DELETED', adminUserId, msg.senderUserId, msg.id,
+            "Deleted message in trade ${msg.tradeId}")
+        log.warn("Admin ${adminUserId} deleted trade message ${messageId} in trade ${msg.tradeId}")
+    }
+
     List<Trade> listForUser(Long userId) {
         tradeRepository.findByParticipant(userId)
     }

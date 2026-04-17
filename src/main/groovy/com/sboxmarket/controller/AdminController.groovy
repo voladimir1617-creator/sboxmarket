@@ -26,6 +26,7 @@ class AdminController {
     @Autowired SboxApiService sboxApiService
     @Autowired com.sboxmarket.service.StripeService stripeService
     @Autowired com.sboxmarket.service.AuditService auditService
+    @Autowired com.sboxmarket.service.TradeService tradeService
     @Autowired com.sboxmarket.service.AdminSimulatorService adminSimulatorService
     @Autowired com.sboxmarket.service.FraudAnalysisService fraudAnalysisService
     @Autowired com.sboxmarket.repository.ItemRepository itemRepository
@@ -270,6 +271,15 @@ class AdminController {
     ResponseEntity<Map> finalizeDeletion(@PathVariable Long id, HttpServletRequest req) {
         def uid = requireAdmin(req)
         ResponseEntity.ok(adminService.finalizeDeletion(uid, id))
+    }
+
+    /** Redact a trade message — removes the row. Used for abuse takedowns. */
+    @DeleteMapping("/trade-messages/{id}")
+    ResponseEntity<Map> deleteTradeMessage(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        // Delegate to TradeService — keeps the auth + audit + delete in one place.
+        tradeService.deleteMessage(uid, id)
+        ResponseEntity.ok([deleted: id])
     }
 
     /** Read staff-only internal notes on a user. */

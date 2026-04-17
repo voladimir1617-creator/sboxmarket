@@ -174,4 +174,31 @@ class TradeMessageSpec extends Specification {
         then:
         out == []
     }
+
+    // ── deleteMessage (admin takedown) ──────────────────────────
+
+    def "deleteMessage requires admin + removes the row"() {
+        given:
+        def m = new TradeMessage(id: 77L, tradeId: 100L, senderUserId: 42L, body: 'abuse')
+        tradeMessageRepository.findById(77L) >> Optional.of(m)
+
+        when:
+        service.deleteMessage(1L, 77L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        1 * tradeMessageRepository.delete(m)
+    }
+
+    def "deleteMessage 404s when the message id is unknown"() {
+        given:
+        tradeMessageRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.deleteMessage(1L, 999L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
 }
