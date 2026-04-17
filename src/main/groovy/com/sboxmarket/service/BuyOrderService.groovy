@@ -155,7 +155,7 @@ class BuyOrderService {
                     "Buy order auto-filled · ${listing.item?.name}",
                     "Paid \$${listing.price.toPlainString()} (cap \$${order.maxPrice.toPlainString()})",
                     listing.id,
-                    '/profile'
+                    '/profile?tab=buyorders'
                 )
                 log.info("Buy order ${order.id} auto-filled by listing ${listing.id}")
                 return // listing is now sold; stop iterating

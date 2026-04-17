@@ -89,7 +89,7 @@ class ReviewService {
             notificationService?.push(trade.sellerUserId, 'REVIEW_RECEIVED',
                 "New ${rating}★ review",
                 "${author?.displayName ?: 'A buyer'} left feedback on ${trade.itemName}",
-                row.id, '/profile')
+                row.id, '/profile?tab=reviews')
             auditService?.log('REVIEW_CREATED', fromUserId, trade.sellerUserId, row.id,
                 "Review: ${rating}★")
         }

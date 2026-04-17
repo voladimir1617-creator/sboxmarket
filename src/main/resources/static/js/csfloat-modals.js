@@ -719,7 +719,7 @@ function kindFallbackPath(kind, refId) {
   }
   if (k === 'SUPPORT_REPLY') return paths.support();
   if (k === 'STEAM_INVENTORY') return paths.sell();
-  if (k === 'REVIEW_RECEIVED') return paths.profile();
+  if (k === 'REVIEW_RECEIVED') return '/profile?tab=reviews';
   if (k === 'LISTING_REMOVED') return paths.mystall();
   if (k === 'REPORT_ACTIONED' || k === 'REPORT_REVIEWED') return paths.profile();
   if (k === 'WATCHLIST_PRICE_DROP') {
@@ -732,8 +732,18 @@ function kindFallbackPath(kind, refId) {
     // item id was resolvable, null otherwise). Fall back to market.
     return paths.market();
   }
-  if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_') ||
-      k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
+  if (k === 'REVIEW_REMINDER') {
+    // Deep-link to the seller's stall if we have it in refId; the
+    // service layer ships the full /stall/:id path, so this branch
+    // only fires when the path was dropped somehow.
+    return paths.profile();
+  }
+  if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_')) {
+    // Trade-ish events all want the trades tab — auctions become trades
+    // once won, buyers' purchases become trades immediately.
+    return '/profile?tab=trades';
+  }
+  if (k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
     return paths.profile();
   }
   return paths.profile();

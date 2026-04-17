@@ -393,7 +393,7 @@ class BidService {
         notificationService.push(winnerId, 'AUCTION_WON',
             "You won · ${listing.item?.name}",
             "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
-            '/profile')
+            '/profile?tab=trades')
         // Email the winner too — auctions settle on the 30s-poll
         // timer, not on a page they're watching, so a bell-only
         // notification is easy to miss for hours.

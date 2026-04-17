@@ -16,6 +16,11 @@ function fallbackPath(kind) {
   if (k === 'SUPPORT_REPLY') return paths.support();
   if (k === 'STEAM_INVENTORY') return paths.sell();
   if (k === 'LISTING_REMOVED') return paths.mystall();
+  if (k === 'REVIEW_RECEIVED') return '/profile?tab=reviews';
+  // Anything trade-ish (auction/trade/purchase) lands on the trades tab.
+  if (k.startsWith('TRADE_') || k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED') {
+    return '/profile?tab=trades';
+  }
   return paths.profile();
 }
 
