@@ -1851,6 +1851,19 @@ function ProfileTradesTab({ me, privacy }) {
   const [trades, setTrades] = useState(null);
   const [busy, setBusy]     = useState(false);
   const [filter, setFilter] = useState('ALL');
+  // Role filter alongside the state filter — buyer-side and seller-
+  // side trades have very different action requirements (confirm
+  // vs. accept+send), and a heavy seller with dozens of pending
+  // trades often only cares about their side. Persists to
+  // localStorage so a seller doesn't have to re-flip it every visit.
+  const [roleFilter, setRoleFilter] = useState(() => {
+    try { return localStorage.getItem('sb_trade_role') || 'all'; }
+    catch { return 'all'; }
+  });
+  const setRole = (v) => {
+    setRoleFilter(v);
+    try { localStorage.setItem('sb_trade_role', v); } catch (_) {}
+  };
   // Per-trade chat panel state: which trade's chat is open, the loaded
   // messages keyed by trade id, the draft input per trade, and the
   // send-in-flight flag. Closed by default — a user with dozens of
@@ -1957,11 +1970,21 @@ function ProfileTradesTab({ me, privacy }) {
     h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view your trades.'));
   if (trades === null) return h('div', { className: 'spinner' });
 
-  const filtered = filter === 'ALL'
+  const stateFiltered = filter === 'ALL'
     ? trades
     : filter === 'OPEN'
       ? trades.filter(t => !['VERIFIED','CANCELLED'].includes(t.state))
       : trades.filter(t => t.state === filter);
+  // Layer the role filter over the state filter. "all" = every trade,
+  // "buying" = trades where the current user is the buyer, "selling" =
+  // seller. Unauthenticated callers shouldn't land here but we still
+  // treat me?.id-missing as "show everything" so we don't lose the row.
+  const filtered = (() => {
+    if (!me?.id || roleFilter === 'all') return stateFiltered;
+    if (roleFilter === 'buying')  return stateFiltered.filter(t => t.buyerUserId  === me.id);
+    if (roleFilter === 'selling') return stateFiltered.filter(t => t.sellerUserId === me.id);
+    return stateFiltered;
+  })();
 
   const tradeOp = async (fn, ...args) => {
     setBusy(true);
@@ -2048,6 +2071,17 @@ function ProfileTradesTab({ me, privacy }) {
         }, f.replace(/_/g, ' ').toLowerCase())
       ),
       h('div', { style: { flex: 1 } }),
+      // Role toggle — muted divider then three pill buttons. Persisted
+      // so a heavy seller doesn't have to flip "Selling" every visit.
+      h('span', { style: { fontSize: 11, color: 'var(--text-muted)', marginRight: 6 } }, 'Role:'),
+      ['all','buying','selling'].map(r => h('button', {
+        key: r,
+        className: `wallet-tx-filter-chip ${roleFilter === r ? 'active' : ''}`,
+        onClick: () => setRole(r),
+        title: r === 'all' ? 'Show every trade'
+             : r === 'buying' ? 'Only trades you bought'
+             : 'Only trades you sold'
+      }, r === 'all' ? 'All' : r[0].toUpperCase() + r.slice(1))),
       // CSV export — opens /api/profile/trades.csv in a new tab. The
       // browser handles the download via the Content-Disposition header
       // the endpoint sets. Only surfaced once the user has at least one
