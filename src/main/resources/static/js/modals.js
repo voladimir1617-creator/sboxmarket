@@ -1211,7 +1211,55 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       h('div', { className: 'empty-icon' }, '📋'),
       h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No transactions yet.'));
   }
-  return h('table', { className: 'db-table' },
+  // 30-day window summary — lightweight ledger header so a power user
+  // can see "I spent $X / earned $Y in the last month" without opening
+  // the CSV. COMPLETED-only so pending withdrawals + failed refunds
+  // don't skew the figures.
+  const now = Date.now();
+  const recent = transactions.filter(t => t.status === 'COMPLETED' && (now - (t.createdAt || 0)) < 30 * 86400_000);
+  const CREDIT_TYPES = new Set(['DEPOSIT','SALE','REFUND','ADMIN_CREDIT','CSR_CREDIT','BUY_ORDER_REFUND']);
+  const DEBIT_TYPES  = new Set(['PURCHASE','WITHDRAW','ADMIN_DEBIT','AUCTION_HOLD']);
+  let credits = 0, debits = 0;
+  recent.forEach(t => {
+    const amt = Math.abs(parseFloat(t.amount) || 0);
+    if (CREDIT_TYPES.has(t.type)) credits += amt;
+    else if (DEBIT_TYPES.has(t.type)) debits += amt;
+  });
+  const net = credits - debits;
+  return h('div', null,
+    recent.length > 0 && h('div', {
+      style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: 10, marginBottom: 16
+      }
+    },
+      h('div', { className: 'admin-stat' },
+        h('div', { className: 'admin-stat-label' }, '30d credits'),
+        h('div', { className: 'admin-stat-val green' }, privacy ? '$•••••' : fmt(credits))
+      ),
+      h('div', { className: 'admin-stat' },
+        h('div', { className: 'admin-stat-label' }, '30d debits'),
+        h('div', { className: 'admin-stat-val red' }, privacy ? '$•••••' : fmt(debits))
+      ),
+      h('div', { className: 'admin-stat' },
+        h('div', { className: 'admin-stat-label' }, '30d net'),
+        h('div', { className: `admin-stat-val ${net >= 0 ? 'green' : 'red'}` }, privacy ? '$•••••' : (net >= 0 ? '+' : '') + fmt(net))
+      ),
+      h('div', { className: 'admin-stat' },
+        h('div', { className: 'admin-stat-label' }, '30d tx'),
+        h('div', { className: 'admin-stat-val' }, recent.length)
+      )
+    ),
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 } },
+      h('a', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+        href: '/api/wallet/transactions.csv',
+        title: 'Download every transaction as a CSV'
+      }, '⇣ CSV')
+    ),
+  h('table', { className: 'db-table' },
     h('thead', null, h('tr', null,
       h('th', null, 'ID'),
       h('th', null, 'Type'),
@@ -1228,6 +1276,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
         h('td', { className: 'right', style: { fontSize: 10, fontWeight: 700 } }, tx.status)
       ))
     )
+  )
   );
 }
 
