@@ -674,6 +674,7 @@ function kindFallbackPath(kind, refId) {
   if (k === 'STEAM_INVENTORY') return paths.sell();
   if (k === 'REVIEW_RECEIVED') return paths.profile();
   if (k === 'LISTING_REMOVED') return paths.mystall();
+  if (k === 'REPORT_ACTIONED' || k === 'REPORT_REVIEWED') return paths.profile();
   if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_') ||
       k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
     return paths.profile();
@@ -694,7 +695,8 @@ function kindIcon(kind) {
     ADMIN_CREDIT: '+', CSR_CREDIT: '+',
     STEAM_INVENTORY: '🎮',
     SUPPORT_REPLY: '💬',
-    LISTING_REMOVED: '⚠'
+    LISTING_REMOVED: '⚠',
+    REPORT_ACTIONED: '🚩', REPORT_REVIEWED: '👀'
   };
   return map[kind] || '•';
 }

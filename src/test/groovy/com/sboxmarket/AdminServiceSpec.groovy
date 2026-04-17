@@ -33,6 +33,7 @@ class AdminServiceSpec extends Specification {
     WalletRepository        walletRepository        = Mock()
     TransactionRepository   transactionRepository   = Mock()
     ListingRepository       listingRepository       = Mock()
+    com.sboxmarket.repository.ListingReportRepository listingReportRepository = Mock()
     SupportTicketRepository supportTicketRepository = Mock()
     ItemRepository          itemRepository          = Mock()
     NotificationService     notificationService     = Mock()
@@ -48,6 +49,7 @@ class AdminServiceSpec extends Specification {
         walletRepository        : walletRepository,
         transactionRepository   : transactionRepository,
         listingRepository       : listingRepository,
+        listingReportRepository : listingReportRepository,
         supportTicketRepository : supportTicketRepository,
         itemRepository          : itemRepository,
         notificationService     : notificationService,
@@ -453,5 +455,97 @@ class AdminServiceSpec extends Specification {
 
         where:
         note << [null, '', '   ']
+    }
+
+    // ── Reported-listings moderation loop ─────────────────────────
+
+    def "forceCancelListing notifies every distinct reporter that their report was actioned"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat', lowestPrice: new BigDecimal("10"))
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item, reportCount: 3)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        // Two reports from user 42 + one from user 99 → 2 distinct reporters.
+        def reports = [
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'Suspicious'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'Other'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 99L, reason: 'Suspicious'),
+        ]
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> reports
+
+        when:
+        def res = service.forceCancelListing(1L, 100L, 'Policy violation')
+
+        then:
+        listing.status == 'CANCELLED'
+        // Seller gets the original LISTING_REMOVED notification
+        1 * notificationService.push(999L, 'LISTING_REMOVED', _, _, _, _)
+        // Each distinct reporter gets exactly one REPORT_ACTIONED notification
+        1 * notificationService.push(42L, 'REPORT_ACTIONED', _, _, _, _)
+        1 * notificationService.push(99L, 'REPORT_ACTIONED', _, _, _, _)
+    }
+
+    def "forceCancelListing keeps working when the report-notification push throws"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item, reportCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> [
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'X')
+        ]
+        notificationService.push(42L, 'REPORT_ACTIONED', _, _, _, _) >> { throw new RuntimeException('downstream boom') }
+
+        when:
+        def res = service.forceCancelListing(1L, 100L, 'Policy violation')
+
+        then:
+        // Still succeeds despite the notification failure
+        listing.status == 'CANCELLED'
+        noExceptionThrown()
+    }
+
+    def "dismissListingReports clears the aggregate counter and notifies reporters"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item,
+            reportCount: 4, lastReportedAt: 12345L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> [
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'Misread'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 42L, reason: 'Misread'),
+            new com.sboxmarket.model.ListingReport(listingId: 100L, reporterUserId: 99L, reason: 'Misread'),
+        ]
+
+        when:
+        def res = service.dismissListingReports(1L, 100L, 'No policy violation')
+
+        then:
+        listing.reportCount == 0
+        listing.lastReportedAt == null
+        res.dismissed == 3
+        res.distinctReporters == 2
+        1 * notificationService.push(42L, 'REPORT_REVIEWED', _, _, _, _)
+        1 * notificationService.push(99L, 'REPORT_REVIEWED', _, _, _, _)
+    }
+
+    def "dismissListingReports is a no-op on the counter when there are zero detail rows"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item,
+            reportCount: 5, lastReportedAt: 12345L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> []
+
+        when:
+        def res = service.dismissListingReports(1L, 100L, 'phantom counter')
+
+        then:
+        listing.reportCount == 0
+        res.dismissed == 0
+        res.distinctReporters == 0
+        0 * notificationService.push(_, 'REPORT_REVIEWED', _, _, _, _)
     }
 }

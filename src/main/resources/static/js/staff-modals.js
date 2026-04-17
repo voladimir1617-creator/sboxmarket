@@ -7,7 +7,7 @@ import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminBanUser, adminUnbanUser, adminGrant, adminRevoke,
   adminGrantCsr, adminRevokeCsr,
-  adminCreditWallet, adminRemoveListing, adminReportedListings, adminTickets, adminTicket,
+  adminCreditWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
   adminTrades, adminReleaseTrade, adminCancelTrade,
@@ -144,6 +144,17 @@ function AdminReportedTab() {
       await load();
     } finally { setBusy(false); }
   };
+  const dismiss = async (r) => {
+    const note = prompt(`Dismiss ${r.reportCount} report${r.reportCount === 1 ? '' : 's'} on listing #${r.id} (${r.itemName})?\n\nReporters will be notified that admin reviewed and found no issue. Optional admin-only note:`,
+      'No policy violation');
+    if (note == null) return;
+    setBusy(true);
+    try {
+      const res = await adminDismissReports(r.id, note);
+      if (res.code || res.error) { alert(res.message || res.error); return; }
+      await load();
+    } finally { setBusy(false); }
+  };
   if (rows === null) return h('div', { className: 'spinner' });
   if (rows.length === 0) {
     return h('div', { className: 'profile-panel' },
@@ -198,6 +209,11 @@ function AdminReportedTab() {
                 style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
                 href: `/item/${r.itemId}`, target: '_blank', rel: 'noopener noreferrer'
               }, 'View ↗'),
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
+                disabled: busy, onClick: () => dismiss(r), title: 'Mark reviewed — keep the listing, clear the reports'
+              }, 'Dismiss'),
               h('button', {
                 className: 'btn btn-ghost',
                 style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },

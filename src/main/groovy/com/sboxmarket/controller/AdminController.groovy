@@ -283,6 +283,15 @@ class AdminController {
         ResponseEntity.ok(adminService.findReportedListings(limit ?: 50))
     }
 
+    /** Dismiss reports without cancelling — admin reviewed and found no issue. */
+    @PostMapping("/listings/{id}/dismiss-reports")
+    ResponseEntity<Map> dismissReports(@PathVariable Long id,
+                                       @RequestBody(required = false) Map body,
+                                       HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.dismissListingReports(uid, id, body?.note as String))
+    }
+
     // ── Support ─────────────────────────────────────────────────────
 
     @GetMapping("/tickets")

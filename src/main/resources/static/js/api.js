@@ -478,6 +478,13 @@ export async function adminReportedListings() {
   const data = await safeJson(`${API}/admin/listings/reported`);
   return Array.isArray(data) ? data : [];
 }
+export async function adminDismissReports(id, note) {
+  return writeJson(`${API}/admin/listings/${id}/dismiss-reports`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note })
+  });
+}
 export async function adminTickets(status) {
   const q = status ? '?status=' + encodeURIComponent(status) : '';
   const data = await safeJson(`${API}/admin/tickets${q}`);

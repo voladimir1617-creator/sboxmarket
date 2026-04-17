@@ -531,10 +531,70 @@ class AdminService {
                 "${listing.item?.name}: ${cleanReason}", listing.id,
                 listing.item?.id != null ? "/item/${listing.item.id}" : '/me/stall')
         }
+        // Close the loop for every user who reported this listing — they
+        // filed a report and deserve to know their signal got action. Dedup
+        // by reporter so two reports from the same user only trigger one
+        // notification. Fire-and-forget; an exception here shouldn't roll
+        // back the force-cancel itself (the listing is already gone and the
+        // audit row is already written a few lines down).
+        try {
+            def reports = listingReportRepository?.findByListingIdOrderByCreatedAtDesc(listingId) ?: []
+            def distinct = reports.collect { it.reporterUserId }.unique()
+            distinct.each { uid ->
+                if (uid == null) return
+                try {
+                    notificationService?.push(uid, 'REPORT_ACTIONED',
+                        "Thanks — your report was actioned",
+                        "The listing you flagged (${listing.item?.name ?: 'item'}) has been removed.",
+                        listing.id, null)
+                } catch (Exception inner) {
+                    log.warn("Report-closed notification failed for user ${uid}: ${inner.message}")
+                }
+            }
+        } catch (Exception outer) {
+            log.warn("Failed to close report loop for listing ${listingId}: ${outer.message}")
+        }
         auditService?.log(AuditService.LISTING_FORCE_CANCELLED, adminUserId, listing.sellerUserId, listing.id,
             "Force-cancelled listing ${listing.item?.name}: ${cleanReason}")
         log.info("Admin ${adminUserId} force-cancelled listing ${listingId}: ${cleanReason}")
         [id: listing.id, status: listing.status]
+    }
+
+    /**
+     * Dismiss a listing's user reports without cancelling it — for when an
+     * admin reviews and decides the reports were unfounded. Clears the
+     * aggregate counter so the listing drops off the queue, and notifies
+     * each distinct reporter that their report was reviewed (without
+     * implying a bad faith on the reporter's part).
+     */
+    @Transactional
+    Map dismissListingReports(Long adminUserId, Long listingId, String note) {
+        requireAdmin(adminUserId)
+        def listing = listingRepository.findById(listingId).orElseThrow { new NotFoundException("Listing", listingId) }
+        def reports = listingReportRepository?.findByListingIdOrderByCreatedAtDesc(listingId) ?: []
+        def cleanNote = textSanitizer.medium(note) ?: 'no policy violation found'
+        def distinct = reports.collect { it.reporterUserId }.unique()
+        distinct.each { uid ->
+            if (uid == null) return
+            try {
+                notificationService?.push(uid, 'REPORT_REVIEWED',
+                    "Your report was reviewed",
+                    "Admins looked at the listing (${listing.item?.name ?: 'item'}) and decided not to take action.",
+                    listing.id, null)
+            } catch (Exception inner) {
+                log.warn("Report-reviewed notification failed for user ${uid}: ${inner.message}")
+            }
+        }
+        // Null out the aggregate so the reports queue drops this listing. The
+        // detail rows in listing_reports stay — admins can still read them
+        // later if a pattern emerges, and keeping history avoids the case
+        // where the same listing gets re-reported and the prior context is
+        // gone.
+        listing.reportCount = 0
+        listing.lastReportedAt = null
+        listingRepository.save(listing)
+        log.info("Admin ${adminUserId} dismissed ${reports.size()} reports on listing ${listingId}: ${cleanNote}")
+        [id: listing.id, dismissed: reports.size(), distinctReporters: distinct.size()]
     }
 
     // ── Support ─────────────────────────────────────────────────────
