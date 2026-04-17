@@ -878,6 +878,61 @@ export function App() {
       return next;
     });
   };
+
+  // Saved searches — named filter presets so users who repeatedly hunt
+  // the same slice of the marketplace (e.g. "Limited hats under $20 +
+  // biggest discount") can re-apply the whole filter set in one click.
+  // Capped at 10 — beyond that the dropdown becomes a scroll-hell.
+  const [savedSearches, setSavedSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sb_saved_searches') || '[]'); }
+    catch { return []; }
+  });
+  const persistSavedSearches = (next) => {
+    try { localStorage.setItem('sb_saved_searches', JSON.stringify(next)); } catch (_) {}
+    setSavedSearches(next);
+  };
+  const saveCurrentSearch = () => {
+    // Require at least one non-default filter — "all items, default sort"
+    // is meaningless to save.
+    const hasAnyFilter = search || category !== 'All' || rarity !== 'All' ||
+                         sort !== 'price_desc' || minPrice || maxPrice;
+    if (!hasAnyFilter) {
+      alert('Adjust at least one filter before saving a search.');
+      return;
+    }
+    const defaultName = [
+      search ? `"${search}"` : null,
+      category !== 'All' ? category : null,
+      rarity !== 'All' ? rarity : null,
+      (minPrice || maxPrice) ? `$${minPrice || 0}–${maxPrice || '∞'}` : null
+    ].filter(Boolean).join(' · ') || 'Untitled';
+    const name = window.prompt('Name this search (shows up in the dropdown):', defaultName);
+    if (!name || !name.trim()) return;
+    if (savedSearches.length >= 10) {
+      alert('Saved-search slot limit (10) reached — delete one first.');
+      return;
+    }
+    const entry = {
+      id: Date.now(),
+      name: name.trim().slice(0, 60),
+      search, category, rarity, sort, minPrice, maxPrice,
+      savedAt: Date.now()
+    };
+    persistSavedSearches([entry, ...savedSearches]);
+  };
+  const applySavedSearch = (s) => {
+    setSearch(s.search || '');
+    setSearchInput(s.search || '');
+    setCategory(s.category || 'All');
+    setRarity(s.rarity || 'All');
+    setSort(s.sort || 'price_desc');
+    setMinPrice(s.minPrice || '');
+    setMaxPrice(s.maxPrice || '');
+  };
+  const deleteSavedSearch = (id) => {
+    if (!confirm('Delete this saved search?')) return;
+    persistSavedSearches(savedSearches.filter(s => s.id !== id));
+  };
   useEffect(() => {
     const q = (searchInput || '').trim();
     if (q.length < 2) { setSuggest([]); return; }
@@ -1931,6 +1986,41 @@ export function App() {
             h('option', { value: 'newest' },     'Newest First'),
             h('option', { value: 'rarity' },     'Lowest Supply'),
             h('option', { value: 'discount' },   'Biggest Discount'),
+          ),
+          // Saved searches — dropdown of named filter presets. "Save current"
+          // prompts for a name and stashes the full filter state. Picking
+          // an entry re-applies every field in one click. Deliberately in
+          // the toolbar next to sort so the "save this view" concept is
+          // spatially close to the sort controls the user just touched.
+          h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
+            savedSearches.length > 0 && h('select', {
+              className: 'sort-select',
+              style: { maxWidth: 180 },
+              value: '',
+              onChange: (e) => {
+                const v = e.target.value;
+                if (!v) return;
+                if (v.startsWith('del:')) {
+                  deleteSavedSearch(parseInt(v.slice(4), 10));
+                } else {
+                  const s = savedSearches.find(x => x.id === parseInt(v, 10));
+                  if (s) applySavedSearch(s);
+                }
+                e.target.value = '';
+              },
+              'aria-label': 'Apply a saved search'
+            },
+              h('option', { value: '' }, `★ Saved (${savedSearches.length})`),
+              savedSearches.map(s => h('option', { key: s.id, value: s.id }, s.name)),
+              savedSearches.length > 0 && h('option', { disabled: true, value: '' }, '─── delete ───'),
+              savedSearches.map(s => h('option', { key: 'del-' + s.id, value: 'del:' + s.id }, '✕  ' + s.name))
+            ),
+            h('button', {
+              className: 'btn btn-ghost',
+              style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+              onClick: saveCurrentSearch,
+              title: 'Save the current filter combination as a named preset'
+            }, '★ Save search')
           ),
           // Listing-type toggle — three buttons, single active. Purely
           // client-side; server already returns both types and we filter
