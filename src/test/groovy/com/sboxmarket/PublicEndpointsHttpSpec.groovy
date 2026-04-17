@@ -524,8 +524,12 @@ class PublicEndpointsHttpSpec extends Specification {
 
         then:
         r.response.status == 200
-        r.response.contentAsString.contains('skinbox.market')
+        // Sitemap is now built dynamically — `app.public-url` controls
+        // the absolute base URL (defaults to http://localhost:8080 in
+        // the default profile so tests don't depend on env vars). What
+        // we care about is the structure: urlset + at least one URL.
         r.response.contentAsString.contains('urlset')
+        r.response.contentAsString.contains('<loc>')
     }
 
     def "GET /robots.txt includes Sitemap directive"() {
