@@ -820,6 +820,39 @@ export function App() {
   const route = useRoute();
   const routeName = route.name;
 
+  // Set a meaningful document.title per route so browser tabs + browser
+  // history actually describe the page. The NotificationBell unread
+  // prefix sits on top of whatever base title we set. For item detail
+  // the actual item name lands below in the item-load effect.
+  useEffect(() => {
+    const titles = {
+      market:        'Marketplace · SkinBox',
+      database:      'Item Database · SkinBox',
+      watchlist:     'Watchlist · SkinBox',
+      sell:          'Sell Items · SkinBox',
+      mystall:       'My Stall · SkinBox',
+      cart:          'Cart · SkinBox',
+      wallet:        'Wallet · SkinBox',
+      profile:       'Profile · SkinBox',
+      offers:        'Offers · SkinBox',
+      buyorders:     'Buy Orders · SkinBox',
+      notifications: 'Notifications · SkinBox',
+      support:       'Support · SkinBox',
+      help:          'Help Center · SkinBox',
+      faq:           'FAQ · SkinBox',
+      settings:      'Settings · SkinBox',
+      admin:         'Admin Panel · SkinBox',
+      csr:           'Customer Service · SkinBox',
+      loadouts:      'Loadout Lab · SkinBox',
+      stall:         'Seller Stall · SkinBox',
+      item:          'Item · SkinBox'
+    };
+    const base = titles[routeName] || 'SkinBox — s&box Marketplace';
+    // Preserve any (N) unread-notifications prefix set by NotificationBell.
+    const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+    document.title = currentPrefix + base;
+  }, [routeName]);
+
   // marketplace state
   const [listings, setListings]         = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -1438,6 +1471,10 @@ export function App() {
                      listings.find(l => String(l.item?.id) === String(route.params.id))?.item;
         if (item) {
           setSelected({ item, listings: itemListings, history });
+          // Refine the route-driven title with the real item name — e.g.
+          // "Black Modern Watch · SkinBox". Preserves the unread prefix.
+          const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+          document.title = currentPrefix + (item.name || 'Item') + ' · SkinBox';
           // Track recently viewed for the homepage rail — keep the last 12,
           // newest first, deduped by item id. Pure localStorage, no backend.
           try {
