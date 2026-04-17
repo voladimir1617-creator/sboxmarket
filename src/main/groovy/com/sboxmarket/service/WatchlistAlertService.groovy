@@ -79,6 +79,13 @@ class WatchlistAlertService {
         repo.findByUserId(userId)
     }
 
+    /** Delete every FIRED alert the user has accumulated — lets users
+     *  tidy the Watchlist summary without having to cancel each one. */
+    @Transactional
+    int clearFired(Long userId) {
+        repo.deleteFiredForUser(userId)
+    }
+
     @Transactional
     void cancelAlert(Long userId, Long alertId) {
         def a = repo.findById(alertId)

@@ -150,6 +150,11 @@ export async function cancelWatchlistAlert(id) {
     method: 'DELETE', credentials: 'same-origin'
   });
 }
+export async function clearFiredWatchlistAlerts() {
+  return writeJson(`${API}/watchlist/alerts/clear-fired`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 
 // ── Follow seller ────────────────────────────────────────────────
 /** Anonymous-friendly: returns { following: false, followerCount: N } for

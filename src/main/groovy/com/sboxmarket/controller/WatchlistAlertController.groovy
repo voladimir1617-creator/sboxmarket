@@ -53,4 +53,13 @@ class WatchlistAlertController {
         service.cancelAlert(uid, id)
         ResponseEntity.ok([id: id, status: 'CANCELLED'])
     }
+
+    /** Bulk-delete every FIRED alert for the caller. Useful after a
+     *  batch of alerts fire — tidies the watchlist UI in one click. */
+    @PostMapping('/clear-fired')
+    ResponseEntity<Map> clearFired(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def deleted = service.clearFired(uid)
+        ResponseEntity.ok([deleted: deleted])
+    }
 }

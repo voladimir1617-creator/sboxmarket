@@ -38,4 +38,8 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     List<Object[]> findTriggered()
 
     long countByUserIdAndStatus(Long userId, String status)
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM WatchlistAlert a WHERE a.userId = :uid AND a.status = 'FIRED'")
+    int deleteFiredForUser(@Param("uid") Long uid)
 }

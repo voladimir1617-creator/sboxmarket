@@ -192,6 +192,19 @@ class WatchlistAlertServiceSpec extends Specification {
         0 * notificationService.push(_, _, _, _, _, _)
     }
 
+    // ── clearFired ───────────────────────────────────────────────
+
+    def "clearFired delegates to the repository and returns the delete count"() {
+        given:
+        repo.deleteFiredForUser(42L) >> 7
+
+        when:
+        def n = service.clearFired(42L)
+
+        then:
+        n == 7
+    }
+
     def "sweep keeps going even if one row throws during the push"() {
         given:
         def a1 = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,

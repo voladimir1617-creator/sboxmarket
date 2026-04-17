@@ -259,7 +259,15 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 return h('div', { key: l.id, className: 'modal-listing-row' },
                   h('div', { className: 'modal-seller-av' }, (l.sellerAvatar || l.sellerName?.substring(0,2) || 'US').toUpperCase()),
                   h('div', { className: 'modal-seller-info' },
-                    h('span', { className: 'modal-seller-name' }, l.sellerName),
+                    l.sellerUserId
+                      ? h('a', {
+                          className: 'modal-seller-name',
+                          href: '/stall/' + l.sellerUserId,
+                          onClick: (e) => e.stopPropagation(),
+                          style: { color: 'inherit', textDecoration: 'none' },
+                          title: `View ${l.sellerName}'s stall`
+                        }, l.sellerName)
+                      : h('span', { className: 'modal-seller-name' }, l.sellerName),
                     rating && rating.count > 0 && h('span', { className: 'modal-seller-rating', title: `${rating.count} review${rating.count === 1 ? '' : 's'}` },
                       '★ ', rating.average.toFixed(1),
                       h('span', { className: 'modal-seller-rating-count' }, ` (${rating.count})`)
@@ -3341,7 +3349,22 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
                   '🔔 Price alerts'),
                 h('span', { style: { color: 'var(--green)', fontWeight: 700 } }, `${active.length} watching`),
                 fired.length > 0 && h('span', { style: { color: '#fbbf24', fontWeight: 700 } },
-                  ` · ${fired.length} fired`)
+                  ` · ${fired.length} fired`),
+                h('div', { style: { flex: 1 } }),
+                fired.length > 0 && h('button', {
+                  className: 'btn btn-ghost',
+                  style: { padding: '3px 10px', fontSize: 11, border: '1px solid var(--border)' },
+                  title: 'Delete every fired alert so only still-watching rows stay',
+                  onClick: async () => {
+                    const { clearFiredWatchlistAlerts } = await import('./api.js');
+                    const res = await clearFiredWatchlistAlerts();
+                    if (res && (res.error || res.code)) {
+                      alert(res.message || res.error || 'Could not clear');
+                      return;
+                    }
+                    loadServerAlerts();
+                  }
+                }, 'Clear fired')
               ),
               active.length > 0 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
                 active.slice(0, 5).map(a => h('div', {
