@@ -154,6 +154,33 @@ class ListingController {
             userId, org.springframework.data.domain.PageRequest.of(0, 200)))
     }
 
+    /** Public recent sales for a seller — drives the "Recent sales" strip
+     *  below the stall grid. Buyer-privacy safe: returns price + soldAt
+     *  + item fields only, with no buyer identities. Capped at 10 to
+     *  match the item-modal recent-sales strip. */
+    @GetMapping("/stall/{userId}/recent-sales")
+    ResponseEntity<List<Map>> publicStallSold(@PathVariable Long userId) {
+        def rows = listingService.findSoldBySeller(userId,
+            org.springframework.data.domain.PageRequest.of(0, 10))
+        def out = rows.collect { l ->
+            [
+                listingId: l.id,
+                price:     l.price,
+                soldAt:    l.soldAt,
+                listingType: l.listingType,
+                item: l.item == null ? null : [
+                    id:         l.item.id,
+                    name:       l.item.name,
+                    category:   l.item.category,
+                    rarity:     l.item.rarity,
+                    imageUrl:   l.item.imageUrl,
+                    iconEmoji:  l.item.iconEmoji
+                ]
+            ]
+        }
+        ResponseEntity.ok(out)
+    }
+
     /** Bulk-adjust the user's active listings by a percentage. Positive
      *  percent = markup, negative = discount. Auction listings are skipped
      *  — changing an auction's starting price mid-auction is confusing UX

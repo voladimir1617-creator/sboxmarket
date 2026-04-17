@@ -39,6 +39,17 @@ class ProfileController {
     @Autowired TotpService totpService
     @Autowired TextSanitizer textSanitizer
     @Autowired EmailService emailService
+    // Extra repos the GDPR /export bundle needs. All required=false so
+    // tests can wire a smaller subset of collaborators.
+    @Autowired(required = false) com.sboxmarket.repository.WalletRepository walletRepository
+    @Autowired(required = false) com.sboxmarket.repository.TransactionRepository transactionRepository
+    @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
+    @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
+    @Autowired(required = false) com.sboxmarket.repository.OfferRepository offerRepository
+    @Autowired(required = false) com.sboxmarket.repository.BuyOrderRepository buyOrderRepository
+    @Autowired(required = false) com.sboxmarket.repository.BidRepository bidRepository
+    @Autowired(required = false) com.sboxmarket.repository.ReviewRepository reviewRepository
+    @Autowired(required = false) com.sboxmarket.repository.NotificationRepository notificationRepository
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -102,6 +113,98 @@ class ProfileController {
         }
         steamUserRepository.save(user)
         ResponseEntity.ok([tradeUrl: user.tradeUrl])
+    }
+
+    /**
+     * Self-service data export — bundles the user's profile, wallet,
+     * transactions, listings, trades, offers, buy orders, bids, reviews,
+     * and notifications into one JSON blob. Intended for GDPR /
+     * right-to-copy requests. Excludes secrets (totpSecret,
+     * emailVerificationToken) which are already @JsonIgnore'd at the
+     * entity level. Returned as a downloadable attachment.
+     */
+    @GetMapping(value = "/export", produces = "application/json")
+    @Transactional(readOnly = true)
+    ResponseEntity<Map> exportData(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
+        def walletId = wallet?.id ?: -1L
+        def payload = [
+            exportedAt:   System.currentTimeMillis(),
+            user: [
+                id:            user.id,
+                steamId64:     user.steamId64,
+                displayName:   user.displayName,
+                avatarUrl:     user.avatarUrl,
+                profileUrl:    user.profileUrl,
+                email:         user.email,
+                emailVerified: user.emailVerified,
+                tradeUrl:      user.tradeUrl,
+                role:          user.role,
+                banned:        user.banned,
+                banReason:     user.banned ? user.banReason : null,
+                createdAt:     user.createdAt,
+                lastLoginAt:   user.lastLoginAt,
+                lastSyncedAt:  user.lastSyncedAt
+            ],
+            wallet: wallet == null ? null : [
+                id:       wallet.id,
+                balance:  wallet.balance,
+                currency: wallet.currency,
+                username: wallet.username
+            ],
+            transactions: wallet == null ? [] : transactionRepository
+                .findByWalletIdOrderByCreatedAtDesc(walletId,
+                    org.springframework.data.domain.PageRequest.of(0, 5000))
+                .collect { t -> [
+                    id: t.id, type: t.type, status: t.status,
+                    amount: t.amount, currency: t.currency,
+                    description: t.description, listingId: t.listingId,
+                    stripeReference: t.stripeReference, createdAt: t.createdAt
+                ] },
+            listings: listingRepository.findActiveBySeller(uid)
+                .collect { l -> [
+                    id: l.id, itemId: l.item?.id, itemName: l.item?.name,
+                    price: l.price, status: l.status, listingType: l.listingType,
+                    listedAt: l.listedAt, hidden: l.hidden
+                ] },
+            trades: tradeRepository?.findByParticipant(uid)?.collect { t -> [
+                id: t.id, state: t.state, itemName: t.itemName, price: t.price,
+                feeAmount: t.feeAmount, createdAt: t.createdAt,
+                settledAt: t.settledAt, role: t.buyerUserId == uid ? 'buyer' : 'seller'
+            ] } ?: [],
+            offersOutgoing: offerRepository?.findByBuyer(uid)?.collect { o -> [
+                id: o.id, listingId: o.listingId, amount: o.amount,
+                status: o.status, createdAt: o.createdAt
+            ] } ?: [],
+            buyOrders: buyOrderRepository?.findByBuyer(uid)?.collect { b -> [
+                id: b.id, itemName: b.itemName, category: b.category, rarity: b.rarity,
+                maxPrice: b.maxPrice, quantity: b.quantity, status: b.status,
+                createdAt: b.createdAt
+            ] } ?: [],
+            autoBids: bidRepository?.findActiveAutoBidsForUser(uid)?.collect { b -> [
+                id: b.id, listingId: b.listingId, amount: b.amount,
+                maxAmount: b.maxAmount, kind: b.kind, status: b.status,
+                createdAt: b.createdAt
+            ] } ?: [],
+            reviewsGiven: reviewRepository?.findByFromUserId(uid)?.collect { r -> [
+                id: r.id, toUserId: r.toUserId, rating: r.rating,
+                comment: r.comment, itemName: r.itemName, createdAt: r.createdAt
+            ] } ?: [],
+            notifications: notificationRepository?.findForUser(uid,
+                org.springframework.data.domain.PageRequest.of(0, 500))
+                ?.collect { n -> [
+                    id: n.id, kind: n.kind, title: n.title, body: n.body,
+                    read: n.read, createdAt: n.createdAt, path: n.path
+                ] } ?: []
+        ]
+        def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
+        ResponseEntity.ok()
+            .header('Content-Disposition',
+                "attachment; filename=\"skinbox-data-${user.steamId64}-${df.format(new Date())}.json\"")
+            .header('Cache-Control', 'no-store')
+            .body(payload)
     }
 
     /** Resend the email-verification token. Regenerates the token (old

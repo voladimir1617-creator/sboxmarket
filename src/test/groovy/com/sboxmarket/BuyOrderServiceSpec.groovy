@@ -285,4 +285,23 @@ class BuyOrderServiceSpec extends Specification {
         1 * purchaseService.buy(600L, 20L, 100L)
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.status == 'FILLED' })
     }
+
+    // ── countActiveForItem ────────────────────────────────────────
+
+    def "countActiveForItem forwards to the repo"() {
+        given:
+        buyOrderRepository.countActiveForItem(42L) >> 7L
+
+        expect:
+        service.countActiveForItem(42L) == 7L
+    }
+
+    def "countActiveForItem returns 0 for null item id without hitting the repo"() {
+        when:
+        def n = service.countActiveForItem(null)
+
+        then:
+        n == 0L
+        0 * buyOrderRepository.countActiveForItem(_)
+    }
 }

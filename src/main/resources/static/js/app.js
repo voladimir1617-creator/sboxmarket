@@ -4,7 +4,7 @@ import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo } fro
 import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
-  adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
+  adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals
 } from './api.js';
@@ -903,6 +903,7 @@ export function App() {
   // only populate when a signed-in viewer loads someone else's stall.
   const [stallData, setStallData] = useState(null);
   const [stallReviews, setStallReviews] = useState(null);
+  const [stallSold, setStallSold]       = useState([]);
   const [eligibleTrades, setEligibleTrades] = useState([]);
   // Star-rating filter for the recent-reviews strip. 0 = all.
   const [stallStarFilter, setStallStarFilter] = useState(0);
@@ -913,18 +914,20 @@ export function App() {
   const [stallSort, setStallSort]     = useState('price_asc');
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
-      setStallData(null); setStallReviews(null); setEligibleTrades([]); return;
+      setStallData(null); setStallReviews(null); setEligibleTrades([]); setStallSold([]); return;
     }
     let alive = true;
     Promise.all([
       fetchPublicStall(route.params.id),
       fetchReviewsForUser(route.params.id),
-      me ? fetchEligibleReviews(route.params.id) : Promise.resolve([])
-    ]).then(([stall, reviews, eligible]) => {
+      me ? fetchEligibleReviews(route.params.id) : Promise.resolve([]),
+      fetchPublicStallSold(route.params.id)
+    ]).then(([stall, reviews, eligible, sold]) => {
       if (!alive) return;
       setStallData(stall);
       setStallReviews(reviews);
       setEligibleTrades(Array.isArray(eligible) ? eligible : []);
+      setStallSold(Array.isArray(sold) ? sold : []);
     });
     return () => { alive = false; };
   }, [routeName, route.params?.id, me?.user?.id]);
@@ -2162,6 +2165,26 @@ export function App() {
                         )
                   );
                 })(),
+            // Recent sales strip — last 10 completed sales by this
+            // seller. Pure aggregate: item + price + soldAt, no buyer
+            // identities. Builds trust by showing the seller actually
+            // moves inventory.
+            stallSold.length > 0 && h('div', { className: 'stall-recent-sales' },
+              h('div', { className: 'stall-reviews-head' },
+                h('span', { className: 'section-title-dot' }),
+                `Recent sales (${stallSold.length})`
+              ),
+              h('div', { className: 'recent-sales-list' },
+                stallSold.map(s => h('div', { key: s.listingId, className: 'recent-sales-row' },
+                  h('span', { className: 'recent-sales-type' },
+                    s.listingType === 'AUCTION' ? 'Auction' : 'Buy now'),
+                  h('span', { style: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                    s.item?.name || 'Item'),
+                  h('span', { className: 'recent-sales-price' }, fmt(s.price)),
+                  h('span', { className: 'recent-sales-time' }, timeAgo(s.soldAt))
+                ))
+              )
+            ),
             // "Leave a review" CTA — only shows up when the signed-in viewer
             // has at least one VERIFIED trade with this seller. Every trade
             // in `eligibleTrades` is already filtered server-side so there's

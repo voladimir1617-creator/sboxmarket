@@ -138,6 +138,12 @@ export async function fetchMyStall() {
   return Array.isArray(data) ? data : [];
 }
 
+/** Public recent-sales strip for a stall — last 10 sold listings,
+ *  price + soldAt + item only. No buyer identities. */
+export async function fetchPublicStallSold(userId) {
+  const data = await safeJson(`${API}/listings/stall/${userId}/recent-sales`);
+  return Array.isArray(data) ? data : [];
+}
 export async function fetchPublicStall(userId) {
   return safeJson(`${API}/listings/stall/${userId}`);
 }

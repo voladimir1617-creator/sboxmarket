@@ -5013,6 +5013,12 @@
       font-size: 12.5px;
     }
     .recent-sales-row:nth-child(even) { background: var(--bg-card); }
+    /* 4-column variant for the public-stall recent-sales strip which
+       includes the item name between type and price. */
+    .stall-recent-sales .recent-sales-row {
+      grid-template-columns: 80px minmax(0, 1fr) 90px 90px;
+    }
+    .stall-recent-sales { margin-top: 28px; }
     .recent-sales-type {
       font-size: 10px;
       font-weight: 700;

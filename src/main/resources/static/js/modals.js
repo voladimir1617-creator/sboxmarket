@@ -929,6 +929,25 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
       h('div', { className: 'profile-row-value' }, profile?.user?.createdAt ? new Date(profile.user.createdAt).toLocaleDateString() : '—')
     ),
 
+    // GDPR / right-to-copy: download a JSON blob of everything we
+    // store about the user. Wallet, transactions, listings, trades,
+    // offers, buy orders, auto-bids, reviews given, notifications.
+    // Excludes secrets (totpSecret, emailVerificationToken) — those
+    // are @JsonIgnore'd server-side.
+    h('div', { className: 'profile-row' },
+      h('div', { className: 'profile-row-label' }, 'Download data'),
+      h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
+        h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 11 },
+          href: '/api/profile/export',
+          title: 'Download every piece of your data we store as a JSON file'
+        }, '⇣ Export my data (JSON)'),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+          'Includes wallet, transactions, listings, trades, offers, buy orders, auto-bids, reviews, notifications. No secrets.')
+      )
+    ),
+
     // Recent purchases snapshot — the last 5 PURCHASE transactions so
     // the user sees their activity at a glance without switching tabs.
     // Derived from the transactions list the modal already has; if the

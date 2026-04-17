@@ -238,4 +238,74 @@ class ListingServiceSpec extends Specification {
         stats.activeListings == 0L
         stats.floorPrice == new BigDecimal("0.00")
     }
+
+    // ── bulkAdjustPrices ──────────────────────────────────────────
+
+    def "bulkAdjustPrices applies -5% to every active non-auction listing"() {
+        given:
+        def l1 = listingFor(id: 1L, price: new BigDecimal("10.00"))
+        def l2 = listingFor(id: 2L, price: new BigDecimal("20.00"))
+        listingRepository.findActiveBySeller(99L) >> [l1, l2]
+        itemRepository.findById(_) >> Optional.empty()  // skip floor recompute
+
+        when:
+        def result = service.bulkAdjustPrices(99L, new BigDecimal("-5"))
+
+        then:
+        result.touched == 2
+        result.skipped == 0
+        l1.price == new BigDecimal("9.50")
+        l2.price == new BigDecimal("19.00")
+        1 * listingRepository.saveAll(_)
+    }
+
+    def "bulkAdjustPrices skips AUCTION listings"() {
+        given:
+        def buyNow   = listingFor(id: 1L, price: new BigDecimal("10"))
+        def auction  = new Listing(id: 2L, item: itemFor(2L), price: new BigDecimal("10"),
+            status: 'ACTIVE', hidden: false, listingType: 'AUCTION')
+        listingRepository.findActiveBySeller(99L) >> [buyNow, auction]
+        itemRepository.findById(_) >> Optional.empty()
+
+        when:
+        def result = service.bulkAdjustPrices(99L, new BigDecimal("10"))
+
+        then:
+        result.touched == 1
+        result.skipped == 1
+        // Auction price untouched, buy-now bumped +10%
+        auction.price == new BigDecimal("10")
+        buyNow.price  == new BigDecimal("11.00")
+    }
+
+    def 'bulkAdjustPrices clamps to $0.01 floor and $100k ceiling'() {
+        given:
+        def cheap = listingFor(id: 1L, price: new BigDecimal("0.10"))
+        def costly = listingFor(id: 2L, price: new BigDecimal("90000"))
+        listingRepository.findActiveBySeller(99L) >> [cheap, costly]
+        itemRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.bulkAdjustPrices(99L, new BigDecimal("50"))  // +50%
+
+        then:
+        // cheap: 0.10 * 1.5 = 0.15 (within bounds)
+        cheap.price == new BigDecimal("0.15")
+        // costly: 90000 * 1.5 = 135000, clamped to 100000
+        costly.price == new BigDecimal("100000")
+    }
+
+    // ── findSoldBySeller passthrough ──────────────────────────────
+
+    def "findSoldBySeller forwards the pageable to the repo"() {
+        given:
+        def page = org.springframework.data.domain.PageRequest.of(0, 10)
+        listingRepository.findSoldBySeller(42L, page) >> [listingFor(status: 'SOLD')]
+
+        when:
+        def rows = service.findSoldBySeller(42L, page)
+
+        then:
+        rows.size() == 1
+    }
 }
