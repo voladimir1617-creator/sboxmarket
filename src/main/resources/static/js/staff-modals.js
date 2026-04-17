@@ -909,6 +909,8 @@ function AdminDashboardTab({ onNavTab }) {
       Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green', depositDelta),
       Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta, 'trades'),
       Stat('Platform fees 24h',    fmt(stats.fees24h || 0), 'accent'),
+      Stat('Platform fees 7d',     fmt(stats.fees7d || 0), 'accent'),
+      Stat('Platform fees 30d',    fmt(stats.fees30d || 0), 'accent'),
       Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow',
            null, 'withdrawals'),
       Stat('Open Tickets',         Number(stats.openTickets || 0), null, null, 'tickets'),
