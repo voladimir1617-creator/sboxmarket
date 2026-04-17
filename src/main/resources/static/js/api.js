@@ -323,6 +323,14 @@ export async function fetchOutgoingOffers() {
   return Array.isArray(data) ? data : [];
 }
 
+/** { listingId: { bestAmount, count, newestAt } } for every active
+ *  listing of the caller that has at least one PENDING buyer offer.
+ *  Drives the MyStall "Best offer $X · N pending" chip. */
+export async function fetchBestOfferPerListing() {
+  const data = await safeJson(`${API}/offers/best-per-listing`);
+  return data && typeof data === 'object' ? data : {};
+}
+
 export async function makeOffer(listingId, amount) {
   return writeJson(`${API}/offers`, {
     method: 'POST',

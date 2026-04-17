@@ -352,6 +352,32 @@ class OfferService {
     }
 
     /**
+     * For each of the seller's active listings that has at least one
+     * PENDING buyer offer, return a small summary map keyed by listing
+     * id: { bestAmount, count, newestAt }. Drives the MyStall "Best
+     * offer $X · N pending" chip so sellers see actionable bargaining
+     * lanes without opening the Offers tab.
+     *
+     * PENDING-only by design — COUNTERED means the seller already
+     * answered and it's the buyer's move now, so surfacing it in the
+     * stall would just add noise. CANCELLED / EXPIRED are terminal.
+     */
+    Map<Long, Map> pendingOfferSummaryForSeller(Long sellerUserId) {
+        if (sellerUserId == null) return [:]
+        def rows = offerRepository.aggregatePendingBySeller(sellerUserId)
+        def out = [:]
+        rows.each { row ->
+            def lid = row[0] as Long
+            out[lid] = [
+                bestAmount: row[1],
+                count:      (row[2] ?: 0L) as long,
+                newestAt:   (row[3] ?: 0L) as long
+            ]
+        }
+        out
+    }
+
+    /**
      * Fraction of offers the seller actually engaged with — (resolved)
      * / (resolved + expired). Returns null until the seller has at
      * least 5 resolvable offers so the stat can't flash an alarming

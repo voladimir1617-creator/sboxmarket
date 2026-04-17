@@ -616,4 +616,34 @@ class OfferServiceSpec extends Specification {
         expect:
         service.responseRatePct(99L) == 75.0d
     }
+
+    // ── pendingOfferSummaryForSeller (MyStall best-offer chip) ─────
+
+    def "pendingOfferSummaryForSeller returns an empty map for a null id without hitting the repo"() {
+        when:
+        def out = service.pendingOfferSummaryForSeller(null)
+
+        then:
+        out == [:]
+        0 * offerRepository.aggregatePendingBySeller(_)
+    }
+
+    def "pendingOfferSummaryForSeller unpacks repo rows into a per-listing summary"() {
+        given:
+        offerRepository.aggregatePendingBySeller(99L) >> [
+            [100L as Long, new BigDecimal("45.00"), 3L as Long, 1700000000000L as Long] as Object[],
+            [200L as Long, new BigDecimal("10.00"), 1L as Long, 1700000001000L as Long] as Object[]
+        ]
+
+        when:
+        def out = service.pendingOfferSummaryForSeller(99L)
+
+        then:
+        out.size() == 2
+        out[100L].bestAmount == new BigDecimal("45.00")
+        out[100L].count      == 3L
+        out[100L].newestAt   == 1700000000000L
+        out[200L].bestAmount == new BigDecimal("10.00")
+        out[200L].count      == 1L
+    }
 }

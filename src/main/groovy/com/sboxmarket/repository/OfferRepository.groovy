@@ -79,4 +79,20 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
           AND o.status IN ('ACCEPTED','REJECTED','COUNTERED')
     """)
     long countSellerResponded(@Param("uid") Long sellerUserId)
+
+    /** Per-listing aggregate of the PENDING buyer offers for a seller —
+     *  top amount, count, and newest timestamp. Drives the MyStall
+     *  "Best offer: $X · N pending" chip so sellers don't have to hop
+     *  to the Offers tab to see which listings have bargainers waiting.
+     *  Only PENDING so COUNTERED (seller already responded) and
+     *  CANCELLED / EXPIRED rows don't resurface as actionable. */
+    @Query("""
+        SELECT o.listingId, MAX(o.amount), COUNT(o), MAX(o.createdAt)
+        FROM Offer o
+        WHERE o.sellerUserId = :uid
+          AND o.status = 'PENDING'
+          AND o.author = 'USER'
+        GROUP BY o.listingId
+    """)
+    List<Object[]> aggregatePendingBySeller(@Param("uid") Long sellerUserId)
 }

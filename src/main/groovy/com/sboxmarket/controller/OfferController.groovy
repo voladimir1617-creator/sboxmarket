@@ -37,6 +37,18 @@ class OfferController {
         ResponseEntity.ok(offerService.outgoing(requireUser(req)))
     }
 
+    /** Per-listing summary of PENDING buyer offers on the caller's
+     *  listings — { bestAmount, count, newestAt } keyed by listing id.
+     *  Drives the MyStall "Best offer $X · N pending" chip so sellers
+     *  see where bargainers are waiting without opening the Offers
+     *  tab. Owner-scoped via requireUser — returns only offers on
+     *  listings the caller owns. */
+    @GetMapping("/best-per-listing")
+    ResponseEntity<Map> bestPerListing(HttpServletRequest req) {
+        def uid = requireUser(req)
+        ResponseEntity.ok(offerService.pendingOfferSummaryForSeller(uid))
+    }
+
     /** Two-value badge source for the nav — "how many offers need my
      *  attention". Seller side is PENDING incoming (actionable); buyer
      *  side is PENDING outgoing (awaiting counterparty). Frontend shows

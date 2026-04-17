@@ -6,7 +6,7 @@ import { GridCard } from './cards.js';
 import { InfoModal } from './info-modal.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import {
-  fetchInventory, fetchMyStall, fetchMyStallSold, bulkAdjustStall, relistItem, cancelListing,
+  fetchInventory, fetchMyStall, fetchMyStallSold, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, updateStallListing, setAwayMode,
@@ -3272,7 +3272,15 @@ export function MyStallModal({ onClose, me, onRefresh }) {
   // accept (listing.maxDiscount stays null).
   const [editAutoPct, setEditAutoPct] = useState('');
   const [away, setAway] = useState(false);
-  const load = useCallback(() => { fetchMyStall().then(setStall); }, []);
+  // Per-listing PENDING offer summary — keyed by listingId. Null until
+  // the first fetch lands so the chip row doesn't flash. Re-fetched
+  // alongside the stall load so a row the seller just listed still
+  // gets its chip as soon as a buyer bargains.
+  const [offerMap, setOfferMap] = useState({});
+  const load = useCallback(() => {
+    fetchMyStall().then(setStall);
+    fetchBestOfferPerListing().then(m => setOfferMap(m || {}));
+  }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
   // Load sold history lazily when the user clicks the tab — avoids a second
   // list fetch on every modal open for sellers who never touch the history.
@@ -3452,7 +3460,32 @@ export function MyStallModal({ onClose, me, onRefresh }) {
                   )
                 : h('div', { className: 'item-sub' },
                     l.item.category + ' · listed ' + timeAgo(l.listedAt),
-                    l.description && h('span', { style: { marginLeft: 8, fontStyle: 'italic' } }, '"' + l.description + '"')
+                    l.description && h('span', { style: { marginLeft: 8, fontStyle: 'italic' } }, '"' + l.description + '"'),
+                    // Best-offer chip — renders when the seller has at
+                    // least one PENDING buyer offer on this listing.
+                    // One click routes straight to the Offers tab so
+                    // the seller can respond without hunting.
+                    (() => {
+                      const o = offerMap[l.id];
+                      if (!o || !(o.count > 0)) return null;
+                      const pct = Math.max(0, Math.round(
+                        (1 - parseFloat(o.bestAmount) / parseFloat(l.price)) * 100));
+                      return h('a', {
+                        href: '/offers',
+                        onClick: (e) => { e.stopPropagation(); },
+                        style: {
+                          marginLeft: 10, padding: '2px 8px', borderRadius: 4,
+                          fontSize: 10, fontWeight: 700, color: '#fbbf24',
+                          background: 'rgba(251,191,36,0.12)',
+                          border: '1px solid rgba(251,191,36,0.35)',
+                          textDecoration: 'none'
+                        },
+                        title: `${o.count} pending offer${o.count === 1 ? '' : 's'} · best ${fmt(o.bestAmount)}${pct > 0 ? ` (−${pct}% vs ask)` : ''}`
+                      },
+                        '💬 Best offer ', fmt(o.bestAmount),
+                        o.count > 1 ? ` · ${o.count}` : ''
+                      );
+                    })()
                   )
             ),
             editing === l.id
