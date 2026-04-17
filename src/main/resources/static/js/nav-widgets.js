@@ -59,11 +59,46 @@ const KIND_ICONS = {
   PRICE_DROPPED:     '↓',
 };
 
+// Short, subtle two-tone ding triggered by the Settings "Notification
+// sounds" toggle. Pure Web Audio — no external asset shipped. Guards:
+//   - first call primes a single AudioContext and reuses it;
+//   - bail cleanly if the browser blocks autoplay (user hasn't
+//     interacted yet) or if Web Audio isn't available;
+//   - bail when the user has muted sounds via Settings.
+function playNotifyDing() {
+  try {
+    if (localStorage.getItem('sb_sounds') === 'false') return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = (playNotifyDing._ctx = playNotifyDing._ctx || new Ctx());
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
+    const now = ctx.currentTime;
+    const ping = (freq, offset, dur) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + offset);
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.15, now + offset + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + dur);
+    };
+    ping(880, 0,    0.12);
+    ping(1320, 0.08, 0.18);
+  } catch (_) { /* silent — fall back to the visual bell */ }
+}
+
 export function NotificationBell({ me }) {
   const [open, setOpen]     = useState(false);
   const [items, setItems]   = useState([]);
   const [unread, setUnread] = useState(0);
   const wrapRef = React.useRef(null);
+  // Sentinel: -1 until the first poll lands, so the initial "you have
+  // N unread already" render doesn't trigger a ding for every unread
+  // row a user already had before they loaded the page.
+  const lastUnreadRef = React.useRef(-1);
 
   const load = useCallback(async () => {
     if (!me) { setItems([]); setUnread(0); return; }
@@ -77,6 +112,16 @@ export function NotificationBell({ me }) {
   }, [me]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Play the notify ding when the unread count *grows* between polls.
+  // Sentinel -1 on first render means "don't ding yet"; we just set
+  // the baseline to the current value. After that, any strict
+  // increase fires the ding.
+  useEffect(() => {
+    const prev = lastUnreadRef.current;
+    lastUnreadRef.current = unread;
+    if (prev !== -1 && unread > prev) playNotifyDing();
+  }, [unread]);
 
   // Poll every 25s while signed in so the bell stays fresh without sockets.
   useEffect(() => {
