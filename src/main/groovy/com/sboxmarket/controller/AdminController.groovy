@@ -258,6 +258,22 @@ class AdminController {
         ResponseEntity.ok(adminService.reset2faFor(uid, id, body?.note as String))
     }
 
+    /** Read staff-only internal notes on a user. */
+    @GetMapping("/users/{id}/notes")
+    ResponseEntity<Map> readNotes(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.readAdminNotes(uid, id))
+    }
+
+    /** Write/update staff-only internal notes on a user. */
+    @PutMapping("/users/{id}/notes")
+    ResponseEntity<Map> writeNotes(@PathVariable Long id,
+                                   @RequestBody Map body,
+                                   HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.writeAdminNotes(uid, id, body?.notes as String))
+    }
+
     @PostMapping("/users/{id}/credit")
     ResponseEntity<Map> credit(@PathVariable Long id,
                                @RequestBody Map body,

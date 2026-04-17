@@ -411,6 +411,35 @@ class AdminService {
     }
 
     /**
+     * Read + update staff-only internal notes attached to a user. Never
+     * visible to the user themselves — stored in admin_notes which is
+     * @JsonIgnore'd on SteamUser. Audit-logged so abuse is traceable.
+     */
+    Map readAdminNotes(Long adminUserId, Long targetUserId) {
+        requireAdmin(adminUserId)
+        def user = steamUserRepository.findById(targetUserId)
+            .orElseThrow { new NotFoundException('SteamUser', targetUserId) }
+        [userId: user.id, adminNotes: user.adminNotes ?: '']
+    }
+
+    @Transactional
+    Map writeAdminNotes(Long adminUserId, Long targetUserId, String notes) {
+        requireAdmin(adminUserId)
+        def user = steamUserRepository.findById(targetUserId)
+            .orElseThrow { new NotFoundException('SteamUser', targetUserId) }
+        // Cap at 4000 chars — matches the TEXT column but keeps the
+        // payload reasonable + prevents admins from accidentally dumping
+        // a log file into the field.
+        def clean = textSanitizer?.clean(notes, 4000) ?: (notes?.take(4000))
+        user.adminNotes = clean
+        steamUserRepository.save(user)
+        auditService?.log(AuditService.ADMIN_GRANTED, adminUserId, targetUserId, null,
+            "Updated admin notes (${(clean ?: '').length()} chars)")
+        log.info("Admin ${adminUserId} updated admin notes on user ${targetUserId}")
+        [userId: user.id, adminNotes: user.adminNotes ?: '']
+    }
+
+    /**
      * Wipe a user's TOTP secret — support path for locked-out users who
      * have lost access to their authenticator app. The user can then re-
      * enrol from Profile → 2FA. Deliberately high-privilege: admin-only

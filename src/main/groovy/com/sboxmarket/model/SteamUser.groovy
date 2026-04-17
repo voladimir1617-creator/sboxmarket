@@ -96,4 +96,12 @@ class SteamUser {
      *  the real Steam offer. Validated to begin with the canonical prefix. */
     @Column(length = 300)
     String tradeUrl
+
+    /** Staff-only internal notes. NEVER rendered to the user — marked
+     *  @JsonIgnore so even admin responses that serialise the whole
+     *  entity don't accidentally surface them in a role=USER session.
+     *  Editable only via /api/admin/users/{id}/notes. */
+    @JsonIgnore
+    @Column(name = 'admin_notes', columnDefinition = 'TEXT')
+    String adminNotes
 }

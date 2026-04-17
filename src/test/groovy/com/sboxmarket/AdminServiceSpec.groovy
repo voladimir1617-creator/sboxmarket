@@ -271,6 +271,54 @@ class AdminServiceSpec extends Specification {
         thrown(com.sboxmarket.exception.NotFoundException)
     }
 
+    // ── admin-only user notes ────────────────────────────────────
+
+    def "readAdminNotes returns the current value (or empty string)"() {
+        given:
+        def target = new SteamUser(id: 30L, steamId64: '5', adminNotes: 'flagged 2025-01')
+        steamUserRepository.findById(30L) >> Optional.of(target)
+
+        when:
+        def res = service.readAdminNotes(1L, 30L)
+
+        then:
+        res.adminNotes == 'flagged 2025-01'
+    }
+
+    def "readAdminNotes returns '' when the field is null"() {
+        given:
+        def target = new SteamUser(id: 30L, steamId64: '5', adminNotes: null)
+        steamUserRepository.findById(30L) >> Optional.of(target)
+
+        expect:
+        service.readAdminNotes(1L, 30L).adminNotes == ''
+    }
+
+    def "writeAdminNotes persists the value and audit-logs"() {
+        given:
+        def target = new SteamUser(id: 30L, steamId64: '5', adminNotes: null)
+        steamUserRepository.findById(30L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def res = service.writeAdminNotes(1L, 30L, 'chargeback Oct 2025 refunded $50')
+
+        then:
+        target.adminNotes == 'chargeback Oct 2025 refunded $50'
+        res.adminNotes.contains('chargeback')
+    }
+
+    def "writeAdminNotes 404s for unknown user"() {
+        given:
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.writeAdminNotes(1L, 999L, 'x')
+
+        then:
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
     // ── approve / reject withdrawal ───────────────────────────────
 
     def "approveWithdrawal flips status COMPLETED and notifies owner"() {

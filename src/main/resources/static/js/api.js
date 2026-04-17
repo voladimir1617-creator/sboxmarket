@@ -526,6 +526,16 @@ export async function adminReset2fa(id, note) {
     body: JSON.stringify({ note })
   });
 }
+export async function adminReadNotes(id) {
+  return safeJson(`${API}/admin/users/${id}/notes`);
+}
+export async function adminWriteNotes(id, notes) {
+  return writeJson(`${API}/admin/users/${id}/notes`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes })
+  });
+}
 export async function adminCreditWallet(id, amount, note) {
   return writeJson(`${API}/admin/users/${id}/credit`, {
     method: 'POST', credentials: 'same-origin',

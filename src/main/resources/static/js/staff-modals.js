@@ -6,7 +6,7 @@ import { InfoModal } from './info-modal.js';
 import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminBanUser, adminUnbanUser, adminGrant, adminRevoke,
-  adminGrantCsr, adminRevokeCsr, adminReset2fa,
+  adminGrantCsr, adminRevokeCsr, adminReset2fa, adminReadNotes, adminWriteNotes,
   adminCreditWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
@@ -1182,19 +1182,27 @@ function AdminUsersTab({ me }) {
   // panel — write actions stay on the row actions so they're audited.
   const [detailUser, setDetailUser]   = useState(null);
   const [detailData, setDetailData]   = useState(null);
+  // Staff-only notes draft editor — separate from detailData because
+  // it's user-editable + its own PUT. Persisted by the Save button.
+  const [notesDraft, setNotesDraft]   = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
   const load = useCallback(async () => { setRows(await adminUsers(search)); }, [search]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (!detailUser) { setDetailData(null); return; }
+    if (!detailUser) { setDetailData(null); setNotesDraft(''); return; }
     let alive = true;
     (async () => {
       try {
-        // Public stall + reviews for a quick at-a-glance card.
-        const [stall, reviews] = await Promise.all([
+        // Public stall + reviews + staff notes for a quick at-a-glance card.
+        const [stall, reviews, notes] = await Promise.all([
           fetch(`/api/listings/stall/${detailUser.id}`, { credentials: 'same-origin' }).then(r => r.ok ? r.json() : null),
-          fetch(`/api/reviews/user/${detailUser.id}`,   { credentials: 'same-origin' }).then(r => r.ok ? r.json() : [])
+          fetch(`/api/reviews/user/${detailUser.id}`,   { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []),
+          adminReadNotes(detailUser.id).catch(() => null)
         ]);
-        if (alive) setDetailData({ stall, reviews: Array.isArray(reviews) ? reviews : [] });
+        if (alive) {
+          setDetailData({ stall, reviews: Array.isArray(reviews) ? reviews : [] });
+          setNotesDraft(notes?.adminNotes || '');
+        }
       } catch (_) {}
     })();
     return () => { alive = false; };
@@ -1473,6 +1481,37 @@ function AdminUsersTab({ me }) {
                       : '—'
                   ),
                   h('div', { className: 'health-card-hint' }, `${detailData.stall?.rating?.count ?? 0} review${detailData.stall?.rating?.count === 1 ? '' : 's'}`)
+                )
+              ),
+              // Staff notes editor — textarea + Save button. Notes are
+              // @JsonIgnore'd on the entity so regular user-facing
+              // endpoints never surface them. Cap mirrors the 4000-char
+              // server cap.
+              h('div', { style: { marginTop: 14, marginBottom: 12 } },
+                h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 6 } }, '🔒 Staff notes (not visible to user)'),
+                h('textarea', {
+                  className: 'price-input',
+                  style: { width: '100%', minHeight: 70, resize: 'vertical', fontFamily: 'inherit', fontSize: 12 },
+                  placeholder: 'Internal context — ops observations, prior incidents, handoff notes between CSRs.',
+                  value: notesDraft,
+                  maxLength: 4000,
+                  onChange: e => setNotesDraft(e.target.value)
+                }),
+                h('div', { style: { display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' } },
+                  h('button', {
+                    className: 'btn btn-accent',
+                    style: { padding: '5px 14px', fontSize: 11 },
+                    disabled: notesSaving,
+                    onClick: async () => {
+                      setNotesSaving(true);
+                      try {
+                        const res = await adminWriteNotes(detailUser.id, notesDraft);
+                        if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+                      } finally { setNotesSaving(false); }
+                    }
+                  }, notesSaving ? 'Saving…' : 'Save notes'),
+                  h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
+                    `${notesDraft.length}/4000`)
                 )
               ),
               detailData.reviews.length > 0 && h('div', null,
