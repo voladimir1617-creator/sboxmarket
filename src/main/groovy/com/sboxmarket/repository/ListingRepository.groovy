@@ -71,6 +71,20 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Listing> findActiveVisibleBySeller(@Param("uid") Long uid)
 
+    /** "From sellers you follow" feed — visible active listings from
+     *  the given seller-id set, newest first. Uses `JOIN FETCH l.item`
+     *  (N+1 dodge) and leans on the existing `idx_listings_seller`
+     *  index; Pageable for the 20-row cap. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.sellerUserId IN :uids
+          AND l.status = 'ACTIVE'
+          AND (l.hidden IS NULL OR l.hidden = false)
+        ORDER BY l.listedAt DESC
+    """)
+    List<Listing> findActiveVisibleBySellerIds(@Param("uids") Collection<Long> sellerUserIds,
+                                                org.springframework.data.domain.Pageable pageable)
+
     @Query("SELECT l FROM Listing l JOIN FETCH l.item WHERE l.buyerUserId = :uid AND l.status = 'SOLD' ORDER BY l.soldAt DESC")
     List<Listing> findOwnedBy(@Param("uid") Long uid)
 

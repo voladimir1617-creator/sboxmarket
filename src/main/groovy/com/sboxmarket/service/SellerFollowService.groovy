@@ -4,6 +4,7 @@ import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SellerFollow
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SellerFollowRepository
 import com.sboxmarket.repository.SteamUserRepository
 import groovy.util.logging.Slf4j
@@ -27,6 +28,7 @@ class SellerFollowService {
 
     @Autowired SellerFollowRepository repo
     @Autowired SteamUserRepository steamUserRepository
+    @Autowired ListingRepository listingRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) EmailService emailService
 
@@ -78,6 +80,24 @@ class SellerFollowService {
 
     List<SellerFollow> listFollowing(Long followerUserId) {
         repo.findByFollowerUserIdOrderByCreatedAtDesc(followerUserId)
+    }
+
+    /**
+     * Home-page "From sellers you follow" rail — recent visible active
+     * listings from every seller the given user follows. Returns an
+     * empty list when the user follows nobody (signed-out or zero-
+     * follows). Bounded to `limit` rows so a power follower with 200
+     * sellers active doesn't ship a 10k-row payload on every home
+     * render.
+     */
+    List<Listing> feedForFollower(Long followerUserId, int limit = 20) {
+        if (followerUserId == null) return []
+        def sellerIds = repo.findSellerIdsByFollower(followerUserId)
+        if (sellerIds == null || sellerIds.isEmpty()) return []
+        int cap = Math.max(1, Math.min(limit, 50))
+        listingRepository.findActiveVisibleBySellerIds(
+            sellerIds,
+            org.springframework.data.domain.PageRequest.of(0, cap))
     }
 
     /**

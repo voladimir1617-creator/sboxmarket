@@ -763,6 +763,14 @@ export async function fetchWatchlistCountForItem(itemId) {
   return Number(data?.watching || 0);
 }
 
+/** Recent visible active listings from sellers the signed-in user
+ *  follows — drives the home-page "From sellers you follow" rail.
+ *  Empty array for signed-out users or users who follow nobody. */
+export async function fetchFollowingFeed() {
+  const data = await safeJson(`${API}/follows/feed`);
+  return Array.isArray(data) ? data : [];
+}
+
 /** Bulk cart-row freshness probe. The cart is persisted client-side
  *  so a row can go stale between "add" and "checkout" — someone else
  *  buys it, the seller pulls it, or the seller re-prices it. This

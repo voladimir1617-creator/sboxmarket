@@ -24,5 +24,11 @@ interface SellerFollowRepository extends JpaRepository<SellerFollow, Long> {
     @Query("SELECT COUNT(f) FROM SellerFollow f WHERE f.sellerUserId = :sellerId")
     long countBySeller(@Param("sellerId") Long sellerId)
 
+    /** Seller ids the given user follows. Drives the home-page "From
+     *  sellers you follow" rail — we need just the ids to fan out to
+     *  a single listing query, not the full join rows. */
+    @Query("SELECT f.sellerUserId FROM SellerFollow f WHERE f.followerUserId = :uid")
+    List<Long> findSellerIdsByFollower(@Param("uid") Long followerUserId)
+
     long deleteByFollowerUserIdAndSellerUserId(Long followerUserId, Long sellerUserId)
 }

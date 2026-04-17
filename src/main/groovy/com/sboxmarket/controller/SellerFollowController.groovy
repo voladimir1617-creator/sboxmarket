@@ -54,4 +54,16 @@ class SellerFollowController {
         def following = uid != null && service.isFollowing(uid, sellerId)
         ResponseEntity.ok([sellerUserId: sellerId, following: following, followerCount: count])
     }
+
+    /** "From sellers you follow" feed — recent visible active listings
+     *  from every seller the signed-in user follows. Returns an empty
+     *  array for anonymous viewers (and for users who follow nobody)
+     *  so the home-page rail can hide itself without a 401 branch.
+     *  Capped at 20 rows server-side. */
+    @GetMapping('/feed')
+    ResponseEntity<List<com.sboxmarket.model.Listing>> feed(HttpServletRequest req) {
+        def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (uid == null) return ResponseEntity.ok([])
+        ResponseEntity.ok(service.feedForFollower(uid, 20))
+    }
 }

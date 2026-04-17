@@ -7,7 +7,7 @@ import {
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
-  checkListingsActive
+  checkListingsActive, fetchFollowingFeed
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -470,6 +470,53 @@ function JustListedRail({ watchlist, onToggleStar, onOpen }) {
 // loads. Polls /api/listings/recent-sales every 30s so new sales land
 // in the rail without a manual refresh. Hides itself when the platform
 // has no completed sales yet.
+// ── Following feed — fresh listings from sellers the signed-in user
+// follows. Silent for anonymous viewers and for users who follow
+// nobody yet. Re-polls every 90s since it's personalised and we
+// don't want to spam the server with identical follower-fanout
+// queries.
+function FollowingRail({ me, watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    if (!me) { setRows([]); return; }
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchFollowingFeed();
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 90_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [me?.id]);
+  if (!me || !rows || rows.length === 0) return null;
+  return h('section', { className: 'top-deals-rail' },
+    h('div', { className: 'top-deals-head' },
+      h('span', { className: 'top-deals-spark' }, '♥'),
+      h('span', null, 'From sellers you follow'),
+      h('span', { className: 'top-deals-count' },
+        `${rows.length} listing${rows.length === 1 ? '' : 's'} from your follows`)
+    ),
+    h('div', { className: 'top-deals-track' },
+      rows.map(l => h('div', {
+        key: 'follow-' + l.id,
+        className: 'top-deals-card-wrap',
+        onClick: () => onOpen(l)
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l),
+          onAddToCart,
+          cartHas
+        })
+      ))
+    )
+  );
+}
+
 function JustSoldRail() {
   const [rows, setRows] = useState([]);
   useEffect(() => {
@@ -2390,6 +2437,15 @@ export function App() {
     /* TOP DEALS — rail of the 12 biggest % discounts vs Steam. */
     routeName === 'market' && h(TopDealsRail, {
       watchlist, onToggleStar: toggleStar, onOpen: openModal,
+      onAddToCart: me ? addToCart : null, cartHas: (id) => cart.some(c => c.id === id)
+    }),
+
+    /* FROM SELLERS YOU FOLLOW — personalised rail for signed-in users
+       who already follow at least one seller. Component is silent for
+       anonymous viewers and for empty follow sets, so this marker is
+       safe to always mount. */
+    routeName === 'market' && h(FollowingRail, {
+      me, watchlist, onToggleStar: toggleStar, onOpen: openModal,
       onAddToCart: me ? addToCart : null, cartHas: (id) => cart.some(c => c.id === id)
     }),
 
