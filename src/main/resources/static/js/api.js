@@ -155,6 +155,14 @@ export async function cancelWatchlistAlert(id) {
     method: 'DELETE', credentials: 'same-origin'
   });
 }
+export async function setEmailNotifications(enabled) {
+  return writeJson(`${API}/profile/email-notifications`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: !!enabled })
+  });
+}
+
 export async function requestAccountDeletion() {
   return writeJson(`${API}/profile/delete-account`, {
     method: 'POST', credentials: 'same-origin'

@@ -893,6 +893,39 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   );
 }
 
+// Email-notification toggle row. Lazy-loads the PUT helper so this
+// file doesn't gain a new top-level dependency; state is local, with
+// the server value seeded from ProfileService.buildProfile.
+function EmailPrefToggle({ initial }) {
+  const [on, setOn] = useState(initial !== false);
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    const next = !on;
+    setOn(next);  // optimistic
+    try {
+      const { setEmailNotifications } = await import('./api.js');
+      const res = await setEmailNotifications(next);
+      if (res && (res.error || res.code)) {
+        alert(res.message || res.error);
+        setOn(!next);  // revert
+      }
+    } finally { setBusy(false); }
+  };
+  return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+    h('div', {
+      className: `chat-toggle ${on ? '' : 'off'}`,
+      onClick: toggle,
+      role: 'switch',
+      'aria-checked': on,
+      title: on ? 'Email notifications ON — click to disable' : 'Email notifications OFF — click to enable'
+    }),
+    h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+      busy ? 'Saving…' : (on ? 'On' : 'Off'))
+  );
+}
+
 // "Sellers you follow" row inside ProfilePersonalTab. Compact list +
 // per-row unfollow. Silently hidden when the user follows nobody.
 // Lazy-imports the API helpers so this file doesn't gain a new
@@ -1317,6 +1350,19 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
         }, '⇣ Export my data (JSON)'),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Includes wallet, transactions, listings, trades, offers, buy orders, auto-bids, reviews, notifications. No secrets.')
+      )
+    ),
+
+    // Email-notification preference — toggle non-essential emails
+    // (auction outbid, auction won, price drops). Verification +
+    // account-state emails still send. Starts with the value from the
+    // loaded profile; click optimistically and commits via PUT.
+    h('div', { className: 'profile-row' },
+      h('div', { className: 'profile-row-label' }, 'Email notifications'),
+      h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
+        h(EmailPrefToggle, { initial: profile?.user?.emailNotificationsEnabled !== false }),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+          'Auction outbid, auction won, follower activity. Security + account-state emails are always sent regardless of this toggle.')
       )
     ),
 

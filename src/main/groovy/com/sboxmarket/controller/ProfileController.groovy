@@ -345,6 +345,25 @@ class ProfileController {
         ])
     }
 
+    /**
+     * Toggle the email-notifications preference. Doesn't affect
+     * security/operational emails (verification, password reset).
+     * Body: { enabled: boolean }.
+     */
+    @PutMapping('/email-notifications')
+    @Transactional
+    ResponseEntity<Map> updateEmailNotifications(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException('Unknown user') }
+        if (body == null || body.enabled == null) {
+            throw new BadRequestException('MISSING_FIELD', "'enabled' (boolean) is required")
+        }
+        user.emailNotificationsEnabled = (body.enabled as Boolean)
+        steamUserRepository.save(user)
+        log.info("User ${uid} set emailNotificationsEnabled=${user.emailNotificationsEnabled}")
+        ResponseEntity.ok([emailNotificationsEnabled: user.emailNotificationsEnabled])
+    }
+
     /** Cancel a pending deletion request. */
     @PostMapping('/delete-account/cancel')
     @Transactional

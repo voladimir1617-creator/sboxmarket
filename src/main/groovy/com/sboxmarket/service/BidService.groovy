@@ -147,7 +147,8 @@ class BidService {
             try {
                 def prev = steamUserRepository.findById(previousTopId).orElse(null)
                 if (emailService != null && prev != null &&
-                        Boolean.TRUE.equals(prev.emailVerified) && prev.email) {
+                        Boolean.TRUE.equals(prev.emailVerified) && prev.email &&
+                        Boolean.TRUE.equals(prev.emailNotificationsEnabled)) {
                     def itemUrl = listing.item?.id != null
                         ? "/item/${listing.item.id}".toString()
                         : null
@@ -330,7 +331,8 @@ class BidService {
         try {
             def winner = steamUserRepository.findById(winnerId).orElse(null)
             if (emailService != null && winner != null &&
-                    Boolean.TRUE.equals(winner.emailVerified) && winner.email) {
+                    Boolean.TRUE.equals(winner.emailVerified) && winner.email &&
+                    Boolean.TRUE.equals(winner.emailNotificationsEnabled)) {
                 def itemUrl = listing.item?.id != null
                     ? "/item/${listing.item.id}".toString()
                     : null

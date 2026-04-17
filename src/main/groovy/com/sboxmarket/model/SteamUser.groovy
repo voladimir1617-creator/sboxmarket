@@ -110,4 +110,10 @@ class SteamUser {
      *  + finalises. Cancelling the request resets this to null. */
     @Column(name = 'deletion_requested_at')
     Long deletionRequestedAt
+
+    /** User-opt-in for non-essential email notifications (outbid, won,
+     *  price-drop, etc). Default true. Security + operational emails
+     *  (verification, password-reset) ignore this flag. */
+    @Column(name = 'email_notifications_enabled', nullable = false)
+    Boolean emailNotificationsEnabled = true
 }
