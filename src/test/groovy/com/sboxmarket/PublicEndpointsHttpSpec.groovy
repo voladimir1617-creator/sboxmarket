@@ -663,4 +663,30 @@ class PublicEndpointsHttpSpec extends Specification {
         // any SOLD rows yet — fresh installs should still return [].
         r.response.contentAsString.startsWith('[')
     }
+
+    def "GET /api/watchlist/alerts requires auth"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/watchlist/alerts')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "POST /api/watchlist/alerts requires auth"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.post('/api/watchlist/alerts')
+            .contentType('application/json')
+            .content('{"itemId":1,"targetPrice":5.00}')).andReturn()
+
+        then:
+        r.response.status == 401 || r.response.status == 403  // CSRF may intercept first
+    }
+
+    def "DELETE /api/watchlist/alerts/{id} requires auth"() {
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.delete('/api/watchlist/alerts/1')).andReturn()
+
+        then:
+        r.response.status == 401 || r.response.status == 403
+    }
 }
