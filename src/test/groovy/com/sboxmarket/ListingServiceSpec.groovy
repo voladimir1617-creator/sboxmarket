@@ -387,6 +387,56 @@ class ListingServiceSpec extends Specification {
         1 * listingReportRepository.save({ r -> r.reason == 'Other' })
     }
 
+    // ── findRecentSales (platform-wide Just Sold feed) ────────────
+
+    def "findRecentSales caps the limit at 30 and projects to compact maps"() {
+        given:
+        def l = listingFor(id: 50L, price: new BigDecimal('12.34'))
+        l.soldAt = 1_700_000_000_000L
+        l.sellerName = 'Alice'
+        // Stub + assert the pageable arrives with pageSize == 30 (the cap).
+        // Combining the >> on the interaction keeps Spock from counting the
+        // call twice when the given-block stub also exists.
+        org.springframework.data.domain.Pageable seen = null
+        listingRepository.findRecentlySold(_) >> { args -> seen = args[0]; [l] }
+
+        when:
+        def rows = service.findRecentSales(100)  // above cap
+
+        then:
+        seen != null
+        seen.pageSize == 30
+        rows.size() == 1
+        rows[0].listingId == 50L
+        rows[0].price == new BigDecimal('12.34')
+        rows[0].soldAt == 1_700_000_000_000L
+        rows[0].sellerName == 'Alice'
+    }
+
+    def "findRecentSales floors the limit at 1"() {
+        given:
+        org.springframework.data.domain.Pageable seen = null
+        listingRepository.findRecentlySold(_) >> { args -> seen = args[0]; [] }
+
+        when:
+        service.findRecentSales(0)  // below floor
+
+        then:
+        seen != null
+        seen.pageSize == 1
+    }
+
+    def "findRecentSales returns an empty list when no sales exist"() {
+        given:
+        listingRepository.findRecentlySold(_ as org.springframework.data.domain.Pageable) >> []
+
+        when:
+        def rows = service.findRecentSales(12)
+
+        then:
+        rows == []
+    }
+
     // ── findSoldBySeller passthrough ──────────────────────────────
 
     def "findSoldBySeller forwards the pageable to the repo"() {
