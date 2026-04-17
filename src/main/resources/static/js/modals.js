@@ -2375,6 +2375,10 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
   const [totpCode, setTotpCode] = useState('');
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState('');
+  // History type filter. Values match the Transaction.type strings the
+  // backend serializes — DEPOSIT / SALE / PURCHASE / WITHDRAW / REFUND /
+  // ADJUSTMENT_CREDIT / ADJUSTMENT_DEBIT. 'ALL' = no filter.
+  const [txTypeFilter, setTxTypeFilter] = useState('ALL');
 
   // Fee preview for deposits and withdrawals. Matches the rates in the
   // homepage fee calculator so users see the same numbers everywhere.
@@ -2459,39 +2463,63 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
       ),
       h('div', { className: 'wallet-panel' },
         tab === 'history'
-          ? h('div', null,
-              transactions.length > 0 && h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 } },
-                h('a', {
-                  className: 'btn btn-ghost',
-                  style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-                  href: '/api/wallet/transactions.csv',
-                  title: 'Download all transactions as a CSV file'
-                }, '⇣ Export CSV')
-              ),
-              h('div', { className: 'wallet-tx-list' },
-              transactions.length === 0
-                ? h('div', { className: 'wallet-tx-empty' }, 'No transactions yet')
-                : transactions.map(tx => {
-                    const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
-                    // Defensive: tx.type should always be a string from the
-                    // server, but some historical rows under ddl-auto: update
-                    // had null types. Guard so one bad row doesn't crash the
-                    // whole Transactions tab.
-                    const typeLabel = (tx.type || 'UNKNOWN').toString();
-                    const prettyType = typeLabel.charAt(0) + typeLabel.slice(1).toLowerCase().replace('_', ' ');
-                    return h('div', { key: tx.id, className: 'wallet-tx' },
-                      h('div', { className: `wallet-tx-icon ${inbound ? 'in' : 'out'}` }, inbound ? '↓' : '↑'),
-                      h('div', { className: 'wallet-tx-main' },
-                        h('div', { className: 'wallet-tx-type' }, prettyType),
-                        h('div', { className: 'wallet-tx-desc' }, tx.description || tx.stripeReference)
-                      ),
-                      h('div', { className: 'wallet-tx-right' },
-                        h('div', { className: `wallet-tx-amt ${inbound ? 'in' : 'out'}` }, (inbound ? '+' : '−') + fmt(tx.amount)),
-                        h('div', { className: `wallet-tx-status ${tx.status}` }, tx.status)
-                      )
-                    );
-                  })
-            ))
+          ? (() => {
+              // Filter by type first so the CSV export button renders the
+              // "N transactions" count the user actually sees in the list.
+              const filtered = txTypeFilter === 'ALL'
+                ? transactions
+                : transactions.filter(tx => {
+                    const t = (tx.type || '').toUpperCase();
+                    if (txTypeFilter === 'WITHDRAWAL') return t === 'WITHDRAW' || t === 'WITHDRAWAL';
+                    if (txTypeFilter === 'ADJUST') return t.startsWith('ADJUSTMENT_');
+                    return t === txTypeFilter;
+                  });
+              return h('div', null,
+                h('div', { className: 'wallet-tx-filter-row' },
+                  [
+                    { id: 'ALL',        label: 'All' },
+                    { id: 'DEPOSIT',    label: 'Deposits' },
+                    { id: 'SALE',       label: 'Sales' },
+                    { id: 'PURCHASE',   label: 'Purchases' },
+                    { id: 'WITHDRAWAL', label: 'Withdrawals' },
+                    { id: 'ADJUST',     label: 'Adjustments' }
+                  ].map(opt => h('button', {
+                    key: opt.id,
+                    className: `wallet-tx-filter-chip ${txTypeFilter === opt.id ? 'active' : ''}`,
+                    onClick: () => setTxTypeFilter(opt.id),
+                    'aria-pressed': txTypeFilter === opt.id
+                  }, opt.label)),
+                  h('div', { style: { flex: 1 } }),
+                  transactions.length > 0 && h('a', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+                    href: '/api/wallet/transactions.csv',
+                    title: 'Download all transactions as a CSV file'
+                  }, '⇣ Export CSV')
+                ),
+                h('div', { className: 'wallet-tx-list' },
+                  filtered.length === 0
+                    ? h('div', { className: 'wallet-tx-empty' },
+                        transactions.length === 0 ? 'No transactions yet' : 'No transactions match this filter')
+                    : filtered.map(tx => {
+                        const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
+                        const typeLabel = (tx.type || 'UNKNOWN').toString();
+                        const prettyType = typeLabel.charAt(0) + typeLabel.slice(1).toLowerCase().replace('_', ' ');
+                        return h('div', { key: tx.id, className: 'wallet-tx' },
+                          h('div', { className: `wallet-tx-icon ${inbound ? 'in' : 'out'}` }, inbound ? '↓' : '↑'),
+                          h('div', { className: 'wallet-tx-main' },
+                            h('div', { className: 'wallet-tx-type' }, prettyType),
+                            h('div', { className: 'wallet-tx-desc' }, tx.description || tx.stripeReference)
+                          ),
+                          h('div', { className: 'wallet-tx-right' },
+                            h('div', { className: `wallet-tx-amt ${inbound ? 'in' : 'out'}` }, (inbound ? '+' : '−') + fmt(tx.amount)),
+                            h('div', { className: `wallet-tx-status ${tx.status}` }, tx.status)
+                          )
+                        );
+                      })
+                )
+              );
+            })()
           : h('div', null,
               h('div', { className: 'withdraw-step', style: { marginBottom: 8 } },
                 h('div', { className: 'withdraw-step-num' }, '1'),

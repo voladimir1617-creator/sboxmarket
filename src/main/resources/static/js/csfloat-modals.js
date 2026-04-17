@@ -670,12 +670,35 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
     } finally { setBusy(false); }
   };
 
-  return h('div', { className: 'auction-panel' },
+  // Self-bid awareness — flip the header accent and drop in a status
+  // banner so the bidder knows whether they're currently winning, losing,
+  // or yet to bid. Anti-sniping soft-close is server-side; this panel
+  // just surfaces the state.
+  const viewerIsTop = me && listing.currentBidderId && listing.currentBidderId === me.id;
+  const viewerHasBid = history.some(b => b.bidderUserId && me && b.bidderUserId === me.id);
+  const viewerIsLosing = viewerHasBid && !viewerIsTop && !ended;
+
+  return h('div', { className: `auction-panel${viewerIsTop ? ' winning' : ''}${viewerIsLosing ? ' losing' : ''}` },
+    viewerIsTop && h('div', { className: 'auction-status-banner winning' },
+      h('span', { className: 'auction-status-icon' }, '✓'),
+      h('span', null,
+        h('strong', null, "You're the top bidder — "),
+        'staying on top is automatic if you set an auto-bid cap.'
+      )
+    ),
+    viewerIsLosing && h('div', { className: 'auction-status-banner losing' },
+      h('span', { className: 'auction-status-icon' }, '↑'),
+      h('span', null,
+        h('strong', null, 'You were outbid — '),
+        `min next bid is $${minNext}.`
+      )
+    ),
     h('div', { className: 'auction-header' },
       h('div', null,
         h('div', { className: 'auction-label' }, 'CURRENT BID'),
         h('div', { className: 'auction-bid' }, fmt(listing.currentBid || listing.price)),
-        listing.currentBidderName && h('div', { className: 'auction-bidder' }, 'by ' + listing.currentBidderName)
+        listing.currentBidderName && h('div', { className: 'auction-bidder' },
+          viewerIsTop ? 'by you' : ('by ' + listing.currentBidderName))
       ),
       h('div', { style: { textAlign: 'right' } },
         h('div', { className: 'auction-label' }, ended ? 'STATUS' : 'TIME LEFT'),
@@ -693,12 +716,18 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
     history.length > 0 && h('div', { className: 'auction-history' },
       h('div', { className: 'modal-section-title', style: { marginTop: 16 } },
         h('div', { className: 'section-title-dot' }), `Bid History (${history.length})`),
-      history.slice(0, 8).map(b => h('div', { key: b.id, className: 'auction-history-row' },
-        h('div', { className: 'auction-history-bidder' }, b.bidderName || 'anon'),
-        h('div', { className: 'auction-history-kind' }, b.kind),
-        h('div', { className: 'auction-history-amt' }, fmt(b.amount)),
-        h('div', { className: 'auction-history-time' }, timeAgo(b.createdAt))
-      ))
+      history.slice(0, 8).map(b => {
+        const isMine = me && b.bidderUserId && b.bidderUserId === me.id;
+        return h('div', { key: b.id, className: `auction-history-row${isMine ? ' you' : ''}` },
+          h('div', { className: 'auction-history-bidder' },
+            isMine ? 'You' : (b.bidderName || 'anon'),
+            isMine && h('span', { className: 'auction-history-you-tag' }, 'YOU')
+          ),
+          h('div', { className: 'auction-history-kind' }, b.kind),
+          h('div', { className: 'auction-history-amt' }, fmt(b.amount)),
+          h('div', { className: 'auction-history-time' }, timeAgo(b.createdAt))
+        );
+      })
     )
   );
 }

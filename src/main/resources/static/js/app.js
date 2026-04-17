@@ -758,6 +758,9 @@ export function App() {
   // Pure client-side filter applied before dedup so the cheapest seller
   // per item still wins the grid card.
   const [dealsOnly, setDealsOnly] = useState(false);
+  // New-in-24h toggle — highlights fresh inventory. Client-side filter
+  // on listedAt; pairs cleanly with Deals and the type toggles.
+  const [newOnly, setNewOnly] = useState(false);
 
   // item detail
   const [selected, setSelected]         = useState(null);
@@ -1256,6 +1259,10 @@ export function App() {
         return isFinite(sp) && isFinite(p) && sp > 0 && p < sp;
       });
     }
+    if (newOnly) {
+      const cutoff = Date.now() - 24 * 3600 * 1000;
+      pool = pool.filter(l => (l?.listedAt || 0) >= cutoff);
+    }
     const byItem = {};
     pool.filter(l => l?.item).forEach(l => {
       const current = byItem[l.item.id];
@@ -1268,7 +1275,7 @@ export function App() {
     pool.forEach(l => { if (l?.item) counts[l.item.id] = (counts[l.item.id] || 0) + 1; });
     return Object.values(byItem)
       .map(e => ({ ...e.listing, __listingCount: counts[e.listing.item.id] || 1 }));
-  }, [listings, listingTypeFilter, dealsOnly]);
+  }, [listings, listingTypeFilter, dealsOnly, newOnly]);
 
   // Full-page routes vs overlay routes. CSFloat-style: most destinations
   // are real pages that replace the marketplace body; only the item detail
@@ -1712,6 +1719,13 @@ export function App() {
             title: 'Only show listings priced below the Steam Market price',
             'aria-pressed': dealsOnly
           }, '% Deals'),
+          // New-in-24h chip. Pairs with Deals; stackable.
+          h('button', {
+            className: `deals-chip new-chip ${newOnly ? 'active' : ''}`,
+            onClick: () => setNewOnly(n => !n),
+            title: 'Only show listings posted in the last 24 hours',
+            'aria-pressed': newOnly
+          }, '★ New'),
           h('div', { className: 'view-btns', role: 'group', 'aria-label': 'View mode' },
             h('button', { className: `view-btn ${view === 'grid' ? 'active' : ''}`,  onClick: () => setView('grid'), 'aria-label': 'Grid view',  'aria-pressed': view === 'grid' },  '⊞'),
             h('button', { className: `view-btn ${view === 'table' ? 'active' : ''}`, onClick: () => setView('table'), 'aria-label': 'Table view', 'aria-pressed': view === 'table' }, '☰')

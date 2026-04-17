@@ -3070,6 +3070,62 @@
     .auction-history-amt    { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-primary); text-align: right; font-variant-numeric: tabular-nums; }
     .auction-history-time   { font-size: 11px; color: var(--text-muted); text-align: right; }
 
+    /* Viewer's own bid rows stand out so the user can find their bid
+       position at a glance in a long history. */
+    .auction-history-row.you {
+      background: var(--accent-dim);
+      border-color: var(--accent-border);
+    }
+    .auction-history-row.you .auction-history-bidder { color: var(--accent); }
+    .auction-history-you-tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #0d1320;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+
+    /* Status banners above the auction header when the viewer is
+       winning or has been outbid. */
+    .auction-status-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 12.5px;
+      border-radius: 8px;
+      line-height: 1.45;
+    }
+    .auction-status-banner.winning {
+      color: #0d1320;
+      background: linear-gradient(135deg, #60e3a6, #4ade80);
+      border: 1px solid #16a34a;
+    }
+    .auction-status-banner.losing {
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+    .auction-status-icon {
+      font-weight: 800;
+      font-size: 15px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.18);
+      flex-shrink: 0;
+    }
+    .auction-panel.winning { border-color: rgba(74, 222, 128, 0.45); }
+    .auction-panel.losing  { border-color: rgba(248, 113, 113, 0.35); }
+
     /* My Stall toolbar + edit row */
     .stall-toolbar {
       padding: 14px 18px;
@@ -4461,6 +4517,33 @@
     }
     .announce-banner-close:hover { background: rgba(0, 0, 0, 0.28); }
 
+    /* ─────────── WALLET TX TYPE FILTER ─────────── */
+    .wallet-tx-filter-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .wallet-tx-filter-chip {
+      padding: 5px 11px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: all 0.12s;
+    }
+    .wallet-tx-filter-chip:hover { color: var(--text-primary); }
+    .wallet-tx-filter-chip.active {
+      color: #0d1320;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
     /* ─────────── DEALS CHIP ─────────── */
     .deals-chip {
       padding: 6px 14px;
@@ -4480,6 +4563,11 @@
       background: linear-gradient(135deg, #60e3a6, #4ade80);
       border-color: #16a34a;
       box-shadow: 0 3px 8px rgba(74, 222, 128, 0.35);
+    }
+    .deals-chip.new-chip.active {
+      background: linear-gradient(135deg, #fde68a, #fbbf24);
+      border-color: #d97706;
+      box-shadow: 0 3px 8px rgba(251, 191, 36, 0.35);
     }
 
     /* ─────────── LISTING TYPE TOGGLE ─────────── */
