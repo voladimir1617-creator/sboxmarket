@@ -86,6 +86,29 @@ class BuyOrderController {
         ])
     }
 
+    /**
+     * Projected queue position for a hypothetical buy order placed NOW.
+     * Drives the "at $45 you'd be #3 in queue" preview on the create
+     * form — lets buyers calibrate their max price before committing.
+     * Uses the live timestamp as createdAt so ties resolve in favour of
+     * every existing order, matching the real behaviour when the form
+     * is actually submitted.
+     */
+    @GetMapping("/projected-position")
+    ResponseEntity<Map> projectedPosition(
+            @RequestParam Long itemId,
+            @RequestParam BigDecimal maxPrice) {
+        if (itemId == null || maxPrice == null || maxPrice <= BigDecimal.ZERO) {
+            return ResponseEntity.ok([itemId: itemId, maxPrice: maxPrice, position: null])
+        }
+        long ahead = buyOrderService.countAheadInQueue(itemId, maxPrice, System.currentTimeMillis())
+        ResponseEntity.ok([
+            itemId:   itemId,
+            maxPrice: maxPrice,
+            position: ahead + 1L
+        ])
+    }
+
     @PostMapping
     ResponseEntity<BuyOrder> create(@Valid @RequestBody CreateBuyOrderRequest body, HttpServletRequest req) {
         def uid = requireUser(req)

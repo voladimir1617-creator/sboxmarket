@@ -8,7 +8,7 @@ import { ItemImage, RarityBadge, MaterialIcon } from './primitives.js';
 import { InfoModal } from './info-modal.js';
 import { navigate, paths } from './router.js';
 import {
-  fetchDatabase, fetchBuyOrders, createBuyOrder, deleteBuyOrder,
+  fetchDatabase, fetchBuyOrders, createBuyOrder, deleteBuyOrder, fetchBuyOrderProjectedPosition,
   fetchPublicLoadouts, fetchMyLoadouts, fetchLoadout, createLoadout,
   setLoadoutSlot, generateLoadout, deleteLoadout, favoriteLoadout,
   fetchListings,
@@ -137,6 +137,19 @@ export function BuyOrdersModal({ onClose, me, preselectedItem }) {
   const [qty, setQty]         = useState('1');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
+  // Projected queue position for the current (picked.id, maxPrice)
+  // pair. Refreshed with a 400ms debounce whenever the user edits the
+  // max price so the chip updates as they tune the number.
+  const [projectedPos, setProjectedPos] = useState(null);
+  useEffect(() => {
+    if (!picked?.id || !(parseFloat(maxPrice) > 0)) { setProjectedPos(null); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      const n = await fetchBuyOrderProjectedPosition(picked.id, maxPrice);
+      if (alive) setProjectedPos(n);
+    }, 400);
+    return () => { alive = false; clearTimeout(t); };
+  }, [picked?.id, maxPrice]);
 
   const load = useCallback(async () => { setOrders(await fetchBuyOrders()); }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
@@ -250,6 +263,29 @@ export function BuyOrdersModal({ onClose, me, preselectedItem }) {
           placeholder: picked.lowestPrice ? (parseFloat(picked.lowestPrice) * 0.9).toFixed(2) : '0.00' }),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 } },
           'When a listing for this item drops to or below your max, it is auto-purchased from your wallet.'),
+        // Projected queue-position chip. Previews where this order
+        // would land under the engine's priority (maxPrice DESC,
+        // createdAt ASC) so the buyer can tune their max price before
+        // committing. Green at #1 (next to fill), amber #2–#3, muted
+        // deeper. Silent while the request is in flight or inputs
+        // are invalid.
+        projectedPos != null && (() => {
+          const cls = projectedPos <= 1 ? 'var(--green)'
+                   :  projectedPos <= 3 ? '#fbbf24'
+                   :                      'var(--text-muted)';
+          const tip = projectedPos === 1
+            ? 'At this price you would be first in line — the next matching listing fills your order.'
+            : `${projectedPos - 1} other buyer${projectedPos - 1 === 1 ? ' is' : 's are'} already bidding at least this much for this item. Raise your max to jump the queue.`;
+          return h('div', {
+            style: {
+              marginTop: 8, padding: '6px 10px', borderRadius: 6, fontSize: 11,
+              fontWeight: 700, color: cls,
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              display: 'inline-block'
+            },
+            title: tip
+          }, 'At this price · #' + projectedPos + ' in queue');
+        })(),
         h('div', { className: 'wallet-input-label' }, 'Quantity'),
         h('input', { className: 'wallet-amount-input', type: 'number', min: '1', step: '1',
           value: qty, onChange: e => setQty(e.target.value) }),

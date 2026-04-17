@@ -763,6 +763,16 @@ export async function fetchBuyOrderCountForItem(itemId) {
     bestBid: data?.bestBid != null ? Number(data.bestBid) : null
   };
 }
+
+/** Projected queue position for a hypothetical buy order at (itemId,
+ *  maxPrice). Drives the "#N in queue" preview on the create form.
+ *  Returns null when inputs are missing or invalid. */
+export async function fetchBuyOrderProjectedPosition(itemId, maxPrice) {
+  if (!itemId || !(parseFloat(maxPrice) > 0)) return null;
+  const qs = `?itemId=${encodeURIComponent(itemId)}&maxPrice=${encodeURIComponent(maxPrice)}`;
+  const data = await safeJson(`${API}/buy-orders/projected-position${qs}`);
+  return data?.position != null ? Number(data.position) : null;
+}
 /** Public watcher count for an item — number of ACTIVE price alerts
  *  pinned to the item id. Drives the "N watching" chip on item
  *  detail. Aggregate only — no watcher identities exposed. */
