@@ -72,6 +72,20 @@ class ItemController {
      * inside a single indexed JPQL query with `LIMIT 12` instead of
      * loading every catalogue row and sorting in Groovy.
      */
+    /** Trade velocity for an item — count of listings SOLD in the last
+     *  7 + 30 days. Indexed COUNTs; cheap to call on every item detail
+     *  modal open. Returns zero when nothing has sold recently. */
+    @GetMapping("/{id}/velocity")
+    ResponseEntity<Map> velocity(@PathVariable Long id) {
+        def now = System.currentTimeMillis()
+        def week = now - 7L * 86400_000L
+        def month = now - 30L * 86400_000L
+        ResponseEntity.ok([
+            soldLast7d:  listingRepository.countSoldForItemSince(id, week),
+            soldLast30d: listingRepository.countSoldForItemSince(id, month)
+        ])
+    }
+
     @GetMapping("/{id}/similar")
     ResponseEntity<List<Item>> getSimilar(@PathVariable Long id) {
         def base = itemService.getById(id)

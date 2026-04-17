@@ -101,6 +101,11 @@ export async function fetchSimilar(itemId) {
   return Array.isArray(data) ? data : [];
 }
 
+/** Indexed counts of SOLD listings over rolling 7d + 30d windows. */
+export async function fetchItemVelocity(itemId) {
+  return (await safeJson(`${API}/items/${itemId}/velocity`)) || { soldLast7d: 0, soldLast30d: 0 };
+}
+
 export async function buyListing(id) {
   return writeJson(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
 }

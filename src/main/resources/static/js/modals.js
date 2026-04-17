@@ -8,7 +8,7 @@ import { AuctionBidPanel } from './csfloat-modals.js';
 import {
   fetchInventory, fetchMyStall, fetchMyStallSold, bulkAdjustStall, relistItem, cancelListing,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
-  fetchOfferThread, fetchSimilar, reportListing, fetchReportReasons,
+  fetchOfferThread, fetchSimilar, fetchItemVelocity, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
   fetchBuyOrders, deleteBuyOrder, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
@@ -75,6 +75,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     if (!item?.id) return;
     let alive = true;
     fetchBuyOrderCountForItem(item.id).then(n => { if (alive) setBuyOrderCount(n); });
+    return () => { alive = false; };
+  }, [item?.id]);
+  // Trade velocity — "N sold · 7d" activity chip in the header. Social
+  // proof via realised sales (complement to the buy-order count which
+  // shows demand without transactions).
+  const [velocity, setVelocity] = useState({ soldLast7d: 0, soldLast30d: 0 });
+  useEffect(() => {
+    if (!item?.id) return;
+    let alive = true;
+    fetchItemVelocity(item.id).then(v => { if (alive) setVelocity(v || { soldLast7d: 0, soldLast30d: 0 }); });
     return () => { alive = false; };
   }, [item?.id]);
   useEffect(() => {
@@ -190,7 +200,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             h('span', { className: 'modal-demand-chip-num' }, buyOrderCount),
             ' buyer', buyOrderCount === 1 ? '' : 's',
             ' want', buyOrderCount === 1 ? 's' : '', ' this right now'
-          )
+          ),
+          // Velocity chip — social proof via realised sales, complement
+          // to the demand chip. Shows "N sold this week" when there's
+          // any 7d activity; "N sold this month" fallback when slower.
+          (velocity.soldLast7d > 0 || velocity.soldLast30d > 0) &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } },
+              h('span', { className: 'modal-demand-chip-num' },
+                velocity.soldLast7d > 0 ? velocity.soldLast7d : velocity.soldLast30d),
+              velocity.soldLast7d > 0 ? ' sold this week' : ' sold this month'
+            )
         )
       ),
 

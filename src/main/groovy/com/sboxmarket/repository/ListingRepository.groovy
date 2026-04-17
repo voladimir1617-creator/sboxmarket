@@ -237,6 +237,18 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     long countSimulated()
 
+    /** Trade velocity: how many listings for this specific item sold
+     *  in the window. Indexed COUNT — avoids pulling rows. Drives the
+     *  "N sold this week" activity chip on the item detail modal. */
+    @Query("""
+        SELECT COUNT(l) FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status  = 'SOLD'
+          AND l.soldAt  IS NOT NULL
+          AND l.soldAt  >= :since
+    """)
+    long countSoldForItemSince(@Param('itemId') Long itemId, @Param('since') Long since)
+
     /** Listings with at least one user report, ordered by report_count DESC
      *  (break ties by most-recently-reported). Admin moderation queue.
      *  Top-N cap is applied at the service layer — keeping the query
