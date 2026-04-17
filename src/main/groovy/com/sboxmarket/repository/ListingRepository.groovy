@@ -191,6 +191,22 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Object[]> topSellers(@Param("minSold") long minSold, org.springframework.data.domain.Pageable page)
 
+    /** Top discounts — active BUY_NOW listings where the price is
+     *  meaningfully below the catalogue steamPrice, ordered by percentage
+     *  gap DESC. Fuels the homepage "Top deals" rail. Filter out anything
+     *  with a non-positive steamPrice so the ratio doesn't divide-by-zero. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item i
+        WHERE l.status = 'ACTIVE'
+          AND l.listingType = 'BUY_NOW'
+          AND (l.hidden IS NULL OR l.hidden = false)
+          AND i.steamPrice IS NOT NULL
+          AND i.steamPrice > 0
+          AND l.price < i.steamPrice
+        ORDER BY (l.price / i.steamPrice) ASC
+    """)
+    List<Listing> findTopDeals(org.springframework.data.domain.Pageable page)
+
     /** Rows flagged as simulator fixtures — `AdminSimulatorService.clearSimulated`
      *  and `countSimulated` used to pull every listing and filter in Groovy.
      *  Pushing the tag filters into SQL keeps the admin sim tool fast even

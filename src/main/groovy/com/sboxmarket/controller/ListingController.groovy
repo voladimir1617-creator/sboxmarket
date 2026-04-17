@@ -189,6 +189,14 @@ class ListingController {
         ResponseEntity.ok(rows)
     }
 
+    /** Top deals rail — active BUY_NOW listings priced furthest below
+     *  the catalogue steamPrice, sorted by deepest %. Public endpoint,
+     *  capped at 12 rows. Drives the homepage deal-hunter surface. */
+    @GetMapping("/top-deals")
+    ResponseEntity<List<Listing>> topDeals() {
+        ResponseEntity.ok(listingService.findTopDeals(12))
+    }
+
     /** Top sellers rail — aggregates sold counts and surfaces the most
      *  active sellers for homepage social proof. Public, capped at 8
      *  rows so the payload stays tiny. Response includes enough data for

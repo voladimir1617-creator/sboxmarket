@@ -1857,6 +1857,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const [busy, setBusy]           = useState(false);
   const [error, setError]         = useState('');
   const [syncing, setSyncing]     = useState(false);
+  // Filter chips — narrow the Steam inventory view when the user has a
+  // lot of items. Rarity filter + free-text name search. Pure client-
+  // side; backend still returns the full set.
+  const [sellRarityFilter, setSellRarityFilter] = useState('All');
+  const [sellSearch, setSellSearch]             = useState('');
 
   const loadSteam = useCallback(async () => {
     setSteamData(await fetchSteamInventory());
@@ -1999,23 +2004,61 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 18px' } },
         'Either your Steam inventory is private, or there are no s&box cosmetics in it. Click Sync Steam to retry.')
     ),
-    source === 'steam' && steamData && steamList.length > 0 && h('div', null,
-      // Summary chips: tradable / matched / new. Lets the seller see the
-      // state of their inventory at a glance instead of counting rows.
-      h('div', { className: 'sell-summary' },
-        h('div', { className: 'sell-summary-chip' },
-          h('span', { className: 'sell-summary-num' }, steamList.length), ' total'),
-        h('div', { className: 'sell-summary-chip ok' },
-          h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.tradable).length), ' tradable'),
-        h('div', { className: 'sell-summary-chip warn' },
-          h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.tradable).length), ' locked'),
-        h('div', { className: 'sell-summary-chip accent' },
-          h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.catalogueId).length), ' already in catalogue'),
-        h('div', { className: 'sell-summary-chip' },
-          h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.catalogueId).length), ' new to sboxmarket')
-      ),
-      h('div', { className: 'inventory-grid' },
-        steamList.map(si => h('div', {
+    source === 'steam' && steamData && steamList.length > 0 && (() => {
+      // Apply filter chips + name search before rendering. Rarity chips
+      // derived from whatever rarities the user's inventory actually
+      // contains so we don't dangle empty buttons.
+      const q = sellSearch.trim().toLowerCase();
+      const filtered = steamList.filter(si => {
+        if (sellRarityFilter !== 'All' && (si.rarity || 'Standard') !== sellRarityFilter) return false;
+        if (q && !(si.name || '').toLowerCase().includes(q)) return false;
+        return true;
+      });
+      const rarities = Array.from(new Set(steamList.map(s => s.rarity || 'Standard'))).sort();
+      return h('div', null,
+        // Summary chips: tradable / matched / new.
+        h('div', { className: 'sell-summary' },
+          h('div', { className: 'sell-summary-chip' },
+            h('span', { className: 'sell-summary-num' }, steamList.length), ' total'),
+          h('div', { className: 'sell-summary-chip ok' },
+            h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.tradable).length), ' tradable'),
+          h('div', { className: 'sell-summary-chip warn' },
+            h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.tradable).length), ' locked'),
+          h('div', { className: 'sell-summary-chip accent' },
+            h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.catalogueId).length), ' already in catalogue'),
+          h('div', { className: 'sell-summary-chip' },
+            h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.catalogueId).length), ' new to sboxmarket')
+        ),
+        // Filter bar — rarity chips + free-text search. Hides when the
+        // inventory has <=6 items because the chips add noise for free.
+        steamList.length > 6 && h('div', { className: 'sell-filter-bar' },
+          h('button', {
+            className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
+            onClick: () => setSellRarityFilter('All')
+          }, `All · ${steamList.length}`),
+          rarities.map(r => h('button', {
+            key: r,
+            className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
+            onClick: () => setSellRarityFilter(r)
+          }, `${r} · ${steamList.filter(s => (s.rarity || 'Standard') === r).length}`)),
+          h('input', {
+            className: 'sell-filter-search',
+            placeholder: 'Search items…',
+            value: sellSearch,
+            onChange: e => setSellSearch(e.target.value)
+          }),
+          (sellRarityFilter !== 'All' || sellSearch) && h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+            onClick: () => { setSellRarityFilter('All'); setSellSearch(''); }
+          }, 'Clear')
+        ),
+        filtered.length === 0
+          ? h('div', { className: 'empty-inline' },
+              h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
+                'No Steam items match this filter.'))
+          : h('div', { className: 'inventory-grid' },
+        filtered.map(si => h('div', {
           key: si.assetId,
           className: `inventory-item ${si.tradable ? '' : 'disabled'}`,
           onClick: () => startPickSteam(si),
@@ -2036,7 +2079,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           !si.tradable && h('div', { style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 } }, 'NOT TRADABLE')
         ))
       )
-    ),
+      );
+    })(),
 
     source === 'internal' && internal === null && h('div', { className: 'spinner' }),
     source === 'internal' && internal && internalList.length === 0 && h('div', { className: 'empty-inline' },

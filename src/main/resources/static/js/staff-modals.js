@@ -388,6 +388,10 @@ function AdminTradesTab() {
   const [rows, setRows]     = useState(null);
   const [filter, setFilter] = useState('DISPUTED');
   const [busy, setBusy]     = useState(false);
+  // Age sort toggle — defaults off (uses backend's newest-first), flips
+  // to oldest-first so ops can attack the tail of the queue without
+  // scrolling. Re-sorts client-side so we don't need a new endpoint.
+  const [oldestFirst, setOldestFirst] = useState(false);
 
   const load = useCallback(async () => { setRows(null); setRows(await adminTrades(filter)); }, [filter]);
   useEffect(() => { load(); }, [load]);
@@ -415,17 +419,28 @@ function AdminTradesTab() {
 
   const STATES = ['ALL','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'];
 
+  // Effective rows — optionally reverse newest-first ordering. The
+  // backend returns rows sorted by updatedAt DESC; flipping here gives
+  // ops a "fix the oldest trade first" view.
+  const display = rows ? (oldestFirst ? [...rows].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0)) : rows) : null;
+
   return h('div', { className: 'profile-panel' },
-    h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' } },
+    h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
       STATES.map(s => h('button', {
         key: s,
         className: `offer-tab ${filter === s ? 'active' : ''}`,
         onClick: () => setFilter(s)
-      }, s.replace(/_/g, ' ').toLowerCase()))
+      }, s.replace(/_/g, ' ').toLowerCase())),
+      h('div', { style: { flex: 1 } }),
+      h('button', {
+        className: `wallet-tx-filter-chip ${oldestFirst ? 'active' : ''}`,
+        onClick: () => setOldestFirst(v => !v),
+        title: oldestFirst ? 'Currently oldest-first — click to reset' : 'Sort oldest-first (tail of queue)'
+      }, oldestFirst ? '↑ Oldest first' : '↓ Newest first')
     ),
-    rows === null
+    display === null
       ? h('div', { className: 'spinner' })
-      : rows.length === 0
+      : display.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, '⇄'),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, `No ${filter.toLowerCase()} trades.`))
@@ -439,7 +454,7 @@ function AdminTradesTab() {
               h('th', { className: 'right' }, 'Price'),
               h('th', { className: 'right' }, 'Updated'),
               h('th', { className: 'right' }, 'Actions'))),
-            h('tbody', null, rows.map(r => h('tr', { key: r.id, className: 'db-row' },
+            h('tbody', null, display.map(r => h('tr', { key: r.id, className: 'db-row' },
               h('td', { className: 'db-rank' }, '#' + r.id),
               h('td', null, r.itemName || '—'),
               h('td', { className: 'db-mono', style: { fontSize: 11 } }, '#' + (r.buyerUserId || '?')),

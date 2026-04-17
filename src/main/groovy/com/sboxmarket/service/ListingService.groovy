@@ -132,6 +132,12 @@ class ListingService {
         rows.collect { r -> [userId: r[0] as Long, soldCount: r[1] as Long] }
     }
 
+    /** Top deals — active BUY_NOW listings sorted by deepest %
+     *  discount vs catalogue steamPrice. Caller gets a cap'd page. */
+    List<Listing> findTopDeals(int limit) {
+        listingRepository.findTopDeals(org.springframework.data.domain.PageRequest.of(0, limit))
+    }
+
     /** Apply a percent adjustment to every active non-auction listing owned
      *  by the user. +10 = markup 10%, -5 = 5% discount. Auction listings
      *  are skipped (starting price ≠ current bid once a bid lands). Result

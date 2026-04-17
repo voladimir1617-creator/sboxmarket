@@ -560,6 +560,11 @@ export async function fetchJustListed() {
   const data = await safeJson(`${API}/listings/just-listed`);
   return Array.isArray(data) ? data : [];
 }
+/** Active BUY_NOW listings sorted by deepest % discount vs Steam. */
+export async function fetchTopDeals() {
+  const data = await safeJson(`${API}/listings/top-deals`);
+  return Array.isArray(data) ? data : [];
+}
 /** Auctions ending within the next hour — powers the "Ending soon" rail
  *  on the marketplace home. Public endpoint, 20-row cap server-side. */
 export async function fetchAuctionsEndingSoon(withinMs) {

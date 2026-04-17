@@ -6,7 +6,7 @@ import {
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
-  fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers
+  fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -313,6 +313,49 @@ function TopSellersRail() {
               : ''
           )
         )
+      ))
+    )
+  );
+}
+
+// ── Top deals — deepest-discount rail. Reads /api/listings/top-deals
+// (sorted by price/steamPrice ratio) and renders a compact horizontal
+// strip. Polls every 2 min — deal ordering shifts as sellers re-price.
+function TopDealsRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchTopDeals();
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 120_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'top-deals-rail' },
+    h('div', { className: 'top-deals-head' },
+      h('span', { className: 'top-deals-spark' }, '%'),
+      h('span', null, 'Top deals today'),
+      h('span', { className: 'top-deals-count' }, `${rows.length} under Steam price`)
+    ),
+    h('div', { className: 'top-deals-track' },
+      rows.map(l => h('div', {
+        key: 'td-' + l.id,
+        className: 'top-deals-card-wrap',
+        onClick: () => onOpen(l)
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l),
+          onAddToCart,
+          cartHas
+        })
       ))
     )
   );
@@ -1860,6 +1903,12 @@ export function App() {
        hour. Polls every 30s so the rail stays fresh without SSE. */
     routeName === 'market' && h(AuctionsEndingSoonRail, {
       watchlist, onToggleStar: toggleStar, onOpen: openModal
+    }),
+
+    /* TOP DEALS — rail of the 12 biggest % discounts vs Steam. */
+    routeName === 'market' && h(TopDealsRail, {
+      watchlist, onToggleStar: toggleStar, onOpen: openModal,
+      onAddToCart: me ? addToCart : null, cartHas: (id) => cart.some(c => c.id === id)
     }),
 
     /* JUST LISTED — rail of the 20 freshest listings site-wide. Drops onto
