@@ -598,6 +598,7 @@ export function SiteFooter() {
   // "Catalog updated X ago" in the bottom meta bar. Quiet trust signal:
   // buyers know the floor prices haven't drifted from Steam for hours.
   const [lastSync, setLastSync] = useState(0);
+  const [version, setVersion]   = useState('');
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -609,6 +610,11 @@ export function SiteFooter() {
       } catch (_) {}
     };
     load();
+    // Version is a one-shot fetch — it doesn't change without a deploy.
+    fetch('/api/version', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && d?.version) setVersion(d.version); })
+      .catch(() => {});
     const id = setInterval(load, 5 * 60_000);
     return () => { alive = false; clearInterval(id); };
   }, []);
@@ -686,7 +692,8 @@ export function SiteFooter() {
     ),
     h('div', { className: 'site-footer-bottom' },
       h('div', { className: 'site-footer-copy' },
-        '© ', new Date().getFullYear(), ' SkinBox · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.'),
+        '© ', new Date().getFullYear(), ' SkinBox · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.',
+        version && h('span', { style: { opacity: 0.6, marginLeft: 10 } }, '· v', version)),
       h('div', { className: 'site-footer-meta' },
         h('span', null, 'All prices in USD'),
         h('span', { className: 'dot' }, '·'),
@@ -1039,6 +1046,7 @@ export function App() {
       if (c.find(x => x.id === listing.id)) return c;
       return [...c, {
         id:         listing.id,
+        itemId:     listing.item?.id,
         name:       listing.item?.name,
         price:      listing.price,
         // Stash the Steam reference price so the cart page can show
@@ -2458,8 +2466,29 @@ export function App() {
                 cartSavings > 0 && h('span', { className: 'cart-savings-chip' },
                   '↓ Save ', fmt(cartSavings), ' vs Steam')
               ),
-              h('div', { style: { display: 'flex', gap: 10 } },
+              h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
                 h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
+                // Preserve buyer intent on a pricing-shift — instead of
+                // forcing them to re-find each item after clearing the
+                // cart, move every cart row to the watchlist in one click.
+                // Dedupe against the existing watchlist; only items with a
+                // known item id are movable (every real listing has one).
+                cart.length > 0 && (() => {
+                  const itemIds = cart.map(it => it.itemId).filter(Boolean);
+                  const movable = itemIds.filter(id => !watchlist.includes(id));
+                  if (movable.length === 0) return null;
+                  return h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)' },
+                    onClick: () => {
+                      setWatchlist(w => Array.from(new Set([...w, ...itemIds])));
+                      setCart([]);
+                      setToast({ text: `Moved ${movable.length} item${movable.length === 1 ? '' : 's'} to watchlist`, kind: 'ok' });
+                      setTimeout(() => setToast(null), 3500);
+                    },
+                    title: 'Move every cart row to your watchlist and clear the cart'
+                  }, '♡ Move to watchlist');
+                })(),
                 h('button', { className: 'btn btn-accent', onClick: () => setCartConfirmOpen(true) }, 'Checkout · ' + fmt(cartTotal))
               )
             )

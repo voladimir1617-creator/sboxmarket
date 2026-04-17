@@ -916,7 +916,28 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
     ),
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Steam ID 64'),
-      h('div', { className: 'profile-row-value mono' }, me.steamId64)
+      h('div', { className: 'profile-row-value mono', style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        h('span', null, me.steamId64),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '3px 8px', fontSize: 10, border: '1px solid var(--border)' },
+          title: 'Copy Steam ID to clipboard',
+          onClick: async (e) => {
+            try {
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(me.steamId64);
+                const btn = e.currentTarget;
+                const prev = btn.textContent;
+                btn.textContent = '✓';
+                btn.style.color = 'var(--green)';
+                setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1200);
+              } else {
+                window.prompt('Copy:', me.steamId64);
+              }
+            } catch (_) { window.prompt('Copy:', me.steamId64); }
+          }
+        }, '⎘')
+      )
     ),
 
     // Public stall URL — one-click copy for sharing their own stall on
