@@ -2113,6 +2113,42 @@ export function App() {
             title: 'Only show listings posted in the last 24 hours',
             'aria-pressed': newOnly
           }, '★ New'),
+          // Quick-filter chips — CSFloat-style one-click filter presets.
+          // Each chip is an (isActive, apply, clear) pair so clicking twice
+          // toggles the preset on/off. Chips don't stack with each other
+          // because price-range presets are mutually exclusive — the most
+          // recent click wins.
+          (() => {
+            const QF = [
+              { id: 'under5',  label: 'Under $5',  test: () => maxPrice === '5' && !minPrice,
+                apply: () => { setMinPrice(''); setMaxPrice('5'); } },
+              { id: 'under20', label: 'Under $20', test: () => maxPrice === '20' && !minPrice,
+                apply: () => { setMinPrice(''); setMaxPrice('20'); } },
+              { id: 'under50', label: 'Under $50', test: () => maxPrice === '50' && !minPrice,
+                apply: () => { setMinPrice(''); setMaxPrice('50'); } },
+              { id: 'premium', label: 'Premium ($100+)', test: () => minPrice === '100' && !maxPrice,
+                apply: () => { setMinPrice('100'); setMaxPrice(''); } },
+              { id: 'limited', label: 'Limited only', test: () => rarity === 'Limited',
+                apply: () => setRarity('Limited') }
+            ];
+            return QF.map(qf => {
+              const active = qf.test();
+              return h('button', {
+                key: qf.id,
+                className: `deals-chip ${active ? 'active' : ''}`,
+                style: { fontSize: 11, padding: '6px 10px' },
+                onClick: () => {
+                  if (active) {
+                    // Toggle off — reset whichever bound(s) the preset set.
+                    if (qf.id === 'limited') setRarity('All');
+                    else { setMinPrice(''); setMaxPrice(''); }
+                  } else qf.apply();
+                },
+                'aria-pressed': active,
+                title: 'Quick filter · ' + qf.label
+              }, qf.label);
+            });
+          })(),
           h('div', { className: 'view-btns', role: 'group', 'aria-label': 'View mode' },
             h('button', { className: `view-btn ${view === 'grid' ? 'active' : ''}`,  onClick: () => setView('grid'), 'aria-label': 'Grid view',  'aria-pressed': view === 'grid' },  '⊞'),
             h('button', { className: `view-btn ${view === 'table' ? 'active' : ''}`, onClick: () => setView('table'), 'aria-label': 'Table view', 'aria-pressed': view === 'table' }, '☰')
