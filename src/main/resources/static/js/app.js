@@ -1599,6 +1599,7 @@ export function App() {
         setIsAdmin(false);
         setIsCsrRole(false);
       }
+      return m;
     } finally {
       setMeLoaded(true);
     }
@@ -1702,7 +1703,16 @@ export function App() {
     if (state === 'success' && sid) { confirmDeposit(sid).then(() => loadWallet()); dirty = true; }
     else if (state === 'cancel')     { dirty = true; }
     if (login === 'success') {
-      loadMe().then(() => loadWallet());
+      loadMe().then((fresh) => {
+        loadWallet();
+        // Toast a "welcome back" confirmation — without this the nav
+        // avatar is the only signal that the sign-in worked, and on
+        // the item-modal / cart bounce the user's focus is often
+        // below the fold.
+        const name = fresh?.displayName || 'Steam user';
+        setToast({ text: `Signed in as ${name}`, kind: 'ok' });
+        setTimeout(() => setToast(null), 3500);
+      });
       dirty = true;
       // Return-after-login: signInWithSteam() stashed the page the
       // user was on before the OpenID hop. Pop it and send them back
