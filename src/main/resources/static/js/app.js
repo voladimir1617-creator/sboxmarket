@@ -1700,8 +1700,38 @@ export function App() {
     const sid   = params.get('session_id');
     const login = params.get('login');
     let dirty = false;
-    if (state === 'success' && sid) { confirmDeposit(sid).then(() => loadWallet()); dirty = true; }
-    else if (state === 'cancel')     { dirty = true; }
+    if (state === 'success' && sid) {
+      // Stripe bounces back here after Checkout. Fire the confirm
+      // POST (idempotent server-side) then refresh the wallet, and
+      // toast the outcome so the user sees their balance updated
+      // instead of silently landing back on the home page.
+      confirmDeposit(sid)
+        .then(r => {
+          loadWallet();
+          const bal = r && r.newBalance != null ? Number(r.newBalance) : null;
+          setToast({
+            text: bal != null
+              ? `Deposit complete — balance is now ${fmt(bal)}`
+              : 'Deposit complete — balance updated',
+            kind: 'ok'
+          });
+          setTimeout(() => setToast(null), 4000);
+        })
+        .catch(() => {
+          setToast({ text: 'Deposit received — balance will refresh shortly', kind: 'ok' });
+          setTimeout(() => setToast(null), 4000);
+        });
+      dirty = true;
+    }
+    else if (state === 'cancel') {
+      // User clicked Cancel on the Stripe Checkout page — give them a
+      // soft confirmation so they know nothing was charged and they
+      // can retry. Prior behaviour silently scrubbed the URL and
+      // dropped them on /, which read as "did my payment go through?"
+      setToast({ text: 'Deposit cancelled — no charge made', kind: 'warn' });
+      setTimeout(() => setToast(null), 4000);
+      dirty = true;
+    }
     if (login === 'success') {
       loadMe().then((fresh) => {
         loadWallet();
