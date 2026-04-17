@@ -32,6 +32,18 @@ class BuyOrderController {
         ResponseEntity.ok(buyOrderService.listForBuyer(requireUser(req)))
     }
 
+    /** Public demand-count for an item — returns the count of ACTIVE buy
+     *  orders pinned to this item id. Powers the "N buyers want this"
+     *  chip on the item detail modal. Counter-party identities are NOT
+     *  surfaced — this is an aggregate-only signal. */
+    @GetMapping("/count/item/{id}")
+    ResponseEntity<Map> countForItem(@PathVariable Long id) {
+        ResponseEntity.ok([
+            itemId: id,
+            count:  buyOrderService.countActiveForItem(id)
+        ])
+    }
+
     @PostMapping
     ResponseEntity<BuyOrder> create(@Valid @RequestBody CreateBuyOrderRequest body, HttpServletRequest req) {
         def uid = requireUser(req)

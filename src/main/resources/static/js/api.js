@@ -578,6 +578,13 @@ export async function fetchRecentSales(itemId) {
   const data = await safeJson(`${API}/items/${itemId}/recent-sales`);
   return Array.isArray(data) ? data : [];
 }
+/** Count of ACTIVE buy orders pinned to a specific item id. Drives the
+ *  "N buyers want this" chip on the item detail modal — pure aggregate,
+ *  no counterparty identities leaked. */
+export async function fetchBuyOrderCountForItem(itemId) {
+  const data = await safeJson(`${API}/buy-orders/count/item/${itemId}`);
+  return Number(data?.count || 0);
+}
 /** Pending offer counts keyed by role — backs the nav offers badge.
  *  Returns { incomingPending, outgoingPending } — the nav surfaces
  *  incoming (actionable for the seller) as the primary count. */

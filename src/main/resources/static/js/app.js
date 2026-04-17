@@ -195,6 +195,34 @@ function AnnouncementBanner() {
   );
 }
 
+// ── Rating breakdown — 5-row bar chart mirroring the Amazon / CSFloat
+// review histogram. Each row: "5★  ████████ · 42". Used on stall page
+// and Profile Reviews tab so buyers can see at a glance whether the
+// rating is bimodal (5★/1★ split) or a smooth distribution.
+export function RatingBreakdown({ summary }) {
+  if (!summary || !summary.count || summary.count === 0) return null;
+  const buckets = Array.isArray(summary.histogram)
+    ? summary.histogram
+    : [0, 0, 0, 0, 0];
+  const max = Math.max(1, ...buckets);
+  return h('div', { className: 'rating-breakdown' },
+    buckets.map((n, i) => {
+      const stars = 5 - i;
+      const pct = Math.round((n / max) * 100);
+      return h('div', { key: stars, className: 'rating-breakdown-row' },
+        h('span', { className: 'rating-breakdown-stars' }, stars + '★'),
+        h('div', { className: 'rating-breakdown-bar' },
+          h('div', {
+            className: 'rating-breakdown-fill',
+            style: { width: pct + '%' }
+          })
+        ),
+        h('span', { className: 'rating-breakdown-count' }, n)
+      );
+    })
+  );
+}
+
 // ── Nav offers badge — actionable pending-incoming count. Only signed-in
 // users see it; polls every 45s; clicking navigates to /offers.
 function NavOffersBadge() {
@@ -2022,7 +2050,11 @@ export function App() {
                   h('span', { className: 'stall-rating-count' },
                     ` · ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}`
                   )
-                )
+                ),
+                // Breakdown histogram — only worth showing when the seller
+                // has ≥3 reviews so the bars aren't misleading.
+                stallData.rating && stallData.rating.count >= 3 &&
+                  h(RatingBreakdown, { summary: stallData.rating })
               ),
               // Contact button — opens a support ticket pre-filled with
               // the seller's id so CSR can triage a buyer's question about

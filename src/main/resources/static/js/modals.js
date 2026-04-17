@@ -16,7 +16,7 @@ import {
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
   fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
-  fetchReviewsForUser, replyToReview
+  fetchReviewsForUser, replyToReview, fetchBuyOrderCountForItem
 } from './api.js';
 
 export { InfoModal };
@@ -49,6 +49,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     if (!item?.id) return;
     let alive = true;
     fetchRecentSales(item.id).then(rows => { if (alive) setRecentSales(rows || []); });
+    return () => { alive = false; };
+  }, [item?.id]);
+  // Active buy-orders count — social-proof chip in the header. Tells
+  // sellers there's live demand for this exact item at ≥ $X. Pure
+  // aggregate, no counterparty identities exposed.
+  const [buyOrderCount, setBuyOrderCount] = useState(0);
+  useEffect(() => {
+    if (!item?.id) return;
+    let alive = true;
+    fetchBuyOrderCountForItem(item.id).then(n => { if (alive) setBuyOrderCount(n); });
     return () => { alive = false; };
   }, [item?.id]);
   useEffect(() => {
@@ -125,6 +135,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               h('div', { className: 'modal-stat-label' }, 'Supply'),
               h('div', { className: 'modal-stat-val' }, Number(item.supply).toLocaleString())
             )
+          ),
+          // Demand chip — number of standing buy orders pinned to this
+          // item. Silent when 0 so new items don't look empty. Clicking
+          // opens the buy orders page with this item preselected.
+          buyOrderCount > 0 && h('div', { className: 'modal-demand-chip' },
+            h('span', { className: 'modal-demand-chip-num' }, buyOrderCount),
+            ' buyer', buyOrderCount === 1 ? '' : 's',
+            ' want', buyOrderCount === 1 ? 's' : '', ' this right now'
           )
         )
       ),
@@ -1208,7 +1226,41 @@ function ProfileTradesTab({ me, privacy }) {
     CANCELLED:              { label: 'Cancelled',               color: '#8590b3', step: 0 },
   };
 
+  // Summary chips above the state filter. Counts derived from the
+  // already-loaded trades list so adding them is essentially free.
+  // Surfaces "you've sold 12, had 2 disputes, 1 cancel" at a glance.
+  const openStates = ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'];
+  const summaryCounts = {
+    total:     trades.length,
+    open:      trades.filter(t => openStates.includes(t.state)).length,
+    verified:  trades.filter(t => t.state === 'VERIFIED').length,
+    disputed:  trades.filter(t => t.state === 'DISPUTED').length,
+    cancelled: trades.filter(t => t.state === 'CANCELLED').length
+  };
+
   return h('div', null,
+    trades.length > 0 && h('div', { className: 'trade-summary-chips' },
+      h('div', { className: 'trade-summary-chip' },
+        h('span', { className: 'trade-summary-num' }, summaryCounts.total),
+        h('span', { className: 'trade-summary-label' }, 'total')
+      ),
+      h('div', { className: 'trade-summary-chip accent' },
+        h('span', { className: 'trade-summary-num' }, summaryCounts.open),
+        h('span', { className: 'trade-summary-label' }, 'open')
+      ),
+      h('div', { className: 'trade-summary-chip green' },
+        h('span', { className: 'trade-summary-num' }, summaryCounts.verified),
+        h('span', { className: 'trade-summary-label' }, 'verified')
+      ),
+      summaryCounts.disputed > 0 && h('div', { className: 'trade-summary-chip red' },
+        h('span', { className: 'trade-summary-num' }, summaryCounts.disputed),
+        h('span', { className: 'trade-summary-label' }, 'disputed')
+      ),
+      summaryCounts.cancelled > 0 && h('div', { className: 'trade-summary-chip muted' },
+        h('span', { className: 'trade-summary-num' }, summaryCounts.cancelled),
+        h('span', { className: 'trade-summary-label' }, 'cancelled')
+      )
+    ),
     h('div', { className: 'trade-filter-bar' },
       ['ALL','OPEN','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'].map(f =>
         h('button', {
@@ -1659,9 +1711,27 @@ function ProfileReviewsTab({ me }) {
     ? `${Number(summary.average || 0).toFixed(1)} ★  ·  ${summary.count} review${summary.count === 1 ? '' : 's'}`
     : 'No reviews yet';
 
+  // Per-star histogram — same shape RatingBreakdown in app.js renders
+  // on the stall page. Inlined here to avoid modals.js → app.js imports.
+  const buckets = Array.isArray(summary?.histogram) ? summary.histogram : [0,0,0,0,0];
+  const maxBucket = Math.max(1, ...buckets);
+
   return h('div', null,
     h('div', { className: 'profile-reviews-head' },
       h('div', { className: 'profile-reviews-avg' }, avgLabel)
+    ),
+    (summary?.count || 0) >= 3 && h('div', { className: 'rating-breakdown', style: { marginBottom: 14 } },
+      buckets.map((n, i) => {
+        const stars = 5 - i;
+        const pct = Math.round((n / maxBucket) * 100);
+        return h('div', { key: stars, className: 'rating-breakdown-row' },
+          h('span', { className: 'rating-breakdown-stars' }, stars + '★'),
+          h('div', { className: 'rating-breakdown-bar' },
+            h('div', { className: 'rating-breakdown-fill', style: { width: pct + '%' } })
+          ),
+          h('span', { className: 'rating-breakdown-count' }, n)
+        );
+      })
     ),
     rows.length > 0 && h('div', { className: 'profile-reviews-filter' },
       [0, 5, 4, 3, 2, 1].map(n => h('button', {

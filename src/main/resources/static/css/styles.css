@@ -4630,6 +4630,102 @@
       flex: 1;
     }
 
+    /* ─────────── ITEM MODAL DEMAND CHIP ─────────── */
+    .modal-demand-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ec4899;
+      background: rgba(236, 72, 153, 0.1);
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      border-radius: 6px;
+    }
+    .modal-demand-chip-num {
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      color: #f472b6;
+    }
+
+    /* ─────────── TRADE SUMMARY CHIPS ─────────── */
+    .trade-summary-chips {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .trade-summary-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 10px 14px;
+      min-width: 80px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .trade-summary-num {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+    .trade-summary-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .trade-summary-chip.accent .trade-summary-num { color: var(--accent); }
+    .trade-summary-chip.green  .trade-summary-num { color: #4ade80; }
+    .trade-summary-chip.red    .trade-summary-num { color: #f87171; }
+    .trade-summary-chip.muted  .trade-summary-num { color: var(--text-muted); }
+
+    /* ─────────── RATING BREAKDOWN HISTOGRAM ─────────── */
+    .rating-breakdown {
+      display: grid;
+      gap: 4px;
+      margin-top: 10px;
+      max-width: 260px;
+    }
+    .rating-breakdown-row {
+      display: grid;
+      grid-template-columns: 28px 1fr 32px;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .rating-breakdown-stars {
+      color: #fbbf24;
+      font-weight: 700;
+      text-align: right;
+    }
+    .rating-breakdown-bar {
+      height: 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .rating-breakdown-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #fde68a, #fbbf24);
+      border-radius: 4px;
+      transition: width 0.35s ease-out;
+    }
+    .rating-breakdown-count {
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-align: right;
+    }
+
     /* ─────────── STALL REVIEWS FILTER ─────────── */
     .stall-reviews-filter {
       display: flex;

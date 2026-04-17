@@ -18,6 +18,12 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
     @Query("SELECT b FROM BuyOrder b WHERE b.status = 'ACTIVE' ORDER BY b.maxPrice DESC")
     List<BuyOrder> findAllActive()
 
+    /** Count of standing buy orders pinned to a specific item id. Drives
+     *  the "N buyers want this" chip on the item detail modal —
+     *  social-proof signal that there's active demand. */
+    @Query("SELECT COUNT(b) FROM BuyOrder b WHERE b.status = 'ACTIVE' AND b.itemId = :itemId")
+    long countActiveForItem(@Param("itemId") Long itemId)
+
     @Query("""
         SELECT b FROM BuyOrder b
         WHERE b.status = 'ACTIVE'

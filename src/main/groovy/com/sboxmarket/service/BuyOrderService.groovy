@@ -84,6 +84,14 @@ class BuyOrderService {
         buyOrderRepository.findByBuyer(buyerUserId)
     }
 
+    /** Public demand-count for an item — used by the item detail modal
+     *  to render a "N buyers want this" chip. Aggregate only; no
+     *  counterparty identities are exposed. */
+    long countActiveForItem(Long itemId) {
+        if (itemId == null) return 0L
+        buyOrderRepository.countActiveForItem(itemId)
+    }
+
     @Transactional
     BuyOrder cancel(Long buyerUserId, Long orderId) {
         def o = buyOrderRepository.findById(orderId)

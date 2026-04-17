@@ -155,11 +155,22 @@ class ReviewService {
     Map summaryForUser(Long toUserId) {
         def rows = reviewRepository.aggregateForUser(toUserId)
         if (!rows || rows[0] == null) {
-            return [count: 0, average: null]
+            return [count: 0, average: null, histogram: [0,0,0,0,0]]
         }
         def count = ((rows[0][0] as Number) ?: 0).longValue()
         def avg   = rows[0][1] == null ? null : ((rows[0][1] as Number).doubleValue())
         def rounded = avg == null ? null : (Math.round(avg * 10.0) / 10.0)
-        [count: count, average: rounded]
+        // Per-star histogram: index 0 = 5★, 1 = 4★, 2 = 3★, 3 = 2★, 4 = 1★.
+        // Drives the breakdown bar chart on the stall + profile review tabs.
+        def buckets = [0L, 0L, 0L, 0L, 0L]
+        if (count > 0) {
+            def hist = reviewRepository.histogramForUser(toUserId)
+            hist?.each { row ->
+                def stars = ((row[0] as Number) ?: 0).intValue()
+                def n     = ((row[1] as Number) ?: 0).longValue()
+                if (stars >= 1 && stars <= 5) buckets[5 - stars] = n
+            }
+        }
+        [count: count, average: rounded, histogram: buckets]
     }
 }

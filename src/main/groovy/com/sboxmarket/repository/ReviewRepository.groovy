@@ -17,4 +17,15 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
     /** Aggregate stats — avoids loading all rows when we only need average + count. */
     @Query("SELECT COUNT(r), AVG(r.rating) FROM Review r WHERE r.toUserId = :uid")
     List<Object[]> aggregateForUser(@Param("uid") Long uid)
+
+    /** Per-star histogram for a user — [[rating, count], ...] with one
+     *  row per star value present. Drives the review breakdown bar
+     *  chart on the stall + profile review tabs. */
+    @Query("""
+        SELECT r.rating, COUNT(r) FROM Review r
+        WHERE r.toUserId = :uid
+        GROUP BY r.rating
+        ORDER BY r.rating DESC
+    """)
+    List<Object[]> histogramForUser(@Param("uid") Long uid)
 }
