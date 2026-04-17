@@ -228,4 +228,22 @@ class RateLimitFilterSpec extends Specification {
         allowed == 40
         blocked == 10
     }
+
+    def "POST /api/profile/email/resend is in the 20/10s write bucket (batch 133 — email-spam DoS)"() {
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when: "spam the resend endpoint from one IP past the write budget"
+        (1..30).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(post('/api/profile/email/resend'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        // MAX_REQ = 20 per 10s. Extras get 429s.
+        allowed == 20
+        blocked == 10
+    }
 }

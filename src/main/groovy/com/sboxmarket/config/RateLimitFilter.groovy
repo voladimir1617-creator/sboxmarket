@@ -53,7 +53,12 @@ class RateLimitFilter extends OncePerRequestFilter {
         '/api/auth/steam',
         '/api/wallet/deposit',
         '/api/wallet/withdraw',
-        '/api/support/tickets'
+        '/api/support/tickets',
+        // Profile writes — email change / verification / 2FA enrol / delete
+        // request / trade URL. Without this cap an attacker could spam
+        // /api/profile/email/resend to flood a target mailbox (the resend
+        // triggers an outbound SMTP send on every call).
+        '/api/profile'
     ]
 
     // Read surfaces that take free-text and can be used to enumerate or DoS.
