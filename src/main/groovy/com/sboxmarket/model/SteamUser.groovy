@@ -88,4 +88,12 @@ class SteamUser {
     @JsonIgnore
     @Column
     Long lastTotpStep
+
+    /** Steam trade offer URL the user chose to expose for counterparty
+     *  contact (https://steamcommunity.com/tradeoffer/new/?partner=...&token=...).
+     *  Optional. Shown on the other participant's trade row during the
+     *  PENDING_* window so the seller can send — and the buyer can verify —
+     *  the real Steam offer. Validated to begin with the canonical prefix. */
+    @Column(length = 300)
+    String tradeUrl
 }

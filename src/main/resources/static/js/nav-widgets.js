@@ -58,6 +58,18 @@ export function NotificationBell({ me }) {
     return () => clearInterval(id);
   }, [me, load]);
 
+  // Mirror unread count into the browser tab title so users glancing at a
+  // background tab see "(3) SkinBox …" when something needs attention.
+  // CSFloat does the same; Slack, GitHub, Gmail all use this convention.
+  // Restored on unmount so the base title isn't leaked to downstream pages.
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\)\s+/, '');
+    document.title = unread > 0 ? `(${unread > 99 ? '99+' : unread}) ${base}` : base;
+    return () => {
+      document.title = document.title.replace(/^\(\d+\)\s+/, '');
+    };
+  }, [unread]);
+
   useEffect(() => {
     const onDoc = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
     document.addEventListener('click', onDoc);

@@ -49,6 +49,7 @@ class TradeService {
     @Autowired TradeRepository tradeRepository
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
+    @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) AuditService auditService
     @Autowired TextSanitizer textSanitizer
@@ -66,6 +67,53 @@ class TradeService {
 
     List<Trade> listForUser(Long userId) {
         tradeRepository.findByParticipant(userId)
+    }
+
+    /**
+     * Enriched trade-list payload. Each row is the Trade entity fields plus
+     * the counterparty's Steam trade URL and display name. Lets the Profile
+     * → Trades tab show "Send Steam offer to @SellerX · copy URL" without
+     * the frontend having to fan out one /api/auth lookup per row.
+     *
+     * Only the counterparty's URL is attached — the viewer's own URL is
+     * already in their profile payload. Rows whose counterparty doesn't
+     * have a URL set carry null fields.
+     */
+    List<Map> listForUserWithCounterparty(Long userId) {
+        def trades = tradeRepository.findByParticipant(userId)
+        if (trades.isEmpty() || steamUserRepository == null) {
+            return trades.collect { tradeToMap(it, null, null) }
+        }
+        def ids = trades.collect { t -> t.buyerUserId == userId ? t.sellerUserId : t.buyerUserId }
+            .findAll { it != null }.unique()
+        def users = ids.isEmpty() ? []
+            : steamUserRepository.findAllById(ids)
+        def byId = users.collectEntries { [(it.id): it] }
+        trades.collect { t ->
+            def cpId = t.buyerUserId == userId ? t.sellerUserId : t.buyerUserId
+            def cp = cpId == null ? null : byId[cpId]
+            tradeToMap(t, cp?.tradeUrl, cp?.displayName)
+        }
+    }
+
+    private Map tradeToMap(Trade t, String counterpartyTradeUrl, String counterpartyName) {
+        [
+            id:             t.id,
+            listingId:      t.listingId,
+            itemId:         t.itemId,
+            itemName:       t.itemName,
+            buyerUserId:    t.buyerUserId,
+            sellerUserId:   t.sellerUserId,
+            price:          t.price,
+            feeAmount:      t.feeAmount,
+            state:          t.state,
+            note:           t.note,
+            createdAt:      t.createdAt,
+            updatedAt:      t.updatedAt,
+            settledAt:      t.settledAt,
+            counterpartyTradeUrl: counterpartyTradeUrl,
+            counterpartyName:     counterpartyName
+        ]
     }
 
     Trade findForListing(Long listingId) {

@@ -54,4 +54,12 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.walletId = :walletId AND t.type = :type AND t.status = 'COMPLETED'")
     long countCompletedByWalletAndType(@Param('walletId') Long walletId, @Param('type') String type)
+
+    /** In-flight transactions for a wallet — powers the "pending" chip on
+     *  the wallet hero so a user whose balance just dropped by $X sees an
+     *  explicit "WITHDRAWAL PENDING · $X" indicator instead of being left
+     *  to wonder where the money went. Returns the rows so the UI can list
+     *  them; caller sums as needed. */
+    @Query("SELECT t FROM Transaction t WHERE t.walletId = :walletId AND t.status = 'PENDING' ORDER BY t.createdAt DESC")
+    List<Transaction> findPendingByWallet(@Param('walletId') Long walletId)
 }

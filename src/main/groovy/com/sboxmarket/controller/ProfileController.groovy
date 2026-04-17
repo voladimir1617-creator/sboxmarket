@@ -32,6 +32,7 @@ class ProfileController {
 
     private static final SecureRandom RNG = new SecureRandom()
     private static final java.util.regex.Pattern EMAIL_RE = ~/^[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,253}\.[A-Za-z]{2,24}$/
+    private static final java.util.regex.Pattern TRADE_URL_RE = ~/^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d{1,10}&token=[A-Za-z0-9_-]{1,16}$/
 
     @Autowired ProfileService profileService
     @Autowired SteamUserRepository steamUserRepository
@@ -75,6 +76,32 @@ class ProfileController {
         def resp = [email: user.email, verified: false] as Map
         if (!emailService.smtpReady) resp.token = user.emailVerificationToken
         ResponseEntity.ok(resp)
+    }
+
+    /**
+     * Set (or clear) the user's Steam trade offer URL. Validated to the
+     * canonical Steam format so we don't persist junk that would later
+     * dead-link when surfaced on a trade row. Pass an empty string to
+     * clear. No verification email / confirmation round-trip — the trade
+     * URL is a public contact handle, not a secret.
+     */
+    @PutMapping("/trade-url")
+    @Transactional
+    ResponseEntity<Map> setTradeUrl(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        def raw = (body?.tradeUrl as String ?: '').trim()
+        if (raw.isEmpty()) {
+            user.tradeUrl = null
+        } else {
+            if (!TRADE_URL_RE.matcher(raw).matches()) {
+                throw new BadRequestException("INVALID_TRADE_URL",
+                    "Paste your Steam trade URL — it looks like https://steamcommunity.com/tradeoffer/new/?partner=…&token=…")
+            }
+            user.tradeUrl = raw
+        }
+        steamUserRepository.save(user)
+        ResponseEntity.ok([tradeUrl: user.tradeUrl])
     }
 
     @PostMapping("/email/verify")

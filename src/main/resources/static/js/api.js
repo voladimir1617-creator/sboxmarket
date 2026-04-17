@@ -612,6 +612,16 @@ export async function setEmail(email) {
     body: JSON.stringify({ email })
   });
 }
+/** Set or clear the user's Steam trade offer URL. Validated server-side;
+ *  pass '' to clear. Used by Profile → Personal Info and nudged on any
+ *  active trade row where the counterparty has no URL yet. */
+export async function setTradeUrl(tradeUrl) {
+  return writeJson(`${API}/profile/trade-url`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tradeUrl })
+  });
+}
 export async function verifyEmail(token) {
   return writeJson(`${API}/profile/email/verify`, {
     method: 'POST', credentials: 'same-origin',

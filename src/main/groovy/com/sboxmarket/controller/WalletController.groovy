@@ -66,19 +66,34 @@ class WalletController {
         def wallet = currentWallet(req)
         if (wallet == null) return ResponseEntity.notFound().build()
         def user = currentUser(req)
+        // Compute in-flight totals so the wallet hero can render a
+        // "WITHDRAWAL PENDING · $X" chip. Without this the user saw their
+        // balance drop on request and had no feedback that a payout was
+        // actually scheduled.
+        def pendingRows = transactionRepository.findPendingByWallet(wallet.id)
+        def pendingWithdrawAmt = pendingRows
+            .findAll { it.type == 'WITHDRAW' || it.type == 'WITHDRAWAL' }
+            .inject(BigDecimal.ZERO) { sum, t -> sum + (t.amount ?: BigDecimal.ZERO) }
+        def pendingDepositAmt = pendingRows
+            .findAll { it.type == 'DEPOSIT' }
+            .inject(BigDecimal.ZERO) { sum, t -> sum + (t.amount ?: BigDecimal.ZERO) }
         // Deliberately minimal response — we used to leak steamId64 and the
         // Stripe publishable key on every wallet fetch. publishableKey now
         // only leaves the server inside the deposit-session response, and
         // steamId64 is only returned via /api/auth/steam/me which the Profile
         // modal uses directly.
         ResponseEntity.ok([
-            id        : wallet.id,
-            username  : user?.displayName ?: wallet.username,
-            avatarUrl : user?.avatarUrl,
-            loggedIn  : user != null,
-            balance   : wallet.balance,
-            currency  : wallet.currency,
-            stripeLive: stripeService.isLive()
+            id:                 wallet.id,
+            username:           user?.displayName ?: wallet.username,
+            avatarUrl:          user?.avatarUrl,
+            loggedIn:           user != null,
+            balance:            wallet.balance,
+            currency:           wallet.currency,
+            stripeLive:         stripeService.isLive(),
+            pendingWithdrawAmt: pendingWithdrawAmt,
+            pendingWithdrawCt:  pendingRows.count { it.type in ['WITHDRAW','WITHDRAWAL'] },
+            pendingDepositAmt:  pendingDepositAmt,
+            pendingDepositCt:   pendingRows.count { it.type == 'DEPOSIT' }
         ])
     }
 

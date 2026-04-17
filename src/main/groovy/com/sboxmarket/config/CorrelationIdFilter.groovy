@@ -32,7 +32,13 @@ class CorrelationIdFilter extends OncePerRequestFilter {
     // props React uses; no unsafe scripts.
     private static final String CSP_HEADER = String.join('; ',
         "default-src 'self'",
-        "script-src 'self' https://unpkg.com",
+        // Cloudflare auto-injects a RUM beacon (https://static.cloudflareinsights.com/beacon.min.js)
+        // into every HTML response when the zone has "Web Analytics" enabled.
+        // Without allowlisting that origin here the browser blocks the beacon
+        // and the Network tab shows a red-X entry on every page load, which a
+        // tester flagged as broken. It also beacons back to cloudflareinsights.com
+        // so the host needs to be in connect-src too.
+        "script-src 'self' https://unpkg.com https://static.cloudflareinsights.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         // img-src includes every Steam CDN variant we have seen serving
@@ -40,7 +46,7 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         // QR code. Without api.qrserver.com the browser's CSP blocks the
         // QR image and the enrollment flow shows a broken image icon.
         "img-src 'self' data: https://community.cloudflare.steamstatic.com https://steamcommunity-a.akamaihd.net https://avatars.steamstatic.com https://avatars.akamai.steamstatic.com https://avatars.fastly.steamstatic.com https://api.qrserver.com",
-        "connect-src 'self' https://api.stripe.com",
+        "connect-src 'self' https://api.stripe.com https://cloudflareinsights.com https://static.cloudflareinsights.com",
         "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
         "object-src 'none'",
         "base-uri 'self'",

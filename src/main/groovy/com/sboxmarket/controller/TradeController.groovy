@@ -29,8 +29,12 @@ class TradeController {
     }
 
     @GetMapping
-    ResponseEntity<List<Trade>> mine(HttpServletRequest req) {
-        ResponseEntity.ok(tradeService.listForUser(requireUser(req)))
+    ResponseEntity<List<Map>> mine(HttpServletRequest req) {
+        // Enriched list — each row carries counterpartyTradeUrl +
+        // counterpartyName so the Profile → Trades tab can show a
+        // "Copy seller trade URL" button without the client having to
+        // fan out /api/auth lookups per row.
+        ResponseEntity.ok(tradeService.listForUserWithCounterparty(requireUser(req)))
     }
 
     @GetMapping("/{id}")

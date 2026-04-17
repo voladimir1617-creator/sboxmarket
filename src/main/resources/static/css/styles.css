@@ -4264,6 +4264,51 @@
       line-height: 1.5;
     }
 
+    /* ─────────── WALLET PENDING CHIPS ─────────── */
+    .wallet-pending-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 14px;
+    }
+    .wallet-pending-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      border-radius: 999px;
+      backdrop-filter: blur(3px);
+    }
+    .wallet-pending-chip.withdraw {
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .wallet-pending-chip.deposit {
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.15);
+      border: 1px solid rgba(74, 222, 128, 0.4);
+    }
+    .wallet-pending-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: auction-pulse 1.4s ease-in-out infinite;
+    }
+    .wallet-pending-label {
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 10.5px;
+    }
+    .wallet-pending-amt {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
     /* ─────────── PRICE SUGGESTION CHIPS ─────────── */
     .price-suggest-row {
       display: flex;
@@ -4503,6 +4548,54 @@
       color: var(--text-muted);
       margin-top: 2px;
       font-weight: 600;
+    }
+
+    /* ─────────── TRADE COUNTERPARTY URL ─────────── */
+    .trade-counterparty-url {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11.5px;
+      flex-wrap: wrap;
+    }
+    .trade-counterparty-label {
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 10px;
+    }
+    .trade-counterparty-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .trade-counterparty-link:hover { text-decoration: underline; }
+    .trade-counterparty-copy {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 13px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .trade-counterparty-copy:hover { color: var(--accent); border-color: var(--accent-border); }
+    .trade-counterparty-missing {
+      margin-top: 8px;
+      padding: 8px 12px;
+      font-size: 11.5px;
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px dashed rgba(248, 113, 113, 0.3);
+      border-radius: 6px;
     }
 
     /* ─────────── TRADE CONFIRMATION MODAL ─────────── */

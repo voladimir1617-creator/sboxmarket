@@ -14,7 +14,7 @@ import {
   fetchBuyOrders, fetchAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
-  setEmail, verifyEmail, enroll2fa, confirm2fa, disable2fa,
+  setEmail, verifyEmail, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
   fetchListings, fetchItem, leaveReview, fetchReviewSummary
 } from './api.js';
 
@@ -537,6 +537,28 @@ function ProfilePersonalTab({ me, profile, syncing, onSync }) {
   const emailVerified = profile?.user?.emailVerified;
   const has2fa = !!profile?.twoFactorEnabled;
 
+  // ── Steam trade URL ───────────────────────────────────────────
+  // Surfaces on every counterparty's trade row during the active escrow
+  // window. Without this the buyer↔seller pairing has no Steam offer
+  // channel (non-custodial model) and the trade stays stuck in
+  // PENDING_SELLER_SEND forever.
+  const [editingTradeUrl, setEditingTradeUrl] = useState(false);
+  const [tradeUrlDraft, setTradeUrlDraft]     = useState('');
+  const [tradeUrlErr, setTradeUrlErr]         = useState('');
+  const [tradeUrlBusy, setTradeUrlBusy]       = useState(false);
+  const hasTradeUrl = !!profile?.user?.tradeUrl;
+  const saveTradeUrl = async (raw) => {
+    setTradeUrlBusy(true); setTradeUrlErr('');
+    try {
+      const res = await setTradeUrl(raw);
+      if (res.code || res.error) { setTradeUrlErr(res.message || res.error); return; }
+      setEditingTradeUrl(false); setTradeUrlDraft('');
+      // ProfilePersonalTab receives `profile` as a prop so we can't mutate
+      // it in place; the parent refetches on the next tab switch. Good
+      // enough — the success path is visually terminal (exit edit mode).
+    } finally { setTradeUrlBusy(false); }
+  };
+
   const saveEmail = async () => {
     setEmailResult(null);
     if (!emailDraft.trim()) return;
@@ -633,6 +655,56 @@ function ProfilePersonalTab({ me, profile, syncing, onSync }) {
         ),
         emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, '✓ Email verified'),
         emailResult?.err && h('div', { className: 'wallet-error' }, emailResult.err)
+      )
+    ),
+
+    // ── Steam trade URL ──────────────────────────────────────────
+    h('div', { className: 'profile-row' },
+      h('div', { className: 'profile-row-label' }, 'Steam trade URL'),
+      h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 8 } },
+        !editingTradeUrl && h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+          hasTradeUrl
+            ? h('a', {
+                className: 'mono',
+                href: profile.user.tradeUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                style: { fontSize: 11, color: 'var(--accent)', wordBreak: 'break-all' }
+              }, profile.user.tradeUrl)
+            : h('span', { className: 'mono', style: { color: 'var(--text-muted)' } }, '(not set)'),
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+            onClick: () => { setTradeUrlDraft(profile?.user?.tradeUrl || ''); setEditingTradeUrl(true); setTradeUrlErr(''); }
+          }, hasTradeUrl ? 'Edit' : 'Add'),
+          hasTradeUrl && h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+            onClick: () => saveTradeUrl('')
+          }, 'Remove')
+        ),
+        editingTradeUrl && h('div', { style: { display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' } },
+          h('input', {
+            type: 'url',
+            className: 'wallet-amount-input',
+            placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
+            value: tradeUrlDraft,
+            style: { flex: 1, minWidth: 240, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 },
+            onChange: e => setTradeUrlDraft(e.target.value)
+          }),
+          h('button', { className: 'btn btn-accent', disabled: tradeUrlBusy, onClick: () => saveTradeUrl(tradeUrlDraft.trim()) }, tradeUrlBusy ? 'Saving…' : 'Save'),
+          h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: tradeUrlBusy, onClick: () => { setEditingTradeUrl(false); setTradeUrlErr(''); } }, 'Cancel')
+        ),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+          'Required for escrowed trades. Get it at ',
+          h('a', {
+            href: 'https://steamcommunity.com/my/tradeoffers/privacy',
+            target: '_blank', rel: 'noopener noreferrer',
+            style: { color: 'var(--accent)' }
+          }, 'Steam → Trade offers → Who can send me offers'),
+          '.'
+        ),
+        tradeUrlErr && h('div', { className: 'wallet-error' }, tradeUrlErr)
       )
     ),
 
@@ -902,7 +974,38 @@ function ProfileTradesTab({ me, privacy }) {
                     className: `trade-dot ${i <= meta.step ? 'on' : ''} ${t.state === 'DISPUTED' ? 'disputed' : ''} ${t.state === 'CANCELLED' ? 'cancelled' : ''}`
                   }))
                 ),
-                t.note && h('div', { className: 'trade-note' }, '"' + t.note + '"')
+                t.note && h('div', { className: 'trade-note' }, '"' + t.note + '"'),
+                // Counterparty Steam trade URL — only shown during the
+                // active escrow window (not after VERIFIED/CANCELLED). For
+                // a seller this is the buyer's trade URL (so the seller
+                // can send the offer); for a buyer this is the seller's
+                // (so the buyer can verify the incoming offer came from
+                // the right Steam account).
+                t.counterpartyTradeUrl && !['VERIFIED','CANCELLED'].includes(t.state) &&
+                  h('div', { className: 'trade-counterparty-url' },
+                    h('span', { className: 'trade-counterparty-label' },
+                      isSeller ? 'Send Steam offer to buyer' : 'Seller Steam URL'),
+                    h('a', {
+                      className: 'trade-counterparty-link',
+                      href: t.counterpartyTradeUrl,
+                      target: '_blank',
+                      rel: 'noopener noreferrer'
+                    }, t.counterpartyName ? `@${t.counterpartyName}` : 'Open Steam trade offer'),
+                    h('button', {
+                      className: 'trade-counterparty-copy',
+                      type: 'button',
+                      title: 'Copy URL to clipboard',
+                      onClick: async () => {
+                        try { await navigator.clipboard.writeText(t.counterpartyTradeUrl); }
+                        catch (_) { window.prompt('Copy this trade URL:', t.counterpartyTradeUrl); }
+                      }
+                    }, '⎘')
+                  ),
+                // Nudge the viewer to set their own URL if the counterparty
+                // can't contact them (common first-time seller friction).
+                !t.counterpartyTradeUrl && ['PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM'].includes(t.state) &&
+                  h('div', { className: 'trade-counterparty-missing' },
+                    (isSeller ? 'The buyer' : 'The seller') + ' has no Steam trade URL on file yet.')
               ),
               h('div', { className: 'trade-side' },
                 h('div', { className: 'trade-price' }, privacy ? '$•••••' : fmt(t.price)),
@@ -2138,7 +2241,25 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
           wallet.stripeLive ? '● STRIPE LIVE' : '● DEV MODE'),
         h('div', { className: 'wallet-hero-label' }, 'Wallet Balance'),
         h('div', { className: 'wallet-hero-balance' }, fmt(wallet.balance)),
-        h('div', { className: 'wallet-hero-user' }, '@' + wallet.username)
+        h('div', { className: 'wallet-hero-user' }, '@' + wallet.username),
+        // Pending in-flight chips. Renders only when there's an actual
+        // pending row so the wallet hero stays clean for users without
+        // any outstanding deposits/withdrawals. Numbers come straight
+        // from /api/wallet; the UI doesn't compute them itself.
+        ((parseFloat(wallet.pendingWithdrawAmt) || 0) > 0 ||
+         (parseFloat(wallet.pendingDepositAmt)  || 0) > 0) &&
+          h('div', { className: 'wallet-pending-row' },
+            (parseFloat(wallet.pendingWithdrawAmt) || 0) > 0 && h('div', { className: 'wallet-pending-chip withdraw' },
+              h('span', { className: 'wallet-pending-dot' }),
+              h('span', { className: 'wallet-pending-label' }, 'Withdrawal pending'),
+              h('span', { className: 'wallet-pending-amt' }, '−' + fmt(wallet.pendingWithdrawAmt))
+            ),
+            (parseFloat(wallet.pendingDepositAmt) || 0) > 0 && h('div', { className: 'wallet-pending-chip deposit' },
+              h('span', { className: 'wallet-pending-dot' }),
+              h('span', { className: 'wallet-pending-label' }, 'Deposit pending'),
+              h('span', { className: 'wallet-pending-amt' }, '+' + fmt(wallet.pendingDepositAmt))
+            )
+          )
       ),
       h('div', { className: 'wallet-tabs' },
         h('button', { className: `wallet-tab ${tab === 'deposit' ? 'active' : ''}`,  onClick: () => { setTab('deposit');  setError(''); } }, 'Deposit'),

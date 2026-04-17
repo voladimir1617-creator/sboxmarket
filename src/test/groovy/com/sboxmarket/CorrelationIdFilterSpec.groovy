@@ -84,6 +84,11 @@ class CorrelationIdFilterSpec extends Specification {
         // Every Steam CDN variant we have seen for item/avatar art:
         csp?.contains('steamcommunity-a.akamaihd.net')
         csp?.contains('avatars.steamstatic.com')
+        // Cloudflare auto-injects a RUM beacon from static.cloudflareinsights.com
+        // on every HTML response when the zone has Web Analytics enabled.
+        // Tester flagged a red-X network entry when CSP blocked it; this
+        // assertion pins the allowlist so it can't silently regress.
+        csp?.contains('static.cloudflareinsights.com')
     }
 
     def "HSTS only emitted when enableHsts=true"() {
