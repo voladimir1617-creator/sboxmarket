@@ -127,6 +127,22 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   const changePct = history.length > 1 && parseFloat(history[0]?.price)
     ? ((change30d / parseFloat(history[0].price)) * 100).toFixed(1)
     : '0.0';
+  // Price-range extremes across the full loaded history. Buyers anchor
+  // fairness on "how low has this been?" — the ATL chip surfaces the
+  // answer in one glance alongside the current floor. We also expose
+  // the 30D high so shoppers can tell whether the current ask is near
+  // the recent ceiling or the recent floor.
+  const priceExtremes = useMemo(() => {
+    if (!history || history.length < 2) return null;
+    const nums = history.map(r => parseFloat(r.price)).filter(n => Number.isFinite(n) && n > 0);
+    if (nums.length < 2) return null;
+    const last30 = nums.slice(-30);
+    return {
+      allTimeLow:  Math.min.apply(null, nums),
+      high30d:     Math.max.apply(null, last30),
+      low30d:      Math.min.apply(null, last30)
+    };
+  }, [history]);
 
   return h('div', { className: 'modal-backdrop', onClick: onClose },
     h('div', { className: 'modal', onClick: e => e.stopPropagation() },
@@ -243,6 +259,23 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             h('div', { className: 'modal-demand-chip', style: { background: 'rgba(96,165,250,0.12)', borderColor: 'rgba(96,165,250,0.35)', color: '#60a5fa' } },
               h('span', { className: 'modal-demand-chip-num' }, fmt(velocity.volumeLast30d)),
               ' volume · 30d'
+            ),
+          // 30D range chip — "is the current ask near the recent ceiling
+          // or the recent floor?" A cheap anchor for buyers. Silent until
+          // there are at least two price-history rows to compare.
+          priceExtremes &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)' } },
+              '30D range · ',
+              h('span', { className: 'modal-demand-chip-num', style: { color: 'var(--text-primary)' } },
+                `${fmt(priceExtremes.low30d)} – ${fmt(priceExtremes.high30d)}`)
+            ),
+          // All-time low chip — standard buyer reference point: "is this
+          // below the cheapest it's ever been?" We colour it purple to
+          // distinguish from the neutral 30D range chip.
+          priceExtremes && priceExtremes.allTimeLow < priceExtremes.low30d &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'rgba(168,85,247,0.12)', borderColor: 'rgba(168,85,247,0.4)', color: '#a855f7' } },
+              'All-time low · ',
+              h('span', { className: 'modal-demand-chip-num' }, fmt(priceExtremes.allTimeLow))
             )
         )
       ),
