@@ -189,6 +189,32 @@ class ListingController {
         ResponseEntity.ok(rows)
     }
 
+    /** Top sellers rail — aggregates sold counts and surfaces the most
+     *  active sellers for homepage social proof. Public, capped at 8
+     *  rows so the payload stays tiny. Response includes enough data for
+     *  the UI to link to /stall/:id and render an avatar + name + stats. */
+    @GetMapping("/top-sellers")
+    ResponseEntity<List<Map>> topSellers() {
+        def rows = listingService.topSellers(5L, 8)
+        def out = rows.collect { r ->
+            def user = steamUserRepository.findById(r.userId).orElse(null)
+            if (user == null) return null
+            def ratingSummary = reviewService?.summaryForUser(user.id) ?: [count: 0, average: null]
+            [
+                id:          user.id,
+                displayName: user.displayName,
+                avatarUrl:   user.avatarUrl,
+                soldCount:   r.soldCount,
+                joinedAt:    user.createdAt,
+                rating:      ratingSummary,
+                verified:    r.soldCount >= 10L &&
+                             ((ratingSummary.count ?: 0) == 0 ||
+                              ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
+            ]
+        }.findAll { it != null }
+        ResponseEntity.ok(out)
+    }
+
     /** Auctions ending within the next hour (or custom window). Powers the
      *  homepage "Ending soon" rail — high-signal surface for the buying
      *  audience since the bid pressure is about to peak. Public endpoint,

@@ -66,6 +66,7 @@ class AdminService {
     // BanGuard, so AdminService can depend on TradeService eagerly.
     @Autowired(required = false) TradeService tradeService
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
+    @Autowired(required = false) javax.sql.DataSource dataSource
     @Autowired BanGuard banGuard
     @Autowired AdminAuthorization adminAuthorization
 
@@ -122,6 +123,69 @@ class AdminService {
             pendingWithdrawalsAmount: (pendingAmt as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             openTickets:              supportTicketRepository.countOpen(),
             bannedUsers:              steamUserRepository.countBanned()
+        ]
+    }
+
+    /**
+     * System-health snapshot pulled from live JVM + Hikari instrumentation.
+     * Admin-only — callers already hit requireAdmin upstream. No DB queries
+     * here; the figures come from Java MXBeans + the injected DataSource.
+     * Cheap enough to poll every few seconds if the admin panel wants to.
+     */
+    Map systemHealth() {
+        def runtime = Runtime.getRuntime()
+        def rtMx = java.lang.management.ManagementFactory.runtimeMXBean
+        def osMx = java.lang.management.ManagementFactory.operatingSystemMXBean
+        def memMx = java.lang.management.ManagementFactory.memoryMXBean
+        def heap = memMx.heapMemoryUsage
+        def nonHeap = memMx.nonHeapMemoryUsage
+        def threadMx = java.lang.management.ManagementFactory.threadMXBean
+
+        // Hikari exposes its live pool gauges on the injected DataSource
+        // via HikariPoolMXBean. We guard the cast so a non-Hikari pool in
+        // tests doesn't throw.
+        def pool = null
+        try {
+            if (dataSource instanceof com.zaxxer.hikari.HikariDataSource) {
+                def hds = (com.zaxxer.hikari.HikariDataSource) dataSource
+                def bean = hds.hikariPoolMXBean
+                if (bean != null) {
+                    pool = [
+                        active:   bean.activeConnections,
+                        idle:     bean.idleConnections,
+                        total:    bean.totalConnections,
+                        waiting:  bean.threadsAwaitingConnection,
+                        max:      hds.maximumPoolSize
+                    ]
+                }
+            }
+        } catch (Exception ignore) {}
+
+        [
+            uptimeMs:       rtMx.uptime,
+            startedAt:      rtMx.startTime,
+            jvm: [
+                vendor:  rtMx.vmVendor,
+                name:    rtMx.vmName,
+                version: rtMx.vmVersion
+            ],
+            memory: [
+                heapUsedMb:     (heap.used    / (1024L * 1024L)) as long,
+                heapMaxMb:      (heap.max     / (1024L * 1024L)) as long,
+                heapCommittedMb:(heap.committed / (1024L * 1024L)) as long,
+                nonHeapUsedMb:  (nonHeap.used / (1024L * 1024L)) as long,
+                processorCount: runtime.availableProcessors()
+            ],
+            threads: [
+                live:    threadMx.threadCount,
+                peak:    threadMx.peakThreadCount,
+                daemon:  threadMx.daemonThreadCount
+            ],
+            pool:           pool,
+            systemLoad:     osMx.systemLoadAverage,
+            db: [
+                schemaVersion: 16   // bumps when a new Flyway migration lands
+            ]
         ]
     }
 

@@ -44,6 +44,18 @@ class AdminController {
         ResponseEntity.ok(adminService.dashboardStats())
     }
 
+    /** System-health snapshot — JVM memory, thread count, Hikari pool
+     *  state, DB connection health, and a sprinkling of last-run
+     *  metadata for the scheduled jobs. Useful for ops to eyeball
+     *  "is everything humming" without jumping to a separate
+     *  observability stack. Admin-gated because the counters reveal
+     *  internal container state. */
+    @GetMapping("/health")
+    ResponseEntity<Map> systemHealth(HttpServletRequest req) {
+        requireAdmin(req)
+        ResponseEntity.ok(adminService.systemHealth())
+    }
+
     /** Lightweight probe the frontend uses to decide whether to show the
      *  Admin menu entry — returns {admin: true} or {admin: false}. */
     @GetMapping("/check")

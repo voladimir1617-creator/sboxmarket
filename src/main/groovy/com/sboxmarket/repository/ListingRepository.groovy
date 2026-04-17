@@ -175,6 +175,22 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Listing> findSoldBySeller(@Param("uid") Long uid, org.springframework.data.domain.Pageable page)
 
+    /** Homepage "Top sellers" rail aggregate. Returns [sellerUserId, count]
+     *  tuples for sellers with at least `minSold` completed sales, sorted
+     *  by count DESC. Caller enriches with display name, avatar, rating
+     *  summary. The threshold filter stays in SQL so we don't pull every
+     *  seller into memory — only those who cleared the bar make it out. */
+    @Query("""
+        SELECT l.sellerUserId, COUNT(l)
+        FROM Listing l
+        WHERE l.status = 'SOLD'
+          AND l.sellerUserId IS NOT NULL
+        GROUP BY l.sellerUserId
+        HAVING COUNT(l) >= :minSold
+        ORDER BY COUNT(l) DESC
+    """)
+    List<Object[]> topSellers(@Param("minSold") long minSold, org.springframework.data.domain.Pageable page)
+
     /** Rows flagged as simulator fixtures — `AdminSimulatorService.clearSimulated`
      *  and `countSimulated` used to pull every listing and filter in Groovy.
      *  Pushing the tag filters into SQL keeps the admin sim tool fast even

@@ -28,6 +28,7 @@ export function AdminModal({ onClose, me }) {
     { id: 'simulator',   label: '🧪 Simulator' },
     { id: 'fraud',       label: '🚨 Fraud' },
     { id: 'announce',    label: '📢 Announce' },
+    { id: 'health',      label: '❤ Health' },
     { id: 'audit',       label: '📜 Audit Log' },
   ];
   return h(InfoModal, { title: '⚙ Admin Panel', onClose },
@@ -51,7 +52,66 @@ export function AdminModal({ onClose, me }) {
     tab === 'simulator'   && h(AdminSimulatorTab, null),
     tab === 'fraud'       && h(AdminFraudTab, null),
     tab === 'announce'    && h(AdminAnnouncementsTab, null),
+    tab === 'health'      && h(AdminHealthTab, null),
     tab === 'audit'       && h(AdminAuditTab, null),
+  );
+}
+
+// System-health panel — JVM memory, DB pool, threads, uptime. Polls every
+// 5s while the tab is active so the numbers feel live. Admin-gated
+// server-side; this tab is only mounted for ADMIN users anyway.
+function AdminHealthTab() {
+  const [data, setData] = useState(null);
+  const [err, setErr]   = useState('');
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/admin/health', { credentials: 'same-origin' });
+        if (!r.ok) { if (alive) setErr(`HTTP ${r.status}`); return; }
+        const j = await r.json();
+        if (alive) { setData(j); setErr(''); }
+      } catch (e) { if (alive) setErr(String(e)); }
+    };
+    load();
+    const id = setInterval(load, 5_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (err) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'wallet-error' }, err));
+  if (!data) return h('div', { className: 'admin-tab-content' }, h('div', { className: 'spinner' }));
+
+  const uptimeH = Math.floor((data.uptimeMs || 0) / 3_600_000);
+  const uptimeM = Math.floor((((data.uptimeMs || 0) % 3_600_000) / 60_000));
+  const heapPct = data.memory?.heapMaxMb
+    ? Math.round((data.memory.heapUsedMb / data.memory.heapMaxMb) * 100)
+    : 0;
+  const poolPct = data.pool?.max
+    ? Math.round((data.pool.active / data.pool.max) * 100)
+    : 0;
+
+  const card = (label, value, hint) => h('div', { className: 'health-card' },
+    h('div', { className: 'health-card-label' }, label),
+    h('div', { className: 'health-card-value' }, value),
+    hint != null && h('div', { className: 'health-card-hint' }, hint)
+  );
+
+  return h('div', { className: 'admin-tab-content' },
+    h('div', { className: 'health-grid' },
+      card('Uptime', `${uptimeH}h ${uptimeM}m`,
+           `Started ${new Date(data.startedAt).toLocaleString()}`),
+      card('Heap', `${data.memory?.heapUsedMb || 0} / ${data.memory?.heapMaxMb || 0} MB`,
+           `${heapPct}% of max`),
+      card('Threads', `${data.threads?.live || 0} live`,
+           `peak ${data.threads?.peak || 0} · daemon ${data.threads?.daemon || 0}`),
+      data.pool ? card('DB pool',
+           `${data.pool.active} active / ${data.pool.total} total`,
+           `${data.pool.idle} idle · ${data.pool.waiting} waiting · ${poolPct}% of ${data.pool.max} max`)
+        : card('DB pool', '—', 'Not reporting'),
+      card('System load', (data.systemLoad >= 0 ? data.systemLoad.toFixed(2) : 'n/a'),
+           `${data.memory?.processorCount || 0} cores`),
+      card('Schema version', `V${data.db?.schemaVersion || '—'}`,
+           `${data.jvm?.name || 'JVM'} ${data.jvm?.version || ''}`.trim())
+    )
   );
 }
 

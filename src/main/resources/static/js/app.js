@@ -6,7 +6,7 @@ import {
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
-  fetchAnnouncement, replyToReview, fetchJustListed
+  fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -259,6 +259,60 @@ function AuctionsEndingSoonRail({ watchlist, onToggleStar, onOpen }) {
           onToggleStar,
           onClick: () => onOpen(l)
         })
+      ))
+    )
+  );
+}
+
+// ── Top sellers rail — aggregate the highest-volume sellers by completed
+// sales count and surface them for social proof. Anon-friendly (public
+// endpoint), hides when the platform has no sellers meeting the threshold.
+// 5-minute poll is plenty — the aggregate shifts on the hours-to-days
+// scale, not seconds.
+function TopSellersRail() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchTopSellers();
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'top-sellers-rail' },
+    h('div', { className: 'top-sellers-head' },
+      h('span', { className: 'section-title-dot' }),
+      h('span', null, 'Top sellers'),
+      h('span', { className: 'top-sellers-count' }, `${rows.length} active`)
+    ),
+    h('div', { className: 'top-sellers-track' },
+      rows.map(s => h('a', {
+        key: 'ts-' + s.id,
+        href: paths.stall(s.id),
+        className: 'top-seller-card'
+      },
+        h('div', { className: 'top-seller-avatar' },
+          s.avatarUrl
+            ? h('img', { src: s.avatarUrl, alt: s.displayName, loading: 'lazy' })
+            : (s.displayName || 'U').substring(0, 2).toUpperCase()
+        ),
+        h('div', { className: 'top-seller-body' },
+          h('div', { className: 'top-seller-name' },
+            s.displayName || 'Player',
+            s.verified && h('span', { className: 'top-seller-verified', title: 'Verified seller' }, '✓')
+          ),
+          h('div', { className: 'top-seller-meta' },
+            `${s.soldCount} sold`,
+            (s.rating && s.rating.count > 0)
+              ? ` · ★ ${Number(s.rating.average || 0).toFixed(1)}`
+              : ''
+          )
+        )
       ))
     )
   );
@@ -653,6 +707,22 @@ export function App() {
   const [suggest, setSuggest]           = useState([]);
   const [suggestOpen, setSuggestOpen]   = useState(false);
   const [suggestIdx, setSuggestIdx]     = useState(-1);
+  // Recent search strings — persists last 6 across sessions. Populated
+  // when the user presses Enter or selects a suggestion; surfaced when
+  // the input is empty-focused so users can re-run a prior query.
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sb_recent_searches') || '[]'); }
+    catch { return []; }
+  });
+  const pushRecentSearch = (q) => {
+    if (!q || !q.trim() || q.trim().length < 2) return;
+    const val = q.trim();
+    setRecentSearches(prev => {
+      const next = [val, ...prev.filter(x => x.toLowerCase() !== val.toLowerCase())].slice(0, 6);
+      try { localStorage.setItem('sb_recent_searches', JSON.stringify(next)); } catch (_) {}
+      return next;
+    });
+  };
   useEffect(() => {
     const q = (searchInput || '').trim();
     if (q.length < 2) { setSuggest([]); return; }
@@ -1507,16 +1577,28 @@ export function App() {
               placeholder: 'Search s&box skins…  (press / to focus)',
               value: searchInput,
               onChange: e => { setSearchInput(e.target.value); setSuggestOpen(true); setSuggestIdx(-1); },
-              onFocus: () => { if (searchInput && suggest.length > 0) setSuggestOpen(true); },
+              onFocus: () => { setSuggestOpen(true); },
               onKeyDown: (e) => {
-                if (!suggestOpen || suggest.length === 0) return;
-                if (e.key === 'ArrowDown') { e.preventDefault(); setSuggestIdx(i => (i + 1) % suggest.length); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); setSuggestIdx(i => (i - 1 + suggest.length) % suggest.length); }
-                else if (e.key === 'Enter' && suggestIdx >= 0) {
+                if (!suggestOpen) return;
+                if (e.key === 'ArrowDown' && suggest.length > 0) {
                   e.preventDefault();
-                  const item = suggest[suggestIdx];
-                  setSuggestOpen(false); setSuggestIdx(-1);
-                  navigate(paths.item(item.id));
+                  setSuggestIdx(i => (i + 1) % suggest.length);
+                }
+                else if (e.key === 'ArrowUp' && suggest.length > 0) {
+                  e.preventDefault();
+                  setSuggestIdx(i => (i - 1 + suggest.length) % suggest.length);
+                }
+                else if (e.key === 'Enter') {
+                  if (suggestIdx >= 0 && suggest[suggestIdx]) {
+                    e.preventDefault();
+                    const item = suggest[suggestIdx];
+                    pushRecentSearch(searchInput);
+                    setSuggestOpen(false); setSuggestIdx(-1);
+                    navigate(paths.item(item.id));
+                  } else if (searchInput && searchInput.trim().length >= 2) {
+                    pushRecentSearch(searchInput);
+                    setSuggestOpen(false);
+                  }
                 }
                 else if (e.key === 'Escape') { setSuggestOpen(false); setSuggestIdx(-1); }
               },
@@ -1530,6 +1612,40 @@ export function App() {
               title: 'Clear search',
               'aria-label': 'Clear search'
             }, '✕'),
+            // Recent-searches dropdown — shown when the input is empty
+            // and focused. Clicking a row fills the search + opens the
+            // item autocomplete.
+            suggestOpen && (!searchInput || searchInput.trim().length < 2) && recentSearches.length > 0 && h('div', {
+              className: 'search-suggest',
+              role: 'listbox'
+            },
+              h('div', { className: 'search-suggest-heading' }, 'Recent searches'),
+              recentSearches.map((q, i) => h('div', {
+                key: 'rs-' + i,
+                className: 'search-suggest-row recent',
+                role: 'option',
+                onClick: () => {
+                  setSearchInput(q);
+                  setSearch(q);
+                  setSuggestOpen(true);
+                  setSuggestIdx(-1);
+                }
+              },
+                h('span', { className: 'search-suggest-recent-icon' }, '⟲'),
+                h('span', { style: { flex: 1, fontSize: 13 } }, q),
+                h('button', {
+                  className: 'search-suggest-forget',
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    const next = recentSearches.filter(x => x !== q);
+                    setRecentSearches(next);
+                    try { localStorage.setItem('sb_recent_searches', JSON.stringify(next)); } catch (_) {}
+                  },
+                  title: 'Forget this search',
+                  'aria-label': 'Forget'
+                }, '✕')
+              ))
+            ),
             suggestOpen && suggest.length > 0 && h('div', {
               className: 'search-suggest',
               role: 'listbox'
@@ -1709,6 +1825,11 @@ export function App() {
     routeName === 'market' && h(JustListedRail, {
       watchlist, onToggleStar: toggleStar, onOpen: openModal
     }),
+
+    /* TOP SELLERS — social proof rail showing the highest-volume
+       verified sellers. Polls every 5 minutes; hides when the aggregate
+       returns nothing (brand-new platform with <5-sale sellers). */
+    routeName === 'market' && h(TopSellersRail, null),
 
     /* RECENTLY VIEWED RAIL — horizontal scroll strip of the last 12 items
        the user clicked into. Pure localStorage, shown only on the market

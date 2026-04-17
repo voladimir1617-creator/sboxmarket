@@ -536,6 +536,12 @@ export async function replyToReview(reviewId, reply) {
     body: JSON.stringify({ reply })
   });
 }
+/** Aggregate top sellers for the homepage social-proof rail. Public,
+ *  8-row cap server-side, excludes sellers with <5 completed sales. */
+export async function fetchTopSellers() {
+  const data = await safeJson(`${API}/listings/top-sellers`);
+  return Array.isArray(data) ? data : [];
+}
 /** Newest active listings — powers the "Just listed" rail on the
  *  marketplace home. 20-row cap server-side, excludes hidden rows. */
 export async function fetchJustListed() {

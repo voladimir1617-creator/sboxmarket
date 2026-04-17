@@ -123,6 +123,15 @@ class ListingService {
         listingRepository.findSoldBySeller(sellerUserId, page)
     }
 
+    /** Top sellers — [{userId, soldCount}] sorted by soldCount DESC,
+     *  filtered by `minSold` at the SQL level so we don't haul every
+     *  seller into Groovy memory. Callers hydrate user + rating data. */
+    List<Map> topSellers(long minSold, int limit) {
+        def rows = listingRepository.topSellers(
+            minSold, org.springframework.data.domain.PageRequest.of(0, limit))
+        rows.collect { r -> [userId: r[0] as Long, soldCount: r[1] as Long] }
+    }
+
     /** Apply a percent adjustment to every active non-auction listing owned
      *  by the user. +10 = markup 10%, -5 = 5% discount. Auction listings
      *  are skipped (starting price ≠ current bid once a bid lands). Result
