@@ -720,6 +720,7 @@ function kindIcon(kind) {
     REPORT_ACTIONED: '🚩', REPORT_REVIEWED: '👀',
     WATCHLIST_PRICE_DROP: '📉',
     NEW_LISTING_FROM_SELLER: '🆕',
+    TRADE_MESSAGE: '💬',
     ADMIN_GRANTED: '👑', ADMIN_REVOKED: '↓',
     CSR_GRANTED: '🎧',   CSR_REVOKED: '↓'
   };

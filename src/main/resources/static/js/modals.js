@@ -14,6 +14,7 @@ import {
   fetchBuyOrders, deleteBuyOrder, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
+  fetchTradeMessages, postTradeMessage,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
   fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, replyToReview, fetchBuyOrderCountForItem
@@ -1602,6 +1603,38 @@ function ProfileTradesTab({ me, privacy }) {
   const [trades, setTrades] = useState(null);
   const [busy, setBusy]     = useState(false);
   const [filter, setFilter] = useState('ALL');
+  // Per-trade chat panel state: which trade's chat is open, the loaded
+  // messages keyed by trade id, the draft input per trade, and the
+  // send-in-flight flag. Closed by default — a user with dozens of
+  // trades doesn't want every thread loading on tab open.
+  const [openChat, setOpenChat] = useState(null);
+  const [chatThreads, setChatThreads] = useState({});
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const loadChat = async (tradeId) => {
+    const rows = await fetchTradeMessages(tradeId);
+    setChatThreads(prev => ({ ...prev, [tradeId]: rows }));
+  };
+  const toggleChat = async (tradeId) => {
+    if (openChat === tradeId) {
+      setOpenChat(null);
+      return;
+    }
+    setOpenChat(tradeId);
+    setChatDraft('');
+    await loadChat(tradeId);
+  };
+  const sendChat = async (tradeId) => {
+    const body = chatDraft.trim();
+    if (!body) return;
+    setChatSending(true);
+    try {
+      const res = await postTradeMessage(tradeId, body);
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      setChatDraft('');
+      await loadChat(tradeId);
+    } finally { setChatSending(false); }
+  };
   // Review modal state — which trade we're reviewing, current star pick,
   // comment text, and whether the submit is in flight. Null = closed.
   const [reviewTrade, setReviewTrade] = useState(null);
@@ -1948,7 +1981,76 @@ function ProfileTradesTab({ me, privacy }) {
                         alert('Report filed. Support will review it — track in /support.');
                       }
                     }
-                  }, '🚩 Report')
+                  }, '🚩 Report'),
+                // Private chat toggle — only meaningful while the trade
+                // is still live. Shows messages count when closed so the
+                // user sees there's unread activity without opening.
+                !['CANCELLED'].includes(t.state) &&
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11 },
+                    onClick: () => toggleChat(t.id),
+                    title: 'Private chat with the other trade participant'
+                  },
+                    '💬 ',
+                    openChat === t.id ? 'Hide chat' : 'Chat',
+                    (chatThreads[t.id] || []).length > 0 &&
+                      h('span', { style: { marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' } },
+                        '· ' + chatThreads[t.id].length)
+                  )
+              ),
+              openChat === t.id && h('div', {
+                style: {
+                  gridColumn: '1 / -1',
+                  marginTop: 8, padding: 10,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6
+                }
+              },
+                h('div', {
+                  style: { maxHeight: 200, overflowY: 'auto', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }
+                },
+                  (chatThreads[t.id] || []).length === 0
+                    ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
+                        'No messages yet. Send the first one — the other party will see a notification.')
+                    : chatThreads[t.id].map(m => {
+                        const mine = m.senderUserId === me?.id;
+                        return h('div', {
+                          key: m.id,
+                          style: {
+                            alignSelf: mine ? 'flex-end' : 'flex-start',
+                            maxWidth: '80%',
+                            padding: '6px 10px',
+                            borderRadius: 8,
+                            background: mine ? 'rgba(96,165,250,0.15)' : 'var(--bg-card)',
+                            border: '1px solid ' + (mine ? 'rgba(96,165,250,0.3)' : 'var(--border)'),
+                            fontSize: 12
+                          }
+                        },
+                          h('div', { style: { color: 'var(--text-primary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, m.body),
+                          h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 } },
+                            (mine ? 'You' : (t.counterpartyName || 'Other')) + ' · ' + timeAgo(m.createdAt))
+                        );
+                      })
+                ),
+                h('div', { style: { display: 'flex', gap: 6 } },
+                  h('input', {
+                    className: 'chat-input',
+                    style: { flex: 1 },
+                    placeholder: 'Type a message…',
+                    value: chatDraft,
+                    maxLength: 2000,
+                    onChange: e => setChatDraft(e.target.value),
+                    onKeyDown: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(t.id); } }
+                  }),
+                  h('button', {
+                    className: 'btn btn-accent',
+                    style: { padding: '6px 14px', fontSize: 12 },
+                    disabled: chatSending || !chatDraft.trim(),
+                    onClick: () => sendChat(t.id)
+                  }, chatSending ? '…' : 'Send')
+                )
               )
             );
           })

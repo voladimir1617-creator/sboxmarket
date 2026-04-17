@@ -813,6 +813,18 @@ export async function tradeMarkSent(id) {
 export async function tradeConfirm(id) {
   return writeJson(`${API}/trades/${id}/confirm`, { method: 'POST', credentials: 'same-origin' });
 }
+export async function fetchTradeMessages(tradeId) {
+  const data = await safeJson(`${API}/trades/${tradeId}/messages`);
+  return Array.isArray(data) ? data : [];
+}
+export async function postTradeMessage(tradeId, body) {
+  return writeJson(`${API}/trades/${tradeId}/messages`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body })
+  });
+}
+
 export async function tradeDispute(id, reason) {
   return writeJson(`${API}/trades/${id}/dispute`, {
     method: 'POST',

@@ -53,16 +53,93 @@ class TradeService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) AuditService auditService
     @Autowired TextSanitizer textSanitizer
+    @Autowired(required = false) com.sboxmarket.repository.TradeMessageRepository tradeMessageRepository
     // Narrow security dependencies — we only need the ban check and admin
     // role check, not the full AdminService graph. This is what breaks the
     // old TradeService ↔ AdminService cycle that forced @Lazy injection.
     @Autowired BanGuard banGuard
     @Autowired AdminAuthorization adminAuthorization
 
+    /** Cap on in-trade messages per sender per 10 min. Anti-spam — a
+     *  compromised account trying to DM every counterparty will trip this
+     *  long before the chat becomes unusable for legitimate users. */
+    private static final int MESSAGE_RATE_PER_10MIN = 30
+
     // ── Queries ──────────────────────────────────────────────────────
 
     Trade get(Long id) {
         tradeRepository.findById(id).orElseThrow { new NotFoundException("Trade", id) }
+    }
+
+    // ── Trade chat (counterparty thread) ───────────────────────────
+
+    /**
+     * Post a message in the trade's private chat thread. Only the buyer
+     * and seller on the parent trade can post; admins can read via
+     * listMessages but not post (they have their own support channels).
+     * 2000-char cap, HTML sanitised. Rate-limited to 30/10min per user.
+     */
+    @Transactional
+    com.sboxmarket.model.TradeMessage postMessage(Long tradeId, Long senderUserId, String body) {
+        banGuard.assertNotBanned(senderUserId)
+        if (tradeMessageRepository == null) {
+            throw new BadRequestException('CHAT_UNAVAILABLE', 'Trade chat is temporarily unavailable')
+        }
+        def trade = get(tradeId)
+        if (trade.buyerUserId != senderUserId && trade.sellerUserId != senderUserId) {
+            throw new ForbiddenException('Only trade participants can post messages')
+        }
+        if (trade.state in ['VERIFIED','CANCELLED']) {
+            throw new BadRequestException('TRADE_CLOSED',
+                "Can't post to a ${trade.state.toLowerCase()} trade")
+        }
+        def cleanBody = textSanitizer.clean(body, 2000)
+        if (cleanBody == null || cleanBody.trim().isEmpty()) {
+            throw new BadRequestException('EMPTY_MESSAGE', 'Message body is required')
+        }
+        def since = System.currentTimeMillis() - 10 * 60_000L
+        long recent = tradeMessageRepository.countBySenderUserIdAndCreatedAtGreaterThan(senderUserId, since)
+        if (recent >= MESSAGE_RATE_PER_10MIN) {
+            throw new BadRequestException('CHAT_RATE_LIMITED',
+                "You've posted too many messages. Slow down.")
+        }
+        def msg = new com.sboxmarket.model.TradeMessage(
+            tradeId:      tradeId,
+            senderUserId: senderUserId,
+            body:         cleanBody,
+            createdAt:    System.currentTimeMillis()
+        )
+        tradeMessageRepository.save(msg)
+
+        // Notify the counterparty. Use the trade's itemName as preview so
+        // they know which trade the message is about when they see the bell.
+        def counterpartyId = (trade.buyerUserId == senderUserId) ? trade.sellerUserId : trade.buyerUserId
+        if (counterpartyId != null) {
+            try {
+                def preview = cleanBody.length() > 80 ? cleanBody.substring(0, 77) + '…' : cleanBody
+                notificationService?.push(counterpartyId, 'TRADE_MESSAGE',
+                    "New message on trade #${tradeId}",
+                    preview, tradeId, '/profile?tab=trades')
+            } catch (Exception e) {
+                log.warn("Trade-message notification failed for user ${counterpartyId}: ${e.message}")
+            }
+        }
+        msg
+    }
+
+    /**
+     * Full message thread for a trade. Only participants and admins can
+     * see it — buyer-seller messaging is private by design.
+     */
+    List<com.sboxmarket.model.TradeMessage> listMessages(Long tradeId, Long viewerUserId) {
+        if (tradeMessageRepository == null) return []
+        def trade = get(tradeId)
+        boolean isParticipant = trade.buyerUserId == viewerUserId || trade.sellerUserId == viewerUserId
+        boolean isAdmin = adminAuthorization?.isAdmin(viewerUserId) ?: false
+        if (!isParticipant && !isAdmin) {
+            throw new ForbiddenException('Only trade participants can read this thread')
+        }
+        tradeMessageRepository.findByTrade(tradeId)
     }
 
     List<Trade> listForUser(Long userId) {

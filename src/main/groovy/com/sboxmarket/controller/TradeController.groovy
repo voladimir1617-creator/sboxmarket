@@ -70,6 +70,27 @@ class TradeController {
         ResponseEntity.ok(tradeService.dispute(requireUser(req), id, reason))
     }
 
+    // ── Trade chat ───────────────────────────────────────────────────
+
+    @GetMapping('/{id}/messages')
+    ResponseEntity<List<com.sboxmarket.model.TradeMessage>> messages(@PathVariable Long id, HttpServletRequest req) {
+        ResponseEntity.ok(tradeService.listMessages(id, requireUser(req)))
+    }
+
+    @PostMapping('/{id}/messages')
+    ResponseEntity<com.sboxmarket.model.TradeMessage> postMessage(@PathVariable Long id,
+                                                                   @RequestBody Map body,
+                                                                   HttpServletRequest req) {
+        def text = body?.body as String
+        if (text == null || text.trim().isEmpty()) {
+            throw new com.sboxmarket.exception.BadRequestException('EMPTY_MESSAGE', 'Message body is required')
+        }
+        if (text.length() > 2000) {
+            throw new com.sboxmarket.exception.BadRequestException('TOO_LONG', 'Messages must be under 2000 characters')
+        }
+        ResponseEntity.ok(tradeService.postMessage(id, requireUser(req), text))
+    }
+
     @PostMapping("/{id}/cancel")
     ResponseEntity<Trade> cancel(@PathVariable Long id, @RequestBody(required = false) Map body, HttpServletRequest req) {
         def reason = capReason(body?.reason as String)
