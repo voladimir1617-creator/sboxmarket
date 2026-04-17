@@ -1589,6 +1589,30 @@ function ProfileBuyOrdersTab() {
             ),
             h('div', { style: { textAlign: 'right' } },
               h('div', { className: 'buyorder-cap' }, '≤ ' + fmt(o.maxPrice)),
+              // Floor gap — how close is this order to matching?
+              // Negative (order ≥ floor) is green ("should match"),
+              // small positive is amber, large positive is muted.
+              // Null (no itemId, e.g. category-only orders) hides.
+              o.currentFloor != null && o.floorGap != null && (() => {
+                const gap = parseFloat(o.floorGap);
+                const floor = parseFloat(o.currentFloor);
+                const pct = floor > 0 ? Math.round((gap / floor) * 100) : 0;
+                let color = 'var(--text-muted)';
+                let label;
+                if (gap <= 0) {
+                  color = 'var(--green)';
+                  label = '= floor';
+                } else if (pct <= 10) {
+                  color = '#fbbf24';
+                  label = pct + '% below';
+                } else {
+                  label = pct + '% below';
+                }
+                return h('div', {
+                  style: { fontSize: 10, color, marginTop: 2 },
+                  title: `Current floor ${fmt(floor)} · gap ${fmt(gap)}`
+                }, 'Floor ' + fmt(floor) + ' · ' + label);
+              })(),
               h('div', { className: `buyorder-status ${o.status}` }, o.status),
               // Cancel button — only shown while the order still has
               // remaining fillable quantity. Fills / cancels terminate

@@ -20,6 +20,7 @@ class BuyOrderController {
 
     @Autowired BuyOrderService buyOrderService
     @Autowired SteamUserRepository steamUserRepository
+    @Autowired com.sboxmarket.repository.ItemRepository itemRepository
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -28,8 +29,34 @@ class BuyOrderController {
     }
 
     @GetMapping
-    ResponseEntity<List<BuyOrder>> mine(HttpServletRequest req) {
-        ResponseEntity.ok(buyOrderService.listForBuyer(requireUser(req)))
+    ResponseEntity<List<Map>> mine(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def rows = buyOrderService.listForBuyer(uid)
+        // Enrich each row with the item's current floor price + a
+        // per-row "gap" (floor − maxPrice). Negative gap means the
+        // order is already above floor and should have matched; zero-
+        // to-small-positive gap means the order is one drop away from
+        // a match. Null floor when the order spec isn't item-specific
+        // (buy orders pinned to category+rarity carry no itemId).
+        def itemIds = rows*.itemId.findAll { it != null }.unique()
+        def byId = [:]
+        if (!itemIds.isEmpty()) {
+            itemRepository.findAllById(itemIds).each { byId[it.id] = it }
+        }
+        def out = rows.collect { o ->
+            def floor = o.itemId != null ? byId[o.itemId]?.lowestPrice : null
+            def gap = (floor != null && o.maxPrice != null) ? (floor - o.maxPrice) : null
+            [
+                id: o.id, itemId: o.itemId, itemName: o.itemName,
+                category: o.category, rarity: o.rarity,
+                maxPrice: o.maxPrice, quantity: o.quantity,
+                originalQuantity: o.originalQuantity, status: o.status,
+                createdAt: o.createdAt, updatedAt: o.updatedAt,
+                currentFloor: floor,
+                floorGap:     gap
+            ]
+        }
+        ResponseEntity.ok(out)
     }
 
     /** Public demand-count for an item — returns the count of ACTIVE buy
