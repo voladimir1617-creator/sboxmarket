@@ -1400,7 +1400,10 @@ export function App() {
         setCartConfirmOpen(false);
         await loadWallet();
         load();
-        if (failedIds.size === 0) navigate(paths.profile());
+        // Every successful cart row opens a trade — route straight to
+        // the Trades tab so the user sees the escrow state machine
+        // instead of landing on the Personal tab and having to switch.
+        if (failedIds.size === 0) navigate('/profile?tab=trades');
       } else {
         showToast('Checkout failed', 'err');
       }
@@ -1938,7 +1941,7 @@ export function App() {
                 h('div', { className: 'user-menu-divider' }),
                 h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'south', size: 18 }), 'Deposit'),
                 h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('withdraw'); navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'north', size: 18 }), 'Withdraw'),
-                h('a', { className: 'user-menu-item', href: '/profile',            onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'swap_horiz', size: 18 }), 'Trades'),
+                h('a', { className: 'user-menu-item', href: '/profile?tab=trades', onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'swap_horiz', size: 18 }), 'Trades'),
                 h('div', { className: 'user-menu-divider' }),
                 h('a', { className: 'user-menu-item', href: paths.sell(),          onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18 }), 'Sell Items'),
                 h('a', { className: 'user-menu-item', href: paths.mystall(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18 }), 'My Stall'),
