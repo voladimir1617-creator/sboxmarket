@@ -2417,6 +2417,27 @@ function ProfileOffersTab() {
     const fromLabel = isIncoming
       ? ((o.author === 'SELLER' ? 'Your counter to ' : '') + (o.buyerName || 'anon'))
       : (o.author === 'SELLER' ? 'Seller counter' : 'Your offer');
+    // Auto-decline window — OfferService sweeper closes PENDING offers
+    // after 7 days of inactivity (offer.auto-decline-days default). The
+    // chip tells both sides how much runway is left before the offer
+    // disappears — red under 24h, amber under 48h, muted otherwise.
+    const OFFER_TTL_MS = 7 * 24 * 3600 * 1000;
+    const expiresChip = (() => {
+      if (!isPending) return null;
+      const left = (o.updatedAt || o.createdAt || 0) + OFFER_TTL_MS - Date.now();
+      if (left <= 0) return null;
+      let label;
+      if (left < 3600 * 1000)       label = Math.max(1, Math.round(left / 60_000)) + 'm';
+      else if (left < 24 * 3600 * 1000) label = Math.max(1, Math.round(left / 3_600_000)) + 'h';
+      else                               label = Math.max(1, Math.round(left / (24 * 3_600_000))) + 'd';
+      const cls = left < 24 * 3600 * 1000 ? 'var(--red)'
+               : left < 48 * 3600 * 1000 ? '#fbbf24'
+                                         : 'var(--text-faint)';
+      return h('span', {
+        style: { marginLeft: 8, color: cls, fontWeight: 700 },
+        title: 'This offer auto-declines after 7 days of inactivity. Either side can accept, reject, or counter before then.'
+      }, '· expires in ' + label);
+    })();
 
     return h('div', { key: o.id, className: 'offer-row' },
       // Tiny thread chain indicator if this row is a counter or was countered
@@ -2426,7 +2447,8 @@ function ProfileOffersTab() {
         h('div', { className: 'offer-sub' },
           fromLabel, ' · ', timeAgo(o.createdAt),
           o.askingPrice && h('span', { style: { marginLeft: 8, color: 'var(--text-faint)' } },
-            'Ask: ', fmt(o.askingPrice))
+            'Ask: ', fmt(o.askingPrice)),
+          expiresChip
         )
       ),
       h('div', { className: 'offer-price' },
