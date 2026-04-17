@@ -17,7 +17,8 @@ import {
   fetchTradeMessages, postTradeMessage,
   setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
   fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
-  fetchReviewsForUser, replyToReview, fetchBuyOrderCountForItem
+  fetchReviewsForUser, replyToReview, fetchBuyOrderCountForItem,
+  fetchWatchlistCountForItem
 } from './api.js';
 
 export { InfoModal };
@@ -81,6 +82,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   }, [item?.id]);
   const buyOrderCount = buyOrderInfo.count;
   const bestBid = buyOrderInfo.bestBid;
+  // Watcher count — number of users with an ACTIVE server-side price
+  // alert on this item. Pure social-proof chip; aggregate only, no
+  // watcher identities exposed.
+  const [watcherCount, setWatcherCount] = useState(0);
+  useEffect(() => {
+    if (!item?.id) return;
+    let alive = true;
+    fetchWatchlistCountForItem(item.id).then(n => { if (alive) setWatcherCount(n); });
+    return () => { alive = false; };
+  }, [item?.id]);
   // Trade velocity — "N sold · 7d" activity chip in the header. Social
   // proof via realised sales (complement to the buy-order count which
   // shows demand without transactions). Payload also includes the
@@ -222,6 +233,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             h('span', { className: 'modal-demand-chip-num' }, buyOrderCount),
             ' buyer', buyOrderCount === 1 ? '' : 's',
             ' want', buyOrderCount === 1 ? 's' : '', ' this right now'
+          ),
+          // Watcher chip — passive-demand signal complementing the
+          // buyer-demand chip. "N watching" tells you who's waiting for
+          // a price drop; the buy-order chip tells you who's committed
+          // to paying up to $X right now. Different signals, both
+          // aggregate-only. Silent when nobody is watching so new
+          // items don't look empty.
+          watcherCount > 0 && h('div', { className: 'modal-demand-chip', style: { background: 'rgba(236,72,153,0.12)', borderColor: 'rgba(236,72,153,0.4)', color: '#ec4899' } },
+            h('span', { className: 'modal-demand-chip-num' }, watcherCount),
+            ' watching'
           ),
           // Best-bid chip — top-of-book from the buy-order side. Pairs
           // with the demand count: "N want this" tells you whether

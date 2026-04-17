@@ -81,6 +81,15 @@ class WatchlistAlertService {
         repo.findByUserId(userId)
     }
 
+    /** Public demand-side social proof for an item: how many viewers
+     *  currently have an ACTIVE alert. Aggregate only — no watcher
+     *  identities are exposed. Null itemId → 0, so the UI never has to
+     *  guard the call. */
+    long countWatchersForItem(Long itemId) {
+        if (itemId == null) return 0L
+        repo.countActiveForItem(itemId)
+    }
+
     /** Delete every FIRED alert the user has accumulated — lets users
      *  tidy the Watchlist summary without having to cancel each one. */
     @Transactional

@@ -755,6 +755,13 @@ export async function fetchBuyOrderCountForItem(itemId) {
     bestBid: data?.bestBid != null ? Number(data.bestBid) : null
   };
 }
+/** Public watcher count for an item — number of ACTIVE price alerts
+ *  pinned to the item id. Drives the "N watching" chip on item
+ *  detail. Aggregate only — no watcher identities exposed. */
+export async function fetchWatchlistCountForItem(itemId) {
+  const data = await safeJson(`${API}/watchlist/alerts/count/item/${itemId}`);
+  return Number(data?.watching || 0);
+}
 /** Pending offer counts keyed by role — backs the nav offers badge.
  *  Returns { incomingPending, outgoingPending } — the nav surfaces
  *  incoming (actionable for the seller) as the primary count. */

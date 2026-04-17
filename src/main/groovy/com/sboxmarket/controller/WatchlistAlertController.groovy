@@ -27,6 +27,18 @@ class WatchlistAlertController {
         ResponseEntity.ok(service.listForUser(requireUser(req)))
     }
 
+    /** Public demand-side social proof for an item — returns the count
+     *  of ACTIVE price alerts pinned to it. Drives the "N watching"
+     *  chip on the item detail modal. Aggregate only; no watcher
+     *  identities are exposed. */
+    @GetMapping('/count/item/{id}')
+    ResponseEntity<Map> countForItem(@PathVariable Long id) {
+        ResponseEntity.ok([
+            itemId:   id,
+            watching: service.countWatchersForItem(id)
+        ])
+    }
+
     @PostMapping
     ResponseEntity<WatchlistAlert> create(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)

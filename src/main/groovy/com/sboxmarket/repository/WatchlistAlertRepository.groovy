@@ -39,6 +39,16 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
 
     long countByUserIdAndStatus(Long userId, String status)
 
+    /** Public social-proof: how many users currently have an ACTIVE
+     *  alert on this item. Powers the "N watching" chip on item detail.
+     *  Aggregate only — no user identities surfaced. */
+    @Query("""
+        SELECT COUNT(a) FROM WatchlistAlert a
+        WHERE a.itemId = :itemId
+          AND a.status = 'ACTIVE'
+    """)
+    long countActiveForItem(@Param("itemId") Long itemId)
+
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM WatchlistAlert a WHERE a.userId = :uid AND a.status = 'FIRED'")
     int deleteFiredForUser(@Param("uid") Long uid)

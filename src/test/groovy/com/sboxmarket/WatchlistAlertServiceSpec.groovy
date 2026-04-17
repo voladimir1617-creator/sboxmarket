@@ -275,4 +275,23 @@ class WatchlistAlertServiceSpec extends Specification {
         // In-app notification still fires regardless of email pref.
         1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, _)
     }
+
+    // ── countWatchersForItem (public social-proof chip) ────────────
+
+    def "countWatchersForItem returns 0 for a null item id without hitting the repo"() {
+        when:
+        def n = service.countWatchersForItem(null)
+
+        then:
+        n == 0L
+        0 * repo.countActiveForItem(_)
+    }
+
+    def "countWatchersForItem forwards to the repo for a real item id"() {
+        given:
+        repo.countActiveForItem(42L) >> 7L
+
+        expect:
+        service.countWatchersForItem(42L) == 7L
+    }
 }
