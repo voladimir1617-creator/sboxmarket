@@ -3675,6 +3675,16 @@
       transition: border-color 0.15s ease;
     }
     .admin-stat:hover { border-color: var(--border-light); }
+    .admin-stat.clickable { cursor: pointer; }
+    .admin-stat.clickable:hover {
+      border-color: var(--accent-border);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(30, 165, 255, 0.15);
+    }
+    .admin-stat.clickable:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .admin-stat-label {
       font-size: 11px;
       font-weight: 700;
@@ -5721,6 +5731,28 @@
       color: var(--text-muted);
       margin-top: 2px;
       font-weight: 600;
+    }
+
+    /* ─────────── TRADE COPY-ID BUTTON ─────────── */
+    .trade-copy-id {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0;
+    }
+    .trade-copy-id:hover {
+      color: var(--accent);
+      border-color: var(--accent-border);
     }
 
     /* ─────────── TRADE COUNTERPARTY URL ─────────── */

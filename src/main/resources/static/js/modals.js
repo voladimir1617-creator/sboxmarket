@@ -762,6 +762,39 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
       h('div', { className: 'profile-row-value mono' }, me.steamId64)
     ),
 
+    // Public stall URL — one-click copy for sharing their own stall on
+    // Discord / Steam groups / social. Uses the same canonical /stall/:id
+    // the nav stall link points at.
+    me?.id && h('div', { className: 'profile-row' },
+      h('div', { className: 'profile-row-label' }, 'My public stall'),
+      h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 } },
+        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+          h('a', {
+            className: 'mono',
+            href: `/stall/${me.id}`,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            style: { fontSize: 11, color: 'var(--accent)', wordBreak: 'break-all' }
+          }, `${window.location.origin}/stall/${me.id}`),
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+            onClick: async () => {
+              const url = `${window.location.origin}/stall/${me.id}`;
+              try {
+                if (navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(url);
+                  alert('Stall link copied — paste into Discord, Steam groups, etc.');
+                } else {
+                  window.prompt('Copy this link:', url);
+                }
+              } catch (_) { window.prompt('Copy this link:', url); }
+            }
+          }, '⎘ Copy')
+        )
+      )
+    ),
+
     // ── Email ────────────────────────────────────────────────────
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Email'),
@@ -1382,7 +1415,26 @@ function ProfileTradesTab({ me, privacy }) {
               ),
               h('div', { className: 'trade-side' },
                 h('div', { className: 'trade-price' }, privacy ? '$•••••' : fmt(t.price)),
-                h('div', { className: 'trade-date' }, timeAgo(t.createdAt))
+                h('div', { className: 'trade-date' }, timeAgo(t.createdAt)),
+                // Copy trade ID — useful when opening a support ticket
+                // about a specific trade. The support form references
+                // #TRADE_ID; copying straight from the row beats retyping.
+                h('button', {
+                  className: 'trade-copy-id',
+                  title: 'Copy trade #' + t.id + ' for support references',
+                  'aria-label': 'Copy trade ID',
+                  onClick: async (e) => {
+                    e.stopPropagation();
+                    const s = '#' + t.id;
+                    try {
+                      if (navigator.clipboard?.writeText) {
+                        await navigator.clipboard.writeText(s);
+                      } else {
+                        window.prompt('Copy trade id:', s);
+                      }
+                    } catch (_) { window.prompt('Copy trade id:', s); }
+                  }
+                }, '#' + t.id + ' ⎘')
               ),
               h('div', { className: 'trade-actions' },
                 isSeller && t.state === 'PENDING_SELLER_ACCEPT' &&

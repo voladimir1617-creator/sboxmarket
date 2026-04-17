@@ -44,7 +44,7 @@ export function AdminModal({ onClose, me }) {
         onClick: () => setTab(t.id)
       }, t.label))
     ),
-    tab === 'dashboard'   && h(AdminDashboardTab, null),
+    tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: setTab }),
     tab === 'withdrawals' && h(AdminWithdrawalsTab, null),
     tab === 'trades'      && h(AdminTradesTab, null),
     tab === 'users'       && h(AdminUsersTab, { me }),
@@ -586,7 +586,7 @@ function AdminAuditTab() {
   );
 }
 
-function AdminDashboardTab() {
+function AdminDashboardTab({ onNavTab }) {
   const [stats, setStats] = useState(null);
   // Recent activity — last 10 audit rows surfaced as a mini feed so the
   // admin landing page shows ops pulse at a glance. Refetched every 30s
@@ -617,8 +617,15 @@ function AdminDashboardTab() {
     const pct = ((c - p) / p) * 100;
     return { pct, direction: pct >= 0 ? 'up' : 'down' };
   };
-  const Stat = (label, val, cls, dlt) =>
-    h('div', { className: 'admin-stat' },
+  const Stat = (label, val, cls, dlt, navTarget) =>
+    h('div', {
+      className: `admin-stat${navTarget ? ' clickable' : ''}`,
+      onClick: navTarget && onNavTab ? () => onNavTab(navTarget) : null,
+      role: navTarget ? 'button' : null,
+      tabIndex: navTarget ? 0 : null,
+      onKeyDown: navTarget && onNavTab ? (e) => { if (e.key === 'Enter') onNavTab(navTarget); } : null,
+      title: navTarget ? `Click to open the ${navTarget} tab` : null
+    },
       h('div', { className: 'admin-stat-label' }, label),
       h('div', { className: `admin-stat-val ${cls || ''}` }, val),
       dlt && h('div', {
@@ -635,16 +642,18 @@ function AdminDashboardTab() {
   return h('div', { className: 'profile-panel' },
     h('div', { className: 'admin-stats-grid' },
       Stat('Registered Users',     Number(stats.users || 0).toLocaleString(),
-           null, stats.newUsers24h > 0 ? { pct: null, direction: 'up', label: `+${stats.newUsers24h} in 24h` } : null),
-      Stat('Catalogue Items',      Number(stats.items || 0).toLocaleString()),
+           null, stats.newUsers24h > 0 ? { pct: null, direction: 'up', label: `+${stats.newUsers24h} in 24h` } : null,
+           'users'),
+      Stat('Catalogue Items',      Number(stats.items || 0).toLocaleString(), null, null, 'catalogue'),
       Stat('Active Listings',      Number(stats.activeListings || 0).toLocaleString()),
       Stat('Total Escrow',         fmt(stats.totalEscrow || 0), 'accent'),
       Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green', depositDelta),
-      Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta),
+      Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta, 'trades'),
       Stat('Platform fees 24h',    fmt(stats.fees24h || 0), 'accent'),
-      Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow'),
-      Stat('Open Tickets',         Number(stats.openTickets || 0)),
-      Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '')
+      Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow',
+           null, 'withdrawals'),
+      Stat('Open Tickets',         Number(stats.openTickets || 0), null, null, 'tickets'),
+      Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '', null, 'users')
     ),
     // Recent activity feed — compact list of the last 10 audit rows
     // with event type, actor, subject, and relative time. Clicking a
