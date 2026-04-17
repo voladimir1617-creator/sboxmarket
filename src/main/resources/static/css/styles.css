@@ -4589,6 +4589,21 @@
     }
     .announce-banner-close:hover { background: rgba(0, 0, 0, 0.28); }
 
+    /* ─────────── STALL LISTING FILTER BAR ─────────── */
+    .stall-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0 18px;
+      flex-wrap: wrap;
+    }
+    .stall-filter-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+
     /* ─────────── STALL REVIEWS FILTER ─────────── */
     .stall-reviews-filter {
       display: flex;

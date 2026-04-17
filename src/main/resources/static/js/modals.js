@@ -921,22 +921,48 @@ function ProfileTransactionsTab({ transactions, privacy }) {
 
 function ProfileBuyOrdersTab() {
   const [orders, setOrders] = useState(null);
+  const [filter, setFilter] = useState('ACTIVE');
   useEffect(() => { fetchBuyOrders().then(setOrders); }, []);
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, '🛒'),
-    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No active buy orders. Create one from the user menu.'));
-  return h('div', { className: 'buyorder-list' },
-    orders.map(o => h('div', { key: o.id, className: `buyorder-row ${(o.status || '').toLowerCase()}` },
-      h('div', { style: { flex: 1, minWidth: 0 } },
-        h('div', { className: 'buyorder-title' }, o.itemName || ((o.category || 'Any') + ' · ' + (o.rarity || 'any rarity'))),
-        h('div', { className: 'buyorder-sub' }, 'Qty ', h('strong', null, o.quantity), ' / ', o.originalQuantity, ' · ', timeAgo(o.createdAt))
-      ),
-      h('div', { style: { textAlign: 'right' } },
-        h('div', { className: 'buyorder-cap' }, '≤ ' + fmt(o.maxPrice)),
-        h('div', { className: `buyorder-status ${o.status}` }, o.status)
-      )
-    ))
+    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No buy orders yet. Create one from the user menu.'));
+  const counts = {
+    ALL:       orders.length,
+    ACTIVE:    orders.filter(o => o.status === 'ACTIVE').length,
+    FILLED:    orders.filter(o => o.status === 'FILLED').length,
+    CANCELLED: orders.filter(o => o.status === 'CANCELLED').length
+  };
+  const filtered = filter === 'ALL' ? orders : orders.filter(o => o.status === filter);
+  return h('div', null,
+    h('div', { className: 'wallet-tx-filter-row' },
+      [
+        { id: 'ALL',       label: 'All' },
+        { id: 'ACTIVE',    label: 'Active' },
+        { id: 'FILLED',    label: 'Filled' },
+        { id: 'CANCELLED', label: 'Cancelled' }
+      ].map(opt => h('button', {
+        key: opt.id,
+        className: `wallet-tx-filter-chip ${filter === opt.id ? 'active' : ''}`,
+        onClick: () => setFilter(opt.id),
+        disabled: counts[opt.id] === 0 && opt.id !== 'ALL'
+      }, `${opt.label} · ${counts[opt.id] || 0}`))
+    ),
+    filtered.length === 0
+      ? h('div', { className: 'empty-inline' },
+          h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, `No ${filter.toLowerCase()} buy orders.`))
+      : h('div', { className: 'buyorder-list' },
+          filtered.map(o => h('div', { key: o.id, className: `buyorder-row ${(o.status || '').toLowerCase()}` },
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { className: 'buyorder-title' }, o.itemName || ((o.category || 'Any') + ' · ' + (o.rarity || 'any rarity'))),
+              h('div', { className: 'buyorder-sub' }, 'Qty ', h('strong', null, o.quantity), ' / ', o.originalQuantity, ' · ', timeAgo(o.createdAt))
+            ),
+            h('div', { style: { textAlign: 'right' } },
+              h('div', { className: 'buyorder-cap' }, '≤ ' + fmt(o.maxPrice)),
+              h('div', { className: `buyorder-status ${o.status}` }, o.status)
+            )
+          ))
+        )
   );
 }
 

@@ -878,6 +878,11 @@ export function App() {
   const [eligibleTrades, setEligibleTrades] = useState([]);
   // Star-rating filter for the recent-reviews strip. 0 = all.
   const [stallStarFilter, setStallStarFilter] = useState(0);
+  // Stall listing filter + sort controls. Rarity stays 'All' by default
+  // so new visitors see every listing; sort defaults to price_asc which
+  // mirrors CSFloat's "best deal first" convention on stall views.
+  const [stallRarity, setStallRarity] = useState('All');
+  const [stallSort, setStallSort]     = useState('price_asc');
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
       setStallData(null); setStallReviews(null); setEligibleTrades([]); return;
@@ -2043,15 +2048,65 @@ export function App() {
                     stallData.away
                       ? 'The seller will be back soon — check back later or watchlist one of their items.'
                       : 'This seller has no active listings right now.'))
-              : h('div', { className: 'listing-grid' },
-                  stallData.listings.map(l => h(GridCard, {
-                    key: l.id,
-                    listing: l,
-                    onClick: () => navigate(paths.item(l.item.id)),
-                    starred: watchlist.includes(l.item.id),
-                    onToggleStar: toggleStar
-                  }))
-                ),
+              : (() => {
+                  // Filter + sort — both purely client-side on the stall
+                  // payload. Rarity chips derive from whatever rarities
+                  // are actually represented so empty buttons don't
+                  // dangle. Sort mirrors the marketplace toolbar vocab.
+                  const rarities = Array.from(new Set(
+                    stallData.listings.map(l => l?.item?.rarity || 'Standard')
+                  )).sort();
+                  let rows = stallRarity === 'All'
+                    ? stallData.listings
+                    : stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === stallRarity);
+                  rows = [...rows].sort((a, b) => {
+                    if (stallSort === 'price_asc')  return parseFloat(a.price) - parseFloat(b.price);
+                    if (stallSort === 'price_desc') return parseFloat(b.price) - parseFloat(a.price);
+                    if (stallSort === 'newest')     return (b.listedAt || 0) - (a.listedAt || 0);
+                    if (stallSort === 'rarity')     return (a.item?.supply || 0) - (b.item?.supply || 0);
+                    return 0;
+                  });
+                  return h('div', null,
+                    (rarities.length > 1 || stallData.listings.length > 6) && h('div', { className: 'stall-filter-row' },
+                      h('div', { className: 'stall-filter-chips' },
+                        h('button', {
+                          className: `wallet-tx-filter-chip ${stallRarity === 'All' ? 'active' : ''}`,
+                          onClick: () => setStallRarity('All')
+                        }, `All · ${stallData.listings.length}`),
+                        rarities.map(r => h('button', {
+                          key: r,
+                          className: `wallet-tx-filter-chip ${stallRarity === r ? 'active' : ''}`,
+                          onClick: () => setStallRarity(r)
+                        }, `${r} · ${stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === r).length}`))
+                      ),
+                      h('select', {
+                        className: 'sort-select',
+                        value: stallSort,
+                        onChange: e => setStallSort(e.target.value),
+                        'aria-label': 'Sort stall listings'
+                      },
+                        h('option', { value: 'price_asc' },  'Price: Low → High'),
+                        h('option', { value: 'price_desc' }, 'Price: High → Low'),
+                        h('option', { value: 'newest' },     'Newest first'),
+                        h('option', { value: 'rarity' },     'Lowest supply')
+                      )
+                    ),
+                    rows.length === 0
+                      ? h('div', { className: 'empty-inline' },
+                          h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No listings match this filter.'))
+                      : h('div', { className: 'listing-grid' },
+                          rows.map(l => h(GridCard, {
+                            key: l.id,
+                            listing: l,
+                            onClick: () => navigate(paths.item(l.item.id)),
+                            starred: watchlist.includes(l.item.id),
+                            onToggleStar: toggleStar,
+                            onAddToCart: me ? addToCart : null,
+                            cartHas: (id) => cart.some(c => c.id === id)
+                          }))
+                        )
+                  );
+                })(),
             // "Leave a review" CTA — only shows up when the signed-in viewer
             // has at least one VERIFIED trade with this seller. Every trade
             // in `eligibleTrades` is already filtered server-side so there's

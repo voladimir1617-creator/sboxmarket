@@ -650,6 +650,58 @@ function AdminWithdrawalsTab() {
   );
 }
 
+// Ban-reason drawer — picker + textarea. Selecting a template fills
+// the textarea; admin can still edit freely before submitting. Submit
+// short-circuits on empty reasons (prevents accidental no-context bans).
+function BanReasonDrawer({ user, templates, busy, onCancel, onSubmit }) {
+  const [reason, setReason] = useState('');
+  const [picked, setPicked] = useState('');
+  const choose = (t) => { setPicked(t.id); setReason(t.reason); };
+  return h('div', {
+    className: 'cart-confirm-backdrop',
+    onClick: () => !busy && onCancel()
+  },
+    h('div', {
+      className: 'cart-confirm-panel',
+      style: { maxWidth: 560 },
+      onClick: e => e.stopPropagation()
+    },
+      h('div', { className: 'cart-confirm-title' },
+        'Ban ', user.displayName || user.steamId64),
+      h('div', { className: 'cart-confirm-sub' },
+        'The reason is recorded in the audit log and shown to the user in their banned state. Pick a template or type your own.'),
+      h('div', { className: 'wallet-tx-filter-row', style: { marginTop: 14, marginBottom: 8 } },
+        templates.map(t => h('button', {
+          key: t.id,
+          className: `wallet-tx-filter-chip ${picked === t.id ? 'active' : ''}`,
+          onClick: () => choose(t)
+        }, t.label))
+      ),
+      h('textarea', {
+        value: reason,
+        onChange: e => { setReason(e.target.value); setPicked(''); },
+        maxLength: 500,
+        placeholder: 'Ban reason (3–500 chars)',
+        style: { width: '100%', minHeight: 90, padding: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13, resize: 'vertical' }
+      }),
+      h('div', { className: 'cart-confirm-actions' },
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)' },
+          disabled: busy,
+          onClick: onCancel
+        }, 'Cancel'),
+        h('button', {
+          className: 'btn btn-accent',
+          style: { background: 'var(--red)', color: '#fff' },
+          disabled: busy || !reason.trim() || reason.trim().length < 3,
+          onClick: () => onSubmit(reason)
+        }, busy ? 'Banning…' : 'Ban user')
+      )
+    )
+  );
+}
+
 function AdminUsersTab({ me }) {
   const [rows, setRows] = useState(null);
   const [search, setSearch] = useState('');
@@ -677,13 +729,26 @@ function AdminUsersTab({ me }) {
     return () => { alive = false; };
   }, [detailUser?.id]);
 
-  const doBan = async (u) => {
-    const reason = prompt('Ban reason (shown to user):', '');
-    if (reason == null) return;
+  // Ban-reason templates surface from the prompt dialog — admins can
+  // pick a standard reason (fraud, chargeback, abuse, scam, ToS) to
+  // keep ban reasons consistent across the team. Typing anything custom
+  // still works; the picker just saves keystrokes.
+  const [banTarget, setBanTarget] = useState(null);
+  const BAN_TEMPLATES = [
+    { id: 'fraud',      label: 'Fraud / stolen account', reason: 'Account flagged for fraudulent activity — linked to stolen wallet or Steam account.' },
+    { id: 'chargeback', label: 'Chargeback abuse',       reason: 'Deposit reversed via credit card chargeback after receiving items.' },
+    { id: 'scam',       label: 'Scam / misrepresented item', reason: 'Multiple buyers reported receiving items that did not match the listing description.' },
+    { id: 'abuse',      label: 'Harassment / abuse',     reason: 'Abusive language toward other users or staff in support tickets.' },
+    { id: 'tos',        label: 'ToS violation',          reason: 'Violation of sboxmarket Terms of Service.' }
+  ];
+  const doBan = async (u) => setBanTarget(u);
+  const submitBan = async (reason) => {
+    if (!banTarget || !reason || !reason.trim()) { setBanTarget(null); return; }
     setBusy(true);
     try {
-      const res = await adminBanUser(u.id, reason);
+      const res = await adminBanUser(banTarget.id, reason.trim());
       if (res.code || res.error) { alert(res.message || res.error); return; }
+      setBanTarget(null);
       await load();
     } finally { setBusy(false); }
   };
@@ -804,6 +869,17 @@ function AdminUsersTab({ me }) {
               )
             )))
           ),
+    // Ban-reason picker drawer — opens on "Ban" click with templates +
+    // a free-text textarea. Admins pick a template to populate the box
+    // and can still edit before submitting. Keeps ban-reason text
+    // consistent across the team without blocking custom entries.
+    banTarget && h(BanReasonDrawer, {
+      user: banTarget,
+      templates: BAN_TEMPLATES,
+      busy,
+      onCancel: () => setBanTarget(null),
+      onSubmit: submitBan
+    }),
     // User detail drawer — read-only snapshot (public stall + reviews)
     // so admins can eyeball a user's activity without scavenging the UI.
     // Backed by the existing public endpoints; no new surface area.
