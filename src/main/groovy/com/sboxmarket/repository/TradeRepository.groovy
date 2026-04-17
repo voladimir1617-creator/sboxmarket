@@ -67,4 +67,12 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
           AND t.settledAt >= :since
     """)
     BigDecimal sumFeesSince(@Param("since") Long since)
+
+    /** Trades currently in a given state — single indexed COUNT used
+     *  by the admin dashboard for the "Open disputes" and "Pending
+     *  release" stat cards. The trades table already has an index on
+     *  `(state, updatedAt)` so this is effectively a constant-time
+     *  probe per call. */
+    @Query("SELECT COUNT(t) FROM Trade t WHERE t.state = :state")
+    long countByState(@Param("state") String state)
 }

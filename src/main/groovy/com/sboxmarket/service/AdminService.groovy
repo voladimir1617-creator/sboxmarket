@@ -126,6 +126,14 @@ class AdminService {
         def since30d     = now - 30L * 86_400_000L
         def fees7d       = tradeRepository ? (tradeRepository.sumFeesSince(since7d) ?: BigDecimal.ZERO) : BigDecimal.ZERO
         def fees30d      = tradeRepository ? (tradeRepository.sumFeesSince(since30d) ?: BigDecimal.ZERO) : BigDecimal.ZERO
+        // Trade-state probes for the dashboard action cards. DISPUTED
+        // is the one that most urgently wants admin attention; PENDING_*
+        // counts are there so the dashboard can surface "N trades are
+        // sitting in escrow" without clicking into the trades tab.
+        def disputedTrades    = tradeRepository ? tradeRepository.countByState('DISPUTED') : 0L
+        def pendingSellerAct  = tradeRepository ? tradeRepository.countByState('PENDING_SELLER_ACCEPT') : 0L
+        def pendingSellerSend = tradeRepository ? tradeRepository.countByState('PENDING_SELLER_SEND') : 0L
+        def pendingBuyerConf  = tradeRepository ? tradeRepository.countByState('PENDING_BUYER_CONFIRM') : 0L
 
         [
             users:                    steamUserRepository.count(),
@@ -143,7 +151,11 @@ class AdminService {
             newUsers24h:              newUsers24h,
             fees24h:                  (fees24h as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             fees7d:                   (fees7d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
-            fees30d:                  (fees30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
+            fees30d:                  (fees30d as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
+            disputedTrades:           disputedTrades,
+            pendingSellerAccept:      pendingSellerAct,
+            pendingSellerSend:        pendingSellerSend,
+            pendingBuyerConfirm:      pendingBuyerConf
         ]
     }
 

@@ -1042,7 +1042,19 @@ function AdminDashboardTab({ onNavTab }) {
       Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow',
            null, 'withdrawals'),
       Stat('Open Tickets',         Number(stats.openTickets || 0), null, null, 'tickets'),
-      Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '', null, 'users')
+      Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '', null, 'users'),
+      // Trade-state probes — urgency-ranked by colour. Disputes get red
+      // (urgent CSR intervention), pending-buyer-confirm amber (auto-
+      // sweeper handles it but staff may want to force-release early),
+      // seller-side pendings stay neutral.
+      Stat('Open Disputes',        Number(stats.disputedTrades || 0),
+           stats.disputedTrades > 0 ? 'red' : '', null, 'trades'),
+      Stat('Escrow · awaiting seller accept', Number(stats.pendingSellerAccept || 0),
+           null, null, 'trades'),
+      Stat('Escrow · awaiting seller send',   Number(stats.pendingSellerSend || 0),
+           null, null, 'trades'),
+      Stat('Escrow · awaiting buyer confirm', Number(stats.pendingBuyerConfirm || 0),
+           stats.pendingBuyerConfirm > 0 ? 'yellow' : '', null, 'trades')
     ),
     // Recent activity feed — compact list of the last 10 audit rows
     // with event type, actor, subject, and relative time. Clicking a

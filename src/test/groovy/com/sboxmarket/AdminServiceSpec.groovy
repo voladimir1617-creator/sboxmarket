@@ -582,6 +582,12 @@ class AdminServiceSpec extends Specification {
         supportTicketRepository.countOpen() >> 7L
         steamUserRepository.countBanned() >> 1L
         listingRepository.countActive() >> 88L
+        // Trade-state probes — batch 110 added these to the dashboard
+        // so ops sees disputes + escrow phases at a glance.
+        tradeRepository.countByState('DISPUTED')              >> 2L
+        tradeRepository.countByState('PENDING_SELLER_ACCEPT') >> 5L
+        tradeRepository.countByState('PENDING_SELLER_SEND')   >> 3L
+        tradeRepository.countByState('PENDING_BUYER_CONFIRM') >> 4L
 
         when:
         def stats = service.dashboardStats()
@@ -602,6 +608,10 @@ class AdminServiceSpec extends Specification {
         stats.openTickets == 7L
         stats.bannedUsers == 1L
         stats.activeListings == 88L
+        stats.disputedTrades      == 2L
+        stats.pendingSellerAccept == 5L
+        stats.pendingSellerSend   == 3L
+        stats.pendingBuyerConfirm == 4L
     }
 
     // ── listWithdrawals (indexed) ─────────────────────────────────
