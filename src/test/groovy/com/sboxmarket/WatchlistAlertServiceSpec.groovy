@@ -20,12 +20,16 @@ class WatchlistAlertServiceSpec extends Specification {
     WatchlistAlertRepository repo                = Mock()
     ItemRepository           itemRepository      = Mock()
     NotificationService      notificationService = Mock()
+    com.sboxmarket.service.EmailService emailService = Mock()
+    com.sboxmarket.repository.SteamUserRepository steamUserRepository = Mock()
 
     @Subject
     WatchlistAlertService service = new WatchlistAlertService(
         repo:                repo,
         itemRepository:      itemRepository,
-        notificationService: notificationService
+        notificationService: notificationService,
+        emailService:        emailService,
+        steamUserRepository: steamUserRepository
     )
 
     private Item itemFor(long id = 7L) {
@@ -227,5 +231,48 @@ class WatchlistAlertServiceSpec extends Specification {
         // a1 stayed ACTIVE because its try-block threw before save; a2 fired clean.
         a2.status == 'FIRED'
         noExceptionThrown()
+    }
+
+    // ── sweep email hook ────────────────────────────────────────
+
+    def "sweep emails users with emailNotificationsEnabled = true"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('9.00')] as Object[]]
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.save(_) >> { args -> args[0] }
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'buyer@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, displayName: 'Alice'
+        ))
+
+        when:
+        service.sweep()
+
+        then:
+        1 * emailService.sendPriceDrop('buyer@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('9.00'), new BigDecimal('10'), '/item/7')
+    }
+
+    def "sweep skips the email when emailNotificationsEnabled = false"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('9.00')] as Object[]]
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.save(_) >> { args -> args[0] }
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'buyer@example.com', emailVerified: true,
+            emailNotificationsEnabled: false
+        ))
+
+        when:
+        service.sweep()
+
+        then:
+        0 * emailService.sendPriceDrop(_, _, _, _, _, _)
+        // In-app notification still fires regardless of email pref.
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, _)
     }
 }

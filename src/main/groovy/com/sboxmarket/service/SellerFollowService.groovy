@@ -28,6 +28,7 @@ class SellerFollowService {
     @Autowired SellerFollowRepository repo
     @Autowired SteamUserRepository steamUserRepository
     @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) EmailService emailService
 
     /** 200-follow cap per user — protects the fanout and keeps the
      *  profile tab scannable. */
@@ -101,6 +102,23 @@ class SellerFollowService {
                     listing.item?.id != null ? "/item/${listing.item.id}" : null)
             } catch (Exception e) {
                 log.warn("Follower notification failed for user ${f.followerUserId}: ${e.message}")
+            }
+            // Email the follower too — gated on the email-notifications
+            // preference because this is an engagement email, not
+            // operational.
+            try {
+                def follower = steamUserRepository.findById(f.followerUserId).orElse(null)
+                if (emailService != null && follower != null &&
+                        Boolean.TRUE.equals(follower.emailVerified) && follower.email &&
+                        Boolean.TRUE.equals(follower.emailNotificationsEnabled)) {
+                    def itemUrl = listing.item?.id != null
+                        ? "/item/${listing.item.id}".toString()
+                        : null
+                    emailService.sendNewListingFromSeller(follower.email, follower.displayName,
+                        sellerName, listing.item?.name, listing.price, itemUrl)
+                }
+            } catch (Exception e) {
+                log.warn("Follower listing email failed for user ${f.followerUserId}: ${e.message}")
             }
         }
     }

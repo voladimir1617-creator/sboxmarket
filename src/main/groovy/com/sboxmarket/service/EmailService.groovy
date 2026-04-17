@@ -152,6 +152,51 @@ support ticket.
         send(toEmail, subject, body)
     }
 
+    /** Watchlist price alert fired — the item's floor dropped at or
+     *  below the user's target. Time-sensitive (prices move fast) so
+     *  this goes out via email alongside the in-app notification. */
+    void sendPriceDrop(String toEmail, String displayName, String itemName,
+                       BigDecimal currentFloor, BigDecimal targetPrice, String itemUrl) {
+        if (!toEmail || itemName == null) return
+        def subject = "Price drop · ${itemName}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+${itemName} just dropped to \$${(currentFloor ?: BigDecimal.ZERO).toPlainString()} —
+at or below your \$${(targetPrice ?: BigDecimal.ZERO).toPlainString()} alert target.
+
+Listings move fast. See the item${itemUrl ? ': ' + itemUrl : '.'}
+
+You can manage or cancel your active alerts from the Watchlist page.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
+    /** Seller you follow just posted a new listing. Low-priority so we
+     *  only send when the user opted in to email notifications. */
+    void sendNewListingFromSeller(String toEmail, String displayName, String sellerName,
+                                  String itemName, BigDecimal price, String itemUrl) {
+        if (!toEmail || sellerName == null) return
+        def subject = "${sellerName} just listed ${itemName ?: 'a new item'}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+${sellerName} — a seller you follow — just listed ${itemName ?: 'a new item'}${
+    price != null ? ' for \$' + price.toPlainString() : ''
+}.
+
+Take a look${itemUrl ? ': ' + itemUrl : '.'}
+
+You're getting this because you followed the seller. Unfollow from the
+seller's stall page or turn off email notifications in Profile → Settings.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Auction outbid. Fires from BidService.placeBid when a higher bid
      *  displaces an existing top bid. Gives the previous top bidder a
      *  chance to respond before the timer closes. */

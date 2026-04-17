@@ -29,6 +29,8 @@ class WatchlistAlertService {
     @Autowired WatchlistAlertRepository repo
     @Autowired ItemRepository itemRepository
     @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) EmailService emailService
+    @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
 
     /** Hard cap per user. Protects the sweeper from one-user-creates-
      *  a-million-alerts abuse and keeps the watchlist UI sane. */
@@ -123,6 +125,20 @@ class WatchlistAlertService {
                     "Floor price reached \$${currentFloor.toPlainString()} (target \$${a.targetPrice.toPlainString()})",
                     a.itemId,
                     "/item/${a.itemId}")
+                // Email the user too — price drops are time-sensitive.
+                // Gated on the email-notifications preference + verified.
+                try {
+                    def user = steamUserRepository?.findById(a.userId)?.orElse(null)
+                    if (emailService != null && user != null &&
+                            Boolean.TRUE.equals(user.emailVerified) && user.email &&
+                            Boolean.TRUE.equals(user.emailNotificationsEnabled)) {
+                        emailService.sendPriceDrop(user.email, user.displayName,
+                            name, currentFloor, a.targetPrice,
+                            "/item/${a.itemId}".toString())
+                    }
+                } catch (Exception inner) {
+                    log.warn("Price-drop email failed for user ${a.userId}: ${inner.message}")
+                }
                 a.status = 'FIRED'
                 a.firedAt = System.currentTimeMillis()
                 repo.save(a)
