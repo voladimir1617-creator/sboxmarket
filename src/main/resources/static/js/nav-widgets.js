@@ -181,7 +181,17 @@ export function NotificationBell({ me }) {
         items.length > 0 && h('span', { className: 'notif-clear', onClick: clearAll }, 'Mark all read')
       ),
       items.length === 0
-        ? h('div', { className: 'notif-empty' }, me ? "You're all caught up." : 'Sign in to see notifications.')
+        ? (me
+            ? h('div', { className: 'notif-empty' }, "You're all caught up.")
+            : h('div', { className: 'notif-empty', style: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', padding: '14px 12px' } },
+                h('div', { style: { fontSize: 12, color: 'var(--text-secondary)' } },
+                  'Sign in with Steam to see your notifications.'),
+                h('button', {
+                  className: 'btn btn-accent',
+                  style: { padding: '6px 14px', fontSize: 12 },
+                  onClick: () => { window.location.href = '/api/auth/steam/login'; }
+                }, 'Sign in with Steam')
+              ))
         : items.slice(0, 12).map(n => h('div', {
             key: n.id,
             className: `notif-item ${n.read ? '' : 'unread'}`,
