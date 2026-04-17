@@ -482,20 +482,41 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       ),
 
       h('div', { className: 'modal-actions' },
-        h('button', {
-          className: 'btn btn-accent',
-          disabled: !listings[0],
-          onClick: () => listings[0] && onBuy(listings[0].id),
-          'aria-label': listings[0] ? `Buy for ${fmt(listings[0].price)}` : 'Out of stock'
-        },
-          listings[0] ? `Buy Now · ${fmt(listings[0].price)}` : 'Out of Stock'
-        ),
-        h('button', {
-          className: 'btn btn-ghost',
-          style: { border: '1px solid var(--border)' },
-          onClick: () => setOfferOpen(o => !o),
-          disabled: !listings[0]
-        }, offerOpen ? 'Cancel Offer' : 'Make Offer'),
+        // Anon viewers see "Sign in to buy" instead of a click-then-
+        // 401 flow. Post-login Steam OpenID brings the user back to
+        // the item modal via the item-id URL, so they can complete
+        // the purchase in one click after returning.
+        !me && listings[0]
+          ? h('button', {
+              className: 'btn btn-accent',
+              onClick: () => { window.location.href = '/api/auth/steam/login'; },
+              'aria-label': 'Sign in with Steam to buy this listing'
+            }, `Sign in to buy · ${fmt(listings[0].price)}`)
+          : h('button', {
+              className: 'btn btn-accent',
+              disabled: !listings[0],
+              onClick: () => listings[0] && onBuy(listings[0].id),
+              'aria-label': listings[0] ? `Buy for ${fmt(listings[0].price)}` : 'Out of stock'
+            },
+              listings[0] ? `Buy Now · ${fmt(listings[0].price)}` : 'Out of Stock'
+            ),
+        // "Make Offer" — redirect to Steam OpenID for anon viewers so
+        // the sign-in lands them back on the item URL with the modal
+        // restored, rather than opening an empty bargaining form that
+        // 401s on submit.
+        !me
+          ? h('button', {
+              className: 'btn btn-ghost',
+              style: { border: '1px solid var(--border)' },
+              onClick: () => { window.location.href = '/api/auth/steam/login'; },
+              disabled: !listings[0]
+            }, 'Sign in to make offer')
+          : h('button', {
+              className: 'btn btn-ghost',
+              style: { border: '1px solid var(--border)' },
+              onClick: () => setOfferOpen(o => !o),
+              disabled: !listings[0]
+            }, offerOpen ? 'Cancel Offer' : 'Make Offer'),
         onCreateBuyOrder && h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)' },
