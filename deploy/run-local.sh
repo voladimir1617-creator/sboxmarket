@@ -6,7 +6,7 @@
 # real prod deploy (no real Stripe keys, no real SMTP, no HSTS).
 set -euo pipefail
 
-IMAGE="${IMAGE:-sboxmarket:dev}"
+IMAGE="${IMAGE:-sbox-app:latest}"
 NAME="${NAME:-sbox-app}"
 PORT="${PORT:-8082}"
 
