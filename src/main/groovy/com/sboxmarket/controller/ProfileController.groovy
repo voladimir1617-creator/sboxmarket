@@ -64,6 +64,53 @@ class ProfileController {
         ResponseEntity.ok(data)
     }
 
+    /** CSV export of every offer the user made or received. */
+    @GetMapping(value = "/offers.csv", produces = "text/csv")
+    ResponseEntity<String> exportOffersCsv(HttpServletRequest req) {
+        def uid = requireUser(req)
+        if (offerRepository == null) {
+            return ResponseEntity.status(503).body('')
+        }
+        // Merge incoming + outgoing so the user sees the full picture in
+        // one file. Small enough that a deduped list comprehension is
+        // fine — capped at 5000 rows after sort.
+        def outgoing = offerRepository.findByBuyer(uid)
+        def incoming = offerRepository.findBySeller(uid)
+        def merged = new ArrayList<com.sboxmarket.model.Offer>()
+        merged.addAll(outgoing)
+        merged.addAll(incoming)
+        def rows = merged.sort { a, b -> (b.createdAt ?: 0) <=> (a.createdAt ?: 0) }.take(5000)
+        def sb = new StringBuilder()
+        sb.append('id,date,role,listingId,status,amount,counterpartyId\n')
+        def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        df.timeZone = java.util.TimeZone.getTimeZone('UTC')
+        def csvEscape = { String v ->
+            if (v == null) return ''
+            if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+                return '"' + v.replace('"', '""') + '"'
+            }
+            v
+        }
+        rows.each { o ->
+            def isBuyer = (o.buyerUserId == uid)
+            def role = isBuyer ? 'BUYER' : 'SELLER'
+            def counterparty = isBuyer ? o.sellerUserId : o.buyerUserId
+            sb.append(o.id ?: '').append(',')
+              .append(df.format(new Date(o.createdAt ?: 0))).append(',')
+              .append(role).append(',')
+              .append(o.listingId ?: '').append(',')
+              .append(csvEscape(o.status ?: '')).append(',')
+              .append((o.amount ?: BigDecimal.ZERO).toPlainString()).append(',')
+              .append(counterparty ?: '').append('\n')
+        }
+        def filename = "skinbox-offers-${df.format(new Date()).replace(':', '-')}.csv"
+        ResponseEntity.ok()
+            .header('Content-Disposition', "attachment; filename=\"${filename}\"")
+            .header('Content-Type', 'text/csv; charset=utf-8')
+            .header('Cache-Control', 'no-store')
+            .body(sb.toString())
+    }
+
     /**
      * CSV export of every trade the signed-in user participated in —
      * as buyer or seller. Columns cover the ledger-level fields a

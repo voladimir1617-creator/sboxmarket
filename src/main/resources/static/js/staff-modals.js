@@ -380,6 +380,11 @@ function AdminFraudTab() {
     catch { return new Set(); }
   });
   const [showReviewed, setShowReviewed] = useState(false);
+  // Auto-refresh toggle — off by default so admins who open the tab to
+  // triage a specific signal don't have the list re-shuffle under them.
+  // When on, the rollup re-fetches every 60 seconds so long-running ops
+  // sessions see new HIGH-severity signals without manual refresh.
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const rowKey = (r) => `${r.type}|${r.userId || ''}|${r.ip || ''}|${r.createdAt || ''}`;
   const markReviewed = (r) => {
     const key = rowKey(r);
@@ -397,6 +402,16 @@ function AdminFraudTab() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  // Live-refresh loop — only runs when autoRefresh is on. 60 seconds
+  // balances "see new signals quickly" against "don't hammer the
+  // audit-log rollup query" (it scans the last 24h window).
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [autoRefresh, load]);
 
   const sevClass = (s) => s === 'HIGH' ? 'sev-high' : s === 'MED' ? 'sev-med' : 'sev-low';
   const sevIcon  = (s) => s === 'HIGH' ? '🔴' : s === 'MED' ? '🟡' : '⚪';
@@ -416,6 +431,18 @@ function AdminFraudTab() {
           style: { padding: '6px 14px' },
           onClick: load, disabled: loading
         }, loading ? 'Loading…' : 'Refresh'),
+        h('label', {
+          style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer' },
+          title: 'Auto-refresh the rollup every 60 seconds while this tab is visible'
+        },
+          h('input', {
+            type: 'checkbox',
+            checked: autoRefresh,
+            onChange: e => setAutoRefresh(e.target.checked),
+            style: { accentColor: 'var(--accent)' }
+          }),
+          autoRefresh ? '● Auto-refreshing' : 'Auto-refresh'
+        ),
         hiddenCount > 0 && h('button', {
           className: `wallet-tx-filter-chip ${showReviewed ? 'active' : ''}`,
           onClick: () => setShowReviewed(v => !v)

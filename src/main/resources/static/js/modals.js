@@ -2971,12 +2971,20 @@ export function OffersModal({ onClose, me, onRefresh }) {
   };
 
   const list = tab === 'incoming' ? incoming : outgoing;
+  const anyOffers = (incoming && incoming.length > 0) || (outgoing && outgoing.length > 0);
   return h(InfoModal, { title: 'Offers', onClose },
-    h('div', { className: 'offer-tabs' },
+    h('div', { className: 'offer-tabs', style: { display: 'flex', alignItems: 'center', gap: 4 } },
       h('button', { className: `offer-tab ${tab === 'incoming' ? 'active' : ''}`, onClick: () => setTab('incoming') },
         'Incoming', incoming && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, incoming.filter(o => o.status === 'PENDING').length)),
       h('button', { className: `offer-tab ${tab === 'outgoing' ? 'active' : ''}`, onClick: () => setTab('outgoing') },
-        'Outgoing', outgoing && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, outgoing.filter(o => o.status === 'PENDING').length))
+        'Outgoing', outgoing && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, outgoing.filter(o => o.status === 'PENDING').length)),
+      h('div', { style: { flex: 1 } }),
+      anyOffers && h('a', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+        href: '/api/profile/offers.csv',
+        title: 'Download every offer you made or received as a CSV'
+      }, '⇣ CSV')
     ),
     list === null
       ? h('div', { className: 'spinner' })
