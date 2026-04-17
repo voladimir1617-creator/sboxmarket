@@ -37,6 +37,7 @@ class ListingController {
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
     @Autowired(required = false) com.sboxmarket.service.ReviewService reviewService
     @Autowired(required = false) com.sboxmarket.service.SellerFollowService sellerFollowService
+    @Autowired(required = false) com.sboxmarket.service.OfferService offerService
 
     @GetMapping
     ResponseEntity<?> getListings(
@@ -298,20 +299,26 @@ class ListingController {
         // Public follower count — cheap indexed COUNT. Silently zero
         // when the feature isn't wired in the current profile.
         def followerCount = sellerFollowService?.countFollowers(userId) ?: 0L
+        // Typical response time (median ms) across the most recent
+        // resolved offers on this seller's listings. Null until the
+        // seller has at least 3 data points so we don't mislead a
+        // buyer with a one-offer noisy read.
+        def typicalResponseMs = offerService?.typicalResponseMs(userId)
         ResponseEntity.ok([
             seller: [
-                id:            user.id,
-                displayName:   user.displayName,
-                avatarUrl:     user.avatarUrl,
-                joinedAt:      user.createdAt,
+                id:                user.id,
+                displayName:       user.displayName,
+                avatarUrl:         user.avatarUrl,
+                joinedAt:          user.createdAt,
                 // Last time we observed this account via the Steam sync
                 // loop — the closest approximation of "online". Only
                 // surfaces recency signal, not PII. Null for accounts we
                 // haven't re-synced since they signed in.
-                lastSyncedAt:  user.lastSyncedAt,
-                verified:      verified,
-                soldCount:     soldCount,
-                followerCount: followerCount
+                lastSyncedAt:      user.lastSyncedAt,
+                verified:          verified,
+                soldCount:         soldCount,
+                followerCount:     followerCount,
+                typicalResponseMs: typicalResponseMs
             ],
             listings:  visible,
             count:     visible.size(),

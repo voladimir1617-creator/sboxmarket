@@ -2457,6 +2457,22 @@ export function App() {
                       style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
                       title: 'Last observed on Steam ' + new Date(stallData.seller.lastSyncedAt).toLocaleString()
                     }, '· ', label);
+                  })(),
+                  // Typical-response chip — median seller reply time across
+                  // the most recent resolved offers. Null (hidden) until the
+                  // seller has answered at least 3 offers so the stat isn't
+                  // noisy. Helps bargain-oriented buyers decide whether
+                  // offering is worth the wait vs. hitting Buy Now.
+                  stallData.seller.typicalResponseMs != null && (() => {
+                    const ms = stallData.seller.typicalResponseMs;
+                    let label;
+                    if (ms < 3_600_000)           label = Math.max(1, Math.round(ms / 60_000)) + 'm';
+                    else if (ms < 24 * 3_600_000) label = Math.max(1, Math.round(ms / 3_600_000)) + 'h';
+                    else                          label = Math.max(1, Math.round(ms / (24 * 3_600_000))) + 'd';
+                    return h('span', {
+                      style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 700 },
+                      title: `Median time from offer to seller response across the last ${50} offers`
+                    }, '· Typically responds in ', label);
                   })()
                 ),
                 // Rating chip — only shows if the seller has at least one

@@ -1,6 +1,7 @@
 package com.sboxmarket.repository
 
 import com.sboxmarket.model.Offer
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -40,4 +41,19 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      *  "time since first created". */
     @Query("SELECT o FROM Offer o WHERE o.status = 'PENDING' AND o.updatedAt <= :cutoff")
     List<Offer> findStalePending(@Param("cutoff") Long cutoff)
+
+    /** Root buyer offers the given seller has resolved (accepted,
+     *  rejected, or countered). The delta `updatedAt - createdAt` is
+     *  the seller's response time. Excludes PENDING (not yet answered),
+     *  CANCELLED (buyer withdrew — nothing to measure), and EXPIRED
+     *  (sweeper closed it — would skew the stat toward the 7-day cap).
+     *  Pageable so the service can bound the window (most recent N). */
+    @Query("""
+        SELECT o FROM Offer o
+        WHERE o.sellerUserId = :uid
+          AND o.author = 'USER'
+          AND o.status IN ('ACCEPTED','REJECTED','COUNTERED')
+        ORDER BY o.updatedAt DESC
+    """)
+    List<Offer> findRecentSellerResponses(@Param("uid") Long sellerUserId, Pageable pageable)
 }

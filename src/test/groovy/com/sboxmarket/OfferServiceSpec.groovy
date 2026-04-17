@@ -522,4 +522,61 @@ class OfferServiceSpec extends Specification {
         out[0].buyerName == 'Buyer #1'
         out[0].buyerUserId == null
     }
+
+    // ── typicalResponseMs ──────────────────────────────────────────
+
+    private Offer resp(Map a) {
+        new Offer(
+            id:           a.id ?: 1L,
+            sellerUserId: a.sellerUserId ?: 99L,
+            author:       a.author ?: 'USER',
+            status:       a.status ?: 'ACCEPTED',
+            createdAt:    a.createdAt,
+            updatedAt:    a.updatedAt
+        )
+    }
+
+    def "typicalResponseMs returns null for a null seller id"() {
+        expect:
+        service.typicalResponseMs(null) == null
+    }
+
+    def "typicalResponseMs returns null when fewer than three resolved responses exist"() {
+        given:
+        offerRepository.findRecentSellerResponses(99L, _) >> [
+            resp(id: 1L, createdAt: 0L,   updatedAt: 60_000L),
+            resp(id: 2L, createdAt: 100L, updatedAt: 120_000L)
+        ]
+
+        expect:
+        service.typicalResponseMs(99L) == null
+    }
+
+    def "typicalResponseMs returns the median delta when at least three responses exist"() {
+        given:
+        // Deltas: 60s, 300s, 900s → median is 300s = 300_000ms
+        offerRepository.findRecentSellerResponses(99L, _) >> [
+            resp(id: 1L, createdAt: 0L, updatedAt: 60_000L),
+            resp(id: 2L, createdAt: 0L, updatedAt: 300_000L),
+            resp(id: 3L, createdAt: 0L, updatedAt: 900_000L)
+        ]
+
+        expect:
+        service.typicalResponseMs(99L) == 300_000L
+    }
+
+    def "typicalResponseMs ignores rows whose delta is non-positive (clock skew / same ms)"() {
+        given:
+        offerRepository.findRecentSellerResponses(99L, _) >> [
+            resp(id: 1L, createdAt: 1_000L, updatedAt: 1_000L),   // delta=0, dropped
+            resp(id: 2L, createdAt: 2_000L, updatedAt: 1_500L),   // delta=-500, dropped
+            resp(id: 3L, createdAt: 0L,     updatedAt: 60_000L),
+            resp(id: 4L, createdAt: 0L,     updatedAt: 120_000L),
+            resp(id: 5L, createdAt: 0L,     updatedAt: 180_000L)
+        ]
+
+        expect:
+        // After filtering, deltas = [60_000, 120_000, 180_000] → median 120_000
+        service.typicalResponseMs(99L) == 120_000L
+    }
 }

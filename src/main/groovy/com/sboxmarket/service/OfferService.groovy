@@ -352,6 +352,35 @@ class OfferService {
     }
 
     /**
+     * Seller's typical response time across their most recent resolved
+     * offers — median milliseconds between offer creation and the
+     * seller's action (accept / reject / counter). Returns null until
+     * the seller has at least 3 data points, so the stat never misleads
+     * a stall viewer with noise. Bounded to the most recent 50 offers
+     * to keep the query cheap and to favour "what the seller does
+     * lately" over "what they did six months ago".
+     *
+     * The chip it powers reads "Typically responds in X" — a CSFloat-
+     * style trust signal that lets a buyer gauge whether bargaining is
+     * worth their time vs. just hitting Buy Now.
+     */
+    Long typicalResponseMs(Long sellerUserId) {
+        if (sellerUserId == null) return null
+        def rows = offerRepository.findRecentSellerResponses(
+            sellerUserId, org.springframework.data.domain.PageRequest.of(0, 50))
+        if (rows == null || rows.size() < 3) return null
+        def deltas = rows
+            .collect { (it.updatedAt ?: 0L) - (it.createdAt ?: 0L) }
+            .findAll { it > 0L }
+            .sort()
+        if (deltas.size() < 3) return null
+        def mid = (int) (deltas.size() / 2)
+        (deltas.size() % 2 == 1)
+            ? deltas[mid] as Long
+            : ((deltas[mid - 1] + deltas[mid]) / 2L) as Long
+    }
+
+    /**
      * Scheduled sweeper — auto-declines pending offers older than the
      * configured window so they stop clogging the seller's incoming queue
      * and blocking item modals where an old offer thread still shows.
