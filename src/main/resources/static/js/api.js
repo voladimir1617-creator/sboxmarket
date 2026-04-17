@@ -762,6 +762,21 @@ export async function fetchWatchlistCountForItem(itemId) {
   const data = await safeJson(`${API}/watchlist/alerts/count/item/${itemId}`);
   return Number(data?.watching || 0);
 }
+
+/** Bulk cart-row freshness probe. The cart is persisted client-side
+ *  so a row can go stale between "add" and "checkout" — someone else
+ *  buys it, the seller pulls it, or the seller re-prices it. This
+ *  endpoint returns one record per requested id with `active` and the
+ *  current `price`. Max 50 ids per call (server-capped). */
+export async function checkListingsActive(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const rows = await writeJson(`${API}/listings/check-active`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids })
+  });
+  return Array.isArray(rows) ? rows : [];
+}
 /** Pending offer counts keyed by role — backs the nav offers badge.
  *  Returns { incomingPending, outgoingPending } — the nav surfaces
  *  incoming (actionable for the seller) as the primary count. */

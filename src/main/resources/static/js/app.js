@@ -6,7 +6,8 @@ import {
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
-  fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals
+  fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
+  checkListingsActive
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -1257,6 +1258,33 @@ export function App() {
   }, [routeName]);
   const cartCount = cart.length;
   const cartTotal = useMemo(() => cart.reduce((s, it) => s + (parseFloat(it.price) || 0), 0), [cart]);
+  // Server-side freshness map — keyed by listing id. Re-fetched every
+  // time /cart is opened because the cart is persisted client-side and
+  // a row can go stale (bought by someone else) or have its price
+  // edited by the seller between sessions. Missing keys render
+  // neutrally (no banner) so a transient network blip doesn't scare
+  // the buyer.
+  const [cartFreshness, setCartFreshness] = useState({});
+  useEffect(() => {
+    if (routeName !== 'cart' || cart.length === 0) { setCartFreshness({}); return; }
+    let alive = true;
+    (async () => {
+      const rows = await checkListingsActive(cart.map(it => it.id));
+      if (!alive) return;
+      const byId = {};
+      rows.forEach(r => { byId[r.id] = r; });
+      setCartFreshness(byId);
+    })();
+    return () => { alive = false; };
+  }, [routeName, cart.length, cart.map(it => it.id).join(',')]);
+  const cartHasStale = useMemo(
+    () => cart.some(it => cartFreshness[it.id] && !cartFreshness[it.id].active),
+    [cart, cartFreshness]
+  );
+  const removeStaleCartRows = () => setCart(c => c.filter(it => {
+    const fresh = cartFreshness[it.id];
+    return !fresh || fresh.active;
+  }));
   const addToCart = (listing) => {
     setCart(c => {
       if (c.find(x => x.id === listing.id)) return c;
@@ -2786,22 +2814,60 @@ export function App() {
             h('div', { className: 'empty-icon' }, '🛒'),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Your cart is empty. Click any listing and add it to the cart.'))
         : h('div', null,
+            // Unavailable-rows banner — fires when the bulk freshness
+            // probe came back with at least one listing that is no
+            // longer ACTIVE. Offers a one-click cleanup so the buyer
+            // doesn't have to hunt the ✕ on each stale row.
+            cartHasStale && h('div', {
+              style: {
+                padding: 10, marginBottom: 12, borderRadius: 8,
+                background: 'rgba(248,113,113,0.12)',
+                border: '1px solid rgba(248,113,113,0.35)',
+                color: 'var(--red)',
+                display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, fontWeight: 700
+              }
+            },
+              h('span', { style: { fontSize: 14 } }, '⚠'),
+              h('div', { style: { flex: 1 } },
+                'Some rows in your cart are no longer available. Checkout is paused until you remove them.'),
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { border: '1px solid rgba(248,113,113,0.4)', color: 'var(--red)', padding: '6px 12px', fontSize: 11 },
+                onClick: removeStaleCartRows
+              }, 'Remove unavailable')
+            ),
             h('div', { className: 'cart-list' },
-              cart.map(it => h('div', { key: it.id, className: 'cart-row' },
-                h('div', { className: 'cart-thumb' }, it.thumb
-                  ? h('img', { src: it.thumb, alt: it.name })
-                  : h('span', null, '📦')),
-                h('div', { className: 'cart-info' },
-                  h('div', { className: 'cart-name' }, it.name),
-                  h('div', { className: 'cart-id' }, 'Listing #' + it.id)
-                ),
-                h('div', { className: 'cart-price' }, fmt(it.price)),
-                h('button', {
-                  className: 'btn btn-ghost',
-                  style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 10px', fontSize: 11 },
-                  onClick: () => removeFromCart(it.id)
-                }, '✕')
-              ))
+              cart.map(it => {
+                const fresh = cartFreshness[it.id];
+                const stale = fresh && !fresh.active;
+                const newPrice = fresh && fresh.active && fresh.price != null
+                  ? parseFloat(fresh.price) : null;
+                const priceMoved = newPrice != null &&
+                  Math.abs(newPrice - parseFloat(it.price)) > 0.005;
+                return h('div', { key: it.id, className: 'cart-row', style: stale ? { opacity: 0.55 } : {} },
+                  h('div', { className: 'cart-thumb' }, it.thumb
+                    ? h('img', { src: it.thumb, alt: it.name })
+                    : h('span', null, '📦')),
+                  h('div', { className: 'cart-info' },
+                    h('div', { className: 'cart-name' }, it.name,
+                      stale && h('span', {
+                        style: { marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--red)', background: 'rgba(248,113,113,0.15)', padding: '2px 6px', borderRadius: 4 }
+                      }, 'NO LONGER AVAILABLE'),
+                      priceMoved && h('span', {
+                        style: { marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', padding: '2px 6px', borderRadius: 4 },
+                        title: `Seller changed the price from ${fmt(it.price)} to ${fmt(newPrice)}`
+                      }, `PRICE NOW ${fmt(newPrice)}`)
+                    ),
+                    h('div', { className: 'cart-id' }, 'Listing #' + it.id)
+                  ),
+                  h('div', { className: 'cart-price' }, fmt(it.price)),
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 10px', fontSize: 11 },
+                    onClick: () => removeFromCart(it.id)
+                  }, '✕')
+                );
+              })
             ),
             h('div', { className: 'cart-footer' },
               h('div', { className: 'cart-total' },
@@ -2836,7 +2902,12 @@ export function App() {
                     title: 'Move every cart row to your watchlist and clear the cart'
                   }, '♡ Move to watchlist');
                 })(),
-                h('button', { className: 'btn btn-accent', onClick: () => setCartConfirmOpen(true) }, 'Checkout · ' + fmt(cartTotal))
+                h('button', {
+                  className: 'btn btn-accent',
+                  disabled: cartHasStale,
+                  onClick: () => setCartConfirmOpen(true),
+                  title: cartHasStale ? 'Remove unavailable rows before checkout' : undefined
+                }, 'Checkout · ' + fmt(cartTotal))
               )
             )
           )

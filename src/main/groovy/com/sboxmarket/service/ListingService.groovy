@@ -79,6 +79,14 @@ class ListingService {
         listingRepository.findById(id).orElseThrow { new NoSuchElementException("Listing not found: $id") }
     }
 
+    /** Batch lookup for the cart freshness probe. Returns only the
+     *  rows that still exist; callers line up their own input list
+     *  against the result to detect missing ids. */
+    List<Listing> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return []
+        listingRepository.findAllById(ids).toList()
+    }
+
     @Transactional
     Listing save(Listing listing) {
         def saved = listingRepository.save(listing)

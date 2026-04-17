@@ -444,6 +444,41 @@ class ListingController {
         ResponseEntity.ok(listingService.getReportReasons())
     }
 
+    /**
+     * Bulk freshness probe for the cart. The cart is persisted
+     * client-side, so by the time a buyer opens /cart one or more
+     * rows may have been bought by someone else (status != ACTIVE)
+     * or had their price edited by the seller. Returns one row per
+     * requested id — `active` false when the listing is no longer
+     * purchasable, and the current `price` so the cart UI can flag
+     * movement without the buyer being surprised at checkout.
+     *
+     * Capped at 50 ids per call so a crafted request can't fan out.
+     * No auth needed: every field returned is already public on the
+     * existing single-listing endpoint.
+     */
+    @PostMapping("/check-active")
+    ResponseEntity<List<Map>> checkActive(@RequestBody Map body) {
+        def raw = (body?.ids instanceof List) ? body.ids : []
+        def ids = raw.take(50)
+            .collect { it == null ? null : (it as Long) }
+            .findAll { it != null }
+            .unique()
+        if (ids.isEmpty()) return ResponseEntity.ok([])
+        def rows = listingService.findByIds(ids)
+        def byId = [:]
+        rows.each { byId[it.id] = it }
+        def out = ids.collect { id ->
+            def l = byId[id]
+            [
+                id:     id,
+                active: l != null && l.status == 'ACTIVE' && !Boolean.TRUE.equals(l.hidden),
+                price:  l?.price
+            ]
+        }
+        ResponseEntity.ok(out)
+    }
+
     /** Platform-wide "Just sold" feed. Anonymous-friendly social-proof
      *  ticker on the homepage. Hard-capped at 30 rows; `soldAt` is
      *  indexed. Returns just the fields the card renderer needs so the
