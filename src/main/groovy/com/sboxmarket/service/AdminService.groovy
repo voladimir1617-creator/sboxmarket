@@ -70,6 +70,7 @@ class AdminService {
     @Autowired(required = false) javax.sql.DataSource dataSource
     @Autowired BanGuard banGuard
     @Autowired AdminAuthorization adminAuthorization
+    @Autowired(required = false) EmailService emailService
 
     // ── Auth guard helpers (delegated to dedicated components) ──────
     // Kept as thin pass-throughs so existing AdminController code and Spock
@@ -334,6 +335,18 @@ class AdminService {
             "Your account has been banned",
             user.banReason, null, '/profile')
 
+        // Email the user too if they've confirmed an address. Ban is a
+        // significant account change — the notification bell may go
+        // unchecked for days, but the email lands in their inbox.
+        // Silent-fail: a broken mail relay mustn't roll back the ban.
+        if (emailService != null && Boolean.TRUE.equals(user.emailVerified) && user.email) {
+            try {
+                emailService.sendAccountBanned(user.email, user.displayName, user.banReason, null)
+            } catch (Exception e) {
+                log.warn("Ban-notification email failed for user ${targetUserId}: ${e.message}")
+            }
+        }
+
         auditService?.log(AuditService.USER_BANNED, adminUserId, targetUserId, null,
             "Banned user ${user.steamId64}: ${reason ?: '(no reason)'}")
         log.warn("Admin ${adminUserId} banned user ${targetUserId} (${user.steamId64}): ${reason}")
@@ -349,6 +362,13 @@ class AdminService {
         steamUserRepository.save(user)
         notificationService?.push(targetUserId, 'ACCOUNT_UNBANNED',
             "Your account has been reinstated", null, null)
+        if (emailService != null && Boolean.TRUE.equals(user.emailVerified) && user.email) {
+            try {
+                emailService.sendAccountUnbanned(user.email, user.displayName)
+            } catch (Exception e) {
+                log.warn("Unban-notification email failed for user ${targetUserId}: ${e.message}")
+            }
+        }
         auditService?.log(AuditService.USER_UNBANNED, adminUserId, targetUserId, null,
             "Unbanned user ${user.steamId64}")
         log.info("Admin ${adminUserId} unbanned user ${targetUserId}")

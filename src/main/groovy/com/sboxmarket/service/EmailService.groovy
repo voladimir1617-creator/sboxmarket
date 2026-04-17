@@ -81,6 +81,50 @@ If you didn't ask for this, you can safely ignore this message — nothing will 
         send(toEmail, subject, body)
     }
 
+    /** Account-suspended notice. Fires from AdminService.banUser when the
+     *  target has a verified email. Plain-text so the template doesn't
+     *  render weirdly in email clients that don't speak multipart. */
+    void sendAccountBanned(String toEmail, String displayName, String reason, String appealUrl) {
+        if (!toEmail) return
+        def subject = 'Your SkinBox account has been suspended'
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+Your SkinBox account has been suspended by our moderation team.
+
+Reason: ${reason ?: 'Policy violation'}
+
+What this means:
+  · Your active listings have been cancelled.
+  · Open trades have been rolled back to the other party.
+  · You can't sign in to SkinBox while the suspension is in effect.
+
+If you believe this was a mistake, you can appeal by replying to this
+email${appealUrl ? ' or by visiting ' + appealUrl : ''}. Appeals are reviewed within 1-2 business days.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
+    /** Account-reinstated notice. Fires from AdminService.unbanUser. */
+    void sendAccountUnbanned(String toEmail, String displayName) {
+        if (!toEmail) return
+        def subject = 'Your SkinBox account is active again'
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+Your SkinBox account has been reinstated and you can sign in as normal.
+Listings you had cancelled during the suspension were not auto-restored —
+you'll need to re-list anything you want back on the market.
+
+Thanks for your patience.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Generic sender — used by sendVerification plus any future one-off. */
     void send(String to, String subject, String body) {
         if (!to || !subject || !body) return

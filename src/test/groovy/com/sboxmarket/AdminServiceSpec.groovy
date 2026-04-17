@@ -42,6 +42,7 @@ class AdminServiceSpec extends Specification {
     }
     AdminAuthorization      adminAuthorization      = Mock()
     BanGuard                banGuard                = Mock()
+    com.sboxmarket.service.EmailService emailService = Mock()
 
     @Subject
     AdminService service = new AdminService(
@@ -55,7 +56,8 @@ class AdminServiceSpec extends Specification {
         notificationService     : notificationService,
         textSanitizer           : textSanitizer,
         adminAuthorization      : adminAuthorization,
-        banGuard                : banGuard
+        banGuard                : banGuard,
+        emailService            : emailService
     )
 
     // ── ban / unban ───────────────────────────────────────────────
@@ -317,6 +319,72 @@ class AdminServiceSpec extends Specification {
 
         then:
         thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
+    // ── ban/unban email hook ─────────────────────────────────────
+
+    def "banUser emails the target when they have a verified email"() {
+        given:
+        def target = new SteamUser(id: 50L, steamId64: '123', role: 'USER',
+            email: 'user@example.com', emailVerified: true, displayName: 'Bob')
+        steamUserRepository.findById(50L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        listingRepository.findActiveBySeller(50L) >> []
+        listingRepository.saveAll(_) >> { args -> args[0] }
+
+        when:
+        service.banUser(1L, 50L, 'chargeback')
+
+        then:
+        1 * emailService.sendAccountBanned('user@example.com', 'Bob', _, _)
+    }
+
+    def "banUser skips the email when the address is unverified"() {
+        given:
+        def target = new SteamUser(id: 50L, steamId64: '123', role: 'USER',
+            email: 'user@example.com', emailVerified: false, displayName: 'Bob')
+        steamUserRepository.findById(50L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        listingRepository.findActiveBySeller(50L) >> []
+        listingRepository.saveAll(_) >> { args -> args[0] }
+
+        when:
+        service.banUser(1L, 50L, 'x')
+
+        then:
+        0 * emailService.sendAccountBanned(_, _, _, _)
+    }
+
+    def "banUser keeps going when the email hook throws"() {
+        given:
+        def target = new SteamUser(id: 50L, steamId64: '123', role: 'USER',
+            email: 'user@example.com', emailVerified: true, displayName: 'Bob')
+        steamUserRepository.findById(50L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        listingRepository.findActiveBySeller(50L) >> []
+        listingRepository.saveAll(_) >> { args -> args[0] }
+        emailService.sendAccountBanned(_, _, _, _) >> { throw new RuntimeException('SMTP down') }
+
+        when:
+        def res = service.banUser(1L, 50L, 'x')
+
+        then:
+        res.banned == true
+        noExceptionThrown()
+    }
+
+    def "unbanUser emails the target when verified"() {
+        given:
+        def target = new SteamUser(id: 50L, steamId64: '123', banned: true,
+            email: 'user@example.com', emailVerified: true, displayName: 'Bob')
+        steamUserRepository.findById(50L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.unbanUser(1L, 50L)
+
+        then:
+        1 * emailService.sendAccountUnbanned('user@example.com', 'Bob')
     }
 
     // ── approve / reject withdrawal ───────────────────────────────

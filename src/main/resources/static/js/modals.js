@@ -383,27 +383,47 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           onClick: () => onCreateBuyOrder(item),
           title: 'Create a standing buy order for this item'
         }, h(MaterialIcon, { name: 'bolt', size: 16 }), ' Place Buy Order'),
-        me && h('button', {
-          className: 'btn btn-ghost',
-          style: { border: '1px solid var(--border)' },
-          title: 'Get notified when the floor price drops to your target',
-          onClick: async () => {
-            const suggest = (parseFloat(item.lowestPrice) * 0.85).toFixed(2);
-            const raw = window.prompt(
-              `Notify me when ${item.name} drops to or below $:`,
-              suggest);
-            if (!raw) return;
-            const target = parseFloat(raw);
-            if (!target || target <= 0) { alert('Enter a positive dollar amount'); return; }
-            const { createWatchlistAlert } = await import('./api.js');
-            const res = await createWatchlistAlert(item.id, target);
-            if (res && (res.error || res.code)) {
-              alert(res.message || res.error || 'Could not save alert');
-            } else {
-              alert(`✓ Price alert set. You'll get a notification when ${item.name} drops to $${target.toFixed(2)}.`);
+        me && (() => {
+          // When the item has zero active listings, the floor price is 0
+          // and "drop to target" is meaningless. Swap to a restock-style
+          // alert — uses the $100k cap as the target so any future
+          // listing at any price trips the sweeper.
+          const outOfStock = !listings || listings.length === 0;
+          return h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)' },
+            title: outOfStock
+              ? 'Get notified when this item is listed again'
+              : 'Get notified when the floor price drops to your target',
+            onClick: async () => {
+              let target;
+              if (outOfStock) {
+                if (!confirm(`Notify me when ${item.name} is listed again?`)) return;
+                target = 100000;  // max cap — any future listing trips the alert
+              } else {
+                const suggest = (parseFloat(item.lowestPrice) * 0.85).toFixed(2);
+                const raw = window.prompt(
+                  `Notify me when ${item.name} drops to or below $:`,
+                  suggest);
+                if (!raw) return;
+                target = parseFloat(raw);
+                if (!target || target <= 0) { alert('Enter a positive dollar amount'); return; }
+              }
+              const { createWatchlistAlert } = await import('./api.js');
+              const res = await createWatchlistAlert(item.id, target);
+              if (res && (res.error || res.code)) {
+                alert(res.message || res.error || 'Could not save alert');
+              } else if (outOfStock) {
+                alert(`✓ Restock alert set. You'll get a notification when ${item.name} is listed again.`);
+              } else {
+                alert(`✓ Price alert set. You'll get a notification when ${item.name} drops to $${target.toFixed(2)}.`);
+              }
             }
-          }
-        }, h(MaterialIcon, { name: 'notifications_active', size: 16 }), ' Set Price Alert'),
+          },
+            h(MaterialIcon, { name: 'notifications_active', size: 16 }),
+            outOfStock ? ' Notify When Listed' : ' Set Price Alert'
+          );
+        })(),
         onAddToCart && listings[0] && h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)' },
