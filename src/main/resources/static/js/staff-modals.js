@@ -656,6 +656,12 @@ function AdminTradesTab() {
 function AdminAuditTab() {
   const [rows, setRows] = useState(null);
   const [filter, setFilter] = useState({ event: '', actor: '', subject: '' });
+  // Free-text filter applied to the already-fetched rows so the admin can
+  // narrow down by summary contents without a server round-trip. Matches
+  // against summary + actor/subject names. Backend-side filters (event,
+  // actor id, subject id) still drive the fetch so we don't scan rows we
+  // don't need.
+  const [textSearch, setTextSearch] = useState('');
   const load = useCallback(async () => {
     setRows(null);
     setRows(await adminAudit({
@@ -668,7 +674,21 @@ function AdminAuditTab() {
 
   const EVENTS = ['','DEPOSIT_COMPLETE','WITHDRAW_REQUESTED','WITHDRAW_APPROVED','WITHDRAW_REJECTED','REFUND_ISSUED',
                   'LISTING_PURCHASED','LISTING_FORCE_CANCELLED','USER_BANNED','USER_UNBANNED',
-                  'ADMIN_GRANTED','ADMIN_REVOKED','CSR_CREDIT','ADMIN_CREDIT','API_KEY_MINTED','API_KEY_REVOKED'];
+                  'ADMIN_GRANTED','ADMIN_REVOKED','CSR_GRANTED','CSR_REVOKED',
+                  'CSR_CREDIT','ADMIN_CREDIT','API_KEY_MINTED','API_KEY_REVOKED'];
+  // Apply the client-side free-text filter against whatever the backend
+  // returned. Case-insensitive on summary + the pre-resolved display names.
+  const displayRows = (() => {
+    if (!rows) return null;
+    const q = textSearch.trim().toLowerCase();
+    if (q.length === 0) return rows;
+    return rows.filter(r => {
+      const summary = (r.summary || '').toLowerCase();
+      const actor   = (r.actorName || '').toLowerCase();
+      const subject = (r.subjectName || '').toLowerCase();
+      return summary.includes(q) || actor.includes(q) || subject.includes(q);
+    });
+  })();
 
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
@@ -677,6 +697,7 @@ function AdminAuditTab() {
       ),
       h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, onChange: e => setFilter(f => ({ ...f, actor: e.target.value })) }),
       h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', value: filter.subject, onChange: e => setFilter(f => ({ ...f, subject: e.target.value })) }),
+      h('input', { className: 'price-input', style: { flex: 1, minWidth: 140 }, placeholder: '🔎 Search summary / names…', value: textSearch, onChange: e => setTextSearch(e.target.value) }),
       h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: load }, 'Refresh'),
       // CSV export — honors the current filter selection so the download
       // matches what the admin is looking at.
@@ -693,11 +714,12 @@ function AdminAuditTab() {
         }, '⇣ CSV');
       })()
     ),
-    rows === null
+    displayRows === null
       ? h('div', { className: 'spinner' })
-      : rows.length === 0
+      : displayRows.length === 0
         ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, '📜'),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No audit entries match those filters.'))
+            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+              textSearch.trim() ? 'No audit entries match "' + textSearch.trim() + '".' : 'No audit entries match those filters.'))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
               h('th', null, 'When'),
@@ -707,7 +729,7 @@ function AdminAuditTab() {
               h('th', null, 'Summary'),
               h('th', null, 'IP')
             )),
-            h('tbody', null, rows.slice(0, 200).map(r => h('tr', { key: r.id },
+            h('tbody', null, displayRows.slice(0, 200).map(r => h('tr', { key: r.id },
               h('td', { className: 'db-rank' }, timeAgo(r.createdAt)),
               h('td', { style: { fontSize: 10, fontWeight: 700, color: 'var(--accent)' } }, r.eventType),
               h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.actorName || (r.actorUserId ? '#' + r.actorUserId : 'system')),

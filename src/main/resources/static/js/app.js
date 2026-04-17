@@ -824,8 +824,27 @@ export function App() {
   // this, every keystroke re-filters thousands of listings and re-renders
   // every grid card. `search` is the committed value used by filters;
   // `searchInput` is what the text box holds while the user types.
-  const [searchInput, setSearchInput]   = useState('');
-  const [search, setSearch]             = useState('');
+  // Initial filter state is seeded from the URL query string so deep-links
+  // like /market?category=Hats&sort=discount land on the same view the
+  // sender saw. Read-once on mount — we update the URL back out below via
+  // replaceState so subsequent in-app filter changes stay shareable without
+  // thrashing the back/forward history.
+  const __urlParams = (() => {
+    try { return new URLSearchParams(window.location.search); }
+    catch { return new URLSearchParams(); }
+  })();
+  const ALLOWED_SORTS      = ['price_desc','price_asc','newest','rarity','discount'];
+  const ALLOWED_CATEGORIES = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
+  const ALLOWED_RARITIES   = ['All','Limited','Off-Market','Standard'];
+  const __initialQ        = (__urlParams.get('q') || '').slice(0, 80);
+  const __initialSort     = ALLOWED_SORTS.includes(__urlParams.get('sort')) ? __urlParams.get('sort') : 'price_desc';
+  const __initialCategory = ALLOWED_CATEGORIES.includes(__urlParams.get('category')) ? __urlParams.get('category') : 'All';
+  const __initialRarity   = ALLOWED_RARITIES.includes(__urlParams.get('rarity')) ? __urlParams.get('rarity') : 'All';
+  const __initialMin      = (__urlParams.get('min') || '').slice(0, 16);
+  const __initialMax      = (__urlParams.get('max') || '').slice(0, 16);
+
+  const [searchInput, setSearchInput]   = useState(__initialQ);
+  const [search, setSearch]             = useState(__initialQ);
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
@@ -872,11 +891,11 @@ export function App() {
     document.addEventListener('click', onDoc);
     return () => document.removeEventListener('click', onDoc);
   }, []);
-  const [category, setCategory]         = useState('All');
-  const [rarity, setRarity]             = useState('All');
-  const [sort, setSort]                 = useState('price_desc');
-  const [minPrice, setMinPrice]         = useState('');
-  const [maxPrice, setMaxPrice]         = useState('');
+  const [category, setCategory]         = useState(__initialCategory);
+  const [rarity, setRarity]             = useState(__initialRarity);
+  const [sort, setSort]                 = useState(__initialSort);
+  const [minPrice, setMinPrice]         = useState(__initialMin);
+  const [maxPrice, setMaxPrice]         = useState(__initialMax);
   // Listing-type filter. Three values: 'ALL' | 'BUY_NOW' | 'AUCTION'. We
   // apply this client-side on top of the server response so users can
   // toggle instantly without a roundtrip. Buy-now includes null
@@ -1225,6 +1244,27 @@ export function App() {
   // polling so the grid doesn't blink on each refresh. Polling also
   // compares old vs new counts to fire a subtle "live sale" toast when
   // the feed shortens.
+  // Mirror market-filter state into the URL query string so the current
+  // view is shareable. Only active on `routeName === 'market'` so we don't
+  // write query params onto item detail pages or the watchlist. replaceState
+  // keeps the history stack clean — each filter change doesn't become a
+  // new entry the user has to Back through.
+  useEffect(() => {
+    if (routeName !== 'market') return;
+    const qs = new URLSearchParams();
+    if (search)                    qs.set('q', search);
+    if (sort && sort !== 'price_desc') qs.set('sort', sort);
+    if (category && category !== 'All') qs.set('category', category);
+    if (rarity && rarity !== 'All')     qs.set('rarity', rarity);
+    if (minPrice)                  qs.set('min', minPrice);
+    if (maxPrice)                  qs.set('max', maxPrice);
+    const q = qs.toString();
+    const nextSearch = q ? '?' + q : '';
+    if (window.location.search !== nextSearch) {
+      window.history.replaceState({}, '', window.location.pathname + nextSearch);
+    }
+  }, [routeName, search, sort, category, rarity, minPrice, maxPrice]);
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
