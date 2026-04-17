@@ -90,6 +90,12 @@ export async function fetchHistory(itemId) {
   return Array.isArray(data) ? data : [];
 }
 
+/** Public marketplace rollup — { volume24h, activeListings, floorPrice }.
+ *  Drives the public trust-signal strip under the homepage hero. */
+export async function fetchMarketStats() {
+  return (await safeJson(`${API}/listings/stats`)) || null;
+}
+
 /** Single item lookup used by WatchlistModal to surface starred items
  *  even when there are no active listings in the marketplace. */
 export async function fetchItem(itemId) {

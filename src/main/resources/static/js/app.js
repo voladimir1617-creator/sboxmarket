@@ -7,7 +7,7 @@ import {
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
-  checkListingsActive, fetchFollowingFeed
+  checkListingsActive, fetchFollowingFeed, fetchMarketStats
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -470,6 +470,58 @@ function JustListedRail({ watchlist, onToggleStar, onOpen }) {
 // loads. Polls /api/listings/recent-sales every 30s so new sales land
 // in the rail without a manual refresh. Hides itself when the platform
 // has no completed sales yet.
+// ── Platform stats strip — renders under the hero. Pulls the public
+// /api/listings/stats endpoint for volume24h + activeListings + floor
+// and reshapes them into a trust-signal bar. Silent when the
+// marketplace is empty so a fresh install doesn't show "$0 traded".
+function MarketStatsStrip() {
+  const [s, setS] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      const data = await fetchMarketStats();
+      if (alive) setS(data);
+    };
+    load();
+    // 5-minute poll — the endpoint is a single indexed aggregate query
+    // so refreshing isn't expensive, but stats don't change fast enough
+    // to need anything snappier.
+    const id = setInterval(load, 5 * 60 * 1000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!s) return null;
+  const active = Number(s.activeListings || 0);
+  const vol    = parseFloat(s.volume24h || 0);
+  const floor  = parseFloat(s.floorPrice || 0);
+  if (active === 0 && vol === 0) return null;  // empty-state guard
+  const Stat = (label, value) => h('div', {
+    style: {
+      display: 'flex', flexDirection: 'column', gap: 2,
+      minWidth: 0
+    }
+  },
+    h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, label),
+    h('span', { style: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' } }, value)
+  );
+  return h('section', {
+    className: 'market-stats-strip',
+    style: {
+      margin: '18px auto 0',
+      maxWidth: 1260,
+      padding: '12px 18px',
+      borderRadius: 10,
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      display: 'flex', gap: 36, flexWrap: 'wrap', alignItems: 'center'
+    }
+  },
+    h('span', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 } }, '📊 Marketplace at a glance'),
+    Stat('Active listings', active.toLocaleString()),
+    vol > 0 && Stat('24h volume', fmt(vol)),
+    floor > 0 && Stat('Starting at', fmt(floor))
+  );
+}
+
 // ── Following feed — fresh listings from sellers the signed-in user
 // follows. Silent for anonymous viewers and for users who follow
 // nobody yet. Re-polls every 90s since it's personalised and we
@@ -2075,6 +2127,10 @@ export function App() {
         c.name !== 'All' && h('div', { className: 'cat-tile-count' }, catCounts[c.name] || 0)
       ))
     ),
+
+    /* MARKET STATS STRIP — public trust signal. Silent for empty-
+       marketplace states, so fresh installs don't see "$0 traded". */
+    routeName === 'market' && h(MarketStatsStrip, null),
 
     /* HERO TABS — only render when there's actually something to show.
        Avoids leaving a ~300px empty panel on a fresh / zero-listing state. */
