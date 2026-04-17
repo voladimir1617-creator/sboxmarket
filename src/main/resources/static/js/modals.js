@@ -3404,7 +3404,13 @@ export function MyStallModal({ onClose, me, onRefresh }) {
               h('div', { className: 'mystall-sold-summary' },
                 h('span', { className: 'mystall-sold-label' }, 'Gross revenue · last ' + sold.length + ' sales'),
                 h('span', { className: 'mystall-sold-total' }, fmt(soldTotal)),
-                h('span', { className: 'mystall-sold-hint' }, '(2% platform fee already deducted at payout)')
+                h('span', { className: 'mystall-sold-hint' }, '(2% platform fee already deducted at payout)'),
+                h('a', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, marginLeft: 'auto' },
+                  href: '/api/listings/my-stall/sold.csv',
+                  title: 'Download the last 1,000 of your settled sales as CSV — pairs with the wallet transactions export for accounting'
+                }, '⇣ CSV')
               ),
               h('div', { className: 'recent-sales-list' },
                 sold.map(l => h('div', { key: l.id, className: 'recent-sales-row' },

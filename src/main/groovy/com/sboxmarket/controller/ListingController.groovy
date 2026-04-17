@@ -156,6 +156,43 @@ class ListingController {
             userId, org.springframework.data.domain.PageRequest.of(0, 200)))
     }
 
+    /** CSV dump of the seller's sale history — one row per settled
+     *  listing. Complements the wallet-transactions CSV: that one
+     *  shows the money-movement ledger, this one shows "which of my
+     *  listings sold, and when". Capped at 1000 rows so an extremely
+     *  prolific seller gets a reasonable file; buyers are redacted
+     *  to just the truncated buyer id so sellers can reconcile
+     *  against their own records without leaking contact-level PII. */
+    @GetMapping(value = "/my-stall/sold.csv", produces = "text/csv")
+    ResponseEntity<String> myStallSoldCsv(HttpServletRequest req) {
+        def userId = requireUser(req)
+        def rows = listingService.findSoldBySeller(
+            userId, org.springframework.data.domain.PageRequest.of(0, 1000))
+        def esc = { String v ->
+            if (v == null) return ''
+            v.contains(',') || v.contains('"') || v.contains('\n')
+                ? '"' + v.replace('"', '""') + '"'
+                : v
+        }
+        def sb = new StringBuilder()
+        sb.append("listing_id,item_id,item_name,category,rarity,listing_type,price,sold_at,buyer_hint\n")
+        rows.each { l ->
+            sb.append(l.id).append(',')
+              .append(l.item?.id ?: '').append(',')
+              .append(esc(l.item?.name ?: '')).append(',')
+              .append(esc(l.item?.category ?: '')).append(',')
+              .append(esc(l.item?.rarity ?: '')).append(',')
+              .append(esc(l.listingType ?: 'BUY_NOW')).append(',')
+              .append(l.price?.toPlainString() ?: '').append(',')
+              .append(l.soldAt ?: '').append(',')
+              .append(l.buyerUserId != null ? ("user_" + l.buyerUserId) : '')
+              .append('\n')
+        }
+        ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"mystall-sold.csv\"")
+            .body(sb.toString())
+    }
+
     /** Public recent sales for a seller — drives the "Recent sales" strip
      *  below the stall grid. Buyer-privacy safe: returns price + soldAt
      *  + item fields only, with no buyer identities. Capped at 10 to
