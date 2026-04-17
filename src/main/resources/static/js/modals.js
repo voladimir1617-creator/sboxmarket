@@ -3088,6 +3088,28 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     try { return JSON.parse(localStorage.getItem('sb_watchlist_alerts') || '{}'); }
     catch { return {}; }
   });
+  // Server-side alerts — the new persistent-across-devices + push-
+  // notified variant. Fetched once on modal open; delete updates in
+  // place. Shown in a compact summary strip above the card grid so the
+  // user sees how many alerts are pending + can cancel any of them.
+  const [serverAlerts, setServerAlerts] = useState(null);
+  const loadServerAlerts = useCallback(async () => {
+    try {
+      const { fetchWatchlistAlerts } = await import('./api.js');
+      const data = await fetchWatchlistAlerts();
+      setServerAlerts(Array.isArray(data) ? data : []);
+    } catch (_) { setServerAlerts([]); }
+  }, []);
+  useEffect(() => { loadServerAlerts(); }, [loadServerAlerts]);
+  const cancelServerAlert = async (id) => {
+    const { cancelWatchlistAlert } = await import('./api.js');
+    const res = await cancelWatchlistAlert(id);
+    if (res && (res.error || res.code)) {
+      alert(res.message || res.error || 'Could not cancel alert');
+      return;
+    }
+    loadServerAlerts();
+  };
   const [editingAlert, setEditingAlert] = useState(null);
   const [alertDraft, setAlertDraft] = useState('');
   const saveAlert = (itemId, value) => {
@@ -3199,6 +3221,51 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
           h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
         )
       : h('div', null,
+          // Server-side alerts summary — appears above the filter row when
+          // the user has any persistent alerts. ACTIVE + FIRED counts plus
+          // an inline list (first 5) with per-row cancel buttons. When
+          // there are none, render nothing so anonymous users and users
+          // who never set an alert don't see dead chrome.
+          serverAlerts && serverAlerts.length > 0 && (() => {
+            const active = serverAlerts.filter(a => a.status === 'ACTIVE');
+            const fired  = serverAlerts.filter(a => a.status === 'FIRED');
+            return h('div', {
+              style: {
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: '10px 14px', marginBottom: 14,
+                fontSize: 12
+              }
+            },
+              h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: active.length > 0 ? 8 : 0 } },
+                h('span', { style: { fontWeight: 700, color: 'var(--text-primary)' } },
+                  '🔔 Price alerts'),
+                h('span', { style: { color: 'var(--green)', fontWeight: 700 } }, `${active.length} watching`),
+                fired.length > 0 && h('span', { style: { color: '#fbbf24', fontWeight: 700 } },
+                  ` · ${fired.length} fired`)
+              ),
+              active.length > 0 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                active.slice(0, 5).map(a => h('div', {
+                  key: a.id,
+                  style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-secondary)' }
+                },
+                  h('a', {
+                    href: '/item/' + a.itemId,
+                    style: { color: 'var(--accent)', textDecoration: 'none', flex: 1 }
+                  }, 'Item #' + a.itemId),
+                  h('span', { className: 'db-mono', style: { color: 'var(--text-primary)', fontWeight: 700 } },
+                    '≤ $' + a.targetPrice),
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
+                    onClick: () => cancelServerAlert(a.id),
+                    title: 'Cancel this price alert'
+                  }, '✕')
+                )),
+                active.length > 5 && h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4 } },
+                  `+ ${active.length - 5} more`)
+              )
+            );
+          })(),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
             h('button', {
               className: `offer-tab ${!showDropsOnly ? 'active' : ''}`,
