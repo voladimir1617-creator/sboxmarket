@@ -144,6 +144,16 @@ class ListingController {
         ResponseEntity.ok(listingService.findActiveBySeller(userId))
     }
 
+    /** Sale history for the current user — drives the "Sold" tab in the
+     *  MyStall UI. Hard-capped at 200 rows so a prolific seller doesn't
+     *  dump their entire history on every page render. */
+    @GetMapping("/my-stall/sold")
+    ResponseEntity<List<Listing>> myStallSold(HttpServletRequest req) {
+        def userId = requireUser(req)
+        ResponseEntity.ok(listingService.findSoldBySeller(
+            userId, org.springframework.data.domain.PageRequest.of(0, 200)))
+    }
+
     /** Auctions ending within the next hour (or custom window). Powers the
      *  homepage "Ending soon" rail — high-signal surface for the buying
      *  audience since the bid pressure is about to peak. Public endpoint,
@@ -181,12 +191,21 @@ class ListingController {
         def totalActive = listingService.findActiveBySeller(userId).size()
         def away = visible.isEmpty() && totalActive > 0
         def ratingSummary = reviewService?.summaryForUser(userId) ?: [count: 0, average: null]
+        def soldCount = listingService.countSoldBySeller(userId)
+        // Verified threshold — 10+ completed sales AND (no ratings OR avg >= 4.0).
+        // Mirrors CSFloat's trust badge: you have to have actually traded
+        // successfully to show up as verified. Opinionated defaults that
+        // can be tuned without touching clients.
+        def verified = soldCount >= 10L &&
+            ((ratingSummary.count ?: 0) == 0 || ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
         ResponseEntity.ok([
             seller: [
                 id:          user.id,
                 displayName: user.displayName,
                 avatarUrl:   user.avatarUrl,
-                joinedAt:    user.createdAt
+                joinedAt:    user.createdAt,
+                verified:    verified,
+                soldCount:   soldCount
             ],
             listings:  visible,
             count:     visible.size(),

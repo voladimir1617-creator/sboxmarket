@@ -27,6 +27,7 @@ export function AdminModal({ onClose, me }) {
     { id: 'refunds',     label: '↩ Refunds' },
     { id: 'simulator',   label: '🧪 Simulator' },
     { id: 'fraud',       label: '🚨 Fraud' },
+    { id: 'announce',    label: '📢 Announce' },
     { id: 'audit',       label: '📜 Audit Log' },
   ];
   return h(InfoModal, { title: '⚙ Admin Panel', onClose },
@@ -49,7 +50,120 @@ export function AdminModal({ onClose, me }) {
     tab === 'refunds'     && h(AdminRefundsTab, null),
     tab === 'simulator'   && h(AdminSimulatorTab, null),
     tab === 'fraud'       && h(AdminFraudTab, null),
+    tab === 'announce'    && h(AdminAnnouncementsTab, null),
     tab === 'audit'       && h(AdminAuditTab, null),
+  );
+}
+
+// Announcement management — read the current banner state, post a new
+// INFO/WARN/CRITICAL banner, optionally schedule an auto-expiry. Admins
+// can deactivate any row from the history list. Minimum 3 chars (matched
+// by the server-side validator in AnnouncementService.create).
+function AdminAnnouncementsTab() {
+  const [rows, setRows]       = useState([]);
+  const [message, setMessage] = useState('');
+  const [severity, setSeverity] = useState('INFO');
+  const [hours, setHours]     = useState('');
+  const [busy, setBusy]       = useState(false);
+  const [err, setErr]         = useState('');
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/announcements', { credentials: 'same-origin' });
+      if (r.ok) setRows(await r.json());
+    } catch (_) {}
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const create = async () => {
+    setErr(''); setBusy(true);
+    try {
+      const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
+      const body = { message, severity };
+      if (hours) body.expiresAt = Date.now() + (parseFloat(hours) || 0) * 3600_000;
+      const r = await fetch('/api/admin/announcements', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json',
+                   ...(csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}) },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        setErr(j.message || `HTTP ${r.status}`); return;
+      }
+      setMessage(''); setHours('');
+      await load();
+    } finally { setBusy(false); }
+  };
+  const deactivate = async (id) => {
+    const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
+    await fetch(`/api/admin/announcements/${id}`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}
+    });
+    await load();
+  };
+  const live = rows.filter(r => r.active && (!r.expiresAt || r.expiresAt > Date.now()));
+  return h('div', { className: 'admin-tab-content' },
+    h('div', { style: { padding: 16, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 18 } },
+      h('div', { style: { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 } }, 'Post sitewide banner'),
+      h('textarea', {
+        value: message,
+        onChange: e => setMessage(e.target.value),
+        maxLength: 500,
+        placeholder: 'Message (3–500 chars). HTML tags are stripped server-side.',
+        style: { width: '100%', minHeight: 72, padding: 10, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13, resize: 'vertical' }
+      }),
+      h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' } },
+        h('select', {
+          value: severity,
+          onChange: e => setSeverity(e.target.value),
+          style: { padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)' }
+        },
+          h('option', { value: 'INFO' }, 'INFO — blue'),
+          h('option', { value: 'WARN' }, 'WARN — amber'),
+          h('option', { value: 'CRITICAL' }, 'CRITICAL — red')
+        ),
+        h('input', {
+          type: 'number',
+          step: '0.5',
+          min: '0',
+          placeholder: 'Auto-expire in Nh (blank = manual)',
+          value: hours,
+          onChange: e => setHours(e.target.value),
+          style: { padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', width: 180 }
+        }),
+        h('button', {
+          className: 'btn btn-accent',
+          disabled: busy || !message.trim(),
+          onClick: create
+        }, busy ? 'Posting…' : 'Post banner')
+      ),
+      err && h('div', { className: 'wallet-error' }, err)
+    ),
+    live.length > 0 && h('div', { style: { padding: 12, background: 'var(--bg-card)', border: '1px solid var(--accent-border)', borderRadius: 8, marginBottom: 16 } },
+      h('div', { style: { fontSize: 11, color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 } }, 'LIVE NOW'),
+      live.map(r => h('div', { key: r.id, style: { display: 'flex', gap: 12, padding: 6, alignItems: 'center' } },
+        h('span', { style: { fontSize: 10, fontWeight: 800, color: 'var(--text-muted)' } }, r.severity),
+        h('span', { style: { flex: 1 } }, r.message),
+        h('button', { className: 'btn btn-ghost', style: { padding: '4px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, onClick: () => deactivate(r.id) }, 'Stop')
+      ))
+    ),
+    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '10px 0 6px' } }, 'History'),
+    rows.length === 0
+      ? h('div', { style: { fontSize: 13, color: 'var(--text-muted)', padding: 20, textAlign: 'center' } }, 'No announcements yet.')
+      : rows.map(r => h('div', {
+          key: r.id,
+          style: {
+            display: 'flex', gap: 10, padding: 10, alignItems: 'center',
+            borderBottom: '1px solid var(--border)',
+            opacity: r.active && (!r.expiresAt || r.expiresAt > Date.now()) ? 1 : 0.55
+          }
+        },
+          h('span', { style: { fontSize: 10, fontWeight: 800, color: 'var(--text-muted)' } }, r.severity),
+          h('span', { style: { flex: 1, fontSize: 13 } }, r.message),
+          h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(r.createdAt))
+        ))
   );
 }
 

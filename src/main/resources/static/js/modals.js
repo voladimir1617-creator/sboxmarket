@@ -6,7 +6,7 @@ import { GridCard } from './cards.js';
 import { InfoModal } from './info-modal.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import {
-  fetchInventory, fetchMyStall, relistItem, cancelListing,
+  fetchInventory, fetchMyStall, fetchMyStallSold, relistItem, cancelListing,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar,
   depositFunds, withdrawFunds, updateStallListing, setAwayMode,
@@ -1819,12 +1819,20 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
 // ── My Stall ────────────────────────────────────────────────────
 export function MyStallModal({ onClose, me, onRefresh }) {
   const [stall, setStall] = useState(null);
+  const [sold, setSold] = useState(null);
+  const [tab, setTab] = useState('active'); // 'active' | 'sold'
   const [editing, setEditing] = useState(null); // listing id being edited inline
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc]   = useState('');
   const [away, setAway] = useState(false);
   const load = useCallback(() => { fetchMyStall().then(setStall); }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
+  // Load sold history lazily when the user clicks the tab — avoids a second
+  // list fetch on every modal open for sellers who never touch the history.
+  useEffect(() => {
+    if (!me || tab !== 'sold' || sold !== null) return;
+    fetchMyStallSold().then(setSold);
+  }, [me, tab, sold]);
 
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
     h('div', { className: 'empty-inline' },
@@ -1871,6 +1879,8 @@ export function MyStallModal({ onClose, me, onRefresh }) {
     load();
   };
 
+  const soldTotal = sold ? sold.reduce((s, l) => s + (parseFloat(l.price) || 0), 0) : 0;
+
   return h(InfoModal, { title: `My Stall · ${stall.length} active`, onClose },
     h('div', { className: 'stall-toolbar' },
       h('button', {
@@ -1882,7 +1892,45 @@ export function MyStallModal({ onClose, me, onRefresh }) {
         'Away Mode — ', away ? 'all listings hidden' : 'listings visible'
       )
     ),
-    stall.length === 0
+    // Active vs Sold tabs. Sold tab reveals a seller's own sale history
+    // with gross revenue (pre-fee). Matches CSFloat's "My Sales" list.
+    h('div', { className: 'mystall-tabs' },
+      h('button', {
+        className: `offer-tab ${tab === 'active' ? 'active' : ''}`,
+        onClick: () => setTab('active')
+      }, 'Active ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, stall.length)),
+      h('button', {
+        className: `offer-tab ${tab === 'sold' ? 'active' : ''}`,
+        onClick: () => setTab('sold')
+      }, 'Sold ', sold ? h('span', { className: 'filter-count', style: { marginLeft: 6 } }, sold.length) : null)
+    ),
+    tab === 'sold' && (
+      sold === null
+        ? h('div', { className: 'spinner' })
+        : sold.length === 0
+          ? h('div', { className: 'empty-inline' },
+              h('div', { className: 'empty-icon' }, '📦'),
+              h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+                "You haven't sold anything yet. Listings you post will appear here once a buyer confirms."))
+          : h('div', null,
+              h('div', { className: 'mystall-sold-summary' },
+                h('span', { className: 'mystall-sold-label' }, 'Gross revenue · last ' + sold.length + ' sales'),
+                h('span', { className: 'mystall-sold-total' }, fmt(soldTotal)),
+                h('span', { className: 'mystall-sold-hint' }, '(2% platform fee already deducted at payout)')
+              ),
+              h('div', { className: 'recent-sales-list' },
+                sold.map(l => h('div', { key: l.id, className: 'recent-sales-row' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
+                    h('div', { className: 'item-thumb', style: { width: 28, height: 28, flexShrink: 0 } }, h(ItemImage, { item: l.item })),
+                    h('span', { style: { fontSize: 12.5, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.item?.name || 'Item')
+                  ),
+                  h('span', { className: 'recent-sales-price' }, fmt(l.price)),
+                  h('span', { className: 'recent-sales-time' }, timeAgo(l.soldAt || l.updatedAt || l.listedAt))
+                ))
+              )
+            )
+    ),
+    tab === 'active' && (stall.length === 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, '🏪'),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
@@ -1921,6 +1969,7 @@ export function MyStallModal({ onClose, me, onRefresh }) {
                 )
           ))
         )
+    )
   );
 }
 

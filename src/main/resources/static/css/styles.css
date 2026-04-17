@@ -4209,6 +4209,25 @@
     }
     .stall-rating-count { color: var(--text-muted); font-weight: 500; }
 
+    /* ─────────── SELLER VERIFIED BADGE ─────────── */
+    .seller-verified {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 9px;
+      margin-left: 10px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #0d1320;
+      background: linear-gradient(135deg, #60e3a6 0%, #4ade80 100%);
+      border: 1px solid #16a34a;
+      border-radius: 6px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      box-shadow: 0 2px 8px rgba(74, 222, 128, 0.35);
+    }
+
     /* ─────────── STALL SHARE BUTTON ─────────── */
     .stall-share-btn {
       display: inline-flex;
@@ -4263,6 +4282,84 @@
       color: var(--text-muted);
       line-height: 1.5;
     }
+
+    /* ─────────── MYSTALL SOLD SUMMARY ─────────── */
+    .mystall-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 8px 0 14px;
+    }
+    .mystall-sold-summary {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 14px 18px;
+      margin-bottom: 14px;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.08), rgba(74, 222, 128, 0.02));
+      border: 1px solid rgba(74, 222, 128, 0.28);
+      border-radius: 10px;
+      flex-wrap: wrap;
+    }
+    .mystall-sold-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+    .mystall-sold-total {
+      font-size: 22px;
+      font-weight: 800;
+      color: #4ade80;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .mystall-sold-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ─────────── ANNOUNCEMENT BANNER ─────────── */
+    .announce-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0d1320;
+      background: linear-gradient(90deg, #4dc8ff 0%, #1ea5ff 100%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    }
+    .announce-banner.sev-warn {
+      background: linear-gradient(90deg, #fde68a 0%, #fbbf24 100%);
+    }
+    .announce-banner.sev-critical {
+      color: #fff;
+      background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%);
+    }
+    .announce-banner-icon {
+      font-size: 15px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .announce-banner-text {
+      flex: 1;
+      min-width: 0;
+      line-height: 1.5;
+    }
+    .announce-banner-close {
+      background: rgba(0, 0, 0, 0.15);
+      border: none;
+      color: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 4px 9px;
+      border-radius: 5px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .announce-banner-close:hover { background: rgba(0, 0, 0, 0.28); }
 
     /* ─────────── LISTING TYPE TOGGLE ─────────── */
     .type-toggle {

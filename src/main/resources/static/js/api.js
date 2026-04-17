@@ -118,6 +118,12 @@ export async function fetchInventory() {
   return Array.isArray(data) ? data : [];
 }
 
+/** Sale history for the signed-in seller — last 200 SOLD listings,
+ *  newest first. Drives the MyStall "Sold" tab. */
+export async function fetchMyStallSold() {
+  const data = await safeJson(`${API}/listings/my-stall/sold`);
+  return Array.isArray(data) ? data : [];
+}
 export async function fetchMyStall() {
   const data = await safeJson(`${API}/listings/my-stall`);
   return Array.isArray(data) ? data : [];
@@ -531,6 +537,12 @@ export async function fetchRecentSales(itemId) {
 export async function fetchOfferCounts() {
   const data = await safeJson(`${API}/offers/counts`);
   return data && typeof data === 'object' ? data : { incomingPending: 0, outgoingPending: 0 };
+}
+/** Current sitewide announcement banner or null. Polled every 2 minutes
+ *  so a freshly posted ops message reaches browsers already on the page. */
+export async function fetchAnnouncement() {
+  const data = await safeJson(`${API}/announcement`);
+  return data?.announcement ?? null;
 }
 
 // ── CSR ─────────────────────────────────────────────────────────

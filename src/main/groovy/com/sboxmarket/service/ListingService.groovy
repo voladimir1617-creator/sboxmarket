@@ -100,6 +100,18 @@ class ListingService {
         listingRepository.findAuctionsEndingBefore(now, deadline)
     }
 
+    /** Lifetime sold count for a seller — feeds the verified badge
+     *  threshold and the stall-hero "sales" stat. */
+    long countSoldBySeller(Long sellerUserId) {
+        listingRepository.countSoldBySeller(sellerUserId)
+    }
+
+    /** Page of recent sold listings for a seller. Drives the MyStall
+     *  "Sold items" tab. Caller passes a Pageable with a hard cap. */
+    List<Listing> findSoldBySeller(Long sellerUserId, org.springframework.data.domain.Pageable page) {
+        listingRepository.findSoldBySeller(sellerUserId, page)
+    }
+
     List<Listing> findOwnedBy(Long buyerUserId) {
         listingRepository.findOwnedBy(buyerUserId) ?: []
     }

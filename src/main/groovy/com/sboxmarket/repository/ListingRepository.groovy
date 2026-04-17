@@ -158,6 +158,23 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Listing> findRecentSalesForItem(@Param("itemId") Long itemId, org.springframework.data.domain.Pageable page)
 
+    /** Count of completed sales by a seller — drives the "verified seller"
+     *  badge threshold and the lifetime sales stat on the stall hero. */
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'SOLD'")
+    long countSoldBySeller(@Param("uid") Long uid)
+
+    /** Recent sale rows by a seller — drives the MyStall "Sold items" tab
+     *  and the optional public stall sales-history view. Page size caps
+     *  client-side dumps. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.sellerUserId = :uid
+          AND l.status = 'SOLD'
+          AND l.soldAt IS NOT NULL
+        ORDER BY l.soldAt DESC
+    """)
+    List<Listing> findSoldBySeller(@Param("uid") Long uid, org.springframework.data.domain.Pageable page)
+
     /** Rows flagged as simulator fixtures — `AdminSimulatorService.clearSimulated`
      *  and `countSimulated` used to pull every listing and filter in Groovy.
      *  Pushing the tag filters into SQL keeps the admin sim tool fast even

@@ -5,7 +5,8 @@ import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
-  fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts
+  fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
+  fetchAnnouncement
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -23,6 +24,48 @@ import { AdminModal, CsrModal } from './staff-modals.js';
 import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor } from './router.js';
+
+// ── Announcement banner — renders the single live sitewide message.
+// Polls every 120s so banners posted mid-session still land without a
+// page reload. Dismissible per-user in localStorage (keyed by
+// announcement id) so an admin can post a fresh banner and everyone
+// sees it again even if they dismissed the previous one.
+function AnnouncementBanner() {
+  const [ann, setAnn] = useState(null);
+  const [dismissedId, setDismissedId] = useState(() => {
+    try { return Number(localStorage.getItem('sb_announce_dismissed') || 0); }
+    catch { return 0; }
+  });
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchAnnouncement();
+        if (alive) setAnn(data || null);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 120_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!ann || ann.id === dismissedId) return null;
+  const dismiss = () => {
+    try { localStorage.setItem('sb_announce_dismissed', String(ann.id)); } catch (_) {}
+    setDismissedId(ann.id);
+  };
+  const sev = (ann.severity || 'INFO').toLowerCase();
+  return h('div', { className: `announce-banner sev-${sev}`, role: 'status' },
+    h('span', { className: 'announce-banner-icon' },
+      sev === 'critical' ? '⚠' : sev === 'warn' ? '⚠' : 'ℹ'),
+    h('div', { className: 'announce-banner-text' }, ann.message),
+    h('button', {
+      className: 'announce-banner-close',
+      onClick: dismiss,
+      title: 'Dismiss',
+      'aria-label': 'Dismiss announcement'
+    }, '✕')
+  );
+}
 
 // ── Nav offers badge — actionable pending-incoming count. Only signed-in
 // users see it; polls every 45s; clicking navigates to /offers.
@@ -988,6 +1031,9 @@ export function App() {
   },
     /* Chat removed — was placeholder with fake messages */
 
+    /* Sitewide ops announcement — one row at a time, dismissible. */
+    h(AnnouncementBanner, null),
+
     /* NAV — full-width bar, aligned inner row clamped to content-max */
     h('nav', { className: 'nav' },
       h('div', { className: 'nav-inner' },
@@ -1505,9 +1551,20 @@ export function App() {
                   : (stallData.seller.displayName || 'U').substring(0, 2).toUpperCase()
               ),
               h('div', { style: { flex: 1, minWidth: 0 } },
-                h('div', { className: 'stall-name' }, stallData.seller.displayName || 'Player'),
+                h('div', { className: 'stall-name' },
+                  stallData.seller.displayName || 'Player',
+                  // Verified trust badge — 10+ completed sales AND either
+                  // no reviews OR 4+ star average. Backend computes it so
+                  // the threshold is uniform across every surface.
+                  stallData.seller.verified && h('span', {
+                    className: 'seller-verified',
+                    title: `Verified seller · ${stallData.seller.soldCount}+ completed sales`
+                  }, '✓ Verified')
+                ),
                 h('div', { className: 'stall-meta' },
-                  stallData.count, ' active listings · joined ',
+                  stallData.count, ' active listings',
+                  stallData.seller.soldCount > 0 && ` · ${stallData.seller.soldCount} sold`,
+                  ' · joined ',
                   stallData.seller.joinedAt ? new Date(stallData.seller.joinedAt).toLocaleDateString() : '—'
                 ),
                 // Rating chip — only shows if the seller has at least one
