@@ -735,12 +735,49 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
   const [now, setNow]         = useState(Date.now());
+  // Mirror of the server-side listing state. Refreshed every 8s so
+  // remote bids + anti-snipe expiresAt extensions show up for viewers
+  // who didn't place the last bid. Falls back to the prop on first
+  // render; once we've seen a refresh the live copy wins.
+  const [live, setLive]       = useState(listing);
+  // Transient "Auction extended by ~30s" banner shown when we detect a
+  // positive jump in expiresAt relative to the last observed value.
+  // Set to a UTC ms "show until" target; unset once the clock passes.
+  const [extendedUntil, setExtendedUntil] = useState(0);
 
   const load = useCallback(async () => {
     if (!listing?.id) return;
     setHistory(await fetchBidHistory(listing.id));
+    // Poll the listing itself — its expiresAt and currentBid both
+    // change server-side without a placeBid on this tab (remote
+    // bidders, sweeper). Without this the panel showed stale data
+    // until the user placed their own bid.
+    try {
+      const fresh = await (await import('./api.js')).fetchListingById(listing.id);
+      if (fresh && fresh.id === listing.id) {
+        setLive(prev => {
+          const prevExpires = prev?.expiresAt ?? listing.expiresAt;
+          if (fresh.expiresAt != null && prevExpires != null &&
+              fresh.expiresAt > prevExpires + 500) {
+            // Soft-close extension detected. Flash the banner for 8s.
+            setExtendedUntil(Date.now() + 8000);
+          }
+          return fresh;
+        });
+      }
+    } catch (_) { /* stay on the old copy */ }
   }, [listing?.id]);
   useEffect(() => { load(); }, [load]);
+
+  // Poll bid history + listing state every 8s while the panel is open.
+  // 8s is a compromise — shorter would catch live bid wars faster, but
+  // a soft-closed auction extends by 30s so 8s gives plenty of runway
+  // to render the "extended" banner before the close actually fires.
+  useEffect(() => {
+    if (!listing?.id) return;
+    const id = setInterval(load, 8000);
+    return () => clearInterval(id);
+  }, [load, listing?.id]);
 
   // Tick every second for the countdown timer
   useEffect(() => {
@@ -750,7 +787,9 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
 
   if (!listing || listing.listingType !== 'AUCTION') return null;
 
-  const remaining = listing.expiresAt - now;
+  // Prefer the live-polled copy, but fall back to props for first paint.
+  const view = live || listing;
+  const remaining = view.expiresAt - now;
   const ended = remaining <= 0;
   const fmtTime = (ms) => {
     if (ms <= 0) return 'Ended';
@@ -762,7 +801,7 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
     if (d > 0) return `${d}d ${h_}h ${m}m`;
     return `${String(h_).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
   };
-  const floor = parseFloat(listing.currentBid || listing.price);
+  const floor = parseFloat(view.currentBid || view.price);
   const minNext = (floor + 0.05).toFixed(2);
 
   const submit = async () => {
@@ -784,9 +823,22 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
   // banner so the bidder knows whether they're currently winning, losing,
   // or yet to bid. Anti-sniping soft-close is server-side; this panel
   // just surfaces the state.
-  const viewerIsTop = me && listing.currentBidderId && listing.currentBidderId === me.id;
+  const viewerIsTop = me && view.currentBidderId && view.currentBidderId === me.id;
   const viewerHasBid = history.some(b => b.bidderUserId && me && b.bidderUserId === me.id);
   const viewerIsLosing = viewerHasBid && !viewerIsTop && !ended;
+  const extensionActive = extendedUntil > now;
+  // Distinct bidder count — lets the header read "12 bids · 4 bidders"
+  // instead of just "12 bids". One person spamming 12 bids reads very
+  // differently to the 4-bidder signal. Redaction preserves stable
+  // handles (Bug #14 fix) so anonymous viewers still count correctly.
+  const distinctBidders = (() => {
+    const set = new Set();
+    history.forEach(b => {
+      if (b.bidderUserId != null) set.add('u:' + b.bidderUserId);
+      else if (b.bidderName)      set.add('n:' + b.bidderName);
+    });
+    return set.size;
+  })();
 
   return h('div', { className: `auction-panel${viewerIsTop ? ' winning' : ''}${viewerIsLosing ? ' losing' : ''}` },
     viewerIsTop && h('div', { className: 'auction-status-banner winning' },
@@ -803,12 +855,26 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
         `min next bid is $${minNext}.`
       )
     ),
+    // Soft-close extension banner — fires when we detect a positive
+    // jump in expiresAt vs. the last polled value (someone's last-
+    // second bid triggered anti-snipe). Flashes for ~8s then
+    // auto-hides.
+    extensionActive && h('div', {
+      className: 'auction-status-banner',
+      style: { background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.4)', color: '#fbbf24' }
+    },
+      h('span', { className: 'auction-status-icon' }, '⏱'),
+      h('span', null,
+        h('strong', null, 'Auction extended — '),
+        'a last-second bid tripped the anti-snipe rule; new close time is above.'
+      )
+    ),
     h('div', { className: 'auction-header' },
       h('div', null,
         h('div', { className: 'auction-label' }, 'CURRENT BID'),
-        h('div', { className: 'auction-bid' }, fmt(listing.currentBid || listing.price)),
-        listing.currentBidderName && h('div', { className: 'auction-bidder' },
-          viewerIsTop ? 'by you' : ('by ' + listing.currentBidderName))
+        h('div', { className: 'auction-bid' }, fmt(view.currentBid || view.price)),
+        view.currentBidderName && h('div', { className: 'auction-bidder' },
+          viewerIsTop ? 'by you' : ('by ' + view.currentBidderName))
       ),
       h('div', { style: { textAlign: 'right' } },
         h('div', { className: 'auction-label' }, ended ? 'STATUS' : 'TIME LEFT'),
@@ -852,7 +918,8 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
     ),
     history.length > 0 && h('div', { className: 'auction-history' },
       h('div', { className: 'modal-section-title', style: { marginTop: 16 } },
-        h('div', { className: 'section-title-dot' }), `Bid History (${history.length})`),
+        h('div', { className: 'section-title-dot' }),
+        `Bid History (${history.length}${distinctBidders > 1 ? ` · ${distinctBidders} bidders` : ''})`),
       history.slice(0, 8).map(b => {
         const isMine = me && b.bidderUserId && b.bidderUserId === me.id;
         return h('div', { key: b.id, className: `auction-history-row${isMine ? ' you' : ''}` },
