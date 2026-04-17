@@ -845,6 +845,74 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   );
 }
 
+// "Sellers you follow" row inside ProfilePersonalTab. Compact list +
+// per-row unfollow. Silently hidden when the user follows nobody.
+// Lazy-imports the API helpers so this file doesn't gain a new
+// top-level dependency.
+function FollowingListRow() {
+  const [rows, setRows] = useState(null);
+  const [names, setNames] = useState({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { fetchFollowing } = await import('./api.js');
+        const r = await fetchFollowing();
+        if (!alive) return;
+        setRows(Array.isArray(r) ? r : []);
+        // Enrich with display names — one fetchItem-style call per
+        // seller. There's no /api/users/{id}, so we use the public
+        // stall endpoint which returns { seller: { displayName } }.
+        const ids = [...new Set((r || []).map(x => x.sellerUserId))];
+        Promise.all(ids.map(id =>
+          fetch(`/api/listings/stall/${id}`, { credentials: 'same-origin' })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => ({ id, name: data?.seller?.displayName }))
+            .catch(() => ({ id, name: null }))
+        )).then(results => {
+          if (!alive) return;
+          const n = {};
+          results.forEach(rr => { if (rr.name) n[rr.id] = rr.name; });
+          setNames(n);
+        });
+      } catch (_) { if (alive) setRows([]); }
+    })();
+    return () => { alive = false; };
+  }, []);
+  const doUnfollow = async (sellerId) => {
+    const { unfollowSeller } = await import('./api.js');
+    const res = await unfollowSeller(sellerId);
+    if (res && (res.error || res.code)) {
+      alert(res.message || res.error || 'Could not unfollow');
+      return;
+    }
+    setRows(rs => (rs || []).filter(r => r.sellerUserId !== sellerId));
+  };
+  if (!rows || rows.length === 0) return null;
+  return h('div', { className: 'profile-row' },
+    h('div', { className: 'profile-row-label' }, `Following ${rows.length}`),
+    h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, maxWidth: '100%' } },
+      rows.slice(0, 10).map(r => h('div', {
+        key: r.id,
+        style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }
+      },
+        h('a', {
+          href: '/stall/' + r.sellerUserId,
+          style: { color: 'var(--accent)', textDecoration: 'none', flex: 1 }
+        }, names[r.sellerUserId] || ('Seller #' + r.sellerUserId)),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
+          onClick: () => doUnfollow(r.sellerUserId),
+          title: 'Unfollow this seller'
+        }, '✕')
+      )),
+      rows.length > 10 && h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+        `+ ${rows.length - 10} more`)
+    )
+  );
+}
+
 function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft]     = useState('');
@@ -993,6 +1061,11 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
         )
       )
     ),
+
+    // Sellers I follow — inline list with unfollow buttons. Only shown
+    // when the user follows at least one. Pulls from /api/follows on
+    // mount via the FollowingList helper below.
+    me?.id && h(FollowingListRow, null),
 
     // ── Email ────────────────────────────────────────────────────
     h('div', { className: 'profile-row' },
