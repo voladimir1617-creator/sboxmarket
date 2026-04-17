@@ -102,6 +102,30 @@ class OfferService {
         )
         def saved = offerRepository.save(offer)
         log.info("Offer ${saved.id} created: $buyerName offered \$${amount} on listing $listingId")
+        // Auto-accept check. Sellers can set listing.maxDiscount (0..1,
+        // stored as a fraction) on the stall edit page — offers at or
+        // above `price * (1 - maxDiscount)` bypass the manual-accept
+        // wait and complete the purchase immediately. Only fires when
+        // the listing has a real sellerUserId (system listings stay
+        // manual) and the seller isn't banned. Failures fall back to
+        // the regular PENDING state so the buyer doesn't lose their
+        // offer.
+        if (listing.maxDiscount != null
+                && listing.maxDiscount > BigDecimal.ZERO
+                && listing.sellerUserId != null) {
+            def threshold = (listing.price - (listing.price * listing.maxDiscount))
+                .setScale(2, BigDecimal.ROUND_HALF_UP)
+            if (amount >= threshold) {
+                try {
+                    banGuard.assertNotBanned(listing.sellerUserId)
+                    acceptOffer(listing.sellerUserId, saved.id)
+                    // Reload to return the ACCEPTED snapshot.
+                    return offerRepository.findById(saved.id).orElse(saved)
+                } catch (Exception e) {
+                    log.warn("Auto-accept failed for offer ${saved.id}: ${e.message} — leaving in PENDING")
+                }
+            }
+        }
         saved
     }
 
