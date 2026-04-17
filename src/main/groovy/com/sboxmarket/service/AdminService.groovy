@@ -255,6 +255,21 @@ class AdminService {
             "Withdrawal approved — \$${tx.amount.toPlainString()}",
             "Your payout has been released. Reference: ${tx.stripeReference}", tx.id)
 
+        // Email the user too — money-out events should never rely on the
+        // notification bell alone. Silent-fail to keep the approval path
+        // resilient against SMTP outages.
+        if (emailService != null) {
+            try {
+                def ownerUser = walletOwnerUser(tx.walletId)
+                if (ownerUser != null && Boolean.TRUE.equals(ownerUser.emailVerified) && ownerUser.email) {
+                    emailService.sendWithdrawalApproved(ownerUser.email,
+                        ownerUser.displayName, tx.amount, tx.stripeReference)
+                }
+            } catch (Exception e) {
+                log.warn("Withdrawal-approved email failed for tx ${tx.id}: ${e.message}")
+            }
+        }
+
         auditService?.log(AuditService.WITHDRAW_APPROVED, adminUserId,
             walletOwnerId(tx.walletId), tx.id,
             "Approved withdrawal #${tx.id} of \$${tx.amount} (ref=${tx.stripeReference})")
@@ -283,6 +298,18 @@ class AdminService {
         notifyWalletOwner(tx.walletId, 'WITHDRAWAL_REJECTED',
             "Withdrawal rejected — funds returned",
             reason ?: 'See the Transactions tab for details', tx.id)
+
+        if (emailService != null) {
+            try {
+                def ownerUser = walletOwnerUser(tx.walletId)
+                if (ownerUser != null && Boolean.TRUE.equals(ownerUser.emailVerified) && ownerUser.email) {
+                    emailService.sendWithdrawalRejected(ownerUser.email,
+                        ownerUser.displayName, tx.amount, reason)
+                }
+            } catch (Exception e) {
+                log.warn("Withdrawal-rejected email failed for tx ${tx.id}: ${e.message}")
+            }
+        }
 
         auditService?.log(AuditService.WITHDRAW_REJECTED, adminUserId,
             walletOwnerId(tx.walletId), tx.id,
@@ -801,6 +828,17 @@ class AdminService {
             def steamId = wallet.username.substring('steam_'.size())
             def user = steamUserRepository.findBySteamId64(steamId)
             return user?.id
+        }
+        null
+    }
+
+    /** Resolve the SteamUser row owning a wallet; returns null if the wallet
+     *  isn't steam-backed or the user has no row. */
+    private com.sboxmarket.model.SteamUser walletOwnerUser(Long walletId) {
+        def wallet = walletRepository.findById(walletId).orElse(null)
+        if (wallet?.username?.startsWith('steam_')) {
+            def steamId = wallet.username.substring('steam_'.size())
+            return steamUserRepository.findBySteamId64(steamId)
         }
         null
     }

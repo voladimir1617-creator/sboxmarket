@@ -107,6 +107,51 @@ email${appealUrl ? ' or by visiting ' + appealUrl : ''}. Appeals are reviewed wi
         send(toEmail, subject, body)
     }
 
+    /** Withdrawal approved — funds released to the destination. Fires
+     *  from AdminService.approveWithdrawal. Payout processors can take a
+     *  business day or two to settle so the email gives the user a
+     *  concrete reference to follow up on. */
+    void sendWithdrawalApproved(String toEmail, String displayName, BigDecimal amount, String payoutRef) {
+        if (!toEmail || amount == null) return
+        def subject = "Withdrawal approved · \$${amount.toPlainString()}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+Your \$${amount.toPlainString()} withdrawal has been approved and released.
+
+Payout reference: ${payoutRef ?: '(none)'}
+
+Settlement typically clears within 1-2 business days depending on your
+payout destination. You can track the transaction from Wallet →
+Transactions at any time.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
+    /** Withdrawal rejected — the amount was credited back to the wallet.
+     *  Fires from AdminService.rejectWithdrawal. */
+    void sendWithdrawalRejected(String toEmail, String displayName, BigDecimal amount, String reason) {
+        if (!toEmail || amount == null) return
+        def subject = "Withdrawal rejected · funds refunded"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+Your \$${amount.toPlainString()} withdrawal request was rejected and the
+full amount has been credited back to your SkinBox wallet.
+
+Reason: ${reason ?: 'See the Transactions tab for details.'}
+
+You can open a new withdrawal from Wallet → Withdraw once the underlying
+issue is resolved. If you need help, reply to this email or open a
+support ticket.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Account-reinstated notice. Fires from AdminService.unbanUser. */
     void sendAccountUnbanned(String toEmail, String displayName) {
         if (!toEmail) return
