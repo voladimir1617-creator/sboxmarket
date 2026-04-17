@@ -79,12 +79,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   }, [item?.id]);
   // Trade velocity — "N sold · 7d" activity chip in the header. Social
   // proof via realised sales (complement to the buy-order count which
-  // shows demand without transactions).
-  const [velocity, setVelocity] = useState({ soldLast7d: 0, soldLast30d: 0 });
+  // shows demand without transactions). Payload also includes the
+  // most recent SOLD listing's price + timestamp for the "last sold"
+  // chip — different data point from current floor.
+  const [velocity, setVelocity] = useState({ soldLast7d: 0, soldLast30d: 0, lastSoldPrice: null, lastSoldAt: null });
   useEffect(() => {
     if (!item?.id) return;
     let alive = true;
-    fetchItemVelocity(item.id).then(v => { if (alive) setVelocity(v || { soldLast7d: 0, soldLast30d: 0 }); });
+    fetchItemVelocity(item.id).then(v => { if (alive) setVelocity(v || { soldLast7d: 0, soldLast30d: 0, lastSoldPrice: null, lastSoldAt: null }); });
     return () => { alive = false; };
   }, [item?.id]);
   useEffect(() => {
@@ -209,6 +211,17 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               h('span', { className: 'modal-demand-chip-num' },
                 velocity.soldLast7d > 0 ? velocity.soldLast7d : velocity.soldLast30d),
               velocity.soldLast7d > 0 ? ' sold this week' : ' sold this month'
+            ),
+          // Last-sold chip — price at the most recent settlement. A
+          // useful complement to floor because a listing can drop the
+          // floor below any historic sale without any trades at that
+          // price. Silent when the item has never sold.
+          velocity.lastSoldPrice != null && velocity.lastSoldAt != null &&
+            h('div', { className: 'modal-demand-chip', style: { background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)' } },
+              'Last sold · ',
+              h('span', { className: 'modal-demand-chip-num', style: { color: 'var(--text-primary)' } },
+                fmt(velocity.lastSoldPrice)),
+              ' · ', timeAgo(velocity.lastSoldAt)
             )
         )
       ),

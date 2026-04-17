@@ -249,6 +249,19 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     long countSoldForItemSince(@Param('itemId') Long itemId, @Param('since') Long since)
 
+    /** Most-recent SOLD listing for an item — drives the "last sold" chip
+     *  on item detail (different from floor = current cheapest listing).
+     *  Returns a Pageable page of 1 so Spring Data doesn't need a top-1
+     *  dialect hack. Empty list means the item has never sold. */
+    @Query("""
+        SELECT l FROM Listing l
+        WHERE l.item.id = :itemId
+          AND l.status  = 'SOLD'
+          AND l.soldAt  IS NOT NULL
+        ORDER BY l.soldAt DESC
+    """)
+    List<Listing> findLastSoldForItem(@Param('itemId') Long itemId, org.springframework.data.domain.Pageable page)
+
     /** Listings with at least one user report, ordered by report_count DESC
      *  (break ties by most-recently-reported). Admin moderation queue.
      *  Top-N cap is applied at the service layer — keeping the query

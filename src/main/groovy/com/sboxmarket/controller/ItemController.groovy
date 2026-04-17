@@ -80,9 +80,14 @@ class ItemController {
         def now = System.currentTimeMillis()
         def week = now - 7L * 86400_000L
         def month = now - 30L * 86400_000L
+        def last = listingRepository.findLastSoldForItem(id,
+            PageRequest.of(0, 1))
+        def lastRow = last?.isEmpty() ? null : last[0]
         ResponseEntity.ok([
-            soldLast7d:  listingRepository.countSoldForItemSince(id, week),
-            soldLast30d: listingRepository.countSoldForItemSince(id, month)
+            soldLast7d:     listingRepository.countSoldForItemSince(id, week),
+            soldLast30d:    listingRepository.countSoldForItemSince(id, month),
+            lastSoldPrice:  lastRow?.price,
+            lastSoldAt:     lastRow?.soldAt
         ])
     }
 
