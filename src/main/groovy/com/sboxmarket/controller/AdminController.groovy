@@ -265,6 +265,13 @@ class AdminController {
         ResponseEntity.ok(adminService.listDeletionRequests())
     }
 
+    /** Finalise a user's deletion request — PII scrub + ban + request cleared. */
+    @PostMapping("/users/{id}/finalize-deletion")
+    ResponseEntity<Map> finalizeDeletion(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.finalizeDeletion(uid, id))
+    }
+
     /** Read staff-only internal notes on a user. */
     @GetMapping("/users/{id}/notes")
     ResponseEntity<Map> readNotes(@PathVariable Long id, HttpServletRequest req) {

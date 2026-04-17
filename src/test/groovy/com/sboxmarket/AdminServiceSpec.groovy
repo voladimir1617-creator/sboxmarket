@@ -43,6 +43,7 @@ class AdminServiceSpec extends Specification {
     AdminAuthorization      adminAuthorization      = Mock()
     BanGuard                banGuard                = Mock()
     com.sboxmarket.service.EmailService emailService = Mock()
+    com.sboxmarket.repository.TradeRepository tradeRepository = Mock()
 
     @Subject
     AdminService service = new AdminService(
@@ -57,7 +58,8 @@ class AdminServiceSpec extends Specification {
         textSanitizer           : textSanitizer,
         adminAuthorization      : adminAuthorization,
         banGuard                : banGuard,
-        emailService            : emailService
+        emailService            : emailService,
+        tradeRepository         : tradeRepository
     )
 
     // ── ban / unban ───────────────────────────────────────────────
@@ -385,6 +387,87 @@ class AdminServiceSpec extends Specification {
 
         then:
         1 * emailService.sendAccountUnbanned('user@example.com', 'Bob')
+    }
+
+    // ── finalizeDeletion (GDPR) ──────────────────────────────────
+
+    def "finalizeDeletion refuses when user has no pending deletion request"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', deletionRequestedAt: null)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+
+        when:
+        service.finalizeDeletion(1L, 60L)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'NO_REQUEST'
+    }
+
+    def "finalizeDeletion refuses when there is a pending withdrawal"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann',
+            deletionRequestedAt: 1234L)
+        def wallet = new Wallet(id: 500L, username: 'steam_999', balance: BigDecimal.ZERO)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> wallet
+        transactionRepository.countByWalletAndType(500L, 'WITHDRAW') >> 1L
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [
+            new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',
+                amount: new BigDecimal('10'))
+        ]
+
+        when:
+        service.finalizeDeletion(1L, 60L)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'PENDING_WITHDRAWAL'
+    }
+
+    def "finalizeDeletion refuses when there are open trades"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann',
+            deletionRequestedAt: 1234L)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> [
+            new com.sboxmarket.model.Trade(id: 1L, state: 'PENDING_BUYER_CONFIRM')
+        ]
+
+        when:
+        service.finalizeDeletion(1L, 60L)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'OPEN_TRADES'
+    }
+
+    def "finalizeDeletion scrubs PII, bans, clears the request, cancels listings"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann',
+            email: 'ann@example.com', emailVerified: true, avatarUrl: 'http://x',
+            totpSecret: 'ABC', deletionRequestedAt: 1234L)
+        def activeListing = new Listing(id: 200L, sellerUserId: 60L, status: 'ACTIVE')
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> []
+        listingRepository.findActiveBySeller(60L) >> [activeListing]
+        listingRepository.saveAll(_) >> { args -> args[0] }
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def res = service.finalizeDeletion(1L, 60L)
+
+        then:
+        res.finalised == true
+        target.displayName == 'Deleted user #60'
+        target.email == null
+        target.avatarUrl == null
+        target.totpSecret == null
+        target.banned == true
+        target.deletionRequestedAt == null
+        activeListing.status == 'CANCELLED'
     }
 
     // ── approve / reject withdrawal ───────────────────────────────

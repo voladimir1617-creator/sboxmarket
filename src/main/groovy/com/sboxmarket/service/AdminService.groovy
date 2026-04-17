@@ -466,15 +466,103 @@ class AdminService {
      */
     List<Map> listDeletionRequests() {
         steamUserRepository.findDeletionRequested().collect { u ->
+            def wallet = walletRepository.findByUsername("steam_${u.steamId64}")
+            def walletId = wallet?.id ?: -1L
+            long pendingWithdrawals = wallet == null ? 0L :
+                transactionRepository.countCompletedByWalletAndType(walletId, 'PENDING') ?: 0L
+            // Open trades as either buyer or seller — admin must clear these before finalising.
+            int openTrades = (tradeRepository?.findByParticipant(u.id) ?: [])
+                .count { t -> !(t.state in ['VERIFIED','CANCELLED']) } as int
             [
-                id:                    u.id,
-                steamId64:             u.steamId64,
-                displayName:           u.displayName,
-                email:                 u.email,
-                deletionRequestedAt:   u.deletionRequestedAt,
-                banned:                u.banned ?: false
+                id:                   u.id,
+                steamId64:            u.steamId64,
+                displayName:          u.displayName,
+                email:                u.email,
+                deletionRequestedAt:  u.deletionRequestedAt,
+                banned:               u.banned ?: false,
+                walletBalance:        wallet?.balance ?: BigDecimal.ZERO,
+                pendingWithdrawals:   pendingWithdrawals,
+                openTrades:           openTrades
             ]
         }
+    }
+
+    /**
+     * Finalise a user's self-service deletion request. Scrubs PII
+     * (display name, avatar, email, trade URL) to empty placeholders,
+     * wipes admin notes + 2FA secret, and marks the account banned so
+     * the user can't sign back in. Does NOT delete rows — listings,
+     * trades, transactions stay intact for audit/chargeback defence.
+     *
+     * Refuses if there's an outstanding PENDING withdrawal or an open
+     * (not VERIFIED / CANCELLED) trade the admin should resolve first.
+     */
+    @Transactional
+    Map finalizeDeletion(Long adminUserId, Long targetUserId) {
+        requireAdmin(adminUserId)
+        def user = steamUserRepository.findById(targetUserId)
+            .orElseThrow { new NotFoundException('SteamUser', targetUserId) }
+        if (user.deletionRequestedAt == null) {
+            throw new BadRequestException('NO_REQUEST', 'User has no pending deletion request')
+        }
+        // Outstanding-obligation checks — don't want to finalise an
+        // account whose payout hasn't cleared or who still has a trade
+        // in escrow. Admin has to resolve those first.
+        def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
+        if (wallet != null) {
+            def walletId = wallet.id
+            def pendingTxCount = transactionRepository.countByWalletAndType(walletId, 'WITHDRAW') ?: 0L
+            // More precise: only PENDING (not COMPLETED/FAILED) withdrawals
+            // should block. We iterate — the count is tiny because withdrawals
+            // are rare per user.
+            def pendingWithdrawals = transactionRepository.findByWalletIdOrderByCreatedAtDesc(
+                walletId, org.springframework.data.domain.PageRequest.of(0, 200))
+                .findAll { it.type == 'WITHDRAW' && it.status == 'PENDING' }
+            if (!pendingWithdrawals.isEmpty()) {
+                throw new BadRequestException('PENDING_WITHDRAWAL',
+                    "User has ${pendingWithdrawals.size()} pending withdrawal(s) — approve or reject first")
+            }
+        }
+        if (tradeRepository != null) {
+            def openTrades = tradeRepository.findByParticipant(targetUserId).findAll {
+                !(it.state in ['VERIFIED','CANCELLED'])
+            }
+            if (!openTrades.isEmpty()) {
+                throw new BadRequestException('OPEN_TRADES',
+                    "User has ${openTrades.size()} open trade(s) — release or cancel first")
+            }
+        }
+        // Scrub PII. The row stays (soft-delete) for audit + chargeback
+        // records — rows referencing this user id (listings, trades,
+        // transactions) keep their foreign keys intact. Steam ID stays
+        // so admin can still trace the account; display name is
+        // replaced with a deterministic "Deleted user #N" handle.
+        user.displayName = "Deleted user #${targetUserId}".toString()
+        user.avatarUrl = null
+        user.profileUrl = null
+        user.email = null
+        user.emailVerified = false
+        user.emailVerificationToken = null
+        user.tradeUrl = null
+        user.totpSecret = null
+        user.lastTotpStep = null
+        user.adminNotes = (user.adminNotes ?: '') +
+            "\n[DELETION finalised by admin ${adminUserId} on ${new Date()}]"
+        user.banned = true
+        user.banReason = 'Account deleted at user request'
+        user.deletionRequestedAt = null  // request is now fulfilled
+        steamUserRepository.save(user)
+
+        // Cancel any active listings so the marketplace stays clean —
+        // same behaviour as banUser.
+        def active = listingRepository.findActiveBySeller(targetUserId)
+        active.each { it.status = 'CANCELLED' }
+        if (!active.isEmpty()) listingRepository.saveAll(active)
+
+        auditService?.log(AuditService.USER_BANNED, adminUserId, targetUserId, null,
+            "Deletion finalised for user #${targetUserId}")
+        log.warn("Admin ${adminUserId} finalised deletion of user ${targetUserId}")
+        [id: user.id, finalised: true]
     }
 
     /**

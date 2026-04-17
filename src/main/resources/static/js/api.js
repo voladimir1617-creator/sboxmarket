@@ -536,6 +536,15 @@ export async function adminReset2fa(id, note) {
     body: JSON.stringify({ note })
   });
 }
+export async function adminDeletionRequests() {
+  const data = await safeJson(`${API}/admin/users/deletion-requests`);
+  return Array.isArray(data) ? data : [];
+}
+export async function adminFinalizeDeletion(id) {
+  return writeJson(`${API}/admin/users/${id}/finalize-deletion`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 export async function adminReadNotes(id) {
   return safeJson(`${API}/admin/users/${id}/notes`);
 }

@@ -7,6 +7,7 @@ import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminBanUser, adminUnbanUser, adminGrant, adminRevoke,
   adminGrantCsr, adminRevokeCsr, adminReset2fa, adminReadNotes, adminWriteNotes,
+  adminDeletionRequests, adminFinalizeDeletion,
   adminCreditWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
@@ -30,6 +31,7 @@ export function AdminModal({ onClose, me }) {
     { id: 'simulator',   label: '🧪 Simulator' },
     { id: 'fraud',       label: '🚨 Fraud' },
     { id: 'reported',    label: '🚩 Reports' },
+    { id: 'deletions',   label: '🗑 Deletions' },
     { id: 'announce',    label: '📢 Announce' },
     { id: 'health',      label: '❤ Health' },
     { id: 'audit',       label: '📜 Audit Log' },
@@ -56,6 +58,7 @@ export function AdminModal({ onClose, me }) {
     tab === 'simulator'   && h(AdminSimulatorTab, null),
     tab === 'fraud'       && h(AdminFraudTab, null),
     tab === 'reported'    && h(AdminReportedTab, null),
+    tab === 'deletions'   && h(AdminDeletionsTab, null),
     tab === 'announce'    && h(AdminAnnouncementsTab, null),
     tab === 'health'      && h(AdminHealthTab, null),
     tab === 'audit'       && h(AdminAuditTab, null),
@@ -127,6 +130,80 @@ function AdminHealthTab() {
 // User-reported listings queue. Sorted highest-report-count-first. Each row
 // shows the top reasons + recent notes inline so the admin decides without
 // a drill-down for most calls.
+// Self-service account-deletion queue. Each row shows outstanding
+// obligations (pending withdrawals, open trades) that must be
+// resolved before the admin can click Finalise. Finalise scrubs
+// PII + bans the account. No rows are physically deleted.
+function AdminDeletionsTab() {
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => { setRows(null); setRows(await adminDeletionRequests()); }, []);
+  useEffect(() => { load(); }, [load]);
+  const finalise = async (r) => {
+    const ok = confirm(
+      `Finalise deletion for ${r.displayName || ('#' + r.id)}?\n\n` +
+      `• Display name → "Deleted user #${r.id}"\n` +
+      `• Email, avatar, trade URL, 2FA secret → cleared\n` +
+      `• Account banned (user can't sign back in)\n` +
+      `• Listings, trades, transactions stay for audit\n\n` +
+      `This is irreversible.`);
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await adminFinalizeDeletion(r.id);
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      await load();
+    } finally { setBusy(false); }
+  };
+  if (rows === null) return h('div', { className: 'spinner' });
+  if (rows.length === 0) return h('div', { className: 'profile-panel' },
+    h('div', { className: 'empty-inline' },
+      h('div', { className: 'empty-icon' }, '🗑'),
+      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+        'No pending deletion requests.')));
+  return h('div', { className: 'profile-panel' },
+    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 } },
+      `${rows.length} user${rows.length === 1 ? '' : 's'} have requested account deletion (GDPR/DSAR). Check the "open" columns before finalising — pending withdrawals and open trades must be resolved first.`),
+    h('table', { className: 'db-table' },
+      h('thead', null, h('tr', null,
+        h('th', null, 'User'),
+        h('th', null, 'Requested'),
+        h('th', { className: 'right' }, 'Balance'),
+        h('th', { className: 'right' }, 'Open withdrawals'),
+        h('th', { className: 'right' }, 'Open trades'),
+        h('th', { className: 'right' }, 'Actions')
+      )),
+      h('tbody', null, rows.map(r => {
+        const blocked = r.pendingWithdrawals > 0 || r.openTrades > 0;
+        return h('tr', { key: r.id, className: 'db-row' },
+          h('td', null,
+            h('div', { className: 'db-name' }, r.displayName || 'Player'),
+            h('div', { className: 'db-sub' }, '#' + r.id + ' · ' + (r.email || 'no email'))
+          ),
+          h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(r.deletionRequestedAt)),
+          h('td', { className: 'right db-mono' }, fmt(r.walletBalance || 0)),
+          h('td', { className: 'right', style: { color: r.pendingWithdrawals > 0 ? 'var(--red)' : 'var(--text-muted)' } }, r.pendingWithdrawals),
+          h('td', { className: 'right', style: { color: r.openTrades > 0 ? 'var(--red)' : 'var(--text-muted)' } }, r.openTrades),
+          h('td', { className: 'right' },
+            h('button', {
+              className: 'btn btn-ghost',
+              style: {
+                padding: '5px 10px', fontSize: 11,
+                border: '1px solid rgba(248,113,113,0.3)',
+                color: blocked ? 'var(--text-muted)' : 'var(--red)',
+                opacity: blocked ? 0.5 : 1
+              },
+              disabled: busy || blocked,
+              title: blocked ? 'Resolve pending withdrawals + open trades first' : 'Scrub PII + ban account',
+              onClick: () => finalise(r)
+            }, blocked ? 'Blocked' : 'Finalise')
+          )
+        );
+      }))
+    )
+  );
+}
+
 function AdminReportedTab() {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
