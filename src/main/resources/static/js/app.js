@@ -3189,12 +3189,22 @@ export function App() {
                     title: 'Move every cart row to your watchlist and clear the cart'
                   }, '♡ Move to watchlist');
                 })(),
-                h('button', {
-                  className: 'btn btn-accent',
-                  disabled: cartHasStale,
-                  onClick: () => setCartConfirmOpen(true),
-                  title: cartHasStale ? 'Remove unavailable rows before checkout' : undefined
-                }, 'Checkout · ' + fmt(cartTotal))
+                // Anon viewers with a local cart get redirected straight
+                // to Steam OpenID — the cart persists across the sign-in
+                // roundtrip via localStorage, so they land back on /cart
+                // ready to check out with the same rows.
+                !me
+                  ? h('button', {
+                      className: 'btn btn-accent',
+                      onClick: () => { window.location.href = '/api/auth/steam/login'; },
+                      title: 'Sign in with Steam before checking out'
+                    }, 'Sign in to checkout · ' + fmt(cartTotal))
+                  : h('button', {
+                      className: 'btn btn-accent',
+                      disabled: cartHasStale,
+                      onClick: () => setCartConfirmOpen(true),
+                      title: cartHasStale ? 'Remove unavailable rows before checkout' : undefined
+                    }, 'Checkout · ' + fmt(cartTotal))
               )
             )
           )
