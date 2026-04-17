@@ -1518,6 +1518,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
 }
 
 function ProfileTransactionsTab({ transactions, privacy }) {
+  const [txFilter, setTxFilter] = useState('ALL');
   if (!transactions || transactions.length === 0) {
     return h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' }, '📋'),
@@ -1538,6 +1539,28 @@ function ProfileTransactionsTab({ transactions, privacy }) {
     else if (DEBIT_TYPES.has(t.type)) debits += amt;
   });
   const net = credits - debits;
+  // Type filter. ALL = no filtering, IN/OUT = every credit / debit type,
+  // then the four common lines get their own chip for one-click slicing
+  // (a dispute-investigation or a tax-year review is usually one of
+  // those). Chip counts reflect the full history, not just the 30d
+  // window above — the summary cards already surface the 30d view.
+  const FILTER_TYPES = {
+    ALL:      null,
+    IN:       CREDIT_TYPES,
+    OUT:      DEBIT_TYPES,
+    PURCHASE: new Set(['PURCHASE']),
+    SALE:     new Set(['SALE']),
+    DEPOSIT:  new Set(['DEPOSIT']),
+    WITHDRAW: new Set(['WITHDRAW'])
+  };
+  const countFor = (key) => {
+    const set = FILTER_TYPES[key];
+    return set == null ? transactions.length : transactions.filter(t => set.has(t.type)).length;
+  };
+  const visibleTx = (() => {
+    const set = FILTER_TYPES[txFilter];
+    return set == null ? transactions : transactions.filter(t => set.has(t.type));
+  })();
   return h('div', null,
     recent.length > 0 && h('div', {
       style: {
@@ -1563,7 +1586,27 @@ function ProfileTransactionsTab({ transactions, privacy }) {
         h('div', { className: 'admin-stat-val' }, recent.length)
       )
     ),
-    h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
+      h('div', { className: 'wallet-tx-filter-row', style: { flex: 1, minWidth: 0 } },
+        [
+          { id: 'ALL',      label: 'All' },
+          { id: 'IN',       label: 'Credits' },
+          { id: 'OUT',      label: 'Debits' },
+          { id: 'PURCHASE', label: 'Purchases' },
+          { id: 'SALE',     label: 'Sales' },
+          { id: 'DEPOSIT',  label: 'Deposits' },
+          { id: 'WITHDRAW', label: 'Withdrawals' }
+        ].map(opt => {
+          const n = countFor(opt.id);
+          return h('button', {
+            key: opt.id,
+            className: `wallet-tx-filter-chip ${txFilter === opt.id ? 'active' : ''}`,
+            disabled: n === 0 && opt.id !== 'ALL',
+            onClick: () => setTxFilter(opt.id),
+            title: `${n} row${n === 1 ? '' : 's'} match this filter`
+          }, opt.label, ' ', h('span', { style: { opacity: 0.6, marginLeft: 4 } }, '· ', n));
+        })
+      ),
       h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
@@ -1571,24 +1614,27 @@ function ProfileTransactionsTab({ transactions, privacy }) {
         title: 'Download every transaction as a CSV'
       }, '⇣ CSV')
     ),
-  h('table', { className: 'db-table' },
-    h('thead', null, h('tr', null,
-      h('th', null, 'ID'),
-      h('th', null, 'Type'),
-      h('th', null, 'Description'),
-      h('th', { className: 'right' }, 'Amount'),
-      h('th', { className: 'right' }, 'Status')
-    )),
-    h('tbody', null,
-      transactions.map(tx => h('tr', { key: tx.id, className: 'db-row' },
-        h('td', { className: 'db-rank' }, '#' + tx.id),
-        h('td', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' } }, tx.type),
-        h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, tx.description || tx.stripeReference),
-        h('td', { className: 'right db-mono' }, privacy ? '$•••••' : fmt(tx.amount)),
-        h('td', { className: 'right', style: { fontSize: 10, fontWeight: 700 } }, tx.status)
-      ))
+  visibleTx.length === 0
+    ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } }, 'No transactions match this filter.'))
+    : h('table', { className: 'db-table' },
+      h('thead', null, h('tr', null,
+        h('th', null, 'ID'),
+        h('th', null, 'Type'),
+        h('th', null, 'Description'),
+        h('th', { className: 'right' }, 'Amount'),
+        h('th', { className: 'right' }, 'Status')
+      )),
+      h('tbody', null,
+        visibleTx.map(tx => h('tr', { key: tx.id, className: 'db-row' },
+          h('td', { className: 'db-rank' }, '#' + tx.id),
+          h('td', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' } }, tx.type),
+          h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, tx.description || tx.stripeReference),
+          h('td', { className: 'right db-mono' }, privacy ? '$•••••' : fmt(tx.amount)),
+          h('td', { className: 'right', style: { fontSize: 10, fontWeight: 700 } }, tx.status)
+        ))
+      )
     )
-  )
   );
 }
 
