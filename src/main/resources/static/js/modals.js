@@ -401,9 +401,23 @@ export function SettingsModal({ onClose }) {
   });
 
   const resetLocal = () => {
-    if (!confirm('Reset all local preferences (currency, theme, cart, watchlist)? Your account data is not affected.')) return;
-    ['sb_currency','sb_notifs','sb_sounds','sb_reduce_motion','sb_contrast',
-     'sb_privacy','sb_watchlist','sb_cart','sb_theme'].forEach(k => localStorage.removeItem(k));
+    if (!confirm('Reset UI preferences (currency, theme, reduce-motion, high-contrast, sounds)? Watchlist and cart are kept.')) return;
+    ['sb_currency','sb_notifs','sb_sounds','sb_reduce_motion','sb_contrast','sb_theme','sb_privacy']
+      .forEach(k => localStorage.removeItem(k));
+    location.reload();
+  };
+  // Nuke-everything button — wipes every sb_* key (cart, watchlist,
+  // alerts, snapshots, recently viewed, recent searches, dismissed
+  // banners, pending email, dismissed nudges, etc). Account data
+  // (wallet, listings, trades) lives server-side and is untouched.
+  const wipeAllLocal = () => {
+    if (!confirm('Wipe ALL local data — cart, watchlist, price alerts, recent searches, dismissed banners, everything in this browser? Your account data on the server is not affected.')) return;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('sb_')) keys.push(k);
+    }
+    keys.forEach(k => localStorage.removeItem(k));
     location.reload();
   };
 
@@ -431,12 +445,20 @@ export function SettingsModal({ onClose }) {
     ),
     h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' } },
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 } },
-        'These preferences live in your browser. Your account data (wallet, listings, trades) is stored server-side and is not affected by this button.'),
-      h('button', {
-        className: 'btn btn-ghost',
-        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '8px 14px', fontSize: 11 },
-        onClick: resetLocal
-      }, 'Reset local preferences')
+        'These preferences live in your browser. Your account data (wallet, listings, trades) is stored server-side and is not affected by these buttons.'),
+      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11 },
+          onClick: resetLocal
+        }, 'Reset UI preferences'),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '8px 14px', fontSize: 11 },
+          onClick: wipeAllLocal,
+          title: 'Clear every piece of local state this site has stored (cart, watchlist, alerts, dismissed banners, recent searches, …)'
+        }, '✕ Clear all local data')
+      )
     )
   );
 }
@@ -582,7 +604,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       ))
     ),
 
-    tab === 'personal' && h(ProfilePersonalTab, { me, profile, syncing, onSync: runSync }),
+    tab === 'personal' && h(ProfilePersonalTab, { me, profile, syncing, onSync: runSync, transactions }),
     tab === 'transactions' && h(ProfileTransactionsTab, { transactions, privacy }),
     tab === 'buyorders'   && h(ProfileBuyOrdersTab, null),
     tab === 'autobids'    && h(ProfileAutoBidsTab, null),
@@ -594,7 +616,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   );
 }
 
-function ProfilePersonalTab({ me, profile, syncing, onSync }) {
+function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft]     = useState('');
   const [emailToken, setEmailToken]     = useState('');
@@ -842,7 +864,32 @@ function ProfilePersonalTab({ me, profile, syncing, onSync }) {
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Account Created'),
       h('div', { className: 'profile-row-value' }, profile?.user?.createdAt ? new Date(profile.user.createdAt).toLocaleDateString() : '—')
-    )
+    ),
+
+    // Recent purchases snapshot — the last 5 PURCHASE transactions so
+    // the user sees their activity at a glance without switching tabs.
+    // Derived from the transactions list the modal already has; if the
+    // wallet hasn't been loaded yet (anon demo) we render nothing.
+    (() => {
+      if (!transactions || transactions.length === 0) return null;
+      const purchases = transactions.filter(t => t.type === 'PURCHASE').slice(0, 5);
+      if (purchases.length === 0) return null;
+      return h('div', { style: { marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--border)' } },
+        h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 } },
+          `Recent purchases (last ${purchases.length})`),
+        purchases.map(tx => h('div', { key: tx.id, className: 'wallet-tx', style: { marginBottom: 6 } },
+          h('div', { className: 'wallet-tx-icon out' }, '↑'),
+          h('div', { className: 'wallet-tx-main' },
+            h('div', { className: 'wallet-tx-type' }, 'Purchase'),
+            h('div', { className: 'wallet-tx-desc' }, tx.description || 'Listing #' + (tx.listingId || tx.stripeReference || '—'))
+          ),
+          h('div', { className: 'wallet-tx-right' },
+            h('div', { className: 'wallet-tx-amt out' }, '−' + fmt(tx.amount)),
+            h('div', { style: { fontSize: 10, color: 'var(--text-muted)' } }, timeAgo(tx.createdAt))
+          )
+        ))
+      );
+    })()
   );
 }
 

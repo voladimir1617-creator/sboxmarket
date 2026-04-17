@@ -501,7 +501,21 @@ function AdminAuditTab() {
       ),
       h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, onChange: e => setFilter(f => ({ ...f, actor: e.target.value })) }),
       h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Subject user #id', value: filter.subject, onChange: e => setFilter(f => ({ ...f, subject: e.target.value })) }),
-      h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: load }, 'Refresh')
+      h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: load }, 'Refresh'),
+      // CSV export — honors the current filter selection so the download
+      // matches what the admin is looking at.
+      (() => {
+        const qs = new URLSearchParams();
+        if (filter.event)   qs.set('event', filter.event);
+        if (filter.actor)   qs.set('actor', filter.actor);
+        if (filter.subject) qs.set('subject', filter.subject);
+        return h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+          href: '/api/admin/audit.csv' + (qs.toString() ? '?' + qs.toString() : ''),
+          title: 'Export the current audit view as CSV'
+        }, '⇣ CSV');
+      })()
     ),
     rows === null
       ? h('div', { className: 'spinner' })

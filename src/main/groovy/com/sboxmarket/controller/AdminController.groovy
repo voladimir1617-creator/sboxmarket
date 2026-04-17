@@ -244,6 +244,53 @@ class AdminController {
         ResponseEntity.ok(rows)
     }
 
+    /** Audit log CSV export — honors the same event/actor/subject filters
+     *  as the JSON endpoint. Dumps up to the last 500 rows depending on
+     *  what the underlying AuditService returns. Every field is
+     *  quote-escaped so commas / quotes / newlines inside the
+     *  `description` column don't corrupt the file. */
+    @GetMapping(value = "/audit.csv", produces = "text/csv")
+    ResponseEntity<String> auditCsv(@RequestParam(required = false) String event,
+                                    @RequestParam(required = false) Long actor,
+                                    @RequestParam(required = false) Long subject,
+                                    HttpServletRequest req) {
+        requireAdmin(req)
+        def rows
+        if (event)        rows = auditService.byEvent(event)
+        else if (actor)   rows = auditService.byActor(actor)
+        else if (subject) rows = auditService.bySubject(subject)
+        else              rows = auditService.recent()
+
+        def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        df.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        def esc = { Object raw ->
+            def v = raw == null ? '' : raw.toString()
+            if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+                return '"' + v.replace('"', '""') + '"'
+            }
+            v
+        }
+        def sb = new StringBuilder()
+        sb.append('id,createdAt,eventType,actorUserId,subjectUserId,resourceId,description,ip,userAgent\n')
+        (rows ?: []).each { r ->
+            sb.append(r.id ?: '').append(',')
+              .append(df.format(new Date(r.createdAt ?: 0))).append(',')
+              .append(esc(r.eventType)).append(',')
+              .append(r.actorUserId ?: '').append(',')
+              .append(r.subjectUserId ?: '').append(',')
+              .append(r.resourceId ?: '').append(',')
+              .append(esc(r.description)).append(',')
+              .append(esc(r.ip)).append(',')
+              .append(esc(r.userAgent)).append('\n')
+        }
+        ResponseEntity.ok()
+            .header('Content-Disposition',
+                "attachment; filename=\"skinbox-audit-${df.format(new Date()).replace(':','-')}.csv\"")
+            .header('Content-Type', 'text/csv; charset=utf-8')
+            .header('Cache-Control', 'no-store')
+            .body(sb.toString())
+    }
+
     // ── Fraud signals ───────────────────────────────────────────────
     //
     // Read-only rollup of AuditLog rows into triage signals — multiple
