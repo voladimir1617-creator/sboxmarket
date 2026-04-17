@@ -1703,7 +1703,12 @@ function ProfileBuyOrdersTab() {
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, '🛒'),
-    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No buy orders yet. Create one from the user menu.'));
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'No buy orders yet'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Set a standing "pay up to $X" on any item and the matching engine auto-buys the next qualifying listing from your wallet. Great for items you check into but miss the drop on.'),
+    h('a', { className: 'btn btn-accent', href: '/buy-orders' }, '+ Create buy order')
+  );
   const counts = {
     ALL:       orders.length,
     ACTIVE:    orders.filter(o => o.status === 'ACTIVE').length,
@@ -1863,7 +1868,12 @@ function ProfileAutoBidsTab() {
   if (bids === null) return h('div', { className: 'spinner' });
   if (bids.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, '⚡'),
-    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No active auto-bids. Place one from any auction listing.'));
+    h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+      'No active auto-bids'),
+    h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+      'Open any auction, set an auto-bid cap, and the bot raises your bid by the minimum increment whenever someone outbids you — up to your cap. Great for stepping away from a last-minute war.'),
+    h('a', { className: 'btn btn-accent', href: '/?listingType=AUCTION' }, 'Browse auctions →')
+  );
   return h('div', null,
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
       h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
@@ -3104,7 +3114,12 @@ export function TradesModal({ onClose, transactions }) {
     trades.length === 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, '⇄'),
-          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No trades yet. Purchases and sales will show up here.'))
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            'No trades yet'),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+            'Purchases and sales both show up in this list — with their amounts, state, and a running link into the escrow detail for anything still in-flight.'),
+          h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
+        )
       : h('div', { className: 'wallet-tx-list', style: { maxHeight: 'none' } },
           trades.map(tx => {
             const inbound = tx.type === 'SALE';
