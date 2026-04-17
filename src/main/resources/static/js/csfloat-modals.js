@@ -490,6 +490,7 @@ export function NotificationsModal({ onClose, me }) {
   // organise high-volume feeds so scanning a week of notifications is fast.
   const [data, setData] = useState({ items: [], unread: 0 });
   const [filter, setFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
   const load = useCallback(async () => { setData(await fetchNotifications()); }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
@@ -510,9 +511,23 @@ export function NotificationsModal({ onClose, me }) {
     else load();
   };
 
+  // Type filter — groups related kinds into five buckets the user can
+  // reason about: Trades (TRADE_*), Auctions (AUCTION_*), Offers
+  // (OFFER_*), Wallet (DEPOSIT_/WITHDRAWAL_/ADMIN_CREDIT/etc), Other.
+  const typeOf = (kind) => {
+    const k = (kind || '').toUpperCase();
+    if (k.startsWith('TRADE_') || k === 'ITEM_PURCHASED') return 'TRADES';
+    if (k.startsWith('AUCTION_'))                          return 'AUCTIONS';
+    if (k.startsWith('OFFER_') || k === 'BUY_ORDER_FILLED') return 'OFFERS';
+    if (k === 'DEPOSIT_COMPLETE' || k.startsWith('WITHDRAWAL_') ||
+        k === 'ADMIN_CREDIT' || k === 'ADMIN_DEBIT' || k === 'CSR_CREDIT') return 'WALLET';
+    return 'OTHER';
+  };
+
   // Group items by local-calendar day and label each bucket.
   const groups = useMemo(() => {
-    const source = filter === 'UNREAD' ? data.items.filter(n => !n.read) : data.items;
+    const base = filter === 'UNREAD' ? data.items.filter(n => !n.read) : data.items;
+    const source = (typeFilter === 'ALL') ? base : base.filter(n => typeOf(n.kind) === typeFilter);
     const buckets = {};
     source.forEach(n => {
       const d = new Date(n.createdAt);
@@ -523,18 +538,38 @@ export function NotificationsModal({ onClose, me }) {
     return Object.entries(buckets)
       .sort(([a], [b]) => (a < b ? 1 : -1))
       .map(([k, v]) => ({ key: k, label: v.label, items: v.items }));
-  }, [data.items, filter]);
+  }, [data.items, filter, typeFilter]);
 
-  const count = filter === 'UNREAD' ? data.unread : data.items.length;
+  const count = groups.reduce((s, g) => s + g.items.length, 0);
 
   return h(InfoModal, { title: `Notifications · ${data.unread} unread`, onClose },
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
       h('button', { className: `offer-tab ${filter === 'ALL' ? 'active' : ''}`, onClick: () => setFilter('ALL') },
         'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.items.length)),
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, onClick: () => setFilter('UNREAD') },
         'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.unread)),
       h('div', { style: { flex: 1 } }),
       data.items.length > 0 && h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: clear }, 'Mark all read')
+    ),
+    // Type filter — five buckets + All. Chips show a count per bucket
+    // so the user can see immediately which categories have activity.
+    data.items.length > 3 && h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 } },
+      [
+        { id: 'ALL',      label: 'All' },
+        { id: 'TRADES',   label: 'Trades' },
+        { id: 'AUCTIONS', label: 'Auctions' },
+        { id: 'OFFERS',   label: 'Offers' },
+        { id: 'WALLET',   label: 'Wallet' },
+        { id: 'OTHER',    label: 'Other' }
+      ].map(opt => {
+        const c = opt.id === 'ALL' ? data.items.length : data.items.filter(n => typeOf(n.kind) === opt.id).length;
+        return h('button', {
+          key: opt.id,
+          className: `wallet-tx-filter-chip ${typeFilter === opt.id ? 'active' : ''}`,
+          onClick: () => setTypeFilter(opt.id),
+          disabled: c === 0 && opt.id !== 'ALL'
+        }, `${opt.label} · ${c}`);
+      })
     ),
     count === 0
       ? h('div', { className: 'empty-inline' },

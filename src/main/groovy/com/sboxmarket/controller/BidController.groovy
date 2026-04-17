@@ -45,4 +45,22 @@ class BidController {
     ResponseEntity<List<Bid>> autoBids(HttpServletRequest req) {
         ResponseEntity.ok(bidService.autoBidsForUser(requireUser(req)))
     }
+
+    /** Cancel auto-raise on a single bid. Doesn't retract the bid itself
+     *  (CSFloat-style semantics — current winning bid stands), just
+     *  clears the ceiling so the auto-bid bot stops raising on the user's
+     *  behalf. Only the bid's own owner can call this. */
+    @PostMapping("/auto/{bidId}/cancel")
+    ResponseEntity<Map> cancelAutoBid(@PathVariable Long bidId, HttpServletRequest req) {
+        def n = bidService.cancelAutoBid(requireUser(req), bidId)
+        ResponseEntity.ok([id: bidId, cancelled: n])
+    }
+
+    /** Bulk cancel all of the viewer's active auto-raises. Returns the
+     *  number of rows touched. */
+    @PostMapping("/auto/cancel-all")
+    ResponseEntity<Map> cancelAllAutoBids(HttpServletRequest req) {
+        def n = bidService.cancelAllAutoBidsForUser(requireUser(req))
+        ResponseEntity.ok([cancelled: n])
+    }
 }

@@ -191,6 +191,36 @@ class BidService {
     }
 
     /**
+     * Cancel the auto-raise on a single bid. We DON'T retract the bid
+     * itself — the user's current winning bid stands, we just null out
+     * the ceiling so the auto-bid bot stops pushing the price up on
+     * their behalf. Caller must own the bid or we throw ForbiddenException.
+     */
+    @Transactional
+    int cancelAutoBid(Long userId, Long bidId) {
+        def bid = bidRepository.findById(bidId).orElseThrow { new NotFoundException("Bid", bidId) }
+        if (bid.bidderUserId != userId) {
+            throw new ForbiddenException("Not your bid")
+        }
+        if (bid.maxAmount == null && bid.kind != 'AUTO') return 0
+        bid.maxAmount = null
+        bid.kind = 'MANUAL'
+        bidRepository.save(bid)
+        1
+    }
+
+    /** Bulk cancel of every active auto-raise the user owns. Returns the
+     *  number of rows touched. Used by the Profile → Auto-Bids bulk
+     *  cancel button. */
+    @Transactional
+    int cancelAllAutoBidsForUser(Long userId) {
+        def rows = bidRepository.findActiveAutoBidsForUser(userId)
+        rows.each { b -> b.maxAmount = null; b.kind = 'MANUAL' }
+        if (!rows.isEmpty()) bidRepository.saveAll(rows)
+        rows.size()
+    }
+
+    /**
      * Runs every 30s and closes any auctions whose expiresAt is in the past.
      * Winning bidder's wallet is charged (if they have the funds) and the listing
      * is marked SOLD. Anyone else who had a live bid gets a LOST notification.

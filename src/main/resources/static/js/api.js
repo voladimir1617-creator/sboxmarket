@@ -292,6 +292,18 @@ export async function fetchAutoBids() {
   const data = await safeJson(`${API}/bids/auto`);
   return Array.isArray(data) ? data : [];
 }
+/** Cancel the auto-raise on one specific bid (winning bid stays put). */
+export async function cancelAutoBid(bidId) {
+  return writeJson(`${API}/bids/auto/${bidId}/cancel`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+/** Bulk cancel every active auto-raise the user owns. */
+export async function cancelAllAutoBids() {
+  return writeJson(`${API}/bids/auto/cancel-all`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 
 // ── Notifications ───────────────────────────────────────────────
 export async function fetchNotifications() {

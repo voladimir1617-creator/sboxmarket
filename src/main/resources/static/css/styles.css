@@ -4546,6 +4546,42 @@
     }
     .profile-reviews-list { display: flex; flex-direction: column; gap: 12px; }
 
+    /* ─────────── WALLET 7-DAY SUMMARY CARD ─────────── */
+    .wallet-7d-summary {
+      padding: 14px 18px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+    .wallet-7d-label {
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .wallet-7d-row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .wallet-7d-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .wallet-7d-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 18px;
+      margin-top: 2px;
+    }
+    .wallet-7d-val.in  { color: #4ade80; }
+    .wallet-7d-val.out { color: #f87171; }
+
     /* ─────────── WALLET TX TYPE FILTER ─────────── */
     .wallet-tx-filter-row {
       display: flex;

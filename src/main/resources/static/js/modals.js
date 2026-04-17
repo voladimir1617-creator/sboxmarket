@@ -11,7 +11,7 @@ import {
   fetchOfferThread, fetchSimilar,
   depositFunds, withdrawFunds, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
-  fetchBuyOrders, fetchAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
+  fetchBuyOrders, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
   setEmail, verifyEmail, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
@@ -895,25 +895,68 @@ function ProfileBuyOrdersTab() {
 
 function ProfileAutoBidsTab() {
   const [bids, setBids] = useState(null);
-  useEffect(() => { fetchAutoBids().then(setBids); }, []);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => { fetchAutoBids().then(setBids); }, []);
+  useEffect(() => { load(); }, [load]);
+  const cancelOne = async (b) => {
+    if (!confirm(`Stop auto-raising on listing #${b.listingId}?\nYour current bid (${fmt(b.amount)}) stays live.`)) return;
+    setBusy(true);
+    try {
+      const res = await cancelAutoBid(b.id);
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      load();
+    } finally { setBusy(false); }
+  };
+  const cancelAll = async () => {
+    if (!bids || bids.length === 0) return;
+    if (!confirm(`Stop auto-raising on all ${bids.length} active bids? Your current bid amounts stay live.`)) return;
+    setBusy(true);
+    try {
+      const res = await cancelAllAutoBids();
+      if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+      load();
+    } finally { setBusy(false); }
+  };
   if (bids === null) return h('div', { className: 'spinner' });
   if (bids.length === 0) return h('div', { className: 'empty-inline' },
     h('div', { className: 'empty-icon' }, '⚡'),
     h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No active auto-bids. Place one from any auction listing.'));
-  return h('table', { className: 'db-table' },
-    h('thead', null, h('tr', null,
-      h('th', null, 'ID'), h('th', null, 'Listing'),
-      h('th', { className: 'right' }, 'Current'),
-      h('th', { className: 'right' }, 'Max'),
-      h('th', { className: 'right' }, 'Placed')
-    )),
-    h('tbody', null, bids.map(b => h('tr', { key: b.id, className: 'db-row' },
-      h('td', { className: 'db-rank' }, '#' + b.id),
-      h('td', null, 'Listing #' + b.listingId),
-      h('td', { className: 'right db-mono accent' }, fmt(b.amount)),
-      h('td', { className: 'right db-mono' }, fmt(b.maxAmount || b.amount)),
-      h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(b.createdAt))
-    )))
+  return h('div', null,
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
+      h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } },
+        `${bids.length} active auto-raise${bids.length === 1 ? '' : 's'} — the bot pushes your bid up to the listed cap whenever you're outbid.`),
+      h('div', { style: { flex: 1 } }),
+      h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 12px', fontSize: 11 },
+        disabled: busy,
+        onClick: cancelAll
+      }, 'Stop all auto-raises')
+    ),
+    h('table', { className: 'db-table' },
+      h('thead', null, h('tr', null,
+        h('th', null, 'ID'), h('th', null, 'Listing'),
+        h('th', { className: 'right' }, 'Current'),
+        h('th', { className: 'right' }, 'Max'),
+        h('th', { className: 'right' }, 'Placed'),
+        h('th', { className: 'right' }, '')
+      )),
+      h('tbody', null, bids.map(b => h('tr', { key: b.id, className: 'db-row' },
+        h('td', { className: 'db-rank' }, '#' + b.id),
+        h('td', null, 'Listing #' + b.listingId),
+        h('td', { className: 'right db-mono accent' }, fmt(b.amount)),
+        h('td', { className: 'right db-mono' }, fmt(b.maxAmount || b.amount)),
+        h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(b.createdAt)),
+        h('td', { className: 'right' },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+            disabled: busy,
+            onClick: () => cancelOne(b)
+          }, 'Stop')
+        )
+      )))
+    )
   );
 }
 
@@ -2653,6 +2696,15 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
       h('div', { className: 'wallet-panel' },
         tab === 'history'
           ? (() => {
+              // 7-day summary — computed over ALL transactions (not the
+              // currently-filtered subset) so the card reflects a stable
+              // "last week" view regardless of the filter chips.
+              const weekAgo = Date.now() - 7 * 86_400_000;
+              const last7 = transactions.filter(t => (t.createdAt || 0) >= weekAgo && t.status === 'COMPLETED');
+              const sum = (pred) => last7.filter(pred).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+              const inbound7  = sum(t => ['DEPOSIT','SALE','REFUND','ADJUSTMENT_CREDIT'].includes(t.type));
+              const outbound7 = sum(t => ['PURCHASE','WITHDRAW','WITHDRAWAL','ADJUSTMENT_DEBIT'].includes(t.type));
+              const net7 = inbound7 - outbound7;
               // Filter by type first so the CSV export button renders the
               // "N transactions" count the user actually sees in the list.
               const filtered = txTypeFilter === 'ALL'
@@ -2664,6 +2716,23 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                     return t === txTypeFilter;
                   });
               return h('div', null,
+                last7.length > 0 && h('div', { className: 'wallet-7d-summary' },
+                  h('div', { className: 'wallet-7d-label' }, 'Last 7 days · ', last7.length, ' transaction', last7.length === 1 ? '' : 's'),
+                  h('div', { className: 'wallet-7d-row' },
+                    h('div', null,
+                      h('div', { className: 'wallet-7d-subtitle' }, 'Inbound'),
+                      h('div', { className: 'wallet-7d-val in' }, '+' + fmt(inbound7))
+                    ),
+                    h('div', null,
+                      h('div', { className: 'wallet-7d-subtitle' }, 'Outbound'),
+                      h('div', { className: 'wallet-7d-val out' }, '−' + fmt(outbound7))
+                    ),
+                    h('div', null,
+                      h('div', { className: 'wallet-7d-subtitle' }, 'Net'),
+                      h('div', { className: `wallet-7d-val ${net7 >= 0 ? 'in' : 'out'}` }, (net7 >= 0 ? '+' : '−') + fmt(Math.abs(net7)))
+                    )
+                  )
+                ),
                 h('div', { className: 'wallet-tx-filter-row' },
                   [
                     { id: 'ALL',        label: 'All' },
