@@ -2744,6 +2744,10 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
   // backend serializes — DEPOSIT / SALE / PURCHASE / WITHDRAW / REFUND /
   // ADJUSTMENT_CREDIT / ADJUSTMENT_DEBIT. 'ALL' = no filter.
   const [txTypeFilter, setTxTypeFilter] = useState('ALL');
+  // Free-text search over description + stripeReference. Great for
+  // finding "that listing I bought" or "where did this withdrawal go"
+  // without scrolling through 500 rows.
+  const [txSearch, setTxSearch] = useState('');
 
   // Fee preview for deposits and withdrawals. Matches the rates in the
   // homepage fee calculator so users see the same numbers everywhere.
@@ -2840,7 +2844,7 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
               const net7 = inbound7 - outbound7;
               // Filter by type first so the CSV export button renders the
               // "N transactions" count the user actually sees in the list.
-              const filtered = txTypeFilter === 'ALL'
+              let filtered = txTypeFilter === 'ALL'
                 ? transactions
                 : transactions.filter(tx => {
                     const t = (tx.type || '').toUpperCase();
@@ -2848,6 +2852,11 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                     if (txTypeFilter === 'ADJUST') return t.startsWith('ADJUSTMENT_');
                     return t === txTypeFilter;
                   });
+              const q = txSearch.trim().toLowerCase();
+              if (q) {
+                filtered = filtered.filter(tx =>
+                  ((tx.description || '') + ' ' + (tx.stripeReference || '')).toLowerCase().includes(q));
+              }
               return h('div', null,
                 last7.length > 0 && h('div', { className: 'wallet-7d-summary' },
                   h('div', { className: 'wallet-7d-label' }, 'Last 7 days · ', last7.length, ' transaction', last7.length === 1 ? '' : 's'),
@@ -2880,7 +2889,15 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                     onClick: () => setTxTypeFilter(opt.id),
                     'aria-pressed': txTypeFilter === opt.id
                   }, opt.label)),
-                  h('div', { style: { flex: 1 } }),
+                  // Free-text search — walks description + stripeReference.
+                  // Kept compact so it fits on one row with the chips.
+                  h('input', {
+                    className: 'sell-filter-search',
+                    style: { flex: 1, minWidth: 140, maxWidth: 260 },
+                    placeholder: 'Search description…',
+                    value: txSearch,
+                    onChange: e => setTxSearch(e.target.value)
+                  }),
                   transactions.length > 0 && h('a', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
@@ -2891,7 +2908,11 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                 h('div', { className: 'wallet-tx-list' },
                   filtered.length === 0
                     ? h('div', { className: 'wallet-tx-empty' },
-                        transactions.length === 0 ? 'No transactions yet' : 'No transactions match this filter')
+                        transactions.length === 0
+                          ? 'No transactions yet'
+                          : q
+                            ? `No transactions match "${q}"`
+                            : 'No transactions match this filter')
                     : filtered.map(tx => {
                         const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
                         const typeLabel = (tx.type || 'UNKNOWN').toString();

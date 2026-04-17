@@ -235,6 +235,24 @@ function AdminFraudTab() {
   const [rows, setRows]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // "Reviewed" signal ids live in localStorage on the admin's browser —
+  // the FraudAnalysis surface is read-only aggregate over the audit log,
+  // so there's no server-side row to mark. Gives individual admins a
+  // way to dismiss signals they've already triaged without polluting
+  // the shared view for everyone else.
+  const [reviewed, setReviewed] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sb_fraud_reviewed') || '[]')); }
+    catch { return new Set(); }
+  });
+  const [showReviewed, setShowReviewed] = useState(false);
+  const rowKey = (r) => `${r.type}|${r.userId || ''}|${r.ip || ''}|${r.createdAt || ''}`;
+  const markReviewed = (r) => {
+    const key = rowKey(r);
+    const next = new Set(reviewed);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setReviewed(next);
+    try { localStorage.setItem('sb_fraud_reviewed', JSON.stringify([...next])); } catch (_) {}
+  };
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -247,35 +265,58 @@ function AdminFraudTab() {
 
   const sevClass = (s) => s === 'HIGH' ? 'sev-high' : s === 'MED' ? 'sev-med' : 'sev-low';
   const sevIcon  = (s) => s === 'HIGH' ? '🔴' : s === 'MED' ? '🟡' : '⚪';
+  const visible = showReviewed ? rows : rows.filter(r => !reviewed.has(rowKey(r)));
+  const hiddenCount = rows.length - visible.length;
 
   return h('div', { className: 'admin-tab-content' },
     h('div', { className: 'admin-card' },
       h('div', { className: 'admin-card-title' }, '🚨 Fraud Signals (last 24h)'),
       h('div', { className: 'admin-card-note' },
         "Rolled up from the audit log. These are patterns worth investigating — " +
-        "not guaranteed fraud. Click a row to open the flagged user in the Users tab."),
-      h('button', {
-        className: 'btn btn-ghost',
-        style: { marginTop: 10, padding: '6px 14px' },
-        onClick: load, disabled: loading
-      }, loading ? 'Loading…' : 'Refresh'),
+        "not guaranteed fraud. Mark a row reviewed to hide it from your queue; " +
+        "other admins keep seeing it until they review too."),
+      h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '6px 14px' },
+          onClick: load, disabled: loading
+        }, loading ? 'Loading…' : 'Refresh'),
+        hiddenCount > 0 && h('button', {
+          className: `wallet-tx-filter-chip ${showReviewed ? 'active' : ''}`,
+          onClick: () => setShowReviewed(v => !v)
+        }, showReviewed ? 'Hide reviewed' : `Show ${hiddenCount} reviewed`)
+      ),
       error && h('div', { className: 'admin-error' }, error),
       !loading && rows.length === 0 && h('div', { className: 'empty-inline' },
         '✨ No suspicious patterns detected in the last 24 hours.'),
-      rows.length > 0 && h('div', { className: 'fraud-list' },
-        rows.map((r, i) => h('div', {
-          key: i,
-          className: `fraud-row ${sevClass(r.severity)}`
-        },
-          h('div', { className: 'fraud-sev' }, sevIcon(r.severity), ' ', r.severity),
-          h('div', { className: 'fraud-body' },
-            h('div', { className: 'fraud-type' }, r.type),
-            h('div', { className: 'fraud-summary' }, r.summary),
-            r.ip && h('div', { className: 'fraud-meta' }, 'IP: ', r.ip),
-            r.userId && h('div', { className: 'fraud-meta' }, 'User: ', r.userName || `#${r.userId}`),
-          ),
-          h('div', { className: 'fraud-time' }, r.createdAt ? timeAgo(r.createdAt) : '')
-        ))
+      !loading && rows.length > 0 && visible.length === 0 && h('div', { className: 'empty-inline' },
+        '✓ You\'ve reviewed every signal in the current window.'),
+      visible.length > 0 && h('div', { className: 'fraud-list' },
+        visible.map((r, i) => {
+          const key = rowKey(r);
+          const isReviewed = reviewed.has(key);
+          return h('div', {
+            key: key + ':' + i,
+            className: `fraud-row ${sevClass(r.severity)}${isReviewed ? ' reviewed' : ''}`
+          },
+            h('div', { className: 'fraud-sev' }, sevIcon(r.severity), ' ', r.severity),
+            h('div', { className: 'fraud-body' },
+              h('div', { className: 'fraud-type' }, r.type),
+              h('div', { className: 'fraud-summary' }, r.summary),
+              r.ip && h('div', { className: 'fraud-meta' }, 'IP: ', r.ip),
+              r.userId && h('div', { className: 'fraud-meta' }, 'User: ', r.userName || `#${r.userId}`),
+            ),
+            h('div', { className: 'fraud-time' },
+              r.createdAt ? timeAgo(r.createdAt) : '',
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid var(--border)' },
+                onClick: () => markReviewed(r),
+                title: isReviewed ? 'Move back to queue' : 'Mark reviewed (hides from your queue)'
+              }, isReviewed ? '↺ Reopen' : '✓ Reviewed')
+            )
+          );
+        })
       )
     )
   );
@@ -1248,13 +1289,27 @@ function CsrTicketsTab() {
             h('thead', null, h('tr', null,
               h('th', null, 'ID'), h('th', null, 'Subject'), h('th', null, 'User'),
               h('th', null, 'Status'), h('th', { className: 'right' }, 'Updated'))),
-            h('tbody', null, list.map(t => h('tr', { key: t.id, className: 'db-row', onClick: () => open(t.id) },
-              h('td', { className: 'db-rank' }, '#' + t.id),
-              h('td', null, t.subject),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, t.username || '#' + t.userId),
-              h('td', { style: { fontSize: 10, fontWeight: 700 } }, t.status),
-              h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
-            )))
+            h('tbody', null, list.map(t => {
+              // Urgency: waiting-staff ticket with no CSR reply in >2h.
+              // Lets the lead CSR spot the tail of the queue at a glance
+              // and prioritise old tickets before they blow SLA.
+              const urgent = t.status === 'WAITING_STAFF' &&
+                (Date.now() - (t.updatedAt || 0)) > 2 * 3600_000;
+              return h('tr', {
+                key: t.id,
+                className: `db-row${urgent ? ' urgent-row' : ''}`,
+                onClick: () => open(t.id)
+              },
+                h('td', { className: 'db-rank' }, '#' + t.id),
+                h('td', null, t.subject),
+                h('td', { className: 'db-mono', style: { fontSize: 11 } }, t.username || '#' + t.userId),
+                h('td', { style: { fontSize: 10, fontWeight: 700 } },
+                  t.status,
+                  urgent && h('span', { className: 'withdraw-urgent', title: 'No staff reply in over 2 hours' }, '● SLA')
+                ),
+                h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(t.updatedAt))
+              );
+            }))
           )
   );
 }
