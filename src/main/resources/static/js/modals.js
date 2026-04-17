@@ -164,7 +164,18 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           h(RarityBadge, { rarity: item.rarity })
         ),
         h('div', null,
-          h('div', { className: 'modal-cat' }, item.category),
+          // Clickable category crumb — navigates back to the
+          // marketplace with the matching category filter preselected
+          // via the ?category= query param (batch 95 wired that). Lets
+          // buyers bounce from "I like this hat" to "show me every
+          // other hat" in one click.
+          h('a', {
+            className: 'modal-cat',
+            href: '/?category=' + encodeURIComponent(item.category || ''),
+            style: { textDecoration: 'none', color: 'inherit' },
+            onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
+            title: `Browse every ${item.category || 'item'} listing`
+          }, item.category),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             h('div', { className: 'modal-name' }, item.name),
             // Tiny share button — copies the canonical /item/:id URL so
