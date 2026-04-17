@@ -2204,7 +2204,19 @@ function ProfileTradesTab({ me, privacy }) {
             return h('div', { key: t.id, className: `trade-row ${(t.state || '').toLowerCase()}` },
               h('div', { className: 'trade-main' },
                 h('div', { className: 'trade-title' },
-                  (isSeller ? '→ ' : '← ') + (t.itemName || ('Trade #' + t.id)),
+                  (isSeller ? '→ ' : '← '),
+                  // Link the item name to the item detail page when the
+                  // trade carries an itemId. Opens in the same tab so a
+                  // buyer reviewing a pending trade can quickly check
+                  // the catalogue history / current floor.
+                  t.itemId
+                    ? h('a', {
+                        href: '/item/' + t.itemId,
+                        style: { color: 'inherit', textDecoration: 'none' },
+                        title: 'Open item detail',
+                        onClick: (e) => e.stopPropagation()
+                      }, t.itemName || ('Trade #' + t.id))
+                    : (t.itemName || ('Trade #' + t.id)),
                   h('span', { className: 'trade-role' }, isSeller ? 'You are selling' : 'You are buying')
                 ),
                 h('div', { className: 'trade-state', style: { color: meta.color } }, meta.label),
