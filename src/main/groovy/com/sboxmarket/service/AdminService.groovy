@@ -118,6 +118,7 @@ class AdminService {
         def salesPrior24h    = transactionRepository.sumByTypeInRange('SALE',    'COMPLETED', since48h, since24h) ?: BigDecimal.ZERO
         def pendingCount = transactionRepository.countByTypeStatus('WITHDRAW', 'PENDING')
         def pendingAmt   = transactionRepository.sumByTypeStatus('WITHDRAW', 'PENDING') ?: BigDecimal.ZERO
+        def newUsers24h  = steamUserRepository.countCreatedSince(since24h)
 
         [
             users:                    steamUserRepository.count(),
@@ -131,7 +132,8 @@ class AdminService {
             pendingWithdrawals:       pendingCount,
             pendingWithdrawalsAmount: (pendingAmt as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             openTickets:              supportTicketRepository.countOpen(),
-            bannedUsers:              steamUserRepository.countBanned()
+            bannedUsers:              steamUserRepository.countBanned(),
+            newUsers24h:              newUsers24h
         ]
     }
 

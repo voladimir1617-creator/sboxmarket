@@ -586,7 +586,23 @@ function AdminAuditTab() {
 
 function AdminDashboardTab() {
   const [stats, setStats] = useState(null);
+  // Recent activity — last 10 audit rows surfaced as a mini feed so the
+  // admin landing page shows ops pulse at a glance. Refetched every 30s
+  // while the tab is open; no new endpoint — reuses /api/admin/audit.
+  const [recent, setRecent] = useState([]);
   useEffect(() => { adminStats().then(setStats); }, []);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const rows = await adminAudit({});
+        if (alive) setRecent((Array.isArray(rows) ? rows : []).slice(0, 10));
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
   if (!stats) return h('div', { className: 'spinner' });
   // Compute a % delta vs the prior 24h window. When the prior bucket
   // is 0 we render either "+new" (current has volume) or no delta
@@ -616,7 +632,8 @@ function AdminDashboardTab() {
   const salesDelta   = delta(stats.sales24h,    stats.salesPrior24h);
   return h('div', { className: 'profile-panel' },
     h('div', { className: 'admin-stats-grid' },
-      Stat('Registered Users',     Number(stats.users || 0).toLocaleString()),
+      Stat('Registered Users',     Number(stats.users || 0).toLocaleString(),
+           null, stats.newUsers24h > 0 ? { pct: null, direction: 'up', label: `+${stats.newUsers24h} in 24h` } : null),
       Stat('Catalogue Items',      Number(stats.items || 0).toLocaleString()),
       Stat('Active Listings',      Number(stats.activeListings || 0).toLocaleString()),
       Stat('Total Escrow',         fmt(stats.totalEscrow || 0), 'accent'),
@@ -625,6 +642,28 @@ function AdminDashboardTab() {
       Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow'),
       Stat('Open Tickets',         Number(stats.openTickets || 0)),
       Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '')
+    ),
+    // Recent activity feed — compact list of the last 10 audit rows
+    // with event type, actor, subject, and relative time. Clicking a
+    // row is a no-op by design — this is a glance surface, not a
+    // navigation target. Links to the Audit Log tab for drill-down.
+    recent.length > 0 && h('div', { className: 'admin-activity', style: { marginTop: 20 } },
+      h('div', { className: 'admin-activity-head' },
+        h('span', { className: 'section-title-dot' }),
+        'Recent activity',
+        h('span', { className: 'admin-activity-hint' }, 'live · last 10 events')
+      ),
+      h('div', { className: 'admin-activity-list' },
+        recent.map(r => h('div', { key: r.id, className: 'admin-activity-row' },
+          h('span', { className: 'admin-activity-event' }, r.eventType),
+          h('span', { className: 'admin-activity-summary' },
+            (r.summary || '—'),
+            r.actorUserId && h('span', { style: { color: 'var(--text-muted)', marginLeft: 6 } },
+              `· actor #${r.actorUserId}`)
+          ),
+          h('span', { className: 'admin-activity-time' }, timeAgo(r.createdAt))
+        ))
+      )
     )
   );
 }

@@ -19,6 +19,23 @@ function fallbackPath(kind) {
   return paths.profile();
 }
 
+// Bucket classifier matching the Settings mute list + the Notifications
+// modal filter. Kept in lockstep so a muted category is invisible from
+// both the bell dropdown and the /notifications page.
+function kindBucket(kind) {
+  const k = (kind || '').toUpperCase();
+  if (k.startsWith('TRADE_') || k === 'ITEM_PURCHASED') return 'TRADES';
+  if (k.startsWith('AUCTION_')) return 'AUCTIONS';
+  if (k.startsWith('OFFER_') || k === 'BUY_ORDER_FILLED') return 'OFFERS';
+  if (k === 'DEPOSIT_COMPLETE' || k.startsWith('WITHDRAWAL_') ||
+      k === 'ADMIN_CREDIT' || k === 'ADMIN_DEBIT' || k === 'CSR_CREDIT') return 'WALLET';
+  return 'OTHER';
+}
+function readMuted() {
+  try { return new Set(JSON.parse(localStorage.getItem('sb_mute_kinds') || '[]')); }
+  catch { return new Set(); }
+}
+
 // Map server `kind` → icon glyph for the dropdown.
 const KIND_ICONS = {
   ITEM_PURCHASED:    '🛒',
@@ -45,8 +62,12 @@ export function NotificationBell({ me }) {
   const load = useCallback(async () => {
     if (!me) { setItems([]); setUnread(0); return; }
     const data = await fetchNotifications();
-    setItems(data?.items || []);
-    setUnread(Number(data?.unread || 0));
+    const muted = readMuted();
+    const all = Array.isArray(data?.items) ? data.items : [];
+    const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
+    const visibleUnread = visible.filter(n => !n.read).length;
+    setItems(visible);
+    setUnread(visibleUnread);
   }, [me]);
 
   useEffect(() => { load(); }, [load]);

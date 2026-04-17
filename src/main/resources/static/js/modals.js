@@ -368,6 +368,20 @@ export function SettingsModal({ onClose }) {
   const [currency, setCurrency] = useState(localStorage.getItem('sb_currency') || 'USD');
   const [notifs, setNotifs]     = useState(localStorage.getItem('sb_notifs') !== 'false');
   const [sounds, setSounds]     = useState(localStorage.getItem('sb_sounds') !== 'false');
+  // Muted notification buckets — values match the `typeOf(kind)` classifier
+  // in csfloat-modals.js: TRADES / AUCTIONS / OFFERS / WALLET / OTHER.
+  // Muted buckets stay hidden from the nav bell and the Notifications
+  // page via a dedicated filter helper.
+  const [muted, setMutedState] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sb_mute_kinds') || '[]')); }
+    catch { return new Set(); }
+  });
+  const toggleMute = (cat) => {
+    const next = new Set(muted);
+    if (next.has(cat)) next.delete(cat); else next.add(cat);
+    setMutedState(next);
+    try { localStorage.setItem('sb_mute_kinds', JSON.stringify([...next])); } catch (_) {}
+  };
   const [reduceMotion, setRM]   = useState(localStorage.getItem('sb_reduce_motion') === '1');
   const [highContrast, setHC]   = useState(localStorage.getItem('sb_contrast') === '1');
 
@@ -436,6 +450,25 @@ export function SettingsModal({ onClose }) {
     )),
     Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v))),
     Row('Sound effects',      'Play sounds on actions', Toggle(sounds, () => setSounds(v => !v))),
+    // Mute per-category — hide alerts you don't care about from the bell
+    // and the Notifications page without silencing everything else.
+    Row('Mute notification types',
+      'Hide these categories from the bell + /notifications. Applied client-side; the server still records the event.',
+      h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: 320 } },
+        [
+          { id: 'TRADES',   label: '⇄ Trades' },
+          { id: 'AUCTIONS', label: '🏆 Auctions' },
+          { id: 'OFFERS',   label: '💬 Offers' },
+          { id: 'WALLET',   label: '$ Wallet' },
+          { id: 'OTHER',    label: '• Other' }
+        ].map(opt => h('button', {
+          key: opt.id,
+          className: `wallet-tx-filter-chip ${muted.has(opt.id) ? '' : 'active'}`,
+          onClick: () => toggleMute(opt.id),
+          title: muted.has(opt.id) ? 'Muted — click to unmute' : 'Click to mute this category'
+        }, muted.has(opt.id) ? `🔕 ${opt.label}` : opt.label))
+      )
+    ),
     Row('Reduce motion',      'Disable animations for card hover + ticker scroll',
       Toggle(reduceMotion, () => setRM(v => !v))),
     Row('High contrast',      'Boost text / border contrast for readability',

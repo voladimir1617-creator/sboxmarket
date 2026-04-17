@@ -40,6 +40,11 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     @Query("SELECT COUNT(u) FROM SteamUser u WHERE u.banned = true")
     long countBanned()
 
+    /** Count of accounts created since a timestamp — drives the admin
+     *  dashboard "New users 24h" stat. */
+    @Query("SELECT COUNT(u) FROM SteamUser u WHERE u.createdAt >= :since")
+    long countCreatedSince(@Param('since') Long since)
+
     /** Background Steam sync candidates — users who have either never
      *  been synced or whose last sync is older than the cutoff.
      *  `SteamSyncService.syncAllUsers` used to iterate `findAll()` every

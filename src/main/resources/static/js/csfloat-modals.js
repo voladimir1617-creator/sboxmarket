@@ -524,9 +524,21 @@ export function NotificationsModal({ onClose, me }) {
     return 'OTHER';
   };
 
+  // Read mute list once per render — typeFilter / filter changes trigger
+  // the useMemo, and localStorage reads are cheap. The muted set hides
+  // categories the user has opted out of entirely (Settings → Mute
+  // notification types).
+  const mutedSet = (() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sb_mute_kinds') || '[]')); }
+    catch { return new Set(); }
+  })();
+
   // Group items by local-calendar day and label each bucket.
   const groups = useMemo(() => {
-    const base = filter === 'UNREAD' ? data.items.filter(n => !n.read) : data.items;
+    const muteFiltered = mutedSet.size > 0
+      ? data.items.filter(n => !mutedSet.has(typeOf(n.kind)))
+      : data.items;
+    const base = filter === 'UNREAD' ? muteFiltered.filter(n => !n.read) : muteFiltered;
     const source = (typeFilter === 'ALL') ? base : base.filter(n => typeOf(n.kind) === typeFilter);
     const buckets = {};
     source.forEach(n => {
@@ -538,7 +550,7 @@ export function NotificationsModal({ onClose, me }) {
     return Object.entries(buckets)
       .sort(([a], [b]) => (a < b ? 1 : -1))
       .map(([k, v]) => ({ key: k, label: v.label, items: v.items }));
-  }, [data.items, filter, typeFilter]);
+  }, [data.items, filter, typeFilter, mutedSet.size]);
 
   const count = groups.reduce((s, g) => s + g.items.length, 0);
 
