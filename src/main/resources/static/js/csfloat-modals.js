@@ -806,6 +806,33 @@ export function AuctionBidPanel({ listing, me, onPlaced }) {
         placeholder: `Min $${minNext}`, value: amount, onChange: e => setAmount(e.target.value) }),
       h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05',
         placeholder: 'Auto-bid cap (optional)', value: maxAmount, onChange: e => setMax(e.target.value) }),
+      // Quick-bid chips — one-click increments from the minimum next
+      // bid. Min button just echoes the minimum, +$0.50 / +$5 add to
+      // it, +10% is percentage-based for higher-value auctions where
+      // flat increments feel stingy. All pre-fill the amount input so
+      // the user can still tweak before hitting Place Bid.
+      h('div', { className: 'price-suggest-row', style: { marginTop: 6 } },
+        (() => {
+          const base = parseFloat(minNext) || 0;
+          if (!(base > 0)) return null;
+          const chips = [
+            { label: 'Min',    v: base },
+            { label: '+$0.50', v: +(base + 0.50).toFixed(2) },
+            { label: '+$5',    v: +(base + 5.00).toFixed(2) },
+            { label: '+10%',   v: +(base * 1.10).toFixed(2) }
+          ];
+          return chips.map((c, i) => h('button', {
+            key: i,
+            type: 'button',
+            className: 'price-suggest-chip',
+            onClick: () => setAmount(c.v.toFixed(2)),
+            title: `Set bid to $${c.v.toFixed(2)}`
+          },
+            h('span', { className: 'price-suggest-chip-label' }, c.label),
+            h('span', { className: 'price-suggest-chip-amt' }, '$' + c.v.toFixed(2))
+          ));
+        })()
+      ),
       err && h('div', { className: 'wallet-error' }, err),
       h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit }, busy ? 'Placing…' : 'Place Bid')
     ),
