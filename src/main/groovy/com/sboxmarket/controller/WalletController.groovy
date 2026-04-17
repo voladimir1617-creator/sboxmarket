@@ -204,6 +204,27 @@ class WalletController {
         ])
     }
 
+    /** Self-cancel a PENDING withdrawal. Credits the wallet back and
+     *  flips the row to CANCELLED. Only works on rows the caller owns;
+     *  staff-side rejections still go through /api/admin/withdrawals/reject. */
+    @PostMapping("/withdraw/{id}/cancel")
+    ResponseEntity<Map> cancelWithdraw(@PathVariable Long id, HttpServletRequest req) {
+        def user = currentUser(req)
+        if (user == null) throw new UnauthorizedException("Sign in to cancel a withdrawal")
+        def wallet = currentWallet(req)
+        if (wallet == null) throw new UnauthorizedException("Sign in to cancel a withdrawal")
+        try {
+            def result = stripeService.cancelPendingWithdrawal(wallet.id, id)
+            ResponseEntity.ok(result)
+        } catch (IllegalStateException e) {
+            throw new com.sboxmarket.exception.BadRequestException("CANNOT_CANCEL", e.message)
+        } catch (IllegalArgumentException e) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_TX", e.message)
+        } catch (NoSuchElementException e) {
+            throw new com.sboxmarket.exception.NotFoundException("Transaction", id)
+        }
+    }
+
     @PostMapping("/confirm-deposit")
     ResponseEntity<Map> confirmDeposit(@RequestParam String sessionId, HttpServletRequest req) {
         // Completing a deposit credits a wallet — the session-wallet

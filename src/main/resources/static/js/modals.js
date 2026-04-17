@@ -9,7 +9,7 @@ import {
   fetchInventory, fetchMyStall, fetchMyStallSold, bulkAdjustStall, relistItem, cancelListing,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
   fetchOfferThread, fetchSimilar,
-  depositFunds, withdrawFunds, updateStallListing, setAwayMode,
+  depositFunds, withdrawFunds, cancelPendingWithdrawal, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
   fetchBuyOrders, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
@@ -3082,6 +3082,7 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                         const inbound = tx.type === 'DEPOSIT' || tx.type === 'SALE' || tx.type === 'REFUND' || tx.type === 'ADJUSTMENT_CREDIT';
                         const typeLabel = (tx.type || 'UNKNOWN').toString();
                         const prettyType = typeLabel.charAt(0) + typeLabel.slice(1).toLowerCase().replace('_', ' ');
+                        const canCancel = (tx.type === 'WITHDRAW' || tx.type === 'WITHDRAWAL') && tx.status === 'PENDING';
                         return h('div', { key: tx.id, className: 'wallet-tx' },
                           h('div', { className: `wallet-tx-icon ${inbound ? 'in' : 'out'}` }, inbound ? '↓' : '↑'),
                           h('div', { className: 'wallet-tx-main' },
@@ -3090,7 +3091,21 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                           ),
                           h('div', { className: 'wallet-tx-right' },
                             h('div', { className: `wallet-tx-amt ${inbound ? 'in' : 'out'}` }, (inbound ? '+' : '−') + fmt(tx.amount)),
-                            h('div', { className: `wallet-tx-status ${tx.status}` }, tx.status)
+                            h('div', { className: `wallet-tx-status ${tx.status}` }, tx.status),
+                            // Self-cancel for PENDING withdrawals — credits
+                            // the balance back and flips the row to CANCELLED.
+                            // Only visible on the actual PENDING withdrawal
+                            // row so completed / failed rows stay clean.
+                            canCancel && h('button', {
+                              className: 'btn btn-ghost',
+                              style: { marginTop: 6, padding: '4px 10px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
+                              onClick: async () => {
+                                if (!confirm(`Cancel pending withdrawal for ${fmt(tx.amount)}? Your balance will be credited back.`)) return;
+                                const res = await cancelPendingWithdrawal(tx.id);
+                                if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+                                await onRefresh();
+                              }
+                            }, '✕ Cancel')
                           )
                         );
                       })

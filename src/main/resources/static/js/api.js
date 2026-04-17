@@ -185,6 +185,13 @@ export async function depositFunds(amount) {
   });
 }
 
+/** Cancel a PENDING withdrawal the user requested. Credits the wallet
+ *  back; only works before the withdrawal has been approved + paid out. */
+export async function cancelPendingWithdrawal(txId) {
+  return writeJson(`${API}/wallet/withdraw/${txId}/cancel`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 export async function withdrawFunds(amount, destination, totpCode) {
   return writeJson(`${API}/wallet/withdraw`, {
     method: 'POST',

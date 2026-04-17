@@ -448,7 +448,29 @@ export function LoadoutLabModal({ onClose, me }) {
                 h('span', null, '❤ ', l.favorites),
                 h('span', null, fmt(l.totalValue))
               ),
-              l.ownerName && h('div', { className: 'loadout-card-owner' }, 'by ' + l.ownerName)
+              l.ownerName && h('div', { className: 'loadout-card-owner' }, 'by ' + l.ownerName),
+              // Share / copy-link — stops the card-open click, grabs the
+              // canonical /loadout/:id URL, and drops it on the clipboard.
+              // Sellers / loadout curators paste this into Discord / Steam
+              // groups; same affordance as the stall share button.
+              h('button', {
+                className: 'loadout-card-share',
+                title: 'Copy link to this loadout',
+                'aria-label': 'Copy link',
+                onClick: async (e) => {
+                  e.stopPropagation();
+                  const url = `${window.location.origin}/loadout/${l.id}`;
+                  try {
+                    if (navigator.share) { await navigator.share({ title: l.name || 'Loadout', url }); return; }
+                    if (navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(url);
+                      alert('Loadout link copied:\n' + url);
+                    } else {
+                      window.prompt('Copy this loadout link:', url);
+                    }
+                  } catch (_) { window.prompt('Copy this loadout link:', url); }
+                }
+              }, '⎘')
             ))
           )
   );

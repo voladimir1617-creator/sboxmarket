@@ -190,6 +190,48 @@ class StripeService {
      * Real payouts require Stripe Connect (Express accounts).
      * For this marketplace we debit the wallet and record a PENDING
      * withdrawal that an operator would fulfil off-platform. */
+    /**
+     * Self-cancel a PENDING withdrawal the user requested. Credits the
+     * wallet back and flips the transaction to CANCELLED. Only works on
+     * PENDING rows — COMPLETED ones have already gone through Stripe
+     * Connect and need an admin-side refund, not a self-cancel.
+     *
+     * Caller must be the wallet owner — enforced at the controller
+     * layer via session userId → walletId lookup.
+     */
+    @Transactional
+    Map cancelPendingWithdrawal(Long walletId, Long txId) {
+        def tx = transactionRepository.findById(txId)
+            .orElseThrow { new NoSuchElementException("Transaction $txId not found") }
+        if (tx.walletId != walletId) {
+            throw new IllegalStateException("Not your withdrawal")
+        }
+        def type = (tx.type ?: '').toUpperCase()
+        if (type != 'WITHDRAW' && type != 'WITHDRAWAL') {
+            throw new IllegalArgumentException("Transaction is not a withdrawal")
+        }
+        if (tx.status != 'PENDING') {
+            throw new IllegalStateException(
+                "Withdrawal is ${tx.status}, not PENDING — cannot cancel. " +
+                "If it already paid out, contact support for a reversal."
+            )
+        }
+        def wallet = walletRepository.findById(walletId)
+            .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
+        // Credit the amount back exactly as requestWithdrawal debited it.
+        wallet.balance = wallet.balance + (tx.amount ?: BigDecimal.ZERO)
+        walletRepository.save(wallet)
+        tx.status = 'CANCELLED'
+        tx.description = ((tx.description ?: '') + ' · cancelled by user').take(500)
+        transactionRepository.save(tx)
+        try {
+            auditService?.log('WITHDRAW_SELF_CANCELLED', null, null, tx.id,
+                "User cancelled pending withdrawal \$${tx.amount} from wallet ${wallet.username}")
+        } catch (Exception ignore) {}
+        log.info("User cancelled pending withdrawal ${tx.id} from wallet ${walletId}")
+        [id: tx.id, status: tx.status, newBalance: wallet.balance]
+    }
+
     @Transactional
     Transaction requestWithdrawal(Long walletId, BigDecimal amount, String destinationRef) {
         def wallet = walletRepository.findById(walletId)
