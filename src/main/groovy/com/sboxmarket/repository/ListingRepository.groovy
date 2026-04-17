@@ -127,9 +127,10 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l FROM Listing l JOIN FETCH l.item
         WHERE l.status = 'ACTIVE'
           AND (l.hidden IS NULL OR l.hidden = false)
-          AND (:q        = '' OR LOWER(l.item.name) LIKE LOWER(CONCAT('%', :q, '%')))
-          AND (:category = '' OR l.item.category = :category)
-          AND (:rarity   = '' OR l.item.rarity   = :rarity)
+          AND (:q           = '' OR LOWER(l.item.name) LIKE LOWER(CONCAT('%', :q, '%')))
+          AND (:category    = '' OR l.item.category = :category)
+          AND (:rarity      = '' OR l.item.rarity   = :rarity)
+          AND (:listingType = '' OR l.listingType   = :listingType)
           AND (:minPrice IS NULL OR l.price >= :minPrice)
           AND (:maxPrice IS NULL OR l.price <= :maxPrice)
         ORDER BY l.price ASC
@@ -138,6 +139,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         @Param("q") String q,
         @Param("category") String category,
         @Param("rarity") String rarity,
+        @Param("listingType") String listingType,
         @Param("minPrice") BigDecimal minPrice,
         @Param("maxPrice") BigDecimal maxPrice
     )

@@ -49,10 +49,10 @@ class ListingServiceSpec extends Specification {
 
     def "getActiveListings forwards search as the q param"() {
         given:
-        listingRepository.findActivePublic('hat', '', '', null, null) >> [listingFor()]
+        listingRepository.findActivePublic('hat', '', '', '', null, null) >> [listingFor()]
 
         when:
-        def result = service.getActiveListings(null, null, null, null, null, 'hat')
+        def result = service.getActiveListings(null, null, null, null, null, 'hat', null)
 
         then:
         result.size() == 1
@@ -60,10 +60,10 @@ class ListingServiceSpec extends Specification {
 
     def "getActiveListings forwards category when != All"() {
         given:
-        listingRepository.findActivePublic('', 'Hats', '', null, null) >> [listingFor()]
+        listingRepository.findActivePublic('', 'Hats', '', '', null, null) >> [listingFor()]
 
         when:
-        def result = service.getActiveListings(null, 'Hats', null, null, null, null)
+        def result = service.getActiveListings(null, 'Hats', null, null, null, null, null)
 
         then:
         result.size() == 1
@@ -71,10 +71,10 @@ class ListingServiceSpec extends Specification {
 
     def "getActiveListings passes empty sentinels when no filters are set"() {
         given:
-        listingRepository.findActivePublic('', '', '', null, null) >> [listingFor()]
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [listingFor()]
 
         when:
-        def result = service.getActiveListings(null, 'All', null, null, null, null)
+        def result = service.getActiveListings(null, 'All', null, null, null, null, null)
 
         then:
         result.size() == 1
@@ -82,28 +82,54 @@ class ListingServiceSpec extends Specification {
 
     def "getActiveListings forwards rarity when != All"() {
         given:
-        listingRepository.findActivePublic('', '', 'Limited', null, null) >> [
+        listingRepository.findActivePublic('', '', 'Limited', '', null, null) >> [
             listingFor(id: 1L, item: itemFor(1L, 'A', 'Limited')),
         ]
 
         when:
-        def result = service.getActiveListings(null, null, 'Limited', null, null, null)
+        def result = service.getActiveListings(null, null, 'Limited', null, null, null, null)
 
         then:
         result.size() == 1
         result[0].id == 1L
     }
 
+    def "getActiveListings forwards listingType when set to a whitelisted value"() {
+        given:
+        listingRepository.findActivePublic('', '', '', 'AUCTION', null, null) >> [listingFor(id: 9L)]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, null, null, 'AUCTION')
+
+        then:
+        result.size() == 1
+        result[0].id == 9L
+    }
+
+    def "getActiveListings collapses a junk listingType to the empty sentinel"() {
+        given:
+        // Anything outside the whitelist becomes '' so the WHERE clause
+        // is effectively disabled — matches the guard behaviour of
+        // category/rarity.
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [listingFor()]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, null, null, '<script>')
+
+        then:
+        result.size() == 1
+    }
+
     def "getActiveListings forwards minPrice and maxPrice into the query"() {
         given:
         def min = new BigDecimal("10")
         def max = new BigDecimal("50")
-        listingRepository.findActivePublic('', '', '', min, max) >> [
+        listingRepository.findActivePublic('', '', '', '', min, max) >> [
             listingFor(id: 2L, price: new BigDecimal("15")),
         ]
 
         when:
-        def result = service.getActiveListings(null, null, null, min, max, null)
+        def result = service.getActiveListings(null, null, null, min, max, null, null)
 
         then:
         result.size() == 1
@@ -114,13 +140,13 @@ class ListingServiceSpec extends Specification {
 
     def "sort=price_desc flips the default ASC order"() {
         given:
-        listingRepository.findActivePublic('', '', '', null, null) >> [
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
             listingFor(id: 1L, price: new BigDecimal("10")),
             listingFor(id: 2L, price: new BigDecimal("50")),
         ]
 
         when:
-        def result = service.getActiveListings('price_desc', null, null, null, null, null)
+        def result = service.getActiveListings('price_desc', null, null, null, null, null, null)
 
         then:
         result*.id == [2L, 1L]
@@ -128,13 +154,13 @@ class ListingServiceSpec extends Specification {
 
     def "sort=newest orders by listedAt desc"() {
         given:
-        listingRepository.findActivePublic('', '', '', null, null) >> [
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
             listingFor(id: 1L, listedAt: 1000L),
             listingFor(id: 2L, listedAt: 5000L),
         ]
 
         when:
-        def result = service.getActiveListings('newest', null, null, null, null, null)
+        def result = service.getActiveListings('newest', null, null, null, null, null, null)
 
         then:
         result*.id == [2L, 1L]
@@ -142,13 +168,13 @@ class ListingServiceSpec extends Specification {
 
     def "sort=rarity orders by item.supply ascending (lowest supply first)"() {
         given:
-        listingRepository.findActivePublic('', '', '', null, null) >> [
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
             listingFor(id: 1L, item: itemFor(1L, 'Common', 'Standard', 1000)),
             listingFor(id: 2L, item: itemFor(2L, 'Rare',   'Limited',    10)),
         ]
 
         when:
-        def result = service.getActiveListings('rarity', null, null, null, null, null)
+        def result = service.getActiveListings('rarity', null, null, null, null, null, null)
 
         then:
         result*.id == [2L, 1L]

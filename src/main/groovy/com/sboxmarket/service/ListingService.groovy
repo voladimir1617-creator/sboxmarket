@@ -38,15 +38,20 @@ class ListingService {
 
     List<Listing> getActiveListings(String sort, String category, String rarity,
                                     BigDecimal minPrice, BigDecimal maxPrice,
-                                    String search) {
+                                    String search, String listingType) {
         // Push every filter down into JPQL — status=ACTIVE, hidden flag,
-        // search substring, category, rarity, price range — so Postgres
-        // can use the idx_listings_status + idx_items_category indexes
-        // instead of pulling the whole active set and filtering in Groovy.
+        // search substring, category, rarity, price range, listing type
+        // — so Postgres can use the idx_listings_status + idx_items_category
+        // indexes instead of pulling the whole active set and filtering
+        // in Groovy.
         def q    = (search   != null && !search.isEmpty())     ? search   : ''
         def cat  = (category != null && category != 'All')     ? category : ''
         def rar  = (rarity   != null && rarity   != 'All')     ? rarity   : ''
-        def listings = listingRepository.findActivePublic(q, cat, rar, minPrice, maxPrice)
+        // Whitelist the listingType — only BUY_NOW / AUCTION are valid
+        // enum values. Anything else (including 'All') falls back to
+        // the empty-string sentinel that disables the filter.
+        def lt   = (listingType in ['BUY_NOW', 'AUCTION'])      ? listingType : ''
+        def listings = listingRepository.findActivePublic(q, cat, rar, lt, minPrice, maxPrice)
 
         // JPQL returns price ASC; flip/sort in-memory for the non-default
         // cases. After the WHERE filter the result set is small so the

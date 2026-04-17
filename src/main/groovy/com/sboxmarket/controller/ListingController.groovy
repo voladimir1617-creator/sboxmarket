@@ -53,6 +53,7 @@ class ListingController {
             @RequestParam(required = false) String minPrice,
             @RequestParam(required = false) String maxPrice,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "All") String listingType,
             @RequestParam(required = false, defaultValue = "100") Integer limit,
             @RequestParam(required = false, defaultValue = "0") Integer offset
     ) {
@@ -80,7 +81,10 @@ class ListingController {
         BigDecimal min = parsePriceParam(minPrice, "minPrice")
         BigDecimal max = parsePriceParam(maxPrice, "maxPrice")
 
-        def all = listingService.getActiveListings(sort, category, rarity, min, max, search)
+        // Whitelist the listingType param — any junk (including "All")
+        // lands as the empty sentinel downstream and disables the filter.
+        def typeParam = (listingType in ['BUY_NOW', 'AUCTION']) ? listingType : null
+        def all = listingService.getActiveListings(sort, category, rarity, min, max, search, typeParam)
         def page = all.drop(safeOffset).take(safeLimit)
         // Return the array directly when no pagination params were used (back-compat with
         // existing frontend); when limit/offset are present, return a PageResponse.

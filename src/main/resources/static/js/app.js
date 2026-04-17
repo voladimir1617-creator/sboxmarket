@@ -1746,6 +1746,11 @@ export function App() {
         sort: backendSort,
         category: category !== 'All' ? category : null,
         rarity:   rarity !== 'All'   ? rarity   : null,
+        // Server-side listing-type filter so a "BUY_NOW only" or
+        // "AUCTION only" view doesn't ship the other half of the set.
+        // "ALL" falls through to no server filter; client-side guard
+        // still applies after the response lands (belt-and-braces).
+        listingType: listingTypeFilter && listingTypeFilter !== 'ALL' ? listingTypeFilter : null,
         minPrice: minPrice || null,
         maxPrice: maxPrice || null,
         search:   search   || null
@@ -1783,7 +1788,7 @@ export function App() {
       }
     } catch (e) { console.error(e); }
     finally { if (!silent) setLoading(false); }
-  }, [sort, category, rarity, minPrice, maxPrice, search]);
+  }, [sort, category, rarity, minPrice, maxPrice, search, listingTypeFilter]);
   useEffect(() => { load(); }, [load]);
 
   // Soft poll the marketplace grid every 30s while the user is on a
