@@ -1729,7 +1729,12 @@ export function App() {
         return;
       }
       setSelected(null);
-      showToast('Purchase complete · added to your inventory', 'ok');
+      // The purchase creates an escrow trade; the item only lands in
+      // inventory after the seller sends + buyer confirms. Old toast
+      // said "added to your inventory" which was misleading during the
+      // pending window. Nudge them toward the trades tab so they can
+      // watch the state machine instead of hunting for the item.
+      showToast('Purchase complete — trade opened, see Profile › Trades', 'ok');
       await loadWallet();
       load();
     } catch (e) {
