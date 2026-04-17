@@ -1224,7 +1224,10 @@ export function App() {
       fetchPublicStallSold(route.params.id)
     ]).then(([stall, reviews, eligible, sold]) => {
       if (!alive) return;
-      setStallData(stall);
+      // Distinguish "still loading" (null) from "loaded but 404"
+      // ({ __notFound: true }) so the render can show a friendly
+      // empty-state instead of spinning forever on a bad id.
+      setStallData(stall || { __notFound: true });
       setStallReviews(reviews);
       setEligibleTrades(Array.isArray(eligible) ? eligible : []);
       setStallSold(Array.isArray(sold) ? sold : []);
@@ -2530,6 +2533,14 @@ export function App() {
     },
       stallData === null
         ? h('div', { className: 'spinner' })
+        : stallData.__notFound
+          ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
+              h('div', { className: 'empty-icon' }, '🏚️'),
+              h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 } }, 'Stall not found'),
+              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+                "This seller doesn't exist or has deactivated their account."),
+              h('a', { className: 'btn btn-accent', href: '/' }, 'Back to marketplace')
+            )
         : h('div', null,
             h('div', { className: 'stall-hero' },
               h('div', { className: 'stall-avatar' },
