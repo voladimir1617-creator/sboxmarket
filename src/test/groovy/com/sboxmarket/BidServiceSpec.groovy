@@ -6,6 +6,7 @@ import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Bid
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
+import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.BidRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
@@ -36,6 +37,7 @@ class BidServiceSpec extends Specification {
     TextSanitizer         textSanitizer         = Mock() {
         cleanShort(_) >> { String s -> s }
     }
+    com.sboxmarket.service.EmailService emailService = Mock()
 
     @Subject
     BidService service = new BidService(
@@ -46,7 +48,8 @@ class BidServiceSpec extends Specification {
         steamUserRepository  : steamUserRepository,
         notificationService  : notificationService,
         banGuard             : banGuard,
-        textSanitizer        : textSanitizer
+        textSanitizer        : textSanitizer,
+        emailService         : emailService
     )
 
     private Listing auctionListing(Map args = [:]) {
@@ -415,5 +418,71 @@ class BidServiceSpec extends Specification {
         out.size() == 1
         out[0].bidderName == 'Bidder #1'
         out[0].bidderUserId == null
+    }
+
+    // ── outbid email hook ─────────────────────────────────────────
+
+    def "placeBid emails the displaced top bidder when they have a verified email"() {
+        given:
+        // Listing already has a top bid of $15 by user 7 — new bidder
+        // (user 10) posts $20 and displaces them.
+        def listing = auctionListing(currentBid: new BigDecimal('15'),
+            currentBidderId: 7L, currentBidderName: 'Bob', bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        bidRepository.save(_) >> { Bid b -> b.id = 2L; b }
+        listingRepository.save(_) >> { Listing l -> l }
+        steamUserRepository.findById(7L) >> Optional.of(
+            new SteamUser(id: 7L, steamId64: '7', email: 'bob@example.com',
+                emailVerified: true, displayName: 'Bob')
+        )
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('20'), null)
+
+        then:
+        1 * emailService.sendAuctionOutbid('bob@example.com', 'Bob', 'Wizard Hat',
+            new BigDecimal('20'), '/item/1')
+    }
+
+    def "placeBid does NOT email when previous top bidder's email is unverified"() {
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('15'),
+            currentBidderId: 7L, currentBidderName: 'Bob', bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        bidRepository.save(_) >> { Bid b -> b.id = 2L; b }
+        listingRepository.save(_) >> { Listing l -> l }
+        steamUserRepository.findById(7L) >> Optional.of(
+            new SteamUser(id: 7L, steamId64: '7', email: 'bob@example.com',
+                emailVerified: false, displayName: 'Bob')
+        )
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('20'), null)
+
+        then:
+        0 * emailService.sendAuctionOutbid(_, _, _, _, _)
+    }
+
+    def "placeBid keeps going when the outbid email throws"() {
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('15'),
+            currentBidderId: 7L, currentBidderName: 'Bob', bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        bidRepository.save(_) >> { Bid b -> b.id = 2L; b }
+        listingRepository.save(_) >> { Listing l -> l }
+        steamUserRepository.findById(7L) >> Optional.of(
+            new SteamUser(id: 7L, steamId64: '7', email: 'bob@example.com',
+                emailVerified: true, displayName: 'Bob')
+        )
+        emailService.sendAuctionOutbid(_, _, _, _, _) >> { throw new RuntimeException('SMTP down') }
+
+        when:
+        def bid = service.placeBid(10L, 'Alice', 100L, new BigDecimal('20'), null)
+
+        then:
+        // Bid still placed; the notification bell still fires; SMTP boom doesn't roll back.
+        bid != null
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, _)
+        noExceptionThrown()
     }
 }

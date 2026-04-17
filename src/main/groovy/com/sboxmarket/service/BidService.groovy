@@ -44,6 +44,7 @@ class BidService {
     @Autowired TransactionRepository transactionRepository
     @Autowired SteamUserRepository steamUserRepository
     @Autowired NotificationService notificationService
+    @Autowired(required = false) EmailService emailService
     @Autowired(required = false) TradeService tradeService
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
@@ -140,6 +141,22 @@ class BidService {
                 listingId,
                 listing.item?.id != null ? "/item/${listing.item.id}" : null
             )
+            // Email the displaced bidder — the notification bell may go
+            // unchecked for hours; by the time they see it the auction
+            // might be over. Gated on emailVerified, silent-fail.
+            try {
+                def prev = steamUserRepository.findById(previousTopId).orElse(null)
+                if (emailService != null && prev != null &&
+                        Boolean.TRUE.equals(prev.emailVerified) && prev.email) {
+                    def itemUrl = listing.item?.id != null
+                        ? "/item/${listing.item.id}".toString()
+                        : null
+                    emailService.sendAuctionOutbid(prev.email, prev.displayName,
+                        listing.item?.name, amount, itemUrl)
+                }
+            } catch (Exception e) {
+                log.warn("Outbid email failed for user ${previousTopId}: ${e.message}")
+            }
         }
 
         bid
@@ -307,6 +324,22 @@ class BidService {
             "You won · ${listing.item?.name}",
             "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
             '/profile')
+        // Email the winner too — auctions settle on the 30s-poll
+        // timer, not on a page they're watching, so a bell-only
+        // notification is easy to miss for hours.
+        try {
+            def winner = steamUserRepository.findById(winnerId).orElse(null)
+            if (emailService != null && winner != null &&
+                    Boolean.TRUE.equals(winner.emailVerified) && winner.email) {
+                def itemUrl = listing.item?.id != null
+                    ? "/item/${listing.item.id}".toString()
+                    : null
+                emailService.sendAuctionWon(winner.email, winner.displayName,
+                    listing.item?.name, listing.currentBid, itemUrl)
+            }
+        } catch (Exception e) {
+            log.warn("Auction-won email failed for user ${winnerId}: ${e.message}")
+        }
 
         // Mark losing bids
         def bids = bidRepository.findByListing(listing.id)

@@ -152,6 +152,51 @@ support ticket.
         send(toEmail, subject, body)
     }
 
+    /** Auction outbid. Fires from BidService.placeBid when a higher bid
+     *  displaces an existing top bid. Gives the previous top bidder a
+     *  chance to respond before the timer closes. */
+    void sendAuctionOutbid(String toEmail, String displayName, String itemName, BigDecimal newTopBid, String itemUrl) {
+        if (!toEmail) return
+        def subject = "Outbid on ${itemName ?: 'auction'}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+You've been outbid on ${itemName ?: 'an auction you were winning'}.
+
+Current top bid: \$${(newTopBid ?: BigDecimal.ZERO).toPlainString()}
+
+You can place a new bid or set an auto-bid cap from the item detail
+page${itemUrl ? ': ' + itemUrl : '.'}
+
+If you've already set an auto-bid that hasn't been exhausted, our bot
+may have re-raised on your behalf since this email was sent — check the
+listing for the live state.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
+    /** Auction won. Fires from BidService.settleAuction when the timer
+     *  closes and the user's bid carried the auction. Charged amount
+     *  is already debited from their wallet at settlement. */
+    void sendAuctionWon(String toEmail, String displayName, String itemName, BigDecimal finalPrice, String itemUrl) {
+        if (!toEmail) return
+        def subject = "You won · ${itemName ?: 'auction'}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+You won the auction for ${itemName ?: 'an item'} at \$${(finalPrice ?: BigDecimal.ZERO).toPlainString()}.
+
+The seller has been notified and will send the Steam trade offer within
+the escrow window (typically 8 days). You can track the trade from
+Profile → Trades${itemUrl ? ' or open the item: ' + itemUrl : '.'}
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Deletion-request receipt. Fires from ProfileController when a
      *  user first submits a deletion request — confirms the request
      *  landed + gives them a cancel window. */
