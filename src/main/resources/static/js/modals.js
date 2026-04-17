@@ -121,7 +121,38 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         ),
         h('div', null,
           h('div', { className: 'modal-cat' }, item.category),
-          h('div', { className: 'modal-name' }, item.name),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+            h('div', { className: 'modal-name' }, item.name),
+            // Tiny share button — copies the canonical /item/:id URL so
+            // sellers can drop it into Discord/Steam chat without leaving
+            // the detail view. Silent success via the app's existing
+            // toast channel if we had one here — falls back to a green
+            // flash on the button itself.
+            h('button', {
+              className: 'btn btn-ghost',
+              style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)', opacity: 0.75 },
+              title: 'Copy link to this item',
+              onClick: async (e) => {
+                e.stopPropagation();
+                const url = window.location.origin + '/item/' + item.id;
+                try {
+                  if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(url);
+                  } else {
+                    window.prompt('Copy this link:', url);
+                    return;
+                  }
+                  const btn = e.currentTarget;
+                  const prev = btn.textContent;
+                  btn.textContent = '✓ Copied';
+                  btn.style.color = 'var(--green)';
+                  setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1400);
+                } catch (_) {
+                  window.prompt('Copy this link:', url);
+                }
+              }
+            }, '⎘ Copy link')
+          ),
           h('div', { className: 'modal-stats' },
             h('div', { className: 'modal-stat-box' },
               h('div', { className: 'modal-stat-label' }, 'Floor Price'),

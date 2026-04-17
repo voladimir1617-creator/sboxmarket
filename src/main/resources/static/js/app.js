@@ -158,6 +158,41 @@ function StallReviewRow({ review, isOwner, onSaved }) {
 // page reload. Dismissible per-user in localStorage (keyed by
 // announcement id) so an admin can post a fresh banner and everyone
 // sees it again even if they dismissed the previous one.
+// Subtle nag banner for signed-in users who haven't confirmed their email
+// yet. Required for withdrawals and 2FA recovery — a silently-unverified
+// account is a footgun six months in when the user can't reset their 2FA.
+// Dismissable for 7 days via localStorage so the banner isn't permanent
+// noise for long power sessions; the day-bucket cooldown resets naturally.
+function EmailVerifyNag({ me }) {
+  const [dismissedAt, setDismissedAt] = useState(() => {
+    try { return Number(localStorage.getItem('sb_email_nag_dismissed_at') || 0); }
+    catch { return 0; }
+  });
+  if (!me) return null;
+  if (me.emailVerified) return null;
+  if (!me.email) return null;
+  // Seven-day cooldown — matches CSFloat's email reminder cadence.
+  if (dismissedAt && (Date.now() - dismissedAt) < 7 * 24 * 3600_000) return null;
+  const dismiss = () => {
+    try { localStorage.setItem('sb_email_nag_dismissed_at', String(Date.now())); } catch (_) {}
+    setDismissedAt(Date.now());
+  };
+  return h('div', { className: 'announce-banner sev-warn', role: 'status' },
+    h('span', { className: 'announce-banner-icon' }, '✉'),
+    h('div', { className: 'announce-banner-text' },
+      'Your email ', h('strong', null, me.email), ' is not confirmed yet. ',
+      h('a', { href: paths.profile(), style: { color: 'inherit', textDecoration: 'underline', fontWeight: 700 } }, 'Confirm it'),
+      ' to enable withdrawals and 2FA recovery.'
+    ),
+    h('button', {
+      className: 'announce-banner-close',
+      onClick: dismiss,
+      title: 'Remind me later (7 days)',
+      'aria-label': 'Dismiss email verification reminder'
+    }, '✕')
+  );
+}
+
 function AnnouncementBanner() {
   const [ann, setAnn] = useState(null);
   const [dismissedId, setDismissedId] = useState(() => {
@@ -1429,6 +1464,7 @@ export function App() {
 
     /* Sitewide ops announcement — one row at a time, dismissible. */
     h(AnnouncementBanner, null),
+    h(EmailVerifyNag, { me }),
 
     /* Pending-trade reminder — nudges users whose escrow has been
        waiting on them > 2h. Dismissible per-trade via localStorage. */
