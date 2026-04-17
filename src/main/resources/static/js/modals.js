@@ -1526,6 +1526,31 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         value: price,
         onChange: e => setPrice(e.target.value)
       }),
+      // Price suggestion chips. Floor = current market low, Steam = what
+      // Steam Community Market is charging, Undercut 5% = classic fast-sell
+      // move, Markup 5% = for new/rare items without competition. All
+      // editable via the input above, so chips just prefill.
+      h('div', { className: 'price-suggest-row' },
+        (() => {
+          const floor = parseFloat(isSteam ? (item.suggestedPrice || 0) : (item.lowestPrice || 0));
+          const steamPrice = parseFloat(isSteam ? (item.steamPrice || item.suggestedPrice || 0) : (item.steamPrice || 0));
+          const chips = [];
+          if (floor > 0) chips.push({ label: 'Floor', v: floor });
+          if (floor > 0) chips.push({ label: '−5%', v: +(floor * 0.95).toFixed(2), hint: 'Undercut, sells faster' });
+          if (floor > 0) chips.push({ label: '+5%', v: +(floor * 1.05).toFixed(2), hint: 'Patience markup' });
+          if (steamPrice > 0 && Math.abs(steamPrice - floor) > 0.01) chips.push({ label: 'Steam', v: steamPrice });
+          return chips.map((c, i) => h('button', {
+            key: i,
+            type: 'button',
+            className: 'price-suggest-chip',
+            title: c.hint || '',
+            onClick: () => setPrice(c.v.toFixed(2))
+          },
+            h('span', { className: 'price-suggest-chip-label' }, c.label),
+            h('span', { className: 'price-suggest-chip-amt' }, '$' + c.v.toFixed(2))
+          ));
+        })()
+      ),
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 8 } },
         'A 2% platform fee is deducted when the item sells.'),
       error && h('div', { className: 'wallet-error' }, error),
@@ -2122,7 +2147,16 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
       ),
       h('div', { className: 'wallet-panel' },
         tab === 'history'
-          ? h('div', { className: 'wallet-tx-list' },
+          ? h('div', null,
+              transactions.length > 0 && h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 } },
+                h('a', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+                  href: '/api/wallet/transactions.csv',
+                  title: 'Download all transactions as a CSV file'
+                }, '⇣ Export CSV')
+              ),
+              h('div', { className: 'wallet-tx-list' },
               transactions.length === 0
                 ? h('div', { className: 'wallet-tx-empty' }, 'No transactions yet')
                 : transactions.map(tx => {
@@ -2145,7 +2179,7 @@ export function WalletModal({ wallet, transactions, onClose, onRefresh, initialT
                       )
                     );
                   })
-            )
+            ))
           : h('div', null,
               h('div', { className: 'withdraw-step', style: { marginBottom: 8 } },
                 h('div', { className: 'withdraw-step-num' }, '1'),

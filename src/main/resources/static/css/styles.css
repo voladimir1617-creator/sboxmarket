@@ -4264,6 +4264,96 @@
       line-height: 1.5;
     }
 
+    /* ─────────── PRICE SUGGESTION CHIPS ─────────── */
+    .price-suggest-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .price-suggest-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px 6px 12px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .price-suggest-chip:hover {
+      border-color: var(--accent-border);
+      color: var(--text-primary);
+    }
+    .price-suggest-chip-label {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      font-size: 10.5px;
+    }
+    .price-suggest-chip-amt {
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─────────── AUCTIONS ENDING SOON ─────────── */
+    .auctions-ending-soon {
+      margin: 28px 0 8px;
+      padding: 20px 22px;
+      background: linear-gradient(135deg, rgba(248, 113, 113, 0.06), rgba(248, 113, 113, 0.01));
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      border-radius: 12px;
+    }
+    .auctions-ending-soon-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .auctions-ending-soon-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #f87171;
+      animation: auction-pulse 1.4s ease-in-out infinite;
+      box-shadow: 0 0 10px rgba(248, 113, 113, 0.7);
+    }
+    .auctions-ending-soon-count {
+      margin-left: auto;
+      padding: 3px 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #fca5a5;
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      border-radius: 5px;
+      letter-spacing: 0.04em;
+    }
+    .auctions-ending-soon-rail {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scrollbar-width: thin;
+    }
+    .auctions-ending-soon-rail::-webkit-scrollbar { height: 6px; }
+    .auctions-ending-soon-rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .auctions-ending-soon-card-wrap {
+      flex: 0 0 220px;
+      max-width: 220px;
+    }
+    .auctions-ending-soon-card-wrap .grid-card { cursor: pointer; }
+
     /* ─────────── RECENTLY VIEWED RAIL ─────────── */
     .recently-viewed {
       margin: 28px 0 8px;

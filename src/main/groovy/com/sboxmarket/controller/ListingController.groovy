@@ -144,6 +144,22 @@ class ListingController {
         ResponseEntity.ok(listingService.findActiveBySeller(userId))
     }
 
+    /** Auctions ending within the next hour (or custom window). Powers the
+     *  homepage "Ending soon" rail — high-signal surface for the buying
+     *  audience since the bid pressure is about to peak. Public endpoint,
+     *  returns at most 20 rows, excludes hidden listings. */
+    @GetMapping("/ending-soon")
+    ResponseEntity<List<Listing>> endingSoon(@RequestParam(required = false) Long withinMs) {
+        def now = System.currentTimeMillis()
+        // Default: 60 minutes. Caller can shrink (e.g. to 15 min) to pull
+        // the "hottest" few. Cap at 24 h so a malicious caller can't sweep
+        // the whole auction inventory by passing a huge window.
+        def window = withinMs != null ? Math.min(withinMs, 24L * 60 * 60 * 1000) : 60L * 60 * 1000
+        def deadline = now + window
+        def rows = listingService.findAuctionsEndingBefore(now, deadline)
+        ResponseEntity.ok(rows.take(20))
+    }
+
     /**
      * Public stall view — everyone can see a seller's active listings. Hidden
      * listings (stall-privacy mode) are excluded by the service-level filter.

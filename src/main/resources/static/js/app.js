@@ -5,7 +5,7 @@ import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
-  fetchEligibleReviews, leaveReview
+  fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -23,6 +23,48 @@ import { AdminModal, CsrModal } from './staff-modals.js';
 import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor } from './router.js';
+
+// ── Auctions ending soon — polls /api/listings/ending-soon every 30s so
+// the rail stays within ~30s of truth. Only renders when there's at least
+// one active auction in the window, so the marketplace stays clean when
+// nobody's running auctions.
+function AuctionsEndingSoonRail({ watchlist, onToggleStar, onOpen }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchAuctionsEndingSoon(60 * 60 * 1000);
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'auctions-ending-soon' },
+    h('div', { className: 'auctions-ending-soon-head' },
+      h('span', { className: 'auctions-ending-soon-dot' }),
+      h('span', null, 'Auctions ending soon'),
+      h('span', { className: 'auctions-ending-soon-count' }, `${rows.length} live`)
+    ),
+    h('div', { className: 'auctions-ending-soon-rail' },
+      rows.map(l => h('div', {
+        key: 'ends-' + l.id,
+        className: 'auctions-ending-soon-card-wrap',
+        onClick: () => onOpen(l)
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l)
+        })
+      ))
+    )
+  );
+}
 
 // ── Share stall — copies the canonical URL to the clipboard with a
 // toast fallback if the browser doesn't grant clipboard-write permission.
@@ -1284,10 +1326,17 @@ export function App() {
       )
     ),
 
+    /* AUCTIONS ENDING SOON — live rail pulled from /api/listings/ending-soon.
+       Only renders when there's at least one auction closing in the next
+       hour. Polls every 30s so the rail stays fresh without SSE. */
+    routeName === 'market' && h(AuctionsEndingSoonRail, {
+      watchlist, onToggleStar: toggleStar, onOpen: openModal
+    }),
+
     /* RECENTLY VIEWED RAIL — horizontal scroll strip of the last 12 items
        the user clicked into. Pure localStorage, shown only on the market
        route and only when there's history to display. */
-    routeName === 'market' && h(RecentlyViewedRail, { watchlist, onToggleStar }),
+    routeName === 'market' && h(RecentlyViewedRail, { watchlist, onToggleStar: toggleStar }),
 
     /* RECENT SALES TICKER — below the marketplace grid */
     recentSales.length > 0 && h('section', { className: 'ticker-section' },

@@ -93,6 +93,47 @@ class WalletController {
         ResponseEntity.ok(txs)
     }
 
+    /** CSV export of the signed-in user's full transaction history. Intended
+     *  for tax / accounting use — each row is a single ledger entry so the
+     *  file is import-ready for spreadsheets. Capped at 5000 rows; users
+     *  with more history can open a support ticket for a full dump. */
+    @GetMapping(value = "/transactions.csv", produces = "text/csv")
+    ResponseEntity<String> exportTransactionsCsv(HttpServletRequest req) {
+        def user = currentUser(req)
+        if (user == null) throw new UnauthorizedException("Sign in to export your transactions")
+        def wallet = currentWallet(req)
+        def rows = wallet == null ? [] : transactionRepository.findByWalletIdOrderByCreatedAtDesc(
+            wallet.id, org.springframework.data.domain.PageRequest.of(0, 5000))
+        def sb = new StringBuilder()
+        sb.append("id,date,type,status,amount,currency,description,listingId,reference\n")
+        def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        df.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        def csvEscape = { String v ->
+            if (v == null) return ''
+            if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+                return '"' + v.replace('"', '""') + '"'
+            }
+            v
+        }
+        rows.each { tx ->
+            sb.append(tx.id ?: '').append(',')
+              .append(df.format(new Date(tx.createdAt ?: 0))).append(',')
+              .append(csvEscape(tx.type ?: '')).append(',')
+              .append(csvEscape(tx.status ?: '')).append(',')
+              .append(tx.amount?.toPlainString() ?: '').append(',')
+              .append(csvEscape(tx.currency ?: '')).append(',')
+              .append(csvEscape(tx.description ?: '')).append(',')
+              .append(tx.listingId ?: '').append(',')
+              .append(csvEscape(tx.stripeReference ?: '')).append('\n')
+        }
+        return ResponseEntity.ok()
+            .header('Content-Disposition',
+                "attachment; filename=\"skinbox-transactions-${df.format(new Date()).replace(':','-')}.csv\"")
+            .header('Content-Type', 'text/csv; charset=utf-8')
+            .header('Cache-Control', 'no-store')
+            .body(sb.toString())
+    }
+
     @PostMapping("/deposit")
     ResponseEntity<Map> deposit(@Valid @RequestBody DepositRequest body, HttpServletRequest req) {
         // Anonymous callers fall through `currentWallet()` to the demo

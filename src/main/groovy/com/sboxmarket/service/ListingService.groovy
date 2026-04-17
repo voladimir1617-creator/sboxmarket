@@ -93,6 +93,13 @@ class ListingService {
         listingRepository.findActiveVisibleBySeller(sellerUserId)
     }
 
+    /** Auctions ending within a window. Thin pass-through to the repo so
+     *  the controller stays test-friendly (can mock the service instead of
+     *  wiring a full repository). */
+    List<Listing> findAuctionsEndingBefore(Long now, Long deadline) {
+        listingRepository.findAuctionsEndingBefore(now, deadline)
+    }
+
     List<Listing> findOwnedBy(Long buyerUserId) {
         listingRepository.findOwnedBy(buyerUserId) ?: []
     }

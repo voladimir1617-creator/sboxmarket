@@ -512,6 +512,13 @@ export async function fetchEligibleReviews(sellerUserId) {
   const data = await safeJson(`${API}/reviews/eligible/${sellerUserId}`);
   return Array.isArray(data) ? data : [];
 }
+/** Auctions ending within the next hour — powers the "Ending soon" rail
+ *  on the marketplace home. Public endpoint, 20-row cap server-side. */
+export async function fetchAuctionsEndingSoon(withinMs) {
+  const qs = withinMs ? `?withinMs=${withinMs}` : '';
+  const data = await safeJson(`${API}/listings/ending-soon${qs}`);
+  return Array.isArray(data) ? data : [];
+}
 
 // ── CSR ─────────────────────────────────────────────────────────
 export async function csrCheck() {

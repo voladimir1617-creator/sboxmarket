@@ -128,6 +128,23 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Listing> findExpiredAuctions(@Param("now") Long now)
 
+    /** Auctions ending within a given window (anchor → anchor + window).
+     *  Powers the "Auctions ending soon" homepage rail so users see the
+     *  live bidding tension at the top of the page. Excludes hidden/away
+     *  listings and JOIN FETCHes the item so the frontend can render
+     *  without N+1s. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.status = 'ACTIVE'
+          AND l.listingType = 'AUCTION'
+          AND (l.hidden IS NULL OR l.hidden = false)
+          AND l.expiresAt IS NOT NULL
+          AND l.expiresAt > :now
+          AND l.expiresAt <= :deadline
+        ORDER BY l.expiresAt ASC
+    """)
+    List<Listing> findAuctionsEndingBefore(@Param("now") Long now, @Param("deadline") Long deadline)
+
     /** Rows flagged as simulator fixtures — `AdminSimulatorService.clearSimulated`
      *  and `countSimulated` used to pull every listing and filter in Groovy.
      *  Pushing the tag filters into SQL keeps the admin sim tool fast even
