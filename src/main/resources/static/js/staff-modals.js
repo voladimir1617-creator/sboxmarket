@@ -597,7 +597,14 @@ function AdminWithdrawalsTab() {
               h('td', { className: 'db-mono' }, r.walletUsername || ('wallet ' + r.walletId)),
               h('td', { style: { fontSize: 11, color: 'var(--text-muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.destination || '—'),
               h('td', { className: 'right db-mono accent' }, fmt(r.amount)),
-              h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(r.createdAt)),
+              h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+                timeAgo(r.createdAt),
+                // Urgency badge — surface any PENDING withdrawal that's
+                // been waiting more than 24 hours. Keeps finance team
+                // focused on the old tail of the queue before SLA blows.
+                filter === 'PENDING' && (Date.now() - (r.createdAt || 0)) > 24 * 3600_000 &&
+                  h('span', { className: 'withdraw-urgent', title: 'Waiting more than 24 hours' }, '● SLA')
+              ),
               h('td', { className: 'right' },
                 filter === 'PENDING' && h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end' } },
                   h('button', { className: 'buy-btn', disabled: busy, onClick: () => approve(r) }, 'Approve'),

@@ -18,6 +18,7 @@ class ItemController {
     @Autowired ItemService itemService
     @Autowired ItemRepository itemRepository
     @Autowired com.sboxmarket.repository.ListingRepository listingRepository
+    @Autowired(required = false) com.sboxmarket.service.SboxApiService sboxApiService
 
     @GetMapping
     ResponseEntity<List<Item>> search(
@@ -87,6 +88,12 @@ class ItemController {
 
     @GetMapping("/stats")
     ResponseEntity<Map> getStats() {
-        ResponseEntity.ok(itemService.getStats())
+        def stats = itemService.getStats() as Map
+        // Attach the latest SCMM sync timestamp so the footer can render
+        // "Catalog updated X ago" as a live trust signal. When the app
+        // has never synced (first boot) the value is 0 and the client
+        // renders a neutral "—" placeholder.
+        stats = (stats ?: [:]) + [lastSyncedAt: sboxApiService?.lastSyncedAt ?: 0L]
+        ResponseEntity.ok(stats)
     }
 }

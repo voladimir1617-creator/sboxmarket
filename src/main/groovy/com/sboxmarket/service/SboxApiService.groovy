@@ -87,6 +87,14 @@ class SboxApiService {
     @Autowired ListingRepository listingRepository
     @Autowired(required = false) PriceHistoryService priceHistoryService
 
+    /** Timestamp of the most recent successful SCMM sync. Surfaced on
+     *  the public /api/items/stats so the footer can render
+     *  "Catalog updated X ago", a lightweight trust signal that the
+     *  price data isn't stale. Volatile because the scheduler thread
+     *  writes it and the public read-path reads it. */
+    private volatile long lastSyncedAt = 0L
+    long getLastSyncedAt() { lastSyncedAt }
+
     /** Consistency check the background sync uses. Never throws — returns an
      *  empty map on any upstream failure so the scheduler keeps ticking. */
     List<Map> fetchRemoteCatalogue() {
@@ -214,7 +222,8 @@ class SboxApiService {
         }
 
         log.info("SCMM sync complete — created=${created}, updated=${updated}, skipped=${skipped}, total=${remote.size()}")
-        [created: created, updated: updated, skipped: skipped, totalRemote: remote.size()]
+        lastSyncedAt = System.currentTimeMillis()
+        [created: created, updated: updated, skipped: skipped, totalRemote: remote.size(), lastSyncedAt: lastSyncedAt]
     }
 
     /**

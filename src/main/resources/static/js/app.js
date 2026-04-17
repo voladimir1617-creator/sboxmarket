@@ -1,6 +1,6 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
-import { h, React, useState, useEffect, useCallback, useMemo, fmt } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -488,6 +488,24 @@ installAnchorInterceptor();
 // payment processor. Surfacing the Stripe badge here gives visible proof that
 // the integration is wired; the same badge appears inside the wallet page.
 export function SiteFooter() {
+  // Catalog sync status — polls /api/items/stats every 5 min and shows
+  // "Catalog updated X ago" in the bottom meta bar. Quiet trust signal:
+  // buyers know the floor prices haven't drifted from Steam for hours.
+  const [lastSync, setLastSync] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/items/stats', { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (alive && typeof d?.lastSyncedAt === 'number') setLastSync(d.lastSyncedAt);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
   return h('footer', { className: 'site-footer' },
     h('div', { className: 'site-footer-inner' },
       h('div', { className: 'site-footer-col site-footer-brand' },
@@ -567,7 +585,11 @@ export function SiteFooter() {
         h('span', { className: 'dot' }, '·'),
         h('span', null, 'Stripe-secured payments'),
         h('span', { className: 'dot' }, '·'),
-        h('span', null, 'Steam OpenID auth')
+        h('span', null, 'Steam OpenID auth'),
+        lastSync > 0 && h('span', { className: 'dot' }, '·'),
+        lastSync > 0 && h('span', { className: 'footer-sync-badge', title: `Last catalogue sync: ${new Date(lastSync).toLocaleString()}` },
+          h('span', { className: 'footer-sync-dot' }),
+          'Catalog updated ', timeAgo(lastSync))
       )
     )
   );

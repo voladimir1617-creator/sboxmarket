@@ -1116,12 +1116,28 @@ function ProfileTradesTab({ me, privacy }) {
                   h('span', { className: 'trade-role' }, isSeller ? 'You are selling' : 'You are buying')
                 ),
                 h('div', { className: 'trade-state', style: { color: meta.color } }, meta.label),
-                h('div', { className: 'trade-progress' },
-                  [1,2,3,4].map(i => h('div', {
-                    key: i,
-                    className: `trade-dot ${i <= meta.step ? 'on' : ''} ${t.state === 'DISPUTED' ? 'disputed' : ''} ${t.state === 'CANCELLED' ? 'cancelled' : ''}`
-                  }))
-                ),
+                // Labeled phase stepper — four checkpoints with descriptive
+                // text so users know what each dot represents. DISPUTED /
+                // CANCELLED states drop the bar to a single red/grey chip.
+                (t.state === 'DISPUTED' || t.state === 'CANCELLED')
+                  ? h('div', { className: `trade-progress terminal ${(t.state || '').toLowerCase()}` },
+                      h('span', null, t.state === 'DISPUTED' ? 'Trade disputed — awaiting staff review' : 'Trade cancelled')
+                    )
+                  : h('div', { className: 'trade-progress-stepper' },
+                      [
+                        { step: 1, short: 'Open',    long: 'Open' },
+                        { step: 2, short: 'Accept',  long: 'Seller accepts' },
+                        { step: 3, short: 'Send',    long: 'Steam offer sent' },
+                        { step: 4, short: 'Confirm', long: 'Buyer confirms' }
+                      ].map((p, idx, arr) => h('div', {
+                        key: p.step,
+                        className: `trade-phase ${p.step <= meta.step ? 'on' : ''} ${p.step === meta.step ? 'current' : ''}`
+                      },
+                        h('div', { className: 'trade-phase-dot' }, p.step <= meta.step ? '✓' : p.step),
+                        h('div', { className: 'trade-phase-label' }, p.short),
+                        idx < arr.length - 1 && h('div', { className: 'trade-phase-bar' })
+                      ))
+                    ),
                 t.note && h('div', { className: 'trade-note' }, '"' + t.note + '"'),
                 // Counterparty Steam trade URL — only shown during the
                 // active escrow window (not after VERIFIED/CANCELLED). For
