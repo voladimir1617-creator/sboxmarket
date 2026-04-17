@@ -680,6 +680,11 @@ function kindFallbackPath(kind, refId) {
     // the item detail so the user can act on the alert immediately.
     return refId ? ('/item/' + refId) : paths.watchlist();
   }
+  if (k === 'NEW_LISTING_FROM_SELLER') {
+    // path ships from the service layer already ("/item/:id" when the
+    // item id was resolvable, null otherwise). Fall back to market.
+    return paths.market();
+  }
   if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_') ||
       k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
     return paths.profile();
@@ -702,7 +707,8 @@ function kindIcon(kind) {
     SUPPORT_REPLY: '💬',
     LISTING_REMOVED: '⚠',
     REPORT_ACTIONED: '🚩', REPORT_REVIEWED: '👀',
-    WATCHLIST_PRICE_DROP: '📉'
+    WATCHLIST_PRICE_DROP: '📉',
+    NEW_LISTING_FROM_SELLER: '🆕'
   };
   return map[kind] || '•';
 }

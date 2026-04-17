@@ -514,6 +514,57 @@ function JustSoldRail() {
   );
 }
 
+// Follow / unfollow a seller. Fetches current status once on mount
+// so the button label reflects reality; click flips optimistically.
+// Click-when-following unfollows, click-when-not follows. Shows the
+// current follower count as a quiet chip so buyers see social proof.
+function FollowSellerButton({ sellerId, showToast }) {
+  const [status, setStatus] = useState(null);
+  const [busy, setBusy]     = useState(false);
+  useEffect(() => {
+    let alive = true;
+    import('./api.js').then(({ fetchFollowStatus }) => fetchFollowStatus(sellerId))
+      .then(data => { if (alive) setStatus(data || { following: false, followerCount: 0 }); })
+      .catch(() => { if (alive) setStatus({ following: false, followerCount: 0 }); });
+    return () => { alive = false; };
+  }, [sellerId]);
+  const toggle = async () => {
+    if (!status) return;
+    setBusy(true);
+    try {
+      const { followSeller, unfollowSeller } = await import('./api.js');
+      const res = status.following ? await unfollowSeller(sellerId) : await followSeller(sellerId);
+      if (res && (res.error || res.code)) {
+        alert(res.message || res.error || 'Could not update follow');
+        return;
+      }
+      const nowFollowing = !status.following;
+      setStatus({
+        following: nowFollowing,
+        followerCount: status.followerCount + (nowFollowing ? 1 : -1)
+      });
+      showToast && showToast(nowFollowing ? 'Following — you\'ll be notified of new listings' : 'Unfollowed', 'ok');
+    } finally { setBusy(false); }
+  };
+  if (!status) {
+    return h('button', { className: 'stall-share-btn', disabled: true }, '…');
+  }
+  const cls = status.following ? 'stall-share-btn' : 'stall-share-btn';
+  const style = status.following
+    ? { border: '1px solid var(--border)', opacity: 0.75 }
+    : { border: '1px solid var(--accent-border)', color: 'var(--accent)' };
+  return h('button', {
+    className: cls, style, disabled: busy, onClick: toggle,
+    title: status.following ? 'Click to unfollow' : 'Get notified when this seller lists something new'
+  },
+    h('span', { className: 'stall-share-icon' }, status.following ? '✓' : '+'),
+    status.following ? 'Following' : 'Follow',
+    status.followerCount > 0 && h('span', {
+      style: { marginLeft: 6, fontSize: 10, opacity: 0.7 }
+    }, `· ${status.followerCount}`)
+  );
+}
+
 // ── Share stall — copies the canonical URL to the clipboard with a
 // toast fallback if the browser doesn't grant clipboard-write permission.
 // Keeps the stall-hero compact; no floating-menu popover.
@@ -2453,6 +2504,13 @@ export function App() {
               // Useful for sellers promoting their stall on Discord / Steam
               // groups — CSFloat has the same affordance and users expect it.
               h(ShareStallButton, { userId: stallData.seller.id, showToast }),
+              // Follow/unfollow — subscribes the viewer to NEW_LISTING
+              // notifications from this seller. Only meaningful for other
+              // users (can't follow yourself). Shown regardless of sign-in
+              // state so signed-out users see the social proof chip; the
+              // click path nudges them to sign in if needed.
+              me && me.id !== stallData.seller.id &&
+                h(FollowSellerButton, { sellerId: stallData.seller.id, showToast }),
               // Report button opens a FRAUD-category support ticket with the
               // seller's id pre-populated. Only shown on someone else's stall
               // (can't report yourself). Opens quietly via prompt so we don't

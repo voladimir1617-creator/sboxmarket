@@ -151,6 +151,23 @@ export async function cancelWatchlistAlert(id) {
   });
 }
 
+// ── Follow seller ────────────────────────────────────────────────
+/** Anonymous-friendly: returns { following: false, followerCount: N } for
+ *  signed-out viewers. Fires once on every stall-page load. */
+export async function fetchFollowStatus(sellerId) {
+  return safeJson(`${API}/follows/status/${sellerId}`);
+}
+export async function followSeller(sellerId) {
+  return writeJson(`${API}/follows/${sellerId}`, { method: 'POST', credentials: 'same-origin' });
+}
+export async function unfollowSeller(sellerId) {
+  return writeJson(`${API}/follows/${sellerId}`, { method: 'DELETE', credentials: 'same-origin' });
+}
+export async function fetchFollowing() {
+  const data = await safeJson(`${API}/follows`);
+  return Array.isArray(data) ? data : [];
+}
+
 /** Fetch all listings for a specific item by its item ID.
  *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
  *  general /api/listings query which doesn't support itemId filtering. */

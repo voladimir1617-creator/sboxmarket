@@ -32,6 +32,7 @@ class SellService {
     @Autowired @Lazy TradeService tradeService
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
+    @Autowired(required = false) SellerFollowService sellerFollowService
 
     @Transactional
     Listing relist(Long sellerUserId, String sellerName, Long ownedListingId, BigDecimal newPrice) {
@@ -80,6 +81,14 @@ class SellService {
             buyOrderService.tryMatch(saved)
         } catch (Exception e) {
             log.warn("Buy-order match failed for listing ${saved.id}: ${e.message}")
+        }
+        // Fan out NEW_LISTING_FROM_SELLER to every user following this
+        // seller. Wrapped in try/catch so one bad subscription doesn't
+        // roll back the relist. Best-effort notification delivery.
+        try {
+            sellerFollowService?.notifyFollowersOfNewListing(saved)
+        } catch (Exception e) {
+            log.warn("Follower fanout failed for listing ${saved.id}: ${e.message}")
         }
         saved
     }
