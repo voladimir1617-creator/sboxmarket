@@ -3049,7 +3049,21 @@ export function App() {
     ),
     routeName === 'faq'           && h(FaqModal,        { onClose: () => navigate(paths.market()) }),
     routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()) }),
-    routeName === 'profile'       && h(ProfileModal,    { onClose: () => navigate(paths.market()), me, wallet, transactions, onRefresh: () => { loadWallet(); } }),
+    // Deep-link handling — notifications like TRADE_MESSAGE land us on
+    // `/profile?tab=trades`. Pull the `tab` query param so the Profile
+    // modal opens on the right tab instead of the Personal default.
+    routeName === 'profile'       && h(ProfileModal,    {
+      onClose: () => navigate(paths.market()),
+      me, wallet, transactions,
+      onRefresh: () => { loadWallet(); },
+      initialTab: (() => {
+        try {
+          const q = new URLSearchParams(window.location.search).get('tab');
+          const allowed = new Set(['personal','transactions','buyorders','autobids','trades','offers','reviews','support','developers']);
+          return q && allowed.has(q) ? q : undefined;
+        } catch { return undefined; }
+      })()
+    }),
     routeName === 'sell'          && h(SellItemsModal,  { onClose: () => navigate(paths.market()), me, onRefresh: load }),
     routeName === 'mystall'       && h(MyStallModal,    { onClose: () => navigate(paths.market()), me, onRefresh: load }),
     routeName === 'offers'        && h(OffersModal,     { onClose: () => navigate(paths.market()), me, onRefresh: () => { load(); loadWallet(); } }),
