@@ -2462,9 +2462,12 @@ export function App() {
               title: 'Save the current filter combination as a named preset'
             }, '★ Save search')
           ),
-          // Listing-type toggle — three buttons, single active. Purely
-          // client-side; server already returns both types and we filter
-          // before dedup. Defaults to ALL so anon users see the full grid.
+          // Listing-type toggle — three buttons, single active. Since
+          // batch 137 the filter rides into SQL via ?listingType=… so
+          // flipping a chip re-fetches only the matching type. The
+          // client-side guard in the `rows` memo stays as
+          // belt-and-braces. Defaults to ALL so anon users see the
+          // full grid.
           h('div', { className: 'type-toggle', role: 'group', 'aria-label': 'Listing type' },
             [{ id: 'ALL', label: 'All' }, { id: 'BUY_NOW', label: 'Buy Now' }, { id: 'AUCTION', label: 'Auction' }]
               .map(opt => h('button', {

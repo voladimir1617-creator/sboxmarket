@@ -3397,16 +3397,63 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 18px' } },
         'Items you buy on sboxmarket appear here. You can relist any of them at a new price.')
     ),
-    source === 'internal' && internalList.length > 0 && h('div', { className: 'inventory-grid' },
-      internalList.map(l => h('div', {
-        key: l.id, className: 'inventory-item',
-        onClick: () => startPickInternal(l)
-      },
-        h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item })),
-        h('div', { className: 'inventory-name' }, l.item.name),
-        h('div', { className: 'inventory-floor' }, 'Floor ' + fmt(l.item.lowestPrice))
-      ))
-    )
+    source === 'internal' && internalList.length > 0 && (() => {
+      // Match the Steam-inventory tab: filter chips for rarity + a
+      // name search. A heavy buyer who's accumulated dozens of items
+      // shouldn't have to eyeball the grid to find one specific hat.
+      // Share state with the Steam tab so flipping between the two
+      // preserves the filter intent.
+      const rarities = Array.from(new Set(
+        internalList.map(l => l.item?.rarity || 'Standard')
+      )).sort();
+      const q = sellSearch.trim().toLowerCase();
+      const filtered = internalList.filter(l => {
+        if (sellRarityFilter !== 'All' && (l.item?.rarity || 'Standard') !== sellRarityFilter) return false;
+        if (!q) return true;
+        return (l.item?.name || '').toLowerCase().includes(q);
+      });
+      return h('div', null,
+        (rarities.length > 1 || internalList.length > 6) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
+          h('button', {
+            className: `wallet-tx-filter-chip ${sellRarityFilter === 'All' ? 'active' : ''}`,
+            onClick: () => setSellRarityFilter('All')
+          }, `All · ${internalList.length}`),
+          rarities.map(r => h('button', {
+            key: r,
+            className: `wallet-tx-filter-chip ${sellRarityFilter === r ? 'active' : ''}`,
+            onClick: () => setSellRarityFilter(r)
+          }, `${r} · ${internalList.filter(l => (l.item?.rarity || 'Standard') === r).length}`)),
+          h('div', { style: { flex: 1, minWidth: 140 } },
+            h('input', {
+              className: 'price-input',
+              style: { width: '100%', fontSize: 12 },
+              placeholder: '🔎 Filter inventory…',
+              value: sellSearch,
+              onChange: e => setSellSearch(e.target.value)
+            })
+          ),
+          (sellRarityFilter !== 'All' || sellSearch) && h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+            onClick: () => { setSellRarityFilter('All'); setSellSearch(''); }
+          }, 'Clear')
+        ),
+        filtered.length === 0
+          ? h('div', { className: 'empty-inline', style: { marginTop: 8 } },
+              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)' } },
+                'No platform-inventory items match this filter.'))
+          : h('div', { className: 'inventory-grid' },
+              filtered.map(l => h('div', {
+                key: l.id, className: 'inventory-item',
+                onClick: () => startPickInternal(l)
+              },
+                h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item })),
+                h('div', { className: 'inventory-name' }, l.item.name),
+                h('div', { className: 'inventory-floor' }, 'Floor ' + fmt(l.item.lowestPrice))
+              ))
+            )
+      );
+    })()
   );
 }
 
