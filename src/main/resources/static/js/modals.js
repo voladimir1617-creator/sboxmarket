@@ -244,6 +244,22 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     'listed ', timeAgo(l.listedAt)
                   ),
                   h('div', { className: 'modal-listing-rarity-bar' }),
+                  (() => {
+                    const ref = parseFloat(item.steamPrice) || 0;
+                    const p = parseFloat(l.price) || 0;
+                    if (ref <= 0 || p <= 0 || p >= ref) return null;
+                    const pct = Math.round((1 - p / ref) * 100);
+                    if (pct < 5) return null;
+                    return h('span', {
+                      style: {
+                        fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
+                        background: pct >= 25 ? 'rgba(34,197,94,0.15)' : 'rgba(251,191,36,0.15)',
+                        color:      pct >= 25 ? '#22c55e' : '#fbbf24',
+                        marginRight: 6
+                      },
+                      title: `Listed at ${pct}% below Steam market (${fmt(ref)})`
+                    }, '−' + pct + '%');
+                  })(),
                   h('span', { className: 'modal-listing-price' }, fmt(l.price)),
                   h('button', { className: 'buy-btn', onClick: () => onBuy(l.id) }, 'Buy'),
                   me && me.id !== l.sellerUserId && h('button', {
@@ -2394,8 +2410,37 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           ));
         })()
       ),
-      h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 8 } },
-        'A 2% platform fee is deducted when the item sells.'),
+      (() => {
+        const p = parseFloat(price) || 0;
+        if (p <= 0) return h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 8 } },
+          'A 2% platform fee is deducted when the item sells.');
+        const fee = +(p * 0.02).toFixed(2);
+        const net = +(p - fee).toFixed(2);
+        const floor = parseFloat(isSteam ? (item.suggestedPrice || 0) : (item.lowestPrice || 0));
+        const vsFloor = (floor > 0 && p > 0) ? Math.round(((p - floor) / floor) * 100) : null;
+        return h('div', {
+          style: {
+            fontSize: 12, marginTop: 10, padding: 10, borderRadius: 6,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            display: 'grid', gridTemplateColumns: '1fr auto', gap: 4, rowGap: 2
+          }
+        },
+          h('div', { style: { color: 'var(--text-muted)' } }, 'Listed price'),
+          h('div', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, fmt(p)),
+          h('div', { style: { color: 'var(--text-muted)' } }, 'Platform fee (2%)'),
+          h('div', { style: { color: 'var(--red)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, '−' + fmt(fee)),
+          h('div', { style: { color: 'var(--text-muted)', fontWeight: 700 } }, "You'll receive"),
+          h('div', { style: { color: 'var(--accent)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } }, fmt(net)),
+          vsFloor !== null && h('div', {
+            style: { gridColumn: '1 / -1', fontSize: 10, color: 'var(--text-muted)', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 6 }
+          },
+            vsFloor === 0 ? 'At the current floor — competitive with other active listings.' :
+            vsFloor < 0    ? `${Math.abs(vsFloor)}% below floor — expected to sell quickly.` :
+            vsFloor < 10   ? `${vsFloor}% above floor — may sit in queue behind cheaper listings.` :
+                             `${vsFloor}% above floor — buyers will pass on this unless the item is rare or the floor shifts up.`
+          )
+        );
+      })(),
       error && h('div', { className: 'wallet-error' }, error),
       h('div', { style: { display: 'flex', gap: 10, marginTop: 20 } },
         h('button', { className: 'btn btn-ghost', style: { flex: 1, border: '1px solid var(--border)', justifyContent: 'center', padding: 13 }, onClick: () => setPicking(null) }, 'Back'),

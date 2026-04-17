@@ -2089,7 +2089,42 @@ export function App() {
               // Share button copies the canonical stall URL to the clipboard.
               // Useful for sellers promoting their stall on Discord / Steam
               // groups — CSFloat has the same affordance and users expect it.
-              h(ShareStallButton, { userId: stallData.seller.id, showToast })
+              h(ShareStallButton, { userId: stallData.seller.id, showToast }),
+              // Report button opens a FRAUD-category support ticket with the
+              // seller's id pre-populated. Only shown on someone else's stall
+              // (can't report yourself). Opens quietly via prompt so we don't
+              // need a full modal for the rare path.
+              me && me.id !== stallData.seller.id && h('button', {
+                className: 'stall-share-btn',
+                style: { opacity: 0.6, border: '1px solid var(--border)' },
+                onClick: async () => {
+                  const REPORT_REASONS = [
+                    'Scam attempt', 'Suspicious pricing', 'Harassment in chat',
+                    'Impersonation', 'Other'
+                  ];
+                  const reason = window.prompt(
+                    `Report @${stallData.seller.displayName || 'seller'}\n\n` +
+                    `Pick a reason by number:\n` +
+                    REPORT_REASONS.map((r, i) => `  ${i + 1}) ${r}`).join('\n'), '1');
+                  if (!reason) return;
+                  const idx = parseInt(reason, 10);
+                  const pickedReason = (idx >= 1 && idx <= REPORT_REASONS.length)
+                    ? REPORT_REASONS[idx - 1] : 'Other';
+                  const context = window.prompt(
+                    `Reason: ${pickedReason}\n\nContext (optional, under 1000 chars — be specific):`, '');
+                  if (context === null) return;
+                  const { reportUser } = await import('./api.js');
+                  const res = await reportUser(stallData.seller.id, pickedReason, context);
+                  if (res && (res.error || res.code)) {
+                    alert(res.message || res.error || 'Could not file report.');
+                  } else {
+                    alert('Report filed. Our support team will review it. You can track the ticket in /support.');
+                  }
+                },
+                title: 'Report this user to support'
+              },
+                h('span', { className: 'stall-share-icon' }, '🚩'),
+                'Report')
             ),
             stallData.away && h('div', { className: 'stall-away-banner' },
               h('span', { className: 'stall-away-dot' }),

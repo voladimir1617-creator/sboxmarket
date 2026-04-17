@@ -58,4 +58,38 @@ class SupportController {
     ResponseEntity<SupportTicket> resolve(@PathVariable Long id, HttpServletRequest req) {
         ResponseEntity.ok(supportService.resolve(requireUser(req), id))
     }
+
+    /**
+     * User-on-user report. Opens a FRAUD-category support ticket so
+     * the CSR queue picks it up alongside other investigations. The
+     * body is auto-generated from the form fields so every report has
+     * a consistent shape staff can triage at a glance. Cannot report
+     * yourself — returns 400 SELF_REPORT.
+     */
+    @PostMapping("/report-user/{targetUserId}")
+    ResponseEntity<SupportTicket> reportUser(@PathVariable Long targetUserId,
+                                             @RequestBody Map body,
+                                             HttpServletRequest req) {
+        def uid = requireUser(req)
+        if (uid == targetUserId) {
+            throw new com.sboxmarket.exception.BadRequestException("SELF_REPORT",
+                "You can't report yourself")
+        }
+        def target = steamUserRepository.findById(targetUserId)
+            .orElseThrow { new com.sboxmarket.exception.NotFoundException("SteamUser", targetUserId) }
+        def me = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        def reason = (body?.reason as String ?: 'Not specified').take(80)
+        def context = (body?.context as String ?: '').take(1000)
+        def subject = "Report of ${target.displayName ?: 'user'} (#${targetUserId}) — ${reason}"
+        def ticketBody = """Reporter: ${me.displayName ?: 'user'} (#${uid})
+Target:   ${target.displayName ?: 'user'} (#${targetUserId}) Steam ID ${target.steamId64}
+Reason:   ${reason}
+
+Context (reporter-provided):
+${context.isEmpty() ? '(none)' : context}
+"""
+        ResponseEntity.ok(supportService.create(
+            uid, me.displayName ?: "Player", subject, 'FRAUD', ticketBody
+        ))
+    }
 }

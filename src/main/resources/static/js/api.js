@@ -114,6 +114,15 @@ export async function reportListing(id, reason, note) {
     body: JSON.stringify({ reason, note })
   });
 }
+/** Open a FRAUD-category support ticket reporting another user. */
+export async function reportUser(targetUserId, reason, context) {
+  return writeJson(`${API}/support/report-user/${targetUserId}`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, context })
+  });
+}
+
 export async function fetchReportReasons() {
   const data = await safeJson(`${API}/listings/report-reasons`);
   return Array.isArray(data) ? data : [];
