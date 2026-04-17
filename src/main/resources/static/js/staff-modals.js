@@ -11,7 +11,7 @@ import {
   adminCreditWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
-  adminTrades, adminReleaseTrade, adminCancelTrade,
+  adminTrades, adminReleaseTrade, adminCancelTrade, adminDeleteTradeMessage, fetchTradeMessages,
   adminSimulateListings, adminClearSimulated, adminCountSimulated, adminSyncScmm,
   csrStats, csrLookup, csrTickets, csrTicket, csrTicketReply, csrCloseTicket,
   csrGoodwill, csrFlagListing
@@ -672,6 +672,24 @@ function AdminTradesTab() {
   // to oldest-first so ops can attack the tail of the queue without
   // scrolling. Re-sorts client-side so we don't need a new endpoint.
   const [oldestFirst, setOldestFirst] = useState(false);
+  // Per-trade chat expansion — admins often need to read the
+  // counterparty thread when investigating a dispute. State: trade id
+  // of the currently-open chat + loaded messages keyed by trade id.
+  const [openChat, setOpenChat] = useState(null);
+  const [chatThreads, setChatThreads] = useState({});
+  const toggleChat = async (tradeId) => {
+    if (openChat === tradeId) { setOpenChat(null); return; }
+    setOpenChat(tradeId);
+    const msgs = await fetchTradeMessages(tradeId);
+    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+  };
+  const redactMessage = async (tradeId, msgId) => {
+    if (!confirm(`Redact message ${msgId}? The row is hard-deleted and can't be recovered.`)) return;
+    const res = await adminDeleteTradeMessage(msgId);
+    if (res && (res.error || res.code)) { alert(res.message || res.error); return; }
+    const msgs = await fetchTradeMessages(tradeId);
+    setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+  };
 
   const load = useCallback(async () => { setRows(null); setRows(await adminTrades(filter)); }, [filter]);
   useEffect(() => { load(); }, [load]);
@@ -734,25 +752,67 @@ function AdminTradesTab() {
               h('th', { className: 'right' }, 'Price'),
               h('th', { className: 'right' }, 'Updated'),
               h('th', { className: 'right' }, 'Actions'))),
-            h('tbody', null, display.map(r => h('tr', { key: r.id, className: 'db-row' },
-              h('td', { className: 'db-rank' }, '#' + r.id),
-              h('td', null, r.itemName || '—'),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, '#' + (r.buyerUserId || '?')),
-              h('td', { className: 'db-mono', style: { fontSize: 11 } }, '#' + (r.sellerUserId || 'system')),
-              h('td', { style: { fontSize: 10, fontWeight: 700 } }, (r.state || '').replace(/_/g, ' ')),
-              h('td', { className: 'right db-mono accent' }, fmt(r.price)),
-              h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(r.updatedAt)),
-              h('td', { className: 'right' },
-                !['VERIFIED','CANCELLED'].includes(r.state) && h('div', { style: { display: 'flex', gap: 4, justifyContent: 'flex-end' } },
-                  h('button', { className: 'buy-btn', disabled: busy, onClick: () => release(r), title: 'Force-release funds to seller' }, 'Release'),
-                  h('button', {
-                    className: 'btn btn-ghost',
-                    style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 },
-                    disabled: busy, onClick: () => cancel(r), title: 'Force-cancel and refund the buyer'
-                  }, 'Cancel')
+            h('tbody', null, display.map(r => [
+              h('tr', { key: r.id, className: 'db-row' },
+                h('td', { className: 'db-rank' }, '#' + r.id),
+                h('td', null, r.itemName || '—'),
+                h('td', { className: 'db-mono', style: { fontSize: 11 } }, '#' + (r.buyerUserId || '?')),
+                h('td', { className: 'db-mono', style: { fontSize: 11 } }, '#' + (r.sellerUserId || 'system')),
+                h('td', { style: { fontSize: 10, fontWeight: 700 } }, (r.state || '').replace(/_/g, ' ')),
+                h('td', { className: 'right db-mono accent' }, fmt(r.price)),
+                h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } }, timeAgo(r.updatedAt)),
+                h('td', { className: 'right' },
+                  h('div', { style: { display: 'flex', gap: 4, justifyContent: 'flex-end' } },
+                    h('button', {
+                      className: 'btn btn-ghost',
+                      style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+                      onClick: () => toggleChat(r.id),
+                      title: 'Read (and moderate) the counterparty chat'
+                    }, openChat === r.id ? '✕ Chat' : '💬 Chat'),
+                    !['VERIFIED','CANCELLED'].includes(r.state) && h('button', {
+                      className: 'buy-btn',
+                      disabled: busy, onClick: () => release(r), title: 'Force-release funds to seller'
+                    }, 'Release'),
+                    !['VERIFIED','CANCELLED'].includes(r.state) && h('button', {
+                      className: 'btn btn-ghost',
+                      style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 },
+                      disabled: busy, onClick: () => cancel(r), title: 'Force-cancel and refund the buyer'
+                    }, 'Cancel')
+                  )
+                )
+              ),
+              openChat === r.id && h('tr', { key: r.id + '-chat' },
+                h('td', { colSpan: 8, style: { padding: 12, background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' } },
+                  (chatThreads[r.id] || []).length === 0
+                    ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
+                        'No messages in this trade.')
+                    : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' } },
+                        chatThreads[r.id].map(m => h('div', {
+                          key: m.id,
+                          style: {
+                            display: 'flex', gap: 8, alignItems: 'flex-start',
+                            padding: '6px 10px',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            fontSize: 12
+                          }
+                        },
+                          h('div', { style: { minWidth: 70, fontSize: 10, color: 'var(--text-muted)' } },
+                            '#' + m.senderUserId),
+                          h('div', { style: { flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-primary)' } }, m.body),
+                          h('div', { style: { fontSize: 10, color: 'var(--text-muted)' } }, timeAgo(m.createdAt)),
+                          h('button', {
+                            className: 'btn btn-ghost',
+                            style: { padding: '2px 8px', fontSize: 10, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
+                            onClick: () => redactMessage(r.id, m.id),
+                            title: 'Hard-delete this message (audit logged)'
+                          }, 'Redact')
+                        ))
+                      )
                 )
               )
-            )))
+            ]).flat())
           )
   );
 }

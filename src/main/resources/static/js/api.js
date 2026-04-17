@@ -620,6 +620,12 @@ export async function adminReleaseTrade(id, reason) {
     body: JSON.stringify({ reason })
   });
 }
+export async function adminDeleteTradeMessage(id) {
+  return writeJson(`${API}/admin/trade-messages/${id}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+
 export async function adminCancelTrade(id, reason) {
   return writeJson(`${API}/admin/trades/${id}/cancel`, {
     method: 'POST', credentials: 'same-origin',
