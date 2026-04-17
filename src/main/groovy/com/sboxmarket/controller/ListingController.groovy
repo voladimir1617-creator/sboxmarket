@@ -179,6 +179,16 @@ class ListingController {
         ResponseEntity.ok(result)
     }
 
+    /** Newest active listings — drives the homepage "Just listed" rail.
+     *  Public, excludes hidden listings via the service's visible-seller
+     *  filter where applicable, capped at 20 rows. Buyers love fresh
+     *  inventory; this is the "what just dropped" surface. */
+    @GetMapping("/just-listed")
+    ResponseEntity<List<Listing>> justListed() {
+        def rows = listingService.findNewestActive(20)
+        ResponseEntity.ok(rows)
+    }
+
     /** Auctions ending within the next hour (or custom window). Powers the
      *  homepage "Ending soon" rail — high-signal surface for the buying
      *  audience since the bid pressure is about to peak. Public endpoint,

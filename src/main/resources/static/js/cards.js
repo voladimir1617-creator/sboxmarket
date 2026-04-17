@@ -34,18 +34,30 @@ export function AuctionCountdown({ expiresAt, className }) {
   );
 }
 
-export function GridCard({ listing, onClick, starred, onToggleStar, listingCount }) {
+export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas }) {
   const item = listing?.item;
   if (!item) return null;
   const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
   const disc = discountPct(listing.price, item.steamPrice);
   const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
+  const inCart = cartHas ? cartHas(listing.id) : false;
   return h('div', { className: `grid-card${isAuction ? ' is-auction' : ''}`, onClick },
     h('div', { className: 'grid-thumb' },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       disc > 0 && h('div', { className: 'grid-discount' }, `−${disc}%`),
       isAuction && h(AuctionCountdown, { expiresAt: listing.expiresAt }),
+      // Quick-add-to-cart — only for BUY_NOW listings (auctions make no
+      // sense in a cart). Stops click-propagation so clicking the button
+      // doesn't also open the item modal. The cartHas prop lets the
+      // parent tell us when it's already in the cart so the label flips.
+      !isAuction && onAddToCart && h('button', {
+        className: `grid-cart-btn ${inCart ? 'in' : ''}`,
+        onClick: e => { e.stopPropagation(); if (!inCart) onAddToCart(listing); },
+        title: inCart ? 'Already in cart' : 'Add to cart',
+        'aria-label': inCart ? 'Already in cart' : 'Add to cart',
+        disabled: inCart
+      }, inCart ? '✓' : '+'),
       onToggleStar && h('button', {
         className: `grid-star ${starred ? 'on' : ''}`,
         onClick: e => { e.stopPropagation(); onToggleStar(item.id); },

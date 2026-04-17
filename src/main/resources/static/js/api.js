@@ -536,6 +536,12 @@ export async function replyToReview(reviewId, reply) {
     body: JSON.stringify({ reply })
   });
 }
+/** Newest active listings — powers the "Just listed" rail on the
+ *  marketplace home. 20-row cap server-side, excludes hidden rows. */
+export async function fetchJustListed() {
+  const data = await safeJson(`${API}/listings/just-listed`);
+  return Array.isArray(data) ? data : [];
+}
 /** Auctions ending within the next hour — powers the "Ending soon" rail
  *  on the marketplace home. Public endpoint, 20-row cap server-side. */
 export async function fetchAuctionsEndingSoon(withinMs) {

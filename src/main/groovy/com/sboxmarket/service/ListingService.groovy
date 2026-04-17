@@ -100,6 +100,17 @@ class ListingService {
         listingRepository.findAuctionsEndingBefore(now, deadline)
     }
 
+    /** Newest active listings, capped. Drives the homepage "Just listed"
+     *  rail. We additionally filter out `hidden` rows in Groovy — the
+     *  existing `findActiveOrderByNewest` doesn't discriminate on the
+     *  hidden flag, so we do it here before returning the cap. The cost
+     *  is bounded: worst-case we fetch the N newest hidden rows before
+     *  pulling visible ones, still sub-linear. */
+    List<Listing> findNewestActive(int cap) {
+        def rows = listingRepository.findActiveOrderByNewest()
+        rows.findAll { it.hidden == null || !it.hidden }.take(cap)
+    }
+
     /** Lifetime sold count for a seller — feeds the verified badge
      *  threshold and the stall-hero "sales" stat. */
     long countSoldBySeller(Long sellerUserId) {

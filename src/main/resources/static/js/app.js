@@ -6,7 +6,7 @@ import {
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
-  fetchAnnouncement, replyToReview
+  fetchAnnouncement, replyToReview, fetchJustListed
 } from './api.js';
 import { ItemImage, MaterialIcon } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
@@ -251,6 +251,46 @@ function AuctionsEndingSoonRail({ watchlist, onToggleStar, onOpen }) {
       rows.map(l => h('div', {
         key: 'ends-' + l.id,
         className: 'auctions-ending-soon-card-wrap',
+        onClick: () => onOpen(l)
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l)
+        })
+      ))
+    )
+  );
+}
+
+// ── Just listed — "what just dropped" rail. Polls every 45s; hides when
+// empty. Sits on the marketplace home below the ending-soon strip.
+function JustListedRail({ watchlist, onToggleStar, onOpen }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchJustListed();
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 45_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'just-listed-rail' },
+    h('div', { className: 'just-listed-head' },
+      h('span', { className: 'just-listed-dot' }),
+      h('span', null, 'Just listed'),
+      h('span', { className: 'just-listed-count' }, `${rows.length} fresh`)
+    ),
+    h('div', { className: 'just-listed-track' },
+      rows.map(l => h('div', {
+        key: 'just-' + l.id,
+        className: 'just-listed-card-wrap',
         onClick: () => onOpen(l)
       },
         h(GridCard, {
@@ -643,6 +683,11 @@ export function App() {
   // toggle instantly without a roundtrip. Buy-now includes null
   // listingType for historical rows.
   const [listingTypeFilter, setListingTypeFilter] = useState('ALL');
+  // Deal hunter toggle — when on, only show listings priced below the
+  // catalogue steamPrice (i.e. cheaper than you'd pay on Steam Market).
+  // Pure client-side filter applied before dedup so the cheapest seller
+  // per item still wins the grid card.
+  const [dealsOnly, setDealsOnly] = useState(false);
 
   // item detail
   const [selected, setSelected]         = useState(null);
@@ -1129,13 +1174,20 @@ export function App() {
   const dedupedListings = useMemo(() => {
     // Apply the listing-type filter before dedup so "Auction only" doesn't
     // pick the buy-now as the representative card for an item that has both.
-    const filteredByType = listingTypeFilter === 'ALL'
+    let pool = listingTypeFilter === 'ALL'
       ? listings
       : listings.filter(l => listingTypeFilter === 'AUCTION'
           ? l?.listingType === 'AUCTION'
           : l?.listingType !== 'AUCTION');
+    if (dealsOnly) {
+      pool = pool.filter(l => {
+        const sp = parseFloat(l?.item?.steamPrice);
+        const p  = parseFloat(l?.price);
+        return isFinite(sp) && isFinite(p) && sp > 0 && p < sp;
+      });
+    }
     const byItem = {};
-    filteredByType.filter(l => l?.item).forEach(l => {
+    pool.filter(l => l?.item).forEach(l => {
       const current = byItem[l.item.id];
       if (!current || parseFloat(l.price) < parseFloat(current.listing.price)) {
         byItem[l.item.id] = { listing: l, count: 1 };
@@ -1143,10 +1195,10 @@ export function App() {
       if (current) current.count++;
     });
     const counts = {};
-    filteredByType.forEach(l => { if (l?.item) counts[l.item.id] = (counts[l.item.id] || 0) + 1; });
+    pool.forEach(l => { if (l?.item) counts[l.item.id] = (counts[l.item.id] || 0) + 1; });
     return Object.values(byItem)
       .map(e => ({ ...e.listing, __listingCount: counts[e.listing.item.id] || 1 }));
-  }, [listings, listingTypeFilter]);
+  }, [listings, listingTypeFilter, dealsOnly]);
 
   // Full-page routes vs overlay routes. CSFloat-style: most destinations
   // are real pages that replace the marketplace body; only the item detail
@@ -1535,6 +1587,15 @@ export function App() {
                 'aria-pressed': listingTypeFilter === opt.id
               }, opt.label))
           ),
+          // Deal-hunter chip. Separated from the type toggle because
+          // it's orthogonal — you can stack "Auctions only" + "Deals only"
+          // to see undervalued auctions. Purely client-side filter.
+          h('button', {
+            className: `deals-chip ${dealsOnly ? 'active' : ''}`,
+            onClick: () => setDealsOnly(d => !d),
+            title: 'Only show listings priced below the Steam Market price',
+            'aria-pressed': dealsOnly
+          }, '% Deals'),
           h('div', { className: 'view-btns', role: 'group', 'aria-label': 'View mode' },
             h('button', { className: `view-btn ${view === 'grid' ? 'active' : ''}`,  onClick: () => setView('grid'), 'aria-label': 'Grid view',  'aria-pressed': view === 'grid' },  '⊞'),
             h('button', { className: `view-btn ${view === 'table' ? 'active' : ''}`, onClick: () => setView('table'), 'aria-label': 'Table view', 'aria-pressed': view === 'table' }, '☰')
@@ -1606,7 +1667,11 @@ export function App() {
                     listingCount: l.__listingCount,
                     onClick: () => openModal(l),
                     starred: watchlist.includes(l.item.id),
-                    onToggleStar: toggleStar
+                    onToggleStar: toggleStar,
+                    // Quick-add to cart — signed-in only; backend gates
+                    // checkout on currentUser regardless.
+                    onAddToCart: me ? addToCart : null,
+                    cartHas: (id) => cart.some(c => c.id === id)
                   }))
                 )
               : h('table', { className: 'listing-table' },
@@ -1635,6 +1700,13 @@ export function App() {
        Only renders when there's at least one auction closing in the next
        hour. Polls every 30s so the rail stays fresh without SSE. */
     routeName === 'market' && h(AuctionsEndingSoonRail, {
+      watchlist, onToggleStar: toggleStar, onOpen: openModal
+    }),
+
+    /* JUST LISTED — rail of the 20 freshest listings site-wide. Drops onto
+       the home page between the ending-soon strip and the recently-viewed
+       rail so the "what's new" surface is always one glance away. */
+    routeName === 'market' && h(JustListedRail, {
       watchlist, onToggleStar: toggleStar, onOpen: openModal
     }),
 

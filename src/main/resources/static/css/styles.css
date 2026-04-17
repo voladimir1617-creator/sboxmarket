@@ -4445,6 +4445,27 @@
     }
     .announce-banner-close:hover { background: rgba(0, 0, 0, 0.28); }
 
+    /* ─────────── DEALS CHIP ─────────── */
+    .deals-chip {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: all 0.12s;
+    }
+    .deals-chip:hover { color: var(--text-primary); }
+    .deals-chip.active {
+      color: #0d1320;
+      background: linear-gradient(135deg, #60e3a6, #4ade80);
+      border-color: #16a34a;
+      box-shadow: 0 3px 8px rgba(74, 222, 128, 0.35);
+    }
+
     /* ─────────── LISTING TYPE TOGGLE ─────────── */
     .type-toggle {
       display: inline-flex;
@@ -4708,6 +4729,89 @@
       max-width: 220px;
     }
     .auctions-ending-soon-card-wrap .grid-card { cursor: pointer; }
+
+    /* ─────────── GRID CARD QUICK-ADD-TO-CART ─────────── */
+    .grid-cart-btn {
+      position: absolute;
+      top: 10px;
+      right: 50px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1;
+      color: #0d1320;
+      background: var(--accent);
+      border: 2px solid #0d1320;
+      cursor: pointer;
+      z-index: 2;
+      transition: transform 0.12s, background 0.12s, opacity 0.12s;
+      opacity: 0;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+    }
+    .grid-card:hover .grid-cart-btn { opacity: 1; }
+    .grid-cart-btn:hover { transform: scale(1.12); }
+    .grid-cart-btn.in {
+      background: #4ade80;
+      opacity: 1;
+      cursor: default;
+    }
+    .grid-cart-btn.in:hover { transform: none; }
+    /* Keep the button visible on touch devices where hover isn't reliable */
+    @media (hover: none) {
+      .grid-cart-btn { opacity: 1; }
+    }
+
+    /* ─────────── JUST LISTED RAIL ─────────── */
+    .just-listed-rail {
+      margin: 20px 0 8px;
+      padding: 20px 22px;
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.06), rgba(74, 222, 128, 0.01));
+      border: 1px solid rgba(74, 222, 128, 0.24);
+      border-radius: 12px;
+    }
+    .just-listed-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+    .just-listed-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: auction-pulse 1.6s ease-in-out infinite;
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+    }
+    .just-listed-count {
+      margin-left: auto;
+      padding: 3px 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #86efac;
+      background: rgba(74, 222, 128, 0.12);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: 5px;
+      letter-spacing: 0.04em;
+    }
+    .just-listed-track {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scrollbar-width: thin;
+    }
+    .just-listed-track::-webkit-scrollbar { height: 6px; }
+    .just-listed-track::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .just-listed-card-wrap { flex: 0 0 220px; max-width: 220px; }
+    .just-listed-card-wrap .grid-card { cursor: pointer; }
 
     /* ─────────── RECENTLY VIEWED RAIL ─────────── */
     .recently-viewed {
