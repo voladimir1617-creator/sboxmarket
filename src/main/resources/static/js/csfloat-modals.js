@@ -719,7 +719,9 @@ function kindIcon(kind) {
     LISTING_REMOVED: '⚠',
     REPORT_ACTIONED: '🚩', REPORT_REVIEWED: '👀',
     WATCHLIST_PRICE_DROP: '📉',
-    NEW_LISTING_FROM_SELLER: '🆕'
+    NEW_LISTING_FROM_SELLER: '🆕',
+    ADMIN_GRANTED: '👑', ADMIN_REVOKED: '↓',
+    CSR_GRANTED: '🎧',   CSR_REVOKED: '↓'
   };
   return map[kind] || '•';
 }

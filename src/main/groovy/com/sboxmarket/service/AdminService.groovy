@@ -416,6 +416,10 @@ class AdminService {
         }
         user.role = 'ADMIN'
         steamUserRepository.save(user)
+        notificationService?.push(targetUserId, 'ADMIN_GRANTED',
+            'You are now an admin',
+            'You have been promoted to ADMIN on SkinBox — the Admin Panel is now available from your user menu.',
+            null, '/admin')
         auditService?.log(AuditService.ADMIN_GRANTED, adminUserId, targetUserId, null,
             "Granted ADMIN to ${user.steamId64}")
         log.info("Admin ${adminUserId} granted ADMIN to ${targetUserId}")
@@ -431,6 +435,10 @@ class AdminService {
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         user.role = 'USER'
         steamUserRepository.save(user)
+        notificationService?.push(targetUserId, 'ADMIN_REVOKED',
+            'Admin role revoked',
+            'Your admin privileges have been removed. You can still use SkinBox normally as a regular user.',
+            null, '/profile')
         auditService?.log(AuditService.ADMIN_REVOKED, adminUserId, targetUserId, null,
             "Revoked ADMIN from ${user.steamId64}")
         log.info("Admin ${adminUserId} revoked ADMIN from ${targetUserId}")
@@ -451,6 +459,10 @@ class AdminService {
         }
         user.role = 'CSR'
         steamUserRepository.save(user)
+        notificationService?.push(targetUserId, 'CSR_GRANTED',
+            'You are now a customer service rep',
+            'You have been granted the CSR role on SkinBox. The 🎧 Customer Service panel is now available from your user menu.',
+            null, '/csr')
         auditService?.log(AuditService.CSR_GRANTED, adminUserId, targetUserId, null,
             "Granted CSR to ${user.steamId64}")
         log.info("Admin ${adminUserId} granted CSR to ${targetUserId}")
@@ -634,6 +646,10 @@ class AdminService {
         }
         user.role = 'USER'
         steamUserRepository.save(user)
+        notificationService?.push(targetUserId, 'CSR_REVOKED',
+            'CSR role revoked',
+            'Your customer service role has been removed. You can still use SkinBox normally as a regular user.',
+            null, '/profile')
         auditService?.log(AuditService.CSR_REVOKED, adminUserId, targetUserId, null,
             "Revoked CSR from ${user.steamId64}")
         log.info("Admin ${adminUserId} revoked CSR from ${targetUserId}")
