@@ -905,7 +905,7 @@ function AdminAuditTab() {
   useEffect(() => { load(); }, [load]);
 
   const EVENTS = ['','DEPOSIT_COMPLETE','WITHDRAW_REQUESTED','WITHDRAW_APPROVED','WITHDRAW_REJECTED','REFUND_ISSUED',
-                  'LISTING_PURCHASED','LISTING_FORCE_CANCELLED','USER_BANNED','USER_UNBANNED',
+                  'LISTING_PURCHASED','LISTING_FORCE_CANCELLED','USER_BANNED','USER_UNBANNED','USER_SIGN_IN',
                   'ADMIN_GRANTED','ADMIN_REVOKED','CSR_GRANTED','CSR_REVOKED',
                   'CSR_CREDIT','ADMIN_CREDIT','API_KEY_MINTED','API_KEY_REVOKED'];
   // Apply the client-side free-text filter against whatever the backend

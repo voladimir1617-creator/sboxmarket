@@ -20,6 +20,7 @@ class SteamAuthController {
 
     @Autowired SteamAuthService steamAuthService
     @Autowired SteamUserRepository steamUserRepository
+    @Autowired(required = false) com.sboxmarket.service.AuditService auditService
 
     /** Kicks off the OpenID flow — redirects the browser to Steam's login page. */
     @GetMapping("/login")
@@ -59,6 +60,17 @@ class SteamAuthController {
             def fresh = req.getSession(true)
             fresh.setAttribute(SESSION_USER_ID, user.id)
             log.info("Steam login OK: ${user.displayName} (${user.steamId64})")
+            // Audit every successful sign-in. Fraud review needs this
+            // trail — a compromised session attack often shows as a
+            // login from an unexpected IP followed by a flurry of
+            // withdrawals. Best-effort: audit failure doesn't block
+            // the happy path.
+            try {
+                auditService?.log('USER_SIGN_IN', user.id, user.id, null,
+                    "Steam OpenID sign-in")
+            } catch (Exception auditErr) {
+                log.warn("Sign-in audit log failed for user ${user.id}: ${auditErr.message}")
+            }
             resp.sendRedirect("/?login=success")
         } catch (Exception e) {
             log.error("Steam upsertUser/redirect threw for steamId64=$steamId64", e)

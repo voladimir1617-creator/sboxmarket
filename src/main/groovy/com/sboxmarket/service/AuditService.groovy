@@ -38,6 +38,7 @@ class AuditService {
     static final String USER_UNBANNED       = 'USER_UNBANNED'
     static final String ADMIN_GRANTED       = 'ADMIN_GRANTED'
     static final String ADMIN_REVOKED       = 'ADMIN_REVOKED'
+    static final String USER_SIGN_IN        = 'USER_SIGN_IN'
     static final String CSR_GRANTED         = 'CSR_GRANTED'
     static final String CSR_REVOKED         = 'CSR_REVOKED'
     static final String TWOFA_RESET         = 'TWOFA_RESET'
