@@ -3,7 +3,7 @@
 import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, discountPct } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon } from './primitives.js';
 import { GridCard } from './cards.js';
-import { InfoModal } from './info-modal.js';
+import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
 import {
   fetchInventory, fetchMyStall, fetchMyStallSold, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing,
@@ -855,9 +855,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   }, [me]);
 
   if (!me) return h(InfoModal, { title: 'Profile', onClose },
-    h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🔒'),
-      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view your profile.')));
+    h(SignInNeededEmptyState, { what: 'your profile' }));
 
   const maskAmount = (val) => privacy ? '$•••••' : fmt(val);
 
@@ -2036,9 +2034,7 @@ function ProfileTradesTab({ me, privacy }) {
   const load = useCallback(async () => { setTrades(await fetchTrades()); }, []);
   useEffect(() => { load(); }, [load]);
 
-  if (!me) return h('div', { className: 'empty-inline' },
-    h('div', { className: 'empty-icon' }, '🔒'),
-    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view your trades.'));
+  if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
   if (trades === null) return h('div', { className: 'spinner' });
 
   const stateFiltered = filter === 'ALL'
@@ -2770,8 +2766,8 @@ function ProfileReviewsTab({ me }) {
   }, [me?.id]);
   useEffect(() => { load(); }, [load]);
 
-  if (!me) return h(InfoModal, { title: 'Reviews' }, h('div', { className: 'empty-inline' },
-    h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view reviews.')));
+  if (!me) return h(InfoModal, { title: 'Reviews' },
+    h(SignInNeededEmptyState, { what: 'your reviews' }));
   if (rows === null) return h('div', { className: 'spinner' });
 
   const filtered = starFilter > 0 ? rows.filter(r => r.rating === starFilter) : rows;
@@ -3511,9 +3507,7 @@ export function MyStallModal({ onClose, me, onRefresh }) {
   }, [me, tab, sold]);
 
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
-    h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🔒'),
-      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view your stall.')));
+    h(SignInNeededEmptyState, { what: 'your stall' }));
   if (stall === null) return h(InfoModal, { title: 'My Stall', onClose }, h('div', { className: 'spinner' }));
 
   const doCancel = async (id) => {
@@ -3799,9 +3793,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
   useEffect(() => { if (me) load(); }, [me, load]);
 
   if (!me) return h(InfoModal, { title: 'Offers', onClose },
-    h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🔒'),
-      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to view your offers.')));
+    h(SignInNeededEmptyState, { what: 'your offers' }));
 
   const handleAccept = async (id) => {
     if (busy) return;

@@ -5,7 +5,7 @@
 // uses InfoModal as the shell, calls into ./api.js for I/O.
 import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon } from './primitives.js';
-import { InfoModal } from './info-modal.js';
+import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths } from './router.js';
 import {
   fetchDatabase, fetchBuyOrders, createBuyOrder, deleteBuyOrder, fetchBuyOrderProjectedPosition,
@@ -176,9 +176,7 @@ export function BuyOrdersModal({ onClose, me, preselectedItem }) {
   }, [pool, search]);
 
   if (!me) return h(InfoModal, { title: 'Buy Orders', onClose },
-    h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🔒'),
-      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to manage your buy orders.')));
+    h(SignInNeededEmptyState, { what: 'and manage your buy orders' }));
 
   const submit = async () => {
     setErr('');
@@ -587,9 +585,7 @@ export function NotificationsModal({ onClose, me }) {
   useEffect(() => { if (me) load(); }, [me, load]);
 
   if (!me) return h(InfoModal, { title: 'Notifications', onClose },
-    h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🔒'),
-      h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to see your notifications.')));
+    h(SignInNeededEmptyState, { what: 'your notifications' }));
 
   const clear = async () => { await markAllNotificationsRead(); load(); };
   const clearRead = async () => {
