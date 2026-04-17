@@ -119,6 +119,7 @@ class AdminService {
         def pendingCount = transactionRepository.countByTypeStatus('WITHDRAW', 'PENDING')
         def pendingAmt   = transactionRepository.sumByTypeStatus('WITHDRAW', 'PENDING') ?: BigDecimal.ZERO
         def newUsers24h  = steamUserRepository.countCreatedSince(since24h)
+        def fees24h      = tradeRepository ? (tradeRepository.sumFeesSince(since24h) ?: BigDecimal.ZERO) : BigDecimal.ZERO
 
         [
             users:                    steamUserRepository.count(),
@@ -133,7 +134,8 @@ class AdminService {
             pendingWithdrawalsAmount: (pendingAmt as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP),
             openTickets:              supportTicketRepository.countOpen(),
             bannedUsers:              steamUserRepository.countBanned(),
-            newUsers24h:              newUsers24h
+            newUsers24h:              newUsers24h,
+            fees24h:                  (fees24h as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
         ]
     }
 

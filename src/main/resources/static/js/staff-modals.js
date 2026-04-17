@@ -25,6 +25,7 @@ export function AdminModal({ onClose, me }) {
     { id: 'users',       label: '👥 Users' },
     { id: 'tickets',     label: '🎧 Tickets' },
     { id: 'refunds',     label: '↩ Refunds' },
+    { id: 'catalogue',   label: '🗂 Catalogue' },
     { id: 'simulator',   label: '🧪 Simulator' },
     { id: 'fraud',       label: '🚨 Fraud' },
     { id: 'announce',    label: '📢 Announce' },
@@ -49,6 +50,7 @@ export function AdminModal({ onClose, me }) {
     tab === 'users'       && h(AdminUsersTab, { me }),
     tab === 'tickets'     && h(AdminTicketsTab, null),
     tab === 'refunds'     && h(AdminRefundsTab, null),
+    tab === 'catalogue'   && h(AdminCatalogueTab, null),
     tab === 'simulator'   && h(AdminSimulatorTab, null),
     tab === 'fraud'       && h(AdminFraudTab, null),
     tab === 'announce'    && h(AdminAnnouncementsTab, null),
@@ -639,6 +641,7 @@ function AdminDashboardTab() {
       Stat('Total Escrow',         fmt(stats.totalEscrow || 0), 'accent'),
       Stat('Deposits 24h',         fmt(stats.deposits24h || 0), 'green', depositDelta),
       Stat('Sales 24h',            fmt(stats.sales24h || 0), 'green', salesDelta),
+      Stat('Platform fees 24h',    fmt(stats.fees24h || 0), 'accent'),
       Stat('Pending Withdrawals',  `${stats.pendingWithdrawals || 0} · ${fmt(stats.pendingWithdrawalsAmount || 0)}`, 'yellow'),
       Stat('Open Tickets',         Number(stats.openTickets || 0)),
       Stat('Banned Users',         Number(stats.bannedUsers || 0), stats.bannedUsers > 0 ? 'red' : '')
@@ -748,6 +751,177 @@ function AdminWithdrawalsTab() {
               )
             )))
           )
+  );
+}
+
+// Admin catalogue editor — lets staff override stale SCMM fields on an
+// item without waiting for the next sync. Backed by `PUT /api/admin/items/{id}`.
+// Free-text search uses the public /api/items?q= endpoint so we don't need
+// a new list endpoint. Edit form applies partial updates (only the changed
+// fields land in the PUT body), audits on every save.
+function AdminCatalogueTab() {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [draft, setDraft] = useState({});
+  useEffect(() => {
+    const qs = (q || '').trim();
+    if (qs.length < 2) { setResults([]); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/items?q=${encodeURIComponent(qs)}`, { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (alive) setResults(Array.isArray(j) ? j.slice(0, 30) : []);
+      } catch (_) {}
+    }, 220);
+    return () => { alive = false; clearTimeout(t); };
+  }, [q]);
+  const edit = (it) => {
+    setEditing(it);
+    setDraft({
+      steamPrice:  it.steamPrice  != null ? String(it.steamPrice) : '',
+      rarity:      it.rarity      || '',
+      imageUrl:    it.imageUrl    || '',
+      accentColor: it.accentColor || ''
+    });
+    setErr('');
+  };
+  const save = async () => {
+    if (!editing) return;
+    setBusy(true); setErr('');
+    try {
+      const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
+      const r = await fetch(`/api/admin/items/${editing.id}`, {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {})
+        },
+        body: JSON.stringify(draft)
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        setErr(j.message || `HTTP ${r.status}`);
+        return;
+      }
+      const fresh = await r.json();
+      setResults(rs => rs.map(x => x.id === fresh.id ? { ...x, ...fresh } : x));
+      setEditing(null);
+    } finally { setBusy(false); }
+  };
+  return h('div', { className: 'admin-tab-content' },
+    h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+      h('input', {
+        className: 'price-input',
+        placeholder: 'Search items by name…',
+        value: q,
+        onChange: e => setQ(e.target.value),
+        style: { flex: 1 }
+      })
+    ),
+    q.trim().length < 2 && h('div', { style: { fontSize: 12, color: 'var(--text-muted)', padding: 16 } },
+      'Type at least 2 letters to search the catalogue. Edit steamPrice / rarity / imageUrl / accentColor inline; updates apply without waiting for the next SCMM sync.'),
+    q.trim().length >= 2 && results.length === 0 && h('div', { className: 'empty-inline' },
+      h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No items match.')),
+    results.length > 0 && h('table', { className: 'db-table', style: { marginTop: 8 } },
+      h('thead', null, h('tr', null,
+        h('th', null, 'ID'),
+        h('th', null, 'Name'),
+        h('th', null, 'Rarity'),
+        h('th', { className: 'right' }, 'Floor'),
+        h('th', { className: 'right' }, 'Steam'),
+        h('th', { className: 'right' }, ''))),
+      h('tbody', null, results.map(it => h('tr', { key: it.id, className: 'db-row' },
+        h('td', { className: 'db-rank' }, '#' + it.id),
+        h('td', null,
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+            it.imageUrl
+              ? h('img', { src: it.imageUrl, alt: '', style: { width: 28, height: 28, borderRadius: 4, background: 'var(--bg-elevated)' } })
+              : h('span', { style: { fontSize: 16 } }, it.iconEmoji || '📦'),
+            h('span', null, it.name)
+          )
+        ),
+        h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, it.rarity || 'Standard'),
+        h('td', { className: 'right db-mono accent' }, it.lowestPrice != null ? fmt(it.lowestPrice) : '—'),
+        h('td', { className: 'right db-mono' }, it.steamPrice != null ? fmt(it.steamPrice) : '—'),
+        h('td', { className: 'right' },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+            onClick: () => edit(it)
+          }, '✎ Edit')
+        )
+      )))
+    ),
+    // Edit drawer — partial PUT, validates on the server.
+    editing && h('div', { className: 'cart-confirm-backdrop', onClick: () => !busy && setEditing(null) },
+      h('div', { className: 'cart-confirm-panel', style: { maxWidth: 520 }, onClick: e => e.stopPropagation() },
+        h('div', { className: 'cart-confirm-title' }, '✎ Edit ' + editing.name),
+        h('div', { className: 'cart-confirm-sub' },
+          `ID #${editing.id} — partial edits apply immediately. Clear a field to restore the SCMM default on the next sync.`),
+        h('div', { style: { marginTop: 14, display: 'grid', gap: 10 } },
+          h('div', null,
+            h('div', { className: 'settings-label' }, 'Steam price'),
+            h('input', {
+              className: 'wallet-amount-input',
+              type: 'number', step: '0.01', min: '0',
+              placeholder: '0.00 (blank = clear)',
+              value: draft.steamPrice,
+              onChange: e => setDraft(d => ({ ...d, steamPrice: e.target.value }))
+            })
+          ),
+          h('div', null,
+            h('div', { className: 'settings-label' }, 'Rarity'),
+            h('select', {
+              className: 'sort-select',
+              value: draft.rarity,
+              onChange: e => setDraft(d => ({ ...d, rarity: e.target.value }))
+            },
+              ['Standard','Off-Market','Limited','Unique','Rare','Exceedingly Rare'].map(r =>
+                h('option', { key: r, value: r }, r))
+            )
+          ),
+          h('div', null,
+            h('div', { className: 'settings-label' }, 'Image URL (https)'),
+            h('input', {
+              className: 'wallet-amount-input',
+              type: 'url',
+              placeholder: 'https://…',
+              value: draft.imageUrl,
+              onChange: e => setDraft(d => ({ ...d, imageUrl: e.target.value }))
+            })
+          ),
+          h('div', null,
+            h('div', { className: 'settings-label' }, 'Accent colour (#hex)'),
+            h('input', {
+              className: 'wallet-amount-input',
+              placeholder: '#1ea5ff',
+              value: draft.accentColor,
+              onChange: e => setDraft(d => ({ ...d, accentColor: e.target.value }))
+            })
+          )
+        ),
+        err && h('div', { className: 'wallet-error' }, err),
+        h('div', { className: 'cart-confirm-actions' },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)' },
+            onClick: () => setEditing(null),
+            disabled: busy
+          }, 'Cancel'),
+          h('button', {
+            className: 'btn btn-accent',
+            onClick: save,
+            disabled: busy
+          }, busy ? 'Saving…' : 'Save changes')
+        )
+      )
+    )
   );
 }
 

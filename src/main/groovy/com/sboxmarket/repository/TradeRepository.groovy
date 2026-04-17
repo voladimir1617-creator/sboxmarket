@@ -56,4 +56,15 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
         ORDER BY t.updatedAt ASC
     """)
     List<Trade> findPendingConfirmOlderThan(@Param("cutoff") Long cutoff)
+
+    /** Platform fee collected on VERIFIED trades since a cutoff. Used by
+     *  the admin dashboard "Fees 24h" stat — one indexed SUM instead of
+     *  scanning the trade table. */
+    @Query("""
+        SELECT COALESCE(SUM(t.feeAmount), 0) FROM Trade t
+        WHERE t.state = 'VERIFIED'
+          AND t.settledAt IS NOT NULL
+          AND t.settledAt >= :since
+    """)
+    BigDecimal sumFeesSince(@Param("since") Long since)
 }

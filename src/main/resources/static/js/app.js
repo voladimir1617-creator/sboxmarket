@@ -952,13 +952,26 @@ export function App() {
     setCart(c => {
       if (c.find(x => x.id === listing.id)) return c;
       return [...c, {
-        id:    listing.id,
-        name:  listing.item?.name,
-        price: listing.price,
-        thumb: listing.item?.imageUrl || null
+        id:         listing.id,
+        name:       listing.item?.name,
+        price:      listing.price,
+        // Stash the Steam reference price so the cart page can show
+        // "saved $X vs Steam" without re-fetching the catalogue on
+        // every render. Falls back to null when the catalogue has no
+        // Steam Market data yet (new item, pre-sync).
+        steamPrice: listing.item?.steamPrice ?? null,
+        thumb:      listing.item?.imageUrl || null
       }];
     });
   };
+  // Total Steam-reference price for every cart row that has a
+  // steamPrice snapshot. Saves = max(0, steamTotal - cartTotal).
+  const cartSteamTotal = useMemo(() => cart.reduce((s, it) => {
+    const sp = parseFloat(it.steamPrice);
+    return s + (isFinite(sp) && sp > 0 ? sp : parseFloat(it.price) || 0);
+  }, 0), [cart]);
+  const cartSavings = Math.max(0, cartSteamTotal - parseFloat(
+    cart.reduce((s, it) => s + (parseFloat(it.price) || 0), 0)));
   const removeFromCart = (id) => setCart(c => c.filter(x => x.id !== id));
   const clearCart = () => setCart([]);
   // Confirmation gate so buyers see a summary before bulk checkout fires.
@@ -2252,7 +2265,12 @@ export function App() {
             h('div', { className: 'cart-footer' },
               h('div', { className: 'cart-total' },
                 h('span', { className: 'cart-total-label' }, 'Total'),
-                h('span', { className: 'cart-total-val' }, fmt(cartTotal))
+                h('span', { className: 'cart-total-val' }, fmt(cartTotal)),
+                // Savings vs Steam Market. Only renders when we have
+                // reference-price snapshots for at least one row and the
+                // total saves > $0. Silent when every row undercut is zero.
+                cartSavings > 0 && h('span', { className: 'cart-savings-chip' },
+                  '↓ Save ', fmt(cartSavings), ' vs Steam')
               ),
               h('div', { style: { display: 'flex', gap: 10 } },
                 h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),

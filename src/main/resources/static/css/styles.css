@@ -5696,6 +5696,21 @@
       margin-top: 18px;
     }
 
+    /* ─────────── CART SAVINGS CHIP ─────────── */
+    .cart-savings-chip {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 12px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.12);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: 5px;
+      letter-spacing: 0.02em;
+    }
+
     /* ─────────── CART CONFIRMATION MODAL ─────────── */
     .cart-confirm-backdrop {
       position: fixed;
