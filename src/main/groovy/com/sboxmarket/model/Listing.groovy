@@ -113,4 +113,12 @@ class Listing {
     /** Optional free-text seller description, 32 chars max (enforced at the API layer). */
     @Column(length = 64)
     String description
+
+    /** Aggregate count of user-submitted reports. Admins surface high-count listings first. */
+    @Column(name = "report_count", nullable = false)
+    Integer reportCount = 0
+
+    /** Epoch ms of the most recent report — lets us age out stale signals client-side. */
+    @Column(name = "last_reported_at")
+    Long lastReportedAt
 }

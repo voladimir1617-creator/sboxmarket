@@ -1,9 +1,13 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
+import com.sboxmarket.model.ListingReport
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.ListingReportRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
@@ -17,6 +21,20 @@ class ListingService {
     @Autowired ListingRepository listingRepository
     @Autowired ItemRepository itemRepository
     @Autowired @Lazy BuyOrderService buyOrderService
+    @Autowired(required = false) ListingReportRepository listingReportRepository
+    @Autowired(required = false) TextSanitizer textSanitizer
+
+    /** Cap on user-submitted reports per hour — stops a single user from mass-flagging
+     *  every listing on the platform to burn down admin moderation cycles. */
+    private static final int REPORT_RATE_PER_HOUR = 20
+    private static final List<String> REPORT_REASONS = [
+        'Suspicious pricing',
+        'Likely scam / duplicate',
+        'Wrong description or photos',
+        'Prohibited item',
+        'Offensive content',
+        'Other'
+    ]
 
     List<Listing> getActiveListings(String sort, String category, String rarity,
                                     BigDecimal minPrice, BigDecimal maxPrice,
@@ -187,6 +205,66 @@ class ListingService {
             floorPrice   : floor.setScale(2, BigDecimal.ROUND_HALF_UP),
         ]
     }
+
+    /**
+     * Record a user report against a listing. One report per (listing, user)
+     * pair — repeat clicks are rejected with a clear message so the user knows
+     * the first report stuck. Per-user rate limit (20/hour) keeps abuse bounded.
+     * Increments the aggregate counter on the listing row so the admin queue
+     * can sort by report_count without reading the detail table.
+     */
+    @Transactional
+    Map reportListing(Long listingId, Long reporterUserId, String reason, String note) {
+        def listing = listingRepository.findById(listingId)
+            .orElseThrow { new NotFoundException("Listing", listingId) }
+        if (listing.sellerUserId != null && listing.sellerUserId == reporterUserId) {
+            throw new BadRequestException("SELF_REPORT",
+                "You can't report your own listing. Cancel it from My Stall instead.")
+        }
+        if (listingReportRepository == null) {
+            throw new BadRequestException("REPORT_UNAVAILABLE",
+                "Reports are temporarily unavailable")
+        }
+        // One report per (listing, user). Deliberate: we don't surface how
+        // many reports a listing has to the reporter, so letting them click
+        // again would either inflate the counter or silently no-op — neither
+        // is what the button promises. Fail loud instead.
+        def existing = listingReportRepository.findByListingIdAndReporterUserId(listingId, reporterUserId)
+        if (existing.isPresent()) {
+            throw new BadRequestException("ALREADY_REPORTED",
+                "You've already reported this listing. Thanks — an admin will review it.")
+        }
+        def since = System.currentTimeMillis() - 3_600_000L
+        def recent = listingReportRepository.countByReporterUserIdAndCreatedAtGreaterThan(reporterUserId, since)
+        if (recent >= REPORT_RATE_PER_HOUR) {
+            throw new BadRequestException("REPORT_RATE_LIMITED",
+                "You've reported too many listings this hour. Try again later.")
+        }
+        def cleanReason = (reason != null && REPORT_REASONS.contains(reason))
+            ? reason : 'Other'
+        def cleanNote = textSanitizer != null ? textSanitizer.clean(note, 500) : (note?.take(500))
+
+        def report = new ListingReport(
+            listingId:       listingId,
+            reporterUserId:  reporterUserId,
+            reason:          cleanReason,
+            note:            cleanNote,
+            createdAt:       System.currentTimeMillis()
+        )
+        listingReportRepository.save(report)
+
+        listing.reportCount = (listing.reportCount ?: 0) + 1
+        listing.lastReportedAt = System.currentTimeMillis()
+        listingRepository.save(listing)
+        log.warn("User ${reporterUserId} reported listing ${listingId} (${cleanReason}); total reports=${listing.reportCount}")
+        [
+            id:           listing.id,
+            reportCount:  listing.reportCount,
+            thanks:       "Report received — an admin will review it shortly."
+        ]
+    }
+
+    List<String> getReportReasons() { REPORT_REASONS }
 
     private void updateItemFloorPrice(Long itemId) {
         def item = itemRepository.findById(itemId).orElse(null)

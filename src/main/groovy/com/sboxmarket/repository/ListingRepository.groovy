@@ -224,4 +224,17 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
            OR l.description LIKE '[SIMULATED]%'
     """)
     long countSimulated()
+
+    /** Listings with at least one user report, ordered by report_count DESC
+     *  (break ties by most-recently-reported). Admin moderation queue.
+     *  Top-N cap is applied at the service layer — keeping the query
+     *  method signature free of a limit param avoids Spring Data JPA
+     *  trying to parse the method name as a derived query. */
+    @Query(value = """
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.reportCount > 0
+          AND l.status = 'ACTIVE'
+        ORDER BY l.reportCount DESC, l.lastReportedAt DESC
+    """)
+    List<Listing> selectReportedActive()
 }

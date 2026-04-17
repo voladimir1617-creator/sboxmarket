@@ -403,6 +403,24 @@ class ListingController {
         ResponseEntity.ok([id: saved.id, price: saved.price, hidden: saved.hidden, description: saved.description, maxDiscount: saved.maxDiscount])
     }
 
+    /** User-facing report endpoint. Body: { reason: string, note?: string }. Returns
+     *  the listing's new aggregate report_count + a thanks message. */
+    @PostMapping("/{id}/report")
+    ResponseEntity<Map> report(@PathVariable Long id,
+                               @RequestBody(required = false) Map body,
+                               HttpServletRequest req) {
+        def userId = requireUser(req)
+        String reason = body?.reason as String
+        String note = body?.note as String
+        ResponseEntity.ok(listingService.reportListing(id, userId, reason, note))
+    }
+
+    /** Reasons dropdown — served so the UI matches the backend's whitelist. */
+    @GetMapping("/report-reasons")
+    ResponseEntity<List<String>> reportReasons() {
+        ResponseEntity.ok(listingService.getReportReasons())
+    }
+
     /** Toggle "Away mode" — hides ALL of the user's active listings in one shot. */
     @PostMapping("/away")
     ResponseEntity<Map> awayMode(@RequestBody Map body, HttpServletRequest req) {

@@ -20,12 +20,14 @@ class ListingServiceSpec extends Specification {
     ListingRepository listingRepository = Mock()
     ItemRepository    itemRepository    = Mock()
     BuyOrderService   buyOrderService   = Mock()
+    com.sboxmarket.repository.ListingReportRepository listingReportRepository = Mock()
 
     @Subject
     ListingService service = new ListingService(
-        listingRepository: listingRepository,
-        itemRepository:    itemRepository,
-        buyOrderService:   buyOrderService
+        listingRepository:       listingRepository,
+        itemRepository:          itemRepository,
+        buyOrderService:         buyOrderService,
+        listingReportRepository: listingReportRepository
     )
 
     private Item itemFor(long id = 1L, String name = 'Wizard Hat', String rarity = 'Limited', int supply = 100) {
@@ -293,6 +295,96 @@ class ListingServiceSpec extends Specification {
         cheap.price == new BigDecimal("0.15")
         // costly: 90000 * 1.5 = 135000, clamped to 100000
         costly.price == new BigDecimal("100000")
+    }
+
+    // ── reportListing ─────────────────────────────────────────────
+
+    def "reportListing increments report_count and saves a ListingReport row"() {
+        given:
+        def l = listingFor(id: 1L, price: new BigDecimal("10"))
+        l.sellerUserId = 99L
+        l.reportCount = 0
+        listingRepository.findById(1L) >> Optional.of(l)
+        listingRepository.save(_) >> { args -> args[0] }
+        listingReportRepository.findByListingIdAndReporterUserId(1L, 42L) >> Optional.empty()
+        listingReportRepository.countByReporterUserIdAndCreatedAtGreaterThan(42L, _) >> 0L
+
+        when:
+        def res = service.reportListing(1L, 42L, 'Suspicious pricing', 'looks fake')
+
+        then:
+        res.reportCount == 1
+        l.reportCount == 1
+        l.lastReportedAt != null
+        1 * listingReportRepository.save({ r -> r.listingId == 1L && r.reporterUserId == 42L && r.reason == 'Suspicious pricing' })
+    }
+
+    def "reportListing refuses self-reports"() {
+        given:
+        def l = listingFor(id: 1L); l.sellerUserId = 42L
+        listingRepository.findById(1L) >> Optional.of(l)
+
+        when:
+        service.reportListing(1L, 42L, 'Other', null)
+
+        then:
+        thrown(com.sboxmarket.exception.BadRequestException)
+        0 * listingReportRepository.save(_)
+    }
+
+    def "reportListing refuses duplicate reports from the same user"() {
+        given:
+        def l = listingFor(id: 1L); l.sellerUserId = 99L
+        listingRepository.findById(1L) >> Optional.of(l)
+        listingReportRepository.findByListingIdAndReporterUserId(1L, 42L) >> Optional.of(new com.sboxmarket.model.ListingReport())
+
+        when:
+        service.reportListing(1L, 42L, 'Other', null)
+
+        then:
+        thrown(com.sboxmarket.exception.BadRequestException)
+        0 * listingReportRepository.save(_)
+    }
+
+    def "reportListing enforces the per-user per-hour rate limit"() {
+        given:
+        def l = listingFor(id: 1L); l.sellerUserId = 99L
+        listingRepository.findById(1L) >> Optional.of(l)
+        listingReportRepository.findByListingIdAndReporterUserId(1L, 42L) >> Optional.empty()
+        listingReportRepository.countByReporterUserIdAndCreatedAtGreaterThan(42L, _) >> 25L  // over limit
+
+        when:
+        service.reportListing(1L, 42L, 'Other', null)
+
+        then:
+        thrown(com.sboxmarket.exception.BadRequestException)
+        0 * listingReportRepository.save(_)
+    }
+
+    def "reportListing 404s for unknown listing id"() {
+        given:
+        listingRepository.findById(99L) >> Optional.empty()
+
+        when:
+        service.reportListing(99L, 42L, 'Other', null)
+
+        then:
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
+    def "reportListing falls back to Other when the reason isn't whitelisted"() {
+        given:
+        def l = listingFor(id: 1L); l.sellerUserId = 99L; l.reportCount = 0
+        listingRepository.findById(1L) >> Optional.of(l)
+        listingRepository.save(_) >> { args -> args[0] }
+        listingReportRepository.findByListingIdAndReporterUserId(1L, 42L) >> Optional.empty()
+        listingReportRepository.countByReporterUserIdAndCreatedAtGreaterThan(42L, _) >> 0L
+
+        when:
+        service.reportListing(1L, 42L, 'DROP TABLE listings', null)
+
+        then:
+        1 * listingReportRepository.save({ r -> r.reason == 'Other' })
     }
 
     // ── findSoldBySeller passthrough ──────────────────────────────

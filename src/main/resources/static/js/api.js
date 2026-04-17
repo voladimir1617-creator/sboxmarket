@@ -105,6 +105,20 @@ export async function buyListing(id) {
   return writeJson(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
 }
 
+/** User-facing report. Returns { reportCount, thanks } on success, or
+ *  { error / code, message } on refusal (self-report, duplicate, rate-limit). */
+export async function reportListing(id, reason, note) {
+  return writeJson(`${API}/listings/${id}/report`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, note })
+  });
+}
+export async function fetchReportReasons() {
+  const data = await safeJson(`${API}/listings/report-reasons`);
+  return Array.isArray(data) ? data : [];
+}
+
 /** Fetch all listings for a specific item by its item ID.
  *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
  *  general /api/listings query which doesn't support itemId filtering. */
@@ -459,6 +473,10 @@ export async function adminRemoveListing(id, reason) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason })
   });
+}
+export async function adminReportedListings() {
+  const data = await safeJson(`${API}/admin/listings/reported`);
+  return Array.isArray(data) ? data : [];
 }
 export async function adminTickets(status) {
   const q = status ? '?status=' + encodeURIComponent(status) : '';

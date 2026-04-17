@@ -275,6 +275,14 @@ class AdminController {
         ResponseEntity.ok(adminService.forceCancelListing(uid, id, body?.reason as String))
     }
 
+    /** User-reported listings queue, sorted by report count DESC. */
+    @GetMapping("/listings/reported")
+    ResponseEntity<List<Map>> reportedListings(@RequestParam(required = false) Integer limit,
+                                               HttpServletRequest req) {
+        requireAdmin(req)
+        ResponseEntity.ok(adminService.findReportedListings(limit ?: 50))
+    }
+
     // ── Support ─────────────────────────────────────────────────────
 
     @GetMapping("/tickets")

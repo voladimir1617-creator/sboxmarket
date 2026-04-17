@@ -7,7 +7,7 @@ import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminBanUser, adminUnbanUser, adminGrant, adminRevoke,
   adminGrantCsr, adminRevokeCsr,
-  adminCreditWallet, adminRemoveListing, adminTickets, adminTicket,
+  adminCreditWallet, adminRemoveListing, adminReportedListings, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
   adminTrades, adminReleaseTrade, adminCancelTrade,
@@ -29,6 +29,7 @@ export function AdminModal({ onClose, me }) {
     { id: 'catalogue',   label: '🗂 Catalogue' },
     { id: 'simulator',   label: '🧪 Simulator' },
     { id: 'fraud',       label: '🚨 Fraud' },
+    { id: 'reported',    label: '🚩 Reports' },
     { id: 'announce',    label: '📢 Announce' },
     { id: 'health',      label: '❤ Health' },
     { id: 'audit',       label: '📜 Audit Log' },
@@ -54,6 +55,7 @@ export function AdminModal({ onClose, me }) {
     tab === 'catalogue'   && h(AdminCatalogueTab, null),
     tab === 'simulator'   && h(AdminSimulatorTab, null),
     tab === 'fraud'       && h(AdminFraudTab, null),
+    tab === 'reported'    && h(AdminReportedTab, null),
     tab === 'announce'    && h(AdminAnnouncementsTab, null),
     tab === 'health'      && h(AdminHealthTab, null),
     tab === 'audit'       && h(AdminAuditTab, null),
@@ -122,6 +124,103 @@ function AdminHealthTab() {
 // INFO/WARN/CRITICAL banner, optionally schedule an auto-expiry. Admins
 // can deactivate any row from the history list. Minimum 3 chars (matched
 // by the server-side validator in AnnouncementService.create).
+// User-reported listings queue. Sorted highest-report-count-first. Each row
+// shows the top reasons + recent notes inline so the admin decides without
+// a drill-down for most calls.
+function AdminReportedTab() {
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState({});  // listingId → bool
+  const load = useCallback(async () => { setRows(null); setRows(await adminReportedListings()); }, []);
+  useEffect(() => { load(); }, [load]);
+  const remove = async (r) => {
+    const reason = prompt(`Force-cancel listing #${r.id} (${r.itemName})?\n\nSeller will be notified. Enter admin-visible reason:`,
+      r.topReasons?.[0] || 'Policy violation');
+    if (reason == null) return;
+    setBusy(true);
+    try {
+      const res = await adminRemoveListing(r.id, reason);
+      if (res.code || res.error) { alert(res.message || res.error); return; }
+      await load();
+    } finally { setBusy(false); }
+  };
+  if (rows === null) return h('div', { className: 'spinner' });
+  if (rows.length === 0) {
+    return h('div', { className: 'profile-panel' },
+      h('div', { className: 'empty-inline' },
+        h('div', { className: 'empty-icon' }, '🚩'),
+        h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No user-reported listings. Good signal — the marketplace is clean right now.'))
+    );
+  }
+  return h('div', { className: 'profile-panel' },
+    h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 } },
+      `${rows.length} listing${rows.length === 1 ? '' : 's'} with active user reports. Sorted highest-report-count-first. Clicking a row expands the recent report notes.`),
+    h('table', { className: 'db-table' },
+      h('thead', null, h('tr', null,
+        h('th', null, 'Listing'),
+        h('th', null, 'Seller'),
+        h('th', { className: 'right' }, 'Price'),
+        h('th', { className: 'right' }, 'Reports'),
+        h('th', null, 'Top reasons'),
+        h('th', { className: 'right' }, 'Last'),
+        h('th', { className: 'right' }, 'Actions')
+      )),
+      h('tbody', null, rows.map(r => [
+        h('tr', { key: r.id, className: 'db-row',
+          onClick: () => setExpanded(s => ({ ...s, [r.id]: !s[r.id] })),
+          style: { cursor: 'pointer' }
+        },
+          h('td', null,
+            h('div', { className: 'db-name' }, r.itemName || '—'),
+            h('div', { className: 'db-sub' }, '#' + r.id)
+          ),
+          h('td', { className: 'db-mono', style: { fontSize: 11 } }, r.sellerName || '#' + (r.sellerUserId || '?')),
+          h('td', { className: 'right db-mono accent' }, fmt(r.price)),
+          h('td', { className: 'right' },
+            h('span', {
+              style: {
+                padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 800,
+                background: r.reportCount >= 3 ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.15)',
+                color:      r.reportCount >= 3 ? 'var(--red)'               : '#fbbf24'
+              }
+            }, '🚩 ' + r.reportCount + (r.distinctReporters > 1 ? ` · ${r.distinctReporters}👤` : ''))
+          ),
+          h('td', { style: { fontSize: 11, color: 'var(--text-secondary)' } },
+            (r.topReasons || []).slice(0, 2).join(' · ')
+          ),
+          h('td', { className: 'right', style: { fontSize: 11, color: 'var(--text-muted)' } },
+            r.lastReportedAt ? timeAgo(r.lastReportedAt) : '—'
+          ),
+          h('td', { className: 'right' },
+            h('div', { style: { display: 'flex', gap: 4, justifyContent: 'flex-end' }, onClick: e => e.stopPropagation() },
+              h('a', {
+                className: 'btn btn-ghost',
+                style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
+                href: `/item/${r.itemId}`, target: '_blank', rel: 'noopener noreferrer'
+              }, 'View ↗'),
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' },
+                disabled: busy, onClick: () => remove(r)
+              }, 'Remove')
+            )
+          )
+        ),
+        expanded[r.id] && (r.recentNotes || []).length > 0 && h('tr', { key: r.id + '-notes' },
+          h('td', { colSpan: 7, style: { padding: 10, background: 'var(--bg-elevated)' } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Recent reports'),
+            (r.recentNotes || []).map((n, i) => h('div', { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)' } },
+              h('strong', { style: { color: 'var(--text-primary)' } }, n.reason),
+              n.note && h('span', { style: { color: 'var(--text-secondary)', marginLeft: 8 } }, '— ' + n.note),
+              h('span', { style: { color: 'var(--text-muted)', marginLeft: 8, fontSize: 11 } }, '· ' + timeAgo(n.at))
+            ))
+          )
+        )
+      ]).flat())
+    )
+  );
+}
+
 function AdminAnnouncementsTab() {
   const [rows, setRows]       = useState([]);
   const [message, setMessage] = useState('');

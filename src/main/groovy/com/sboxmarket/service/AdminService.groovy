@@ -50,6 +50,7 @@ class AdminService {
     @Autowired WalletRepository walletRepository
     @Autowired TransactionRepository transactionRepository
     @Autowired ListingRepository listingRepository
+    @Autowired(required = false) com.sboxmarket.repository.ListingReportRepository listingReportRepository
     @Autowired ItemRepository itemRepository
     @Autowired OfferRepository offerRepository
     @Autowired BuyOrderRepository buyOrderRepository
@@ -479,6 +480,40 @@ class AdminService {
     }
 
     // ── Listing moderation ──────────────────────────────────────────
+
+    /**
+     * Returns active listings with at least one user report, ordered by
+     * report_count DESC so the admin triages the loudest complaints first.
+     * Each row includes the top 5 recent reasons + total distinct reporters
+     * so the admin sees *what* is being flagged without opening a drill-down.
+     */
+    List<Map> findReportedListings(int limit = 50) {
+        def lim = Math.min(Math.max(limit, 1), 200)
+        def rows = listingRepository.selectReportedActive()?.take(lim)
+        if (rows == null || rows.isEmpty()) return []
+        def out = []
+        rows.each { l ->
+            def reports = listingReportRepository?.findByListingIdOrderByCreatedAtDesc(l.id) ?: []
+            def reasons = reports.take(5).collect { it.reason }
+            def distinctReporters = reports.collect { it.reporterUserId }.unique().size()
+            out << [
+                id:               l.id,
+                itemName:         l.item?.name,
+                itemId:           l.item?.id,
+                price:            l.price,
+                sellerName:       l.sellerName,
+                sellerUserId:     l.sellerUserId,
+                listedAt:         l.listedAt,
+                status:           l.status,
+                reportCount:      l.reportCount ?: 0,
+                lastReportedAt:   l.lastReportedAt,
+                distinctReporters: distinctReporters,
+                topReasons:       reasons,
+                recentNotes:      reports.take(3).collect { [reason: it.reason, note: it.note, at: it.createdAt] }
+            ]
+        }
+        out
+    }
 
     @Transactional
     Map forceCancelListing(Long adminUserId, Long listingId, String reason) {

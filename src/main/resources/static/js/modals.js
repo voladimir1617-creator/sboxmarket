@@ -8,7 +8,7 @@ import { AuctionBidPanel } from './csfloat-modals.js';
 import {
   fetchInventory, fetchMyStall, fetchMyStallSold, bulkAdjustStall, relistItem, cancelListing,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
-  fetchOfferThread, fetchSimilar,
+  fetchOfferThread, fetchSimilar, reportListing, fetchReportReasons,
   depositFunds, withdrawFunds, cancelPendingWithdrawal, updateStallListing, setAwayMode,
   fetchProfile, fetchSteamInventory, syncSteam, listFromSteam,
   fetchBuyOrders, deleteBuyOrder, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
@@ -41,6 +41,21 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     if (!item) return;
     fetchSimilar(item.id).then(setSimilar);
   }, [item?.id]);
+  // Report-listing drawer state. `reportTarget` holds the listing the user
+  // clicked 🚩 on; null = drawer closed. Reasons whitelist is fetched once on
+  // first-open and reused.
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReasons, setReportReasons] = useState([]);
+  useEffect(() => {
+    if (reportTarget && reportReasons.length === 0) {
+      fetchReportReasons().then(r => setReportReasons(r.length ? r : [
+        'Suspicious pricing', 'Likely scam / duplicate',
+        'Wrong description or photos', 'Prohibited item',
+        'Offensive content', 'Other'
+      ]));
+    }
+  }, [reportTarget, reportReasons.length]);
+
   // Recent sale rows — 10 most-recent SOLD listings for this item. Drives
   // the "Recent sales" strip just below the price history chart. Empty
   // array when no sales yet (freshly indexed item).
@@ -220,9 +235,24 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     )
                   ),
                   h('span', { className: 'modal-listing-condition' }, '#' + l.id),
+                  l.listedAt && h('span', {
+                    className: 'modal-listing-condition',
+                    title: 'Listed ' + new Date(l.listedAt).toLocaleString(),
+                    style: { fontSize: 10, color: 'var(--text-muted)' }
+                  },
+                    (Date.now() - l.listedAt < 48 * 3600 * 1000) ? '🆕 ' : '',
+                    'listed ', timeAgo(l.listedAt)
+                  ),
                   h('div', { className: 'modal-listing-rarity-bar' }),
                   h('span', { className: 'modal-listing-price' }, fmt(l.price)),
-                  h('button', { className: 'buy-btn', onClick: () => onBuy(l.id) }, 'Buy')
+                  h('button', { className: 'buy-btn', onClick: () => onBuy(l.id) }, 'Buy'),
+                  me && me.id !== l.sellerUserId && h('button', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '4px 8px', fontSize: 12, border: '1px solid var(--border)', opacity: 0.7 },
+                    onClick: () => setReportTarget(l),
+                    title: 'Report this listing to the moderation team',
+                    'aria-label': `Report listing ${l.id}`
+                  }, '🚩')
                 );
               })
         ),
@@ -340,7 +370,87 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           }, offerBusy ? '...' : 'Send Offer')
         ),
         offerErr && h('div', { style: { color: 'var(--red)', fontSize: 12, marginTop: 6 } }, offerErr)
-      )
+      ),
+      reportTarget && h(ReportListingDrawer, {
+        listing: reportTarget,
+        reasons: reportReasons,
+        onCancel: () => setReportTarget(null),
+        onSubmitted: () => { setReportTarget(null); onRefresh && onRefresh(); }
+      })
+    )
+  );
+}
+
+function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
+  const [reason, setReason] = useState('Suspicious pricing');
+  const [note, setNote]     = useState('');
+  const [busy, setBusy]     = useState(false);
+  const [err, setErr]       = useState('');
+  const [done, setDone]     = useState('');
+  const submit = async () => {
+    if (!reason) { setErr('Pick a reason first'); return; }
+    setErr(''); setBusy(true);
+    try {
+      const res = await reportListing(listing.id, reason, note);
+      if (res && (res.error || res.code)) {
+        setErr(res.message || res.error);
+        return;
+      }
+      setDone(res.thanks || 'Report received. Thanks — an admin will review it.');
+      setTimeout(() => onSubmitted(), 1500);
+    } catch (e) {
+      setErr('Something went wrong. Try again.');
+    } finally { setBusy(false); }
+  };
+  return h('div', {
+    className: 'cart-confirm-backdrop',
+    onClick: onCancel,
+    style: { zIndex: 100 }
+  },
+    h('div', {
+      className: 'cart-confirm-panel',
+      style: { maxWidth: 420 },
+      onClick: e => e.stopPropagation(),
+      role: 'dialog',
+      'aria-modal': true,
+      'aria-label': `Report listing ${listing.id}`
+    },
+      h('div', { className: 'cart-confirm-title' }, '🚩 Report listing'),
+      h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
+        `Listing #${listing.id} · ${listing.sellerName || 'Seller'} · ${fmt(listing.price)}`),
+      done
+        ? h('div', { style: {
+            background: 'rgba(34,197,94,0.1)',
+            border: '1px solid rgba(34,197,94,0.4)',
+            color: '#22c55e',
+            padding: 12, borderRadius: 6, fontSize: 13, textAlign: 'center'
+          } }, done)
+        : h('div', null,
+            h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
+            h('select', {
+              className: 'price-input',
+              style: { width: '100%', marginBottom: 12 },
+              value: reason,
+              onChange: e => setReason(e.target.value),
+              disabled: busy
+            }, reasons.map(r => h('option', { key: r, value: r }, r))),
+            h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Details (optional)'),
+            h('textarea', {
+              className: 'price-input',
+              style: { width: '100%', minHeight: 70, marginBottom: 12, resize: 'vertical' },
+              placeholder: 'Add any extra context that would help moderators.',
+              value: note,
+              maxLength: 500,
+              onChange: e => setNote(e.target.value),
+              disabled: busy
+            }),
+            err && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, err),
+            h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+              h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, disabled: busy, onClick: onCancel }, 'Cancel'),
+              h('button', { className: 'btn btn-accent', disabled: busy, onClick: submit },
+                busy ? 'Submitting…' : 'Submit report')
+            )
+          )
     )
   );
 }
