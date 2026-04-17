@@ -65,4 +65,16 @@ class NotificationService {
         unread.each { it.read = true }
         if (!unread.isEmpty()) notificationRepository.saveAll(unread)
     }
+
+    /** Delete every READ notification belonging to the user. Lets users
+     *  tidy an accumulating inbox after marking-all-read. Unread rows
+     *  stay untouched so nothing actionable gets hidden. */
+    @Transactional
+    int deleteAllRead(Long userId) {
+        def recent = notificationRepository.findForUser(userId, PageRequest.of(0, 500))
+        def toDelete = recent.findAll { it.read }
+        if (toDelete.isEmpty()) return 0
+        notificationRepository.deleteAll(toDelete)
+        toDelete.size()
+    }
 }

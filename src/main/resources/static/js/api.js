@@ -397,6 +397,11 @@ export async function markNotificationRead(id) {
   return fetch(`${API}/notifications/${id}/read`, { method: 'POST', credentials: 'same-origin' });
 }
 
+export async function clearReadNotifications() {
+  return writeJson(`${API}/notifications/clear-read`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 export async function markAllNotificationsRead() {
   return fetch(`${API}/notifications/read-all`, { method: 'POST', credentials: 'same-origin' });
 }

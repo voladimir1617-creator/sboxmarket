@@ -42,4 +42,11 @@ class NotificationController {
         notificationService.markAllRead(requireUser(req))
         ResponseEntity.ok([ok: true])
     }
+
+    /** Delete every READ notification the caller owns — unread rows stay. */
+    @PostMapping("/clear-read")
+    ResponseEntity<Map> clearRead(HttpServletRequest req) {
+        def deleted = notificationService.deleteAllRead(requireUser(req))
+        ResponseEntity.ok([deleted: deleted])
+    }
 }

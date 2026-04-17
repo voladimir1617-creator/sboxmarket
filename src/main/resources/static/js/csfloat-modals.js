@@ -12,7 +12,7 @@ import {
   fetchPublicLoadouts, fetchMyLoadouts, fetchLoadout, createLoadout,
   setLoadoutSlot, generateLoadout, deleteLoadout, favoriteLoadout,
   fetchListings,
-  fetchNotifications, markAllNotificationsRead, markNotificationRead,
+  fetchNotifications, markAllNotificationsRead, markNotificationRead, clearReadNotifications,
   fetchBidHistory, placeBid
 } from './api.js';
 
@@ -523,6 +523,11 @@ export function NotificationsModal({ onClose, me }) {
       h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Sign in to see your notifications.')));
 
   const clear = async () => { await markAllNotificationsRead(); load(); };
+  const clearRead = async () => {
+    if (!confirm('Delete every read notification? Unread rows stay.')) return;
+    await clearReadNotifications();
+    load();
+  };
   // Click → mark read, then navigate. Server-supplied `path` wins; otherwise
   // fall back to a (kind, refId) map so older notifications written before
   // V13 still drill down to something useful.
@@ -588,7 +593,13 @@ export function NotificationsModal({ onClose, me }) {
       h('button', { className: `offer-tab ${filter === 'UNREAD' ? 'active' : ''}`, onClick: () => setFilter('UNREAD') },
         'Unread ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.unread)),
       h('div', { style: { flex: 1 } }),
-      data.items.length > 0 && h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: clear }, 'Mark all read')
+      data.items.length > 0 && h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, onClick: clear }, 'Mark all read'),
+      data.items.filter(n => n.read).length > 0 && h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
+        onClick: clearRead,
+        title: 'Delete every already-read notification'
+      }, 'Clear read')
     ),
     data.items.length > 5 && h('div', { style: { marginBottom: 12 } },
       h('input', {
