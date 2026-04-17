@@ -124,4 +124,41 @@ class NotificationServiceSpec extends Specification {
         then:
         n == 7L
     }
+
+    // ── deleteAllRead ───────────────────────────────────────────
+
+    def "deleteAllRead removes only the read rows and returns the count"() {
+        given:
+        def rows = [
+            new Notification(id: 1L, userId: 10L, read: true),
+            new Notification(id: 2L, userId: 10L, read: false),
+            new Notification(id: 3L, userId: 10L, read: true),
+            new Notification(id: 4L, userId: 10L, read: true)
+        ]
+        notificationRepository.findForUser(10L, _) >> rows
+
+        when:
+        def n = service.deleteAllRead(10L)
+
+        then:
+        n == 3
+        1 * notificationRepository.deleteAll({ List<Notification> toDelete ->
+            toDelete.size() == 3 && toDelete.every { it.read == true }
+        })
+    }
+
+    def "deleteAllRead is a zero-count no-op when nothing is read"() {
+        given:
+        notificationRepository.findForUser(10L, _) >> [
+            new Notification(id: 1L, userId: 10L, read: false),
+            new Notification(id: 2L, userId: 10L, read: false)
+        ]
+
+        when:
+        def n = service.deleteAllRead(10L)
+
+        then:
+        n == 0
+        0 * notificationRepository.deleteAll(_)
+    }
 }
