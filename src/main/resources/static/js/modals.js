@@ -14,7 +14,7 @@ import {
   fetchBuyOrders, fetchAutoBids, cancelAutoBid, cancelAllAutoBids, fetchApiKeys, createApiKey, revokeApiKey,
   fetchSupportTickets, fetchSupportTicket, createSupportTicket, replySupportTicket, resolveSupportTicket,
   fetchTrades, tradeAccept, tradeMarkSent, tradeConfirm, tradeDispute, tradeCancel,
-  setEmail, verifyEmail, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
+  setEmail, verifyEmail, resendEmailVerification, setTradeUrl, enroll2fa, confirm2fa, disable2fa,
   fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, replyToReview
 } from './api.js';
@@ -783,7 +783,19 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions }) {
           )
         ),
         emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, '✓ Email verified'),
-        emailResult?.err && h('div', { className: 'wallet-error' }, emailResult.err)
+        emailResult?.err && h('div', { className: 'wallet-error' }, emailResult.err),
+        // Resend verification link — only meaningful when email is set but
+        // not yet verified. Regenerates the token and re-delivers via
+        // EmailService (or logs it in dev mode).
+        hasEmail && !emailVerified && !editingEmail && h('button', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '5px 12px', fontSize: 11, marginTop: 6 },
+          onClick: async () => {
+            const res = await resendEmailVerification();
+            if (res && (res.error || res.code)) { setEmailResult({ err: res.message || res.error }); return; }
+            setEmailResult({ ok: true, resent: true, token: res.token });
+          }
+        }, '↻ Resend verification email')
       )
     ),
 

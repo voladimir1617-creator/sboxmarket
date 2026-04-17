@@ -1415,21 +1415,31 @@ export function App() {
           h(MaterialIcon, { name: 'shopping_cart', size: 18 }),
           cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount)
         ),
-        me && wallet && h('button', {
-          className: 'wallet-btn',
-          onClick: (e) => {
-            // Ctrl/meta-click on the balance toggles privacy mode, like CSFloat
-            if (e.ctrlKey || e.metaKey) { e.preventDefault(); setPrivacy(p => !p); return; }
-            navigate(paths.wallet());
+        me && wallet && (() => {
+          // Low-balance indicator — quiet amber amp on the wallet button
+          // when balance < $5. Pending withdrawals still surface via the
+          // WalletModal pending-chip; this just flags "heads up, top up
+          // soon" without being noisy. Not shown in privacy mode since
+          // it'd leak the fact that balance is low.
+          const bal = parseFloat(wallet.balance) || 0;
+          const low = !privacy && bal < 5 && bal >= 0;
+          return h('button', {
+            className: `wallet-btn${low ? ' low-balance' : ''}`,
+            onClick: (e) => {
+              if (e.ctrlKey || e.metaKey) { e.preventDefault(); setPrivacy(p => !p); return; }
+              navigate(paths.wallet());
+            },
+            title: low
+              ? `Balance is under $5 — top up to keep checking out.  ·  Ctrl-click to toggle privacy`
+              : 'Open wallet · Ctrl-click to toggle privacy'
           },
-          title: 'Open wallet · Ctrl-click to toggle privacy'
-        },
-          h('div', { className: 'wallet-btn-icon' }, '$'),
-          h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 } },
-            h('span', { className: 'wallet-btn-label' }, 'Balance'),
-            h('span', { className: 'wallet-btn-amt' }, privacy ? '$•••••' : fmt(wallet.balance))
-          )
-        ),
+            h('div', { className: 'wallet-btn-icon' }, low ? '!' : '$'),
+            h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 } },
+              h('span', { className: 'wallet-btn-label' }, low ? 'Top up' : 'Balance'),
+              h('span', { className: 'wallet-btn-amt' }, privacy ? '$•••••' : fmt(wallet.balance))
+            )
+          );
+        })(),
         me
           ? h('div', { className: 'user-chip', onClick: () => setMenuOpen(o => !o) },
               h('div', { className: 'user-chip-avatar' },

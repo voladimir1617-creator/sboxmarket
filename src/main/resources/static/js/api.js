@@ -701,6 +701,12 @@ export async function verifyEmail(token) {
     body: JSON.stringify({ token })
   });
 }
+/** Regenerate + resend the email-verification token. */
+export async function resendEmailVerification() {
+  return writeJson(`${API}/profile/email/resend`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 export async function enroll2fa() {
   return writeJson(`${API}/profile/2fa/enroll`, { method: 'POST', credentials: 'same-origin' });
 }

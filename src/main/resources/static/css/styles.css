@@ -2005,6 +2005,16 @@
       cursor: pointer;
     }
     .wallet-btn:hover { transform: translateY(-1px); box-shadow: var(--accent-glow); }
+    .wallet-btn.low-balance {
+      border-color: rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.08);
+    }
+    .wallet-btn.low-balance .wallet-btn-icon {
+      background: linear-gradient(135deg, #fde68a, #fbbf24);
+      color: #0d1320;
+      animation: auction-pulse 1.6s ease-in-out infinite;
+    }
+    .wallet-btn.low-balance .wallet-btn-label { color: #fbbf24; }
     .wallet-btn-icon {
       width: 32px; height: 32px;
       border-radius: 8px;

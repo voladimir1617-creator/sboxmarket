@@ -28,6 +28,7 @@ class AdminController {
     @Autowired com.sboxmarket.service.AuditService auditService
     @Autowired com.sboxmarket.service.AdminSimulatorService adminSimulatorService
     @Autowired com.sboxmarket.service.FraudAnalysisService fraudAnalysisService
+    @Autowired com.sboxmarket.repository.ItemRepository itemRepository
 
     private Long requireAdmin(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -97,6 +98,69 @@ class AdminController {
                                          HttpServletRequest req) {
         def uid = requireAdmin(req)
         ResponseEntity.ok(adminService.rejectWithdrawal(uid, id, body?.reason as String))
+    }
+
+    // ── Catalogue items (staff override) ────────────────────────────
+
+    /** Override a catalogue item's display fields without waiting for the
+     *  next SCMM sync. Admins use this to fix a stale image, correct a
+     *  wrong rarity classification, or manually set a price point for an
+     *  item the upstream feed doesn't know about. Validates upper bounds
+     *  and sanitises string inputs. */
+    @PutMapping("/items/{id}")
+    @org.springframework.transaction.annotation.Transactional
+    ResponseEntity<Map> updateItem(@PathVariable Long id,
+                                   @RequestBody Map body,
+                                   HttpServletRequest req) {
+        def adminUid = requireAdmin(req)
+        def item = itemRepository.findById(id)
+            .orElseThrow { new com.sboxmarket.exception.NotFoundException("Item", id) }
+        if (body.containsKey('steamPrice')) {
+            def raw = body.steamPrice
+            if (raw == null || raw.toString().isEmpty()) {
+                item.steamPrice = null
+            } else {
+                BigDecimal p
+                try { p = new BigDecimal(raw.toString()) }
+                catch (NumberFormatException ignored) {
+                    throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "steamPrice must be a number")
+                }
+                if (p < BigDecimal.ZERO) throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "steamPrice must be ≥ 0")
+                if (p > new BigDecimal("100000")) throw new com.sboxmarket.exception.BadRequestException("PRICE_TOO_HIGH", 'steamPrice must not exceed $100,000')
+                item.steamPrice = p
+            }
+        }
+        if (body.containsKey('rarity')) {
+            def r = (body.rarity as String ?: '').trim()
+            if (r.length() > 40) throw new com.sboxmarket.exception.BadRequestException("INVALID_RARITY", "rarity too long")
+            item.rarity = r.isEmpty() ? 'Standard' : r
+        }
+        if (body.containsKey('imageUrl')) {
+            def u = (body.imageUrl as String ?: '').trim()
+            if (u.length() > 500) throw new com.sboxmarket.exception.BadRequestException("INVALID_URL", "imageUrl too long")
+            if (u && !u.startsWith('https://')) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_URL", "imageUrl must be an https:// URL")
+            }
+            item.imageUrl = u.isEmpty() ? null : u
+        }
+        if (body.containsKey('accentColor')) {
+            def c = (body.accentColor as String ?: '').trim()
+            if (c && !(c ==~ /#[0-9A-Fa-f]{3,8}/)) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_COLOR", "accentColor must be a #hex string")
+            }
+            item.accentColor = c.isEmpty() ? null : c
+        }
+        itemRepository.save(item)
+        auditService?.log('ITEM_EDITED', adminUid, null, item.id,
+            "Admin edited ${item.name}: " + body.keySet().join(','))
+        ResponseEntity.ok([
+            id:          item.id,
+            name:        item.name,
+            rarity:      item.rarity,
+            steamPrice:  item.steamPrice,
+            imageUrl:    item.imageUrl,
+            accentColor: item.accentColor
+        ])
     }
 
     // ── Users ───────────────────────────────────────────────────────

@@ -104,6 +104,28 @@ class ProfileController {
         ResponseEntity.ok([tradeUrl: user.tradeUrl])
     }
 
+    /** Resend the email-verification token. Regenerates the token (old
+     *  link stops working) and re-delivers via EmailService. Rate-limited
+     *  by the filter; 401 if no email is on the account yet. */
+    @PostMapping("/email/resend")
+    @Transactional
+    ResponseEntity<Map> resendVerification(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        if (!user.email) {
+            throw new BadRequestException("NO_EMAIL", "Set an email address first")
+        }
+        if (user.emailVerified) {
+            return ResponseEntity.ok([email: user.email, verified: true, resent: false])
+        }
+        user.emailVerificationToken = randomToken()
+        steamUserRepository.save(user)
+        emailService.sendVerification(user.email, user.emailVerificationToken)
+        def resp = [email: user.email, verified: false, resent: true] as Map
+        if (!emailService.smtpReady) resp.token = user.emailVerificationToken
+        ResponseEntity.ok(resp)
+    }
+
     @PostMapping("/email/verify")
     @Transactional
     ResponseEntity<Map> verifyEmail(@RequestBody Map body, HttpServletRequest req) {
