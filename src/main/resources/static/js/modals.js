@@ -1509,14 +1509,25 @@ function ProfileTradesTab({ me, privacy }) {
         h('span', { className: 'trade-summary-label' }, 'cancelled')
       )
     ),
-    h('div', { className: 'trade-filter-bar' },
+    h('div', { className: 'trade-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 } },
       ['ALL','OPEN','PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM','VERIFIED','DISPUTED','CANCELLED'].map(f =>
         h('button', {
           key: f,
           className: `offer-tab ${filter === f ? 'active' : ''}`,
           onClick: () => setFilter(f)
         }, f.replace(/_/g, ' ').toLowerCase())
-      )
+      ),
+      h('div', { style: { flex: 1 } }),
+      // CSV export — opens /api/profile/trades.csv in a new tab. The
+      // browser handles the download via the Content-Disposition header
+      // the endpoint sets. Only surfaced once the user has at least one
+      // trade to avoid a dead-end download on fresh accounts.
+      trades.length > 0 && h('a', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+        href: '/api/profile/trades.csv',
+        title: 'Download every trade you participated in as a CSV (tax / accounting)'
+      }, '⇣ CSV')
     ),
     filtered.length === 0
       ? h('div', { className: 'empty-inline' },

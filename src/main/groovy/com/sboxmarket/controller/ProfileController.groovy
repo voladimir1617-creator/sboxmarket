@@ -64,6 +64,60 @@ class ProfileController {
         ResponseEntity.ok(data)
     }
 
+    /**
+     * CSV export of every trade the signed-in user participated in —
+     * as buyer or seller. Columns cover the ledger-level fields a
+     * user would want for tax / accounting: date, state, role
+     * (BUYER or SELLER), counterparty id, item name, price, fee,
+     * net (price − fee for sellers; price for buyers), trade id.
+     * Cap at 5000 rows matching the transactions.csv limit.
+     */
+    @GetMapping(value = "/trades.csv", produces = "text/csv")
+    ResponseEntity<String> exportTradesCsv(HttpServletRequest req) {
+        def uid = requireUser(req)
+        if (tradeRepository == null) {
+            return ResponseEntity.status(503).body('')
+        }
+        def trades = tradeRepository.findByParticipant(uid).take(5000)
+        def sb = new StringBuilder()
+        sb.append('id,date,state,role,counterparty,itemName,price,fee,net\n')
+        def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        df.timeZone = java.util.TimeZone.getTimeZone('UTC')
+        def csvEscape = { String v ->
+            if (v == null) return ''
+            if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+                return '"' + v.replace('"', '""') + '"'
+            }
+            v
+        }
+        trades.each { t ->
+            def isBuyer = (t.buyerUserId == uid)
+            def role = isBuyer ? 'BUYER' : 'SELLER'
+            def counterparty = isBuyer ? t.sellerUserId : t.buyerUserId
+            def price = t.price ?: BigDecimal.ZERO
+            def fee = t.feeAmount ?: BigDecimal.ZERO
+            // Buyer's net cash out is price (they paid it). Seller's net
+            // cash in is price − fee (platform takes the fee from the
+            // seller side).
+            def net = isBuyer ? price : (price - fee)
+            sb.append(t.id ?: '').append(',')
+              .append(df.format(new Date(t.createdAt ?: 0))).append(',')
+              .append(csvEscape(t.state ?: '')).append(',')
+              .append(role).append(',')
+              .append(counterparty ?: '').append(',')
+              .append(csvEscape(t.itemName ?: '')).append(',')
+              .append(price.toPlainString()).append(',')
+              .append(fee.toPlainString()).append(',')
+              .append(net.toPlainString()).append('\n')
+        }
+        def filename = "skinbox-trades-${df.format(new Date()).replace(':', '-')}.csv"
+        ResponseEntity.ok()
+            .header('Content-Disposition', "attachment; filename=\"${filename}\"")
+            .header('Content-Type', 'text/csv; charset=utf-8')
+            .header('Cache-Control', 'no-store')
+            .body(sb.toString())
+    }
+
     // ── Email ───────────────────────────────────────────────────────
 
     @PutMapping("/email")
