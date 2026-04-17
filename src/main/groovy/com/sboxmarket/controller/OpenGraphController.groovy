@@ -1,6 +1,7 @@
 package com.sboxmarket.controller
 
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.ListingService
 import groovy.util.logging.Slf4j
 import jakarta.annotation.PostConstruct
@@ -35,6 +36,7 @@ import java.nio.charset.StandardCharsets
 class OpenGraphController {
 
     @Autowired ItemRepository itemRepository
+    @Autowired SteamUserRepository steamUserRepository
     @Autowired(required = false) ListingService listingService
 
     @Value('${app.public-url:http://localhost:8080}')
@@ -95,6 +97,43 @@ class OpenGraphController {
             .replaceFirst(/<meta property="og:image"[^>]*>/,       Q("<meta property=\"og:image\" content=\"${escape(image)}\">"))
             .replaceFirst(/<meta property="og:url"[^>]*>/,         Q("<meta property=\"og:url\" content=\"${escape(url)}\">"))
             .replaceFirst(/<meta property="og:type"[^>]*>/,        Q("<meta property=\"og:type\" content=\"product\">"))
+            .replaceFirst(/<meta name="twitter:title"[^>]*>/,      Q("<meta name=\"twitter:title\" content=\"${escape(title)}\">"))
+            .replaceFirst(/<meta name="description"[^>]*>/,        Q("<meta name=\"description\" content=\"${escape(desc)}\">"))
+
+        ResponseEntity.ok()
+            .contentType(MediaType.TEXT_HTML)
+            .header('Cache-Control', 'public, max-age=300')
+            .body(out)
+    }
+
+    /** Same treatment for /stall/{id} — seller stall shares. */
+    @GetMapping(value = '/stall/{id}', produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> stallPage(@PathVariable String id) {
+        if (template == null) return ResponseEntity.status(404).body('')
+        Long userId
+        try { userId = Long.parseLong(id) }
+        catch (NumberFormatException ignored) {
+            return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(template)
+        }
+        def user = steamUserRepository.findById(userId).orElse(null)
+        if (user == null) {
+            return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(template)
+        }
+        def base = publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+        def url = base + '/stall/' + userId
+        def name = escape(user.displayName ?: 'Seller')
+        def title = "${name}'s Stall · SkinBox"
+        def desc = "Browse ${name}'s active listings on SkinBox. Secure escrow, 2% fees, Stripe payouts."
+        def image = user.avatarUrl ?: (base + '/img/favicon-512.png')
+
+        def Q = java.util.regex.Matcher.&quoteReplacement
+        def out = template
+            .replaceFirst(/<title>[^<]*<\/title>/, Q("<title>${escape(title)}</title>"))
+            .replaceFirst(/<meta property="og:title"[^>]*>/,       Q("<meta property=\"og:title\" content=\"${escape(title)}\">"))
+            .replaceFirst(/<meta property="og:description"[^>]*>/, Q("<meta property=\"og:description\" content=\"${escape(desc)}\">"))
+            .replaceFirst(/<meta property="og:image"[^>]*>/,       Q("<meta property=\"og:image\" content=\"${escape(image)}\">"))
+            .replaceFirst(/<meta property="og:url"[^>]*>/,         Q("<meta property=\"og:url\" content=\"${escape(url)}\">"))
+            .replaceFirst(/<meta property="og:type"[^>]*>/,        Q("<meta property=\"og:type\" content=\"profile\">"))
             .replaceFirst(/<meta name="twitter:title"[^>]*>/,      Q("<meta name=\"twitter:title\" content=\"${escape(title)}\">"))
             .replaceFirst(/<meta name="description"[^>]*>/,        Q("<meta name=\"description\" content=\"${escape(desc)}\">"))
 
