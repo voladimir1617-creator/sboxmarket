@@ -3614,6 +3614,14 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
   // localStorage so each card can show "−$X since you watchlisted" even
   // across sessions. Also supports a Drops Only filter.
   const [showDropsOnly, setShowDropsOnly] = useState(false);
+  const [sortBy, setSortBy] = useState(() => {
+    try { return localStorage.getItem('sb_watchlist_sort') || 'added'; }
+    catch { return 'added'; }
+  });
+  const setSort = (v) => {
+    setSortBy(v);
+    try { localStorage.setItem('sb_watchlist_sort', v); } catch (_) {}
+  };
   const [snapshots, setSnapshots] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_watchlist_snap') || '{}'); }
     catch { return {}; }
@@ -3747,7 +3755,39 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     const alertHit = target != null && !l.__noListing && isFinite(cur) && cur <= target;
     return { listing: l, snap, delta, pct, target, alertHit };
   });
-  const filtered = showDropsOnly ? rows.filter(r => r.delta < 0 || r.alertHit) : rows;
+  const filteredBeforeSort = showDropsOnly ? rows.filter(r => r.delta < 0 || r.alertHit) : rows;
+  // Apply the user-picked sort. "Added" preserves the insertion order
+  // from the watchlist array (most-recently-starred lives at the tail
+  // — we flip to newest-first so a star sticks to the top). "Price" /
+  // "Drop" / "Alert-gap" rank by the derived metrics per row.
+  const filtered = (() => {
+    const order = [...filteredBeforeSort];
+    if (sortBy === 'added') {
+      // The parent watchlist is push-on-star so newest is last. Rank
+      // rows by the index of their item id in that array, descending.
+      const idx = new Map();
+      watchlist.forEach((id, i) => idx.set(id, i));
+      order.sort((a, b) => (idx.get(b.listing.item.id) ?? -1) - (idx.get(a.listing.item.id) ?? -1));
+    } else if (sortBy === 'price_asc') {
+      order.sort((a, b) => (parseFloat(a.listing.price) || Infinity) - (parseFloat(b.listing.price) || Infinity));
+    } else if (sortBy === 'price_desc') {
+      order.sort((a, b) => (parseFloat(b.listing.price) || 0) - (parseFloat(a.listing.price) || 0));
+    } else if (sortBy === 'biggest_drop') {
+      // Negative delta = drop. The most negative delta should come first.
+      order.sort((a, b) => (a.delta || 0) - (b.delta || 0));
+    } else if (sortBy === 'alert_gap') {
+      // Smallest positive gap (listing price minus alert target) first.
+      // Rows without an alert are pushed to the bottom.
+      const gap = (r) => {
+        if (r.target == null) return Infinity;
+        const p = parseFloat(r.listing.price);
+        if (!isFinite(p)) return Infinity;
+        return Math.max(0, p - r.target);
+      };
+      order.sort((a, b) => gap(a) - gap(b));
+    }
+    return order;
+  })();
 
   return h(InfoModal, { title: `Watchlist · ${starred.length} items`, onClose },
     starred.length === 0
@@ -3828,6 +3868,23 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
               className: `offer-tab ${showDropsOnly ? 'active' : ''}`,
               onClick: () => setShowDropsOnly(true)
             }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length)),
+            // Sort select — defaults to "Added" (newest-first) so the
+            // user sees their most recent stars on top, matching the
+            // mental model of a shopping queue. Persisted to
+            // localStorage so the pick survives a reload.
+            h('select', {
+              className: 'sort-select',
+              value: sortBy,
+              onChange: e => setSort(e.target.value),
+              'aria-label': 'Sort watchlist',
+              style: { fontSize: 12 }
+            },
+              h('option', { value: 'added' },        'Newest added'),
+              h('option', { value: 'price_asc' },    'Price: Low → High'),
+              h('option', { value: 'price_desc' },   'Price: High → Low'),
+              h('option', { value: 'biggest_drop' }, 'Biggest drop'),
+              h('option', { value: 'alert_gap' },    'Closest to alert')
+            ),
             h('div', { style: { flex: 1 } }),
             // Add every watchlisted listing that's still actively for
             // sale to the cart in one click. Skips rows that have no
