@@ -38,6 +38,7 @@ class BidServiceSpec extends Specification {
         cleanShort(_) >> { String s -> s }
     }
     com.sboxmarket.service.EmailService emailService = Mock()
+    com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository = Mock()
 
     @Subject
     BidService service = new BidService(
@@ -49,7 +50,8 @@ class BidServiceSpec extends Specification {
         notificationService  : notificationService,
         banGuard             : banGuard,
         textSanitizer        : textSanitizer,
-        emailService         : emailService
+        emailService         : emailService,
+        watchlistAlertRepository: watchlistAlertRepository
     )
 
     private Listing auctionListing(Map args = [:]) {
@@ -484,5 +486,48 @@ class BidServiceSpec extends Specification {
         bid != null
         1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, _)
         noExceptionThrown()
+    }
+
+    // ── sweepEndingSoon ──────────────────────────────────────────
+
+    def "sweepEndingSoon is a no-op when nothing is due"() {
+        given:
+        listingRepository.findEndingSoonUnnotified(_, _) >> []
+
+        when:
+        service.sweepEndingSoon()
+
+        then:
+        0 * notificationService.push(*_)
+        0 * listingRepository.save(_)
+    }
+
+    def "sweepEndingSoon notifies every unique bidder plus watchers and flips the flag"() {
+        given:
+        def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),
+                                     expiresAt: System.currentTimeMillis() + 5 * 60 * 1000L)
+        listingRepository.findEndingSoonUnnotified(_, _) >> [listing]
+        // Three bids from two distinct users → two unique bidders
+        bidRepository.findByListing(100L) >> [
+            new Bid(id: 1L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("15")),
+            new Bid(id: 2L, listingId: 100L, bidderUserId: 20L, amount: new BigDecimal("13")),
+            new Bid(id: 3L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("12"))
+        ]
+        // One watcher (non-bidder) + one overlap (also a bidder — must not
+        // duplicate).
+        watchlistAlertRepository.findActiveUserIdsForItem(1L) >> [30L, 10L]
+
+        when:
+        service.sweepEndingSoon()
+
+        then:
+        // 10, 20, 30 — one push each, no duplicate for 10.
+        1 * notificationService.push(10L, 'AUCTION_ENDING', _, _, 100L, _)
+        1 * notificationService.push(20L, 'AUCTION_ENDING', _, _, 100L, _)
+        1 * notificationService.push(30L, 'AUCTION_ENDING', _, _, 100L, _)
+        0 * notificationService.push(_, 'AUCTION_ENDING', _, _, 100L, _)
+        // Dedup flag set so the next tick skips this listing.
+        listing.endingSoonNotified == true
+        1 * listingRepository.save({ Listing l -> l.endingSoonNotified == true })
     }
 }

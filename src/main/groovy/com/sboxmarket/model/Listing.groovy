@@ -124,4 +124,11 @@ class Listing {
     /** Epoch ms of the most recent report — lets us age out stale signals client-side. */
     @Column(name = "last_reported_at")
     Long lastReportedAt
+
+    /** Flipped by BidService.sweepEndingSoon when an auction's 10-minute
+     *  close reminder fires so the sweeper doesn't re-notify bidders +
+     *  watchers on every 2-minute tick. Only meaningful for AUCTION rows;
+     *  non-auction rows stay at the default FALSE and never read it. */
+    @Column(name = "ending_soon_notified", nullable = false)
+    Boolean endingSoonNotified = false
 }

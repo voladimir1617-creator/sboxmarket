@@ -46,6 +46,7 @@ class BidService {
     @Autowired NotificationService notificationService
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) TradeService tradeService
+    @Autowired(required = false) com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
 
@@ -256,6 +257,74 @@ class BidService {
             try { settle(listing) }
             catch (Exception e) { log.error("Failed to settle auction ${listing.id}: ${e.message}") }
         }
+    }
+
+    /** Window used by the sweeper below — fire the "ending soon" nudge
+     *  when an auction is at most this close to its `expiresAt`. */
+    private static final long ENDING_SOON_WINDOW_MS = 10L * 60L * 1000L
+
+    /**
+     * Runs every 2 minutes and pushes one AUCTION_ENDING notification to
+     * every unique bidder AND every user watching the item whenever an
+     * active auction is within the 10-minute close window. A per-listing
+     * `ending_soon_notified` flag on `listings` dedups across ticks so
+     * bidders and watchers see the nudge at most once. Anti-snipe soft-
+     * close can still extend the auction after the nudge fires — that's
+     * fine: the flag stays true and later bids re-trigger no further
+     * notification, which matches the "one reminder, not a barrage"
+     * intent.
+     */
+    @Scheduled(fixedDelay = 120_000L, initialDelay = 30_000L)
+    @Transactional
+    void sweepEndingSoon() {
+        def now = System.currentTimeMillis()
+        def cutoff = now + ENDING_SOON_WINDOW_MS
+        def due = listingRepository.findEndingSoonUnnotified(now, cutoff)
+        if (due.isEmpty()) return
+        for (Listing listing : due) {
+            try { notifyEndingSoon(listing) }
+            catch (Exception e) {
+                log.warn("Ending-soon notify failed for listing ${listing.id}: ${e.message}")
+            }
+        }
+        log.info("Ending-soon fanout: notified on ${due.size()} auction${due.size() == 1 ? '' : 's'}")
+    }
+
+    @Transactional
+    protected void notifyEndingSoon(Listing listing) {
+        // Bidders first (they have explicit skin-in-the-game), watchers
+        // second. Dedup via a Set so a user who both bid and watched is
+        // only pinged once per auction.
+        def recipients = new LinkedHashSet<Long>()
+        bidRepository.findByListing(listing.id)
+            .collect { it.bidderUserId }
+            .findAll { it != null }
+            .each { recipients.add(it as Long) }
+        if (watchlistAlertRepository != null && listing.item?.id != null) {
+            watchlistAlertRepository.findActiveUserIdsForItem(listing.item.id)
+                .findAll { it != null }
+                .each { recipients.add(it as Long) }
+        }
+        if (!recipients.isEmpty()) {
+            def itemName = listing.item?.name ?: 'an auction'
+            def priceStr = listing.currentBid != null
+                ? "Current bid \$${listing.currentBid.toPlainString()}"
+                : "Starting at \$${listing.price?.toPlainString() ?: '0'}"
+            def mins = Math.max(1L, (long) Math.round(
+                (listing.expiresAt - System.currentTimeMillis()) / 60000.0d))
+            recipients.each { uid ->
+                try {
+                    notificationService.push(uid, 'AUCTION_ENDING',
+                        "Ending in ~${mins}m · ${itemName}",
+                        priceStr, listing.id,
+                        "/item/${listing.item?.id ?: ''}".toString())
+                } catch (Exception e) {
+                    log.warn("AUCTION_ENDING push failed for uid=${uid}: ${e.message}")
+                }
+            }
+        }
+        listing.endingSoonNotified = true
+        listingRepository.save(listing)
     }
 
     @Transactional

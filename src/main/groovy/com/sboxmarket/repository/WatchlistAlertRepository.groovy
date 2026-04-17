@@ -39,6 +39,16 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
 
     long countByUserIdAndStatus(Long userId, String status)
 
+    /** Distinct user ids with an ACTIVE watchlist alert on the given
+     *  item. Drives the AUCTION_ENDING fanout — watchers get pinged
+     *  when an auction of an item they're watching is about to close. */
+    @Query("""
+        SELECT DISTINCT a.userId FROM WatchlistAlert a
+        WHERE a.itemId = :itemId
+          AND a.status = 'ACTIVE'
+    """)
+    List<Long> findActiveUserIdsForItem(@Param("itemId") Long itemId)
+
     /** Public social-proof: how many users currently have an ACTIVE
      *  alert on this item. Powers the "N watching" chip on item detail.
      *  Aggregate only — no user identities surfaced. */

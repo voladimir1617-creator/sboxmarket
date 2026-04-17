@@ -85,6 +85,24 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     List<Listing> findActiveVisibleBySellerIds(@Param("uids") Collection<Long> sellerUserIds,
                                                 org.springframework.data.domain.Pageable pageable)
 
+    /** Auctions whose 10-minute close reminder is due. Backs
+     *  `BidService.sweepEndingSoon`. The partial index
+     *  `idx_listings_ending_soon_unnotified` on
+     *  (expires_at WHERE status='ACTIVE' AND listing_type='AUCTION' AND
+     *  ending_soon_notified=false) makes the scan touch only the tiny
+     *  tail of unnotified active auctions each tick, not the whole
+     *  listings table. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.status = 'ACTIVE'
+          AND l.listingType = 'AUCTION'
+          AND l.endingSoonNotified = false
+          AND l.expiresAt IS NOT NULL
+          AND l.expiresAt > :now
+          AND l.expiresAt <= :cutoff
+    """)
+    List<Listing> findEndingSoonUnnotified(@Param("now") Long now, @Param("cutoff") Long cutoff)
+
     @Query("SELECT l FROM Listing l JOIN FETCH l.item WHERE l.buyerUserId = :uid AND l.status = 'SOLD' ORDER BY l.soldAt DESC")
     List<Listing> findOwnedBy(@Param("uid") Long uid)
 
