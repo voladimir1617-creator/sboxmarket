@@ -2722,9 +2722,17 @@ function ProfileOffersTab() {
     list.length === 0
       ? h('div', { className: 'empty-inline' },
           h('div', { className: 'empty-icon' }, '💬'),
-          h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
-            tab === 'incoming' ? 'No incoming offers. Any time a buyer bargains on your listings, they show up here.'
-                               : 'No outgoing offers. Use "Make Offer" from any item detail to bargain with a seller.'))
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            tab === 'incoming' ? 'No incoming offers yet' : 'No offers out'),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+            tab === 'incoming'
+              ? 'Any time a buyer bargains on your listings, the offer shows up here with accept / counter / reject controls.'
+              : 'Use "Make Offer" from any item detail to bargain with a seller. The seller has 7 days to respond before the offer auto-expires.'),
+          h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+            tab === 'incoming'
+              ? h('a', { className: 'btn btn-accent', href: '/mystall' }, 'Open My Stall →')
+              : h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
+          ))
       : h('div', { className: 'offer-list' }, list.map(o => row(o, tab === 'incoming')))
   );
 }
@@ -3864,10 +3872,17 @@ export function OffersModal({ onClose, me, onRefresh }) {
       : list.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, '💬'),
-            h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+              tab === 'incoming' ? 'No incoming offers yet' : 'No offers out'),
+            h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
               tab === 'incoming'
-                ? "No incoming offers. They'll show up here when buyers make offers on your listings."
-                : 'No outgoing offers. Make an offer on any listing using the "Make Offer" button.'))
+                ? "They'll show up here when buyers make offers on your listings."
+                : 'Click "Make Offer" on any listing to bargain. Sellers have 7 days to respond before the offer auto-expires.'),
+            h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+              tab === 'incoming'
+                ? h('a', { className: 'btn btn-accent', href: '/mystall' }, 'Open My Stall →')
+                : h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
+            ))
         : h('div', { className: 'offer-list' }, list.map(o => renderOffer(o, tab === 'incoming')))
   );
 }
