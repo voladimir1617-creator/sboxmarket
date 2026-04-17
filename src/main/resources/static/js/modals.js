@@ -2137,6 +2137,26 @@ export function MyStallModal({ onClose, me, onRefresh }) {
                   h('div', { className: 'price-val', style: { marginRight: 10 } }, fmt(l.price)),
                   h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => startEdit(l) }, '✎ Edit'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '7px 10px', fontSize: 11 }, onClick: () => toggleHidden(l) }, l.hidden ? '👁 Show' : '🙈 Hide'),
+                  // Copy a direct link to this listing's item detail page —
+                  // sellers paste it into Discord / Steam groups to drive
+                  // traffic. Falls back to window.prompt on old browsers
+                  // without Clipboard API access.
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '7px 10px', fontSize: 11 },
+                    title: 'Copy a link to this listing',
+                    onClick: async () => {
+                      const url = `${window.location.origin}/item/${l.item.id}`;
+                      try {
+                        if (navigator.clipboard?.writeText) {
+                          await navigator.clipboard.writeText(url);
+                          alert('Link copied to clipboard:\n' + url);
+                        } else {
+                          window.prompt('Copy this link:', url);
+                        }
+                      } catch (_) { window.prompt('Copy this link:', url); }
+                    }
+                  }, '⎘ Link'),
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 10px', fontSize: 11 },

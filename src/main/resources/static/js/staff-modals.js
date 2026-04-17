@@ -618,8 +618,28 @@ function AdminUsersTab({ me }) {
   const [rows, setRows] = useState(null);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
+  // User detail sub-modal: loaded lazily when an admin clicks a row.
+  // Shows trades + reviews received + public profile fields. Read-only
+  // panel — write actions stay on the row actions so they're audited.
+  const [detailUser, setDetailUser]   = useState(null);
+  const [detailData, setDetailData]   = useState(null);
   const load = useCallback(async () => { setRows(await adminUsers(search)); }, [search]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!detailUser) { setDetailData(null); return; }
+    let alive = true;
+    (async () => {
+      try {
+        // Public stall + reviews for a quick at-a-glance card.
+        const [stall, reviews] = await Promise.all([
+          fetch(`/api/listings/stall/${detailUser.id}`, { credentials: 'same-origin' }).then(r => r.ok ? r.json() : null),
+          fetch(`/api/reviews/user/${detailUser.id}`,   { credentials: 'same-origin' }).then(r => r.ok ? r.json() : [])
+        ]);
+        if (alive) setDetailData({ stall, reviews: Array.isArray(reviews) ? reviews : [] });
+      } catch (_) {}
+    })();
+    return () => { alive = false; };
+  }, [detailUser?.id]);
 
   const doBan = async (u) => {
     const reason = prompt('Ban reason (shown to user):', '');
@@ -723,6 +743,12 @@ function AdminUsersTab({ me }) {
               ),
               h('td', { className: 'right' },
                 h('div', { style: { display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' } },
+                  h('button', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
+                    onClick: () => setDetailUser(u),
+                    title: 'View user detail'
+                  }, '🔎'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
                   u.role !== 'ADMIN'
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u) }, '+Admin')
@@ -733,7 +759,78 @@ function AdminUsersTab({ me }) {
                 )
               )
             )))
-          )
+          ),
+    // User detail drawer — read-only snapshot (public stall + reviews)
+    // so admins can eyeball a user's activity without scavenging the UI.
+    // Backed by the existing public endpoints; no new surface area.
+    detailUser && h('div', {
+      className: 'cart-confirm-backdrop',
+      onClick: () => setDetailUser(null)
+    },
+      h('div', {
+        className: 'cart-confirm-panel',
+        style: { maxWidth: 640 },
+        onClick: e => e.stopPropagation()
+      },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 } },
+          detailUser.avatarUrl
+            ? h('img', { src: detailUser.avatarUrl, alt: '', style: { width: 56, height: 56, borderRadius: '50%' } })
+            : h('div', { className: 'db-thumb', style: { width: 56, height: 56, fontSize: 18 } }, (detailUser.displayName || 'U').substring(0, 2).toUpperCase()),
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div', { className: 'cart-confirm-title' }, detailUser.displayName || 'Player'),
+            h('div', { className: 'cart-confirm-sub' },
+              `Steam ID ${detailUser.steamId64} · #${detailUser.id} · role ${detailUser.role || 'USER'}`)
+          ),
+          h('a', {
+            className: 'btn btn-ghost',
+            style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
+            href: `/stall/${detailUser.id}`, target: '_blank', rel: 'noopener noreferrer'
+          }, 'Open stall ↗')
+        ),
+        detailData === null
+          ? h('div', { className: 'spinner' })
+          : h('div', null,
+              h('div', { className: 'health-grid', style: { marginBottom: 16 } },
+                h('div', { className: 'health-card' },
+                  h('div', { className: 'health-card-label' }, 'Active listings'),
+                  h('div', { className: 'health-card-value' }, (detailData.stall?.count ?? 0).toString()),
+                  h('div', { className: 'health-card-hint' }, detailData.stall?.away ? 'Seller is away' : 'Visible to buyers')
+                ),
+                h('div', { className: 'health-card' },
+                  h('div', { className: 'health-card-label' }, 'Lifetime sales'),
+                  h('div', { className: 'health-card-value' }, (detailData.stall?.seller?.soldCount ?? 0).toString()),
+                  h('div', { className: 'health-card-hint' }, detailData.stall?.seller?.verified ? 'Verified' : 'Not verified')
+                ),
+                h('div', { className: 'health-card' },
+                  h('div', { className: 'health-card-label' }, 'Reviews'),
+                  h('div', { className: 'health-card-value' },
+                    detailData.stall?.rating?.count
+                      ? `${Number(detailData.stall.rating.average || 0).toFixed(1)} ★`
+                      : '—'
+                  ),
+                  h('div', { className: 'health-card-hint' }, `${detailData.stall?.rating?.count ?? 0} review${detailData.stall?.rating?.count === 1 ? '' : 's'}`)
+                )
+              ),
+              detailData.reviews.length > 0 && h('div', null,
+                h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', margin: '10px 0 8px' } }, 'Most recent reviews'),
+                detailData.reviews.slice(0, 6).map(r => h('div', { key: r.id, style: { padding: '8px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, marginBottom: 6 } },
+                  h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+                    '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating),
+                    ' · ', r.fromDisplayName || 'Anonymous',
+                    ' · ', new Date(r.createdAt).toLocaleDateString()
+                  ),
+                  r.comment && h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 2 } }, r.comment)
+                ))
+              )
+            ),
+        h('div', { className: 'cart-confirm-actions' },
+          h('button', {
+            className: 'btn btn-accent',
+            onClick: () => setDetailUser(null)
+          }, 'Close')
+        )
+      )
+    )
   );
 }
 

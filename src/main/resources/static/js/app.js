@@ -806,6 +806,8 @@ export function App() {
   const [stallData, setStallData] = useState(null);
   const [stallReviews, setStallReviews] = useState(null);
   const [eligibleTrades, setEligibleTrades] = useState([]);
+  // Star-rating filter for the recent-reviews strip. 0 = all.
+  const [stallStarFilter, setStallStarFilter] = useState(0);
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
       setStallData(null); setStallReviews(null); setEligibleTrades([]); return;
@@ -2032,27 +2034,41 @@ export function App() {
             // Recent reviews strip — only shows when the seller has feedback.
             // Reviews are trade-anchored so every entry is a real buyer who
             // actually traded with this user (see ReviewService.leaveReview).
-            stallReviews && stallReviews.length > 0 && h('div', { className: 'stall-reviews' },
-              h('div', { className: 'stall-reviews-head' },
-                h('span', { className: 'section-title-dot' }),
-                `Recent reviews (${stallReviews.length})`
-              ),
-              h('div', { className: 'stall-reviews-list' },
-                stallReviews.slice(0, 10).map(r => h(StallReviewRow, {
-                  key: r.id,
-                  review: r,
-                  // Viewer is the seller on this stall iff their user.id
-                  // matches the stall owner's id — then the reply UI shows.
-                  isOwner: me && stallData?.seller?.id === me.id,
-                  onSaved: async () => {
-                    // Refetch the reviews list to reflect the new reply
-                    // without a page reload.
-                    const fresh = await fetchReviewsForUser(stallData.seller.id);
-                    setStallReviews(fresh);
-                  }
-                }))
-              )
-            )
+            stallReviews && stallReviews.length > 0 && (() => {
+              const displayReviews = stallStarFilter > 0
+                ? stallReviews.filter(r => r.rating === stallStarFilter)
+                : stallReviews;
+              return h('div', { className: 'stall-reviews' },
+                h('div', { className: 'stall-reviews-head' },
+                  h('span', { className: 'section-title-dot' }),
+                  `Recent reviews (${stallReviews.length})`
+                ),
+                // Star filter chips — All + 5★ .. 1★. Hidden when there's
+                // nothing to filter (just one review makes the filter noise).
+                stallReviews.length >= 3 && h('div', { className: 'stall-reviews-filter' },
+                  [0, 5, 4, 3, 2, 1].map(n => h('button', {
+                    key: n,
+                    className: `wallet-tx-filter-chip ${stallStarFilter === n ? 'active' : ''}`,
+                    onClick: () => setStallStarFilter(n)
+                  }, n === 0 ? 'All' : `${n}★`))
+                ),
+                h('div', { className: 'stall-reviews-list' },
+                  displayReviews.length === 0
+                    ? h('div', { className: 'empty-inline' },
+                        h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
+                          `No ${stallStarFilter}★ reviews yet.`))
+                    : displayReviews.slice(0, 10).map(r => h(StallReviewRow, {
+                        key: r.id,
+                        review: r,
+                        isOwner: me && stallData?.seller?.id === me.id,
+                        onSaved: async () => {
+                          const fresh = await fetchReviewsForUser(stallData.seller.id);
+                          setStallReviews(fresh);
+                        }
+                      }))
+                )
+              );
+            })()
           )
     ),
     routeName === 'notfound'      && h(InfoModal,       { title: 'Page not found', onClose: () => navigate(paths.market()) },
