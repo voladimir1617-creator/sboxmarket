@@ -49,6 +49,6 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 # start-period covers the ~10s JVM + Spring Boot warmup so the container
 # isn't flagged unhealthy during its first boot cycle.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD \
-  wget -qO- http://127.0.0.1:8080/api/health | grep -q '"UP"' || exit 1
+  wget -qO- "http://127.0.0.1:${SERVER_PORT:-8080}/api/health" | grep -q '"UP"' || exit 1
 
 ENTRYPOINT ["java", "-jar", "/opt/skinbox/skinbox.jar"]

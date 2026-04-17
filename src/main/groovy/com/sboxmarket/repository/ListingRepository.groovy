@@ -191,6 +191,18 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     """)
     List<Object[]> topSellers(@Param("minSold") long minSold, org.springframework.data.domain.Pageable page)
 
+    /** Platform-wide "Just Sold" feed. Most-recent completed sales across
+     *  every seller. Fuels the homepage social-proof ticker so anonymous
+     *  visitors see activity as soon as they land. JOIN FETCH on item keeps
+     *  the card render one round-trip. */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.status = 'SOLD'
+          AND l.soldAt IS NOT NULL
+        ORDER BY l.soldAt DESC
+    """)
+    List<Listing> findRecentlySold(org.springframework.data.domain.Pageable page)
+
     /** Top discounts — active BUY_NOW listings where the price is
      *  meaningfully below the catalogue steamPrice, ordered by percentage
      *  gap DESC. Fuels the homepage "Top deals" rail. Filter out anything

@@ -426,6 +426,17 @@ class ListingController {
         ResponseEntity.ok(listingService.getReportReasons())
     }
 
+    /** Platform-wide "Just sold" feed. Anonymous-friendly social-proof
+     *  ticker on the homepage. Hard-capped at 30 rows; `soldAt` is
+     *  indexed. Returns just the fields the card renderer needs so the
+     *  payload stays small. */
+    @GetMapping("/recent-sales")
+    ResponseEntity<List<Map>> recentSales(@RequestParam(required = false) Integer limit) {
+        def lim = Math.min(Math.max(limit ?: 10, 1), 30)
+        def rows = listingService.findRecentSales(lim)
+        ResponseEntity.ok(rows)
+    }
+
     /** Toggle "Away mode" — hides ALL of the user's active listings in one shot. */
     @PostMapping("/away")
     ResponseEntity<Map> awayMode(@RequestBody Map body, HttpServletRequest req) {

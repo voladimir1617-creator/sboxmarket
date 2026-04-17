@@ -156,6 +156,28 @@ class ListingService {
         listingRepository.findTopDeals(org.springframework.data.domain.PageRequest.of(0, limit))
     }
 
+    /** Platform-wide "Just sold" feed — most-recent SOLD listings across
+     *  every seller. Projected to a minimal map so the card renderer
+     *  doesn't pull entire Listing entities into the response JSON. */
+    List<Map> findRecentSales(int limit) {
+        def lim = Math.min(Math.max(limit, 1), 30)
+        def rows = listingRepository.findRecentlySold(org.springframework.data.domain.PageRequest.of(0, lim))
+        rows.collect { l ->
+            [
+                listingId:   l.id,
+                itemId:      l.item?.id,
+                itemName:    l.item?.name,
+                category:    l.item?.category,
+                rarity:      l.item?.rarity,
+                imageUrl:    l.item?.imageUrl,
+                price:       l.price,
+                steamPrice:  l.item?.steamPrice,
+                soldAt:      l.soldAt,
+                sellerName:  l.sellerName
+            ]
+        }
+    }
+
     /** Apply a percent adjustment to every active non-auction listing owned
      *  by the user. +10 = markup 10%, -5 = 5% discount. Auction listings
      *  are skipped (starting price ≠ current bid once a bid lands). Result

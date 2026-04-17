@@ -4,7 +4,7 @@ import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo } fro
 import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
-  adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
+  adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals
 } from './api.js';
@@ -459,6 +459,56 @@ function JustListedRail({ watchlist, onToggleStar, onOpen }) {
           onToggleStar,
           onClick: () => onOpen(l)
         })
+      ))
+    )
+  );
+}
+
+// Platform-wide "Just sold" ticker. Social proof on the homepage —
+// anonymous visitors see the marketplace is live the moment the page
+// loads. Polls /api/listings/recent-sales every 30s so new sales land
+// in the rail without a manual refresh. Hides itself when the platform
+// has no completed sales yet.
+function JustSoldRail() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const data = await fetchPlatformRecentSales(12);
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'just-listed-rail' },
+    h('div', { className: 'just-listed-head' },
+      h('span', { className: 'just-listed-dot', style: { background: '#22c55e' } }),
+      h('span', null, 'Just sold'),
+      h('span', { className: 'just-listed-count' }, `${rows.length} recent`)
+    ),
+    h('div', { className: 'just-listed-track' },
+      rows.map(s => h('a', {
+        key: 'js-' + s.listingId,
+        href: s.itemId ? ('/item/' + s.itemId) : '#',
+        className: 'top-seller-card',
+        style: { textDecoration: 'none', minWidth: 220, padding: 10 },
+        title: `${s.itemName || 'Item'} sold for ${fmt(s.price)} · ${timeAgo(s.soldAt)}`
+      },
+        h('div', { className: 'top-seller-body', style: { width: '100%' } },
+          h('div', { className: 'top-seller-name', style: { fontSize: 13, fontWeight: 700 } },
+            s.itemName || 'Item'
+          ),
+          h('div', { className: 'top-seller-meta' },
+            h('span', { style: { color: 'var(--green)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } },
+              fmt(s.price)),
+            h('span', { style: { color: 'var(--text-muted)', marginLeft: 8 } },
+              timeAgo(s.soldAt))
+          )
+        )
       ))
     )
   );
@@ -2269,6 +2319,10 @@ export function App() {
     routeName === 'market' && h(JustListedRail, {
       watchlist, onToggleStar: toggleStar, onOpen: openModal
     }),
+
+    /* JUST SOLD — live sales ticker for social proof. Polls every 30s
+       so new platform-wide sales appear in the rail without refresh. */
+    routeName === 'market' && h(JustSoldRail, null),
 
     /* TOP SELLERS — social proof rail showing the highest-volume
        verified sellers. Polls every 5 minutes; hides when the aggregate

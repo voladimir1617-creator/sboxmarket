@@ -630,6 +630,14 @@ export async function fetchTopDeals() {
   const data = await safeJson(`${API}/listings/top-deals`);
   return Array.isArray(data) ? data : [];
 }
+/** Platform-wide "just sold" feed — social-proof ticker on the homepage.
+ *  Named `fetchPlatformRecentSales` to keep the per-item `fetchRecentSales`
+ *  unambiguous — they're structurally different payloads. */
+export async function fetchPlatformRecentSales(limit) {
+  const qs = limit ? `?limit=${limit}` : '';
+  const data = await safeJson(`${API}/listings/recent-sales${qs}`);
+  return Array.isArray(data) ? data : [];
+}
 /** Auctions ending within the next hour — powers the "Ending soon" rail
  *  on the marketplace home. Public endpoint, 20-row cap server-side. */
 export async function fetchAuctionsEndingSoon(withinMs) {
