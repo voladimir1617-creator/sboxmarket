@@ -15,11 +15,13 @@ import spock.lang.Subject
 class SitemapControllerSpec extends Specification {
 
     ItemRepository itemRepository = Mock()
+    com.sboxmarket.repository.ListingRepository listingRepository = Mock()
 
     @Subject
     SitemapController controller = new SitemapController(
-        itemRepository: itemRepository,
-        publicUrl:      'https://skinbox.test/'  // deliberate trailing slash
+        itemRepository:    itemRepository,
+        listingRepository: listingRepository,
+        publicUrl:         'https://skinbox.test/'  // deliberate trailing slash
     )
 
     def "sitemap emits every static URL"() {
@@ -119,5 +121,41 @@ class SitemapControllerSpec extends Specification {
         !body.contains('<loc>https://skinbox.test/item/20000</loc>')
         // The 10 000th item must appear — it's the last one inside the cap.
         body.contains('<loc>https://skinbox.test/item/10000</loc>')
+    }
+
+    // ── seller stall URLs ────────────────────────────────────────
+
+    def "sellers with at least one completed sale contribute /stall/{id} URLs"() {
+        given:
+        itemRepository.findAll() >> []
+        // topSellers returns [sellerUserId, soldCount] tuples.
+        listingRepository.topSellers(1L, _) >> [
+            [42L, 5L] as Object[],
+            [99L, 12L] as Object[]
+        ]
+
+        when:
+        def body = controller.sitemap().body as String
+
+        then:
+        body.contains('<loc>https://skinbox.test/stall/42</loc>')
+        body.contains('<loc>https://skinbox.test/stall/99</loc>')
+        (body =~ /<loc>https:\/\/skinbox\.test\/stall\/42<\/loc>\s*<changefreq>weekly<\/changefreq>\s*<priority>0\.5<\/priority>/).find()
+    }
+
+    def "seller-list failure does not kill the sitemap"() {
+        given:
+        itemRepository.findAll() >> []
+        listingRepository.topSellers(_, _) >> { throw new RuntimeException('db offline') }
+
+        when:
+        def response = controller.sitemap()
+
+        then:
+        response.statusCode.value() == 200
+        def body = response.body as String
+        body.contains('<urlset')
+        // Static URLs still there even if stall section blew up
+        body.contains('<loc>https://skinbox.test/</loc>')
     }
 }

@@ -1,6 +1,7 @@
 package com.sboxmarket.controller
 
 import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.ListingRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController
 class SitemapController {
 
     @Autowired ItemRepository itemRepository
+    @Autowired(required = false) ListingRepository listingRepository
 
     @Value('${app.public-url:http://localhost:8080}')
     String publicUrl
@@ -70,6 +72,29 @@ class SitemapController {
             }
         } catch (Exception e) {
             log.warn("Sitemap item generation failed; returning static URLs only: ${e.message}")
+        }
+        // Seller stall pages — only include sellers with at least 1
+        // completed sale. Guards against dumping every registered
+        // account (including dormant ones) into the sitemap, which
+        // would thin out the index value of the real active stalls.
+        // Reuses the existing topSellers aggregate with minSold=1.
+        try {
+            if (listingRepository != null) {
+                def sellerRows = listingRepository.topSellers(1L,
+                    org.springframework.data.domain.PageRequest.of(0, 10_000))
+                sellerRows.each { row ->
+                    def sellerId = row[0] as Long
+                    if (sellerId != null) {
+                        sb.append('  <url>\n')
+                          .append('    <loc>').append(base).append('/stall/').append(sellerId).append('</loc>\n')
+                          .append('    <changefreq>weekly</changefreq>\n')
+                          .append('    <priority>0.5</priority>\n')
+                          .append('  </url>\n')
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Sitemap stall generation failed; skipping: ${e.message}")
         }
         sb.append('</urlset>\n')
         ResponseEntity.ok()
