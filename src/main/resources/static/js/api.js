@@ -105,6 +105,11 @@ export async function buyListing(id) {
   return writeJson(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
 }
 
+/** GET a single listing by id. Returns null on 404 (listing sold / cancelled). */
+export async function fetchListingById(id) {
+  return safeJson(`${API}/listings/${id}`);
+}
+
 /** User-facing report. Returns { reportCount, thanks } on success, or
  *  { error / code, message } on refusal (self-report, duplicate, rate-limit). */
 export async function reportListing(id, reason, note) {

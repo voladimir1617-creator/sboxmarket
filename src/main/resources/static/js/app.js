@@ -4,7 +4,7 @@ import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo } fro
 import {
   fetchListings, fetchListingsForItem, fetchHistory, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
-  adminCheck, csrCheck, checkoutCart, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
+  adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals
 } from './api.js';
@@ -1094,6 +1094,32 @@ export function App() {
     try { return JSON.parse(localStorage.getItem('sb_cart') || '[]'); } catch { return []; }
   });
   useEffect(() => { localStorage.setItem('sb_cart', JSON.stringify(cart)); }, [cart]);
+  // When the user lands on /cart, ping each cart-row's listing to make
+  // sure it's still ACTIVE — if the listing was sold to someone else
+  // (or force-cancelled) while it was sitting in this user's cart, we
+  // drop it proactively + toast once so the checkout button doesn't
+  // try to buy a 404. Only fires on cart route entry; no polling loop.
+  useEffect(() => {
+    if (routeName !== 'cart' || cart.length === 0) return;
+    let alive = true;
+    (async () => {
+      const results = await Promise.all(cart.map(async it => {
+        const l = await fetchListingById(it.id).catch(() => null);
+        // null = 404 / network error; !ACTIVE = sold, cancelled, etc.
+        return { id: it.id, stillActive: l && l.status === 'ACTIVE' };
+      }));
+      if (!alive) return;
+      const goneIds = new Set(results.filter(r => !r.stillActive).map(r => r.id));
+      if (goneIds.size === 0) return;
+      setCart(c => c.filter(x => !goneIds.has(x.id)));
+      setToast({
+        text: `${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — sold before checkout`,
+        kind: 'err'
+      });
+      setTimeout(() => setToast(null), 4500);
+    })();
+    return () => { alive = false; };
+  }, [routeName]);
   const cartCount = cart.length;
   const cartTotal = useMemo(() => cart.reduce((s, it) => s + (parseFloat(it.price) || 0), 0), [cart]);
   const addToCart = (listing) => {
