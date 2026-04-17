@@ -723,6 +723,7 @@ export function SiteFooter() {
         h('a', { href: paths.support() }, 'Support'),
         h('a', { href: paths.faq() }, 'Fees & Pricing'),
         h('a', { href: '/status.html' }, 'System Status'),
+        h('a', { href: '/changelog.html' }, 'Changelog'),
         h('a', { href: paths.settings() }, 'Settings')
       ),
       h('div', { className: 'site-footer-col' },

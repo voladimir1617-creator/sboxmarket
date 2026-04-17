@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Changelog — SkinBox</title>
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="stylesheet" href="/css/styles.css">
+  <meta name="description" content="What's new on SkinBox — the s&box skin marketplace.">
+  <style>
+    .changelog { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); }
+    .changelog h1 { font-size: 32px; margin-bottom: 8px; }
+    .changelog-intro { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+    .changelog-entry { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+    .changelog-entry:last-child { border-bottom: none; }
+    .changelog-date { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .changelog-title { font-size: 20px; margin: 6px 0 14px; color: var(--text-primary); }
+    .changelog-tag   { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; margin-right: 6px; letter-spacing: 0.5px; vertical-align: 1px; }
+    .changelog-tag.feature { background: rgba(34,197,94,0.15);  color: #22c55e; }
+    .changelog-tag.fix     { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .changelog-tag.security{ background: rgba(248,113,113,0.15); color: #f87171; }
+    .changelog-tag.polish  { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .changelog-list li     { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; font-size: 14px; }
+    .changelog-back        { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="changelog">
+    <a class="changelog-back" href="/">← Back to SkinBox</a>
+    <h1>Changelog</h1>
+    <p class="changelog-intro">
+      What's new on SkinBox. The platform ships changes continuously —
+      this page highlights the user-visible ones. For the latest version,
+      check <code>/api/version</code>. System status lives at
+      <a href="/status.html" style="color:var(--accent)">/status.html</a>.
+    </p>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">SEO + social-preview overhaul</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Platform-wide "Just Sold" ticker on the homepage — social proof from live activity.</li>
+        <li><span class="changelog-tag feature">NEW</span>Dynamic <code>sitemap.xml</code> that lists every item detail page for search engines.</li>
+        <li><span class="changelog-tag feature">NEW</span>Per-item and per-stall OG tags — sharing an item link into Discord / Twitter shows the actual skin + price.</li>
+        <li><span class="changelog-tag feature">NEW</span>Saved-search presets — name a filter combo and re-apply in one click.</li>
+        <li><span class="changelog-tag feature">NEW</span>Quick-filter chips (Under $5 / $20 / $50, Premium, Limited-only).</li>
+        <li><span class="changelog-tag polish">POLISH</span>Browser tab titles now describe the current page and refine to the item name on item detail.</li>
+        <li><span class="changelog-tag fix">FIX</span>Cart drops sold-while-waiting listings on page load with a single toast, instead of failing at checkout.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Moderation + staff tooling</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Users can 🚩 Report a listing or report a seller — reports route to a dedicated admin queue.</li>
+        <li><span class="changelog-tag feature">NEW</span>Admin can dismiss reports without cancelling (reviewers notified), or force-cancel and notify all reporters of the action.</li>
+        <li><span class="changelog-tag feature">NEW</span>Admin can grant/revoke CSR role, reset 2FA for a locked-out user, and filter the user list by role chip.</li>
+        <li><span class="changelog-tag feature">NEW</span>Audit log gains a free-text search over summary + names.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Profile + wallet upgrades</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Export your trade + offer + transaction history as CSV for tax and accounting.</li>
+        <li><span class="changelog-tag feature">NEW</span>30-day credits/debits/net summary above the transactions ledger.</li>
+        <li><span class="changelog-tag feature">NEW</span>Cart → Watchlist shortcut, Copy Steam ID, Copy item link, account-age trust badge.</li>
+        <li><span class="changelog-tag feature">NEW</span>Email-verification nag banner (7-day dismiss cooldown).</li>
+        <li><span class="changelog-tag feature">NEW</span>Self-cancel pending withdrawals without waiting for admin rejection.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Marketplace + discovery</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Biggest-discount sort option + "−X%" chips on listing rows below Steam Market price.</li>
+        <li><span class="changelog-tag feature">NEW</span>Marketplace filter state is URL-shareable — copy the bar and send the exact same view to a friend.</li>
+        <li><span class="changelog-tag feature">NEW</span>Sell page shows live take-home breakdown (price − 2% fee) with floor-relative sell-time guidance.</li>
+        <li><span class="changelog-tag feature">NEW</span>Recently-viewed + top-sellers + top-deals + auctions-ending-soon rails on the homepage.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Security + infrastructure</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag security">SECURITY</span>CSRF double-submit-cookie on every write endpoint; session cookies HttpOnly + SameSite-strict in prod.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Rate limiting on write (20/10s) and read (120/10s) surfaces.</li>
+        <li><span class="changelog-tag security">SECURITY</span>CSP covering every CDN origin; HSTS opt-in; body-size caps.</li>
+        <li><span class="changelog-tag feature">NEW</span>System status page at <a href="/status.html" style="color:var(--accent)">/status.html</a> — probes core endpoints every 30s.</li>
+        <li><span class="changelog-tag fix">FIX</span>Docker HEALTHCHECK now respects SERVER_PORT (was hard-coded to 8080).</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
