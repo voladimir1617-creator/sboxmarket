@@ -2,7 +2,7 @@
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo } from './utils.js';
 import {
-  fetchListings, fetchListingsForItem, fetchHistory, buyListing,
+  fetchListings, fetchListingsForItem, fetchHistory, fetchItem, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
@@ -1658,10 +1658,21 @@ export function App() {
           fetchHistory(route.params.id)
         ]);
         if (!alive) return;
-        // Resolve the actual item object from the first listing (or by ID if we
-        // already have the listings loaded).
-        const item = itemListings[0]?.item ||
-                     listings.find(l => String(l.item?.id) === String(route.params.id))?.item;
+        // Resolve the actual item object. Three-layer fallback:
+        //   1. first listing we just fetched (most common — item has
+        //      active listings),
+        //   2. the already-loaded marketplace listings array (cache),
+        //   3. a direct /api/items/{id} probe so an item with zero
+        //      active listings still opens the modal (was a blank
+        //      screen before — /item/{id} for an unlisted-but-real
+        //      item rendered nothing).
+        let item = itemListings[0]?.item ||
+                   listings.find(l => String(l.item?.id) === String(route.params.id))?.item;
+        if (!item) {
+          try { item = await fetchItem(route.params.id); }
+          catch (_) { item = null; }
+          if (!alive) return;
+        }
         if (item) {
           setSelected({ item, listings: itemListings, history });
           // Refine the route-driven title with the real item name — e.g.
@@ -3090,7 +3101,23 @@ export function App() {
       : h(FaqModal, { onClose: () => navigate(paths.market()) })),
 
     /* ITEM DETAIL — the only modal that isn't a menu destination. Closing it
-       navigates back to /, so back/forward work naturally. */
+       navigates back to /, so back/forward work naturally.
+
+       Render states: loading spinner → ItemModal on success → "item not
+       found" fallback when the route lands on a genuinely missing id.
+       Without the fallback the modal rendered nothing and the user saw
+       a blank page with no way to figure out what happened. */
+    routeName === 'item' && !modalLoading && !selected && (
+      h('div', { className: 'modal-backdrop', onClick: () => navigate(paths.market()) },
+        h('div', { className: 'modal', onClick: (e) => e.stopPropagation(), style: { maxWidth: 420, textAlign: 'center', padding: '32px 24px' } },
+          h('div', { style: { fontSize: 48, marginBottom: 12 } }, '🕳️'),
+          h('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 } }, 'Item not found'),
+          h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
+            'The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.'),
+          h('a', { className: 'btn btn-accent', href: '/' }, 'Back to marketplace')
+        )
+      )
+    ),
     routeName === 'item' && (selected || modalLoading) && (
       modalLoading
         ? h('div', { className: 'modal-backdrop' }, h('div', { className: 'spinner', style: { margin: '0 auto' } }))
