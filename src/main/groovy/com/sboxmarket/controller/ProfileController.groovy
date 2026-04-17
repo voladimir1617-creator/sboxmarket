@@ -217,6 +217,31 @@ class ProfileController {
     }
 
     /**
+     * Set (or clear) the seller's self-written stall bio — rendered
+     * on the public /stall/{id} page under the hero. HTML-stripped via
+     * TextSanitizer.medium and capped at 500 chars. Pass empty string
+     * or null to clear. No email / confirmation loop — this is
+     * self-managed public content, not a secret.
+     */
+    @PutMapping("/stall-bio")
+    @Transactional
+    ResponseEntity<Map> setStallBio(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        def raw = body?.bio as String
+        if (raw == null || raw.trim().isEmpty()) {
+            user.stallBio = null
+        } else {
+            def clean = textSanitizer.medium(raw)
+            if (clean == null) clean = ''
+            if (clean.length() > 500) clean = clean.substring(0, 500)
+            user.stallBio = clean
+        }
+        steamUserRepository.save(user)
+        ResponseEntity.ok([stallBio: user.stallBio])
+    }
+
+    /**
      * Self-service data export — bundles the user's profile, wallet,
      * transactions, listings, trades, offers, buy orders, bids, reviews,
      * and notifications into one JSON blob. Intended for GDPR /

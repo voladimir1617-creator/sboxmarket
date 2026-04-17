@@ -116,4 +116,12 @@ class SteamUser {
      *  (verification, password-reset) ignore this flag. */
     @Column(name = 'email_notifications_enabled', nullable = false)
     Boolean emailNotificationsEnabled = true
+
+    /** Optional self-written seller bio. Rendered on the public
+     *  /stall/{id} page under the hero. Sanitised via
+     *  TextSanitizer.medium on write — no HTML, capped at 500 chars
+     *  (matches the column size). Nullable; empty bios are hidden in
+     *  the UI. */
+    @Column(name = 'stall_bio', length = 500)
+    String stallBio
 }

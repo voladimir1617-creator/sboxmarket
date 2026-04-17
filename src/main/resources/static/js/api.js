@@ -967,6 +967,16 @@ export async function setTradeUrl(tradeUrl) {
     body: JSON.stringify({ tradeUrl })
   });
 }
+/** Set or clear the seller's self-written public stall bio. Passing
+ *  empty string / null clears it. Sanitised server-side (HTML-stripped,
+ *  500-char cap). Surfaces on the public /stall/{id} page. */
+export async function setStallBio(bio) {
+  return writeJson(`${API}/profile/stall-bio`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bio: bio ?? '' })
+  });
+}
 export async function verifyEmail(token) {
   return writeJson(`${API}/profile/email/verify`, {
     method: 'POST', credentials: 'same-origin',

@@ -470,6 +470,102 @@ function JustListedRail({ watchlist, onToggleStar, onOpen }) {
 // loads. Polls /api/listings/recent-sales every 30s so new sales land
 // in the rail without a manual refresh. Hides itself when the platform
 // has no completed sales yet.
+// ── Stall bio block — renders the seller's self-written bio on the
+// public /stall/{id} page. When the viewer is the stall owner, a tiny
+// "✎ Edit" button below the bio opens an inline textarea + save/cancel.
+// Clears on empty save. Bio-less stalls show nothing for non-owners
+// and a dimmed "Add a bio" prompt for owners so they know the feature
+// exists without forcing a nag on every stall.
+function StallBioBlock({ bio, canEdit, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState('');
+  const [busy, setBusy]       = useState(false);
+  const [err, setErr]         = useState('');
+  const startEdit = () => { setDraft(bio || ''); setEditing(true); setErr(''); };
+  const cancel = () => { setEditing(false); setDraft(''); setErr(''); };
+  const save = async () => {
+    setBusy(true); setErr('');
+    try {
+      const { setStallBio } = await import('./api.js');
+      const res = await setStallBio(draft);
+      if (res && (res.error || res.code)) {
+        setErr(res.message || res.error || 'Could not save');
+        return;
+      }
+      setEditing(false);
+      onSaved && onSaved();
+    } finally { setBusy(false); }
+  };
+  if (!bio && !canEdit) return null;
+  if (editing) {
+    const CAP = 500;
+    return h('div', {
+      style: {
+        margin: '12px 0 4px', padding: 12, borderRadius: 8,
+        background: 'var(--bg-elevated)', border: '1px solid var(--border)'
+      }
+    },
+      h('textarea', {
+        value: draft,
+        maxLength: CAP,
+        onChange: e => setDraft(e.target.value),
+        placeholder: 'Tell buyers how you trade — response times, preferred payment flow, anything that helps set expectations. Plain text, 500 chars.',
+        style: {
+          width: '100%', minHeight: 80, padding: '8px 10px',
+          background: 'var(--bg-input)', color: 'var(--text-primary)',
+          border: '1px solid var(--border)', borderRadius: 6,
+          fontFamily: 'inherit', fontSize: 13, resize: 'vertical'
+        }
+      }),
+      h('div', { style: { display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' } },
+        h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
+          `${draft.length} / ${CAP}`),
+        err && h('span', { style: { fontSize: 10, color: 'var(--red)', fontWeight: 700 } }, err),
+        h('div', { style: { flex: 1 } }),
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 12 },
+          disabled: busy, onClick: cancel
+        }, 'Cancel'),
+        h('button', {
+          className: 'btn btn-accent',
+          style: { padding: '6px 14px', fontSize: 12 },
+          disabled: busy, onClick: save
+        }, busy ? 'Saving…' : 'Save')
+      )
+    );
+  }
+  if (!bio && canEdit) {
+    return h('div', {
+      style: { margin: '10px 0 0', fontSize: 12, color: 'var(--text-muted)' }
+    },
+      h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px dashed var(--border)', padding: '6px 12px', fontSize: 11, opacity: 0.7 },
+        onClick: startEdit,
+        title: 'Add a short bio for buyers visiting your stall'
+      }, '+ Add a bio')
+    );
+  }
+  return h('div', {
+    style: {
+      margin: '12px 0 4px', padding: 12, borderRadius: 8,
+      background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+      fontSize: 13, color: 'var(--text-secondary)',
+      whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+      display: 'flex', gap: 10, alignItems: 'flex-start'
+    }
+  },
+    h('div', { style: { flex: 1 } }, bio),
+    canEdit && h('button', {
+      className: 'btn btn-ghost',
+      style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
+      onClick: startEdit,
+      title: 'Edit your stall bio'
+    }, '✎ Edit')
+  );
+}
+
 // ── Platform stats strip — renders under the hero. Pulls the public
 // /api/listings/stats endpoint for volume24h + activeListings + floor
 // and reshapes them into a trust-signal bar. Silent when the
@@ -2776,6 +2872,15 @@ export function App() {
                   `All ${stallData.awayCount || 'active'} listings are temporarily hidden until the seller is back. You can still view their stall and leave a review.`)
               )
             ),
+            // Stall bio — rendered when the seller has set one. Plain
+            // text (service-side sanitized), whitespace-preserved so
+            // line breaks in the author's input survive. Owner sees an
+            // Edit button below the block.
+            h(StallBioBlock, {
+              bio: stallData.seller.stallBio,
+              canEdit: me && me.id === stallData.seller.id,
+              onSaved: () => { fetchPublicStall(route.params.id).then(s => setStallData(s || { __notFound: true })); }
+            }),
             stallData.count === 0
               ? h('div', { className: 'empty-inline' },
                   h('div', { className: 'empty-icon' }, stallData.away ? '🌙' : '🏪'),

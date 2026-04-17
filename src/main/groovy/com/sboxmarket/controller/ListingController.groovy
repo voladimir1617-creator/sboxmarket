@@ -361,7 +361,10 @@ class ListingController {
                 soldCount:         soldCount,
                 followerCount:     followerCount,
                 typicalResponseMs: typicalResponseMs,
-                responseRatePct:   responseRatePct
+                responseRatePct:   responseRatePct,
+                // Optional self-written bio, sanitised + capped at 500
+                // chars on write. Null when the seller hasn't set one.
+                stallBio:          user.stallBio
             ],
             listings:  visible,
             count:     visible.size(),
