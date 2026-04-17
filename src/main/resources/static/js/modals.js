@@ -1686,18 +1686,26 @@ function ProfileBuyOrdersTab() {
   };
   const filtered = filter === 'ALL' ? orders : orders.filter(o => o.status === filter);
   return h('div', null,
-    h('div', { className: 'wallet-tx-filter-row' },
-      [
-        { id: 'ALL',       label: 'All' },
-        { id: 'ACTIVE',    label: 'Active' },
-        { id: 'FILLED',    label: 'Filled' },
-        { id: 'CANCELLED', label: 'Cancelled' }
-      ].map(opt => h('button', {
-        key: opt.id,
-        className: `wallet-tx-filter-chip ${filter === opt.id ? 'active' : ''}`,
-        onClick: () => setFilter(opt.id),
-        disabled: counts[opt.id] === 0 && opt.id !== 'ALL'
-      }, `${opt.label} · ${counts[opt.id] || 0}`))
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
+      h('div', { className: 'wallet-tx-filter-row', style: { flex: 1, minWidth: 0 } },
+        [
+          { id: 'ALL',       label: 'All' },
+          { id: 'ACTIVE',    label: 'Active' },
+          { id: 'FILLED',    label: 'Filled' },
+          { id: 'CANCELLED', label: 'Cancelled' }
+        ].map(opt => h('button', {
+          key: opt.id,
+          className: `wallet-tx-filter-chip ${filter === opt.id ? 'active' : ''}`,
+          onClick: () => setFilter(opt.id),
+          disabled: counts[opt.id] === 0 && opt.id !== 'ALL'
+        }, `${opt.label} · ${counts[opt.id] || 0}`))
+      ),
+      orders.length > 0 && h('a', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+        href: '/api/buy-orders/export.csv',
+        title: 'Download every buy order (ACTIVE + FILLED + CANCELLED) as CSV'
+      }, '⇣ CSV')
     ),
     filtered.length === 0
       ? h('div', { className: 'empty-inline' },

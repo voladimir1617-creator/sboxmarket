@@ -102,4 +102,40 @@ class BuyOrderController {
         def order = buyOrderService.cancel(requireUser(req), id)
         ResponseEntity.ok([id: order.id, status: order.status])
     }
+
+    /** CSV export of every buy order the caller has ever placed — the
+     *  full history across ACTIVE / FILLED / CANCELLED. Mirrors the
+     *  /api/wallet/transactions.csv + /api/listings/my-stall/sold.csv
+     *  pattern (inline CSV-escape, attachment disposition). Row order
+     *  matches the Profile tab. */
+    @GetMapping(value = "/export.csv", produces = "text/csv")
+    ResponseEntity<String> exportCsv(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def rows = buyOrderService.listForBuyer(uid)
+        def esc = { String v ->
+            if (v == null) return ''
+            v.contains(',') || v.contains('"') || v.contains('\n')
+                ? '"' + v.replace('"', '""') + '"'
+                : v
+        }
+        def sb = new StringBuilder()
+        sb.append("order_id,item_id,item_name,category,rarity,max_price,quantity,original_quantity,status,created_at,updated_at\n")
+        rows.each { o ->
+            sb.append(o.id).append(',')
+              .append(o.itemId ?: '').append(',')
+              .append(esc(o.itemName ?: '')).append(',')
+              .append(esc(o.category ?: '')).append(',')
+              .append(esc(o.rarity ?: '')).append(',')
+              .append(o.maxPrice?.toPlainString() ?: '').append(',')
+              .append(o.quantity ?: 0).append(',')
+              .append(o.originalQuantity ?: 0).append(',')
+              .append(esc(o.status ?: '')).append(',')
+              .append(o.createdAt ?: '').append(',')
+              .append(o.updatedAt ?: '')
+              .append('\n')
+        }
+        ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"buy-orders.csv\"")
+            .body(sb.toString())
+    }
 }
