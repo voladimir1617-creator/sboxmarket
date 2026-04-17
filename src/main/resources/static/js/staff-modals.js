@@ -6,7 +6,7 @@ import { InfoModal } from './info-modal.js';
 import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminBanUser, adminUnbanUser, adminGrant, adminRevoke,
-  adminGrantCsr, adminRevokeCsr,
+  adminGrantCsr, adminRevokeCsr, adminReset2fa,
   adminCreditWallet, adminRemoveListing, adminReportedListings, adminDismissReports, adminTickets, adminTicket,
   adminTicketReply, adminCloseTicket, adminRefundDeposit, adminAudit,
   adminFraudSignals,
@@ -1367,7 +1367,24 @@ function AdminUsersTab({ me }) {
             className: 'btn btn-ghost',
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
             href: `/stall/${detailUser.id}`, target: '_blank', rel: 'noopener noreferrer'
-          }, 'Open stall ↗')
+          }, 'Open stall ↗'),
+          // Reset 2FA — support flow for users who have lost access to
+          // their TOTP authenticator. Admin-gated action (not CSR). The
+          // target gets a notification + must re-enrol next session.
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { padding: '6px 12px', fontSize: 11, border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24' },
+            title: 'Reset the user\'s two-factor authentication',
+            onClick: async () => {
+              const note = window.prompt(
+                `Reset 2FA for ${detailUser.displayName || ('#' + detailUser.id)}?\n\n` +
+                `They\'ll need to re-enrol from Profile → 2FA next time they sign in. Enter an audit note (required):`);
+              if (!note || !note.trim()) return;
+              const res = await adminReset2fa(detailUser.id, note.trim());
+              if (res.code || res.error) { alert(res.message || res.error); return; }
+              alert('✓ 2FA has been reset for this user.');
+            }
+          }, '⚿ Reset 2FA')
         ),
         detailData === null
           ? h('div', { className: 'spinner' })

@@ -249,6 +249,15 @@ class AdminController {
         ResponseEntity.ok(adminService.revokeCsr(uid, id))
     }
 
+    /** Admin-only 2FA reset for a locked-out user. */
+    @PostMapping("/users/{id}/reset-2fa")
+    ResponseEntity<Map> reset2fa(@PathVariable Long id,
+                                 @RequestBody(required = false) Map body,
+                                 HttpServletRequest req) {
+        def uid = requireAdmin(req)
+        ResponseEntity.ok(adminService.reset2faFor(uid, id, body?.note as String))
+    }
+
     @PostMapping("/users/{id}/credit")
     ResponseEntity<Map> credit(@PathVariable Long id,
                                @RequestBody Map body,

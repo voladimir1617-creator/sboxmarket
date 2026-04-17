@@ -410,6 +410,36 @@ class AdminService {
         user
     }
 
+    /**
+     * Wipe a user's TOTP secret — support path for locked-out users who
+     * have lost access to their authenticator app. The user can then re-
+     * enrol from Profile → 2FA. Deliberately high-privilege: admin-only
+     * (not CSR) because it disables a second factor. Every call lands in
+     * the audit log so abuse is visible.
+     */
+    @Transactional
+    Map reset2faFor(Long adminUserId, Long targetUserId, String note) {
+        requireAdmin(adminUserId)
+        def target = steamUserRepository.findById(targetUserId)
+            .orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        if (target.totpSecret == null || target.totpSecret.isEmpty()) {
+            throw new BadRequestException("NO_TOTP",
+                "User does not have 2FA enabled — nothing to reset")
+        }
+        target.totpSecret = null
+        target.lastTotpStep = null
+        steamUserRepository.save(target)
+        def cleanNote = textSanitizer.medium(note) ?: '(no note)'
+        notificationService?.push(targetUserId, 'TWOFA_RESET',
+            "Your 2FA was reset by staff",
+            "Two-factor authentication has been disabled on your account. Please re-enrol from Profile → 2FA next time you sign in.",
+            null, '/profile')
+        auditService?.log(AuditService.TWOFA_RESET, adminUserId, targetUserId, null,
+            "Reset 2FA for ${target.steamId64}: ${cleanNote}")
+        log.info("Admin ${adminUserId} reset 2FA for user ${targetUserId}: ${cleanNote}")
+        [id: target.id, totpEnabled: false]
+    }
+
     @Transactional
     SteamUser revokeCsr(Long adminUserId, Long targetUserId) {
         requireAdmin(adminUserId)

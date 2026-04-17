@@ -229,6 +229,48 @@ class AdminServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    // ── reset 2FA ─────────────────────────────────────────────────
+
+    def "reset2faFor wipes the secret, notifies the user, and writes an audit row"() {
+        given:
+        def target = new SteamUser(id: 22L, steamId64: '444', role: 'USER', totpSecret: 'ABCDEF', lastTotpStep: 123L)
+        steamUserRepository.findById(22L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def res = service.reset2faFor(1L, 22L, 'Lost phone — confirmed via Steam OpenID handshake')
+
+        then:
+        target.totpSecret == null
+        target.lastTotpStep == null
+        res.totpEnabled == false
+        1 * notificationService.push(22L, 'TWOFA_RESET', _, _, _, _)
+    }
+
+    def "reset2faFor refuses when the user has no TOTP to reset"() {
+        given:
+        def target = new SteamUser(id: 22L, steamId64: '444', role: 'USER', totpSecret: null)
+        steamUserRepository.findById(22L) >> Optional.of(target)
+
+        when:
+        service.reset2faFor(1L, 22L, 'note')
+
+        then:
+        thrown(BadRequestException)
+        0 * notificationService.push(_, _, _, _, _, _)
+    }
+
+    def "reset2faFor 404s for unknown user"() {
+        given:
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.reset2faFor(1L, 999L, 'note')
+
+        then:
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
     // ── approve / reject withdrawal ───────────────────────────────
 
     def "approveWithdrawal flips status COMPLETED and notifies owner"() {
