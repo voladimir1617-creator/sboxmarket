@@ -1659,8 +1659,28 @@ footer {
   width: 38px; height: 38px; display: grid; place-items: center;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm);
   font-size: 18px; flex-shrink: 0;
+  overflow: hidden;
 }
-.db-thumb.sm { width: 28px; height: 28px; font-size: 14px; border-radius: 6px; }
+.db-thumb.sm { width: 28px; height: 28px; font-size: 14px; border-radius: 6px; overflow: hidden; }
+
+/* Global item-image fit rule — every ItemImage() renders <img class="item-img">
+   with no intrinsic size, relying on the parent to constrain it. Without this,
+   thumbnails overflow their cells on database / cart / similar rows etc. */
+.item-img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.item-img.loading { opacity: 0; transition: opacity 180ms ease; }
+.item-img.loaded  { opacity: 1; }
+.item-poster {
+  display: inline-grid; place-items: center;
+  width: 100%; height: 100%;
+  font-size: 28px;
+  color: var(--ink-3);
+}
+.item-poster[data-variant="thumb"] { font-size: 18px; }
+.item-poster[data-variant="hero"]  { font-size: 72px; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4)); }
 .db-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 2px; }
 .db-depth {
@@ -4443,6 +4463,72 @@ nav.nav {
   border-radius: var(--r-md);
   box-shadow: var(--shadow-2);
   overflow: hidden;
+}
+/* Wider InfoModal when it hosts a dense data surface (database table,
+   loadout editor, etc.) that needs the full editorial canvas. */
+.info-modal:has(.db-table),
+.info-modal:has(.db-controls),
+.info-modal.wide { width: min(1100px, 100%); }
+.info-modal:has(.db-table) .info-modal-body,
+.info-modal:has(.db-controls) .info-modal-body { padding: 18px 22px; }
+/* DB table itself: give it natural column widths by switching to a
+   collapsed real table rather than grid-in-tr. */
+.db-table { width: 100%; border-collapse: collapse; font-size: 12.5px; background: transparent; border: 0; border-radius: 0; }
+.db-table thead th {
+  text-align: left; padding: 10px 12px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-4); font-weight: 500;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+  white-space: nowrap;
+}
+.db-table thead th.right,
+.db-table thead th.num { text-align: right; }
+.db-table tbody tr {
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.db-table tbody tr:hover { background: var(--bg-2); }
+.db-table tbody tr:last-child { border-bottom: 0; }
+.db-table tbody td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  font-size: 13px;
+}
+.db-table .right,
+.db-table td.right { text-align: right; font-family: var(--mono); }
+.db-table .center,
+.db-table td.center { text-align: center; }
+.db-table .db-rank {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-4);
+  width: 48px; white-space: nowrap;
+}
+.db-item-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.db-item-cell .db-name { font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-item-cell .db-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 1px; }
+.db-cat { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.db-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.db-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  background: var(--bg);
+}
+.db-controls {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 10px;
+}
+.db-meta { padding: 8px 0; font-size: 12px; color: var(--ink-3); }
+.db-meta strong { color: var(--ink); font-family: var(--mono); font-weight: 600; }
+@media (max-width: 900px) {
+  .info-modal:has(.db-table),
+  .info-modal:has(.db-controls) { width: 100%; }
+  .db-table { font-size: 12px; }
+  .db-table thead th, .db-table tbody td { padding: 8px 8px; }
 }
 .info-modal-header {
   padding: 18px 22px;
