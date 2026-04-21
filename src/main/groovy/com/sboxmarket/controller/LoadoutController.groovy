@@ -27,15 +27,31 @@ class LoadoutController {
     }
 
     @GetMapping("/discover")
-    ResponseEntity<List<Loadout>> discover(@RequestParam(required = false) String search) {
+    ResponseEntity<List<Loadout>> discover(@RequestParam(required = false) String search,
+                                           // Batch 987 — `q` alias for cross-endpoint
+                                           // param consistency (batches 985-986).
+                                           @RequestParam(required = false) String q) {
+        if ((search == null || search.isBlank()) && q != null && !q.isBlank()) search = q
         if (search != null) search = search.replace('\u0000', '')
         if (search != null && search.length() > 100) search = search.substring(0, 100)
-        ResponseEntity.ok(loadoutService.listPublic(search))
+        ResponseEntity.ok()
+                .header("Cache-Control", "public, max-age=60")
+                .body(loadoutService.listPublic(search))
     }
 
     @GetMapping("/mine")
     ResponseEntity<List<Loadout>> mine(HttpServletRequest req) {
         ResponseEntity.ok(loadoutService.listMine(requireUser(req)))
+    }
+
+    /** Loadouts the caller has favorited, newest-favorite first. Closes
+     *  the favorite loop — previously users could star loadouts but had
+     *  no way to re-find them without walking Discover again. Signed-in
+     *  only; anon viewers get 401 because the favorite-set is per-user
+     *  PII. Private re-privatized loadouts are filtered server-side. */
+    @GetMapping("/favorites")
+    ResponseEntity<List<Loadout>> favorites(HttpServletRequest req) {
+        ResponseEntity.ok(loadoutService.listFavorites(requireUser(req)))
     }
 
     @GetMapping("/{id}")
@@ -83,6 +99,34 @@ class LoadoutController {
             }
         }
         ResponseEntity.ok(loadoutService.autoGenerate(requireUser(req), id, budget))
+    }
+
+    /**
+     * Duplicate a PUBLIC loadout (or the viewer's own private one) into the
+     * viewer's stable of loadouts. The copy starts as PRIVATE and unlocked
+     * so the new owner can rename + retune before publishing. Returns the
+     * fresh Loadout so the frontend can navigate straight to the copy.
+     */
+    /**
+     * Owner-only metadata update. Accepts any subset of { name, description,
+     * visibility } — unsupplied keys are left untouched. Used both for the
+     * "Rename" affordance on the owner's loadout view and for flipping a
+     * cloned PRIVATE loadout to PUBLIC once the owner's happy with it.
+     */
+    @PutMapping("/{id}")
+    ResponseEntity<Loadout> update(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def name        = body?.name        as String
+        def description = body?.description as String
+        def visibility  = body?.visibility  as String
+        ResponseEntity.ok(loadoutService.update(uid, id, name, description, visibility))
+    }
+
+    @PostMapping("/{id}/clone")
+    ResponseEntity<Loadout> clone(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        ResponseEntity.ok(loadoutService.clone(uid, id, user.displayName ?: "Player"))
     }
 
     @PostMapping("/{id}/favorite")

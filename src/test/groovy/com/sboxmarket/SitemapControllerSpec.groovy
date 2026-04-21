@@ -26,7 +26,7 @@ class SitemapControllerSpec extends Specification {
 
     def "sitemap emits every static URL"() {
         given:
-        itemRepository.findAll() >> []
+        itemRepository.findAllForSitemap(_) >> []
 
         when:
         def body = controller.sitemap().body as String
@@ -41,12 +41,16 @@ class SitemapControllerSpec extends Specification {
         body.contains('<loc>https://skinbox.test/faq</loc>')
         body.contains('<loc>https://skinbox.test/legal/terms.html</loc>')
         body.contains('<loc>https://skinbox.test/legal/cookies.html</loc>')
+        // Batch 736 — changelog + status pages are public static HTML
+        // with real SEO value and must be indexed.
+        body.contains('<loc>https://skinbox.test/changelog.html</loc>')
+        body.contains('<loc>https://skinbox.test/status.html</loc>')
         body.endsWith("</urlset>\n")
     }
 
     def "trailing slash in public-url is normalised"() {
         given:
-        itemRepository.findAll() >> []
+        itemRepository.findAllForSitemap(_) >> []
 
         when:
         def body = controller.sitemap().body as String
@@ -60,7 +64,7 @@ class SitemapControllerSpec extends Specification {
 
     def "each catalogue item contributes an /item/{id} URL"() {
         given:
-        itemRepository.findAll() >> [
+        itemRepository.findAllForSitemap(_) >> [
             new Item(id: 1L, name: 'A'),
             new Item(id: 42L, name: 'B'),
             new Item(id: 9999L, name: 'C')
@@ -74,12 +78,40 @@ class SitemapControllerSpec extends Specification {
         body.contains('<loc>https://skinbox.test/item/42</loc>')
         body.contains('<loc>https://skinbox.test/item/9999</loc>')
         // Dynamic URLs get changefreq=daily, priority=0.7.
-        (body =~ /<loc>https:\/\/skinbox\.test\/item\/1<\/loc>\s*<changefreq>daily<\/changefreq>\s*<priority>0\.7<\/priority>/).find()
+        // Batch 965 — <lastmod> is now inserted between <loc> and
+        // <changefreq>; the regex tolerates its presence or absence.
+        (body =~ /<loc>https:\/\/skinbox\.test\/item\/1<\/loc>\s*(<lastmod>[^<]+<\/lastmod>\s*)?<changefreq>daily<\/changefreq>\s*<priority>0\.7<\/priority>/).find()
+    }
+
+    def "each item URL carries a <lastmod> when the item has a createdAt (batch 965)"() {
+        given:
+        // ISO-8601 date from the epoch ms — 1704067200000 = 2024-01-01.
+        itemRepository.findAllForSitemap(_) >> [new Item(id: 1L, name: 'A', createdAt: 1704067200000L)]
+
+        when:
+        def body = controller.sitemap().body as String
+
+        then:
+        body.contains('<lastmod>2024-01-01</lastmod>')
+    }
+
+    def "appendLastmod is null-safe and zero-safe"() {
+        given:
+        def sb = new StringBuilder()
+
+        when:
+        com.sboxmarket.controller.SitemapController.appendLastmod(sb, null)
+        com.sboxmarket.controller.SitemapController.appendLastmod(sb, 0L)
+        com.sboxmarket.controller.SitemapController.appendLastmod(sb, -1L)
+
+        then:
+        // All three skip without emitting anything — no crashes.
+        sb.toString() == ''
     }
 
     def "repository failure falls back to static URLs only"() {
         given:
-        itemRepository.findAll() >> { throw new RuntimeException('database offline') }
+        itemRepository.findAllForSitemap(_) >> { throw new RuntimeException('database offline') }
 
         when:
         def response = controller.sitemap()
@@ -96,7 +128,7 @@ class SitemapControllerSpec extends Specification {
 
     def "Content-Type and Cache-Control headers are set"() {
         given:
-        itemRepository.findAll() >> []
+        itemRepository.findAllForSitemap(_) >> []
 
         when:
         def response = controller.sitemap()
@@ -109,8 +141,10 @@ class SitemapControllerSpec extends Specification {
     def "top-10000 cap keeps the response bounded even on huge catalogues"() {
         given:
         // Simulate a 20 000-item catalogue. Cap is enforced by take(10_000).
-        def huge = (1..20_000).collect { new Item(id: it as Long, name: "Item $it") }
-        itemRepository.findAll() >> huge
+        // Simulated DB-level LIMIT 10_000 — the stub represents what the
+        // paged JPQL query would return (top 10k), not the full 20k rows.
+        def huge = (1..10_000).collect { new Item(id: it as Long, name: "Item $it") }
+        itemRepository.findAllForSitemap(_) >> huge
 
         when:
         def body = controller.sitemap().body as String
@@ -125,14 +159,13 @@ class SitemapControllerSpec extends Specification {
 
     // ── seller stall URLs ────────────────────────────────────────
 
-    def "sellers with at least one completed sale contribute /stall/{id} URLs"() {
+    def "sellers with at least one non-hidden listing contribute /stall/{id} URLs"() {
         given:
-        itemRepository.findAll() >> []
-        // topSellers returns [sellerUserId, soldCount] tuples.
-        listingRepository.topSellers(1L, _) >> [
-            [42L, 5L] as Object[],
-            [99L, 12L] as Object[]
-        ]
+        // Batch 667 — sitemap now gates on any-listing (active OR sold),
+        // not sold-only. A brand-new marketplace with no closed sales
+        // still gets its active-listing stalls indexed.
+        itemRepository.findAllForSitemap(_) >> []
+        listingRepository.findSellerIdsWithAnyListing(_) >> [42L, 99L]
 
         when:
         def body = controller.sitemap().body as String
@@ -145,8 +178,8 @@ class SitemapControllerSpec extends Specification {
 
     def "seller-list failure does not kill the sitemap"() {
         given:
-        itemRepository.findAll() >> []
-        listingRepository.topSellers(_, _) >> { throw new RuntimeException('db offline') }
+        itemRepository.findAllForSitemap(_) >> []
+        listingRepository.findSellerIdsWithAnyListing(_) >> { throw new RuntimeException('db offline') }
 
         when:
         def response = controller.sitemap()

@@ -60,6 +60,18 @@ class SupportController {
     }
 
     /**
+     * Re-open a RESOLVED ticket (batch 858). Before this endpoint a user
+     * with follow-up had to open a whole new ticket, losing the thread
+     * context that staff had already built. Now a one-click reopen
+     * flips status to WAITING_STAFF so the same thread continues —
+     * matches CSFloat's explicit "Reopen" affordance.
+     */
+    @PostMapping("/tickets/{id}/reopen")
+    ResponseEntity<SupportTicket> reopen(@PathVariable Long id, HttpServletRequest req) {
+        ResponseEntity.ok(supportService.reopen(requireUser(req), id))
+    }
+
+    /**
      * User-on-user report. Opens a FRAUD-category support ticket so
      * the CSR queue picks it up alongside other investigations. The
      * body is auto-generated from the form fields so every report has

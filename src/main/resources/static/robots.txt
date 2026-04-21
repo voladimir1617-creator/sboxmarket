@@ -12,19 +12,22 @@ Allow: /search
 Allow: /db
 Allow: /help
 Allow: /faq
+Allow: /affiliate
 Allow: /loadout
 Allow: /status.html
 Allow: /changelog.html
 Allow: /legal/terms.html
+Allow: /legal/privacy.html
+Allow: /legal/refunds.html
 Allow: /legal/trade-safety.html
 Allow: /legal/disclaimer.html
 Allow: /legal/acceptable-use.html
 Allow: /legal/cookies.html
+Allow: /legal/responsible-disclosure.html
+# Coordinated disclosure manifest — crawlers (and researchers) should find this.
+Allow: /.well-known/security.txt
 
-# Hide private / authenticated surfaces and the two legal docs we keep
-# reachable by URL but don't want indexed or linked from search results.
-Disallow: /legal/privacy.html
-Disallow: /legal/refunds.html
+# Hide private / authenticated surfaces.
 Disallow: /api/
 Disallow: /admin
 Disallow: /csr
@@ -32,11 +35,13 @@ Disallow: /profile
 Disallow: /wallet
 Disallow: /cart
 Disallow: /sell
-Disallow: /mystall
+Disallow: /me/stall
 Disallow: /offers
-Disallow: /buyorders
+Disallow: /buy-orders
 Disallow: /watchlist
 Disallow: /notifications
 Disallow: /settings
+# Support has its own SPA URL; keep private since tickets are user-specific.
+Disallow: /support
 
 Sitemap: https://skinbox.market/sitemap.xml

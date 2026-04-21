@@ -74,25 +74,117 @@ class ReviewServiceSpec extends Specification {
         row.fromDisplayName == 'Alice'
     }
 
-    def "leaveReview updates an existing review idempotently and does NOT re-notify"() {
+    def "leaveReview updates an existing review idempotently — comment-only edit skips notification"() {
         given:
-        def existing = new Review(id: 99L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 3, comment: 'meh')
+        def existing = new Review(id: 99L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 5, comment: 'meh')
         tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
         reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> existing
-        textSanitizer.clean('much better now', 500) >> 'much better now'
-        // ReviewService looks up the author unconditionally, even on update
+        textSanitizer.clean('fixed typo', 500) >> 'fixed typo'
         steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
         reviewRepository.save(_) >> { Review r -> r }
 
         when:
-        def row = service.leaveReview(10L, 1L, 5, 'much better now')
+        // Same rating (5), comment changed — seller should NOT be pinged.
+        def row = service.leaveReview(10L, 1L, 5, 'fixed typo')
 
         then:
         1 * banGuard.assertNotBanned(10L)
         0 * notificationService.push(*_)
-        row.id == 99L
         row.rating == 5
-        row.comment == 'much better now'
+        row.comment == 'fixed typo'
+    }
+
+    def "leaveReview notifies the seller when the rating changes on an edit (batch 310 bug fix)"() {
+        // A buyer updating from 5★ to 1★ after a bad experience
+        // used to land silently. REVIEW_UPDATED now fires for any
+        // rating delta so sellers see the drop in the bell.
+        given:
+        def existing = new Review(id: 99L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 5, comment: 'great')
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> existing
+        textSanitizer.clean('bad seller after all', 500) >> 'bad seller after all'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        reviewRepository.save(_) >> { Review r -> r }
+
+        when:
+        service.leaveReview(10L, 1L, 1, 'bad seller after all')
+
+        then:
+        // REVIEW_UPDATED fires, REVIEW_RECEIVED does NOT (that's for new reviews).
+        1 * notificationService.push(20L, 'REVIEW_UPDATED', { String title -> title.contains('5★') && title.contains('1★') && title.contains('↓') }, _, 99L, '/profile?tab=reviews')
+        0 * notificationService.push(_, 'REVIEW_RECEIVED', _, _, _, _)
+    }
+
+    def "leaveReview notifies on an upward rating change too"() {
+        given:
+        def existing = new Review(id: 99L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 2, comment: 'meh')
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> existing
+        textSanitizer.clean('fixed it', 500) >> 'fixed it'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        reviewRepository.save(_) >> { Review r -> r }
+
+        when:
+        service.leaveReview(10L, 1L, 5, 'fixed it')
+
+        then:
+        // Upward arrow this time.
+        1 * notificationService.push(20L, 'REVIEW_UPDATED', { String title -> title.contains('2★') && title.contains('5★') && title.contains('↑') }, _, _, _)
+    }
+
+    def "leaveReview stamps editedAt when rating changes on re-submit (batch 745)"() {
+        given:
+        def existing = new Review(id: 99L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 3, comment: 'ok')
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> existing
+        textSanitizer.clean('changed my mind', 500) >> 'changed my mind'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        Review saved = null
+        reviewRepository.save(_) >> { Review r -> saved = r; r }
+
+        when:
+        service.leaveReview(10L, 1L, 5, 'changed my mind')
+
+        then:
+        saved.editedAt != null
+        saved.editedAt > 0L
+        saved.rating == 5
+    }
+
+    def "leaveReview leaves editedAt null when nothing actually changes on re-submit (batch 745)"() {
+        given:
+        def existing = new Review(id: 99L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 5, comment: 'same', editedAt: null)
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> existing
+        textSanitizer.clean('same', 500) >> 'same'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        Review saved = null
+        reviewRepository.save(_) >> { Review r -> saved = r; r }
+
+        when:
+        service.leaveReview(10L, 1L, 5, 'same')
+
+        then:
+        // No-op re-submit must not lie about being edited.
+        saved.editedAt == null
+    }
+
+    def "leaveReview does NOT stamp editedAt on first create (batch 745)"() {
+        given:
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> null
+        textSanitizer.clean('first review', 500) >> 'first review'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        Review saved = null
+        reviewRepository.save(_) >> { Review r -> saved = r; r.id = 99L; r }
+
+        when:
+        service.leaveReview(10L, 1L, 4, 'first review')
+
+        then:
+        // Fresh creates should never look pre-edited.
+        saved.editedAt == null
     }
 
     def "leaveReview rejects ratings outside 1..5"() {
@@ -192,5 +284,282 @@ class ReviewServiceSpec extends Specification {
         then:
         result.count == 7
         result.average == 4.6
+    }
+
+    def "deleteReview removes the row when the caller is the author"() {
+        given:
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 2, comment: 'meh', itemName: 'Wizard Hat')
+        reviewRepository.findById(42L) >> Optional.of(review)
+
+        when:
+        service.deleteReview(10L, 42L)
+
+        then:
+        1 * banGuard.assertNotBanned(10L)
+        1 * reviewRepository.delete(review)
+        // Seller gets a REVIEW_DELETED ping so the removal doesn't
+        // land silently (batch 311). Body mentions the rating + item.
+        1 * notificationService.push(20L, 'REVIEW_DELETED', _,
+            { String body -> body.contains('2★') && body.contains('Wizard Hat') },
+            42L, '/profile?tab=reviews')
+    }
+
+    def "deleteReview mentions the lost reply when the seller had replied (batch 311)"() {
+        given:
+        def review = new Review(
+            id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 5, comment: 'great', itemName: 'Wizard Hat',
+            sellerReply: 'thanks!', sellerReplyAt: 123L
+        )
+        reviewRepository.findById(42L) >> Optional.of(review)
+
+        when:
+        service.deleteReview(10L, 42L)
+
+        then:
+        1 * notificationService.push(20L, 'REVIEW_DELETED', _,
+            { String body -> body.contains('Your reply is gone with it') },
+            42L, '/profile?tab=reviews')
+    }
+
+    def "deleteReview swallows a push failure so the row still gets deleted"() {
+        given:
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 3)
+        reviewRepository.findById(42L) >> Optional.of(review)
+        notificationService.push(20L, 'REVIEW_DELETED', _, _, _, _) >> { throw new RuntimeException('push down') }
+
+        when:
+        service.deleteReview(10L, 42L)
+
+        then:
+        1 * reviewRepository.delete(review)
+        noExceptionThrown()
+    }
+
+    def "deleteReview 403s when the caller is not the author (e.g. the seller)"() {
+        given:
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 1, comment: 'bad')
+        reviewRepository.findById(42L) >> Optional.of(review)
+
+        when:
+        // The seller (id 20) tries to delete the review left about them.
+        service.deleteReview(20L, 42L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * reviewRepository.delete(_)
+    }
+
+    def "deleteReview 404s for a missing review id"() {
+        given:
+        reviewRepository.findById(42L) >> Optional.empty()
+
+        when:
+        service.deleteReview(10L, 42L)
+
+        then:
+        thrown(NotFoundException)
+        0 * reviewRepository.delete(_)
+    }
+
+    // ── Helpful votes ───────────────────────────────────────────────
+
+    def "toggleHelpful inserts a row and returns the new count when the user hasn't voted"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 10L, toUserId: 20L, rating: 5))
+        helpfulRepo.existsByReviewAndUser(100L, 99L) >> false
+        helpfulRepo.countByReview(100L) >> 4L
+
+        when:
+        def state = service.toggleHelpful(99L, 100L)
+
+        then:
+        1 * banGuard.assertNotBanned(99L)
+        1 * helpfulRepo.save({ it.reviewId == 100L && it.userId == 99L })
+        0 * helpfulRepo.deleteByReviewAndUser(_, _)
+        state.viewerHasVoted == true
+        state.helpfulCount == 4L
+    }
+
+    def "toggleHelpful deletes the row when the user has already voted (unvote)"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 10L, toUserId: 20L, rating: 5))
+        helpfulRepo.existsByReviewAndUser(100L, 99L) >> true
+        helpfulRepo.countByReview(100L) >> 2L
+
+        when:
+        def state = service.toggleHelpful(99L, 100L)
+
+        then:
+        1 * helpfulRepo.deleteByReviewAndUser(100L, 99L) >> 1
+        0 * helpfulRepo.save(_)
+        state.viewerHasVoted == false
+        state.helpfulCount == 2L
+    }
+
+    def "toggleHelpful rejects self-votes"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        // author = 10, viewer = 10 → rejected
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 10L, toUserId: 20L, rating: 5))
+
+        when:
+        service.toggleHelpful(10L, 100L)
+
+        then:
+        thrown(BadRequestException)
+        0 * helpfulRepo.save(_)
+        0 * helpfulRepo.deleteByReviewAndUser(_, _)
+    }
+
+    def "toggleHelpful 404s on a missing review id"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(42L) >> Optional.empty()
+
+        when:
+        service.toggleHelpful(99L, 42L)
+
+        then:
+        thrown(NotFoundException)
+        0 * helpfulRepo.save(_)
+    }
+
+    def "decorateWithHelpful returns zeroed helpful fields when the repo is unavailable"() {
+        given:
+        service.helpfulVoteRepository = null
+        def rows = [
+            new Review(id: 1L, fromUserId: 10L, toUserId: 20L, rating: 5),
+            new Review(id: 2L, fromUserId: 11L, toUserId: 20L, rating: 4)
+        ]
+
+        when:
+        def out = service.decorateWithHelpful(rows, 99L)
+
+        then:
+        out.size() == 2
+        out.every { it.helpfulCount == 0L && it.viewerHasVoted == false }
+    }
+
+    // ── pendingReviewsFor (batch 337) ──────────────────────────────
+
+    def "pendingReviewsFor returns one row per unreviewed trade decorated with the seller"() {
+        given:
+        def t1 = new Trade(id: 1L, buyerUserId: 10L, sellerUserId: 20L,
+                           state: 'VERIFIED', itemName: 'Wizard Hat',
+                           price: new BigDecimal('5.00'), settledAt: 1_700_000_000_000L)
+        def t2 = new Trade(id: 2L, buyerUserId: 10L, sellerUserId: 30L,
+                           state: 'VERIFIED', itemName: 'Cyber Vest',
+                           price: new BigDecimal('12.00'), settledAt: 1_700_000_100_000L)
+        tradeRepository.findUnreviewedByBuyer(10L) >> [t1, t2]
+        steamUserRepository.findAllById(_) >> [
+            new SteamUser(id: 20L, displayName: 'Alice', avatarUrl: 'a.png'),
+            new SteamUser(id: 30L, displayName: 'Bob',   avatarUrl: 'b.png')
+        ]
+
+        when:
+        def rows = service.pendingReviewsFor(10L)
+
+        then:
+        rows.size() == 2
+        rows[0].tradeId == 1L
+        rows[0].sellerUserId == 20L
+        rows[0].sellerName == 'Alice'
+        rows[0].sellerAvatarUrl == 'a.png'
+        rows[0].itemName == 'Wizard Hat'
+        rows[0].price == new BigDecimal('5.00')
+        rows[0].settledAt == 1_700_000_000_000L
+        rows[1].sellerName == 'Bob'
+    }
+
+    def "pendingReviewsFor returns empty list when the buyer has no unreviewed trades"() {
+        given:
+        tradeRepository.findUnreviewedByBuyer(10L) >> []
+
+        when:
+        def rows = service.pendingReviewsFor(10L)
+
+        then:
+        rows == []
+        0 * steamUserRepository.findAllById(_)
+    }
+
+    def "pendingReviewsFor caps the result at 50 rows so a heavy user doesn't ship an unbounded JSON"() {
+        given:
+        def flood = (1..80).collect { idx ->
+            new Trade(id: idx as Long, buyerUserId: 10L, sellerUserId: 20L,
+                      state: 'VERIFIED', itemName: "Item ${idx}",
+                      price: new BigDecimal('1.00'), settledAt: System.currentTimeMillis())
+        }
+        tradeRepository.findUnreviewedByBuyer(10L) >> flood
+        steamUserRepository.findAllById(_) >> [new SteamUser(id: 20L, displayName: 'Alice')]
+
+        when:
+        def rows = service.pendingReviewsFor(10L)
+
+        then:
+        rows.size() == 50
+    }
+
+    def "countPendingReviewsFor forwards to the dedicated COUNT query, not the list query (batch 340)"() {
+        given:
+        tradeRepository.countUnreviewedByBuyer(10L) >> 42L
+
+        when:
+        def n = service.countPendingReviewsFor(10L)
+
+        then:
+        n == 42L
+        // Critical: the count path must NOT hydrate full trade rows just
+        // to call .size() on them — drives every avatar-badge refresh.
+        0 * tradeRepository.findUnreviewedByBuyer(_)
+    }
+
+    def "countPendingReviewsFor short-circuits on null user id without hitting the repo"() {
+        when:
+        def n = service.countPendingReviewsFor(null)
+
+        then:
+        n == 0L
+        0 * tradeRepository.countUnreviewedByBuyer(_)
+    }
+
+    def "pendingReviewsFor short-circuits on null user id without hitting the repo"() {
+        when:
+        def rows = service.pendingReviewsFor(null)
+
+        then:
+        rows == []
+        0 * tradeRepository.findUnreviewedByBuyer(_)
+    }
+
+    def "decorateWithHelpful projects per-review count + viewerHasVoted from batch lookups"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        def rows = [
+            new Review(id: 1L, fromUserId: 10L, toUserId: 20L, rating: 5),
+            new Review(id: 2L, fromUserId: 11L, toUserId: 20L, rating: 3)
+        ]
+        helpfulRepo.countBulk([1L, 2L]) >> [
+            [1L, 3L] as Object[],
+            [2L, 0L] as Object[]
+        ]
+        helpfulRepo.findVotedReviewIds(99L, [1L, 2L]) >> [1L]
+
+        when:
+        def out = service.decorateWithHelpful(rows, 99L)
+
+        then:
+        out.find { it.id == 1L }.helpfulCount == 3L
+        out.find { it.id == 1L }.viewerHasVoted == true
+        out.find { it.id == 2L }.helpfulCount == 0L
+        out.find { it.id == 2L }.viewerHasVoted == false
     }
 }

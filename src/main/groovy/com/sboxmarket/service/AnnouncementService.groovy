@@ -6,6 +6,7 @@ import com.sboxmarket.model.Announcement
 import com.sboxmarket.repository.AnnouncementRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -54,7 +55,7 @@ class AnnouncementService {
             createdByUserId: adminUserId
         )
         def saved = announcementRepository.save(row)
-        auditService?.log('ANNOUNCEMENT_CREATED', adminUserId, null, saved.id,
+        auditService?.log(AuditService.ANNOUNCEMENT_CREATED, adminUserId, null, saved.id,
             "Posted ${sev}: ${cleanMessage.take(120)}")
         saved
     }
@@ -65,7 +66,39 @@ class AnnouncementService {
             .orElseThrow { new NotFoundException("Announcement", id) }
         row.active = false
         announcementRepository.save(row)
-        auditService?.log('ANNOUNCEMENT_DEACTIVATED', adminUserId, null, id, null)
+        auditService?.log(AuditService.ANNOUNCEMENT_DEACTIVATED, adminUserId, null, id, null)
         row
+    }
+
+    /**
+     * Auto-deactivate announcements whose `expiresAt` has passed (batch 582).
+     * The public `findCurrent` already filters expired rows out at read
+     * time, but the admin history tab still shows `active=true` on them
+     * — confusing when an admin wants to see "what's actually live".
+     * Sweeper flips those rows to `active=false` so admin UI matches
+     * reality. Runs hourly with a 15-minute offset so it doesn't
+     * collide with the other sweepers on container start.
+     */
+    @Scheduled(fixedDelay = 60L * 60L * 1000L, initialDelay = 15L * 60L * 1000L)
+    @Transactional
+    void sweepExpired() {
+        def now = System.currentTimeMillis()
+        def rows
+        try {
+            rows = announcementRepository.findExpiredButActive(now)
+        } catch (Exception e) {
+            log.warn("Expired-announcement query failed: ${e.message}")
+            return
+        }
+        if (rows == null || rows.isEmpty()) return
+        rows.each { row ->
+            try {
+                row.active = false
+                announcementRepository.save(row)
+            } catch (Exception e) {
+                log.warn("Failed to auto-deactivate announcement ${row.id}: ${e.message}")
+            }
+        }
+        log.info("Announcement sweeper: auto-deactivated ${rows.size()} expired row(s)")
     }
 }

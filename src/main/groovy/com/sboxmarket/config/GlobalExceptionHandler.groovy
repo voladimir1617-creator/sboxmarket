@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingPathVariableException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -42,11 +43,26 @@ class GlobalExceptionHandler {
     ResponseEntity<ErrorResponse> handleApi(ApiException ex, HttpServletRequest req) {
         log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}")
         def message = verboseErrors ? ex.message : genericMessage(ex)
+        // Batch 963 — surface structured amounts for INSUFFICIENT_BALANCE
+        // so the frontend can render a precise "Top up $X" CTA instead
+        // of string-parsing the human-readable message. Shape mirrors
+        // the existing `details` field the validation path uses. Both
+        // fields are plain BigDecimals — no internal info leaks.
+        Map details = null
+        if (ex instanceof com.sboxmarket.exception.InsufficientBalanceException) {
+            details = [
+                required : ex.required,
+                available: ex.available,
+                shortfall: ex.required != null && ex.available != null
+                               ? (ex.required - ex.available) : null
+            ]
+        }
         def body = new ErrorResponse(
             code         : ex.code,
             message      : message,
             path         : verboseErrors ? req.requestURI : null,
-            correlationId: MDC.get("cid")
+            correlationId: MDC.get("cid"),
+            details      : details
         )
         ResponseEntity.status(ex.status).body(body)
     }
@@ -106,6 +122,27 @@ class GlobalExceptionHandler {
             message      : "Missing required parameter '${ex.parameterName}'",
             path         : verboseErrors ? req.requestURI : null,
             correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
+    }
+
+    /**
+     * Path variable converted to null — e.g. `GET /api/items/%20` where the
+     * encoded space decodes to a Long-incompatible value and Spring hands
+     * us an ex with `value=null`. Previously bubbled up as 500
+     * INTERNAL_ERROR (batch 863), trivial to weaponise as a DoS by
+     * walking invalid inputs. Maps to 400 with the failing variable name
+     * so legitimate clients can self-correct.
+     */
+    @ExceptionHandler(MissingPathVariableException)
+    ResponseEntity<ErrorResponse> handleMissingPathVar(MissingPathVariableException ex, HttpServletRequest req) {
+        log.debug("Missing path variable at ${req.method} ${req.requestURI}: name=${ex.variableName}")
+        def body = new ErrorResponse(
+            code         : "INVALID_PATH_VARIABLE",
+            message      : "Invalid value for path variable '${ex.variableName}'",
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid"),
+            details      : [field: ex.variableName]
         )
         ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body)
     }

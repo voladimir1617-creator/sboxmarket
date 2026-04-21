@@ -35,19 +35,51 @@ class SteamMarketPriceService {
     @Autowired ItemRepository itemRepository
     @Autowired(required = false) PriceHistoryService priceHistoryService
 
-    // 10-min initial delay so a container restart doesn't immediately burn
-    // 5 × 30s of 429-backoff when the IP is still in Steam's cooldown window.
-    // The first sync is not urgent — prices from the previous cycle are still
-    // valid in the database.
-    @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 10L * 60L * 1000L)
-    @Transactional
+    /** Last-run telemetry (batch 396). Populated at the end of every sync
+     *  pass so the admin Health tab can render "last sync 4 min ago,
+     *  updated 79/80 · next scheduled in 26 min" without tailing the
+     *  server log. Volatile so the read from the HTTP worker thread
+     *  observes writes from the scheduler thread. All zeros until the
+     *  first pass lands. Exposed via `getLastRunSummary()`. */
+    private volatile long lastRunStartedAt = 0L
+    private volatile long lastRunFinishedAt = 0L
+    private volatile int  lastRunUpdated    = 0
+    private volatile int  lastRunSkipped    = 0
+    private volatile int  lastRunFailed     = 0
+    private volatile int  lastRunTotal      = 0
+    /** True when the last sync hit the 5-consecutive-429 circuit breaker
+     *  and aborted before processing every item. Surfaces in the admin
+     *  Health tab so ops can distinguish "all 80 synced cleanly" from
+     *  "Steam IP-banned us mid-sync, only 7 of 80 cleared". */
+    private volatile boolean lastRunAborted = false
+
+    // 90-second initial delay (batch 376). Previously 10 minutes, chosen
+    // to let Steam's cooldown expire if we were mid-429-burst. BUT a
+    // typical deploy / CI restart / grind redeploy happens more often
+    // than 10 min, so the sync NEVER fired on short-lived containers —
+    // the effect was 0 rows in price_history despite a reachable Steam
+    // endpoint. 90s is long enough for Spring Boot + HikariCP + Flyway
+    // to finish, short enough to always fire before the next redeploy.
+    // The existing 5-consecutive-429 circuit breaker already handles
+    // the cooldown-window case the 10-min delay was trying to guard
+    // against.
+    // NOT @Transactional — the outer method runs for ~11 min (80 items
+    // × 8s throttle). Wrapping it in one transaction means nothing
+    // commits until the whole sync finishes, and any exception rolls
+    // the entire batch back. Each individual save() inside the loop
+    // runs in its own auto-commit transaction (Spring Data JPA default)
+    // so partial progress is durable even if a later item fails.
+    @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 90L * 1000L)
     void syncPricesFromSteam() {
         def items = itemRepository.findAll()
         if (items.isEmpty()) return
 
+        lastRunStartedAt = System.currentTimeMillis()
+        lastRunTotal = items.size()
         int updated = 0, failed = 0, skipped = 0, consecutive429s = 0
         log.info("Steam Market price sync starting — ${items.size()} items")
 
+        boolean aborted = false
         for (def item : items) {
             if (!item.name) { skipped++; continue }
 
@@ -57,11 +89,12 @@ class SteamMarketPriceService {
             // progress and fills the log with warnings.
             if (consecutive429s >= 5) {
                 log.warn("Steam Market: 5 consecutive 429s — aborting sync, will retry next cycle")
+                aborted = true
                 break
             }
 
             try {
-                def prices = fetchSteamPrice(item.name)
+                def prices = fetchSteamPrice(item.name, consecutive429s)
                 if (prices == null) { consecutive429s++; skipped++; continue }
                 consecutive429s = 0  // successful fetch resets the counter
 
@@ -71,16 +104,7 @@ class SteamMarketPriceService {
                 // Use lowest_price as the primary, fall back to median
                 def bestPrice = lowestPrice ?: medianPrice
                 if (bestPrice != null && bestPrice > BigDecimal.ZERO) {
-                    def oldPrice = item.lowestPrice
-                    item.lowestPrice = bestPrice
-                    item.steamPrice = lowestPrice ?: item.steamPrice
-
-                    // Calculate trend from old → new price
-                    if (oldPrice != null && oldPrice > BigDecimal.ZERO) {
-                        def change = (bestPrice - oldPrice) / oldPrice
-                        item.trendPercent = Math.max(-99,
-                            Math.min(99, Math.round(change * 100) as int))
-                    }
+                    applyPriceUpdate(item, lowestPrice, bestPrice)
 
                     itemRepository.save(item)
                     priceHistoryService?.record(item, bestPrice)
@@ -105,15 +129,85 @@ class SteamMarketPriceService {
             }
         }
 
-        log.info("Steam Market price sync done — updated=$updated skipped=$skipped failed=$failed")
+        lastRunFinishedAt = System.currentTimeMillis()
+        lastRunUpdated = updated
+        lastRunSkipped = skipped
+        lastRunFailed  = failed
+        lastRunAborted = aborted
+        log.info("Steam Market price sync done — updated=$updated skipped=$skipped failed=$failed aborted=$aborted")
+    }
+
+    /** Snapshot of the most recent sync run. Consumed by the admin Health
+     *  tab so ops can see freshness + next-scheduled without tailing logs.
+     *  Returns null-fielded map when no sync has completed yet since
+     *  boot — the UI hides the stats in that case. */
+    Map getLastRunSummary() {
+        def nextAt = lastRunFinishedAt > 0 ? lastRunFinishedAt + SYNC_INTERVAL_MS : 0L
+        [
+            startedAt:    lastRunStartedAt,
+            finishedAt:   lastRunFinishedAt,
+            durationMs:   lastRunFinishedAt > 0 && lastRunStartedAt > 0
+                              ? (lastRunFinishedAt - lastRunStartedAt) : 0L,
+            updated:      lastRunUpdated,
+            skipped:      lastRunSkipped,
+            failed:       lastRunFailed,
+            total:        lastRunTotal,
+            aborted:      lastRunAborted,
+            nextRunAt:    nextAt,
+            intervalMs:   SYNC_INTERVAL_MS
+        ]
+    }
+
+    /**
+     * Apply a fetched Steam-market price to the given Item without
+     * persisting (caller owns the save) — extracted from the sync
+     * loop so the guard rules are unit-testable. Rules:
+     *
+     *   1. `lowestPrice` is ONLY overwritten when the item is NOT
+     *      currently listed on sboxmarket. When a user has a live
+     *      listing, `ListingService.updateItemFloorPrice` is the
+     *      authoritative source of truth — clobbering it with
+     *      Steam's (usually lower) market floor drifts the grid
+     *      card away from the real cheapest listing and surprises
+     *      buyers at click-through.
+     *   2. `steamPrice` is only populated when empty — a reference
+     *      price sourced from SCMM originalPrice (retail store)
+     *      wins over the market lowest when both exist.
+     *   3. `trendPercent` only ticks when we actually wrote a new
+     *      floor (unlisted item case). For listed items, trend is
+     *      driven by platform listings, not Steam-market wiggle.
+     *
+     * Package-scope (no modifier) so specs in the same package can
+     * call directly without reflection.
+     */
+    void applyPriceUpdate(com.sboxmarket.model.Item item, BigDecimal lowestPrice, BigDecimal bestPrice) {
+        def oldPrice = item.lowestPrice
+        if (!item.isListed) {
+            item.lowestPrice = bestPrice
+        }
+        if (item.steamPrice == null || item.steamPrice <= BigDecimal.ZERO) {
+            item.steamPrice = lowestPrice
+        }
+        if (!item.isListed && oldPrice != null && oldPrice > BigDecimal.ZERO) {
+            def change = (bestPrice - oldPrice) / oldPrice
+            item.trendPercent = Math.max(-99,
+                Math.min(99, Math.round(change * 100) as int))
+        }
     }
 
     /**
      * Fetch the current lowest and median price for an item from
      * Steam's public priceoverview endpoint. Returns null if the
      * item isn't listed on the Steam Community Market.
+     *
+     * `consecutive429s` is the count of immediately-prior 429s in this
+     * sync — the backoff doubles for each (30s, 60s, 120s, 240s, 480s)
+     * so Steam's per-IP cooldown actually clears before the next probe.
+     * Previous static 30s wait was too short — Steam often takes 1-2
+     * minutes to reset a flagged IP, and we'd just keep getting 429
+     * after 429 until the 5-strikes circuit breaker fired.
      */
-    Map fetchSteamPrice(String marketHashName) {
+    Map fetchSteamPrice(String marketHashName, int consecutive429s = 0) {
         def encoded = URLEncoder.encode(marketHashName, 'UTF-8')
         def url = "https://steamcommunity.com/market/priceoverview/?country=US&currency=1&appid=${SBOX_APP_ID}&market_hash_name=${encoded}"
 
@@ -125,8 +219,13 @@ class SteamMarketPriceService {
 
         int status = conn.responseCode
         if (status == 429) {
-            log.warn("Steam Market rate-limited (429) — backing off 30s")
-            Thread.sleep(30000L)
+            // Exponential backoff: 30s base, doubles per consecutive 429.
+            // Capped at 8 minutes — past that we should just abort this
+            // sync via the outer circuit breaker.
+            long backoffMs = Math.min(480_000L, 30_000L * (1L << Math.min(4, consecutive429s)))
+            log.warn("Steam Market rate-limited (429) — backing off ${backoffMs / 1000}s (consecutive=${consecutive429s + 1})")
+            try { Thread.sleep(backoffMs) }
+            catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null }
             return null
         }
         if (status != 200) return null

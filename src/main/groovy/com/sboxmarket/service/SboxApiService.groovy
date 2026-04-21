@@ -195,7 +195,18 @@ class SboxApiService {
                 // prices are their own marketplace prices, not Steam's.
                 // Only set steamPrice as a reference point for the
                 // "Steam price" label on item cards.
-                existing.steamPrice  = steamPrice
+                //
+                // Batch 637: only bump `steamPrice` when SCMM actually
+                // reports a retail-reference higher than the floor.
+                // When the two are equal (item not on active SCMM sale)
+                // we'd otherwise clobber any existing good reference
+                // with an equal-to-floor number that kills the discount
+                // chip. Leave the existing value alone in that case.
+                if (steamPrice != null && price != null && steamPrice > price) {
+                    existing.steamPrice = steamPrice
+                } else if (existing.steamPrice == null || existing.steamPrice <= BigDecimal.ZERO) {
+                    existing.steamPrice = steamPrice
+                }
                 itemRepository.save(existing)
                 updated++
             } else {
@@ -211,7 +222,7 @@ class SboxApiService {
                     lowestPrice:  price,
                     steamPrice:   steamPrice,
                     trendPercent: trendInt,
-                    isListed:     true,
+                    isListed:     false,
                     createdAt:    now
                 )
                 itemRepository.save(item)

@@ -11,9 +11,17 @@ server:
         same-site: ${COOKIE_SAME_SITE:lax}
         name: SBOX_SESSION
   # Gzip small JSON + static assets so we don't need Nginx for compression.
+  # Batch 682 — added application/xml + text/csv so /sitemap.xml (SEO
+  # crawler traffic) and the wallet / my-stall CSV exports compress too.
+  # Sitemap can grow to hundreds of KB once the catalogue + stall set
+  # fills out; gzip cuts that by ~80% for every crawler fetch.
+  # Batch 716 — added text/javascript because Spring Boot's default
+  # MIME type for .js files is `text/javascript` (IANA recommends this
+  # over the older `application/javascript`). Without it, the ~290KB
+  # app.js bundle shipped uncompressed on every first-visit page load.
   compression:
     enabled: true
-    mime-types: application/json,text/html,text/css,application/javascript,image/svg+xml
+    mime-types: application/json,application/xml,text/xml,text/csv,text/html,text/css,text/plain,application/javascript,text/javascript,image/svg+xml
     min-response-size: 1024
 
 # Cap request bodies to 2MB. The only JSON payloads we accept are small
@@ -38,7 +46,9 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:}
 
   jpa:
-    database-platform: ${SPRING_JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+    # Batch 945 — removed `database-platform` (was H2Dialect). Hibernate
+    # 6+ auto-detects from the JDBC driver and emits HHH90000025 if one
+    # is explicitly set. Same fix applied to application-prod.yml.
     hibernate:
       ddl-auto: ${SPRING_JPA_DDL:update}
     show-sql: false

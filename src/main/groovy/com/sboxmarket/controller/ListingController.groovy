@@ -10,6 +10,7 @@ import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.ListingService
 import com.sboxmarket.service.PurchaseService
 import com.sboxmarket.service.SellService
+import com.sboxmarket.util.ListingEnums
 import groovy.util.logging.Slf4j
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
@@ -38,6 +39,16 @@ class ListingController {
     @Autowired(required = false) com.sboxmarket.service.ReviewService reviewService
     @Autowired(required = false) com.sboxmarket.service.SellerFollowService sellerFollowService
     @Autowired(required = false) com.sboxmarket.service.OfferService offerService
+    @Autowired(required = false) com.sboxmarket.service.TradeService tradeService
+    @Autowired(required = false) com.sboxmarket.service.UserBlockService userBlockService
+    @Autowired(required = false) com.sboxmarket.service.NotificationService notificationService
+    @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
+    @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
+
+    // Batch 659 — canonical enum lists + normaliser live in
+    // `com.sboxmarket.util.ListingEnums` (shared with ItemController
+    // and DatabaseController). Previous inline copies removed in
+    // favour of the single source of truth.
 
     @GetMapping
     ResponseEntity<?> getListings(
@@ -53,15 +64,30 @@ class ListingController {
             @RequestParam(required = false) String minPrice,
             @RequestParam(required = false) String maxPrice,
             @RequestParam(required = false) String search,
+            // Batch 985 — accept `q` as an alias for `search`. Every
+            // other search-capable endpoint (/api/database, /api/items,
+            // /api/sellers/search, /api/notifications, /api/loadouts/public)
+            // uses `q`; a user who copy-pastes `?q=Hat` from one of those
+            // onto /api/listings got silently unfiltered results. Alias
+            // preserves the existing `search` contract — only falls
+            // through to `q` when `search` is null / blank.
+            @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "All") String listingType,
             @RequestParam(required = false, defaultValue = "100") Integer limit,
-            @RequestParam(required = false, defaultValue = "0") Integer offset
+            @RequestParam(required = false, defaultValue = "0") Integer offset,
+            HttpServletRequest req
     ) {
         // Cap limit defensively — never let a client ask for the entire DB.
         // Cap is 100 (was 500): even once the catalogue grows, `size=99999`
         // can no longer dump every row in one shot.
         int safeLimit = Math.min(Math.max(limit ?: 100, 1), 100)
         int safeOffset = Math.max(offset ?: 0, 0)
+        // Batch 985 — fall through to `q` alias when `search` is null/
+        // blank. Keeps the canonical param stable for the frontend + any
+        // long-standing integrations, adds the common-convention fallback.
+        if ((search == null || search.isBlank()) && q != null && !q.isBlank()) {
+            search = q
+        }
         // Cap search so a 100kB `search=AAAA…` can't turn into a full-table
         // LIKE scan. Whitelist sort / category / rarity so a crafted value
         // can't smuggle past the service-layer switch.
@@ -72,26 +98,67 @@ class ListingController {
             search = search.replace('\u0000', '')
             if (search.length() > 100) search = search.substring(0, 100)
         }
-        if (sort != null && !(sort in ['price_asc','price_desc','newest','rarity'])) sort = 'price_asc'
+        // Batch 661 — normalise sort case-insensitively so a share URL
+        // carrying `sort=PRICE_ASC` doesn't fall through to the default
+        // price_asc fallback on a flipped intent.
+        if (sort != null) sort = sort.toLowerCase()
+        if (sort != null && !(sort in ['price_asc','price_desc','newest','rarity','discount','ending_soon','popularity','views'])) sort = 'price_asc'
         if (category != null) category = category.replace('\u0000', '')
         if (rarity   != null) rarity   = rarity.replace('\u0000', '')
         if (category != null && category.length() > 40) category = 'All'
         if (rarity   != null && rarity.length()   > 40) rarity   = 'All'
+        // Batch 657 / 659 — case-insensitive canonicalisation of enum
+        // filters. `?category=hats` or `?rarity=standard` (lowercase)
+        // matches despite the DB column being stored as 'Hats' /
+        // 'Standard'. Unknown values fall through to 'All' (no filter).
+        category = ListingEnums.canonEnum(category, ListingEnums.CATEGORIES, 'All')
+        rarity   = ListingEnums.canonEnum(rarity,   ListingEnums.RARITIES,   'All')
 
         BigDecimal min = parsePriceParam(minPrice, "minPrice")
         BigDecimal max = parsePriceParam(maxPrice, "maxPrice")
 
-        // Whitelist the listingType param — any junk (including "All")
-        // lands as the empty sentinel downstream and disables the filter.
-        def typeParam = (listingType in ['BUY_NOW', 'AUCTION']) ? listingType : null
+        // Batch 656 / 659 — case-insensitive listing-type normaliser.
+        // `auction`, `Auction`, `AUCTION` all map to AUCTION. Junk
+        // values return null (filter disabled).
+        def typeParam = ListingEnums.canonListingType(listingType)
         def all = listingService.getActiveListings(sort, category, rarity, min, max, search, typeParam)
+        // Block-list filter (batch 345). Signed-in viewers don't see
+        // listings from sellers they've blocked. Applied AFTER the
+        // service query — the block set is a small per-user thing (cap
+        // 100) so filtering in the controller is fine; pushing it down
+        // to SQL would require threading the viewer id through every
+        // service entrypoint and isn't worth the complexity for a 100-
+        // id IN clause on an already-paginated result.
+        def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (viewer != null && userBlockService != null) {
+            def blockedIds = userBlockService.blockedIdsFor(viewer)
+            if (!blockedIds.isEmpty()) {
+                def blockedSet = new HashSet<>(blockedIds)
+                all = all.findAll { l ->
+                    l.sellerUserId == null || !blockedSet.contains(l.sellerUserId)
+                }
+            }
+        }
         def page = all.drop(safeOffset).take(safeLimit)
+        // Batch 807 — Cache-Control on the main marketplace list. The
+        // response varies by viewer (blocked-seller filter at line 119
+        // above) so shared caches would leak; `private` keeps it in the
+        // browser only. 10s is a compromise — long enough that rapid
+        // back-and-forth between an item modal and the grid skips a
+        // round-trip, short enough that a newly-posted listing shows up
+        // within the next refresh tick. The 30s soft-poll in app.js
+        // already triggers a fresh fetch after the cache window, so the
+        // effective staleness remains identical for users who stay on
+        // the page.
+        def cache = 'private, max-age=10'
         // Return the array directly when no pagination params were used (back-compat with
         // existing frontend); when limit/offset are present, return a PageResponse.
         if (limit == 100 && offset == 0) {
-            return ResponseEntity.ok(page)
+            return ResponseEntity.ok().header('Cache-Control', cache).body(page)
         }
-        ResponseEntity.ok([items: page, total: all.size(), limit: safeLimit, offset: safeOffset])
+        ResponseEntity.ok()
+            .header('Cache-Control', cache)
+            .body([items: page, total: all.size(), limit: safeLimit, offset: safeOffset])
     }
 
     /**
@@ -125,8 +192,37 @@ class ListingController {
     }
 
     @GetMapping("/item/{itemId}")
-    ResponseEntity<List<Listing>> getForItem(@PathVariable Long itemId) {
-        ResponseEntity.ok(listingService.getListingsForItem(itemId))
+    ResponseEntity<List<Listing>> getForItem(@PathVariable Long itemId, HttpServletRequest req) {
+        // Block-list filter applies here too (batch 347) — a buyer viewing
+        // an item's listings panel shouldn't see the blocked seller's
+        // row even though they got to the item via a catalog link. The
+        // stall page itself (/listings/stall/{id}) stays unfiltered
+        // because that's a direct visit — the user is actively choosing
+        // to look at that seller's shop.
+        // Batch 807 — `private, max-age=15`. Per-viewer (blocklist
+        // filter) so shared caches would leak; 15s is tight because
+        // the item modal's "live" feel depends on catching a sold-out
+        // state promptly. Matches /api/listings cadence.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=15')
+            .body(filterBlocked(listingService.getListingsForItem(itemId), req))
+    }
+
+    /** "More from this seller" rail — other visible active listings
+     *  from the same seller, excluding the item the user is currently
+     *  looking at. Public endpoint; caller passes the seller id + the
+     *  currently-open item id. `limit` clamped to [1, 30] server-side. */
+    @GetMapping("/seller/{sellerUserId}/other")
+    ResponseEntity<List<Listing>> otherFromSeller(@PathVariable Long sellerUserId,
+                                                  @RequestParam Long excludeItemId,
+                                                  @RequestParam(required = false, defaultValue = "8") Integer limit) {
+        // Batch 807 — public cache: seller's own listings don't vary by
+        // the viewer (no blocklist — if the viewer has blocked this
+        // seller they wouldn't reach this rail). 60s matches the other
+        // catalog-scoped aggregates.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(listingService.findOtherActiveBySeller(sellerUserId, excludeItemId, limit ?: 8))
     }
 
     @GetMapping("/{id}")
@@ -140,14 +236,76 @@ class ListingController {
 
     @GetMapping("/stats")
     ResponseEntity<Map> getMarketStats() {
-        ResponseEntity.ok(listingService.getMarketStats())
+        // 60-second browser cache — the homepage MarketStatsStrip polls
+        // every 5 minutes, so a 60s browser cache is well under the
+        // natural refetch cadence and cuts one round-trip per user open
+        // the market hero within the poll window. Viewer-agnostic
+        // (platform-wide aggregates only) so `public` is safe.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(listingService.getMarketStats())
     }
 
     /** Active listings owned by the current Steam user (= "My Stall"). */
     @GetMapping("/my-stall")
     ResponseEntity<List<Listing>> myStall(HttpServletRequest req) {
         def userId = requireUser(req)
-        ResponseEntity.ok(listingService.findActiveBySeller(userId))
+        // Batch 1033 — display cap at 500 rows on the MyStall tab.
+        // A prolific seller could otherwise force thousands of JOIN-
+        // FETCHed listings over the wire on every MyStall open. 500
+        // is generous — CSFloat caps active listings per seller at
+        // 100, Steam at 500 — but still puts a hard ceiling on the
+        // payload. X-Total-Count header feeds the overflow banner.
+        def rows = listingService.findActiveBySeller(userId, 500)
+        long total = listingService.countActiveBySeller(userId)
+        ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(total))
+            .body(rows)
+    }
+
+    /** Seller earnings summary for the MyStall header (batch 605).
+     *  Returns gross revenue and sold counts for lifetime, 30d, and 7d
+     *  windows. "Gross" = listing price the buyer paid; the net-of-fee
+     *  figure is already visible via the wallet transaction ledger, so
+     *  this endpoint deliberately shows the top-line number sellers
+     *  think of as "revenue". Signed-in only. */
+    @GetMapping("/my-stall/earnings")
+    ResponseEntity<Map> myStallEarnings(HttpServletRequest req) {
+        def userId = requireUser(req)
+        def now = System.currentTimeMillis()
+        def since24h = now - 24L * 60L * 60L * 1000L
+        def since30d = now - 30L * 24L * 60L * 60L * 1000L
+        def since7d  = now - 7L  * 24L * 60L * 60L * 1000L
+        def repo = listingService.listingRepository
+        def lifetime = repo.sumRevenueBySeller(userId) ?: java.math.BigDecimal.ZERO
+        // Batch 872 — 24h chip. Gives sellers a fresh "today's haul"
+        // reading alongside the 7d/30d/lifetime windows. Uses the
+        // same sum-since query shape; no new SQL.
+        def rev24    = repo.sumRevenueBySellerSince(userId, since24h) ?: java.math.BigDecimal.ZERO
+        def rev30    = repo.sumRevenueBySellerSince(userId, since30d) ?: java.math.BigDecimal.ZERO
+        def rev7     = repo.sumRevenueBySellerSince(userId, since7d)  ?: java.math.BigDecimal.ZERO
+        def soldLife = repo.countSoldBySeller(userId)
+        def sold24   = repo.countSoldBySellerSince(userId, since24h)
+        def sold30   = repo.countSoldBySellerSince(userId, since30d)
+        def sold7    = repo.countSoldBySellerSince(userId, since7d)
+        // Batch 709 — lifetime platform-fee total. Surfaces alongside
+        // gross revenue so sellers see "you paid $X in fees across
+        // your lifetime" for tax prep + fairness auditing. Only
+        // VERIFIED (settled) trades count.
+        def lifetimeFees = tradeRepository != null
+            ? (tradeRepository.sumFeesBySeller(userId) ?: java.math.BigDecimal.ZERO)
+            : java.math.BigDecimal.ZERO
+        ResponseEntity.ok([
+            lifetimeRevenue: lifetime.setScale(2, java.math.RoundingMode.HALF_UP),
+            revenue30d:      rev30.setScale(2, java.math.RoundingMode.HALF_UP),
+            revenue7d:       rev7.setScale(2, java.math.RoundingMode.HALF_UP),
+            revenue24h:      rev24.setScale(2, java.math.RoundingMode.HALF_UP),
+            soldLifetime:    soldLife,
+            sold30d:         sold30,
+            sold7d:          sold7,
+            sold24h:         sold24,
+            lifetimeFees:    lifetimeFees.setScale(2, java.math.RoundingMode.HALF_UP)
+        ])
     }
 
     /** Sale history for the current user — drives the "Sold" tab in the
@@ -156,8 +314,17 @@ class ListingController {
     @GetMapping("/my-stall/sold")
     ResponseEntity<List<Listing>> myStallSold(HttpServletRequest req) {
         def userId = requireUser(req)
-        ResponseEntity.ok(listingService.findSoldBySeller(
-            userId, org.springframework.data.domain.PageRequest.of(0, 200)))
+        def rows = listingService.findSoldBySeller(
+            userId, org.springframework.data.domain.PageRequest.of(0, 200))
+        // Batch 1032 — X-Total-Count header so the MyStall Sold tab
+        // can render the same "Showing most recent 200 of N" banner
+        // the Trades / Buy Orders tabs use once a seller crosses
+        // the cap. Counted via the existing indexed countSoldBySeller
+        // query — no extra scan.
+        long total = listingService.countSoldBySeller(userId)
+        ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(total))
+            .body(rows)
     }
 
     /** CSV dump of the seller's sale history — one row per settled
@@ -172,12 +339,12 @@ class ListingController {
         def userId = requireUser(req)
         def rows = listingService.findSoldBySeller(
             userId, org.springframework.data.domain.PageRequest.of(0, 1000))
-        def esc = { String v ->
-            if (v == null) return ''
-            v.contains(',') || v.contains('"') || v.contains('\n')
-                ? '"' + v.replace('"', '""') + '"'
-                : v
-        }
+        // Batch 979 — switch to CsvUtil.safeCell so item names containing
+        // formula-trigger first chars (=, +, -, @, \t, \r) don't run as
+        // spreadsheet formulas when the seller opens their export. Item
+        // names come from Steam Workshop uploads — not sboxmarket-
+        // controlled input, so defence-in-depth matters.
+        def esc = com.sboxmarket.util.CsvUtil.&safeCell
         def sb = new StringBuilder()
         sb.append("listing_id,item_id,item_name,category,rarity,listing_type,price,sold_at,buyer_hint\n")
         rows.each { l ->
@@ -197,14 +364,56 @@ class ListingController {
             .body(sb.toString())
     }
 
+    /** CSV dump of the seller's ACTIVE listings (batch 681). Complements
+     *  the sold.csv export — this one's the current-state inventory
+     *  manifest ("here's what I have on the market right now"), useful
+     *  for sellers exporting to a spreadsheet to bulk-reprice offline
+     *  or reconcile against their own inventory system. Capped at 1000
+     *  rows like the sold variant so a prolific seller's file stays
+     *  sane. Hidden listings included (the seller owns them) but clearly
+     *  marked in the CSV via the `hidden` column. */
+    @GetMapping(value = "/my-stall/active.csv", produces = "text/csv")
+    ResponseEntity<String> myStallActiveCsv(HttpServletRequest req) {
+        def userId = requireUser(req)
+        def rows = listingService.findActiveBySeller(userId).take(1000)
+        // Batch 979 — shared csv-safe escape; see CsvUtil.safeCell.
+        def esc = com.sboxmarket.util.CsvUtil.&safeCell
+        def sb = new StringBuilder()
+        sb.append("listing_id,item_id,item_name,category,rarity,listing_type,price,listed_at,expires_at,hidden,bid_count,description\n")
+        rows.each { l ->
+            sb.append(l.id).append(',')
+              .append(l.item?.id ?: '').append(',')
+              .append(esc(l.item?.name ?: '')).append(',')
+              .append(esc(l.item?.category ?: '')).append(',')
+              .append(esc(l.item?.rarity ?: '')).append(',')
+              .append(esc(l.listingType ?: 'BUY_NOW')).append(',')
+              .append(l.price?.toPlainString() ?: '').append(',')
+              .append(l.listedAt ?: '').append(',')
+              .append(l.expiresAt ?: '').append(',')
+              .append(Boolean.TRUE.equals(l.hidden) ? 'true' : 'false').append(',')
+              .append(l.bidCount ?: 0).append(',')
+              .append(esc(l.description ?: ''))
+              .append('\n')
+        }
+        ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"mystall-active.csv\"")
+            .body(sb.toString())
+    }
+
     /** Public recent sales for a seller — drives the "Recent sales" strip
      *  below the stall grid. Buyer-privacy safe: returns price + soldAt
      *  + item fields only, with no buyer identities. Capped at 10 to
      *  match the item-modal recent-sales strip. */
     @GetMapping("/stall/{userId}/recent-sales")
-    ResponseEntity<List<Map>> publicStallSold(@PathVariable Long userId) {
+    ResponseEntity<List<Map>> publicStallSold(@PathVariable Long userId,
+                                              @RequestParam(required = false) Integer limit) {
+        // Default 10 for the existing strip. Callers wanting a richer
+        // sample (e.g. the 30-day sparkline on the stall page, batch 362)
+        // can request up to 200 rows. Clamped server-side so a crafted
+        // ?limit=10000 can't sweep the seller's full sale history.
+        int lim = Math.min(Math.max(limit ?: 10, 1), 200)
         def rows = listingService.findSoldBySeller(userId,
-            org.springframework.data.domain.PageRequest.of(0, 10))
+            org.springframework.data.domain.PageRequest.of(0, lim))
         def out = rows.collect { l ->
             [
                 listingId: l.id,
@@ -221,7 +430,12 @@ class ListingController {
                 ]
             ]
         }
-        ResponseEntity.ok(out)
+        // Per-seller sold list is viewer-agnostic — sold rows are
+        // stable and no per-user filter applies. 60s browser cache
+        // on the stall-page open-close flow.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(out)
     }
 
     /** Bulk-adjust the user's active listings by a percentage. Positive
@@ -249,22 +463,61 @@ class ListingController {
         ResponseEntity.ok(result)
     }
 
+    /** Bulk-cancel every active listing the caller owns (batch 375).
+     *  Auctions with live bids are skipped by default — pass
+     *  `?includeAuctions=true` to cancel those too (fans out AUCTION_CANCELLED
+     *  to every bidder). Returns `{cancelled, skippedAuctions, failed}`. */
+    @DeleteMapping("/my-stall")
+    ResponseEntity<Map> bulkCancelStall(@RequestParam(required = false, defaultValue = "false") Boolean includeAuctions,
+                                        HttpServletRequest req) {
+        def userId = requireUser(req)
+        ResponseEntity.ok(sellService.cancelAllActive(userId, Boolean.TRUE.equals(includeAuctions)))
+    }
+
     /** Newest active listings — drives the homepage "Just listed" rail.
      *  Public, excludes hidden listings via the service's visible-seller
      *  filter where applicable, capped at 20 rows. Buyers love fresh
      *  inventory; this is the "what just dropped" surface. */
     @GetMapping("/just-listed")
-    ResponseEntity<List<Listing>> justListed() {
+    ResponseEntity<List<Listing>> justListed(HttpServletRequest req) {
         def rows = listingService.findNewestActive(20)
-        ResponseEntity.ok(rows)
+        // `private` — filterBlocked varies by viewer. 30s cache because
+        // "just listed" is a freshness surface; longer caches would
+        // defeat the "just" part.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=30')
+            .body(filterBlocked(rows, req))
     }
 
     /** Top deals rail — active BUY_NOW listings priced furthest below
      *  the catalogue steamPrice, sorted by deepest %. Public endpoint,
      *  capped at 12 rows. Drives the homepage deal-hunter surface. */
     @GetMapping("/top-deals")
-    ResponseEntity<List<Listing>> topDeals() {
-        ResponseEntity.ok(listingService.findTopDeals(12))
+    ResponseEntity<List<Listing>> topDeals(HttpServletRequest req) {
+        // `private` not `public` — filterBlocked varies by viewer
+        // (per-session block list). 60s is under the homepage rail's
+        // refetch cadence while still catching a just-listed steal.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=60')
+            .body(filterBlocked(listingService.findTopDeals(12), req))
+    }
+
+    /**
+     * Block-filter helper (batch 345/346). Every listing-returning
+     * endpoint that the grid or a homepage rail calls should run its
+     * result through this so a blocked seller's rows never reach the
+     * blocker's UI. Anonymous callers + callers who haven't blocked
+     * anyone skip the filter entirely — a single session lookup +
+     * one repo probe per request.
+     */
+    private List<Listing> filterBlocked(List<Listing> rows, HttpServletRequest req) {
+        if (rows == null || rows.isEmpty()) return rows
+        def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (viewer == null || userBlockService == null) return rows
+        def blocked = userBlockService.blockedIdsFor(viewer)
+        if (blocked.isEmpty()) return rows
+        def set = new HashSet<>(blocked)
+        rows.findAll { l -> l.sellerUserId == null || !set.contains(l.sellerUserId) }
     }
 
     /** Top sellers rail — aggregates sold counts and surfaces the most
@@ -277,6 +530,11 @@ class ListingController {
         def out = rows.collect { r ->
             def user = steamUserRepository.findById(r.userId).orElse(null)
             if (user == null) return null
+            // Batch 352 — banned sellers shouldn't appear on the homepage
+            // "Top Sellers" rail. Filter at render time so a staff ban
+            // immediately removes them from the leaderboard without
+            // needing to recompute the underlying aggregate.
+            if (Boolean.TRUE.equals(user.banned)) return null
             def ratingSummary = reviewService?.summaryForUser(user.id) ?: [count: 0, average: null]
             [
                 id:          user.id,
@@ -290,7 +548,12 @@ class ListingController {
                               ((ratingSummary.average ?: 0.0) as double) >= 4.0d)
             ]
         }.findAll { it != null }
-        ResponseEntity.ok(out)
+        // Public aggregate — no viewer-specific data. 2-min cache:
+        // the top-sellers ranking is driven by lifetime sold counts
+        // which shift slowly, so this is generous stale tolerance.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=120')
+            .body(out)
     }
 
     /** Auctions ending within the next hour (or custom window). Powers the
@@ -298,7 +561,8 @@ class ListingController {
      *  audience since the bid pressure is about to peak. Public endpoint,
      *  returns at most 20 rows, excludes hidden listings. */
     @GetMapping("/ending-soon")
-    ResponseEntity<List<Listing>> endingSoon(@RequestParam(required = false) Long withinMs) {
+    ResponseEntity<List<Listing>> endingSoon(@RequestParam(required = false) Long withinMs,
+                                             HttpServletRequest req) {
         def now = System.currentTimeMillis()
         // Default: 60 minutes. Caller can shrink (e.g. to 15 min) to pull
         // the "hottest" few. Cap at 24 h so a malicious caller can't sweep
@@ -306,31 +570,66 @@ class ListingController {
         def window = withinMs != null ? Math.min(withinMs, 24L * 60 * 60 * 1000) : 60L * 60 * 1000
         def deadline = now + window
         def rows = listingService.findAuctionsEndingBefore(now, deadline)
-        ResponseEntity.ok(rows.take(20))
+        // `private` — filterBlocked varies by viewer. 30s cap because
+        // auctions ending soon change state fast (outbid, extended by
+        // anti-snipe, closed on sale) — a longer cache would show
+        // "ending in 2m" for a listing that just closed.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=30')
+            .body(filterBlocked(rows.take(20), req))
     }
 
     /**
      * Public stall view — everyone can see a seller's active listings. Hidden
      * listings (stall-privacy mode) are excluded by the service-level filter.
      *
-     * Security: deliberately does NOT return `profileUrl` or `steamId64` —
-     * both contain the seller's 17-digit Steam community ID, which an
-     * attacker could harvest by walking stall/1 … stall/N. Only the display
-     * name, avatar and stall id (our internal, non-Steam) are exposed.
+     * Public contract: returns display name + avatar + sold count +
+     * response/ship stats + rating summary + blocked flag (for the
+     * viewer) + steamId64 + profileUrl. `steamId64` and `profileUrl`
+     * are EXPOSED on purpose (batch 726) — CSFloat-style trust signal
+     * so buyers can click through to the seller's Steam profile and
+     * vet account age + badges + friends before committing. They are
+     * NULL'd out for banned accounts so a suspended seller's Steam
+     * page doesn't keep receiving traffic from our UI.
      * URL: GET /api/listings/stall/{userId}
      */
     @GetMapping("/stall/{userId}")
-    ResponseEntity<Map> publicStall(@PathVariable Long userId) {
+    ResponseEntity<Map> publicStall(@PathVariable Long userId, HttpServletRequest req) {
         def user = steamUserRepository.findById(userId).orElse(null)
-        if (user == null) return ResponseEntity.notFound().build()
-        def visible = listingService.findActiveVisibleBySeller(userId)
+        // Throw NotFoundException so GlobalExceptionHandler returns
+        // the canonical JSON error body (batch 524). Previously
+        // `ResponseEntity.notFound().build()` returned 404 with an
+        // empty body, which broke the frontend's uniform error
+        // rendering (toast + retry UI) — all other 404s return the
+        // same {code, message, correlationId, ...} shape.
+        if (user == null) throw new com.sboxmarket.exception.NotFoundException("SteamUser", userId)
+        // Batch 1043 — cap the public stall at 500 visible listings
+        // so visiting a prolific seller's /stall/{id} page doesn't
+        // force the server to JOIN-FETCH every active row every time.
+        // Mirrors the MyStall display cap (batch 1033). Older rows
+        // stay in the DB, queryable via item-specific endpoints.
+        def visible = listingService.findActiveVisibleBySeller(userId, 500)
         // Derive away-mode: seller has active listings but all of them are
         // hidden. Lets the UI show "This seller is away" instead of an
         // indistinguishable "no active listings" empty state.
-        def totalActive = listingService.findActiveBySeller(userId).size()
+        // Batch 1013 — COUNT query instead of the prior findActiveBySeller.size()
+        // that hydrated every listing row (with JOIN FETCH l.item) just
+        // to call .size() on it.
+        long totalActive = listingService.countActiveBySeller(userId)
         def away = visible.isEmpty() && totalActive > 0
         def ratingSummary = reviewService?.summaryForUser(userId) ?: [count: 0, average: null]
         def soldCount = listingService.countSoldBySeller(userId)
+        // Last-24h / 7d / 30d sold counts. Batch 534 shipped 30d; batch
+        // 875 extends to 24h + 7d so the stall hero can render a
+        // graduated freshness indicator: "just made a sale" >
+        // "active this week" > "30d-activity" > "dormant."
+        def now = System.currentTimeMillis()
+        def soldLast24h = listingService.countSoldBySellerSince(
+            userId, now - (24L * 60L * 60L * 1000L))
+        def soldLast7d  = listingService.countSoldBySellerSince(
+            userId, now - (7L  * 24L * 60L * 60L * 1000L))
+        def soldLast30d = listingService.countSoldBySellerSince(
+            userId, now - (30L * 24L * 60L * 60L * 1000L))
         // Verified threshold — 10+ completed sales AND (no ratings OR avg >= 4.0).
         // Mirrors CSFloat's trust badge: you have to have actually traded
         // successfully to show up as verified. Opinionated defaults that
@@ -350,9 +649,51 @@ class ListingController {
         // "Typically responds in X · 92% response rate" in the stall
         // hero and distinguish active sellers from cherry-pickers.
         def responseRatePct   = offerService?.responseRatePct(userId)
-        ResponseEntity.ok([
+        // Typical ship-time (median ms) across VERIFIED trades in the
+        // last 90d (batch 550). Null until the seller has 3+ samples
+        // so a lucky fast first trade doesn't lie to buyers. Renders
+        // as "Typically ships in ~N hours" on the stall hero, giving
+        // buyers a concrete "will I actually get the item?" signal.
+        def typicalShipMs       = tradeService?.typicalShipMs(userId)
+        def typicalShipSamples  = tradeService?.typicalShipSampleCount(userId) ?: 0
+        // Viewer-relative "have I blocked this seller?" flag (batch 347)
+        // so the stall page can render a "You've blocked this seller"
+        // banner with a one-click Unblock button. Anonymous viewers and
+        // unblocked pairs see `blockedByViewer: false`. Self-visits are
+        // trivially never blocked (the CHECK constraint would reject a
+        // self-block write anyway).
+        def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        boolean blockedByViewer = (viewer != null && viewer != userId && userBlockService != null)
+            ? userBlockService.isBlocked(viewer, userId)
+            : false
+        // Batch 364 — expose a public `banned` flag so stall viewers
+        // see a clear "This account has been suspended" banner instead
+        // of a mysterious "0 active listings" empty state (banUser
+        // cancels all the seller's listings, so their stall looks
+        // dormant rather than disabled). We deliberately DO NOT return
+        // banReason — that's staff-only context.
+        boolean isBanned = Boolean.TRUE.equals(user.banned)
+        def body = [
             seller: [
                 id:                user.id,
+                // Batch 982 — steamId64 was leaking on banned accounts.
+                // profileUrl was already null'd for banned but the id
+                // right next to it wasn't — a scraper harvesting banned-
+                // user Steam IDs could walk stall/1 … stall/N with
+                // ?banned=true and still pull the 17-digit community id.
+                // Symmetric null-out now applies to both fields: the
+                // stall page for a banned seller exposes display name +
+                // avatar (so the UI can render the suspension banner
+                // with identity) but nothing that enables further
+                // off-platform contact.
+                steamId64:         isBanned ? null : user.steamId64,
+                // Public Steam profile URL (batch 726). Lets buyers
+                // click through to the seller's community profile to
+                // check account age / badge count / friends list as a
+                // trust signal. Hidden for banned accounts so their
+                // Steam profile doesn't keep getting traffic from our
+                // stall page after staff suspends.
+                profileUrl:        isBanned ? null : user.profileUrl,
                 displayName:       user.displayName,
                 avatarUrl:         user.avatarUrl,
                 joinedAt:          user.createdAt,
@@ -361,33 +702,89 @@ class ListingController {
                 // surfaces recency signal, not PII. Null for accounts we
                 // haven't re-synced since they signed in.
                 lastSyncedAt:      user.lastSyncedAt,
-                verified:          verified,
+                verified:          verified && !isBanned,
                 soldCount:         soldCount,
+                soldLast24h:       soldLast24h,
+                soldLast7d:        soldLast7d,
+                soldLast30d:       soldLast30d,
                 followerCount:     followerCount,
                 typicalResponseMs: typicalResponseMs,
                 responseRatePct:   responseRatePct,
+                typicalShipMs:     typicalShipMs,
+                typicalShipSamples: typicalShipSamples,
+                // Batch 1045 — most-recent listedAt across the seller's
+                // ACTIVE listings. Gives buyers a sharper activity signal
+                // than lastSyncedAt (Steam sync, updates on any login)
+                // because it reflects real marketplace action: "listed 2h
+                // ago" vs "last seen 6d ago" is the difference between a
+                // live seller and a dormant one. Null when they have no
+                // active listings or when banned (same privacy posture
+                // as the rest of the seller block).
+                lastListedAt:      isBanned ? null : listingService.lastListedAtBySeller(userId),
+                // Batch 1047 — complement to lastListedAt: most-recent
+                // soldAt across the seller's SOLD listings. Listing
+                // activity and sales activity tell different stories —
+                // a seller who lists often but never sells is different
+                // from one who trades routinely. Buyers want both signals.
+                lastSoldAt:        isBanned ? null : listingService.lastSoldAtBySeller(userId),
                 // Optional self-written bio, sanitised + capped at 500
                 // chars on write. Null when the seller hasn't set one.
-                stallBio:          user.stallBio
+                // Hidden for banned accounts — we don't want the
+                // banned user's marketing copy to keep greeting visitors.
+                stallBio:          isBanned ? null : user.stallBio,
+                banned:            isBanned
             ],
-            listings:  visible,
-            count:     visible.size(),
-            away:      away,
-            awayCount: away ? totalActive : 0,
-            rating:    ratingSummary
-        ])
+            listings:         visible,
+            count:            visible.size(),
+            away:             away && !isBanned,
+            awayCount:        (away && !isBanned) ? totalActive : 0,
+            // Scheduled "back on X" timestamp when the seller explicitly
+            // set an until-date on the away toggle (batch 628). Null when
+            // the seller just flipped away without a schedule. Future
+            // until-dates render as "Back on <date>"; past/null renders
+            // as the generic "away" banner.
+            awayUntil:        (away && !isBanned && user.awayModeUntil != null &&
+                               user.awayModeUntil > System.currentTimeMillis())
+                               ? user.awayModeUntil : null,
+            rating:           ratingSummary,
+            blockedByViewer:  blockedByViewer
+        ] as Map<String, Object>
+        // `private` — the blockedByViewer flag is viewer-specific and
+        // we don't want a shared cache to cross-contaminate. 30s cap
+        // keeps typical stall re-visits fast while staying responsive
+        // to seller edits (new listing, price drop, away toggle).
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=30')
+            .body(body)
     }
 
-    /** Items the user has purchased and still owns (= inventory). */
+    /** Items the user has purchased and still owns (= inventory).
+     *  Hard-capped at the most recent 500 rows so a prolific collector
+     *  doesn't force the server to serialise thousands of Listings on
+     *  every SellItemsModal open. `X-Total-Count` header carries the
+     *  true row count so the frontend can render "Showing most recent
+     *  500 of N" when the cap is hit. Items sold off the inventory
+     *  stop counting; this is purely a display cap. */
     @GetMapping("/inventory")
     ResponseEntity<List<Listing>> inventory(HttpServletRequest req) {
         def userId = requireUser(req)
-        ResponseEntity.ok(listingService.findOwnedBy(userId))
+        def rows = listingService.findOwnedBy(userId, 500)
+        long total = listingService.countOwnedBy(userId)
+        ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(total))
+            .body(rows)
     }
 
-    /** Buy a listing using the current user's wallet balance. */
+    /** Buy a listing using the current user's wallet balance.
+     *  Accepts an optional `{expectedPrice: "9.99"}` body — when
+     *  present, rejects with 409 PRICE_CHANGED if the server-side
+     *  price has drifted (seller edit between modal render and Buy
+     *  click). Same contract as the cart checkout guard from batch
+     *  321. Body-less requests stay back-compat with older clients. */
     @PostMapping("/{id}/buy")
-    ResponseEntity<Map> buy(@PathVariable Long id, HttpServletRequest req) {
+    ResponseEntity<Map> buy(@PathVariable Long id,
+                            @RequestBody(required = false) Map body,
+                            HttpServletRequest req) {
         def userId = requireUser(req)
         def user = steamUserRepository.findById(userId)
                 .orElseThrow { new UnauthorizedException("Unknown user") }
@@ -397,11 +794,35 @@ class ListingController {
             wallet = walletRepository.save(new Wallet(username: "steam_" + user.steamId64, balance: BigDecimal.ZERO))
         }
 
+        // Optional price-match guard (batch 323). Match cart's
+        // PRICE_CHANGED semantics: reject BEFORE the service call so
+        // the wallet isn't debited at a surprise price.
+        if (body?.expectedPrice != null) {
+            BigDecimal expected
+            try { expected = new BigDecimal(body.expectedPrice.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE",
+                    "expectedPrice must be a valid number")
+            }
+            def lOpt = listingService.findById(id)
+            if (lOpt != null && lOpt.price != null && lOpt.price.compareTo(expected) != 0) {
+                throw new com.sboxmarket.exception.BadRequestException("PRICE_CHANGED",
+                    "Price moved from \$${expected} to \$${lOpt.price} — refresh and retry")
+            }
+        }
+
         def result = purchaseService.buy(wallet.id, userId, id)
+        // Batch 880 — include itemName + price in the response so the
+        // frontend can render a personalised success toast ("Bought
+        // 'Wizard Hat' for $15.95") instead of a generic "Purchase
+        // complete". Pulls from the Listing returned by the service.
+        def boughtListing = result.listing
         ResponseEntity.ok([
             transactionId: result.transactionId,
             newBalance   : result.newBalance,
-            listingId    : id
+            listingId    : id,
+            itemName     : boughtListing?.item?.name,
+            price        : boughtListing?.price
         ])
     }
 
@@ -412,8 +833,17 @@ class ListingController {
         def user = steamUserRepository.findById(userId)
                 .orElseThrow { new UnauthorizedException("Unknown user") }
 
-        def created = sellService.relist(userId, user.displayName ?: "Player", body.listingId, body.price)
-        ResponseEntity.ok([listingId: created.id, price: created.price, status: created.status])
+        def created = sellService.relist(userId, user.displayName ?: "Player",
+            body.listingId, body.price, body.listingType, body.durationHours, body.description,
+            body.buyNowPrice, body.maxDiscount)
+        ResponseEntity.ok([
+            listingId:    created.id,
+            price:        created.price,
+            status:       created.status,
+            listingType:  created.listingType,
+            expiresAt:    created.expiresAt,
+            buyNowPrice:  created.buyNowPrice
+        ])
     }
 
     @DeleteMapping("/{id}")
@@ -431,6 +861,11 @@ class ListingController {
         if (listing.sellerUserId != userId) {
             throw new com.sboxmarket.exception.ForbiddenException("Not your listing")
         }
+        // Capture the prior price so we can fire PRICE_DROPPED pings to
+        // cart-holders after the save (batch 538). A drop from $50 to
+        // $45 is a buy signal the cart-holder was waiting for — pushing
+        // it converts abandoned carts into completed purchases.
+        BigDecimal oldPrice = listing.price
         if (body.containsKey('price')) {
             def raw = body.price
             if (raw == null) {
@@ -443,12 +878,24 @@ class ListingController {
             }
             if (p <= BigDecimal.ZERO) throw new com.sboxmarket.exception.BadRequestException("INVALID_PRICE", "Price must be positive")
             if (p > new BigDecimal("100000")) throw new com.sboxmarket.exception.BadRequestException("PRICE_TOO_HIGH", "Price must not exceed \$100,000")
+            // Fairness guard: once a bid lands on an auction, the starting
+            // price becomes binding — bidders pegged their offer to the
+            // original ask. Letting the seller edit it mid-run would
+            // either invalidate bids (confusing) or lock bids in against
+            // a new number they never agreed to (unfair). Cancel + relist
+            // is the intended escape hatch.
+            if (listing.listingType == 'AUCTION' && (listing.bidCount ?: 0) > 0) {
+                throw new com.sboxmarket.exception.BadRequestException("AUCTION_HAS_BIDS",
+                    "Can't change the price on an auction that already has bids — cancel and relist instead.")
+            }
             listing.price = p
         }
         if (body.containsKey('hidden'))      listing.hidden      = body.hidden as Boolean
         if (body.containsKey('description')) {
-            // HTML-strip + cap at 64 chars — users can only write plain text.
-            listing.description = textSanitizer.clean(body.description as String, 64)
+            // HTML-strip + cap at 500 chars — matches the column size
+            // (V39), the SellService.relist cap, and the sell-form
+            // textarea maxLength.
+            listing.description = textSanitizer.clean(body.description as String, 500)
         }
         if (body.containsKey('maxDiscount')) {
             def raw = body.maxDiscount
@@ -467,6 +914,53 @@ class ListingController {
             }
         }
         def saved = listingService.save(listing)
+        // PRICE_DROPPED fan-out (batch 538). Fire when the seller
+        // lowered the price — cart-holders who queued this exact
+        // listing see a ping and can capture the cheaper price.
+        // Capped at 50 recipients to bound fan-out cost on a listing
+        // that sat in many carts.
+        if (oldPrice != null && saved.price != null && saved.price < oldPrice
+                && cartItemRepository != null && notificationService != null) {
+            try {
+                def others = cartItemRepository.findOtherUsersWithListing(saved.id, userId) ?: []
+                if (!others.isEmpty()) {
+                    def itemName = saved.item?.name ?: 'an item in your cart'
+                    def itemId = saved.item?.id
+                    def dropAmount = oldPrice - saved.price
+                    def dropPct = oldPrice > BigDecimal.ZERO
+                        ? (dropAmount.divide(oldPrice, 2, java.math.RoundingMode.HALF_UP).multiply(new BigDecimal('100'))).intValue()
+                        : 0
+                    others.take(50).each { uid ->
+                        try {
+                            notificationService.push(uid, 'PRICE_DROPPED',
+                                "Cart item price drop · ${itemName}",
+                                "${itemName} dropped from \$${oldPrice.toPlainString()} to \$${saved.price.toPlainString()}" +
+                                    (dropPct > 0 ? " (−${dropPct}%)" : '') + ". Check out before it sells.",
+                                saved.id,
+                                itemId != null ? "/item/${itemId}" : '/cart')
+                        } catch (Exception e) {
+                            log.warn("PRICE_DROPPED push failed for uid=${uid}: ${e.message}")
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("PRICE_DROPPED fan-out failed for listing=${saved.id}: ${e.message}")
+            }
+        }
+        // Batch 699 — ping buyers whose pending offer would now execute
+        // at the ask. Separate from the cart fan-out above because the
+        // audience is tighter (offer amount ≥ new price) and the
+        // messaging is more actionable ("your offer could buy outright
+        // now"). Only fires on real drops.
+        if (oldPrice != null && saved.price != null && saved.price < oldPrice
+                && offerService != null) {
+            try {
+                offerService.notifyOfferHoldersOfPriceDrop(saved.id, oldPrice, saved.price,
+                    saved.item?.name, saved.item?.id)
+            } catch (Exception e) {
+                log.warn("Offer-holder price-drop fan-out failed for listing=${saved.id}: ${e.message}")
+            }
+        }
         ResponseEntity.ok([id: saved.id, price: saved.price, hidden: saved.hidden, description: saved.description, maxDiscount: saved.maxDiscount])
     }
 
@@ -526,15 +1020,126 @@ class ListingController {
     /** Platform-wide "Just sold" feed. Anonymous-friendly social-proof
      *  ticker on the homepage. Hard-capped at 30 rows; `soldAt` is
      *  indexed. Returns just the fields the card renderer needs so the
-     *  payload stays small. */
+     *  payload stays small.
+     *
+     *  Signed-in viewers get the block-list filter applied so a blocked
+     *  seller's last sale doesn't dangle on the ticker (batch 432) —
+     *  parity with every other listing surface. Service-level filter
+     *  already strips banned sellers for all audiences. */
     @GetMapping("/recent-sales")
-    ResponseEntity<List<Map>> recentSales(@RequestParam(required = false) Integer limit) {
+    ResponseEntity<List<Map>> recentSales(@RequestParam(required = false) Integer limit,
+                                          HttpServletRequest req) {
         def lim = Math.min(Math.max(limit ?: 10, 1), 30)
         def rows = listingService.findRecentSales(lim)
-        ResponseEntity.ok(rows)
+        def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        if (viewer != null && userBlockService != null) {
+            def blocked = userBlockService.blockedIdsFor(viewer)
+            if (!blocked.isEmpty()) {
+                def set = new HashSet<>(blocked)
+                rows = rows.findAll { r ->
+                    r.sellerUserId == null || !set.contains(r.sellerUserId as Long)
+                }
+            }
+        }
+        // `private` because the viewer's block list filters rows out.
+        // 30s matches the JustSoldRail's poll cadence so in-page polls
+        // still hit the server on every cycle; the cache fires only for
+        // cross-navigation reloads (modal open/close, route switches)
+        // where the same data is re-requested inside the poll window.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=30')
+            .body(rows)
     }
 
-    /** Toggle "Away mode" — hides ALL of the user's active listings in one shot. */
+    /** Top-N most-watched items site-wide, returned as the cheapest
+     *  active listing per item. Drives the homepage "Most watched"
+     *  social-proof rail (batch 273). Public — same audience as
+     *  /api/listings/just-listed and the other rails. */
+    @GetMapping("/most-watched")
+    ResponseEntity<List<Listing>> mostWatched(@RequestParam(required = false) Integer limit,
+                                              HttpServletRequest req) {
+        def lim = Math.min(Math.max(limit ?: 8, 1), 30)
+        // Batch 811 — private cache: blocklist filter varies by viewer.
+        // 60s matches the rail's client-side poll cadence; TopDealsRail
+        // already caches at the same rate.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=60')
+            .body(filterBlocked(listingService.findMostWatched(lim), req))
+    }
+
+    /** Top-N most-viewed items site-wide, returned as the cheapest active
+     *  listing per item. Drives the homepage "Most viewed" rail (batch
+     *  412). Public — same audience as /api/listings/most-watched. */
+    @GetMapping("/most-viewed")
+    ResponseEntity<List<Listing>> mostViewed(@RequestParam(required = false) Integer limit,
+                                             HttpServletRequest req) {
+        def lim = Math.min(Math.max(limit ?: 8, 1), 30)
+        // Batch 811 — private cache (blocklist filter).
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=60')
+            .body(filterBlocked(listingService.findMostViewed(lim), req))
+    }
+
+    /** Top-N hottest items over the last `days` days (default 7),
+     *  returned as the cheapest active listing per item. Drives the
+     *  "Hot right now" homepage rail (batch 289). Public — same
+     *  audience as /api/listings/most-watched. */
+    @GetMapping("/hottest")
+    ResponseEntity<List<Listing>> hottest(@RequestParam(required = false) Integer limit,
+                                          @RequestParam(required = false) Integer days,
+                                          HttpServletRequest req) {
+        def lim = Math.min(Math.max(limit ?: 8, 1), 30)
+        def win = Math.min(Math.max(days ?: 7, 1), 30)
+        // Batch 811 — private cache (blocklist filter).
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=60')
+            .body(filterBlocked(listingService.findHottest(lim, win), req))
+    }
+
+    /** Bulk recent-sales count per item over the rolling window
+     *  (default 7 days, max 30) — drives the "🔥 N sold 7d" chip on
+     *  marketplace cards (batch 288). Public, omits zero-count items
+     *  to keep the JSON tight on a sparsely-traded grid. Tolerates
+     *  malformed token in the comma-separated `ids` (silently drops
+     *  bad entries) and caps the input list at 200 ids. */
+    @GetMapping("/sales-velocity")
+    ResponseEntity<Map<Long, Long>> salesVelocity(
+            @RequestParam(required = false) String ids,
+            @RequestParam(required = false) Integer days) {
+        if (ids == null || ids.isBlank()) {
+            return ResponseEntity.ok([:] as Map<Long, Long>)
+        }
+        List<Long> parsed = []
+        for (String chunk : ids.split(',')) {
+            try {
+                def n = Long.valueOf(chunk.trim())
+                if (n > 0L) parsed << n
+            } catch (Exception ignored) { /* skip bad token */ }
+        }
+        if (parsed.isEmpty()) return ResponseEntity.ok([:] as Map<Long, Long>)
+        if (parsed.size() > 200) parsed = parsed.take(200)
+        int win = Math.min(Math.max(days ?: 7, 1), 30)
+        long since = System.currentTimeMillis() - (win * 24L * 60L * 60L * 1000L)
+        def rows = listingService.countRecentSalesByItemIds(parsed, since)
+        Map<Long, Long> out = [:]
+        rows.each { row ->
+            def id    = row[0] as Long
+            def count = (row[1] ?: 0L) as Long
+            if (count > 0L) out[id] = count
+        }
+        // Public aggregate — viewer-agnostic item-id → sale-count.
+        // 60s cache matches the grid's useMemo key stability so
+        // scroll + filter changes on the same items don't re-fetch.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(out)
+    }
+
+    /** Toggle "Away mode" — hides ALL of the user's active listings in
+     *  one shot. Optional `until` (epoch ms) schedules an automatic
+     *  return: the hourly sweep flips visibility back on at that time
+     *  and clears the field. Omitted / null = indefinite away mode
+     *  (manual flip-back required). */
     @PostMapping("/away")
     ResponseEntity<Map> awayMode(@RequestBody Map body, HttpServletRequest req) {
         def userId = requireUser(req)
@@ -542,8 +1147,38 @@ class ListingController {
             throw new com.sboxmarket.exception.BadRequestException("MISSING_FIELD", "'hidden' field is required (true or false)")
         }
         def hidden = body.hidden as Boolean
-        def affected = listingService.setAwayMode(userId, hidden)
-        ResponseEntity.ok([hidden: hidden, affected: affected])
+        Long until = null
+        if (body.until != null) {
+            try {
+                until = Long.valueOf(body.until.toString())
+            } catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_UNTIL",
+                    "'until' must be an epoch-ms timestamp")
+            }
+        }
+        def affected = listingService.setAwayMode(userId, hidden, until)
+        ResponseEntity.ok([hidden: hidden, affected: affected, until: until])
+    }
+
+    /** Read the seller's current vacation-mode state — drives the
+     *  "Return on …" chip in the My Stall toolbar so a returning user
+     *  sees their scheduled resume time without flipping the toggle. */
+    @GetMapping("/away")
+    ResponseEntity<Map> awayState(HttpServletRequest req) {
+        def userId = requireUser(req)
+        Long until = null
+        try {
+            def user = steamUserRepository.findById(userId).orElse(null)
+            until = user?.awayModeUntil
+        } catch (Exception ignored) {}
+        // "Hidden" is derived from the listing rows themselves — a stall
+        // can be all-hidden without a return timer (manual indefinite
+        // away). Cheap COUNT-flag derivation.
+        def hiddenCount = listingService.countHiddenActive(userId)
+        ResponseEntity.ok([
+            hidden: hiddenCount > 0,
+            until:  until
+        ])
     }
 
     private Long requireUser(HttpServletRequest req) {

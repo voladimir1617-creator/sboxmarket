@@ -103,4 +103,39 @@ class Trade {
     /** When the trade moved to VERIFIED / CANCELLED. Null while in escrow. */
     @Column
     Long settledAt
+
+    /** When the seller clicked "Mark sent" and the trade transitioned to
+     *  PENDING_BUYER_CONFIRM. Powers the "Typically ships in ~N hours"
+     *  seller-trust metric on the public stall page (batch 550). Null on
+     *  legacy rows (pre-V49) and any trade still waiting on seller send. */
+    @Column(name = 'sent_at')
+    Long sentAt
+
+    /** Set the first time the buyer is pushed a TRADE_SLOW_SELLER warning
+     *  because the seller has been silent for >24h on a pending-seller
+     *  state. Stops the warning sweeper from re-pinging every tick. Cleared
+     *  back to null whenever the trade transitions out of the
+     *  PENDING_SELLER_* states so a rare admin-forced re-entry re-arms
+     *  the sweeper for the next silence window. */
+    @Column(name = 'slow_seller_warned_at')
+    Long slowSellerWarnedAt
+
+    /** Set the first time the second REVIEW_REMINDER fires (≈48h after
+     *  the trade verifies, only if the buyer hasn't reviewed yet). One-
+     *  shot per trade — the partial index on this column drives the
+     *  sweeper, and the stamp keeps it from re-nudging on subsequent
+     *  ticks. (V38 / batch 284) */
+    @Column(name = 'review_nudge_sent_at')
+    Long reviewNudgeSentAt
+
+    /** Optional Steam trade-offer URL the seller provides at Mark-Sent
+     *  time (batch 773). Lets the buyer jump straight to the Steam
+     *  offer in one click from their Trades tab, and gives staff a
+     *  concrete reference when triaging a dispute ("did the seller
+     *  actually send the offer?"). Validated on write to be a real
+     *  `https://steamcommunity.com/tradeoffer/...` URL; anything else
+     *  is silently dropped. Null for legacy trades + for sellers who
+     *  skip the field. */
+    @Column(name = 'trade_offer_url', length = 200)
+    String tradeOfferUrl
 }

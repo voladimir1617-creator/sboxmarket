@@ -20,7 +20,18 @@ class WatchlistAlertServiceSpec extends Specification {
     WatchlistAlertRepository repo                = Mock()
     ItemRepository           itemRepository      = Mock()
     NotificationService      notificationService = Mock()
-    com.sboxmarket.service.EmailService emailService = Mock()
+    com.sboxmarket.service.EmailService emailService = Mock() {
+        // Batch 627: delegate the gate to user flags so "skips email
+        // for unverified / opted-out" tests still close the gate
+        // without per-test stub churn.
+        canSendTo(_, _) >> { args ->
+            def user = args[0]
+            user != null &&
+            user.email && !user.email.isEmpty() &&
+            Boolean.TRUE.equals(user.emailVerified) &&
+            Boolean.TRUE.equals(user.emailNotificationsEnabled)
+        }
+    }
     com.sboxmarket.repository.SteamUserRepository steamUserRepository = Mock()
 
     @Subject
@@ -253,6 +264,32 @@ class WatchlistAlertServiceSpec extends Specification {
         then:
         1 * emailService.sendPriceDrop('buyer@example.com', 'Alice', 'Wizard Hat',
             new BigDecimal('9.00'), new BigDecimal('10'), '/item/7')
+    }
+
+    def "sweep skips the push + email for banned users but still flips the alert to FIRED (batch 332)"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggered() >> [[a, new BigDecimal('9.00')] as Object[]]
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.save(_) >> { args -> args[0] }
+        // Banned user — price drop is pure noise since they can't buy.
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'bad@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, banned: true
+        ))
+
+        when:
+        service.sweep()
+
+        then:
+        // No in-app push and no email.
+        0 * notificationService.push(42L, _, _, _, _, _)
+        0 * emailService.sendPriceDrop(_, _, _, _, _, _)
+        // Still flipped to FIRED so the sweep doesn't keep re-scanning this
+        // row every 5 minutes for the rest of time.
+        a.status == 'FIRED'
+        a.firedAt != null
     }
 
     def "sweep skips the email when emailNotificationsEnabled = false"() {

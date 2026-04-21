@@ -9,6 +9,8 @@ import com.sboxmarket.repository.SupportMessageRepository
 import com.sboxmarket.repository.SupportTicketRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -25,6 +27,7 @@ class SupportService {
     @Autowired SupportMessageRepository messageRepository
     @Autowired NotificationService notificationService
     @Autowired TextSanitizer textSanitizer
+    @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
 
     /** Tiny FAQ-style auto-responder. Real staff can still reply later. */
     private static String autoReply(String category, String subject) {
@@ -105,6 +108,34 @@ class SupportService {
         notificationService?.push(userId, 'SUPPORT_REPLY',
             "Support opened · #${ticket.id}",
             "A support agent has replied to your ticket", ticket.id, '/support')
+        // Admin + CSR fan-out (batch 505). New tickets used to land
+        // silently in /admin?tab=tickets and wait for someone to
+        // manually reload — shift gaps meant a REFUND category ticket
+        // could sit for hours before anyone saw it. Now every ADMIN
+        // and CSR role-user gets a bell ping the moment the ticket
+        // opens, deep-linked straight to the tickets tab. Uses the
+        // same role-indexed `findByRole` as the chargeback fan-out so
+        // the query stays O(staff count), not O(total users).
+        if (steamUserRepository != null) {
+            try {
+                def catLabel = ticket.category ?: 'OTHER'
+                def staff = []
+                staff.addAll(steamUserRepository.findByRole('ADMIN') ?: [])
+                staff.addAll(steamUserRepository.findByRole('CSR') ?: [])
+                staff.unique { it.id }.each { s ->
+                    try {
+                        notificationService.push(s.id, 'SUPPORT_REPLY',
+                            "New support ticket · #${ticket.id}",
+                            "[${catLabel}] ${cleanSubject.take(100)} — from ${cleanName ?: 'user ' + userId}",
+                            ticket.id, '/admin?tab=tickets')
+                    } catch (Exception e) {
+                        log.warn("New-ticket staff push failed for uid=${s.id}: ${e.message}")
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("New-ticket staff fan-out failed for ticket ${ticket.id}: ${e.message}")
+            }
+        }
         ticket
     }
 
@@ -130,7 +161,76 @@ class SupportService {
         ticket.status = 'WAITING_STAFF'
         ticket.updatedAt = System.currentTimeMillis()
         ticketRepository.save(ticket)
+        // Staff fan-out on user reply (batch 505). Same rationale as
+        // the new-ticket fan-out above: a user reply flips status to
+        // WAITING_STAFF, but without an active push, a busy shift
+        // wouldn't see the signal until they manually filtered the
+        // tickets tab. Ping both ADMIN and CSR so whoever has capacity
+        // picks it up.
+        if (steamUserRepository != null) {
+            try {
+                def staff = []
+                staff.addAll(steamUserRepository.findByRole('ADMIN') ?: [])
+                staff.addAll(steamUserRepository.findByRole('CSR') ?: [])
+                staff.unique { it.id }.each { s ->
+                    try {
+                        notificationService?.push(s.id, 'SUPPORT_REPLY',
+                            "User reply on ticket #${ticketId}",
+                            "${cleanName ?: 'User ' + userId}: ${cleanBody.take(120)}",
+                            ticketId, '/admin?tab=tickets')
+                    } catch (Exception e) {
+                        log.warn("User-reply staff push failed for uid=${s.id}: ${e.message}")
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("User-reply staff fan-out failed for ticket ${ticketId}: ${e.message}")
+            }
+        }
         msg
+    }
+
+    /**
+     * Reopen a RESOLVED ticket (batch 858). Flips status back to
+     * WAITING_STAFF so the same thread continues instead of the user
+     * having to open a brand-new ticket (losing the previously built
+     * context). Staff are re-notified via the same fan-out pattern as
+     * user replies so whoever picks up the reopened thread sees it
+     * without manually filtering the tickets queue.
+     */
+    @Transactional
+    SupportTicket reopen(Long userId, Long ticketId) {
+        def ticket = ticketRepository.findById(ticketId)
+            .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
+        if (ticket.userId != userId) throw new ForbiddenException("Not your ticket")
+        if (ticket.status != 'RESOLVED') {
+            throw new BadRequestException("NOT_RESOLVED",
+                "Only resolved tickets can be reopened")
+        }
+        ticket.status = 'WAITING_STAFF'
+        ticket.updatedAt = System.currentTimeMillis()
+        ticketRepository.save(ticket)
+        // Staff fan-out — mirrors the reply-path ping so the reopened
+        // thread doesn't sit silent on the queue.
+        if (steamUserRepository != null) {
+            try {
+                def staff = []
+                staff.addAll(steamUserRepository.findByRole('ADMIN') ?: [])
+                staff.addAll(steamUserRepository.findByRole('CSR') ?: [])
+                staff.unique { it.id }.each { s ->
+                    try {
+                        notificationService?.push(s.id, 'SUPPORT_REPLY',
+                            "Ticket #${ticketId} reopened",
+                            "User reopened the resolved thread.",
+                            ticketId, '/admin?tab=tickets')
+                    } catch (Exception e) {
+                        log.warn("Reopen staff push failed for uid=${s.id}: ${e.message}")
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Reopen staff fan-out failed for ticket ${ticketId}: ${e.message}")
+            }
+        }
+        ticket
     }
 
     @Transactional
@@ -141,5 +241,59 @@ class SupportService {
         ticket.status = 'RESOLVED'
         ticket.updatedAt = System.currentTimeMillis()
         ticketRepository.save(ticket)
+    }
+
+    /** Days a WAITING_USER ticket sits idle before the sweeper auto-
+     *  resolves it (batch 553). 14d = two weeks after staff's last
+     *  reply. Configurable for ops who prefer a tighter / looser
+     *  window. Set to 0 to disable the sweep entirely. */
+    @Value('${support.auto-resolve-waiting-user-days:14}')
+    long autoResolveWaitingUserDays
+
+    /**
+     * Daily sweep — flips any WAITING_USER ticket idle longer than
+     * {@link #autoResolveWaitingUserDays} days to RESOLVED and pushes
+     * a TICKET_AUTO_RESOLVED notification so the user still sees
+     * closure in the bell (and can re-open with a fresh ticket if
+     * needed). Prevents a long-running site's /support page from
+     * accumulating dead threads where staff answered and the user
+     * never came back.
+     *
+     * Runs once a day at a 45-minute offset so it doesn't collide with
+     * the notification-retention sweeper at 30m or the cart sweeper at
+     * 60m. Logs a row count for ops visibility.
+     */
+    @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L,
+               initialDelay = 45L * 60L * 1000L)
+    @Transactional
+    void sweepStaleWaitingUser() {
+        if (autoResolveWaitingUserDays <= 0L) return
+        def cutoff = System.currentTimeMillis() - (autoResolveWaitingUserDays * 24L * 60L * 60L * 1000L)
+        def candidates
+        try {
+            candidates = ticketRepository.findStaleWaitingUser(cutoff)
+        } catch (Exception e) {
+            log.warn("Stale ticket sweep query failed: ${e.message}")
+            return
+        }
+        if (candidates == null || candidates.isEmpty()) return
+        int closed = 0
+        candidates.each { t ->
+            try {
+                t.status = 'RESOLVED'
+                t.updatedAt = System.currentTimeMillis()
+                ticketRepository.save(t)
+                notificationService?.push(t.userId, 'TICKET_AUTO_RESOLVED',
+                    "Support ticket auto-closed · ${t.subject ?: 'your question'}",
+                    "Staff didn't hear back from you within ${autoResolveWaitingUserDays} days, so the thread was auto-closed. Open a new ticket any time if you still need help.",
+                    t.id, '/support')
+                closed++
+            } catch (Exception e) {
+                log.warn("Auto-close failed for ticket ${t.id}: ${e.message}")
+            }
+        }
+        if (closed > 0) {
+            log.info("Support sweeper: auto-closed ${closed} stale WAITING_USER ticket(s) idle >${autoResolveWaitingUserDays}d")
+        }
     }
 }

@@ -105,6 +105,56 @@ class TotpServiceSpec extends Specification {
         secondStep == -1L
     }
 
+    def "generateBackupCodes mints 10 human-readable codes and a space-separated hash list"() {
+        when:
+        def out = service.generateBackupCodes()
+
+        then:
+        out.plaintext instanceof List
+        out.plaintext.size() == 10
+        // Codes are 12-char lowercase alnum split into 3 groups of 4 by '-'.
+        out.plaintext.every { it ==~ /[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}/ }
+        out.plaintext.toSet().size() == 10   // uniqueness
+        // Hash list has 10 space-separated SHA-256 hex strings.
+        def parts = (out.hashed as String).split(/\s+/)
+        parts.size() == 10
+        parts.every { it ==~ /[0-9a-f]{64}/ }
+    }
+
+    def "consumeRecoveryCode matches a live code and returns the trimmed hash list"() {
+        given:
+        def out = service.generateBackupCodes()
+        def picked = out.plaintext[3] as String
+
+        when:
+        def remaining = service.consumeRecoveryCode(out.hashed as String, picked)
+
+        then:
+        remaining != null
+        // The consumed hash should be gone, the other 9 should remain.
+        remaining.split(/\s+/).size() == 9
+        !remaining.split(/\s+/).toList().contains(service.sha256Hex(picked))
+    }
+
+    def "consumeRecoveryCode returns null on a wrong code"() {
+        given:
+        def out = service.generateBackupCodes()
+
+        expect:
+        service.consumeRecoveryCode(out.hashed as String, 'bogus-code-here') == null
+        service.consumeRecoveryCode(out.hashed as String, '') == null
+        service.consumeRecoveryCode(null, (out.plaintext[0] as String)) == null
+    }
+
+    def "consumeRecoveryCode is case-insensitive and ignores surrounding whitespace"() {
+        given:
+        def out = service.generateBackupCodes()
+        def picked = out.plaintext[0] as String
+
+        expect:
+        service.consumeRecoveryCode(out.hashed as String, '  ' + picked.toUpperCase() + '  ') != null
+    }
+
     def "verify tolerates whitespace in the code"() {
         given:
         def secret = service.generateSecret()

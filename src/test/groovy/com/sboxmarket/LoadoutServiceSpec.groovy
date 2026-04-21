@@ -323,6 +323,153 @@ class LoadoutServiceSpec extends Specification {
         result.favorites == 1
     }
 
+    // ── update ────────────────────────────────────────────────────
+
+    def "update applies partial patch — name-only leaves description + visibility alone"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L, visibility: 'PRIVATE',
+            name: 'Old name', description: 'keep me', totalValue: BigDecimal.ZERO)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.update(10L, 1L, 'Fresh name', null, null)
+
+        then:
+        result.name == 'Fresh name'
+        result.description == 'keep me'
+        result.visibility == 'PRIVATE'
+    }
+
+    def "update lets owner flip visibility PRIVATE → PUBLIC (the clone-then-publish flow)"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L, visibility: 'PRIVATE', name: 'x')
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.update(10L, 1L, null, null, 'PUBLIC')
+
+        then:
+        result.visibility == 'PUBLIC'
+    }
+
+    def "update forbids a non-owner"() {
+        given:
+        loadoutRepository.findById(_) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
+
+        when:
+        service.update(99L, 1L, 'Hijack', null, null)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "update rejects an empty name (after sanitization)"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+
+        when:
+        service.update(10L, 1L, '', null, null)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "update rejects an unknown visibility value"() {
+        given:
+        loadoutRepository.findById(1L) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
+
+        when:
+        service.update(10L, 1L, null, null, 'UNLISTED')
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    // ── clone ─────────────────────────────────────────────────────
+
+    def "clone copies a PUBLIC loadout into a fresh PRIVATE one for a different user"() {
+        given:
+        def source = new Loadout(id: 5L, ownerUserId: 10L, visibility: 'PUBLIC',
+            name: 'Street Runner', description: 'fast + cheap',
+            totalValue: new BigDecimal('30'))
+        def sourceSlots = [
+            new LoadoutSlot(loadoutId: 5L, slot: 'Hats',   itemId: 1L, itemName: 'Cap', itemEmoji: '🧢', snapshotPrice: new BigDecimal('10'), locked: true),
+            new LoadoutSlot(loadoutId: 5L, slot: 'Shirts', itemId: 2L, itemName: 'Tee', itemEmoji: '👕', snapshotPrice: new BigDecimal('20'))
+        ]
+        def hat = new Item(id: 1L, name: 'Cap', iconEmoji: '🧢', lowestPrice: new BigDecimal('12'))  // catalogue moved
+        def tee = new Item(id: 2L, name: 'Tee', iconEmoji: '👕', lowestPrice: new BigDecimal('25'))  // catalogue moved
+        loadoutRepository.findById(5L) >> Optional.of(source)
+        loadoutSlotRepository.findByLoadout(5L) >> sourceSlots
+        itemRepository.findById(1L) >> Optional.of(hat)
+        itemRepository.findById(2L) >> Optional.of(tee)
+        def savedLoadouts = []
+        def savedSlots = []
+        loadoutRepository.save(_) >> { args -> def l = args[0]; if (l.id == null) l.id = 99L; savedLoadouts << l; l }
+        loadoutSlotRepository.save(_) >> { args -> savedSlots << args[0]; args[0] }
+        loadoutSlotRepository.findByLoadout(99L) >> {
+            savedSlots.findAll { it.loadoutId == 99L }
+        }
+
+        when:
+        def copy = service.clone(77L, 5L, 'Bob')
+
+        then:
+        copy.ownerUserId == 77L
+        copy.visibility == 'PRIVATE'                    // starts private
+        copy.name.endsWith('(copy)')                    // marked as a copy
+        copy.description == 'fast + cheap'
+        // Two filled slots copied, six empty slots seeded; locks NOT copied.
+        savedSlots.size() == 8
+        def filled = savedSlots.findAll { it.itemId != null }
+        filled*.slot.sort() == ['Hats', 'Shirts']
+        filled.every { it.locked == null || !it.locked }
+        // Snapshot prices come from the CURRENT catalogue, not the source's cache.
+        filled.find { it.slot == 'Hats' }.snapshotPrice == new BigDecimal('12')
+        filled.find { it.slot == 'Shirts' }.snapshotPrice == new BigDecimal('25')
+    }
+
+    def "clone refuses anonymous callers"() {
+        when:
+        service.clone(null, 1L, 'anon')
+
+        then:
+        thrown(UnauthorizedException)
+        0 * loadoutRepository.findById(_)
+    }
+
+    def "clone hides PRIVATE source from a third-party cloner behind a 404"() {
+        given:
+        def source = new Loadout(id: 5L, ownerUserId: 10L, visibility: 'PRIVATE', name: 'Secret')
+        loadoutRepository.findById(5L) >> Optional.of(source)
+
+        when:
+        service.clone(77L, 5L, 'Bob')
+
+        then:
+        thrown(NotFoundException)
+        0 * loadoutSlotRepository.findByLoadout(_)
+    }
+
+    def "clone lets the owner duplicate their own PRIVATE loadout"() {
+        given:
+        def source = new Loadout(id: 5L, ownerUserId: 10L, visibility: 'PRIVATE', name: 'My draft')
+        loadoutRepository.findById(5L) >> Optional.of(source)
+        loadoutSlotRepository.findByLoadout(5L) >> []
+        loadoutRepository.save(_) >> { args -> def l = args[0]; l.id = 99L; l }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutSlotRepository.findByLoadout(99L) >> []
+
+        when:
+        def copy = service.clone(10L, 5L, 'Alice')
+
+        then:
+        copy.ownerUserId == 10L
+        copy.visibility == 'PRIVATE'
+    }
+
     // ── getWithSlots ──────────────────────────────────────────────
 
     def "getWithSlots returns both halves for a PUBLIC loadout"() {
@@ -386,6 +533,175 @@ class LoadoutServiceSpec extends Specification {
 
         when:
         service.getWithSlots(999L)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    // ── favorited flag on getWithSlots (batch 917) ──────────────────
+
+    def "getWithSlots returns favorited=false for anonymous viewers without hitting the favorites repo"() {
+        given:
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> []
+
+        when:
+        def result = service.getWithSlots(1L, null)
+
+        then:
+        result.favorited == false
+        0 * loadoutFavoriteRepository.findByUserAndLoadout(_, _)
+    }
+
+    def "getWithSlots returns favorited=false for owners without hitting the favorites repo"() {
+        given:
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> []
+
+        when:
+        def result = service.getWithSlots(1L, 10L)
+
+        then:
+        result.favorited == false
+        0 * loadoutFavoriteRepository.findByUserAndLoadout(_, _)
+    }
+
+    def "getWithSlots returns favorited=true when a signed-in non-owner has the row starred"() {
+        given:
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> []
+        loadoutFavoriteRepository.findByUserAndLoadout(77L, 1L) >>
+            new LoadoutFavorite(userId: 77L, loadoutId: 1L)
+
+        when:
+        def result = service.getWithSlots(1L, 77L)
+
+        then:
+        result.favorited == true
+    }
+
+    def "getWithSlots returns favorited=false when a signed-in non-owner has NOT starred the row"() {
+        given:
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> []
+        loadoutFavoriteRepository.findByUserAndLoadout(77L, 1L) >> null
+
+        when:
+        def result = service.getWithSlots(1L, 77L)
+
+        then:
+        result.favorited == false
+    }
+
+    // ── listFavorites (batch 303) ───────────────────────────────────
+
+    def "listFavorites returns loadouts in the order ids came back from the favorite repo"() {
+        given:
+        loadoutFavoriteRepository.findLoadoutIdsByUser(10L) >> [5L, 3L, 9L]
+        def a = new Loadout(id: 5L, name: 'A', visibility: 'PUBLIC', ownerUserId: 99L)
+        def b = new Loadout(id: 3L, name: 'B', visibility: 'PUBLIC', ownerUserId: 98L)
+        def c = new Loadout(id: 9L, name: 'C', visibility: 'PUBLIC', ownerUserId: 97L)
+        // Repo returns in arbitrary order; service must re-order by the id list.
+        loadoutRepository.findAllById([5L, 3L, 9L]) >> [c, a, b]
+
+        when:
+        def out = service.listFavorites(10L)
+
+        then:
+        out*.id == [5L, 3L, 9L]
+    }
+
+    def "listFavorites drops loadouts the user can no longer access (re-privatized by someone else)"() {
+        given:
+        loadoutFavoriteRepository.findLoadoutIdsByUser(10L) >> [5L, 3L]
+        def visible = new Loadout(id: 5L, name: 'A', visibility: 'PUBLIC', ownerUserId: 99L)
+        def reprivatized = new Loadout(id: 3L, name: 'B', visibility: 'PRIVATE', ownerUserId: 99L)
+        loadoutRepository.findAllById([5L, 3L]) >> [visible, reprivatized]
+
+        when:
+        def out = service.listFavorites(10L)
+
+        then:
+        out*.id == [5L]
+    }
+
+    def "listFavorites keeps the user's OWN re-privatized favorites visible"() {
+        given:
+        loadoutFavoriteRepository.findLoadoutIdsByUser(10L) >> [7L]
+        def ownedPrivate = new Loadout(id: 7L, name: 'Mine', visibility: 'PRIVATE', ownerUserId: 10L)
+        loadoutRepository.findAllById([7L]) >> [ownedPrivate]
+
+        when:
+        def out = service.listFavorites(10L)
+
+        then:
+        out*.id == [7L]
+    }
+
+    def "listFavorites returns empty when the user has no favorites, without a second repo hit"() {
+        given:
+        loadoutFavoriteRepository.findLoadoutIdsByUser(10L) >> []
+
+        when:
+        def out = service.listFavorites(10L)
+
+        then:
+        out == []
+        0 * loadoutRepository.findAllById(_)
+    }
+
+    def "listFavorites short-circuits on null user id without hitting either repo"() {
+        when:
+        def out = service.listFavorites(null)
+
+        then:
+        out == []
+        0 * loadoutFavoriteRepository.findLoadoutIdsByUser(_)
+        0 * loadoutRepository.findAllById(_)
+    }
+
+    // ── adminDelete (batch 583) ─────────────────────────────────────
+
+    def "adminDelete removes the loadout + slots regardless of owner"() {
+        given:
+        def loadout = new Loadout(id: 42L, ownerUserId: 10L, name: 'bad name')
+        loadoutRepository.findById(42L) >> Optional.of(loadout)
+
+        when:
+        service.adminDelete(1L, 42L, 'TOS violation')
+
+        then:
+        1 * loadoutSlotRepository.deleteByLoadoutId(42L)
+        1 * loadoutRepository.delete(loadout)
+    }
+
+    def "adminDelete pushes LOADOUT_DELETED to the owner with the staff reason"() {
+        given:
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        def auditor = Mock(com.sboxmarket.service.AuditService)
+        service.notificationService = notifier
+        service.auditService = auditor
+        def loadout = new Loadout(id: 42L, ownerUserId: 10L, name: 'bad name')
+        loadoutRepository.findById(42L) >> Optional.of(loadout)
+
+        when:
+        service.adminDelete(1L, 42L, 'Violates community guidelines')
+
+        then:
+        1 * notifier.push(10L, 'LOADOUT_DELETED', _, 'Violates community guidelines', 42L, '/loadout')
+        1 * auditor.log('LOADOUT_DELETED_STAFF', 1L, 10L, 42L, _)
+    }
+
+    def "adminDelete 404s for an unknown loadout id"() {
+        given:
+        loadoutRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.adminDelete(1L, 999L, 'note')
 
         then:
         thrown(NotFoundException)

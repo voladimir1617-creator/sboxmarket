@@ -46,6 +46,24 @@ class AuditService {
     static final String ADMIN_CREDIT        = 'ADMIN_CREDIT'
     static final String API_KEY_MINTED      = 'API_KEY_MINTED'
     static final String API_KEY_REVOKED     = 'API_KEY_REVOKED'
+    static final String ADMIN_NOTES_UPDATED = 'ADMIN_NOTES_UPDATED'
+    static final String TRADE_FORCE_RELEASED = 'TRADE_FORCE_RELEASED'
+    static final String TRADE_FORCE_CANCELLED = 'TRADE_FORCE_CANCELLED'
+    static final String ITEM_EDITED         = 'ITEM_EDITED'
+    static final String TRADE_MESSAGE_DELETED = 'TRADE_MESSAGE_DELETED'
+    static final String ANNOUNCEMENT_CREATED = 'ANNOUNCEMENT_CREATED'
+    static final String ANNOUNCEMENT_DEACTIVATED = 'ANNOUNCEMENT_DEACTIVATED'
+    static final String TRADE_VERIFIED      = 'TRADE_VERIFIED'
+    static final String TRADE_DISPUTED      = 'TRADE_DISPUTED'
+    static final String TRADE_CANCELLED     = 'TRADE_CANCELLED'
+    static final String TRADE_AUTO_CANCELLED = 'TRADE_AUTO_CANCELLED'
+    static final String TRADE_AUTO_RELEASED = 'TRADE_AUTO_RELEASED'
+    static final String SESSION_LOGOUT_ALL  = 'SESSION_LOGOUT_ALL'
+    static final String USER_FORCE_LOGOUT   = 'USER_FORCE_LOGOUT'
+    static final String WITHDRAW_SELF_CANCELLED = 'WITHDRAW_SELF_CANCELLED'
+    static final String CHARGEBACK_OPENED   = 'CHARGEBACK_OPENED'
+    static final String DISPUTE_CLEARED     = 'DISPUTE_CLEARED'
+    static final String REVIEW_DELETED_STAFF = 'REVIEW_DELETED_STAFF'
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository
@@ -78,6 +96,14 @@ class AuditService {
     List<AuditLog> byActor(Long uid)                { auditLogRepository.byActor(uid, PAGE) }
     List<AuditLog> bySubject(Long uid)              { auditLogRepository.bySubject(uid, PAGE) }
     List<AuditLog> byEvent(String eventType)        { auditLogRepository.byEvent(eventType, PAGE) }
+
+    // Date-filtered variants (batch 556). `since` is wall-clock millis; 0
+    // or null falls back to the unbounded recent-first scan so callers
+    // that don't care about dates get the legacy behaviour.
+    List<AuditLog> recent(Long since)               { since ? auditLogRepository.recentSince(since, PAGE) : recent() }
+    List<AuditLog> byActor(Long uid, Long since)    { since ? auditLogRepository.byActorSince(uid, since, PAGE) : byActor(uid) }
+    List<AuditLog> bySubject(Long uid, Long since)  { since ? auditLogRepository.bySubjectSince(uid, since, PAGE) : bySubject(uid) }
+    List<AuditLog> byEvent(String eventType, Long since) { since ? auditLogRepository.byEventSince(eventType, since, PAGE) : byEvent(eventType) }
 
     private static HttpServletRequest currentRequest() {
         def attr = RequestContextHolder.getRequestAttributes()

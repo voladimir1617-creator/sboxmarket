@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*
 class SellerFollowController {
 
     @Autowired SellerFollowService service
+    @Autowired(required = false) com.sboxmarket.service.UserBlockService userBlockService
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -26,8 +27,34 @@ class SellerFollowController {
         def uid = requireUser(req)
         def rows = service.listFollowing(uid)
         ResponseEntity.ok(rows.collect { f ->
-            [id: f.id, sellerUserId: f.sellerUserId, createdAt: f.createdAt]
+            [
+                id:                  f.id,
+                sellerUserId:        f.sellerUserId,
+                createdAt:           f.createdAt,
+                notificationsMuted:  Boolean.TRUE.equals(f.notificationsMuted)
+            ]
         })
+    }
+
+    /** Mute / un-mute the new-listing pings for a single follow without
+     *  unfollowing (V36 / batch 279). Body: `{muted: true|false}`. The
+     *  follower row itself stays — only the bell + email fan-out is
+     *  suppressed for this seller. */
+    @PatchMapping('/{sellerId}/mute')
+    ResponseEntity<Map> mute(@PathVariable Long sellerId,
+                             @RequestBody Map body,
+                             HttpServletRequest req) {
+        def uid = requireUser(req)
+        if (body == null || body.muted == null) {
+            throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
+                "'muted' (boolean) is required")
+        }
+        def muted = body.muted as Boolean
+        def row = service.setNotificationsMuted(uid, sellerId, muted)
+        ResponseEntity.ok([
+            sellerUserId:        row.sellerUserId,
+            notificationsMuted:  Boolean.TRUE.equals(row.notificationsMuted)
+        ])
     }
 
     @PostMapping('/{sellerId}')
@@ -42,6 +69,31 @@ class SellerFollowController {
         def uid = requireUser(req)
         service.unfollow(uid, sellerId)
         ResponseEntity.ok([sellerUserId: sellerId, following: false])
+    }
+
+    /** Bulk-unfollow every seller the caller currently follows. Idempotent
+     *  (zero-row callers get `{unfollowed:0}`, not 404). Mirrors the bulk-
+     *  clear family: `/api/watchlist` DELETE, `/api/buy-orders/cancel-all`,
+     *  `/api/offers/outgoing/cancel-all`, `/api/bids/auto/cancel-all`. */
+    @DeleteMapping
+    ResponseEntity<Map> unfollowAll(HttpServletRequest req) {
+        int n = service.unfollowAll(requireUser(req))
+        ResponseEntity.ok([unfollowed: n])
+    }
+
+    /** Bulk-flip the "notifications muted" flag on every follow row.
+     *  Body: `{muted: true|false}`. Rows stay — only the bell + email
+     *  fan-out is suppressed when muted. Lets a power follower silence
+     *  engagement pings without losing their curated follow list. */
+    @PatchMapping('/mute-all')
+    ResponseEntity<Map> muteAll(@RequestBody Map body, HttpServletRequest req) {
+        if (body == null || body.muted == null) {
+            throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
+                "'muted' (boolean) is required")
+        }
+        def muted = body.muted as Boolean
+        int n = service.setAllMuted(requireUser(req), muted)
+        ResponseEntity.ok([touched: n, muted: muted])
     }
 
     /** Lightweight "do I follow this seller + how many do?" — used by
@@ -64,6 +116,21 @@ class SellerFollowController {
     ResponseEntity<List<com.sboxmarket.model.Listing>> feed(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (uid == null) return ResponseEntity.ok([])
-        ResponseEntity.ok(service.feedForFollower(uid, 20))
+        def rows = service.feedForFollower(uid, 20)
+        // Batch 353 — if the follower has blocked any of the sellers
+        // they follow (follow and block are orthogonal — you can do
+        // either without the other), strip their listings from the
+        // feed. Block trumps follow: if I blocked them I shouldn't see
+        // their listings here regardless of my follow state.
+        if (userBlockService != null && !rows.isEmpty()) {
+            def blocked = userBlockService.blockedIdsFor(uid)
+            if (!blocked.isEmpty()) {
+                def set = new HashSet<>(blocked)
+                rows = rows.findAll { l ->
+                    l.sellerUserId == null || !set.contains(l.sellerUserId)
+                }
+            }
+        }
+        ResponseEntity.ok(rows)
     }
 }

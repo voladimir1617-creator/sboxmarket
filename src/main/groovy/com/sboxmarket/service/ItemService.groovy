@@ -66,8 +66,15 @@ class ItemService {
         sorted
     }
 
+    /** Batch 1022 — capped at a 400-day window instead of the full
+     *  history. The sparkline chart's widest range is ALL (which the
+     *  frontend caps at 365 rows via `history.slice(-365)`), so
+     *  anything older is just wire-weight for no UI benefit. Long-
+     *  tenure items that once returned thousands of rows now ship at
+     *  most ~400. */
     List<PriceHistory> getPriceHistory(Long itemId) {
-        priceHistoryRepository.findByItemIdOrdered(itemId)
+        long cutoff = System.currentTimeMillis() - (400L * 24L * 60L * 60L * 1000L)
+        priceHistoryRepository.findByItemIdSince(itemId, cutoff)
     }
 
     @Transactional
@@ -75,14 +82,37 @@ class ItemService {
         itemRepository.save(item)
     }
 
+    /**
+     * Catalogue-wide stats for the footer "browse at a glance" strip +
+     * the marketplace stats panel. Used to full-scan the `items` table
+     * into memory and `.count{}` / `.min{}` / `.groupBy{}` in Groovy —
+     * O(N) memory + CPU per call, burned every time the homepage
+     * refreshed. Batch 618 replaces it with two indexed aggregate
+     * queries so the call is O(1) per aggregate.
+     */
     Map<String, Object> getStats() {
-        def items = itemRepository.findAll()
+        def rows = itemRepository.catalogueSummary()
+        def head = (rows != null && !rows.isEmpty()) ? rows[0] : null
+        long total   = (head?.getAt(0) ?: 0L) as long
+        long limited = (head?.getAt(1) ?: 0L) as long
+        def floorRaw = head?.getAt(2)
+        def highRaw  = head?.getAt(3)
+        BigDecimal floor = floorRaw != null ? (floorRaw as BigDecimal) : BigDecimal.ZERO
+        BigDecimal high  = highRaw  != null ? (highRaw  as BigDecimal) : BigDecimal.ZERO
+        def categories = [:] as Map<String, Long>
+        try {
+            itemRepository.countByCategory().each { catRow ->
+                def cat = catRow[0] as String
+                def cnt = (catRow[1] ?: 0L) as long
+                if (cat) categories[cat] = cnt
+            }
+        } catch (Exception ignore) { /* defer — stats can ship without the breakdown */ }
         [
-            totalItems   : items.size(),
-            limitedCount : items.count { it.rarity == 'Limited' },
-            floorPrice   : items.min { it.lowestPrice }?.lowestPrice ?: 0,
-            highestPrice : items.max { it.lowestPrice }?.lowestPrice ?: 0,
-            categories   : items.groupBy { it.category }.collectEntries { k, v -> [k, v.size()] }
+            totalItems   : total,
+            limitedCount : limited,
+            floorPrice   : floor,
+            highestPrice : high,
+            categories   : categories
         ]
     }
 }

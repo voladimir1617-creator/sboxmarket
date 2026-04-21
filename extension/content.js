@@ -22,6 +22,7 @@
   // Where SkinBox lives. The extension ships with both localhost ports and
   // a prod placeholder in host_permissions; the first reachable one wins.
   const SKINBOX_ORIGINS = [
+    'http://localhost:8082',
     'http://localhost:8080',
     'http://localhost:8090',
     'https://skinbox.market'
@@ -29,11 +30,13 @@
 
   // ── State ────────────────────────────────────────────────────
   const state = {
-    steamId:    null,
-    assetItems: [],       // [{ name, marketHashName, iconUrl, count }]
-    steamPrices:{},       // marketHashName → USD number
-    sbxPrices:  {},       // marketHashName → USD number
-    origin:     null      // resolved SkinBox origin
+    steamId:      null,
+    assetItems:   [],       // [{ name, marketHashName, iconUrl, count }]
+    steamPrices:  {},       // marketHashName → USD number
+    sbxPrices:    {},       // marketHashName → USD number
+    origin:       null,     // resolved SkinBox origin
+    originError:  null,     // last origin-probe failure reason (shown in UI)
+    assetIdToName:{}        // assetId → market_hash_name, for per-tile overlay
   };
 
   // ── Utils ────────────────────────────────────────────────────
@@ -70,7 +73,9 @@
     });
 
     // Group duplicates by market_hash_name so we only price each item once.
+    // Also build an assetId → name map for the per-tile overlay injection.
     const counts = {};
+    const assetIdToName = {};
     (json.assets || []).forEach(a => {
       const d = descByKey[`${a.classid}_${a.instanceid}`];
       if (!d) return;
@@ -85,7 +90,9 @@
         };
       }
       counts[name].count += 1;
+      if (a.assetid) assetIdToName[String(a.assetid)] = name;
     });
+    state.assetIdToName = assetIdToName;
     return Object.values(counts);
   }
 
@@ -129,15 +136,86 @@
   }
 
   // Walk the list of configured origins and pick the first one that
-  // answers /api/listings. Avoids hardcoding prod vs local.
+  // answers /api/listings. Avoids hardcoding prod vs local. Records the
+  // last probe failure reason so the UI can surface a helpful error
+  // instead of a silent "offline".
   async function resolveOrigin() {
+    state.originError = null;
+    const failures = [];
     for (const o of SKINBOX_ORIGINS) {
       try {
         const r = await fetch(`${o}/api/listings?limit=1`, { credentials: 'omit', mode: 'cors' });
         if (r.ok) return o;
-      } catch {}
+        failures.push(`${o}: HTTP ${r.status}`);
+      } catch (e) {
+        failures.push(`${o}: ${e && e.message ? e.message : 'fetch failed'}`);
+      }
     }
+    state.originError = failures.join('; ');
     return null;
+  }
+
+  // ── Per-tile badge overlay (batch 652, SIH-style integration) ──
+  // Walk every `.itemHolder` currently rendered on the inventory grid
+  // and drop a SkinBox-branded price badge onto each. Reads
+  // `state.sbxPrices` for the displayed value. Skips tiles we don't
+  // have asset data for (foreign inventory tabs, ghost DOM).
+  function injectTileBadges() {
+    const holders = document.querySelectorAll('.itemHolder');
+    holders.forEach(holder => {
+      // Tile id shape: `itemXXX_{appid}_{contextid}_{assetid}`. Steam
+      // has historically used two formats; match whichever lands.
+      const inner = holder.querySelector('[id^="item"]');
+      if (!inner) return;
+      const m = String(inner.id).match(/_(\d+)_(\d+)_(\d+)$/) || String(inner.id).match(/item(\d+)_(\d+)_(\d+)$/);
+      if (!m) return;
+      const assetId = m[3];
+      const name = state.assetIdToName[assetId];
+      if (!name) return;
+
+      const sbxPrice = state.sbxPrices[name];
+      const steamPrice = state.steamPrices[name];
+      const existing = holder.querySelector('.sbx-tile-badge');
+      const label = (sbxPrice != null && sbxPrice > 0)
+        ? fmt(sbxPrice)
+        : (state.origin ? '—' : '·');
+      const cls = (sbxPrice != null && steamPrice != null && steamPrice > 0 && sbxPrice <= steamPrice * 0.9)
+        ? 'sbx-tile-hot'
+        : (sbxPrice != null && sbxPrice > 0 ? '' : 'sbx-tile-none');
+      const title = state.origin
+        ? (sbxPrice != null && sbxPrice > 0
+            ? `SkinBox floor: ${fmt(sbxPrice)}${steamPrice ? ` · Steam: ${fmt(steamPrice)}` : ''}`
+            : `No SkinBox listings for "${name}"`)
+        : 'SkinBox server unreachable — price unavailable';
+      const html = `<span class="sbx-tile-badge-logo">SB</span>${label}`;
+      if (existing) {
+        existing.className = `sbx-tile-badge ${cls}`.trim();
+        existing.innerHTML = html;
+        existing.title = title;
+      } else {
+        holder.classList.add('sbx-tile-wrap');
+        const badge = document.createElement('div');
+        badge.className = `sbx-tile-badge ${cls}`.trim();
+        badge.innerHTML = html;
+        badge.title = title;
+        holder.appendChild(badge);
+      }
+    });
+  }
+
+  // Watch the inventory grid for tile changes — Steam paginates the
+  // inventory SPA-style (click the page arrows re-renders `.itemHolder`
+  // children) so we re-inject on every mutation. Debounced to one call
+  // per animation frame to avoid thrash.
+  let tileInjectRAF = 0;
+  function observeTiles() {
+    const target = document.querySelector('.inventory_ctn') || document.body;
+    if (!target) return;
+    const obs = new MutationObserver(() => {
+      cancelAnimationFrame(tileInjectRAF);
+      tileInjectRAF = requestAnimationFrame(injectTileBadges);
+    });
+    obs.observe(target, { childList: true, subtree: true });
   }
 
   // ── Panel UI ────────────────────────────────────────────────
@@ -260,7 +338,14 @@
       }
 
       state.origin = await resolveOrigin();
-      statusEl.textContent = `Pricing ${items.length} unique item${items.length === 1 ? '' : 's'}…`;
+      statusEl.textContent = state.origin
+        ? `Pricing ${items.length} unique item${items.length === 1 ? '' : 's'}…`
+        : `⚠ SkinBox server unreachable. Steam-only valuation. (${state.originError || 'no server answered'})`;
+
+      // Paint per-tile badges immediately so users see "SB —" placeholders
+      // before any data resolves (feedback that the extension is alive).
+      injectTileBadges();
+      observeTiles();
 
       // Prices — sequential with a short gap so Steam doesn't rate-limit us.
       // 600ms throttle → ~1.6 req/s, under Steam's public ~1 req/s limit
@@ -268,7 +353,8 @@
       // a minute or two with progress updates.
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        statusEl.textContent = `Pricing ${i + 1}/${items.length}: ${it.name}`;
+        const baseStatus = state.origin ? '' : '⚠ SkinBox offline · ';
+        statusEl.textContent = `${baseStatus}Pricing ${i + 1}/${items.length}: ${it.name}`;
         const [sp, bp] = await Promise.all([
           fetchSteamPrice(it.marketHashName),
           state.origin ? fetchSbxPrice(state.origin, it.marketHashName) : Promise.resolve(null)
@@ -276,9 +362,13 @@
         if (sp != null) state.steamPrices[it.marketHashName] = sp;
         if (bp != null) state.sbxPrices[it.marketHashName]   = bp;
         renderInto(panel);
+        injectTileBadges();
         await new Promise(r => setTimeout(r, 600));
       }
-      statusEl.hidden = true;
+      statusEl.hidden = state.origin != null;
+      if (!state.origin) {
+        statusEl.textContent = `⚠ SkinBox server unreachable — showing Steam prices only. Tried: ${state.originError || 'no response'}`;
+      }
     } catch (e) {
       statusEl.textContent = `Error: ${e.message}`;
       console.error('[SkinBox Valuer]', e);

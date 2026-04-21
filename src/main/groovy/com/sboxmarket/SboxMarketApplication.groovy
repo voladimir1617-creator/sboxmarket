@@ -6,12 +6,14 @@ import org.springframework.boot.CommandLineRunner
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.core.env.Environment
+import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import com.sboxmarket.service.SeedService
 import groovy.util.logging.Slf4j
 
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync
 @Slf4j
 class SboxMarketApplication {
 

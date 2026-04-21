@@ -86,6 +86,29 @@ class OfferServiceSpec extends Specification {
         offer.askingPrice == new BigDecimal("50.00")
     }
 
+    def "makeOffer refuses a buyer whose wallet is frozen (batch 510)"() {
+        given:
+        def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice')
+        def frozenWallet = new Wallet(
+            id: 500L,
+            username: 'steam_7656117',
+            balance: new BigDecimal('100.00'),
+            frozen: true,
+            frozenReason: 'Staff-initiated freeze during fraud review'
+        )
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_7656117') >> frozenWallet
+        // listing lookup shouldn't even be reached if the check fires first
+        listingRepository.findById(_) >> Optional.of(activeListing())
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal('40'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+    }
+
     def "makeOffer rejects zero/negative/null amounts"() {
         when:
         service.makeOffer(10L, 'Alice', 100L, amount)
@@ -139,6 +162,22 @@ class OfferServiceSpec extends Specification {
 
         then:
         thrown(BadRequestException)
+    }
+
+    def "makeOffer refuses hidden listings (batch 308 bug fix)"() {
+        // A stale client could POST /api/offers with a listing id
+        // that's been hidden since the modal rendered. Must 404-style
+        // reject so the seller doesn't get pings for items they pulled.
+        given:
+        def hidden = activeListing()
+        hidden.hidden = true
+        listingRepository.findById(_) >> Optional.of(hidden)
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal("40"))
+
+        then:
+        thrown(ListingNotAvailableException)
     }
 
     def "makeOffer refuses AUCTION listings (bug #54)"() {
@@ -418,6 +457,13 @@ class OfferServiceSpec extends Specification {
         thrown(InsufficientBalanceException)
         1 * offerRepository.save({ Offer o -> o.status == 'EXPIRED' })
         0 * purchaseService.buy(*_)
+        // Buyer is pinged so their Offers tab doesn't show a silent
+        // EXPIRED label (batch 328). Title mentions the item; body
+        // guides them to top up + re-offer.
+        1 * notificationService.push(10L, 'OFFER_REJECTED',
+            { String title -> title.contains("couldn't close") },
+            { String body -> body.contains('Top up') },
+            1L, '/offers')
     }
 
     def "acceptOffer expires other pending offers on the same listing after a successful sale"() {
@@ -762,5 +808,372 @@ class OfferServiceSpec extends Specification {
         out[100L].newestAt   == 1700000000000L
         out[200L].bestAmount == new BigDecimal("10.00")
         out[200L].count      == 1L
+    }
+
+    // ── computeExpiresAt + DTO maps (batch 269) ─────────────────────
+
+    def "computeExpiresAt returns updatedAt + autoDeclineDays for PENDING offers"() {
+        given:
+        // OfferService default autoDeclineDays = 7. Override via the
+        // injected field so the calculation is fully deterministic.
+        service.autoDeclineDays = 7L
+        def t0 = 1_700_000_000_000L
+        def offer = new Offer(id: 1L, status: 'PENDING', updatedAt: t0)
+
+        expect:
+        service.computeExpiresAt(offer) == t0 + (7L * 24L * 60L * 60L * 1000L)
+    }
+
+    def "computeExpiresAt returns null for terminal status"() {
+        given:
+        service.autoDeclineDays = 7L
+        def now = System.currentTimeMillis()
+
+        expect:
+        ['ACCEPTED','REJECTED','CANCELLED','EXPIRED'].each { st ->
+            assert service.computeExpiresAt(new Offer(status: st, updatedAt: now)) == null
+        }
+    }
+
+    def "computeExpiresAt is null on a missing updatedAt"() {
+        given:
+        service.autoDeclineDays = 7L
+
+        expect:
+        service.computeExpiresAt(new Offer(status: 'PENDING', updatedAt: null)) == null
+        service.computeExpiresAt(null) == null
+    }
+
+    def "incomingWithExpiry decorates each row with expiresAt"() {
+        given:
+        service.autoDeclineDays = 3L
+        def t0 = 1_700_000_000_000L
+        offerRepository.findBySellerPaged(99L, _) >> [
+            new Offer(id: 1L, listingId: 100L, status: 'PENDING',  updatedAt: t0),
+            new Offer(id: 2L, listingId: 100L, status: 'ACCEPTED', updatedAt: t0)
+        ]
+
+        when:
+        def rows = service.incomingWithExpiry(99L)
+
+        then:
+        rows.size() == 2
+        rows[0].id == 1L
+        rows[0].expiresAt == t0 + (3L * 24L * 60L * 60L * 1000L)
+        rows[1].id == 2L
+        rows[1].expiresAt == null
+    }
+
+    // ── cancelAllForUser (batch 291) ────────────────────────────────
+
+    def "cancelAllForUser flips every PENDING outgoing to CANCELLED and pushes the seller"() {
+        given:
+        def a = new Offer(id: 1L, buyerUserId: 10L, sellerUserId: 50L, listingId: 100L,
+            itemName: 'Hat', amount: new BigDecimal("5"), status: 'PENDING')
+        def b = new Offer(id: 2L, buyerUserId: 10L, sellerUserId: 51L, listingId: 101L,
+            itemName: 'Boots', amount: new BigDecimal("8"), status: 'PENDING')
+        def c = new Offer(id: 3L, buyerUserId: 10L, sellerUserId: 50L, listingId: 102L,
+            itemName: 'Shirt', amount: new BigDecimal("3"), status: 'ACCEPTED')
+        // Batch 1030 — service now queries PENDING-only. Non-PENDING row
+        // `c` is excluded at the repo level, so the stub shape changed.
+        offerRepository.findPendingByBuyer(10L) >> [a, b]
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        int n = service.cancelAllForUser(10L)
+
+        then:
+        n == 2
+        a.status == 'CANCELLED'
+        b.status == 'CANCELLED'
+        c.status == 'ACCEPTED'  // non-PENDING row never fetched
+        1 * notificationService.push(50L, 'OFFER_REJECTED', _, _, 1L, '/offers')
+        1 * notificationService.push(51L, 'OFFER_REJECTED', _, _, 2L, '/offers')
+    }
+
+    def "cancelAllForUser returns 0 when the user has no pending outgoing offers"() {
+        given:
+        // Batch 1030 — indexed PENDING-only query returns [] when user
+        // has only terminal-state offers.
+        offerRepository.findPendingByBuyer(10L) >> []
+
+        when:
+        int n = service.cancelAllForUser(10L)
+
+        then:
+        n == 0
+        0 * offerRepository.save(_)
+        0 * notificationService.push(_, _, _, _, _, _)
+    }
+
+    def "cancelAllForUser short-circuits on a null user id"() {
+        when:
+        int n = service.cancelAllForUser(null)
+
+        then:
+        n == 0
+        0 * offerRepository.findPendingByBuyer(_)
+    }
+
+    def "cancelAllForUser swallows per-row push exceptions so the batch still lands"() {
+        given:
+        def a = new Offer(id: 1L, buyerUserId: 10L, sellerUserId: 50L,
+            itemName: 'Hat', amount: new BigDecimal("5"), status: 'PENDING')
+        def b = new Offer(id: 2L, buyerUserId: 10L, sellerUserId: 51L,
+            itemName: 'Boots', amount: new BigDecimal("8"), status: 'PENDING')
+        offerRepository.findPendingByBuyer(10L) >> [a, b]
+        offerRepository.save(_) >> { Offer o -> o }
+        notificationService.push(50L, _, _, _, _, _) >> { throw new RuntimeException('push down') }
+
+        when:
+        int n = service.cancelAllForUser(10L)
+
+        then:
+        // Both rows still flipped — the push failure is quiet.
+        n == 2
+        a.status == 'CANCELLED'
+        b.status == 'CANCELLED'
+    }
+
+    def "outgoingWithExpiry mirrors the incoming decoration shape"() {
+        given:
+        service.autoDeclineDays = 5L
+        def t0 = 1_700_000_000_000L
+        offerRepository.findByBuyerPaged(10L, _) >> [
+            new Offer(id: 1L, listingId: 100L, status: 'PENDING', updatedAt: t0)
+        ]
+
+        when:
+        def rows = service.outgoingWithExpiry(10L)
+
+        then:
+        rows[0].expiresAt == t0 + (5L * 24L * 60L * 60L * 1000L)
+        // Fields the frontend reads should all be present.
+        rows[0].listingId == 100L
+        rows[0].status    == 'PENDING'
+    }
+
+    // ── OFFER_RECEIVED seller notify + email on makeOffer (batch 590) ────
+
+    def "makeOffer pushes OFFER_RECEIVED to the seller for a PENDING offer"() {
+        given:
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.save(_) >> { Offer o -> o.id = 7L; o }
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal('40'))
+
+        then:
+        // Batch 625: migrated to safePush (swallows + logs on failure).
+        1 * notificationService.safePush(99L, 'OFFER_RECEIVED', _, _, 7L, '/offers')
+    }
+
+    def "makeOffer emails the seller when verified + not muted"() {
+        given:
+        def seller = new SteamUser(
+            id: 99L, steamId64: '7656', displayName: 'Sally',
+            email: 'sally@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, mutedEmailKinds: null
+        )
+        def emailService = Mock(com.sboxmarket.service.EmailService)
+        emailService.canSendTo(seller, 'TRADES') >> true
+        service.emailService = emailService
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        steamUserRepository.findById(99L) >> Optional.of(seller)
+        offerRepository.save(_) >> { Offer o -> o.id = 8L; o }
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal('42.50'), 'fast pay, ready now')
+
+        then:
+        1 * emailService.sendOfferReceived('sally@example.com', 'Sally', 'Alice',
+            'Wizard Hat', new BigDecimal('42.50'), new BigDecimal('50.00'), 'fast pay, ready now')
+    }
+
+    def "makeOffer skips seller email when the seller muted the TRADES bucket"() {
+        given:
+        def seller = new SteamUser(
+            id: 99L, steamId64: '7656', displayName: 'Sally',
+            email: 'sally@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, mutedEmailKinds: 'TRADES'
+        )
+        def emailService = Mock(com.sboxmarket.service.EmailService)
+        // Real bucket-mute behavior — we want to prove the gate actually fires.
+        emailService.canSendTo(seller, 'TRADES') >> false
+        service.emailService = emailService
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        steamUserRepository.findById(99L) >> Optional.of(seller)
+        offerRepository.save(_) >> { Offer o -> o.id = 9L; o }
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal('40'))
+
+        then:
+        0 * emailService.sendOfferReceived(*_)
+    }
+
+    def "makeOffer does not push OFFER_RECEIVED for system listings (no seller)"() {
+        given:
+        def item = new Item(id: 1L, name: 'Wizard Hat', imageUrl: 'https://example.com/x.png')
+        def systemListing = new Listing(
+            id: 100L, item: item, price: new BigDecimal('50.00'),
+            sellerUserId: null, status: 'ACTIVE'
+        )
+        listingRepository.findById(100L) >> Optional.of(systemListing)
+        offerRepository.save(_) >> { Offer o -> o.id = 12L; o }
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal('40'))
+
+        then:
+        // Batch 625: migrated to safePush.
+        0 * notificationService.safePush(_, 'OFFER_RECEIVED', _, _, _, _)
+    }
+
+    // ── OFFER_COUNTERED + OFFER_REJECTED buyer emails (batch 591) ────────
+
+    def "counterOffer emails the buyer with the seller's counter amount"() {
+        given:
+        def buyer = new SteamUser(
+            id: 10L, steamId64: '7656', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true
+        )
+        def emailService = Mock(com.sboxmarket.service.EmailService)
+        emailService.canSendTo(buyer, 'TRADES') >> true
+        service.emailService = emailService
+
+        def original = pendingOffer(amount: new BigDecimal('25'))
+        offerRepository.findById(_) >> Optional.of(original)
+        listingRepository.findById(_) >> Optional.of(activeListing(price: new BigDecimal('50')))
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 2L; o }
+
+        when:
+        service.counterOffer(99L, 1L, new BigDecimal('40'), 'final offer')
+
+        then:
+        1 * emailService.sendOfferCountered('alice@example.com', 'Alice',
+            'Wizard Hat', new BigDecimal('25'), new BigDecimal('40'), 'final offer')
+    }
+
+    def "counterOffer skips buyer email when TRADES bucket is muted"() {
+        given:
+        def buyer = new SteamUser(
+            id: 10L, steamId64: '7656', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, mutedEmailKinds: 'TRADES'
+        )
+        def emailService = Mock(com.sboxmarket.service.EmailService)
+        emailService.canSendTo(buyer, 'TRADES') >> false
+        service.emailService = emailService
+
+        def original = pendingOffer(amount: new BigDecimal('25'))
+        offerRepository.findById(_) >> Optional.of(original)
+        listingRepository.findById(_) >> Optional.of(activeListing(price: new BigDecimal('50')))
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 2L; o }
+
+        when:
+        service.counterOffer(99L, 1L, new BigDecimal('40'))
+
+        then:
+        0 * emailService.sendOfferCountered(*_)
+    }
+
+    def "rejectOffer emails the buyer with the seller's reply note"() {
+        given:
+        def buyer = new SteamUser(
+            id: 10L, steamId64: '7656', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true
+        )
+        def emailService = Mock(com.sboxmarket.service.EmailService)
+        emailService.canSendTo(buyer, 'TRADES') >> true
+        service.emailService = emailService
+
+        def offer = pendingOffer(id: 5L, amount: new BigDecimal('30'))
+        offerRepository.findById(5L) >> Optional.of(offer)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.rejectOffer(99L, 5L, 'Firm at asking price — thanks')
+
+        then:
+        1 * emailService.sendOfferRejected('alice@example.com', 'Alice',
+            null, new BigDecimal('30'), 'Firm at asking price — thanks')
+    }
+
+    def "rejectOffer emails the buyer even when the seller supplied no reply"() {
+        given:
+        def buyer = new SteamUser(
+            id: 10L, steamId64: '7656', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true
+        )
+        def emailService = Mock(com.sboxmarket.service.EmailService)
+        emailService.canSendTo(buyer, 'TRADES') >> true
+        service.emailService = emailService
+
+        def offer = pendingOffer(id: 6L, amount: new BigDecimal('30'))
+        offerRepository.findById(6L) >> Optional.of(offer)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.rejectOffer(99L, 6L, null)
+
+        then:
+        1 * emailService.sendOfferRejected('alice@example.com', 'Alice',
+            null, new BigDecimal('30'), null)
+    }
+
+    // ── Batch 699 — PRICE_DROPPED fan-out to offer-holders ────────
+
+    def "notifyOfferHoldersOfPriceDrop pushes only to buyers whose offer meets or exceeds the new ask"() {
+        given:
+        def offers = [
+            new Offer(id: 1L, buyerUserId: 100L, amount: new BigDecimal('45'),  status: 'PENDING'),
+            new Offer(id: 2L, buyerUserId: 200L, amount: new BigDecimal('40'),  status: 'PENDING'),
+            new Offer(id: 3L, buyerUserId: 300L, amount: new BigDecimal('20'),  status: 'PENDING'),
+        ]
+        offerRepository.findPendingForListing(555L) >> offers
+
+        when:
+        // Seller dropped from $50 to $40. Buyer #1 ($45) and #2 ($40)
+        // now have offers at or above the new ask — they should ping.
+        // Buyer #3 ($20) is still below — no ping.
+        service.notifyOfferHoldersOfPriceDrop(555L, new BigDecimal('50'), new BigDecimal('40'), 'Lucky Hat', 77L)
+
+        then:
+        1 * notificationService.push(100L, 'PRICE_DROPPED', _, _, 555L, '/item/77')
+        1 * notificationService.push(200L, 'PRICE_DROPPED', _, _, 555L, '/item/77')
+        0 * notificationService.push(300L, _, _, _, _, _)
+    }
+
+    def "notifyOfferHoldersOfPriceDrop is a no-op when the new price is not a drop"() {
+        when:
+        service.notifyOfferHoldersOfPriceDrop(555L, new BigDecimal('40'), new BigDecimal('40'), 'X', 1L)
+
+        then:
+        // Price unchanged — nothing to broadcast, nothing to fetch.
+        0 * offerRepository.findPendingForListing(_)
+        0 * notificationService.push(_, _, _, _, _, _)
+    }
+
+    def "notifyOfferHoldersOfPriceDrop deduplicates by buyer id (buyer with 2 offers only pinged once)"() {
+        given:
+        def offers = [
+            new Offer(id: 1L, buyerUserId: 100L, amount: new BigDecimal('45'), status: 'PENDING'),
+            new Offer(id: 2L, buyerUserId: 100L, amount: new BigDecimal('50'), status: 'PENDING'),
+        ]
+        offerRepository.findPendingForListing(555L) >> offers
+
+        when:
+        service.notifyOfferHoldersOfPriceDrop(555L, new BigDecimal('60'), new BigDecimal('40'), 'Item', 1L)
+
+        then:
+        1 * notificationService.push(100L, 'PRICE_DROPPED', _, _, 555L, '/item/1')
     }
 }

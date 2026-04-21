@@ -4,6 +4,7 @@ import com.sboxmarket.model.AuditLog
 import com.sboxmarket.repository.AuditLogRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -51,6 +52,23 @@ class FraudAnalysisService {
     private static final long  PURCHASE_VELOCITY_WINDOW  = 10L * 60L * 1000L
 
     @Autowired AuditLogRepository auditLogRepository
+    @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+
+    /** Signatures of HIGH-severity signals we've already pushed to the
+     *  admin bell (batch 507). Without this, the 30-min sweeper would
+     *  re-fan the same MULTIPLE_IPS_PER_USER alert every pass until
+     *  the audit rows aged past the 24h window — spamming every
+     *  admin with duplicate bells.
+     *
+     *  Signature is (type, userId, ip, bucketedCount) — `count` is
+     *  bucketed to power-of-two so a growing count from 6 → 7 → 8 IPs
+     *  on the same user doesn't look like three distinct alerts, but
+     *  jumping from 8 → 16 (bucket shift) legitimately re-fires because
+     *  the attack meaningfully escalated. Capped LinkedHashSet with
+     *  FIFO eviction keeps the memory bounded. */
+    private static final int SEEN_SIG_CAP = 1000
+    private final java.util.LinkedHashSet<String> seenSignatures = new java.util.LinkedHashSet<>()
 
     @Transactional(readOnly = true)
     List<Map> computeSignals() {
@@ -63,6 +81,7 @@ class FraudAnalysisService {
         signals.addAll(detectSharedIpAcrossUsers(rows))
         signals.addAll(detectRapidWithdrawAfterDeposit(rows))
         signals.addAll(detectHighVelocityPurchases(rows))
+        signals.addAll(detectChargebacks(rows))
         // Sort HIGH > MED > LOW, then newest-first within a severity bucket.
         // IMPORTANT: Groovy's `?:` treats 0 as falsy, so `sev[HIGH] ?: 9`
         // would turn rank 0 into 9 and break the order. Use the Map-as-
@@ -183,5 +202,112 @@ class FraudAnalysisService {
             }
         }
         out
+    }
+
+    // ── Signal 5: chargeback opened in the last 24h ──────────────
+    // Every chargeback is already flagged by the webhook handler
+    // (batch 461) — but the admin fraud rollup is where staff expect
+    // to see high-severity signals grouped together. A chargeback on
+    // a wallet that's also hitting the velocity or multi-IP signals
+    // is a correlated pattern the admin needs to see at once.
+    private List<Map> detectChargebacks(List<AuditLog> rows) {
+        def chargebacks = rows.findAll { it.eventType == AuditService.CHARGEBACK_OPENED }
+        chargebacks.collect { cb ->
+            [
+                type:      'CHARGEBACK_IN_WINDOW',
+                severity:  'HIGH',
+                userId:    cb.subjectUserId,
+                userName:  cb.subjectName,
+                ip:        cb.ipAddress,
+                count:     1L,
+                summary:   "Stripe chargeback opened: ${cb.summary ?: 'see audit log'}",
+                createdAt: cb.createdAt
+            ]
+        }
+    }
+
+    /**
+     * Scheduled fraud-signal sweeper (batch 507). Fan out HIGH-severity
+     * signals to every admin's bell so a pattern is caught the moment
+     * it crosses the HIGH threshold, instead of waiting for someone to
+     * refresh the Fraud tab. Signatures are deduped so the same attack
+     * doesn't spam the bell every pass.
+     *
+     * Bucketing: signal `count` is rounded to the nearest power of two
+     * before hashing. A user's IP count going 6 → 7 → 8 is one signal
+     * (all fall in the [6,8] bucket); a jump to 16 is a fresh alert
+     * because the attack meaningfully escalated. Keeps the signature
+     * set bounded even if the same attacker slowly ratchets up.
+     *
+     * Only fires when there are admins configured — `findByRole` is
+     * cheap via the role index but we still skip it when we have
+     * nothing to send.
+     */
+    @Scheduled(fixedDelay = 30L * 60L * 1000L, initialDelay = 10L * 60L * 1000L)
+    @Transactional(readOnly = true)
+    void sweepAndPushFraudSignals() {
+        if (notificationService == null || steamUserRepository == null) return
+        List<Map> signals
+        try {
+            signals = computeSignals() ?: []
+        } catch (Exception e) {
+            log.warn("Fraud sweeper computeSignals failed: ${e.message}")
+            return
+        }
+        def highs = signals.findAll { it.severity == 'HIGH' }
+        if (highs.isEmpty()) return
+        // Resolve admin list once — same shape as chargeback/trade-dispute fan-outs.
+        def admins
+        try {
+            admins = steamUserRepository.findByRole('ADMIN') ?: []
+        } catch (Exception e) {
+            log.warn("Fraud sweeper admin lookup failed: ${e.message}")
+            return
+        }
+        if (admins.isEmpty()) return
+        int pushed = 0
+        highs.each { sig ->
+            try {
+                def rawCount = (sig.count instanceof Number) ? (sig.count as long) : 1L
+                def bucket = bucketize(rawCount)
+                def signature = "${sig.type}|${sig.userId ?: ''}|${sig.ip ?: ''}|${bucket}".toString()
+                synchronized (seenSignatures) {
+                    if (seenSignatures.contains(signature)) return
+                    if (seenSignatures.size() >= SEEN_SIG_CAP) {
+                        def oldest = seenSignatures.iterator().next()
+                        seenSignatures.remove(oldest)
+                    }
+                    seenSignatures.add(signature)
+                }
+                def summary = (sig.summary ?: sig.type ?: 'fraud signal').toString().take(240)
+                def refId = (sig.userId instanceof Number) ? (sig.userId as Long) : null
+                admins.each { admin ->
+                    try {
+                        notificationService.push(admin.id, 'FRAUD_SIGNAL_HIGH',
+                            "⚠ Fraud signal: ${sig.type}",
+                            summary,
+                            refId,
+                            '/admin?tab=fraud')
+                    } catch (Exception e) {
+                        log.warn("FRAUD_SIGNAL_HIGH push failed for admin=${admin.id}: ${e.message}")
+                    }
+                }
+                pushed++
+            } catch (Exception e) {
+                log.warn("Fraud sweeper row failed: ${e.message}")
+            }
+        }
+        if (pushed > 0) {
+            log.info("Fraud sweeper pushed ${pushed} HIGH signal(s) to ${admins.size()} admin(s)")
+        }
+    }
+
+    /** Bucketize a count to a power of two — keeps the signature set
+     *  from ballooning when the same attacker's count slowly grows. */
+    private static long bucketize(long n) {
+        if (n < 1L) return 0L
+        long b = 1L
+        while (b < n) b <<= 1
+        return b
     }
 }

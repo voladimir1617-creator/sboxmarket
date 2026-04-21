@@ -7,10 +7,25 @@
 ###
 
 server:
+  # Graceful shutdown (batch 373). On SIGTERM (Docker stop / k8s pod
+  # terminate / systemd stop) Tomcat stops accepting new requests but
+  # keeps serving in-flight ones up to the timeout. Without this, a
+  # rolling deploy would cut mid-request responses (e.g. a Stripe
+  # webhook callback during a redeploy would 502 from the LB).
+  shutdown: graceful
   servlet:
     session:
       cookie:
-        secure: true
+        # Batch 974 — templated so `run-local.sh` can pass
+        # COOKIE_SECURE=false and the browser will actually ship the
+        # session cookie over HTTP on localhost. Previously this was
+        # hardcoded `true`, which meant the local-prod image would set
+        # Secure on every cookie and Chrome/Firefox would refuse to
+        # send it back over the http://localhost:8082 session — the
+        # signed-in state silently vanished on every page load in
+        # local testing. Real prod deploys pass `true` (or leave
+        # unset; the default below is true) so nothing downgrades.
+        secure: ${COOKIE_SECURE:true}
         # Lax, not Strict — Steam OpenID and Stripe Checkout both
         # redirect the browser back to skinbox.market from their
         # domains. SameSite=Strict blocks the session cookie on those
@@ -36,6 +51,12 @@ server:
       min-spare: 20
 
 spring:
+  lifecycle:
+    # Grace window for graceful shutdown — Tomcat waits up to this for
+    # in-flight requests to complete before force-terminating.
+    # Matches typical container kill-grace defaults (k8s
+    # terminationGracePeriodSeconds = 30).
+    timeout-per-shutdown-phase: 25s
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -52,7 +73,11 @@ spring:
     username:         ${SPRING_DATASOURCE_USERNAME}
     password:         ${SPRING_DATASOURCE_PASSWORD}
   jpa:
-    database-platform: ${SPRING_JPA_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
+    # Batch 945 — removed explicit `database-platform: PostgreSQLDialect`.
+    # Hibernate 6+ auto-detects the dialect from the JDBC driver and
+    # warns HHH90000025 when one is supplied unnecessarily. Dropping the
+    # property silences the warn and lets Hibernate pick the right class
+    # (incl. future PostgreSQL-specific subclasses) without a config push.
     hibernate:
       # Never auto-mutate prod schemas. Use Flyway / Liquibase migrations.
       ddl-auto: validate

@@ -1,0 +1,124 @@
+package com.sboxmarket.service
+
+import com.sboxmarket.model.CartItem
+import com.sboxmarket.repository.CartItemRepository
+import groovy.util.logging.Slf4j
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+/**
+ * Server-side cart (cross-device sync). The localStorage `sb_cart`
+ * stays as the offline write-through cache for signed-in users; the
+ * server's set wins on any conflict.
+ *
+ * Bulk-merge bridges the rollout: a user who already has items in
+ * localStorage signs in for the first time after this lands, the
+ * client posts that array, and the service backfills any rows that
+ * aren't already there. From then on every add/remove is a single
+ * endpoint hit.
+ *
+ * Same per-user cap (50) as the existing `/cart/checkout` endpoint
+ * already enforces — keeps the table tiny and the UI scrollable.
+ */
+@Service
+@Slf4j
+class CartService {
+
+    /** Per-user cart cap. Mirrors `CartController.checkout` which
+     *  rejects bodies > 50 listing ids — there's no point persisting
+     *  rows that can never check out. */
+    static final int MAX_PER_USER = 50
+
+    @Autowired CartItemRepository repository
+
+    @Transactional
+    boolean add(Long userId, Long listingId) {
+        if (userId == null || listingId == null) return false
+        if (repository.existsByUserAndListing(userId, listingId)) return false
+        def current = repository.findListingIdsByUser(userId)
+        if (current.size() >= MAX_PER_USER) {
+            throw new com.sboxmarket.exception.BadRequestException('CART_FULL',
+                "Cart is capped at ${MAX_PER_USER} items. Remove some before adding more.")
+        }
+        repository.save(new CartItem(userId: userId, listingId: listingId))
+        true
+    }
+
+    @Transactional
+    boolean remove(Long userId, Long listingId) {
+        if (userId == null || listingId == null) return false
+        repository.deleteByUserAndListing(userId, listingId) > 0
+    }
+
+    @Transactional
+    int clear(Long userId) {
+        if (userId == null) return 0
+        repository.deleteAllByUser(userId)
+    }
+
+    List<Long> list(Long userId) {
+        if (userId == null) return []
+        repository.findListingIdsByUser(userId)
+    }
+
+    /**
+     * One-shot merge of a client-side cart into the server set —
+     * the rollout bridge for users with localStorage carts at the
+     * moment this feature ships. Dedupes input, skips existing rows,
+     * respects the cap.
+     *
+     * Returns the post-merge full list so the client can replace
+     * its cache in one swap.
+     */
+    @Transactional
+    List<Long> bulkMerge(Long userId, List<Long> incoming) {
+        if (userId == null) return []
+        def cleaned = (incoming ?: []).findAll { it != null }.unique()
+        if (cleaned.size() > MAX_PER_USER) cleaned = cleaned.take(MAX_PER_USER)
+        if (cleaned.isEmpty()) return list(userId)
+        def existing = repository.findExistingListingIds(userId, cleaned).toSet()
+        def toAdd = cleaned.findAll { !existing.contains(it) }
+        def headroom = MAX_PER_USER - repository.countByUser(userId) as int
+        if (headroom <= 0) return list(userId)
+        toAdd = toAdd.take(headroom)
+        def now = System.currentTimeMillis()
+        toAdd.each { listingId ->
+            try {
+                repository.save(new CartItem(userId: userId, listingId: listingId, addedAt: now))
+            } catch (Exception e) {
+                log.debug("cart merge skipped listing ${listingId} for user ${userId}: ${e.message}")
+            }
+        }
+        list(userId)
+    }
+
+    /**
+     * Daily sweep that deletes cart_items rows pointing at non-ACTIVE
+     * listings (batch 506). Complements the inline scrubs in
+     * PurchaseService.buy / SellService.cancelListing /
+     * AdminService.forceCancelListing which handle the hot paths — this
+     * is the safety net for auction-expired, ended-auction-no-bids,
+     * bulk-cancel, and any legacy row that pre-dates the inline
+     * scrubs. Bounded by a single DELETE ... IN (subquery), so the
+     * cost scales with the stale-row count, not the full cart table.
+     *
+     * Runs daily (the cart UI's client-side stale detector hides
+     * these rows in the meantime, so the sweep doesn't need to be
+     * frequent — the DB just ends up carrying some dead rows until
+     * it runs).
+     */
+    @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L, initialDelay = 30L * 60L * 1000L)
+    @Transactional
+    void sweepStaleCartRows() {
+        try {
+            int deleted = repository.deleteRowsPointingAtNonActiveListings()
+            if (deleted > 0) {
+                log.info("Cart-stale sweeper deleted ${deleted} cart_items row(s) pointing at non-ACTIVE listings")
+            }
+        } catch (Exception e) {
+            log.warn("Cart-stale sweeper failed: ${e.message}")
+        }
+    }
+}

@@ -24,18 +24,53 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     @Query("SELECT a FROM WatchlistAlert a WHERE a.userId = :uid ORDER BY a.createdAt DESC")
     List<WatchlistAlert> findByUserId(@Param("uid") Long uid)
 
+    /** Paged variant — batch 1041 caps the watchlist-alerts list at
+     *  300 rows so a long-tenure user with thousands of FIRED /
+     *  CANCELLED alerts over the years doesn't force the server to
+     *  hydrate them all on every Watchlist-Alerts tab open. ACTIVE
+     *  is capped at 50 per user (WatchlistAlertService.PER_USER_LIMIT),
+     *  but the terminal-state rows accumulate unbounded. */
+    @Query("SELECT a FROM WatchlistAlert a WHERE a.userId = :uid ORDER BY a.createdAt DESC")
+    List<WatchlistAlert> findByUserIdPaged(@Param("uid") Long uid,
+                                            org.springframework.data.domain.Pageable pageable)
+
     /** Drives the scheduled sweeper — every ACTIVE alert joined to the
      *  current item lowestPrice. Returns the alert row alongside the
-     *  current floor so the sweeper doesn't need a second fetch. */
+     *  current floor so the sweeper doesn't need a second fetch.
+     *
+     *  Joins the owning SteamUser and filters out banned accounts so
+     *  the sweeper doesn't keep emailing / pushing "price drop" pings
+     *  to users who can't buy anymore. A later unban re-includes the
+     *  alert in future scans (the row stays ACTIVE — we don't
+     *  destructively mutate on ban). */
     @Query("""
-        SELECT a, i.lowestPrice FROM WatchlistAlert a, Item i
+        SELECT a, i.lowestPrice FROM WatchlistAlert a, Item i, SteamUser u
         WHERE a.status = 'ACTIVE'
           AND a.itemId = i.id
+          AND a.userId = u.id
+          AND (u.banned IS NULL OR u.banned = false)
           AND i.lowestPrice IS NOT NULL
           AND i.lowestPrice > 0
           AND i.lowestPrice <= a.targetPrice
     """)
     List<Object[]> findTriggered()
+
+    /** Same shape as findTriggered() but scoped to a single item — drives
+     *  the synchronous sweep fired from SellService.relist so a fresh
+     *  listing triggers pending alerts within seconds instead of waiting
+     *  up to 5 minutes for the scheduled pass. */
+    @Query("""
+        SELECT a, i.lowestPrice FROM WatchlistAlert a, Item i, SteamUser u
+        WHERE a.status = 'ACTIVE'
+          AND a.itemId = :itemId
+          AND a.itemId = i.id
+          AND a.userId = u.id
+          AND (u.banned IS NULL OR u.banned = false)
+          AND i.lowestPrice IS NOT NULL
+          AND i.lowestPrice > 0
+          AND i.lowestPrice <= a.targetPrice
+    """)
+    List<Object[]> findTriggeredForItem(@Param("itemId") Long itemId)
 
     long countByUserIdAndStatus(Long userId, String status)
 
@@ -62,4 +97,11 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM WatchlistAlert a WHERE a.userId = :uid AND a.status = 'FIRED'")
     int deleteFiredForUser(@Param("uid") Long uid)
+
+    /** Full wipe of a user's alert rows — used by GDPR account
+     *  finalization so the sweeper stops scanning orphaned alerts
+     *  forever after an account is deleted. Returns the count wiped. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM WatchlistAlert a WHERE a.userId = :uid")
+    int deleteByUser(@Param("uid") Long uid)
 }

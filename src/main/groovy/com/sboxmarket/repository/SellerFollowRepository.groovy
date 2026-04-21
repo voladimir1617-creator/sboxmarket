@@ -24,6 +24,12 @@ interface SellerFollowRepository extends JpaRepository<SellerFollow, Long> {
     @Query("SELECT COUNT(f) FROM SellerFollow f WHERE f.sellerUserId = :sellerId")
     long countBySeller(@Param("sellerId") Long sellerId)
 
+    /** Count of sellers a user follows — drives the PER_USER_LIMIT cap
+     *  check in {@link com.sboxmarket.service.SellerFollowService#follow}.
+     *  Previously the service hydrated every row just to call .size();
+     *  this one-query COUNT avoids the fetch. */
+    long countByFollowerUserId(Long followerUserId)
+
     /** Seller ids the given user follows. Drives the home-page "From
      *  sellers you follow" rail — we need just the ids to fan out to
      *  a single listing query, not the full join rows. */
@@ -31,4 +37,29 @@ interface SellerFollowRepository extends JpaRepository<SellerFollow, Long> {
     List<Long> findSellerIdsByFollower(@Param("uid") Long followerUserId)
 
     long deleteByFollowerUserIdAndSellerUserId(Long followerUserId, Long sellerUserId)
+
+    /** Bulk-remove every follow row for one user in a single DELETE.
+     *  Used by the "Unfollow all" bulk button and by the GDPR deletion
+     *  flow. Returns the count removed so the caller can surface it. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM SellerFollow f WHERE f.followerUserId = :uid")
+    int deleteByFollower(@Param("uid") Long followerUserId)
+
+    /** Bulk-remove every follow row targeting the given seller — used
+     *  by the GDPR finalizeDeletion flow so follower rows pointing at
+     *  a deleted seller account don't linger as dead FKs in the
+     *  follower's "Following" list. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM SellerFollow f WHERE f.sellerUserId = :uid")
+    int deleteBySeller(@Param("uid") Long sellerUserId)
+
+    /** Bulk-flip `notifications_muted` to a given value for every follow
+     *  row the user owns. Returns the count affected — used by the
+     *  "Mute all" / "Unmute all" shortcut on the Profile → Personal
+     *  Following row so a user can silence fan-out without losing any
+     *  of their follow relationships. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE SellerFollow f SET f.notificationsMuted = :muted WHERE f.followerUserId = :uid")
+    int updateMutedForFollower(@Param("uid") Long followerUserId,
+                                @Param("muted") boolean muted)
 }

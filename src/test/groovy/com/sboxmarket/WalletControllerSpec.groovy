@@ -1,0 +1,843 @@
+package com.sboxmarket
+
+import com.sboxmarket.controller.WalletController
+import com.sboxmarket.dto.request.DepositRequest
+import com.sboxmarket.dto.request.WithdrawRequest
+import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.InsufficientBalanceException
+import com.sboxmarket.exception.NotFoundException
+import com.sboxmarket.exception.UnauthorizedException
+import com.sboxmarket.model.SteamUser
+import com.sboxmarket.model.Transaction
+import com.sboxmarket.model.Wallet
+import com.sboxmarket.repository.SteamUserRepository
+import com.sboxmarket.repository.TransactionRepository
+import com.sboxmarket.repository.WalletRepository
+import com.sboxmarket.service.StripeService
+import com.sboxmarket.service.TotpService
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpSession
+import spock.lang.Specification
+import spock.lang.Subject
+
+/**
+ * Controller-level coverage for `/api/wallet/withdraw`. Focused on
+ * the rolling 24-hour withdrawal cap added in batch 357 — the fraud
+ * ceiling on compromised-account drains. Every guard-rail upstream
+ * of the cap (email-verification, 2FA, balance) has existing
+ * coverage in StripeServiceSpec / WalletModel tests; this spec pins
+ * the cap's arithmetic.
+ */
+class WalletControllerSpec extends Specification {
+
+    WalletRepository      walletRepository      = Mock()
+    TransactionRepository transactionRepository = Mock()
+    SteamUserRepository   steamUserRepository   = Mock()
+    StripeService         stripeService         = Mock()
+    TotpService           totpService           = Mock()
+
+    @Subject
+    WalletController controller = new WalletController(
+        walletRepository:      walletRepository,
+        transactionRepository: transactionRepository,
+        steamUserRepository:   steamUserRepository,
+        stripeService:         stripeService,
+        totpService:           totpService,
+        dailyWithdrawalCap:    new BigDecimal('5000')
+    )
+
+    private HttpServletRequest reqFor(Long uid) {
+        def session = Mock(HttpSession)
+        session.getAttribute('steamUserId') >> uid
+        def req = Mock(HttpServletRequest)
+        req.session >> session
+        req
+    }
+
+    private SteamUser verifiedUser(Long id = 10L) {
+        new SteamUser(
+            id:            id,
+            steamId64:     '111',
+            displayName:   'Alice',
+            email:         'alice@example.com',
+            emailVerified: true,
+            totpSecret:    null
+        )
+    }
+
+    private Wallet walletFor(BigDecimal balance = new BigDecimal('4000')) {
+        new Wallet(id: 500L, username: 'steam_111', balance: balance, currency: 'USD')
+    }
+
+    private WithdrawRequest req(BigDecimal amount, String dest = 'stripe_connect_acct_x') {
+        def r = new WithdrawRequest()
+        r.amount = amount
+        r.destination = dest
+        r
+    }
+
+    def "withdraw succeeds when the requested amount + used is under the cap"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('4000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('1000')  // $1k already spent
+
+        when:
+        // Requested $3500; existing $1000 + requested $3500 = $4500 ≤ $5000 cap.
+        def response = controller.withdraw(req(new BigDecimal('3500')), reqFor(10L))
+
+        then:
+        // Interaction + return combined so the mock's default-null return
+        // doesn't NPE the controller's `tx.id` access.
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('3500'), 'stripe_connect_acct_x') >>
+            new Transaction(id: 99L, status: 'PENDING')
+        response.statusCode.value() == 200
+    }
+
+    def "withdraw rejects with WITHDRAW_DAILY_CAP when request would exceed the rolling 24h cap"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('5000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        // $4,000 already spent in the last 24h.
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('4000')
+
+        when:
+        // Requested $2,000 → $4,000 + $2,000 = $6,000 > $5,000 cap.
+        controller.withdraw(req(new BigDecimal('2000')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_DAILY_CAP'
+        // Critical: the Stripe request must NOT fire when the cap guard triggers.
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw rejects when cap is already exceeded and remaining headroom is zero"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('1000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        // $5,000 already spent — exactly at the cap.
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('5000')
+
+        when:
+        // Any amount > 0 would push past the cap.
+        controller.withdraw(req(new BigDecimal('0.01')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_DAILY_CAP'
+        // Error message surfaces the numbers so the user knows why.
+        e.message.contains('5000')
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw checks the cap AFTER the balance check (insufficient balance beats cap)"() {
+        given:
+        def user = verifiedUser()
+        // Wallet has only $100 but the user is asking for $6000 — should
+        // hit the balance check first, not the cap.
+        def wallet = walletFor(new BigDecimal('100'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+
+        when:
+        controller.withdraw(req(new BigDecimal('6000')), reqFor(10L))
+
+        then:
+        thrown(InsufficientBalanceException)
+        // Cap query never fires — balance check short-circuits.
+        0 * transactionRepository.sumWithdrawalsSince(_, _)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw bypasses the cap check entirely when dailyWithdrawalCap is null (ops disable)"() {
+        given:
+        controller.dailyWithdrawalCap = null
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('999999'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+
+        when:
+        controller.withdraw(req(new BigDecimal('100000')), reqFor(10L))
+
+        then:
+        // The sum query never fires when the cap is null/zero.
+        0 * transactionRepository.sumWithdrawalsSince(_, _)
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('100000'), _) >>
+            new Transaction(id: 99L, status: 'PENDING')
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // Batch 1068 — full endpoint coverage. The cap-math tests above
+    // focused on one branch; these pin the rest of the surface.
+    // ════════════════════════════════════════════════════════════════
+
+    // ─── GET /api/wallet ────────────────────────────────────────────
+
+    def "getWallet() anon: zero-balance snapshot, NEVER leaks demo wallet row (batch 976)"() {
+        given:
+        stripeService.isLive() >> false
+        stripeService.dailyDepositCap >> new BigDecimal('2000')
+
+        when:
+        def resp = controller.getWallet(reqFor(null))
+
+        then: 'never falls through to the persisted demo wallet'
+        0 * walletRepository.findById(_)
+        0 * walletRepository.findByUsername(_)
+        0 * transactionRepository.findPendingByWallet(_)
+        resp.statusCode.value() == 200
+        resp.body.loggedIn == false
+        resp.body.id == null
+        resp.body.username == null
+        resp.body.balance == BigDecimal.ZERO
+        resp.body.pendingWithdrawAmt == BigDecimal.ZERO
+        resp.body.dailyWithdrawCap == new BigDecimal('5000')
+        resp.body.dailyWithdrawRemaining == new BigDecimal('5000')
+        resp.body.dailyDepositCap == new BigDecimal('2000')
+        resp.body.frozen == false
+    }
+
+    def "getWallet() signed-in: hero snapshot with pending + 24h aggregates"() {
+        given:
+        def user = verifiedUser()
+        user.avatarUrl = 'https://cdn.example/avi.png'
+        def wallet = walletFor(new BigDecimal('250.50'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findPendingByWallet(500L) >> [
+            new Transaction(id: 1L, type: 'WITHDRAW', amount: new BigDecimal('50.00')),
+            new Transaction(id: 2L, type: 'DEPOSIT',  amount: new BigDecimal('30.00'))
+        ]
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('400.00')
+        transactionRepository.earliestWithdrawalSince(500L, _) >> 1700_000_000_000L
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumDepositsSince(500L, _) >> new BigDecimal('100.00')
+        transactionRepository.earliestDepositSince(500L, _) >> null
+        stripeService.isLive() >> true
+        stripeService.dailyDepositCap >> new BigDecimal('2000')
+
+        when:
+        def resp = controller.getWallet(reqFor(10L))
+
+        then:
+        resp.body.id == 500L
+        resp.body.username == 'Alice'
+        resp.body.avatarUrl == 'https://cdn.example/avi.png'
+        resp.body.loggedIn == true
+        resp.body.balance == new BigDecimal('250.50')
+        resp.body.pendingWithdrawAmt == new BigDecimal('50.00')
+        resp.body.pendingWithdrawCt == 1
+        resp.body.pendingDepositAmt == new BigDecimal('30.00')
+        resp.body.pendingDepositCt == 1
+        resp.body.dailyWithdrawUsed == new BigDecimal('400.00')
+        resp.body.dailyWithdrawRemaining == new BigDecimal('4600.00')
+        resp.body.dailyWithdrawOldestAt == 1700_000_000_000L
+        resp.body.dailyDepositRemaining == new BigDecimal('1900.00')
+        resp.body.stripeLive == true
+    }
+
+    def "getWallet() sums BOTH 'WITHDRAW' and 'WITHDRAWAL' pending types — no legacy rows vanish"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findPendingByWallet(500L) >> [
+            new Transaction(id: 1L, type: 'WITHDRAW',   amount: new BigDecimal('10.00')),
+            new Transaction(id: 2L, type: 'WITHDRAWAL', amount: new BigDecimal('20.00'))
+        ]
+        transactionRepository.sumWithdrawalsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestWithdrawalSince(_, _) >> null
+        transactionRepository.countActiveDisputedDeposits(_) >> 0L
+        transactionRepository.sumDepositsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestDepositSince(_, _) >> null
+        stripeService.isLive() >> false
+        stripeService.dailyDepositCap >> BigDecimal.ZERO
+
+        when:
+        def resp = controller.getWallet(reqFor(10L))
+
+        then:
+        resp.body.pendingWithdrawAmt == new BigDecimal('30.00')
+        resp.body.pendingWithdrawCt == 2
+    }
+
+    def "getWallet() clamps dailyWithdrawRemaining at zero when used > cap"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findPendingByWallet(_) >> []
+        transactionRepository.sumWithdrawalsSince(_, _) >> new BigDecimal('5500')  // over cap
+        transactionRepository.earliestWithdrawalSince(_, _) >> null
+        transactionRepository.countActiveDisputedDeposits(_) >> 0L
+        transactionRepository.sumDepositsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestDepositSince(_, _) >> null
+        stripeService.isLive() >> false
+        stripeService.dailyDepositCap >> BigDecimal.ZERO
+
+        when:
+        def resp = controller.getWallet(reqFor(10L))
+
+        then: 'UI never renders a negative remaining'
+        resp.body.dailyWithdrawRemaining == BigDecimal.ZERO
+    }
+
+    def "getWallet() exposes frozen state for the UI's 'Wallet frozen' banner"() {
+        given:
+        def user = verifiedUser()
+        def wallet = new Wallet(
+            id: 500L, username: 'steam_111', balance: new BigDecimal('100'),
+            currency: 'USD', frozen: true, frozenReason: 'pending fraud review', frozenAt: 1700L
+        )
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findPendingByWallet(_) >> []
+        transactionRepository.sumWithdrawalsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestWithdrawalSince(_, _) >> null
+        transactionRepository.countActiveDisputedDeposits(_) >> 0L
+        transactionRepository.sumDepositsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestDepositSince(_, _) >> null
+        stripeService.isLive() >> false
+        stripeService.dailyDepositCap >> BigDecimal.ZERO
+
+        when:
+        def resp = controller.getWallet(reqFor(10L))
+
+        then:
+        resp.body.frozen == true
+        resp.body.frozenReason == 'pending fraud review'
+        resp.body.frozenAt == 1700L
+    }
+
+    def "getWallet() auto-creates a wallet row the first time a new Steam user calls it"() {
+        given:
+        def user = verifiedUser()
+        def fresh = new Wallet(id: 500L, username: 'steam_111', balance: BigDecimal.ZERO, currency: 'USD')
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> null
+        1 * walletRepository.save({ Wallet w ->
+            w.username == 'steam_111' && w.balance == BigDecimal.ZERO
+        }) >> fresh
+        transactionRepository.findPendingByWallet(_) >> []
+        transactionRepository.sumWithdrawalsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestWithdrawalSince(_, _) >> null
+        transactionRepository.countActiveDisputedDeposits(_) >> 0L
+        transactionRepository.sumDepositsSince(_, _) >> BigDecimal.ZERO
+        transactionRepository.earliestDepositSince(_, _) >> null
+        stripeService.isLive() >> false
+        stripeService.dailyDepositCap >> BigDecimal.ZERO
+
+        when:
+        def resp = controller.getWallet(reqFor(10L))
+
+        then:
+        resp.body.balance == BigDecimal.ZERO
+        resp.body.loggedIn == true
+    }
+
+    // ─── GET /api/wallet/spend ──────────────────────────────────────
+
+    def "getSpendSummary() anon: 401 (spending history is PII)"() {
+        when:
+        controller.getSpendSummary(reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * transactionRepository.sumByWalletAndType(_, _, _)
+    }
+
+    def "getSpendSummary() signed-in user with no wallet yet: zero-history envelope"() {
+        given:
+        def user = verifiedUser()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> null
+        walletRepository.save(_) >> new Wallet(id: 1L)   // DEMO_WALLET_ID sentinel
+
+        when:
+        def resp = controller.getSpendSummary(reqFor(10L))
+
+        then:
+        resp.body.spentLifetime == BigDecimal.ZERO
+        resp.body.purchasesLifetime == 0L
+        resp.body.spent30d == BigDecimal.ZERO
+        resp.body.spent7d == BigDecimal.ZERO
+        resp.body.spent24h == BigDecimal.ZERO
+        0 * transactionRepository.sumByWalletAndType(_, _, _)
+    }
+
+    def "getSpendSummary() happy path: returns four windows of PURCHASE aggregates"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * transactionRepository.sumByWalletAndType(500L, 'PURCHASE', true) >> new BigDecimal('4321.00')
+        1 * transactionRepository.countCompletedByWalletAndType(500L, 'PURCHASE') >> 87L
+        // 30d / 7d / 24h windows all go through the same method signature.
+        _ * transactionRepository.sumCompletedByWalletTypeSince(500L, 'PURCHASE', _) >>> [
+            new BigDecimal('900'), new BigDecimal('200'), new BigDecimal('50')
+        ]
+        _ * transactionRepository.countCompletedByWalletTypeSince(500L, 'PURCHASE', _) >>> [15L, 3L, 1L]
+
+        when:
+        def resp = controller.getSpendSummary(reqFor(10L))
+
+        then:
+        resp.body.spentLifetime == new BigDecimal('4321.00')
+        resp.body.purchasesLifetime == 87L
+    }
+
+    // ─── GET /api/wallet/transactions ───────────────────────────────
+
+    def "getTransactions() anon: [] (never leaks demo-wallet ledger — batch 977 fix)"() {
+        when:
+        def resp = controller.getTransactions(reqFor(null))
+
+        then:
+        0 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(_, _)
+        0 * walletRepository.findById(_)
+        resp.statusCode.value() == 200
+        resp.body == []
+    }
+
+    def "getTransactions() signed-in: returns ledger with SQL LIMIT 500"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        def txs = [new Transaction(id: 9L, type: 'DEPOSIT', amount: new BigDecimal('10'))]
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L,
+            { org.springframework.data.domain.Pageable p ->
+                p.pageSize == 500 && p.pageNumber == 0
+            }) >> txs
+
+        when:
+        def resp = controller.getTransactions(reqFor(10L))
+
+        then:
+        resp.body.is(txs)
+    }
+
+    // ─── GET /api/wallet/transactions.csv ───────────────────────────
+
+    def "exportTransactionsCsv() anon: 401 (signed-in only — tax PII)"() {
+        when:
+        controller.exportTransactionsCsv(null, reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(_, _)
+    }
+
+    def "exportTransactionsCsv() happy path: CSV body + Cache-Control: no-store + attachment"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        def tx = new Transaction(
+            id: 1L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('25.00'), currency: 'USD',
+            description: 'test', listingId: null,
+            stripeReference: 'cs_abc', createdAt: 1700_000_000_000L
+        )
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [tx]
+
+        when:
+        def resp = controller.exportTransactionsCsv(null, reqFor(10L))
+
+        then:
+        resp.statusCode.value() == 200
+        resp.headers.getFirst('Cache-Control') == 'no-store'
+        resp.headers.getFirst('Content-Disposition')?.contains('attachment')
+        resp.headers.getFirst('Content-Disposition')?.contains('.csv')
+        resp.body.startsWith('id,date,type,status,amount,currency,description,listingId,reference\n')
+        resp.body.contains('DEPOSIT')
+        resp.body.contains('25.00')
+    }
+
+    def "exportTransactionsCsv() ?month=YYYY-MM filters to that calendar month (UTC)"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        long marchMs = java.time.ZonedDateTime
+            .of(2026, 3, 15, 12, 0, 0, 0, java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        long aprilMs = java.time.ZonedDateTime
+            .of(2026, 4, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        def inMarch = new Transaction(id: 1L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('10.00'), currency: 'USD', createdAt: marchMs)
+        def inApril = new Transaction(id: 2L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('99.00'), currency: 'USD', createdAt: aprilMs)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [inMarch, inApril]
+
+        when:
+        def resp = controller.exportTransactionsCsv('2026-03', reqFor(10L))
+
+        then: 'only the March row survives — filename carries the month suffix'
+        resp.body.contains('10.00')
+        !resp.body.contains('99.00')
+        resp.headers.getFirst('Content-Disposition')?.contains('-2026-03-')
+    }
+
+    def "exportTransactionsCsv() malformed ?month= silently returns full history (bookmark compat)"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        def tx1 = new Transaction(id: 1L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('10'), currency: 'USD', createdAt: 1L)
+        def tx2 = new Transaction(id: 2L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('20'), currency: 'USD', createdAt: 2L)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [tx1, tx2]
+
+        when: '2026-13 fails the YYYY-MM regex → drops filter'
+        def resp = controller.exportTransactionsCsv('2026-13', reqFor(10L))
+
+        then:
+        resp.body.contains('10')
+        resp.body.contains('20')
+        !resp.headers.getFirst('Content-Disposition')?.contains('-2026-13-')
+    }
+
+    // ─── POST /api/wallet/deposit ───────────────────────────────────
+
+    def "deposit() anon: 401 (never hits Stripe — would target the demo wallet)"() {
+        given:
+        def body = new DepositRequest(amount: new BigDecimal('50'))
+
+        when:
+        controller.deposit(body, reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * stripeService.createDepositSession(_, _)
+    }
+
+    def "deposit() frozen wallet: WALLET_FROZEN with staff reason in the message"() {
+        given:
+        def user = verifiedUser()
+        def wallet = new Wallet(
+            id: 500L, username: 'steam_111', balance: new BigDecimal('100'),
+            currency: 'USD', frozen: true, frozenReason: 'pending fraud review'
+        )
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        def body = new DepositRequest(amount: new BigDecimal('50'))
+
+        when:
+        controller.deposit(body, reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+        e.message.contains('pending fraud review')
+        0 * stripeService.createDepositSession(_, _)
+    }
+
+    def "deposit() happy path: forwards (walletId, amount) to StripeService and returns the session payload"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        def sessionPayload = [sessionUrl: 'https://checkout.stripe.com/pay/cs_abc', sessionId: 'cs_abc']
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.createDepositSession(500L, new BigDecimal('75.00')) >> sessionPayload
+        def body = new DepositRequest(amount: new BigDecimal('75.00'))
+
+        when:
+        def resp = controller.deposit(body, reqFor(10L))
+
+        then:
+        resp.body.is(sessionPayload)
+    }
+
+    // ─── POST /api/wallet/withdraw — gate ladder (extends cap tests) ─
+
+    def "withdraw() anon: 401 (never enters the gate ladder)"() {
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() frozen wallet: WALLET_FROZEN short-circuits ahead of email + TOTP + cap checks"() {
+        given:
+        def user = verifiedUser()
+        def wallet = new Wallet(
+            id: 500L, username: 'steam_111', balance: new BigDecimal('100'),
+            currency: 'USD', frozen: true, frozenReason: 'dispute'
+        )
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+        0 * transactionRepository.countActiveDisputedDeposits(_)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() user with no email on profile: EMAIL_REQUIRED"() {
+        given:
+        def user = verifiedUser()
+        user.email = null
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'EMAIL_REQUIRED'
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() unverified email: EMAIL_NOT_VERIFIED"() {
+        given:
+        def user = verifiedUser()
+        user.emailVerified = false
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'EMAIL_NOT_VERIFIED'
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() 2FA enabled + missing totpCode: TOTP_REQUIRED"() {
+        given:
+        def user = verifiedUser()
+        user.totpSecret = 'JBSWY3DPEHPK3PXP'
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        def r = req(new BigDecimal('50'))
+        r.totpCode = ''
+
+        when:
+        controller.withdraw(r, reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TOTP_REQUIRED'
+        0 * totpService.verify(*_)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() 2FA enabled + bad code: TOTP_INVALID, lastTotpStep NOT persisted"() {
+        given:
+        def user = verifiedUser()
+        user.totpSecret = 'JBSWY3DPEHPK3PXP'
+        user.lastTotpStep = 42L
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * totpService.verify('JBSWY3DPEHPK3PXP', '000000', 42L) >> -1L
+        def r = req(new BigDecimal('50'))
+        r.totpCode = '000000'
+
+        when:
+        controller.withdraw(r, reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TOTP_INVALID'
+        0 * steamUserRepository.save(_)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() 2FA good code: persists fresh lastTotpStep (replay defense)"() {
+        given:
+        def user = verifiedUser()
+        user.totpSecret = 'JBSWY3DPEHPK3PXP'
+        user.lastTotpStep = 10L
+        def wallet = walletFor(new BigDecimal('1000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        1 * totpService.verify('JBSWY3DPEHPK3PXP', '123456', 10L) >> 11L
+        1 * steamUserRepository.save({ SteamUser u -> u.lastTotpStep == 11L })
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumWithdrawalsSince(_, _) >> BigDecimal.ZERO
+        def r = req(new BigDecimal('50'), 'steam_trade_url')
+        r.totpCode = '123456'
+
+        when:
+        def resp = controller.withdraw(r, reqFor(10L))
+
+        then:
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('50'), 'steam_trade_url') >>
+            new Transaction(id: 777L, status: 'PENDING')
+        resp.body.transactionId == 777L
+    }
+
+    def "withdraw() active chargeback on ANY deposit: WITHDRAW_DISPUTE_HOLD with count in message"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('500'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * transactionRepository.countActiveDisputedDeposits(500L) >> 2L
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_DISPUTE_HOLD'
+        e.message.contains('2 unresolved deposit dispute')
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() null destination forwarded as empty-string to service"() {
+        given:
+        controller.dailyWithdrawalCap = null
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('500'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        def r = req(new BigDecimal('50'), null)
+
+        when:
+        controller.withdraw(r, reqFor(10L))
+
+        then: 'service sees "" so its downstream regex/length check works on a String, never null'
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('50'), '') >>
+            new Transaction(id: 1L, status: 'PENDING')
+    }
+
+    // ─── POST /api/wallet/withdraw/{id}/cancel ──────────────────────
+
+    def "cancelWithdraw() anon: 401 (never reaches StripeService)"() {
+        when:
+        controller.cancelWithdraw(9L, reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * stripeService.cancelPendingWithdrawal(_, _)
+    }
+
+    def "cancelWithdraw() happy path: forwards (walletId, txId) and returns service envelope"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
+            [status: 'CANCELLED', refunded: new BigDecimal('25')]
+
+        when:
+        def resp = controller.cancelWithdraw(9L, reqFor(10L))
+
+        then:
+        resp.body.status == 'CANCELLED'
+        resp.body.refunded == new BigDecimal('25')
+    }
+
+    def "cancelWithdraw() already-processed: IllegalStateException → CANNOT_CANCEL"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
+            { throw new IllegalStateException('already COMPLETED') }
+
+        when:
+        controller.cancelWithdraw(9L, reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'CANNOT_CANCEL'
+        e.message.contains('already COMPLETED')
+    }
+
+    def "cancelWithdraw() owner mismatch: IllegalArgumentException → INVALID_TX"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
+            { throw new IllegalArgumentException('tx belongs to another wallet') }
+
+        when:
+        controller.cancelWithdraw(9L, reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_TX'
+    }
+
+    def "cancelWithdraw() missing tx: NoSuchElementException → NotFoundException (404)"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
+            { throw new NoSuchElementException('no such tx') }
+
+        when:
+        controller.cancelWithdraw(9L, reqFor(10L))
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    // ─── POST /api/wallet/confirm-deposit ───────────────────────────
+
+    def "confirmDeposit() anon: 401 (never reaches Stripe — session binding is server-side)"() {
+        when:
+        controller.confirmDeposit('cs_abc', reqFor(null))
+
+        then:
+        thrown(UnauthorizedException)
+        0 * stripeService.completeDeposit(_)
+    }
+
+    def "confirmDeposit() happy path: completes session, returns fresh wallet balance"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('175.00'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.completeDeposit('cs_abc')
+
+        when:
+        def resp = controller.confirmDeposit('cs_abc', reqFor(10L))
+
+        then:
+        resp.body.newBalance == new BigDecimal('175.00')
+    }
+}

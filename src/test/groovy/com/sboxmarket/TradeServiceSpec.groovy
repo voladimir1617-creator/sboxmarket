@@ -6,6 +6,8 @@ import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Trade
 import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
+import com.sboxmarket.model.Listing
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
@@ -31,11 +33,31 @@ class TradeServiceSpec extends Specification {
     TradeRepository       tradeRepository       = Mock()
     WalletRepository      walletRepository      = Mock()
     TransactionRepository transactionRepository = Mock()
+    ListingRepository     listingRepository     = Mock()
     NotificationService   notificationService   = Mock()
     BanGuard              banGuard              = Mock()
     AdminAuthorization    adminAuthorization    = Mock()
+    com.sboxmarket.repository.SteamUserRepository steamUserRepository = Mock() {
+        // Default: no banned users and no counterparty users. Tests that
+        // need a specific row override with their own stub. Without this
+        // default, the service NPEs on users.collectEntries (Mock returns
+        // null, not [] for the inherited Iterable<T> findAllById).
+        findAllById(_) >> []
+    }
     TextSanitizer         textSanitizer         = Mock() {
         medium(_) >> { String s -> s ?: '' }
+    }
+    com.sboxmarket.service.EmailService emailService = Mock() {
+        // Delegate to the user's actual flags — mimics the real
+        // canSendTo gate (batch 622). Tests that flip
+        // `emailVerified:false` / `emailNotificationsEnabled:false`
+        // on a fixture still see the gate close without per-test stubs.
+        canSendTo(_, _) >> { user, bucket ->
+            user != null &&
+            user.email && !user.email.isEmpty() &&
+            Boolean.TRUE.equals(user.emailVerified) &&
+            Boolean.TRUE.equals(user.emailNotificationsEnabled)
+        }
     }
 
     @Subject
@@ -43,11 +65,15 @@ class TradeServiceSpec extends Specification {
         tradeRepository       : tradeRepository,
         walletRepository      : walletRepository,
         transactionRepository : transactionRepository,
+        listingRepository     : listingRepository,
         notificationService   : notificationService,
         banGuard              : banGuard,
         adminAuthorization    : adminAuthorization,
+        steamUserRepository   : steamUserRepository,
         textSanitizer         : textSanitizer,
-        autoReleaseDays       : 8L
+        emailService          : emailService,
+        autoReleaseDays       : 8L,
+        sellerResponseDays    : 3L
     )
 
     private Trade tradeIn(String state, Map args = [:]) {
@@ -79,8 +105,8 @@ class TradeServiceSpec extends Specification {
         1 * banGuard.assertNotBanned(10L)
         trade.state == 'PENDING_SELLER_ACCEPT'
         trade.feeAmount == new BigDecimal("1.00")
-        1 * notificationService.push(10L, 'TRADE_OPENED', _, _, _, _)
-        1 * notificationService.push(20L, 'TRADE_REQUESTED', _, _, _, _)
+        1 * notificationService.safePush(10L, 'TRADE_OPENED', _, _, _, _)
+        1 * notificationService.safePush(20L, 'TRADE_REQUESTED', _, _, _, _)
     }
 
     def "open skips seller-accept and goes to PENDING_BUYER_CONFIRM when there is no seller"() {
@@ -92,8 +118,61 @@ class TradeServiceSpec extends Specification {
 
         then:
         trade.state == 'PENDING_BUYER_CONFIRM'
-        1 * notificationService.push(10L, 'TRADE_OPENED', _, _, _, _)
-        0 * notificationService.push(_, 'TRADE_REQUESTED', _, _, _, _)
+        1 * notificationService.safePush(10L, 'TRADE_OPENED', _, _, _, _)
+        0 * notificationService.safePush(_, 'TRADE_REQUESTED', _, _, _, _)
+    }
+
+    def "open sends a TRADE_OPENED email to a seller with verified email (batch 564)"() {
+        given:
+        tradeRepository.save(_) >> { Trade t -> t.id = 1L; t }
+        // Seller with verified email and notifications enabled.
+        def buyer  = new com.sboxmarket.model.SteamUser(id: 10L, displayName: 'Alice')
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+
+        when:
+        service.open(100L, 1L, 'Wizard Hat', 10L, 500L, 20L, 600L, new BigDecimal("50"))
+
+        then:
+        1 * emailService.sendTradeOpened('bob@example.com', 'Bob', 'Wizard Hat', 'Alice', new BigDecimal("50"), 1L)
+    }
+
+    def "open does NOT email a seller who opted out of notifications (batch 564)"() {
+        given:
+        tradeRepository.save(_) >> { Trade t -> t.id = 1L; t }
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: false)  // ← opt-out
+        steamUserRepository.findById(10L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 10L, displayName: 'Alice'))
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+
+        when:
+        service.open(100L, 1L, 'Wizard Hat', 10L, 500L, 20L, 600L, new BigDecimal("50"))
+
+        then:
+        0 * emailService.sendTradeOpened(*_)
+    }
+
+    def "open skips the email when the seller's email is unverified (batch 564)"() {
+        given:
+        tradeRepository.save(_) >> { Trade t -> t.id = 1L; t }
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: false,  // ← not verified
+            emailNotificationsEnabled: true)
+        steamUserRepository.findById(10L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 10L, displayName: 'Alice'))
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+
+        when:
+        service.open(100L, 1L, 'Wizard Hat', 10L, 500L, 20L, 600L, new BigDecimal("50"))
+
+        then:
+        0 * emailService.sendTradeOpened(*_)
     }
 
     // ── sellerAccept / sellerMarkSent ─────────────────────────────
@@ -110,7 +189,7 @@ class TradeServiceSpec extends Specification {
         then:
         1 * banGuard.assertNotBanned(20L)
         t.state == 'PENDING_SELLER_SEND'
-        1 * notificationService.push(10L, 'TRADE_ACCEPTED', _, _, _, _)
+        1 * notificationService.safePush(10L, 'TRADE_ACCEPTED', _, _, _, _)
     }
 
     def "sellerAccept forbids a non-seller"() {
@@ -146,7 +225,108 @@ class TradeServiceSpec extends Specification {
 
         then:
         t.state == 'PENDING_BUYER_CONFIRM'
-        1 * notificationService.push(10L, 'TRADE_SENT', _, _, _, _)
+        1 * notificationService.safePush(10L, 'TRADE_SENT', _, _, _, _)
+    }
+
+    def "sellerMarkSent sends a TRADE_SENT email to the buyer (batch 565)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND', [id: 7L, buyer: 10L, seller: 20L])
+        tradeRepository.findById(7L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        def buyer = new com.sboxmarket.model.SteamUser(
+            id: 10L, displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        def seller = new com.sboxmarket.model.SteamUser(id: 20L, displayName: 'Bob')
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+
+        when:
+        service.sellerMarkSent(20L, 7L)
+
+        then:
+        1 * emailService.sendTradeSent('alice@example.com', 'Alice', 'Wizard Hat', 'Bob', 7L)
+    }
+
+    def "sellerMarkSent stores a valid Steam trade-offer URL (batch 773)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when:
+        service.sellerMarkSent(20L, 1L, 'https://steamcommunity.com/tradeoffer/123456789/')
+
+        then:
+        t.tradeOfferUrl == 'https://steamcommunity.com/tradeoffer/123456789/'
+    }
+
+    def "sellerMarkSent rejects a non-Steam URL with TRADE_OFFER_URL_INVALID (batch 860 — was silent-drop pre-batch-860)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when:
+        // Attacker pastes a phishing URL in hopes of tricking the buyer —
+        // the service regex rejects anything that isn't steamcommunity.com.
+        // Batch 860 upgraded this from silent-drop to a hard 400 so the
+        // seller's UI can surface "your URL is invalid" instead of
+        // accepting a click then silently keeping the trade URL-less.
+        service.sellerMarkSent(20L, 1L, 'https://evil.example.com/tradeoffer/1/')
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'TRADE_OFFER_URL_INVALID'
+        t.tradeOfferUrl == null
+        // State doesn't advance on a rejected URL — the seller fixes
+        // their paste and tries again.
+        t.state == 'PENDING_SELLER_SEND'
+    }
+
+    def "sellerMarkSent silently drops an empty URL (batch 773)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when:
+        // Seller hits Cancel / leaves the prompt blank — legacy no-URL
+        // path, still advances the trade state but writes null.
+        service.sellerMarkSent(20L, 1L, '')
+
+        then:
+        t.tradeOfferUrl == null
+        t.state == 'PENDING_BUYER_CONFIRM'
+    }
+
+    def "sellerMarkSent accepts null URL without error (batch 773 legacy path)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when:
+        // Preserves the old two-arg contract (tradeOfferUrl defaults to null).
+        service.sellerMarkSent(20L, 1L)
+
+        then:
+        t.tradeOfferUrl == null
+        t.state == 'PENDING_BUYER_CONFIRM'
+    }
+
+    def "sellerMarkSent stamps sentAt once — subsequent call doesn't overwrite (batch 550)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        t.sentAt = 12345L  // pre-stamped (e.g., from admin replay scenario)
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when:
+        service.sellerMarkSent(20L, 1L)
+
+        then: "sentAt is preserved rather than re-stamped"
+        t.sentAt == 12345L
     }
 
     // ── buyerConfirm → release ────────────────────────────────────
@@ -171,12 +351,12 @@ class TradeServiceSpec extends Specification {
         1 * transactionRepository.save({ Transaction tx ->
             tx.type == 'SALE' && tx.amount == new BigDecimal("49.00")
         })
-        1 * notificationService.push(10L, 'TRADE_VERIFIED', _, _, _, _)
-        1 * notificationService.push(20L, 'TRADE_VERIFIED', _, _, _, _)
+        1 * notificationService.safePush(10L, 'TRADE_VERIFIED', _, _, _, _)
+        1 * notificationService.safePush(20L, 'TRADE_VERIFIED', _, _, _, _)
         // Review-nudge for the buyer — deep-links to the seller's stall so
         // the "Leave a review" CTA is one click away. Only fires when the
         // trade has a real sellerUserId (system listings stay silent).
-        1 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, _, '/stall/20')
+        1 * notificationService.safePush(10L, 'REVIEW_REMINDER', _, _, _, '/stall/20')
     }
 
     def "buyerConfirm forbids a non-buyer"() {
@@ -231,6 +411,83 @@ class TradeServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    def "dispute pushes TRADE_DISPUTED notification to the counterparty (bug #102)"() {
+        given:
+        // Buyer (uid 10) files the dispute → seller (uid 20) should be notified.
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        textSanitizer.medium('seller ghosted') >> 'seller ghosted'
+
+        when:
+        service.dispute(10L, 1L, 'seller ghosted')
+
+        then:
+        t.state == 'DISPUTED'
+        // Filer does NOT get a self-notification; only the counterparty.
+        1 * notificationService.push(20L, 'TRADE_DISPUTED', _, _, 1L, '/profile?tab=trades')
+        0 * notificationService.push(10L, 'TRADE_DISPUTED', _, _, _, _)
+    }
+
+    def "dispute emails the counterparty when they have a verified address (batch 567)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+        steamUserRepository.findByRole('ADMIN') >> []
+
+        when:
+        service.dispute(10L, 1L, 'item not received')
+
+        then:
+        // Default sanitizer stub echoes input, so the reason arrives as-is.
+        1 * emailService.sendTradeDisputed('bob@example.com', 'Bob', 'Wizard Hat', 'BUYER', 'item not received', 1L)
+    }
+
+    def "dispute skips the email when counterparty email is unverified (batch 567)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        textSanitizer.medium(_) >> 'reason body'
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: false,  // ← not verified
+            emailNotificationsEnabled: true)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+        steamUserRepository.findByRole('ADMIN') >> []
+
+        when:
+        service.dispute(10L, 1L, 'item not received')
+
+        then:
+        0 * emailService.sendTradeDisputed(*_)
+    }
+
+    def "dispute fans out TRADE_DISPUTED to every admin (batch 500)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        // Two admins on file — fan-out should ping both with the trades
+        // deep-link. Matches the chargeback-fan-out shape from batch 461.
+        def admin1 = new com.sboxmarket.model.SteamUser(id: 501L, displayName: 'Admin One', role: 'ADMIN')
+        def admin2 = new com.sboxmarket.model.SteamUser(id: 502L, displayName: 'Admin Two', role: 'ADMIN')
+        steamUserRepository.findByRole('ADMIN') >> [admin1, admin2]
+
+        when:
+        service.dispute(10L, 1L, 'seller ghosted')
+
+        then:
+        1 * notificationService.push(501L, 'TRADE_DISPUTED', _, _, 1L, '/admin?tab=trades&filter=DISPUTED')
+        1 * notificationService.push(502L, 'TRADE_DISPUTED', _, _, 1L, '/admin?tab=trades&filter=DISPUTED')
+    }
+
     // ── cancel ────────────────────────────────────────────────────
 
     def "cancel refunds the buyer wallet and flips to CANCELLED"() {
@@ -242,6 +499,12 @@ class TradeServiceSpec extends Specification {
         walletRepository.findById(500L) >> Optional.of(buyerWallet)
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction tx -> tx }
+        // Listing is in buyer's inventory at this point (status=SOLD,
+        // buyerUserId=10 after the original purchase). Cancel should
+        // return it to the seller so they can relist.
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
 
         when:
         service.cancel(10L, 1L, 'changed my mind')
@@ -251,6 +514,43 @@ class TradeServiceSpec extends Specification {
         1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' && tx.amount == new BigDecimal("50.00") })
         t.state == 'CANCELLED'
         t.settledAt != null
+        // Listing ownership returned to the seller (bug #103).
+        listing.buyerUserId == 20L
+        listing.status == 'SOLD'
+        listing.soldAt != null
+    }
+
+    def "cancel emails both buyer and seller (batch 573)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        textSanitizer.medium(_) >> 'changed my mind'
+        def buyer = new com.sboxmarket.model.SteamUser(
+            id: 10L, displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        def seller = new com.sboxmarket.model.SteamUser(
+            id: 20L, displayName: 'Bob',
+            email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        steamUserRepository.findById(20L) >> Optional.of(seller)
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then:
+        // Buyer gets the 'buyer' role in the email helper.
+        1 * emailService.sendTradeCancelled('alice@example.com', 'Alice', 'Wizard Hat', 'changed my mind', 'buyer', 1L)
+        1 * emailService.sendTradeCancelled('bob@example.com',   'Bob',   'Wizard Hat', 'changed my mind', 'seller', 1L)
     }
 
     def "cancel by a non-participant requires admin authorization"() {
@@ -274,6 +574,130 @@ class TradeServiceSpec extends Specification {
 
         then:
         thrown(BadRequestException)
+    }
+
+    def "cancel blocks buyer self-cancel after seller marks sent — anti-theft (batch 326)"() {
+        // Trade in PENDING_BUYER_CONFIRM: seller says they sent the
+        // Steam offer. If buyer could cancel now, they'd pocket the
+        // Steam-delivered item AND get their money refunded.
+        given:
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        tradeRepository.findById(_) >> Optional.of(t)
+
+        when:
+        // Buyer (id 10) tries to cancel.
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'BUYER_CANT_CANCEL_AFTER_SENT'
+        // Trade is untouched — no refund, no state flip.
+        t.state == 'PENDING_BUYER_CONFIRM'
+    }
+
+    def "cancel still allows SELLER self-cancel after marking sent (they may want to take it back before buyer confirms)"() {
+        // Sellers aren't affected by the anti-theft guard — they can
+        // still cancel their own trade (which would refund the buyer).
+        // Why this is acceptable: a seller cancel at PENDING_BUYER_CONFIRM
+        // with the item already shipped is self-harm (they lose both
+        // money + item), not theft.
+        given:
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        // Seller (id 20) cancels.
+        service.cancel(20L, 1L, 'buyer never responded')
+
+        then:
+        // Allowed — state flips to CANCELLED, buyer refunded.
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal("50.00")
+    }
+
+    def "adminRelease bypasses the buyer ban guard (batch 327)"() {
+        // Before batch 327, admin force-release routed through
+        // buyerConfirm which called banGuard.assertNotBanned(buyer).
+        // That meant a banned buyer's trade was stuck — admin couldn't
+        // release it to pay the (honest) seller. adminRelease skips
+        // the buyer ban guard entirely.
+        given:
+        def t = tradeIn('DISPUTED')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def sellerWallet = new Wallet(id: 600L, balance: BigDecimal.ZERO, currency: 'USD')
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        // Admin ID 999 — adminAuthorization passes.
+        adminAuthorization.requireAdmin(999L) >> {}
+
+        when:
+        // Even if ban-guard would fail for the buyer, admin path doesn't
+        // invoke it. Proving by NOT setting up banGuard.assertNotBanned.
+        service.adminRelease(999L, 1L, 'CSR release: seller honored trade despite banned buyer')
+
+        then:
+        // banGuard was never consulted for the buyer.
+        0 * banGuard.assertNotBanned(_)
+        // Trade is now VERIFIED; seller paid.
+        t.state == 'VERIFIED'
+        sellerWallet.balance > BigDecimal.ZERO
+    }
+
+    def "adminRelease rejects terminal states"() {
+        given:
+        tradeRepository.findById(_) >> Optional.of(tradeIn('VERIFIED'))
+        adminAuthorization.requireAdmin(999L) >> {}
+
+        when:
+        service.adminRelease(999L, 1L, 'already done')
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "adminRelease requires admin authorization"() {
+        given:
+        tradeRepository.findById(_) >> Optional.of(tradeIn('DISPUTED'))
+        adminAuthorization.requireAdmin(999L) >> { throw new ForbiddenException('not admin') }
+
+        when:
+        service.adminRelease(999L, 1L, 'not allowed')
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "cancel still allows admin cancel in PENDING_BUYER_CONFIRM (CSR stuck-trade cleanup)"() {
+        given:
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        // User 999 isn't the buyer (10) or seller (20) → admin path.
+        adminAuthorization.requireAdmin(999L) >> {}
+
+        when:
+        service.cancel(999L, 1L, 'confirmed fraud on seller side')
+
+        then:
+        t.state == 'CANCELLED'
     }
 
     // ── 404 wrap ──────────────────────────────────────────────────
@@ -473,6 +897,47 @@ class TradeServiceSpec extends Specification {
         2 * transactionRepository.save({ Transaction tx -> tx.type == 'SALE' })
     }
 
+    def "sweepPendingConfirm emails the buyer on auto-release (batch 601)"() {
+        given:
+        def stale = tradeIn('PENDING_BUYER_CONFIRM', [id: 5L])
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal("0"))
+        def buyer = new com.sboxmarket.model.SteamUser(id: 10L, steamId64: '111',
+            displayName: 'Alice', email: 'alice@example.com',
+            emailVerified: true, emailNotificationsEnabled: true)
+        tradeRepository.findPendingConfirmOlderThan(_) >> [stale]
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        emailService.canSendTo(buyer, 'TRADES') >> true
+
+        when:
+        service.sweepPendingConfirm()
+
+        then:
+        1 * emailService.sendTradeAutoReleased('alice@example.com', 'Alice',
+            'Wizard Hat', 5L)
+    }
+
+    def "buyerConfirm does NOT fire the auto-release email — manual path (batch 601)"() {
+        given:
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 6L])
+        def sellerWallet = new Wallet(id: 600L, balance: new BigDecimal("0"))
+        tradeRepository.findById(6L) >> Optional.of(t)
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.save(_) >> { Wallet w -> w }
+
+        when:
+        service.buyerConfirm(10L, 6L)
+
+        then:
+        // Manual confirm path must never call sendTradeAutoReleased —
+        // the buyer is actively on the site confirming, so an email
+        // would be noise.
+        0 * emailService.sendTradeAutoReleased(*_)
+    }
+
     def "sweepPendingConfirm keeps going even if one release throws"() {
         given:
         def good = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L])
@@ -493,5 +958,452 @@ class TradeServiceSpec extends Specification {
         // The second trade still gets processed despite the first blowing up.
         good.state == 'VERIFIED'
         noExceptionThrown()
+    }
+
+    // ── sweepStaleSellerResponse (seller-timeout refund) ──────────
+
+    def "sweepStaleSellerResponse refunds the buyer and flips to CANCELLED for stale seller-pending trades"() {
+        given:
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"))
+        def stale = tradeIn('PENDING_SELLER_ACCEPT', [id: 77L])
+        tradeRepository.findStaleSellerPending(_) >> [stale]
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        textSanitizer.medium(_) >> { String s -> s ?: '' }
+
+        when:
+        service.sweepStaleSellerResponse()
+
+        then:
+        stale.state == 'CANCELLED'
+        // Buyer wallet is refunded by trade.price ($50 default).
+        buyerWallet.balance == new BigDecimal("50.00")
+        // Both sides get a TRADE_CANCELLED notification.
+        1 * notificationService.safePush(10L, 'TRADE_CANCELLED', _, _, 77L, '/profile?tab=trades')
+        1 * notificationService.safePush(20L, 'TRADE_CANCELLED', _, _, 77L, '/profile?tab=trades')
+    }
+
+    def "sweepStaleSellerResponse uses the sellerResponseDays cutoff"() {
+        given:
+        Long captured = null
+        tradeRepository.findStaleSellerPending(_) >> { args -> captured = args[0] as Long; [] }
+
+        when:
+        service.sweepStaleSellerResponse()
+
+        then:
+        captured != null
+        // 3 days (our default) behind now, ~5s slop for CI.
+        def expected = System.currentTimeMillis() - (3L * 24L * 60L * 60L * 1000L)
+        Math.abs(captured - expected) < 5000L
+    }
+
+    def "sweepStaleSellerResponse is a no-op when the repository returns empty"() {
+        given:
+        tradeRepository.findStaleSellerPending(_) >> []
+
+        when:
+        service.sweepStaleSellerResponse()
+
+        then:
+        0 * walletRepository.save(_)
+        0 * tradeRepository.save(_)
+    }
+
+    // ── expiresAt decoration (Visual Manual §29) ──────────────────
+
+    def "listForUserWithCounterparty decorates PENDING_SELLER_ACCEPT with expiresAt = updatedAt + sellerResponseDays"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_ACCEPT', [id: 1L])
+        t.updatedAt = 1_700_000_000_000L
+        tradeRepository.findByParticipantPaged(20L, _) >> [t]
+
+        when:
+        def rows = service.listForUserWithCounterparty(20L)
+
+        then:
+        rows.size() == 1
+        // 3 days past updatedAt, per the service's default sellerResponseDays config.
+        rows[0].expiresAt == 1_700_000_000_000L + (3L * 24L * 60L * 60L * 1000L)
+        rows[0].state == 'PENDING_SELLER_ACCEPT'
+    }
+
+    def "listForUserWithCounterparty decorates PENDING_BUYER_CONFIRM with expiresAt = updatedAt + autoReleaseDays"() {
+        given:
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 2L])
+        t.updatedAt = 1_700_000_000_000L
+        tradeRepository.findByParticipantPaged(10L, _) >> [t]
+
+        when:
+        def rows = service.listForUserWithCounterparty(10L)
+
+        then:
+        // 8 days past updatedAt, per the service's default autoReleaseDays config.
+        rows[0].expiresAt == 1_700_000_000_000L + (8L * 24L * 60L * 60L * 1000L)
+    }
+
+    def "listForUserWithCounterparty decorates each row with unreadCount via the bulk query"() {
+        given:
+        // Wire the optional deps the existing spec doesn't construct
+        // by default — the unread-count branch only fires when both
+        // tradeMessageRepository AND steamUserRepository are present.
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        def userRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.tradeMessageRepository = msgRepo
+        service.steamUserRepository    = userRepo
+        userRepo.findAllById(_) >> []
+        def t1 = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L])
+        def t2 = tradeIn('PENDING_SELLER_SEND',   [id: 2L])
+        tradeRepository.findByParticipantPaged(10L, _) >> [t1, t2]
+        // Use `_` for the args because the order/typing of the Long
+        // list members can vary across Groovy boxing paths and Spock's
+        // strict-equality matcher rejects List<Object> vs List<Long>
+        // mismatches that aren't visible at the source level.
+        msgRepo.countUnreadBulk(_, 10L) >> [
+            [1L, 3L] as Object[]
+            // Trade #2 has zero unread — repo returns nothing for it.
+        ]
+
+        when:
+        def rows = service.listForUserWithCounterparty(10L)
+
+        then:
+        rows.find { it.id == 1L }.unreadCount == 3L
+        rows.find { it.id == 2L }.unreadCount == 0L
+    }
+
+    def "listForUserWithCounterparty decorates each row with truncated lastMessage preview"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        def userRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.tradeMessageRepository = msgRepo
+        service.steamUserRepository    = userRepo
+        userRepo.findAllById(_) >> []
+        def t1 = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L])
+        tradeRepository.findByParticipantPaged(10L, _) >> [t1]
+        msgRepo.countUnreadBulk(_, 10L) >> []
+        // 100-char body — server truncates to 77 + "…" per the V37
+        // batch 283 contract.
+        def longBody = 'x' * 100
+        msgRepo.findNewestPerTrade(_) >> [
+            new com.sboxmarket.model.TradeMessage(
+                id: 5L, tradeId: 1L, senderUserId: 20L,
+                body: longBody, createdAt: 1_700_000_000_000L)
+        ]
+
+        when:
+        def rows = service.listForUserWithCounterparty(10L)
+
+        then:
+        rows[0].lastMessage != null
+        rows[0].lastMessage.body == ('x' * 77) + '…'
+        rows[0].lastMessage.senderUserId == 20L
+        rows[0].lastMessage.createdAt == 1_700_000_000_000L
+    }
+
+    def "listForUserWithCounterparty leaves lastMessage null when no chat history exists"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        def userRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.tradeMessageRepository = msgRepo
+        service.steamUserRepository    = userRepo
+        userRepo.findAllById(_) >> []
+        tradeRepository.findByParticipantPaged(10L, _) >> [tradeIn('PENDING_BUYER_CONFIRM')]
+        msgRepo.countUnreadBulk(_, 10L) >> []
+        msgRepo.findNewestPerTrade(_) >> []
+
+        when:
+        def rows = service.listForUserWithCounterparty(10L)
+
+        then:
+        rows[0].lastMessage == null
+    }
+
+    def "listForUserWithCounterparty unreadCount is 0 when tradeMessageRepository is unwired"() {
+        given:
+        // Default: service.tradeMessageRepository = null (not assigned).
+        service.tradeMessageRepository = null
+        tradeRepository.findByParticipantPaged(10L, _) >> [tradeIn('PENDING_BUYER_CONFIRM')]
+
+        when:
+        def rows = service.listForUserWithCounterparty(10L)
+
+        then:
+        rows.size() == 1
+        rows[0].unreadCount == 0L
+    }
+
+    def "listForUserWithCounterparty leaves expiresAt null for terminal states"() {
+        given:
+        def verified  = tradeIn('VERIFIED',  [id: 3L]); verified.updatedAt  = 1_700_000_000_000L
+        def cancelled = tradeIn('CANCELLED', [id: 4L]); cancelled.updatedAt = 1_700_000_000_000L
+        def disputed  = tradeIn('DISPUTED',  [id: 5L]); disputed.updatedAt  = 1_700_000_000_000L
+        tradeRepository.findByParticipantPaged(_, _) >> [verified, cancelled, disputed]
+
+        when:
+        def rows = service.listForUserWithCounterparty(20L)
+
+        then:
+        rows.every { it.expiresAt == null }
+    }
+
+    // ── Review nudge sweeper (batch 284) ────────────────────────────
+
+    def "sweepReviewNudge pushes a follow-up REVIEW_REMINDER and stamps reviewNudgeSentAt"() {
+        given:
+        def trade = tradeIn('VERIFIED', [id: 7L, buyer: 10L, seller: 20L])
+        trade.settledAt = System.currentTimeMillis() - (60L * 3600_000L)  // 60h since clear
+        tradeRepository.findReviewNudgeCandidates(_) >> [trade]
+        tradeRepository.save(_) >> { Trade t -> t }
+
+        when:
+        service.sweepReviewNudge()
+
+        then:
+        1 * notificationService.push(10L, 'REVIEW_REMINDER', _, _, 7L,
+            { it as String == '/stall/20' || it.toString() == '/stall/20' })
+        trade.reviewNudgeSentAt != null
+    }
+
+    def "sweepReviewNudge is a silent no-op when nothing past the 48h cutoff"() {
+        given:
+        tradeRepository.findReviewNudgeCandidates(_) >> []
+
+        when:
+        service.sweepReviewNudge()
+
+        then:
+        0 * notificationService.push(_, 'REVIEW_REMINDER', _, _, _, _)
+        0 * tradeRepository.save(_)
+    }
+
+    def "sweepReviewNudge queries with a 48h-ago cutoff"() {
+        given:
+        Long captured = null
+        tradeRepository.findReviewNudgeCandidates(_) >> { args -> captured = args[0] as Long; [] }
+
+        when:
+        service.sweepReviewNudge()
+
+        then:
+        captured != null
+        // 48h behind now, give a 5s slop window for spec scheduling.
+        def expected = System.currentTimeMillis() - (48L * 3600_000L)
+        Math.abs(captured - expected) < 5000L
+    }
+
+    def "sweepReviewNudge swallows per-row push exceptions"() {
+        given:
+        def t1 = tradeIn('VERIFIED', [id: 7L, buyer: 10L])
+        def t2 = tradeIn('VERIFIED', [id: 8L, buyer: 11L])
+        t1.settledAt = System.currentTimeMillis() - (60L * 3600_000L)
+        t2.settledAt = System.currentTimeMillis() - (60L * 3600_000L)
+        tradeRepository.findReviewNudgeCandidates(_) >> [t1, t2]
+        tradeRepository.save(_) >> { Trade t -> t }
+        steamUserRepository.findAllById(_) >> []
+        notificationService.push(_, 'REVIEW_REMINDER', _, _, 7L, _) >> { throw new RuntimeException('push down') }
+
+        when:
+        service.sweepReviewNudge()
+
+        then:
+        // Both attempted.
+        1 * notificationService.push(_, 'REVIEW_REMINDER', _, _, 8L, _)
+        // Batch 329 changed the stamp ordering: we stamp BEFORE the
+        // push so a failing push doesn't make the sweeper retry the
+        // same row every 24h forever. Both rows end stamped now.
+        t1.reviewNudgeSentAt != null
+        t2.reviewNudgeSentAt != null
+    }
+
+    // ── Trade-chat deep-link path ───────────────────────────────────
+
+    // ── Slow-seller warning sweeper (batch 278) ─────────────────────
+
+    def "sweepSlowSellerWarning pushes TRADE_SLOW_SELLER and stamps slowSellerWarnedAt"() {
+        given:
+        def trade = tradeIn('PENDING_SELLER_SEND', [id: 7L])
+        trade.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)  // 30h idle
+        tradeRepository.findSlowSellerUnwarned(_) >> [trade]
+        tradeRepository.save(_) >> { Trade t -> t }
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then:
+        // Buyer (10L per the helper default) is the one warned.
+        1 * notificationService.push(10L, 'TRADE_SLOW_SELLER', _, _, 7L,
+            '/profile?tab=trades&openChat=7')
+        trade.slowSellerWarnedAt != null
+        // Stamped so the next sweep tick won't re-push.
+        trade.slowSellerWarnedAt > 0L
+    }
+
+    def "sweepSlowSellerWarning is a silent no-op when nothing is past the 24h cutoff"() {
+        given:
+        tradeRepository.findSlowSellerUnwarned(_) >> []
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then:
+        0 * notificationService.push(_, 'TRADE_SLOW_SELLER', _, _, _, _)
+        0 * tradeRepository.save(_)
+    }
+
+    def "sweepSlowSellerWarning queries with a 24h-ago cutoff"() {
+        given:
+        Long captured = null
+        tradeRepository.findSlowSellerUnwarned(_) >> { args -> captured = args[0] as Long; [] }
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then:
+        captured != null
+        // 24h behind now — give a 5s slop window for spec scheduling jitter.
+        def expected = System.currentTimeMillis() - (24L * 3600_000L)
+        Math.abs(captured - expected) < 5000L
+    }
+
+    def "sweepSlowSellerWarning swallows per-row push exceptions"() {
+        given:
+        def t1 = tradeIn('PENDING_SELLER_SEND', [id: 7L])
+        def t2 = tradeIn('PENDING_SELLER_ACCEPT', [id: 8L])
+        t1.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
+        t2.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
+        tradeRepository.findSlowSellerUnwarned(_) >> [t1, t2]
+        tradeRepository.save(_) >> { Trade t -> t }
+        steamUserRepository.findAllById(_) >> []
+        // First push throws, second succeeds — sweeper must continue.
+        notificationService.push(_, 'TRADE_SLOW_SELLER', _, _, 7L, _) >> { throw new RuntimeException('push down') }
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then:
+        // Both trades attempted.
+        1 * notificationService.push(_, 'TRADE_SLOW_SELLER', _, _, 8L, _)
+        // Batch 329 changed the stamp ordering: stamp BEFORE push so a
+        // flaky push doesn't retry every hour forever. Both stamped.
+        t1.slowSellerWarnedAt != null
+        t2.slowSellerWarnedAt != null
+    }
+
+    def "sweepSlowSellerWarning ALSO pushes TRADE_SELLER_NUDGE to the seller (batch 563)"() {
+        given:
+        def trade = tradeIn('PENDING_SELLER_SEND', [id: 9L, buyer: 10L, seller: 20L])
+        trade.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
+        tradeRepository.findSlowSellerUnwarned(_) >> [trade]
+        tradeRepository.save(_) >> { Trade t -> t }
+        // Seller exists + not banned so the nudge fires.
+        steamUserRepository.findById(20L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 20L, banned: false))
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then: "buyer gets the existing warning"
+        1 * notificationService.push(10L, 'TRADE_SLOW_SELLER', _, _, 9L,
+            '/profile?tab=trades&openChat=9')
+        and: "seller gets the new nudge with matching deep-link"
+        1 * notificationService.push(20L, 'TRADE_SELLER_NUDGE', _, _, 9L,
+            '/profile?tab=trades&openChat=9')
+    }
+
+    def "sweepSlowSellerWarning skips the seller nudge when the seller is banned"() {
+        given:
+        def trade = tradeIn('PENDING_SELLER_ACCEPT', [id: 11L, buyer: 10L, seller: 20L])
+        trade.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
+        tradeRepository.findSlowSellerUnwarned(_) >> [trade]
+        tradeRepository.save(_) >> { Trade t -> t }
+        steamUserRepository.findById(20L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 20L, banned: true))
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then: "buyer still gets the warning"
+        1 * notificationService.push(10L, 'TRADE_SLOW_SELLER', _, _, 11L, _)
+        and: "but no nudge fires for the banned seller"
+        0 * notificationService.push(20L, 'TRADE_SELLER_NUDGE', _, _, _, _)
+    }
+
+    // ── Read receipts (batch 280) ──────────────────────────────────
+
+    def "listMessages marks incoming messages read for the viewing participant"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        service.tradeMessageRepository = msgRepo
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 7L, buyer: 10L, seller: 20L])
+        tradeRepository.findById(7L) >> Optional.of(t)
+        msgRepo.findByTradeRecent(7L, _) >> []
+        // Buyer (10L) opens the thread — the seller's (20L) messages
+        // should get marked read; the buyer's own messages are NOT
+        // touched.
+        when:
+        service.listMessages(7L, 10L)
+
+        then:
+        // Mark-read fires with the viewer's uid so the repo's
+        // <> :viewerId clause excludes the viewer's own outbound rows.
+        1 * msgRepo.markIncomingRead(7L, 10L, _) >> 0
+    }
+
+    def "listMessages does NOT mark-as-read for an admin spectator"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        service.tradeMessageRepository = msgRepo
+        adminAuthorization.isAdmin(_) >> true   // admin spectator
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 7L, buyer: 10L, seller: 20L])
+        tradeRepository.findById(7L) >> Optional.of(t)
+        msgRepo.findByTradeRecent(7L, _) >> []
+
+        when:
+        service.listMessages(7L, 999L)   // non-participant admin
+
+        then:
+        // Admin reads must not flip the read state — preserves the
+        // forensic "did the buyer ever open this?" signal.
+        0 * msgRepo.markIncomingRead(_, _, _)
+    }
+
+    def "listMessages swallows mark-read failures and still returns the thread"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        service.tradeMessageRepository = msgRepo
+        def t = tradeIn('PENDING_BUYER_CONFIRM', [id: 7L, buyer: 10L, seller: 20L])
+        def msg = new com.sboxmarket.model.TradeMessage(
+            id: 1L, tradeId: 7L, senderUserId: 20L, body: 'hi')
+        tradeRepository.findById(7L) >> Optional.of(t)
+        msgRepo.markIncomingRead(7L, 10L, _) >> { throw new RuntimeException('db down') }
+        msgRepo.findByTradeRecent(7L, _) >> [msg]
+
+        when:
+        def out = service.listMessages(7L, 10L)
+
+        then:
+        out.size() == 1
+        // No exception bubbles — the user still sees the thread.
+        noExceptionThrown()
+    }
+
+    def "postMessage pushes TRADE_MESSAGE with ?openChat=<tradeId> deep-link"() {
+        given:
+        def msgRepo = Mock(com.sboxmarket.repository.TradeMessageRepository)
+        service.tradeMessageRepository = msgRepo
+        def t = tradeIn('PENDING_SELLER_SEND', [id: 7L])
+        tradeRepository.findById(7L) >> Optional.of(t)
+        textSanitizer.clean('hello', 2000) >> 'hello'
+        msgRepo.countBySenderUserIdAndCreatedAtGreaterThan(_, _) >> 0L
+        msgRepo.save(_) >> { com.sboxmarket.model.TradeMessage m -> m }
+
+        when:
+        // Seller (20L) posts, counterparty is buyer (10L) — the push must
+        // carry the openChat deep-link so the buyer's notification bell
+        // lands them on the exact trade's chat panel.
+        service.postMessage(7L, 20L, 'hello')
+
+        then:
+        1 * notificationService.push(10L, 'TRADE_MESSAGE', _, _, 7L, '/profile?tab=trades&openChat=7')
     }
 }

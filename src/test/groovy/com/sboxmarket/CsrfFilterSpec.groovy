@@ -38,11 +38,46 @@ class CsrfFilterSpec extends Specification {
 
         then:
         1 * chain.doFilter(req, resp)
-        def cookie = resp.getCookie('sbox_csrf')
-        cookie != null
-        cookie.value.length() > 20
-        cookie.path == '/'
-        cookie.maxAge == 7 * 24 * 60 * 60
+        // Batch 959 — cookie is set via a raw Set-Cookie header so we can
+        // pin SameSite=Lax (the Servlet 5 Cookie API has no first-class
+        // SameSite setter). Assert against the header string.
+        def setCookie = resp.getHeader('Set-Cookie')
+        setCookie != null
+        setCookie.startsWith('sbox_csrf=')
+        setCookie.contains('Path=/')
+        setCookie.contains('Max-Age=' + (7 * 24 * 60 * 60))
+        setCookie.contains('SameSite=Lax')
+        // Token value is long + URL-safe base64.
+        def token = setCookie.split(';')[0].substring('sbox_csrf='.length())
+        token.length() > 20
+    }
+
+    def "SameSite=Lax is set on the planted csrf cookie (batch 959 regression)"() {
+        given:
+        // Browsers default an unset SameSite to Lax, but relying on
+        // browser defaults for a security-critical cookie is a footgun.
+        // Pin the attribute explicitly.
+        def req = new MockHttpServletRequest('GET', '/api/listings')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Set-Cookie')?.contains('SameSite=Lax')
+    }
+
+    def "Secure attribute tracks secureCookie config flag"() {
+        given:
+        def secureFilter = new CsrfFilter(enabled: true, secureCookie: true)
+        def req = new MockHttpServletRequest('GET', '/api/listings')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        secureFilter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Set-Cookie')?.contains('Secure')
     }
 
     def "GET requests are never CSRF-checked, even without a token header"() {
@@ -119,6 +154,24 @@ class CsrfFilterSpec extends Specification {
         resp.status == 200
     }
 
+    def "POST to /api/client-errors is exempt (batch 688) — no CSRF check"() {
+        given:
+        // Crash-reporting endpoint needs to accept POSTs even when the
+        // cookie-parse side of the ErrorBoundary hasn't run yet. Worst-
+        // case abuse is a noisy log line, not a privilege escalation,
+        // so the exemption is intentional.
+        def req = new MockHttpServletRequest('POST', '/api/client-errors')
+        // No CSRF cookie, no X-CSRF-Token header at all.
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * chain.doFilter(req, resp)
+        resp.status == 200
+    }
+
     def "Bearer header must NOT bypass CSRF — bug #25 regression guard"() {
         given:
         // The old code treated `Authorization: Bearer …` as a machine-to-
@@ -139,6 +192,31 @@ class CsrfFilterSpec extends Specification {
         0 * chain.doFilter(_, _)
         resp.status == 403
         resp.contentAsString.contains('"code":"CSRF_MISMATCH"')
+    }
+
+    def "sbox.apiAuth attribute bypasses the double-submit check (batch 676 bearer-auth)"() {
+        given:
+        // ApiKeyAuthFilter (Order 2) has already validated a real
+        // sbx_live_… bearer token and marked the request as api-
+        // authenticated. CsrfFilter then runs at Order 3 and must
+        // skip the double-submit CSRF check — a bearer caller has no
+        // session cookie to pair with an X-CSRF-Token header, and
+        // possession of the token IS the auth factor. Critical that
+        // the bypass only fires on the validated attribute, NOT on a
+        // raw Bearer header (see the sibling regression test — bug #25).
+        def req = new MockHttpServletRequest('POST', '/api/listings/42/buy')
+        req.setCookies(new Cookie('sbox_csrf', 'tok-abc-123'))
+        req.setAttribute('sbox.apiAuth', Boolean.TRUE)
+        // Deliberately NO X-CSRF-Token header — the api-auth bypass
+        // should make that irrelevant.
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * chain.doFilter(req, resp)
+        resp.status == 200
     }
 
     def "disabling the filter short-circuits every check"() {

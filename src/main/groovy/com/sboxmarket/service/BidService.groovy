@@ -1,5 +1,6 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.event.AuctionBidPlacedEvent
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
@@ -14,6 +15,7 @@ import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -47,8 +49,42 @@ class BidService {
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) TradeService tradeService
     @Autowired(required = false) com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository
+    @Autowired(required = false) PriceHistoryService priceHistoryService
+    @Autowired(required = false) com.sboxmarket.repository.ItemRepository itemRepository
     @Autowired BanGuard banGuard
     @Autowired TextSanitizer textSanitizer
+    /**
+     * Spring event publisher — drives AuctionEventBus SSE fan-out after
+     * the transaction commits. `required = false` so Spock specs that
+     * construct this service via property map don't need to mock it.
+     */
+    @Autowired(required = false) ApplicationEventPublisher applicationEventPublisher
+
+    /**
+     * Fire an AuctionBidPlacedEvent for the current listing state. Call
+     * this after every listing-state mutation in placeBid / buyNowAuction
+     * that clients should see in real time. The AuctionEventBus listener
+     * is wired for phase=AFTER_COMMIT, so this is safe to call mid-
+     * transaction — the event only fans out once the DB write durably
+     * lands.
+     */
+    private void publishBidEvent(Listing listing, String kind) {
+        if (applicationEventPublisher == null || listing == null || listing.id == null) return
+        try {
+            applicationEventPublisher.publishEvent(new AuctionBidPlacedEvent(
+                listing.id,
+                kind,
+                listing.currentBid,
+                listing.currentBidderId,
+                listing.currentBidderName,
+                listing.bidCount,
+                listing.expiresAt,
+                listing.status
+            ))
+        } catch (Exception e) {
+            log.warn("Auction bid event publish failed for listing ${listing.id}: ${e.message}")
+        }
+    }
 
     @Transactional
     Bid placeBid(Long bidderUserId, String bidderName, Long listingId,
@@ -63,6 +99,14 @@ class BidService {
         if (listing.status != 'ACTIVE') {
             throw new BadRequestException("NOT_ACTIVE", "Listing is not active")
         }
+        // Hidden auctions are invisible to the grid but the listing id
+        // is stable. Reject bids on hidden rows so a cached client or a
+        // crafted /api/bids POST can't inflate an auction the seller
+        // has pulled off-market. Mirrors the same guard added to
+        // PurchaseService.buy + OfferService.makeOffer in batch 308.
+        if (Boolean.TRUE.equals(listing.hidden)) {
+            throw new BadRequestException("NOT_ACTIVE", "Listing is not active")
+        }
         if (listing.listingType != 'AUCTION') {
             throw new BadRequestException("NOT_AUCTION", "Listing is not an auction")
         }
@@ -71,6 +115,64 @@ class BidService {
         }
         if (listing.sellerUserId != null && listing.sellerUserId == bidderUserId) {
             throw new ForbiddenException("Cannot bid on your own auction")
+        }
+        // Same buyer-trade-URL gate as PurchaseService + OfferService — when
+        // an auction settles the winner's bid is auto-debited via the usual
+        // P2P escrow flow; the seller needs the winner's Steam trade URL to
+        // send the item. Enforce at bid time so the bidder fixes profile
+        // now rather than winning an auction they can't receive. System
+        // auctions (no sellerUserId) skip this — they resolve in-platform.
+        if (listing.sellerUserId != null) {
+            def traderOpt = steamUserRepository?.findById(bidderUserId)
+            def trader = traderOpt != null ? traderOpt.orElse(null) : null
+            if (trader != null && !trader.tradeUrl?.trim()) {
+                throw new BadRequestException("TRADE_URL_MISSING",
+                    "Set your Steam trade URL in Profile before bidding — the seller needs it to send the item if you win.")
+            }
+        }
+        // Solvency check at bid time — close a grief loophole where a user
+        // with $0 balance could spam high bids to scare real buyers away,
+        // then lose the auction silently at settle-time. We don't lock the
+        // funds (that would block cross-auction bidding), just verify the
+        // bidder CURRENTLY has enough to honor the bid (or their auto-bid
+        // ceiling if one is set). Settle-time still does its own balance
+        // check as a belt-and-braces second pass.
+        def bidderOpt = steamUserRepository.findById(bidderUserId)
+        def bidderUser = (bidderOpt != null) ? bidderOpt.orElse(null) : null
+        if (bidderUser != null && bidderUser.steamId64 != null) {
+            def bidderWallet = walletRepository.findByUsername("steam_${bidderUser.steamId64}")
+            if (bidderWallet != null) {
+                // Wallet freeze gate (batch 510). Rejects at bid time so
+                // a frozen bidder doesn't win an auction they can't pay
+                // for — settle would fail on the WALLET_FROZEN check in
+                // PurchaseService.buy, orphaning the auction with no winner
+                // and wasting the seller's time.
+                if (Boolean.TRUE.equals(bidderWallet.frozen)) {
+                    throw new BadRequestException("WALLET_FROZEN",
+                        "Your wallet is frozen by staff" +
+                            (bidderWallet.frozenReason ? ": ${bidderWallet.frozenReason}" : '') +
+                            ". Open a support ticket to resolve.")
+                }
+                // Dispute-hold fail-early (batch 511). Same rationale as
+                // the wallet freeze check — an auction win that fails at
+                // settle-time orphans the auction. Refuse the bid
+                // upfront so the bidder knows to resolve the dispute
+                // first.
+                if (transactionRepository != null) {
+                    long disputed = transactionRepository.countActiveDisputedDeposits(bidderWallet.id)
+                    if (disputed > 0L) {
+                        throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                            "Bidding is paused while you have ${disputed} unresolved deposit " +
+                            "dispute${disputed == 1 ? '' : 's'} on file.")
+                    }
+                }
+                def requiredBalance = (maxAmount != null && maxAmount > amount) ? maxAmount : amount
+                if (bidderWallet.balance == null || bidderWallet.balance < requiredBalance) {
+                    throw new BadRequestException("INSUFFICIENT_BALANCE",
+                        "You need at least \$${requiredBalance.toPlainString()} in your wallet to place this bid — " +
+                        "deposit first. Your current balance: \$${(bidderWallet.balance ?: BigDecimal.ZERO).toPlainString()}")
+                }
+            }
         }
         // First bid floor = listing.price (matches starting price exactly).
         // Every subsequent bid must clear the current top bid by at least
@@ -95,9 +197,17 @@ class BidService {
 
         def kind = (maxAmount != null && maxAmount > amount) ? 'AUTO' : 'MANUAL'
 
-        // Outbid the previous top bidder
+        // Outbid the previous top bidder (if any). Look up their
+        // most-recent bid on this listing so we can decide whether an
+        // auto-bid bot re-raise should fire before we write out the
+        // outbid notification.
         def previousTopId = listing.currentBidderId
         def previousAmount = listing.currentBid
+        Bid previousTopBid = null
+        if (previousTopId != null && previousTopId != bidderUserId) {
+            previousTopBid = bidRepository.findByListing(listingId)
+                .find { it.bidderUserId == previousTopId }
+        }
 
         def bid = new Bid(
             listingId:     listingId,
@@ -134,6 +244,118 @@ class BidService {
         listingRepository.save(listing)
 
         if (previousTopId != null && previousTopId != bidderUserId) {
+            // Auto-bid bot resolution. eBay-style: each bidder has an
+            // "effective max" (maxAmount if AUTO, otherwise their amount).
+            // The winner is whoever has the higher max; the winning price
+            // is one increment above the loser's max. Handles all four
+            // cases in one pass:
+            //   A AUTO, B AUTO  — higher cap wins at loser_cap + INC
+            //   A AUTO, B MANUAL — if A_cap > B_amount, A bot-raises to
+            //                      B_amount + INC and B is outbid
+            //   A MANUAL, B AUTO — if B_cap > A_amount (which it must be
+            //                      since amount >= A_amount + INC), B
+            //                      auto-raises to A_amount + INC (no-op,
+            //                      already landed above the floor)
+            //   A MANUAL, B MANUAL — no bot fires, B wins at amount
+            def aMax = (previousTopBid?.kind == 'AUTO' && previousTopBid?.maxAmount != null)
+                ? previousTopBid.maxAmount
+                : (previousAmount ?: BigDecimal.ZERO)
+            def bMax = (maxAmount != null && maxAmount > amount) ? maxAmount : amount
+
+            if (aMax > bMax) {
+                // Previous top wins via bot re-raise. Settle at one increment
+                // above B's cap, capped at A's own max.
+                def raised = (bMax + INCREMENT)
+                if (raised > aMax) raised = aMax
+                // Solvency re-check for the bot re-raise (batch 330). The
+                // bid-time solvency check covered A's original bid, but A's
+                // wallet can drop between their first AUTO bid and B's
+                // outbid (e.g. A bought something else). If A can't cover
+                // the raised amount right now, skip the bot re-raise — B
+                // wins at their submitted amount. Without this guard the
+                // auction re-settles at A's raised price and collapses at
+                // settle-time (the winner can't pay → item returns to the
+                // seller and B, who COULD pay, loses too).
+                if (previousTopId != null) {
+                    def prevOpt = steamUserRepository.findById(previousTopId)
+                    def prevUser = (prevOpt != null) ? prevOpt.orElse(null) : null
+                    def prevWallet = (prevUser?.steamId64 != null)
+                        ? walletRepository.findByUsername("steam_${prevUser.steamId64}")
+                        : null
+                    if (prevWallet != null && (prevWallet.balance == null || prevWallet.balance < raised)) {
+                        log.info("Auto-bid skipped for ${previousTopId} on listing ${listingId}: balance ${prevWallet?.balance} < raise \$${raised}")
+                        try {
+                            notificationService.push(previousTopId, 'AUCTION_OUTBID',
+                                "Auto-bid skipped — balance too low",
+                                "You were outbid on ${listing.item?.name ?: 'an auction'} and your auto-bid cap (\$${(previousTopBid?.maxAmount ?: BigDecimal.ZERO).toPlainString()}) couldn't fire because your wallet balance dropped below the next required bid (\$${raised.toPlainString()}). Top up to keep bidding.",
+                                listingId,
+                                listing.item?.id != null ? "/item/${listing.item.id}" : null)
+                        } catch (Exception e) {
+                            log.warn("Auto-bid skip notification failed for ${previousTopId}: ${e.message}")
+                        }
+                        publishBidEvent(listing, 'bid')
+                        return bid
+                    }
+                }
+                def botBid = new Bid(
+                    listingId:     listingId,
+                    bidderUserId:  previousTopId,
+                    bidderName:    previousTopBid.bidderName,
+                    amount:        raised,
+                    maxAmount:     previousTopBid.maxAmount,
+                    kind:          'AUTO',
+                    status:        'WINNING'
+                )
+                bidRepository.save(botBid)
+                listing.currentBid        = raised
+                listing.currentBidderId   = previousTopId
+                listing.currentBidderName = previousTopBid.bidderName
+                listing.bidCount          = (listing.bidCount ?: 0) + 1
+                listingRepository.save(listing)
+                try {
+                    notificationService.push(
+                        bidderUserId,
+                        'AUCTION_OUTBID',
+                        "Outbid on ${listing.item?.name} by auto-bid",
+                        "The previous top bidder's auto-cap out-raised you to \$${raised.toPlainString()}.",
+                        listingId,
+                        listing.item?.id != null ? "/item/${listing.item.id}" : null
+                    )
+                } catch (Exception e) {
+                    log.warn("Auto-bid outbid push failed for user ${bidderUserId}: ${e.message}")
+                }
+                log.info("Auto-bid: ${previousTopId} raised to \$${raised} (cap \$${previousTopBid.maxAmount}) on listing ${listingId}")
+                publishBidEvent(listing, 'bid')
+                return botBid
+            } else if (bMax > aMax && bMax > amount) {
+                // New bidder's auto-cap beats the previous top's max. Bot
+                // raises B on their own behalf to (aMax + INC) capped at bMax.
+                // Only fires when B actually needs a raise beyond their
+                // submitted amount — if B placed >= aMax already, their
+                // original bid stands and we fall through to the plain
+                // outbid notification below.
+                def raised = (aMax + INCREMENT)
+                if (raised > bMax) raised = bMax
+                if (raised > amount) {
+                    // Save a second bid from B at the higher level so
+                    // the history reflects the resolved win price.
+                    def botBid = new Bid(
+                        listingId:     listingId,
+                        bidderUserId:  bidderUserId,
+                        bidderName:    bidderName,
+                        amount:        raised,
+                        maxAmount:     maxAmount,
+                        kind:          'AUTO',
+                        status:        'WINNING'
+                    )
+                    bidRepository.save(botBid)
+                    listing.currentBid        = raised
+                    listing.bidCount          = (listing.bidCount ?: 0) + 1
+                    listingRepository.save(listing)
+                    log.info("Auto-bid: new bidder ${bidderUserId} raised to \$${raised} (cap \$${bMax}) on listing ${listingId}")
+                }
+                // A still gets the normal outbid ping — they lost cleanly.
+            }
             notificationService.push(
                 previousTopId,
                 'AUCTION_OUTBID',
@@ -147,9 +369,7 @@ class BidService {
             // might be over. Gated on emailVerified, silent-fail.
             try {
                 def prev = steamUserRepository.findById(previousTopId).orElse(null)
-                if (emailService != null && prev != null &&
-                        Boolean.TRUE.equals(prev.emailVerified) && prev.email &&
-                        Boolean.TRUE.equals(prev.emailNotificationsEnabled)) {
+                if (emailService != null && emailService.canSendTo(prev, 'AUCTIONS')) {
                     def itemUrl = listing.item?.id != null
                         ? "/item/${listing.item.id}".toString()
                         : null
@@ -161,6 +381,7 @@ class BidService {
             }
         }
 
+        publishBidEvent(listing, 'bid')
         bid
     }
 
@@ -207,6 +428,141 @@ class BidService {
 
     List<Bid> autoBidsForUser(Long userId) {
         bidRepository.findActiveAutoBidsForUser(userId)
+    }
+
+    /** All live (WINNING + OUTBID) bids for a user — drives the "Active Bids"
+     *  profile tab so users can see every auction they're still in without
+     *  having to remember each listing id. Enriches each row with itemId +
+     *  itemName so the UI can render "Wizard Hat" with a deep link instead
+     *  of a bare "Listing #N". Bulk-fetches the listings in one query to
+     *  avoid N+1 when the user has many active bids. */
+    List<Bid> liveBidsForUser(Long userId) {
+        def bids = bidRepository.findLiveBidsForUser(userId)
+        decorateWithListing(bids)
+    }
+
+    /** Past bids — WON, LOST, CANCELLED. Drives Profile → Bids → Past
+     *  sub-tab (batch 361). Capped at 100 most-recent so a power bidder
+     *  doesn't ship thousands of rows on every tab open. Enriched with
+     *  the same item fields as the live list so the UI is symmetric. */
+    List<Bid> pastBidsForUser(Long userId) {
+        def bids = bidRepository.findPastBidsForUser(userId,
+            org.springframework.data.domain.PageRequest.of(0, 100))
+        decorateWithListing(bids)
+    }
+
+    /** Shared listing enrichment — bulk-fetches listing rows so the UI
+     *  can render `itemName` + current state without an N+1 per bid. */
+    private List<Bid> decorateWithListing(List<Bid> bids) {
+        if (bids == null || bids.isEmpty()) return bids
+        def listingIds = bids*.listingId.unique()
+        def listingsById = listingRepository.findAllById(listingIds)
+            .collectEntries { [(it.id): it] }
+        bids.each { b ->
+            def l = listingsById[b.listingId]
+            if (l != null) {
+                b.itemId            = l.item?.id
+                b.itemName          = l.item?.name
+                b.listingExpiresAt  = l.expiresAt
+                b.listingCurrentBid = l.currentBid
+            }
+        }
+        bids
+    }
+
+    /**
+     * Auction Buy-Now (batch 371). Closes the auction immediately at
+     * `listing.buyNowPrice` and awards it to the caller. Reuses the
+     * existing `settle()` path so wallet charge + SOLD transition +
+     * trade-escrow open + losing-bidder notifications all go through
+     * the same machinery as a timer-driven auction close.
+     *
+     * Existing bidders get flipped to LOST with a dedicated
+     * AUCTION_LOST push explaining the buyer hit Buy Now (not an
+     * outbid) so the UX makes sense.
+     */
+    @Transactional
+    Listing buyNowAuction(Long buyerUserId, String buyerName, Long listingId) {
+        banGuard.assertNotBanned(buyerUserId)
+        buyerName = textSanitizer.cleanShort(buyerName)
+        def listing = listingRepository.findById(listingId)
+            .orElseThrow { new NotFoundException("Listing", listingId) }
+        if (listing.status != 'ACTIVE') {
+            throw new BadRequestException("NOT_ACTIVE", "Listing is not active")
+        }
+        if (Boolean.TRUE.equals(listing.hidden)) {
+            throw new BadRequestException("NOT_ACTIVE", "Listing is not active")
+        }
+        if (listing.listingType != 'AUCTION') {
+            throw new BadRequestException("NOT_AUCTION", "Listing is not an auction")
+        }
+        if (listing.buyNowPrice == null || listing.buyNowPrice <= BigDecimal.ZERO) {
+            throw new BadRequestException("NO_BUY_NOW",
+                "This auction doesn't have a Buy Now price set")
+        }
+        if (listing.expiresAt != null && System.currentTimeMillis() > listing.expiresAt) {
+            throw new BadRequestException("EXPIRED", "Auction has already ended")
+        }
+        if (listing.sellerUserId != null && listing.sellerUserId == buyerUserId) {
+            throw new ForbiddenException("You can't Buy Now your own auction")
+        }
+        // Wallet solvency — settle() runs its own check too, but a clean
+        // 409 here beats the generic "auction returned to seller" settle
+        // fallback when the buyer simply doesn't have the money.
+        def buyerUser = steamUserRepository.findById(buyerUserId).orElse(null)
+        if (buyerUser != null && buyerUser.steamId64 != null) {
+            def buyerWallet = walletRepository.findByUsername("steam_${buyerUser.steamId64}")
+            if (buyerWallet == null || buyerWallet.balance == null ||
+                    buyerWallet.balance < listing.buyNowPrice) {
+                throw new BadRequestException("INSUFFICIENT_BALANCE",
+                    "You need \$${listing.buyNowPrice.toPlainString()} in your wallet for Buy Now. " +
+                    "Current balance: \$${(buyerWallet?.balance ?: BigDecimal.ZERO).toPlainString()}")
+            }
+        }
+
+        // Snapshot existing bidders so we can notify them post-settle.
+        def existingBids = bidRepository.findByListing(listingId)
+        def losingBidders = new LinkedHashSet<Long>()
+        existingBids.each { b ->
+            if (b.bidderUserId != null && b.bidderUserId != buyerUserId &&
+                    b.status in ['WINNING', 'OUTBID']) {
+                losingBidders.add(b.bidderUserId as Long)
+            }
+        }
+        // Flip every existing bid to LOST — buy-now closes the auction
+        // so nobody else wins. Buyer's own prior bids (unlikely path but
+        // possible if they previously bid AND used Buy Now) are also
+        // flipped; settle() would replace currentBidderId anyway and the
+        // buyer's charge is at buyNowPrice, not their old bid.
+        existingBids.each { b ->
+            if (b.status in ['WINNING', 'OUTBID']) b.status = 'LOST'
+        }
+        if (!existingBids.isEmpty()) bidRepository.saveAll(existingBids)
+
+        // Override the listing so settle() awards it to the buyer at
+        // buyNowPrice with immediate expiry.
+        listing.currentBid        = listing.buyNowPrice
+        listing.currentBidderId   = buyerUserId
+        listing.currentBidderName = buyerName ?: ("Buyer_" + buyerUserId)
+        listing.expiresAt         = System.currentTimeMillis()
+
+        settle(listing)
+
+        // Notify losing bidders — distinct AUCTION_LOST body so they
+        // know it was Buy Now, not being outbid by a higher manual bid.
+        losingBidders.each { uid ->
+            try {
+                notificationService?.push(uid, 'AUCTION_LOST',
+                    "Auction ended · ${listing.item?.name ?: 'item'}",
+                    "${listing.currentBidderName} used Buy Now at \$${listing.buyNowPrice.toPlainString()}.",
+                    listingId,
+                    listing.item?.id != null ? "/item/${listing.item.id}" : null)
+            } catch (Exception e) {
+                log.warn("AUCTION_LOST (buy-now) push failed for user ${uid}: ${e.message}")
+            }
+        }
+        publishBidEvent(listing, 'buy-now')
+        listing
     }
 
     /**
@@ -305,6 +661,21 @@ class BidService {
                 .findAll { it != null }
                 .each { recipients.add(it as Long) }
         }
+        // Filter banned accounts — same bug class as batches 314/315.
+        // A banned user who had bid pre-ban or had a watchlist alert
+        // set should stop receiving AUCTION_ENDING pings since they
+        // can't act on them (banGuard rejects new bids). Bulk lookup
+        // is cheap: one query for all recipients, lose the banned.
+        if (!recipients.isEmpty()) {
+            try {
+                def users = steamUserRepository.findAllById(recipients)
+                def banned = users.findAll { Boolean.TRUE.equals(it.banned) }
+                    .collect { it.id }
+                if (!banned.isEmpty()) recipients.removeAll(banned)
+            } catch (Exception e) {
+                log.warn("AUCTION_ENDING banned-filter lookup failed: ${e.message}")
+            }
+        }
         if (!recipients.isEmpty()) {
             def itemName = listing.item?.name ?: 'an auction'
             def priceStr = listing.currentBid != null
@@ -322,6 +693,33 @@ class BidService {
                     log.warn("AUCTION_ENDING push failed for uid=${uid}: ${e.message}")
                 }
             }
+            // Email fan-out (batch 572). Bell pushes only reach users
+            // actively on the site during the 10-minute window; an
+            // email ping catches bidders / watchers who aren't. Gated
+            // on verified email + global notification pref + AUCTIONS
+            // bucket unmuted (so a heavy auction watcher can opt out
+            // without losing transactional trade emails). Uses the
+            // same steamUserRepository lookup the banned-filter just
+            // did, but re-fetched here to pick up email/verified fields.
+            if (emailService != null && steamUserRepository != null) {
+                try {
+                    def eligible = steamUserRepository.findAllById(recipients)
+                    def itemUrl = listing.item?.id != null ? "/item/${listing.item.id}".toString() : null
+                    def topBid  = listing.currentBid ?: listing.price ?: BigDecimal.ZERO
+                    eligible.each { u ->
+                        try {
+                            if (emailService.canSendTo(u, 'AUCTIONS')) {
+                                emailService.sendAuctionEnding(u.email, u.displayName,
+                                    itemName, topBid, (long) mins, itemUrl)
+                            }
+                        } catch (Exception inner) {
+                            log.warn("AUCTION_ENDING email failed for uid=${u.id}: ${inner.message}")
+                        }
+                    }
+                } catch (Exception outer) {
+                    log.warn("AUCTION_ENDING email fan-out failed: ${outer.message}")
+                }
+            }
         }
         listing.endingSoonNotified = true
         listingRepository.save(listing)
@@ -330,26 +728,90 @@ class BidService {
     @Transactional
     protected void settle(Listing listing) {
         if (listing.currentBidderId == null) {
-            // No bids — expire the listing quietly
-            listing.status = 'EXPIRED'
+            // No bids — return the item to the seller's inventory (mirrors
+            // SellService.cancelListing by flipping to SOLD + buyerUserId =
+            // sellerUserId so findOwnedBy picks it up) and ping the seller
+            // so they know the auction ran out silently. Without this the
+            // item was stuck: not in seller's inventory (no SOLD row), not
+            // on the marketplace (EXPIRED status), not listed under
+            // MyStall Active. The seller had no way to relist it.
+            listing.status = 'SOLD'
+            listing.buyerUserId = listing.sellerUserId
+            listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            if (listing.sellerUserId != null) {
+                try {
+                    notificationService.push(listing.sellerUserId,
+                        'AUCTION_EXPIRED_NO_BIDS',
+                        "Auction ended with no bids · ${listing.item?.name ?: 'your auction'}",
+                        "The item is back in your inventory — relist it at a different price or as Buy Now.",
+                        listing.id,
+                        '/sell')
+                } catch (Exception e) {
+                    log.warn("AUCTION_EXPIRED_NO_BIDS push failed for seller ${listing.sellerUserId}: ${e.message}")
+                }
+                fireAuctionExpiredEmail(listing,
+                    'No bids were placed before the timer ran out.')
+            }
             return
         }
         def winnerId = listing.currentBidderId
         def winnerUser = steamUserRepository.findById(winnerId).orElse(null)
-        if (winnerUser == null) {
-            listing.status = 'EXPIRED'
+        // Banned winners get the same treatment as a vanished account —
+        // return the item to the seller rather than completing a trade
+        // the buyer can't honor (the banGuard on PurchaseService.buy
+        // would reject, leaving the auction stuck in a half-settled
+        // state otherwise). Batch 316 bug fix.
+        boolean winnerInvalid = (winnerUser == null) || Boolean.TRUE.equals(winnerUser.banned)
+        if (winnerInvalid) {
+            listing.status = 'SOLD'
+            listing.buyerUserId = listing.sellerUserId
+            listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            if (listing.sellerUserId != null) {
+                try {
+                    notificationService.push(listing.sellerUserId, 'AUCTION_EXPIRED_NO_BIDS',
+                        "Auction closed without a valid winner · ${listing.item?.name ?: 'your auction'}",
+                        "The top bidder's account is no longer available. The item is back in your inventory.",
+                        listing.id, '/sell')
+                } catch (Exception e) {
+                    log.warn("AUCTION_EXPIRED_NO_BIDS push failed: ${e.message}")
+                }
+                fireAuctionExpiredEmail(listing,
+                    "The top bidder's account was banned or deleted before settlement — no trade was opened.")
+            }
             return
         }
         def wallet = walletRepository.findByUsername("steam_${winnerUser.steamId64}")
         if (wallet == null || wallet.balance < listing.currentBid) {
-            // Winner can't afford — mark listing failed, notify them
-            listing.status = 'EXPIRED'
+            // Winner can't afford — return the item to the seller, ping
+            // both parties. Bid-time solvency check (BidService.placeBid)
+            // should make this near-impossible, but balance can drop
+            // between bid and settle if the bidder spent the money on
+            // another listing in the meantime.
+            listing.status = 'SOLD'
+            listing.buyerUserId = listing.sellerUserId
+            listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
-            notificationService.push(winnerId, 'AUCTION_LOST',
-                "Auction lost — insufficient balance", listing.item?.name, listing.id,
-                listing.item?.id != null ? "/item/${listing.item.id}" : null)
+            try {
+                notificationService.push(winnerId, 'AUCTION_LOST',
+                    "Auction lost — insufficient balance", listing.item?.name, listing.id,
+                    listing.item?.id != null ? "/item/${listing.item.id}" : null)
+            } catch (Exception e) {
+                log.warn("AUCTION_LOST push to winner failed: ${e.message}")
+            }
+            if (listing.sellerUserId != null) {
+                try {
+                    notificationService.push(listing.sellerUserId, 'AUCTION_EXPIRED_NO_BIDS',
+                        "Auction winner couldn't pay · ${listing.item?.name ?: 'your auction'}",
+                        "The top bidder's balance dropped below their bid. The item is back in your inventory.",
+                        listing.id, '/sell')
+                } catch (Exception e) {
+                    log.warn("AUCTION_EXPIRED_NO_BIDS push to seller failed: ${e.message}")
+                }
+                fireAuctionExpiredEmail(listing,
+                    "The winning bidder's wallet balance dropped below their bid between bid-time and settle-time — no trade was opened.")
+            }
             return
         }
 
@@ -359,6 +821,25 @@ class BidService {
         listing.soldAt = System.currentTimeMillis()
         listing.buyerUserId = winnerId
         listingRepository.save(listing)
+
+        // Record the winning bid as the day's closing price so the item's
+        // sparkline picks up real auction outcomes — otherwise only BUY_NOW
+        // purchases and external SCMM sync fed the chart.
+        try {
+            priceHistoryService?.record(listing.item, listing.currentBid, 1)
+        } catch (Exception e) {
+            log.warn("price-history record failed for auction ${listing.id}: ${e.message}")
+        }
+
+        // Bump Item.totalSold on the auction-won branch (same reason as
+        // PurchaseService.buy — keep "Most Traded" honest).
+        try {
+            if (listing.item?.id != null) {
+                itemRepository?.incrementTotalSold(listing.item.id)
+            }
+        } catch (Exception e) {
+            log.warn("totalSold bump failed for item ${listing.item?.id}: ${e.message}")
+        }
 
         transactionRepository.save(new Transaction(
             walletId:        wallet.id,
@@ -394,14 +875,29 @@ class BidService {
             "You won · ${listing.item?.name}",
             "Final bid \$${listing.currentBid.toPlainString()}", listing.id,
             '/profile?tab=trades')
+        // Ping the seller too (batch 397). Previously the auction closing
+        // successfully was a silent event on the seller side — they'd
+        // discover it only by noticing a new row on their Trades tab. The
+        // ending-soon push (AUCTION_ENDING) doesn't cover this since it
+        // fires BEFORE the close. Deep-links to the trade so the seller
+        // can immediately send the Steam offer.
+        if (listing.sellerUserId != null) {
+            try {
+                notificationService.push(listing.sellerUserId, 'AUCTION_SOLD',
+                    "Auction sold · ${listing.item?.name ?: 'your auction'}",
+                    "Won for \$${listing.currentBid.toPlainString()} — send the Steam trade offer to the winner.",
+                    listing.id,
+                    '/profile?tab=trades')
+            } catch (Exception e) {
+                log.warn("AUCTION_SOLD push to seller failed: ${e.message}")
+            }
+        }
         // Email the winner too — auctions settle on the 30s-poll
         // timer, not on a page they're watching, so a bell-only
         // notification is easy to miss for hours.
         try {
             def winner = steamUserRepository.findById(winnerId).orElse(null)
-            if (emailService != null && winner != null &&
-                    Boolean.TRUE.equals(winner.emailVerified) && winner.email &&
-                    Boolean.TRUE.equals(winner.emailNotificationsEnabled)) {
+            if (emailService != null && emailService.canSendTo(winner, 'AUCTIONS')) {
                 def itemUrl = listing.item?.id != null
                     ? "/item/${listing.item.id}".toString()
                     : null
@@ -412,8 +908,18 @@ class BidService {
             log.warn("Auction-won email failed for user ${winnerId}: ${e.message}")
         }
 
-        // Mark losing bids
+        // Mark the winner's bid as WON (batch 324 — it was staying in
+        // WINNING forever, which made Profile → Active Bids count the
+        // auction as still live for the winner after settle). Only the
+        // top bid becomes WON — older bids from the same user on the
+        // same listing stay OUTBID, matching what the UI already shows
+        // under Trade History.
         def bids = bidRepository.findByListing(listing.id)
+        def winnersTop = bids.find { it.bidderUserId == winnerId && it.status == 'WINNING' }
+        if (winnersTop != null) {
+            winnersTop.status = 'WON'
+            bidRepository.save(winnersTop)
+        }
         def losers = bids.findAll { it.bidderUserId != winnerId && it.status == 'WINNING' }
         losers.each { it.status = 'LOST' }
         if (!losers.isEmpty()) bidRepository.saveAll(losers)
@@ -425,5 +931,23 @@ class BidService {
         }
 
         log.info("Auction ${listing.id} settled — winner=${winnerId}, price=\$${listing.currentBid}")
+    }
+
+    /** Fire AUCTION_EXPIRED email to the seller (batch 607). Shared by
+     *  the three no-sale settle paths (zero bids, banned winner,
+     *  insufficient balance). TRADES-unrelated — gated on the AUCTIONS
+     *  bucket because it's auction-activity. Silent-fail — the bell
+     *  push already went out. */
+    private void fireAuctionExpiredEmail(Listing listing, String reason) {
+        if (listing?.sellerUserId == null) return
+        try {
+            if (emailService == null || steamUserRepository == null) return
+            def seller = steamUserRepository.findById(listing.sellerUserId).orElse(null)
+            if (!emailService.canSendTo(seller, 'AUCTIONS')) return
+            emailService.sendAuctionExpired(seller.email, seller.displayName,
+                listing.item?.name, reason, listing.id)
+        } catch (Exception e) {
+            log.warn("AUCTION_EXPIRED email failed for seller ${listing?.sellerUserId}: ${e.message}")
+        }
     }
 }

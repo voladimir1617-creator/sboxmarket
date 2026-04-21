@@ -112,6 +112,52 @@ class ListingsHttpSpec extends Specification {
         result.response.status == 400
     }
 
+    def "GET /api/listings?sort=discount returns deep discounts first (regression for whitelist-dropped sort)"() {
+        given:
+        // Seed two items with catalogue steamPrices + listings priced under
+        // them. Item A is a 50%-off listing; item B is only 5% off. Without
+        // the fix, sort=discount silently fell through the whitelist and
+        // landed as sort=price_asc — item B (cheaper) would come first.
+        def uniq = String.valueOf(System.nanoTime())
+        def deepItem = itemRepo.save(new Item(
+            name: "DeepDisc-${uniq}", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0,
+            lowestPrice: new BigDecimal('5.00'),
+            steamPrice:  new BigDecimal('10.00'),
+            iconEmoji: '🎩'
+        ))
+        def shallowItem = itemRepo.save(new Item(
+            name: "ShallowDisc-${uniq}", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0,
+            lowestPrice: new BigDecimal('3.80'),
+            steamPrice:  new BigDecimal('4.00'),
+            iconEmoji: '🎩'
+        ))
+        listingRepo.save(new Listing(
+            item: deepItem, price: new BigDecimal('5.00'), status: 'ACTIVE',
+            sellerName: "DeepSeller-${uniq}", rarityScore: BigDecimal.ZERO
+        ))
+        listingRepo.save(new Listing(
+            item: shallowItem, price: new BigDecimal('3.80'), status: 'ACTIVE',
+            sellerName: "ShallowSeller-${uniq}", rarityScore: BigDecimal.ZERO
+        ))
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings').param('sort', 'discount')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def body = result.response.contentAsString
+        // Deep (50%-off) appears before Shallow (5%-off) in the response.
+        def iDeep    = body.indexOf("DeepDisc-${uniq}")
+        def iShallow = body.indexOf("ShallowDisc-${uniq}")
+        iDeep >= 0
+        iShallow >= 0
+        iDeep < iShallow
+    }
+
     def "GET /api/listings caps search length and sort value defensively"() {
         given:
         def longSearch = 'a' * 500

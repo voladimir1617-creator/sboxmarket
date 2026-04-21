@@ -141,7 +141,7 @@ class TradeMessageSpec extends Specification {
             new TradeMessage(id: 1L, tradeId: 100L, senderUserId: 42L, body: 'hi'),
             new TradeMessage(id: 2L, tradeId: 100L, senderUserId: 99L, body: 'hey')
         ]
-        tradeMessageRepository.findByTrade(100L) >> msgs
+        tradeMessageRepository.findByTradeRecent(100L, _) >> msgs
 
         when:
         def out = service.listMessages(100L, 99L)
@@ -166,7 +166,7 @@ class TradeMessageSpec extends Specification {
         given:
         tradeRepository.findById(100L) >> Optional.of(tradeFor(100L, 42L, 99L))
         adminAuthorization.isAdmin(1L) >> true
-        tradeMessageRepository.findByTrade(100L) >> []
+        tradeMessageRepository.findByTradeRecent(100L, _) >> []
 
         when:
         def out = service.listMessages(100L, 1L)
@@ -177,7 +177,7 @@ class TradeMessageSpec extends Specification {
 
     // ── deleteMessage (admin takedown) ──────────────────────────
 
-    def "deleteMessage requires admin + removes the row"() {
+    def "deleteMessage requires admin + soft-redacts the row (V41 / batch 349)"() {
         given:
         def m = new TradeMessage(id: 77L, tradeId: 100L, senderUserId: 42L, body: 'abuse')
         tradeMessageRepository.findById(77L) >> Optional.of(m)
@@ -187,7 +187,28 @@ class TradeMessageSpec extends Specification {
 
         then:
         1 * adminAuthorization.requireAdmin(1L)
-        1 * tradeMessageRepository.delete(m)
+        // Row stays — we DON'T hard-delete anymore. Body is cleared + redactedAt stamped.
+        0 * tradeMessageRepository.delete(_)
+        1 * tradeMessageRepository.save({ TradeMessage t ->
+            t.id == 77L && t.body == '' && t.redactedAt != null
+        })
+    }
+
+    def "deleteMessage is idempotent — re-redacting an already-redacted row doesn't re-save but still audit-logs"() {
+        given:
+        def m = new TradeMessage(id: 77L, tradeId: 100L, senderUserId: 42L,
+            body: '', redactedAt: 1_700_000_000_000L)
+        tradeMessageRepository.findById(77L) >> Optional.of(m)
+
+        when:
+        service.deleteMessage(1L, 77L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        0 * tradeMessageRepository.save(_)
+        0 * tradeMessageRepository.delete(_)
+        // redactedAt stays at the ORIGINAL timestamp (we didn't clobber it).
+        m.redactedAt == 1_700_000_000_000L
     }
 
     def "deleteMessage 404s when the message id is unknown"() {

@@ -49,11 +49,27 @@ class RateLimitFilter extends OncePerRequestFilter {
         '/api/offers',
         '/api/bids',
         '/api/buy-orders',
-        '/api/steam/list',
+        // Broadened from `/api/steam/list` to `/api/steam` — also covers
+        // `/api/steam/sync` which hits Steam's public inventory HTTP API
+        // once per call. Uncapped, an attacker could fan out sync hammer
+        // traffic that burns both our Tomcat threads during the round-trip
+        // AND risks Steam rate-limiting our outbound IP.
+        '/api/steam',
         '/api/auth/steam',
-        '/api/wallet/deposit',
-        '/api/wallet/withdraw',
-        '/api/support/tickets',
+        // Batch 1040 — collapsed the three-narrow wallet prefixes
+        // (/deposit, /withdraw, /transactions) into a single /api/wallet
+        // prefix. Covers every wallet write AND the balance / spend /
+        // transactions reads + CSV. Also pulls /wallet/confirm-deposit
+        // and /wallet/withdraw/{id}/cancel under the cap, which were
+        // previously uncapped write endpoints. 20/10s is fine for the
+        // balance re-read cadence (wallet modal open + tab focus).
+        '/api/wallet',
+        // Support surface — broadened in batch 1039 from the prior
+        // `/api/support/tickets` to cover `/api/support/report-user/{id}`
+        // which was creating SupportTicket rows uncapped (a compromised
+        // session could report-user N times in a second and flood the
+        // CSR queue).
+        '/api/support',
         // Profile writes — email change / verification / 2FA enrol / delete
         // request / trade URL. Without this cap an attacker could spam
         // /api/profile/email/resend to flood a target mailbox (the resend
@@ -78,7 +94,62 @@ class RateLimitFilter extends OncePerRequestFilter {
         '/api/loadouts',
         // API key management — create / rotate / revoke. No reason for a
         // real user to burn through 20 keys in 10 seconds.
-        '/api/api-keys'
+        '/api/api-keys',
+        // Watchlist add/remove + price alerts (batch 562). The POST
+        // creates a row per item id; without a cap a hostile client
+        // could hammer the endpoint with unique item ids until
+        // MAX_PER_USER (500) fills, then churn deletes to keep
+        // writing. The DB cap catches it eventually but costs one
+        // INSERT per hit until then. Prefix covers both
+        // /api/watchlist and /api/watchlist/alerts.
+        '/api/watchlist',
+        // Saved searches (batch 562). Create / update / delete. A
+        // power user might save ~5 searches; 20/10s covers normal
+        // editing while blocking a script walking the feature.
+        '/api/saved-searches',
+        // Seller follow / unfollow (batch 562). POST toggles a row;
+        // spam-following would flood NEW_LISTING_FROM_SELLER push
+        // targets if uncapped. Already bounded by unique constraints,
+        // but cap upstream of the DB round-trip.
+        '/api/follows',
+        // Client-error report endpoint (batch 678). A broken frontend
+        // loop or a malicious page could otherwise burn our log
+        // storage by POSTing the same error 1000x/second. 20/10s per
+        // caller is plenty for a real crash burst (component re-renders
+        // before the ErrorBoundary catches).
+        '/api/client-errors',
+        // Notification writes (batch 960). POST /read-all, /read-batch,
+        // /clear-read, /delete-batch all mutate every unread row in
+        // the user's notifications table. An authenticated attacker
+        // hammering these would thrash the DB with full-row UPDATE /
+        // DELETE scans. 20/10s is plenty for a real user bulk-clearing
+        // a bell dropdown; anything above is scripted.
+        '/api/notifications',
+        // Unsubscribe endpoint (batch 1019). Token-gated but anonymously
+        // reachable — a scanner sending thousands of wrong-token POSTs
+        // would force a DB lookup per hit. Batch 1017 already swapped
+        // the full-table scan for an indexed `findByEmailIgnoreCase`,
+        // but pounding the endpoint with 1M/s still burns Tomcat threads
+        // + email-verify work. 20/10s per-IP is plenty for a legitimate
+        // one-click unsubscribe from an inbox; anything above is abuse.
+        '/api/unsubscribe',
+        // Admin endpoints (batch 1036). Every admin mutation +
+        // audit/fraud/trade CSV export goes through here. Staff
+        // sessions are thin on the ground + act deliberately, so the
+        // 20/10s budget is massive headroom while still bounding a
+        // compromised admin session (an attacker who breaches an admin
+        // account shouldn't be able to exfiltrate the full CSV catalogue
+        // at 1000 req/s). Covers `/api/admin/users`, `/api/admin/*.csv`,
+        // `/api/admin/audit`, `/api/admin/trades`, etc. Supersedes
+        // the existing `/api/admin/users` GUARDED_READS entry but
+        // that list is left intact — no harm in double-coverage.
+        '/api/admin',
+        // CSR endpoints (batch 1038). Same shape as /api/admin: few
+        // sessions, deliberate actions, but the user-lookup endpoint
+        // is a PII lookup and /tickets/{id}/reply + /listings/{id}/flag
+        // are mutations. A compromised CSR session shouldn't be able to
+        // scrape the user table at 1000 lookups/s. Standard 20/10s budget.
+        '/api/csr'
     ]
 
     // Read surfaces that take free-text and can be used to enumerate or DoS.
@@ -87,7 +158,8 @@ class RateLimitFilter extends OncePerRequestFilter {
         '/api/database',      // ?q= goes through here
         '/api/admin/users',   // ?search= (admin only, but still guarded)
         '/api/items',         // ?q= does a LIKE '%q%' scan
-        '/api/loadouts'       // ?search= on /discover does a LIKE scan
+        '/api/loadouts',      // ?search= on /discover does a LIKE scan
+        '/api/sellers'        // ?q= on /search does a LIKE scan (batch 666)
     ]
 
     // GETs that leak per-user or per-id state. These are rate-limited even
@@ -119,13 +191,39 @@ class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse resp, FilterChain chain) {
         def method = req.method
         def path = req.requestURI
-        def isGet = 'GET'.equalsIgnoreCase(method)
+        // Treat HEAD as GET (batch 862). HEAD is safe + idempotent per
+        // RFC 7231 §4.2.2; it returns the same headers as GET with no
+        // body. Routing HEAD through the mutation budget (MAX_REQ=20)
+        // was wrong — it both surfaced a misleading X-RateLimit-Limit
+        // (20 instead of the enum-path 40) and mis-categorised safe
+        // probes (load balancers, health checks, link previews) as
+        // writes.
+        def isSafe = 'GET'.equalsIgnoreCase(method) || 'HEAD'.equalsIgnoreCase(method)
+        def isGet = isSafe
 
-        // Health probe is never rate-limited. Docker/k8s health checks hit
-        // this endpoint every few seconds from the same internal IP — rate
-        // limiting would eventually flip the container into unhealthy even
-        // though nothing is wrong. Exempt it explicitly.
-        if (path == '/api/health' || path == '/api/health/') {
+        // Health + readiness probes are never rate-limited (batch 680).
+        // Docker HEALTHCHECK / k8s liveness + readiness / LB health
+        // checks hit these endpoints every few seconds from the same
+        // internal IP — rate limiting would eventually flip the pod
+        // into unhealthy even though nothing is wrong.
+        if (path == '/api/health' || path == '/api/health/' ||
+            path == '/api/ready'  || path == '/api/ready/') {
+            chain.doFilter(req, resp)
+            return
+        }
+
+        // Batch 971 — OPTIONS preflight requests are never rate-limited.
+        // Browsers fire one OPTIONS before every cross-origin POST/PUT/
+        // DELETE; the preflight is a non-mutating CORS probe and the
+        // actual request still has to pass rate limiting downstream. If
+        // we charge a write-budget token for the preflight, a user on a
+        // third-party page (e.g. the SkinBox Valuer browser extension
+        // running on steamcommunity.com) doing 20 rapid clicks burns
+        // through the mutation budget on empty OPTIONS calls — the
+        // actual POST traffic is still bounded by the real 20/10s cap
+        // because each mutation fires its own budget check right after
+        // the preflight.
+        if ('OPTIONS'.equalsIgnoreCase(method)) {
             chain.doFilter(req, resp)
             return
         }
@@ -159,7 +257,20 @@ class RateLimitFilter extends OncePerRequestFilter {
             return
         }
 
-        def key = clientIp(req) + '|' + guarded
+        // Bucket key (batch 547). Signed-in users get their own
+        // bucket keyed on userId so a power user on a shared NAT /
+        // VPN can't accidentally rate-limit other legit users on the
+        // same IP. Anonymous traffic still keys on the client IP —
+        // same old anti-enumeration guard. Session lookup is cheap
+        // (already resolved by Spring's session filter upstream).
+        def key
+        try {
+            def sess = req.getSession(false)
+            def uid = sess?.getAttribute('steamUserId') as Long
+            key = (uid != null ? "u:${uid}" : "ip:${clientIp(req)}") + '|' + guarded
+        } catch (Exception ignored) {
+            key = 'ip:' + clientIp(req) + '|' + guarded
+        }
         def bucket = buckets.computeIfAbsent(key) { new Bucket(windowStart: System.currentTimeMillis()) }
         def now = System.currentTimeMillis()
         if (now - bucket.windowStart > WINDOW_MS) {
@@ -180,10 +291,21 @@ class RateLimitFilter extends OncePerRequestFilter {
             resp.status = 429
             resp.contentType = 'application/json'
             resp.setHeader('Retry-After', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
+            resp.setHeader('X-RateLimit-Limit', String.valueOf(budget))
+            resp.setHeader('X-RateLimit-Remaining', '0')
+            resp.setHeader('X-RateLimit-Reset', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
             resp.writer.write('{"code":"RATE_LIMITED","message":"Too many requests. Please slow down."}')
             log.warn("Rate limit hit: key=${key}, count=${current}, budget=${budget}")
             return
         }
+        // Surface the current rate-limit headroom on every guarded
+        // response (batch 545). Mirrors Stripe / GitHub / Discord's
+        // X-RateLimit-* convention. API consumers can self-throttle
+        // when Remaining approaches zero instead of running into the
+        // 429 wall blind.
+        resp.setHeader('X-RateLimit-Limit', String.valueOf(budget))
+        resp.setHeader('X-RateLimit-Remaining', String.valueOf(Math.max(0L, budget - current)))
+        resp.setHeader('X-RateLimit-Reset', String.valueOf(Math.max(1, ((WINDOW_MS - (now - bucket.windowStart)) / 1000L) as long)))
         chain.doFilter(req, resp)
     }
 

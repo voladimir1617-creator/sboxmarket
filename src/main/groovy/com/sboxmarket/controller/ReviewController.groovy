@@ -61,13 +61,38 @@ class ReviewController {
     }
 
     @GetMapping("/user/{id}")
-    ResponseEntity<List<Review>> forUser(@PathVariable Long id) {
-        ResponseEntity.ok(reviewService.listForUser(id))
+    ResponseEntity<List<Map>> forUser(@PathVariable Long id, HttpServletRequest req) {
+        // Viewer id drives the viewerHasVoted flag on each row — optional
+        // for public stall visitors, essential for signed-in buyers so
+        // the "you've already marked this helpful" UI state is correct.
+        def viewer = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        def rows = reviewService.listForUser(id)
+        // `private` — the per-row viewerHasVoted flag diverges per
+        // viewer. 60s cap; reviews trickle in slowly (one per verified
+        // trade), so 60s of staleness is well below any human perception
+        // of "new review landed."
+        ResponseEntity.ok()
+            .header('Cache-Control', 'private, max-age=60')
+            .body(reviewService.decorateWithHelpful(rows, viewer))
+    }
+
+    /** Reviews the signed-in user has AUTHORED (as a buyer) — powers
+     *  the Profile → Reviews → Given tab so a user can see + delete
+     *  feedback they've left on sellers. Authed endpoint because the
+     *  review-authorship index is PII for the reviewer. */
+    @GetMapping("/mine")
+    ResponseEntity<List<Review>> mine(HttpServletRequest req) {
+        def uid = requireUser(req)
+        ResponseEntity.ok(reviewService.listAuthoredBy(uid))
     }
 
     @GetMapping("/user/{id}/summary")
     ResponseEntity<Map> summary(@PathVariable Long id) {
-        ResponseEntity.ok(reviewService.summaryForUser(id))
+        // Aggregate counts + average — viewer-agnostic. 2-min public
+        // cache; reviews are write-rare so generous stale tolerance.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=120')
+            .body(reviewService.summaryForUser(id))
     }
 
     /** Reviewable trades between the signed-in viewer (as buyer) and a given
@@ -78,6 +103,41 @@ class ReviewController {
     ResponseEntity<List<Map>> eligible(@PathVariable Long sellerId, HttpServletRequest req) {
         def uid = requireUser(req)
         ResponseEntity.ok(reviewService.eligibleTradesFor(uid, sellerId))
+    }
+
+    /** Every VERIFIED trade the signed-in user has as a buyer but hasn't
+     *  left a review for yet — across every seller. Drives the Profile →
+     *  Reviews "N trades to review" chip + list so a user doesn't have
+     *  to navigate seller-by-seller to find trades that still want feedback. */
+    @GetMapping("/pending")
+    ResponseEntity<Map> pending(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def rows = reviewService.pendingReviewsFor(uid)
+        ResponseEntity.ok([count: rows.size(), items: rows])
+    }
+
+    /** Delete a review the caller authored. Forbidden for anyone else —
+     *  sellers can only reply, not erase, which is why this endpoint
+     *  gates on `review.fromUserId == uid` at the service layer. */
+    @DeleteMapping("/{id}")
+    ResponseEntity<Map> delete(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireUser(req)
+        reviewService.deleteReview(uid, id)
+        ResponseEntity.ok([id: id, status: 'DELETED'])
+    }
+
+    /** Toggle a helpful-vote on a review. Returns the new count + the
+     *  viewer's own vote state so the UI can update optimistically with
+     *  the authoritative value. Self-vote rejected at the service layer. */
+    @PostMapping("/{id}/helpful")
+    ResponseEntity<Map> toggleHelpful(@PathVariable Long id, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def state = reviewService.toggleHelpful(uid, id)
+        ResponseEntity.ok([
+            id:              id,
+            helpfulCount:    state.helpfulCount,
+            viewerHasVoted:  state.viewerHasVoted
+        ])
     }
 
     /** Seller replies to (or clears the reply on) a review they received.

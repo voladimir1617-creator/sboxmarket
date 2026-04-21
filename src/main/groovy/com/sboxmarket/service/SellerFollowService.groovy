@@ -31,6 +31,7 @@ class SellerFollowService {
     @Autowired ListingRepository listingRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) EmailService emailService
+    @Autowired(required = false) UserBlockService userBlockService
 
     /** 200-follow cap per user — protects the fanout and keeps the
      *  profile tab scannable. */
@@ -49,7 +50,7 @@ class SellerFollowService {
         def existing = repo.findByFollowerUserIdAndSellerUserId(followerUserId, sellerUserId)
         if (existing.isPresent()) return existing.get()
 
-        def count = repo.findByFollowerUserIdOrderByCreatedAtDesc(followerUserId).size()
+        def count = repo.countByFollowerUserId(followerUserId)
         if (count >= PER_USER_LIMIT) {
             throw new BadRequestException('FOLLOW_LIMIT',
                 "Follow limit reached (${PER_USER_LIMIT}). Unfollow a seller before adding more.")
@@ -60,6 +61,26 @@ class SellerFollowService {
             createdAt:      System.currentTimeMillis()
         )
         repo.save(row)
+        // Notify the seller (batch 536). Before this, a new follow
+        // was invisible until the seller happened to open their
+        // stall and notice the count tick up. The ping is engagement
+        // fuel for active sellers AND a subtle fraud signal — a stall
+        // getting rapid follower growth from fresh accounts is a
+        // targeting pattern staff can investigate.
+        if (notificationService != null) {
+            try {
+                def follower = steamUserRepository.findById(followerUserId).orElse(null)
+                def followerName = follower?.displayName ?: "user #${followerUserId}"
+                long totalNow = repo.countBySeller(sellerUserId)
+                notificationService.push(sellerUserId, 'SELLER_FOLLOWED',
+                    "New follower · ${followerName}",
+                    "${followerName} is now following your stall. You have ${totalNow} follower${totalNow == 1 ? '' : 's'}.",
+                    followerUserId,
+                    "/stall/${sellerUserId}".toString())
+            } catch (Exception e) {
+                log.warn("SELLER_FOLLOWED push failed for seller ${sellerUserId}: ${e.message}")
+            }
+        }
         log.info("User ${followerUserId} followed seller ${sellerUserId}")
         row
     }
@@ -67,6 +88,37 @@ class SellerFollowService {
     @Transactional
     void unfollow(Long followerUserId, Long sellerUserId) {
         repo.deleteByFollowerUserIdAndSellerUserId(followerUserId, sellerUserId)
+    }
+
+    /**
+     * Bulk-flip `notificationsMuted` to `muted` for every follow the
+     * user owns. Returns the count touched. Idempotent — running it
+     * twice with the same value is a no-op beyond a single UPDATE.
+     * Keeps the follow rows alive (the mute is a quiet signal, not a
+     * removal) so the seller's follower count doesn't change.
+     */
+    @Transactional
+    int setAllMuted(Long followerUserId, boolean muted) {
+        if (followerUserId == null) return 0
+        int n = repo.updateMutedForFollower(followerUserId, muted)
+        if (n > 0) log.info("Bulk-${muted ? 'muted' : 'unmuted'} ${n} follow(s) for user ${followerUserId}")
+        n
+    }
+
+    /**
+     * Bulk-unfollow every seller the user follows in a single DELETE.
+     * Returns the count wiped. Parallels the bulk-clear family:
+     * auto-bids, buy-orders, outgoing offers, watchlist. Idempotent:
+     * a zero-follow caller gets 0, never a 404. Mutes are wiped
+     * alongside the rows (the mute flag lives on the SellerFollow
+     * entity — deleting the row removes the flag with it).
+     */
+    @Transactional
+    int unfollowAll(Long followerUserId) {
+        if (followerUserId == null) return 0
+        int n = repo.deleteByFollower(followerUserId)
+        if (n > 0) log.info("Unfollowed all ${n} seller(s) for user ${followerUserId}")
+        n
     }
 
     boolean isFollowing(Long followerUserId, Long sellerUserId) {
@@ -80,6 +132,23 @@ class SellerFollowService {
 
     List<SellerFollow> listFollowing(Long followerUserId) {
         repo.findByFollowerUserIdOrderByCreatedAtDesc(followerUserId)
+    }
+
+    /**
+     * Toggle "mute new-listing pings" for a single follow relationship
+     * (V36 / batch 279). Keeps the follower row alive so the public
+     * follower count + discovery-feed inclusion don't change — only the
+     * NEW_LISTING_FROM_SELLER bell/email fan-out is suppressed.
+     *
+     * Returns the updated SellerFollow row, or throws NotFoundException
+     * when the user doesn't currently follow the seller.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    SellerFollow setNotificationsMuted(Long followerUserId, Long sellerUserId, boolean muted) {
+        def row = repo.findByFollowerUserIdAndSellerUserId(followerUserId, sellerUserId)
+            .orElseThrow { new com.sboxmarket.exception.NotFoundException('SellerFollow', sellerUserId) }
+        row.notificationsMuted = muted
+        repo.save(row)
     }
 
     /**
@@ -114,7 +183,54 @@ class SellerFollowService {
         def itemName = listing.item?.name ?: 'a new item'
         def priceStr = listing.price != null ? "\$${listing.price.toPlainString()}" : ''
         def body = "${itemName} · ${priceStr}".trim()
+        // Filter out followers who muted this seller's listing pings
+        // (V36 / batch 279). They stay in the follower count + the
+        // discovery-feed inclusion, just don't get the bell + email.
+        followers = followers.findAll { !Boolean.TRUE.equals(it.notificationsMuted) }
+        if (followers.isEmpty()) return
+
+        // Bulk fetch every non-muted follower's SteamUser row once so
+        // both the push + email paths share the lookup AND we can skip
+        // banned accounts (batch 314). Without this filter, a banned
+        // user who had followed a hot seller pre-ban kept getting
+        // "new listing" bell + email pings with no way to act on them.
+        def followerIds = followers*.followerUserId.findAll { it != null }
+        def usersById = [:]
+        if (!followerIds.isEmpty()) {
+            try {
+                steamUserRepository.findAllById(followerIds).each { usersById[it.id] = it }
+            } catch (Exception e) {
+                log.warn("Follower bulk lookup failed; degrading to push-without-ban-check: ${e.message}")
+            }
+        }
+
+        // Batch 345 — also skip followers who have blocked this seller.
+        // A blocked follower can happen when a user follows a seller,
+        // then later blocks them without unfollowing (blocking hides
+        // listings, unfollowing stops pings; the two aren't the same).
+        // Bulk-fetch the block set once; small per-fanout cost, O(1)
+        // per-follower check afterwards.
+        def blockedByFollower = [:] as Map<Long, Boolean>
+        if (userBlockService != null && listing.sellerUserId != null) {
+            followerIds.each { fid ->
+                if (fid != null) {
+                    try {
+                        blockedByFollower[fid] = userBlockService.isBlocked(fid, listing.sellerUserId)
+                    } catch (Exception e) {
+                        // Fail-open — a block-check error shouldn't drop the fanout.
+                        blockedByFollower[fid] = false
+                    }
+                }
+            }
+        }
+
         followers.each { f ->
+            def follower = usersById[f.followerUserId]
+            // Skip banned follower accounts entirely — no push, no email.
+            if (follower != null && Boolean.TRUE.equals(follower.banned)) return
+            // Skip followers who have blocked this seller (batch 345).
+            if (Boolean.TRUE.equals(blockedByFollower[f.followerUserId])) return
+
             try {
                 notificationService?.push(f.followerUserId, 'NEW_LISTING_FROM_SELLER',
                     "${sellerName} just listed something",
@@ -127,10 +243,7 @@ class SellerFollowService {
             // preference because this is an engagement email, not
             // operational.
             try {
-                def follower = steamUserRepository.findById(f.followerUserId).orElse(null)
-                if (emailService != null && follower != null &&
-                        Boolean.TRUE.equals(follower.emailVerified) && follower.email &&
-                        Boolean.TRUE.equals(follower.emailNotificationsEnabled)) {
+                if (emailService != null && emailService.canSendTo(follower, 'FOLLOWS')) {
                     def itemUrl = listing.item?.id != null
                         ? "/item/${listing.item.id}".toString()
                         : null

@@ -29,16 +29,29 @@ class LoadoutService {
 
     static final List<String> SLOTS = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories','Wild']
 
+    // Per-user loadout cap. Every loadout seeds 8 LoadoutSlot rows, so 50
+    // per user = ~400 slot rows at the ceiling — more than any legitimate
+    // curator needs (CSFloat caps public loadouts at 20) but high enough
+    // that a prolific power-user isn't squeezed. Enforced on both `create`
+    // and `clone` so the cap isn't defeated by spamming duplicates.
+    static final long MAX_LOADOUTS_PER_USER = 50L
+
     @Autowired LoadoutRepository loadoutRepository
     @Autowired LoadoutSlotRepository loadoutSlotRepository
     @Autowired LoadoutFavoriteRepository loadoutFavoriteRepository
     @Autowired ItemRepository itemRepository
     @Autowired TextSanitizer textSanitizer
     @Autowired BanGuard banGuard
+    @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) AuditService auditService
 
     @Transactional
     Loadout create(Long ownerUserId, String ownerName, String name, String description, String visibility) {
         banGuard.assertNotBanned(ownerUserId)
+        if (ownerUserId != null && loadoutRepository.countByOwnerUserId(ownerUserId) >= MAX_LOADOUTS_PER_USER) {
+            throw new BadRequestException("LOADOUT_CAP",
+                "You've reached the ${MAX_LOADOUTS_PER_USER}-loadout limit. Delete an old one before creating another.")
+        }
         def cleanName = textSanitizer.cleanShort(name)
         def cleanDesc = textSanitizer.medium(description)
         def cleanOwner = textSanitizer.cleanShort(ownerName)
@@ -69,6 +82,31 @@ class LoadoutService {
     }
 
     /**
+     * Loadouts the user has favorited, newest-favorite first. Pulls the
+     * favorite ids from the join table in one query, then the Loadout
+     * entities in a second bulk findAllById. Private loadouts the user
+     * no longer owns (e.g. the original owner flipped visibility back
+     * to PRIVATE) are filtered out server-side so the tab never shows
+     * rows the user can't actually open. Null uid → empty list.
+     */
+    List<Loadout> listFavorites(Long userId) {
+        if (userId == null || loadoutFavoriteRepository == null) return []
+        def ids = loadoutFavoriteRepository.findLoadoutIdsByUser(userId)
+        if (ids == null || ids.isEmpty()) return []
+        def loadouts = loadoutRepository.findAllById(ids)
+        def byId = [:]
+        loadouts.each { byId[it.id] = it }
+        // Preserve the favorited-at ordering (ids list is already sorted
+        // by `createdAt DESC`). Drop loadouts the user can't access —
+        // deleted rows are absent from findAllById; PRIVATE rows owned
+        // by a different user are filtered here so a re-privatized
+        // loadout doesn't leak through.
+        ids.collect { byId[it] }.findAll { it != null }.findAll { l ->
+            l.visibility != 'PRIVATE' || l.ownerUserId == userId
+        }
+    }
+
+    /**
      * Fetch a loadout with its slots. PRIVATE loadouts are only visible
      * to their owner — any other viewer (anonymous or otherwise) gets a
      * NotFoundException so we neither confirm nor deny the loadout's
@@ -81,7 +119,17 @@ class LoadoutService {
             throw new NotFoundException("Loadout", id)
         }
         def slots = loadoutSlotRepository.findByLoadout(id)
-        [loadout: loadout, slots: slots]
+        // Batch 917 — surface the viewer's favorited state so the UI
+        // can render "♥ Favorited" vs "♡ Favorite" without a second
+        // round-trip. Anonymous viewers always get `false`. Owners
+        // also get `false` — the UI hides the Favorite button on
+        // self-owned loadouts anyway, so the flag is only meaningful
+        // for signed-in non-owner viewers.
+        boolean favorited = false
+        if (viewerUserId != null && loadout.ownerUserId != viewerUserId) {
+            favorited = loadoutFavoriteRepository.findByUserAndLoadout(viewerUserId, id) != null
+        }
+        [loadout: loadout, slots: slots, favorited: favorited]
     }
 
     @Transactional
@@ -159,6 +207,39 @@ class LoadoutService {
         loadoutSlotRepository.findByLoadout(loadoutId)
     }
 
+    /**
+     * Owner-only metadata edit. Any subset of { name, description, visibility }
+     * may be supplied; null / missing keys are left untouched. Visibility is
+     * whitelisted to PUBLIC/PRIVATE so a typo doesn't silently drop the
+     * loadout to an unknown state. Name goes through the same short-text
+     * sanitizer as create(); description through the medium-text sanitizer.
+     * Touches updatedAt so the Discover sort surfaces the recent edit.
+     */
+    @Transactional
+    Loadout update(Long ownerUserId, Long loadoutId, String name, String description, String visibility) {
+        def loadout = loadoutRepository.findById(loadoutId)
+            .orElseThrow { new NotFoundException("Loadout", loadoutId) }
+        if (loadout.ownerUserId != ownerUserId) throw new ForbiddenException("Not your loadout")
+        if (name != null) {
+            def cleanName = textSanitizer.cleanShort(name)
+            if (!cleanName || cleanName.isEmpty()) {
+                throw new BadRequestException("INVALID_NAME", "Loadout name is required")
+            }
+            loadout.name = cleanName
+        }
+        if (description != null) {
+            loadout.description = textSanitizer.medium(description)
+        }
+        if (visibility != null) {
+            if (!(visibility in ['PUBLIC', 'PRIVATE'])) {
+                throw new BadRequestException("INVALID_VISIBILITY", "visibility must be PUBLIC or PRIVATE")
+            }
+            loadout.visibility = visibility
+        }
+        loadout.updatedAt = System.currentTimeMillis()
+        loadoutRepository.save(loadout)
+    }
+
     @Transactional
     void delete(Long ownerUserId, Long loadoutId) {
         def loadout = loadoutRepository.findById(loadoutId)
@@ -166,6 +247,39 @@ class LoadoutService {
         if (loadout.ownerUserId != ownerUserId) throw new ForbiddenException("Not your loadout")
         loadoutSlotRepository.deleteByLoadoutId(loadoutId)
         loadoutRepository.delete(loadout)
+    }
+
+    /**
+     * Admin-initiated loadout deletion (batch 583). Used for moderation
+     * takedowns — TOS-violating names, PII in the description, etc.
+     * Bypasses the self-only check. Pushes a notification to the
+     * owner with the staff-supplied reason so they know what was
+     * removed + why. Audited via {@code LOADOUT_DELETED_STAFF}.
+     */
+    @Transactional
+    void adminDelete(Long adminUserId, Long loadoutId, String reason) {
+        def loadout = loadoutRepository.findById(loadoutId)
+            .orElseThrow { new NotFoundException("Loadout", loadoutId) }
+        def cleanReason = textSanitizer?.medium(reason ?: '') ?: (reason ?: '')
+        if (!cleanReason || cleanReason.isEmpty()) cleanReason = 'Violates the community guidelines'
+        def ownerId = loadout.ownerUserId
+        def loadoutName = loadout.name
+        loadoutSlotRepository.deleteByLoadoutId(loadoutId)
+        loadoutRepository.delete(loadout)
+        try {
+            notificationService?.push(ownerId, 'LOADOUT_DELETED',
+                "Loadout removed · ${loadoutName ?: 'your loadout'}",
+                cleanReason, loadoutId, '/loadout')
+        } catch (Exception e) {
+            log.warn("LOADOUT_DELETED push failed for user ${ownerId}: ${e.message}")
+        }
+        try {
+            auditService?.log('LOADOUT_DELETED_STAFF', adminUserId, ownerId, loadoutId,
+                "Removed loadout '${loadoutName}': ${cleanReason}")
+        } catch (Exception e) {
+            log.warn("LOADOUT_DELETED_STAFF audit failed for loadout ${loadoutId}: ${e.message}")
+        }
+        log.info("Admin ${adminUserId} force-deleted loadout ${loadoutId} (owner=${ownerId}): ${cleanReason}")
     }
 
     /**
@@ -207,6 +321,66 @@ class LoadoutService {
         loadoutRepository.save(loadout)
 
         [id: loadoutId, favorites: (int) count, favorited: favorited]
+    }
+
+    /**
+     * Clone a PUBLIC loadout (or the viewer's own private one) into a new
+     * loadout owned by the viewer. All filled slots carry over with a fresh
+     * snapshotPrice so the clone starts in sync with current catalogue pricing.
+     * Lock state is intentionally NOT copied — a clone starts with every slot
+     * unlocked so the new owner can retune it freely. PRIVATE source loadouts
+     * owned by someone else 404 (same enumeration defense as getWithSlots /
+     * toggleFavorite). Ban guard applies to the cloner so banned users can't
+     * populate an unlimited number of public loadouts.
+     */
+    @Transactional
+    Loadout clone(Long viewerUserId, Long sourceLoadoutId, String ownerName) {
+        if (viewerUserId == null) throw new UnauthorizedException()
+        banGuard.assertNotBanned(viewerUserId)
+        if (loadoutRepository.countByOwnerUserId(viewerUserId) >= MAX_LOADOUTS_PER_USER) {
+            throw new BadRequestException("LOADOUT_CAP",
+                "You've reached the ${MAX_LOADOUTS_PER_USER}-loadout limit. Delete an old one before cloning another.")
+        }
+        def source = loadoutRepository.findById(sourceLoadoutId)
+            .orElseThrow { new NotFoundException("Loadout", sourceLoadoutId) }
+        if (source.visibility == 'PRIVATE' && source.ownerUserId != viewerUserId) {
+            throw new NotFoundException("Loadout", sourceLoadoutId)
+        }
+
+        def baseName = (source.name ?: 'Loadout').trim()
+        def cloneName = baseName.length() > 90 ? baseName.substring(0, 90) : baseName
+        cloneName = (cloneName + ' (copy)').take(100)
+        def cleanOwner = textSanitizer.cleanShort(ownerName)
+
+        def copy = new Loadout(
+            ownerUserId: viewerUserId,
+            ownerName:   cleanOwner,
+            name:        cloneName,
+            description: source.description,
+            visibility:  'PRIVATE'  // start private so the cloner can tweak before publishing
+        )
+        loadoutRepository.save(copy)
+
+        // Seed slots first, then overlay the source's filled slots. Snapshot
+        // prices come from the current catalogue row so stale prices from the
+        // source don't leak in.
+        def sourceSlots = loadoutSlotRepository.findByLoadout(sourceLoadoutId).collectEntries { [(it.slot): it] }
+        SLOTS.each { slotName ->
+            def src = sourceSlots[slotName] as LoadoutSlot
+            def fresh = new LoadoutSlot(loadoutId: copy.id, slot: slotName)
+            if (src?.itemId != null) {
+                def item = itemRepository.findById(src.itemId).orElse(null)
+                if (item != null) {
+                    fresh.itemId        = item.id
+                    fresh.itemName      = item.name
+                    fresh.itemEmoji     = item.iconEmoji
+                    fresh.snapshotPrice = item.lowestPrice ?: BigDecimal.ZERO
+                }
+            }
+            loadoutSlotRepository.save(fresh)
+        }
+        recalcTotal(copy)
+        copy
     }
 
     private void recalcTotal(Loadout loadout) {

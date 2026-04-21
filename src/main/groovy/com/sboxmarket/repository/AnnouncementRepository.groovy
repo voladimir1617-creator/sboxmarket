@@ -23,4 +23,17 @@ interface AnnouncementRepository extends JpaRepository<Announcement, Long> {
 
     @Query("SELECT a FROM Announcement a ORDER BY a.createdAt DESC")
     List<Announcement> findAllForAdmin()
+
+    /** Rows that are STILL marked active in the DB but whose expiresAt
+     *  has passed (batch 582). Public `findCurrent` already filters
+     *  these out at read time; the sweeper uses this to flip their
+     *  `active` flag to false so the admin history tab doesn't show
+     *  a stale "LIVE NOW" tag on rows that are effectively dead. */
+    @Query("""
+        SELECT a FROM Announcement a
+        WHERE a.active = true
+          AND a.expiresAt IS NOT NULL
+          AND a.expiresAt <= :now
+    """)
+    List<Announcement> findExpiredButActive(@Param("now") Long now)
 }

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
@@ -84,6 +85,63 @@ class TotpService {
                       (hash[offset + 3] & 0xff)
         def otp = binary % (int) Math.pow(10, DIGITS)
         String.format('%0' + DIGITS + 'd', otp)
+    }
+
+    // ── Backup / recovery codes ─────────────────────────────────────
+
+    /** Number of backup codes to mint at enrollment / regeneration. Ten is
+     *  the GitHub / Google / AWS IAM convention — enough to outlast years of
+     *  authenticator migrations without becoming a burden to store. */
+    static final int BACKUP_CODE_COUNT = 10
+
+    /**
+     * Generate `BACKUP_CODE_COUNT` one-time human-readable codes. Format is
+     * `xxxx-xxxx-xxxx` (12 Crockford-base32 chars with hyphens) — long enough
+     * for ~60 bits of entropy, short enough for a user to type on phone after
+     * losing their authenticator.
+     *
+     * Return shape: `[plaintext: [...], hashed: 'h1 h2 ...']` — the plaintext
+     * list is shown to the user exactly once and then discarded; the hashed
+     * string is persisted on the user row.
+     */
+    Map generateBackupCodes() {
+        def plain = []
+        def hashes = []
+        BACKUP_CODE_COUNT.times {
+            def raw = new byte[8]
+            RNG.nextBytes(raw)
+            // 12 chars Crockford-ish base32 so users don't have to
+            // disambiguate 0/O or 1/l/I in their hand-written copy.
+            def clean = base32(raw).toLowerCase().replaceAll(/[^0-9a-hjkmnp-z]/, '').take(12)
+            while (clean.size() < 12) clean = clean + 'x'
+            def pretty = clean[0..3] + '-' + clean[4..7] + '-' + clean[8..11]
+            plain    << pretty
+            hashes   << sha256Hex(pretty)
+        }
+        [ plaintext: plain, hashed: hashes.join(' ') ]
+    }
+
+    /**
+     * Check whether the supplied recovery code matches one of the user's
+     * unused hashes. Returns the updated hash-list string with the matched
+     * hash removed (single-use), or null if no match.
+     */
+    String consumeRecoveryCode(String storedHashes, String candidate) {
+        if (!storedHashes || !candidate) return null
+        def normalized = candidate.trim().toLowerCase().replaceAll(/[^0-9a-z-]/, '')
+        if (!normalized) return null
+        def wantHash = sha256Hex(normalized)
+        def parts = storedHashes.split(/\s+/).findAll { it }
+        if (!parts.contains(wantHash)) return null
+        parts.findAll { it != wantHash }.join(' ')
+    }
+
+    /** SHA-256 lowercase hex — exposed so the ProfileController can hash
+     *  a user-supplied candidate the same way the store does. */
+    String sha256Hex(String input) {
+        def md = MessageDigest.getInstance('SHA-256')
+        def out = md.digest(input.getBytes('UTF-8'))
+        out.collect { String.format('%02x', it) }.join('')
     }
 
     // ── Base32 codec (RFC 4648 — authenticator-app compatible) ──────

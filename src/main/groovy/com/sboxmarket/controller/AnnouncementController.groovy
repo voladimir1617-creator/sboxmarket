@@ -38,16 +38,29 @@ class AnnouncementController {
     @GetMapping("/api/announcement")
     ResponseEntity<Map> current() {
         def row = announcementService.current()
-        if (row == null) return ResponseEntity.ok([announcement: null])
-        ResponseEntity.ok([
-            announcement: [
-                id:        row.id,
-                message:   row.message,
-                severity:  row.severity,
-                createdAt: row.createdAt,
-                expiresAt: row.expiresAt
-            ]
-        ])
+        // Batch 820 — `public, max-age=30`. Announcements are global
+        // and change rarely (admin posts a banner, users see it).
+        // A CDN-shared 30s cache absorbs the homepage poll storm
+        // (every client ticks this every 2 minutes) without keeping
+        // a stale banner around after deactivation. Safe to share
+        // because the response has no viewer-specific fields.
+        def cache = 'public, max-age=30'
+        if (row == null) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', cache)
+                .body([announcement: null])
+        }
+        ResponseEntity.ok()
+            .header('Cache-Control', cache)
+            .body([
+                announcement: [
+                    id:        row.id,
+                    message:   row.message,
+                    severity:  row.severity,
+                    createdAt: row.createdAt,
+                    expiresAt: row.expiresAt
+                ]
+            ])
     }
 
     @GetMapping("/api/admin/announcements")

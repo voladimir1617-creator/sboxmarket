@@ -69,7 +69,29 @@ class BuyOrderController {
                 queuePosition: queuePosition
             ]
         }
-        ResponseEntity.ok(out)
+        long total = buyOrderService.countForBuyer(uid)
+        ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(total))
+            .body(out)
+    }
+
+    /** Top-N active buy orders by max-price — homepage "Top buy orders"
+     *  rail (batch 369). Public: no auth required. Returns item name +
+     *  image so the UI can render without a second round-trip. Buyer
+     *  identity is NOT surfaced (aggregate demand signal only). Clamped
+     *  to [1, 20] rows. */
+    @GetMapping("/top")
+    ResponseEntity<List<Map>> topActive(@RequestParam(required = false) Integer limit) {
+        int lim = Math.min(Math.max(limit ?: 8, 1), 20)
+        def rows = buyOrderService.listTopActive(lim)
+        // Batch 759 — 60s public cache. Top-of-book shifts slowly
+        // (needs a new higher-maxPrice buy order or a cancellation),
+        // and the homepage rail loads this on every visit. Overrides
+        // the implicit no-cache/private default so shared CDN caches
+        // can serve the rail too.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(rows)
     }
 
     /** Public demand-count for an item — returns the count of ACTIVE buy
@@ -79,11 +101,60 @@ class BuyOrderController {
     @GetMapping("/count/item/{id}")
     ResponseEntity<Map> countForItem(@PathVariable Long id) {
         def best = buyOrderService.bestBidForItem(id)
-        ResponseEntity.ok([
-            itemId:  id,
-            count:   buyOrderService.countActiveForItem(id),
-            bestBid: (best != null && best > BigDecimal.ZERO) ? best : null
-        ])
+        // Batch 759 — 60s public cache (mirrors /top above). Demand
+        // chip on ItemModal reads this once per modal open.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body([
+                itemId:  id,
+                count:   buyOrderService.countActiveForItem(id),
+                bestBid: (best != null && best > BigDecimal.ZERO) ? best : null
+            ])
+    }
+
+    /**
+     * Batch 639 — top-N ACTIVE buy orders for an item, sorted by
+     * `maxPrice DESC, createdAt ASC` (matches the auto-match engine's
+     * fill order). Powers the CSFloat-style Buy Orders table on item
+     * detail. Aggregate signal only: no buyer handle, no avatar.
+     * Clamped to [1, 20] rows.
+     */
+    @GetMapping("/for-item/{id}")
+    ResponseEntity<List<Map>> forItem(@PathVariable Long id,
+                                      @RequestParam(required = false) Integer limit) {
+        int lim = Math.min(Math.max(limit ?: 10, 1), 20)
+        // Batch 807 — public cache. Aggregate queue data, no viewer-
+        // specific fields. 60s matches the sibling /top + /count/item/*
+        // endpoints so the whole buy-order read-aggregate surface caches
+        // uniformly at the edge.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(buyOrderService.listActiveForItem(id, lim))
+    }
+
+    /** Bulk demand lookup (batch 415). Accepts a comma-separated
+     *  `ids=1,2,3` param (max 200) and returns a map keyed by itemId
+     *  with {count, bestBid} for items that have at least one ACTIVE
+     *  buy order. Items with no orders are simply absent from the
+     *  response. Powers the MyStall "N want · best $X" per-row chip. */
+    @GetMapping("/count/bulk")
+    ResponseEntity<Map> countBulk(@RequestParam(required = false) String ids) {
+        if (!ids) return ResponseEntity.ok([:])
+        def parsed = []
+        ids.split(',').each { raw ->
+            try {
+                def n = Long.parseLong(raw.trim())
+                if (n > 0 && parsed.size() < 200) parsed << n
+            } catch (NumberFormatException ignore) { /* skip bad tokens */ }
+        }
+        if (parsed.isEmpty()) return ResponseEntity.ok([:])
+        def out = buyOrderService.bulkDemandByItemIds(parsed as List<Long>)
+        // Batch 807 — same public/60s cache as the other aggregate reads.
+        // The per-itemId {count, bestBid} tuple depends on buy orders
+        // but not on the viewer; a shared cache is safe.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body(out)
     }
 
     /**
@@ -126,6 +197,17 @@ class BuyOrderController {
         ResponseEntity.ok([id: order.id, status: order.status])
     }
 
+    /** Bulk-cancel every ACTIVE buy order the caller owns. Mirrors
+     *  POST /api/bids/auto/cancel-all — lets buyers clear a noisy queue
+     *  in one click rather than calling DELETE /{id} N times. Returns
+     *  the count actually flipped. Idempotent: a zero-row caller gets
+     *  `{cancelled:0}` rather than a 404. */
+    @PostMapping("/cancel-all")
+    ResponseEntity<Map> cancelAll(HttpServletRequest req) {
+        int n = buyOrderService.cancelAllForUser(requireUser(req))
+        ResponseEntity.ok([cancelled: n])
+    }
+
     /** Raise / lower the max price or shrink the remaining quantity on
      *  an ACTIVE buy order. Both fields optional; at least one should
      *  be present. See BuyOrderService.update for the validation ladder. */
@@ -160,12 +242,7 @@ class BuyOrderController {
     ResponseEntity<String> exportCsv(HttpServletRequest req) {
         def uid = requireUser(req)
         def rows = buyOrderService.listForBuyer(uid)
-        def esc = { String v ->
-            if (v == null) return ''
-            v.contains(',') || v.contains('"') || v.contains('\n')
-                ? '"' + v.replace('"', '""') + '"'
-                : v
-        }
+        def esc = com.sboxmarket.util.CsvUtil.&safeCell   // batch 978
         def sb = new StringBuilder()
         sb.append("order_id,item_id,item_name,category,rarity,max_price,quantity,original_quantity,status,created_at,updated_at\n")
         rows.each { o ->

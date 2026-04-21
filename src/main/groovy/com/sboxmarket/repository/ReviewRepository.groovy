@@ -12,6 +12,11 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findByFromUserId(Long fromUserId)
 
+    /** Paged author-side lookup — reviews a user has written, newest
+     *  first. Used by the Profile → Reviews → Given tab so a buyer can
+     *  review, edit, or delete feedback they've left about sellers. */
+    List<Review> findByFromUserIdOrderByCreatedAtDesc(Long fromUserId, Pageable page)
+
     Review findByFromUserIdAndTradeId(Long fromUserId, Long tradeId)
 
     /** Aggregate stats — avoids loading all rows when we only need average + count. */
@@ -28,4 +33,15 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
         ORDER BY r.rating DESC
     """)
     List<Object[]> histogramForUser(@Param("uid") Long uid)
+
+    /** Bulk aggregate — [uid, count, avg] for every seller in the input
+     *  list. Single GROUP BY query powers the verified-seller badge
+     *  decoration on marketplace cards (batch 296). Sellers with no
+     *  reviews are absent from the result — treat missing as count=0. */
+    @Query("""
+        SELECT r.toUserId, COUNT(r), AVG(r.rating) FROM Review r
+        WHERE r.toUserId IN :ids
+        GROUP BY r.toUserId
+    """)
+    List<Object[]> aggregateForUsers(@Param("ids") List<Long> userIds)
 }

@@ -70,6 +70,19 @@ class SteamUser {
     @Column(length = 64)
     String emailVerificationToken
 
+    /**
+     * Batch 647 — epoch ms when `emailVerificationToken` expires. Set
+     * to `now + 24h` whenever a fresh token is minted via the email
+     * change / resend flows. `verifyEmail` rejects tokens whose window
+     * has passed. Null = "never expires" for backward-compat with
+     * tokens that pre-date the migration AND for the 2FA-staging path
+     * (which overloads this column intra-session and doesn't need an
+     * expiry).
+     */
+    @JsonIgnore
+    @Column(name = 'email_verification_token_expires_at')
+    Long emailVerificationTokenExpiresAt
+
     @Column
     Boolean emailVerified = false
 
@@ -124,4 +137,47 @@ class SteamUser {
      *  the UI. */
     @Column(name = 'stall_bio', length = 500)
     String stallBio
+
+    /** Monotonically-increasing token for "log out all sessions". On
+     *  login the current value is stashed in the HttpSession; every
+     *  request compares the two and 401s if they don't match. Bumping
+     *  this (via POST /logout-all) instantly invalidates every live
+     *  session on every device — useful after a stolen cookie or a
+     *  2FA reset. Default 0 — existing sessions pre-feature-launch
+     *  keep their stashed 0 and stay valid until explicit logout-all. */
+    @JsonIgnore
+    @Column(name = 'session_epoch', nullable = false)
+    Long sessionEpoch = 0L
+
+    /** SHA-256 hex hashes of the user's unused 2FA backup / recovery
+     *  codes, space-separated. Each hash corresponds to a single
+     *  one-time code that was shown to the user at 2FA enrollment (or
+     *  regeneration) and never stored in the clear. When a user
+     *  consumes a code the matching hash is removed from this set.
+     *  Never rendered to any client — marked @JsonIgnore so even
+     *  admin-side user lookups can't leak the hash list. Null means
+     *  "no backup codes on file" (pre-feature-launch accounts). */
+    @JsonIgnore
+    @Column(name = 'totp_recovery_codes', columnDefinition = 'TEXT')
+    String totpRecoveryCodes
+
+    /** Comma-separated set of email-notification buckets the user has
+     *  silenced. Layered on top of `emailNotificationsEnabled` — that
+     *  is the global kill switch, this is per-bucket fine control.
+     *  Buckets: TRADES / AUCTIONS / WATCHLIST / FOLLOWS. Transactional
+     *  emails (verification, withdrawal approval, ban) ignore this
+     *  field — those are legal-adjacent and cannot be muted. Default
+     *  empty string = no buckets muted. */
+    @Column(name = 'muted_email_kinds', length = 255, nullable = false)
+    String mutedEmailKinds = ''
+
+    /** Epoch-ms at which the user's currently-active "vacation mode"
+     *  should auto-resume (un-hide every active listing). Null = not
+     *  on a scheduled vacation; either fully active OR indefinitely
+     *  hidden via the manual away toggle. The hourly
+     *  ListingService.sweepExpiredAwayMode job picks up rows whose
+     *  value has passed `now()` and flips the listings + clears this
+     *  column atomically. */
+    @Column(name = 'away_mode_until')
+    Long awayModeUntil
 }

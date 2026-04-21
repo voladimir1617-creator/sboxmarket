@@ -31,11 +31,15 @@ class ApiKeyController {
     ResponseEntity<Map> create(@RequestBody(required = false) Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def label = body?.label as String
-        def result = apiKeyService.create(uid, label)
+        // Batch 670 — optional scope ('RO' or 'RW'). Invalid / blank
+        // falls through to 'RW' so the pre-scope contract holds.
+        def scope = body?.scope as String
+        def result = apiKeyService.create(uid, label, scope)
         ResponseEntity.ok([
             id:           result.key.id,
             publicPrefix: result.key.publicPrefix,
             label:        result.key.label,
+            scope:        result.key.scope,
             token:        result.token,        // returned ONCE
             createdAt:    result.key.createdAt
         ])
@@ -45,5 +49,16 @@ class ApiKeyController {
     ResponseEntity<Map> revoke(@PathVariable Long id, HttpServletRequest req) {
         def key = apiKeyService.revoke(requireUser(req), id)
         ResponseEntity.ok([id: key.id, revoked: key.revoked])
+    }
+
+    /**
+     * Bulk-revoke every active key on the caller's account (batch 705).
+     * Security panic button — pairs with Profile → Sign out everywhere.
+     * Idempotent: zero-key callers get `{revoked: 0}`, not a 404.
+     */
+    @DeleteMapping
+    ResponseEntity<Map> revokeAll(HttpServletRequest req) {
+        int n = apiKeyService.revokeAll(requireUser(req))
+        ResponseEntity.ok([revoked: n])
     }
 }

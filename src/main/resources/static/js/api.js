@@ -34,7 +34,34 @@ import { API } from './utils.js';
 async function safeJson(url, opts) {
   try {
     const r = await fetch(url, opts);
-    if (!r.ok) { console.warn(`[${url}] HTTP ${r.status}`); return null; }
+    if (!r.ok) {
+      // Session-revoked broadcast (batch 604). Before this, a 401 on
+      // a read operation (e.g. /api/profile/me after an admin force-
+      // logout) silently returned null — the user saw empty states
+      // without knowing their session died. Now reads dispatch the
+      // same `sb:session-expired` event that write-ops already fire,
+      // so the App flips `me` back to null + shows the friendly
+      // toast. Debounced inside the app listener (10s) so a burst of
+      // stale reads doesn't flash the toast repeatedly.
+      if (r.status === 401) {
+        try { window.dispatchEvent(new CustomEvent('sb:session-expired')); } catch (_) {}
+      }
+      // Maintenance / outage broadcast (batch 711). 503 on any read
+      // means the pod is rejecting traffic — typically /api/ready's
+      // DB probe is failing over or the admin flipped maintenance
+      // mode. Flip the SPA into a "SkinBox is temporarily unavailable"
+      // banner instead of flashing empty-state cards across the UI.
+      // Debounced inside the App listener.
+      if (r.status === 503) {
+        try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
+      }
+      console.warn(`[${url}] HTTP ${r.status}`);
+      return null;
+    }
+    // Clear the maintenance banner as soon as a real response lands —
+    // lets the UI auto-recover without a manual refresh when the pod
+    // comes back.
+    try { window.dispatchEvent(new CustomEvent('sb:service-restored')); } catch (_) {}
     return await r.json();
   } catch (e) {
     console.error(`[${url}] fetch failed:`, e);
@@ -54,10 +81,87 @@ async function writeJson(url, opts) {
     let body;
     try { body = await r.json(); } catch { body = null; }
     if (!r.ok) {
-      const msg = body?.error || body?.message || `Request failed (HTTP ${r.status})`;
+      // Session-expired special case — 401 on a write operation means the
+      // cookie went stale (server restart, explicit sign-out in another
+      // tab, Steam session timeout). Surface a friendly code the UI can
+      // map to a "Sign in again" toast + button rather than the generic
+      // "Request failed (HTTP 401)" string which reads as a bug.
+      if (r.status === 401) {
+        // Broadcast so the App can flip `me` back to null (the nav avatar
+        // becomes "Sign in with Steam" again) without waiting for a
+        // page refresh. Listeners are optional — the returned error
+        // object is still the primary failure signal.
+        try { window.dispatchEvent(new CustomEvent('sb:session-expired')); } catch (_) {}
+        return {
+          error: body?.error || body?.message || 'Your session expired — sign in again to continue.',
+          code:  'SESSION_EXPIRED'
+        };
+      }
+      // 429 friendly message (batch 423). The server emits a Retry-After
+      // header (seconds); surface it so the toast says "wait Ns" instead
+      // of a generic "Too many requests" — saves the user from
+      // reflexively re-clicking and burning their next bucket window.
+      if (r.status === 429) {
+        const retry = parseInt(r.headers.get('Retry-After'), 10);
+        const wait  = Number.isFinite(retry) && retry > 0 ? retry : 0;
+        const tail  = wait > 0 ? ` Try again in ${wait}s.` : ' Slow down a moment.';
+        return {
+          error: (body?.message || 'Too many requests.') + tail,
+          code:  'RATE_LIMITED',
+          retryAfter: wait
+        };
+      }
+      // Batch 711 — 503 on write mirrors the 503-on-read broadcast.
+      // Lets the service-unavailable banner fire regardless of which
+      // op triggered the degraded state.
+      if (r.status === 503) {
+        try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
+      }
+      // Batch 989 — VALIDATION_FAILED responses carry `details.fields`
+      // mapping field name → human error ("price must be at least $0.01").
+      // The generic message "Request body failed validation" is useless
+      // to a user — they don't know which field to fix. Pull the first
+      // field error into the surfaced message so the toast reads
+      // "Price must be at least $0.01" instead. Callers that want the
+      // full per-field map still get it via `res.details.fields`.
+      let msg = body?.error || body?.message || `Request failed (HTTP ${r.status})`;
+      if (body?.code === 'VALIDATION_FAILED' && body?.details?.fields) {
+        const entries = Object.values(body.details.fields);
+        if (entries.length > 0) {
+          const first = entries[0];
+          if (typeof first === 'string' && first) {
+            // Capitalise leading char so "price must be..." reads as a
+            // real sentence. No deeper grammar munging — server-side
+            // messages are already well-formed.
+            msg = first.charAt(0).toUpperCase() + first.slice(1);
+          }
+        }
+      }
       const code = body?.code || 'SERVER_ERROR';
-      return { error: msg, code };
+      // Correlation-id suffix for 5xx responses (batch 738). The server
+      // emits one per request via CorrelationIdFilter; returning it to
+      // the UI lets the default toast read "Error · ref AB12CD" which
+      // the user can paste directly into a support ticket. Only applied
+      // for 500-class errors — 4xx user-actionable messages (validation,
+      // permission, rate-limit) don't benefit from a trace id and the
+      // suffix would just be noise.
+      const cid = body?.correlationId || r.headers.get('X-Correlation-Id');
+      const messageWithRef = (r.status >= 500 && cid)
+        ? `${msg} · ref ${String(cid).slice(0, 8)}`
+        : msg;
+      // Batch 983 — forward `details` from the server. GlobalExceptionHandler
+      // attaches structured `{required, available, shortfall}` on
+      // INSUFFICIENT_BALANCE (batch 963) and field-error maps on
+      // VALIDATION_FAILED. Pre-fix, writeJson dropped it on the floor
+      // so the frontend's "Top up $X" precise-shortfall toast (batch
+      // 963 handleBuy) never had data to render.  `message` is also
+      // passed through so callers that read `res.message` (pre-refactor
+      // mixed-shape code in app.js + modals.js) keep working.
+      return { error: messageWithRef, code, correlationId: cid,
+               message: body?.message, details: body?.details };
     }
+    // Any 2xx clears the banner (service-restored), same as reads.
+    try { window.dispatchEvent(new CustomEvent('sb:service-restored')); } catch (_) {}
     return body;
   } catch (e) {
     console.error(`[${url}] write failed:`, e);
@@ -112,8 +216,17 @@ export async function fetchItemVelocity(itemId) {
   return (await safeJson(`${API}/items/${itemId}/velocity`)) || { soldLast7d: 0, soldLast30d: 0 };
 }
 
-export async function buyListing(id) {
-  return writeJson(`${API}/listings/${id}/buy`, { method: 'POST', credentials: 'same-origin' });
+/** Buy a listing by id. Optional `expectedPrice` pins what the user
+ *  saw in the modal; server rejects with `PRICE_CHANGED` if the price
+ *  has drifted (seller edit between modal render and Buy click). */
+export async function buyListing(id, expectedPrice) {
+  const body = expectedPrice != null ? { expectedPrice: String(expectedPrice) } : null;
+  return writeJson(`${API}/listings/${id}/buy`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
 }
 
 /** GET a single listing by id. Returns null on 404 (listing sold / cancelled). */
@@ -168,6 +281,22 @@ export async function setEmailNotifications(enabled) {
     body: JSON.stringify({ enabled: !!enabled })
   });
 }
+/** Per-bucket email-mute preferences (layered on top of the global
+ *  emailNotificationsEnabled kill switch). Buckets that can be muted:
+ *  TRADES / AUCTIONS / WATCHLIST / FOLLOWS. Transactional emails
+ *  (verification, withdrawal approval, ban) cannot be muted. */
+export async function fetchEmailMutes() {
+  const r = await fetch(`${API}/profile/email-mutes`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
+}
+export async function setEmailMutes(muted) {
+  return writeJson(`${API}/profile/email-mutes`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ muted: Array.isArray(muted) ? muted : [] })
+  });
+}
 
 export async function requestAccountDeletion() {
   return writeJson(`${API}/profile/delete-account`, {
@@ -176,6 +305,14 @@ export async function requestAccountDeletion() {
 }
 export async function cancelAccountDeletion() {
   return writeJson(`${API}/profile/delete-account/cancel`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+/** Batch 697 — force-invalidate every live session on the caller's
+ *  account by bumping the server-side sessionEpoch. Includes the
+ *  current session; caller should redirect to `/` immediately after. */
+export async function signOutEverywhere() {
+  return writeJson(`${API}/profile/sign-out-everywhere`, {
     method: 'POST', credentials: 'same-origin'
   });
 }
@@ -201,6 +338,32 @@ export async function fetchFollowing() {
   const data = await safeJson(`${API}/follows`);
   return Array.isArray(data) ? data : [];
 }
+/** Unfollow every seller in one call. Returns `{unfollowed:N}`. */
+export async function unfollowAllSellers() {
+  return writeJson(`${API}/follows`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+/** Bulk mute / unmute new-listing pings across every seller the user
+ *  follows (batch 295). Follow rows stay — only the bell + email fan-
+ *  out is suppressed when muted. Returns `{touched:N, muted:bool}`. */
+export async function setAllSellerMuted(muted) {
+  return writeJson(`${API}/follows/mute-all`, {
+    method: 'PATCH', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ muted: !!muted })
+  });
+}
+/** Mute / un-mute the new-listing pings for one followed seller (V36
+ *  / batch 279). Keeps the follow row alive — only the bell + email
+ *  fan-out is suppressed for that seller. */
+export async function setSellerMuted(sellerId, muted) {
+  return writeJson(`${API}/follows/${sellerId}/mute`, {
+    method: 'PATCH', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ muted: !!muted })
+  });
+}
 
 /** Fetch all listings for a specific item by its item ID.
  *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
@@ -210,9 +373,42 @@ export async function fetchListingsForItem(itemId) {
   return Array.isArray(data) ? data : [];
 }
 
+/** "More from this seller" rail on the ItemModal. Returns up to 8
+ *  other active visible listings from the same seller, excluding
+ *  the item the modal is currently showing. Null-guarded: returns
+ *  [] for system listings where sellerUserId is missing. */
+export async function fetchOtherFromSeller(sellerUserId, excludeItemId, limit = 8) {
+  if (!sellerUserId || !excludeItemId) return [];
+  const data = await safeJson(
+    `${API}/listings/seller/${sellerUserId}/other?excludeItemId=${excludeItemId}&limit=${limit}`);
+  return Array.isArray(data) ? data : [];
+}
+
 export async function fetchInventory() {
   const data = await safeJson(`${API}/listings/inventory`);
   return Array.isArray(data) ? data : [];
+}
+
+/** Variant that also returns the true inventory row count (from the
+ *  server's `X-Total-Count` header) so the SellItemsModal can render
+ *  "Showing most recent 500 of N" when the 500-row display cap is
+ *  hit. Keeps the plain `fetchInventory()` array contract stable for
+ *  every other caller. */
+export async function fetchInventoryWithTotal() {
+  try {
+    const res = await fetch(`${API}/listings/inventory`, { credentials: 'same-origin' });
+    if (!res.ok) return { items: [], total: 0 };
+    const items = await res.json();
+    const totalHeader = res.headers.get('X-Total-Count');
+    const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+    const fallback = Array.isArray(items) ? items.length : 0;
+    return {
+      items: Array.isArray(items) ? items : [],
+      total: Number.isFinite(parsed) ? parsed : fallback
+    };
+  } catch {
+    return { items: [], total: 0 };
+  }
 }
 
 /** Sale history for the signed-in seller — last 200 SOLD listings,
@@ -220,6 +416,27 @@ export async function fetchInventory() {
 export async function fetchMyStallSold() {
   const data = await safeJson(`${API}/listings/my-stall/sold`);
   return Array.isArray(data) ? data : [];
+}
+
+/** Variant with `X-Total-Count` — enables the MyStall Sold tab's
+ *  "Showing most recent 200 of N" overflow banner for power-sellers
+ *  with 200+ closed sales. Mirrors the inventory / trades / buy-orders
+ *  end-to-end pattern. */
+export async function fetchMyStallSoldWithTotal() {
+  try {
+    const res = await fetch(`${API}/listings/my-stall/sold`, { credentials: 'same-origin' });
+    if (!res.ok) return { items: [], total: 0 };
+    const items = await res.json();
+    const totalHeader = res.headers.get('X-Total-Count');
+    const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+    const fallback = Array.isArray(items) ? items.length : 0;
+    return {
+      items: Array.isArray(items) ? items : [],
+      total: Number.isFinite(parsed) ? parsed : fallback
+    };
+  } catch {
+    return { items: [], total: 0 };
+  }
 }
 /** Apply a percent adjustment (±50 max) to every active non-auction
  *  listing in the signed-in user's stall. Returns { touched, skipped }. */
@@ -235,22 +452,53 @@ export async function fetchMyStall() {
   return Array.isArray(data) ? data : [];
 }
 
+/** Variant with `X-Total-Count` — drives the "Showing most recent 500
+ *  of N" banner on the MyStall Active tab when a prolific seller
+ *  crosses the display cap (batch 1033). Keeps plain `fetchMyStall()`
+ *  array contract stable for existing callers. */
+export async function fetchMyStallWithTotal() {
+  try {
+    const res = await fetch(`${API}/listings/my-stall`, { credentials: 'same-origin' });
+    if (!res.ok) return { items: [], total: 0 };
+    const items = await res.json();
+    const totalHeader = res.headers.get('X-Total-Count');
+    const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+    const fallback = Array.isArray(items) ? items.length : 0;
+    return {
+      items: Array.isArray(items) ? items : [],
+      total: Number.isFinite(parsed) ? parsed : fallback
+    };
+  } catch {
+    return { items: [], total: 0 };
+  }
+}
+
 /** Public recent-sales strip for a stall — last 10 sold listings,
- *  price + soldAt + item only. No buyer identities. */
-export async function fetchPublicStallSold(userId) {
-  const data = await safeJson(`${API}/listings/stall/${userId}/recent-sales`);
+ *  price + soldAt + item only. No buyer identities. Pass a limit up
+ *  to 200 when you want enough samples for a sales sparkline. */
+export async function fetchPublicStallSold(userId, limit) {
+  const qs = (Number.isFinite(+limit) && limit > 0) ? `?limit=${Math.min(+limit, 200)}` : '';
+  const data = await safeJson(`${API}/listings/stall/${userId}/recent-sales${qs}`);
   return Array.isArray(data) ? data : [];
 }
 export async function fetchPublicStall(userId) {
   return safeJson(`${API}/listings/stall/${userId}`);
 }
 
-export async function relistItem(listingId, price) {
+export async function relistItem(listingId, price, opts = {}) {
+  const body = { listingId, price };
+  if (opts.listingType)   body.listingType = opts.listingType;
+  if (opts.durationHours) body.durationHours = opts.durationHours;
+  if (opts.description)   body.description = opts.description;
+  if (opts.buyNowPrice != null) body.buyNowPrice = opts.buyNowPrice;
+  // Batch 646 — optional auto-accept threshold (0..1). Client sends
+  // the fraction form; SellItemsModal converts from the percent input.
+  if (opts.maxDiscount != null) body.maxDiscount = opts.maxDiscount;
   return writeJson(`${API}/listings/sell`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ listingId, price })
+    body: JSON.stringify(body)
   });
 }
 
@@ -271,6 +519,18 @@ export async function fetchTransactions() {
   const r = await fetch(`${API}/wallet/transactions`, { credentials: 'same-origin' });
   if (!r.ok) return [];
   return r.json();
+}
+
+// Buyer-side spending summary (batch 846). Shape:
+//   { spentLifetime, spent30d, spent7d, purchasesLifetime, purchases30d, purchases7d }
+// Returns null on any non-2xx so the caller can hide the strip silently
+// instead of rendering a broken empty state.
+export async function fetchWalletSpend() {
+  try {
+    const r = await fetch(`${API}/wallet/spend`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return r.json();
+  } catch (_) { return null; }
 }
 
 export async function depositFunds(amount) {
@@ -324,6 +584,15 @@ export async function fetchIncomingOffers() {
   return Array.isArray(data) ? data : [];
 }
 
+/** Your live PENDING/COUNTERED offer on one specific listing (batch
+ *  368) — or null if you haven't offered on it. Drives the "You offered
+ *  $X" chip on the ItemModal listings row so a buyer revisiting a
+ *  listing immediately sees their own offer state. */
+export async function fetchMyOfferForListing(listingId) {
+  const data = await safeJson(`${API}/offers/mine-for-listing/${listingId}`);
+  return (data && typeof data === 'object') ? (data.offer || null) : null;
+}
+
 export async function fetchOutgoingOffers() {
   const data = await safeJson(`${API}/offers/outgoing`);
   return Array.isArray(data) ? data : [];
@@ -337,12 +606,17 @@ export async function fetchBestOfferPerListing() {
   return data && typeof data === 'object' ? data : {};
 }
 
-export async function makeOffer(listingId, amount) {
+export async function makeOffer(listingId, amount, message) {
+  const body = { listingId, amount };
+  // Optional 280-char buyer note. Empty / whitespace-only collapses out
+  // of the payload so the server stores null instead of an empty row.
+  const trimmed = (message || '').trim();
+  if (trimmed) body.message = trimmed;
   return writeJson(`${API}/offers`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ listingId, amount })
+    body: JSON.stringify(body)
   });
 }
 
@@ -350,32 +624,54 @@ export async function acceptOffer(offerId) {
   return writeJson(`${API}/offers/${offerId}/accept`, { method: 'POST', credentials: 'same-origin' });
 }
 
-export async function rejectOffer(offerId) {
-  return writeJson(`${API}/offers/${offerId}/reject`, { method: 'POST', credentials: 'same-origin' });
+export async function rejectOffer(offerId, reply) {
+  const body = {};
+  const trimmed = (reply || '').trim();
+  if (trimmed) body.reply = trimmed;
+  return writeJson(`${API}/offers/${offerId}/reject`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
 }
 
 export async function cancelOffer(offerId) {
   return writeJson(`${API}/offers/${offerId}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
-export async function counterOffer(offerId, amount) {
+/** Bulk-cancel every PENDING outgoing offer for the caller. Returns
+ *  `{cancelled:N}` — zero-row callers get `{cancelled:0}`, not a 404. */
+export async function cancelAllOutgoingOffers() {
+  return writeJson(`${API}/offers/outgoing/cancel-all`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+
+export async function counterOffer(offerId, amount, message) {
+  const body = { amount };
+  const trimmed = (message || '').trim();
+  if (trimmed) body.message = trimmed;
   return writeJson(`${API}/offers/${offerId}/counter`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount })
+    body: JSON.stringify(body)
   });
 }
 
 /** Buyer-side raise — lets a buyer escalate their own pending offer
  *  without waiting for the seller. Backend cancels the original and
  *  creates a new PENDING offer threaded via parentOfferId. */
-export async function raiseOffer(offerId, amount) {
+export async function raiseOffer(offerId, amount, message) {
+  const body = { amount };
+  const trimmed = (message || '').trim();
+  if (trimmed) body.message = trimmed;
   return writeJson(`${API}/offers/${offerId}/raise`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount })
+    body: JSON.stringify(body)
   });
 }
 
@@ -388,6 +684,27 @@ export async function fetchOfferThread(listingId) {
 export async function fetchBuyOrders() {
   const data = await safeJson(`${API}/buy-orders`);
   return Array.isArray(data) ? data : [];
+}
+
+/** Variant that also returns the server's true buy-order count via
+ *  the `X-Total-Count` header — feeds the "Showing most recent 300 of
+ *  N" banner once a user crosses BUY_ORDER_LIST_CAP (batch 1009).
+ *  Leaves the plain `fetchBuyOrders()` array contract intact. */
+export async function fetchBuyOrdersWithTotal() {
+  try {
+    const res = await fetch(`${API}/buy-orders`, { credentials: 'same-origin' });
+    if (!res.ok) return { items: [], total: 0 };
+    const items = await res.json();
+    const totalHeader = res.headers.get('X-Total-Count');
+    const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+    const fallback = Array.isArray(items) ? items.length : 0;
+    return {
+      items: Array.isArray(items) ? items : [],
+      total: Number.isFinite(parsed) ? parsed : fallback
+    };
+  } catch {
+    return { items: [], total: 0 };
+  }
 }
 
 export async function createBuyOrder(payload) {
@@ -403,6 +720,15 @@ export async function deleteBuyOrder(id) {
   return writeJson(`${API}/buy-orders/${id}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
+/** Bulk-cancel every ACTIVE buy order the caller owns. Returns
+ *  `{cancelled:N}` on success — zero-row callers get `{cancelled:0}`
+ *  rather than a 404, so the UI can always render the count. */
+export async function cancelAllBuyOrders() {
+  return writeJson(`${API}/buy-orders/cancel-all`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+
 /** Edit an ACTIVE buy order in place. Either field can be null to
  *  leave it unchanged; the backend applies the 100k cap / quantity
  *  bounds on its own. Shrinks remaining fills when `quantity` is
@@ -412,6 +738,18 @@ export async function updateBuyOrder(id, { maxPrice, quantity }) {
     method: 'PUT', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ maxPrice, quantity })
+  });
+}
+
+// Bump a buy order's updatedAt so the 30-day auto-expire sweep resets
+// without the user having to open the edit flow and re-submit
+// unchanged values. The existing update endpoint already bumps
+// updatedAt on any PUT so an empty body is sufficient (batch 857).
+export async function bumpBuyOrder(id) {
+  return writeJson(`${API}/buy-orders/${id}`, {
+    method: 'PUT', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
   });
 }
 
@@ -434,6 +772,19 @@ export async function fetchAutoBids() {
   const data = await safeJson(`${API}/bids/auto`);
   return Array.isArray(data) ? data : [];
 }
+/** All bids the user currently has LIVE (WINNING or OUTBID) — includes both
+ *  MANUAL and AUTO rows so the Profile Active-Bids tab can show every auction
+ *  they're still in. */
+export async function fetchActiveBids() {
+  const data = await safeJson(`${API}/bids/my-active`);
+  return Array.isArray(data) ? data : [];
+}
+/** Past bids — WON, LOST, CANCELLED. Drives the Profile → Bids → Past
+ *  sub-tab (batch 361). Capped at 100 most-recent server-side. */
+export async function fetchPastBids() {
+  const data = await safeJson(`${API}/bids/my-past`);
+  return Array.isArray(data) ? data : [];
+}
 /** Cancel the auto-raise on one specific bid (winning bid stays put). */
 export async function cancelAutoBid(bidId) {
   return writeJson(`${API}/bids/auto/${bidId}/cancel`, {
@@ -448,14 +799,40 @@ export async function cancelAllAutoBids() {
 }
 
 // ── Notifications ───────────────────────────────────────────────
-export async function fetchNotifications() {
-  const r = await fetch(`${API}/notifications`, { credentials: 'same-origin' });
+/** Default: up to 100 rows (full NotificationsModal view). Callers
+ *  that only need the 12 newest (nav bell dropdown) pass `limit=12`
+ *  to shave ~85% off the payload. */
+export async function fetchNotifications(limit) {
+  const qs = (limit != null && Number.isFinite(limit)) ? `?limit=${limit}` : '';
+  const r = await fetch(`${API}/notifications${qs}`, { credentials: 'same-origin' });
   if (!r.ok) return { items: [], unread: 0 };
   return r.json();
 }
 
+/** Cheap unread-count for the nav bell's 25-second poll — avoids
+ *  shipping 100 notification rows on every tick just to compute a
+ *  single integer. Falls through to 0 on any error so the bell
+ *  doesn't drop stale unread ticks on a transient network blip. */
+export async function fetchUnreadNotificationCount() {
+  try {
+    const r = await fetch(`${API}/notifications/unread-count`, { credentials: 'same-origin' });
+    if (!r.ok) return 0;
+    const data = await r.json();
+    const n = parseInt(data?.unread, 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function markNotificationRead(id) {
   return fetch(`${API}/notifications/${id}/read`, { method: 'POST', credentials: 'same-origin' });
+}
+
+/** Flip a notification back to unread (batch 365) — lets a user
+ *  defer handling without losing the row. */
+export async function markNotificationUnread(id) {
+  return fetch(`${API}/notifications/${id}/unread`, { method: 'POST', credentials: 'same-origin' });
 }
 
 export async function clearReadNotifications() {
@@ -471,6 +848,32 @@ export async function deleteNotification(id) {
 }
 export async function markAllNotificationsRead() {
   return fetch(`${API}/notifications/read-all`, { method: 'POST', credentials: 'same-origin' });
+}
+
+/** Batch 636 — scoped counterpart to clearReadNotifications(). Sends
+ *  the visible-and-read ids so deletion only touches rows the user
+ *  can actually see. Returns `{deleted: N}`. */
+export async function deleteNotificationsBatch(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return { deleted: 0 };
+  return writeJson(`${API}/notifications/delete-batch`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids })
+  });
+}
+
+/** Batch 635 — filter-scoped "Mark visible read". Sends the current
+ *  visible-unread ids so the server flip only touches rows the user
+ *  is actually seeing on the page. Returns `{flipped: N}`. */
+export async function markNotificationsReadBatch(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return { flipped: 0 };
+  return writeJson(`${API}/notifications/read-batch`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids })
+  });
 }
 
 // ── Database ────────────────────────────────────────────────────
@@ -492,6 +895,13 @@ export async function fetchPublicLoadouts(search) {
 
 export async function fetchMyLoadouts() {
   const data = await safeJson(`${API}/loadouts/mine`);
+  return Array.isArray(data) ? data : [];
+}
+
+/** Loadouts the signed-in user has favorited, newest-favorite first.
+ *  Empty array for anon viewers (401 on the underlying endpoint). */
+export async function fetchFavoriteLoadouts() {
+  const data = await safeJson(`${API}/loadouts/favorites`);
   return Array.isArray(data) ? data : [];
 }
 
@@ -517,6 +927,17 @@ export async function setLoadoutSlot(id, slot, itemId) {
   });
 }
 
+/** Toggle the lock on a single loadout slot. Locked slots are preserved
+ *  by the /generate autopicker; unlocked slots get overwritten with the
+ *  cheapest-within-budget candidate. Returns { slot, locked } on success. */
+export async function lockLoadoutSlot(id, slot) {
+  return writeJson(`${API}/loadouts/${id}/slot/${encodeURIComponent(slot)}/lock`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 export async function generateLoadout(id, budget) {
   return writeJson(`${API}/loadouts/${id}/generate`, {
     method: 'POST',
@@ -528,6 +949,28 @@ export async function generateLoadout(id, budget) {
 
 export async function favoriteLoadout(id) {
   return fetch(`${API}/loadouts/${id}/favorite`, { method: 'POST', credentials: 'same-origin' });
+}
+
+/** Duplicate a PUBLIC loadout (or the viewer's own private one) into the
+ *  viewer's stable. The copy starts PRIVATE and unlocked — they can retune
+ *  freely before republishing. Returns the new Loadout body so the caller
+ *  can navigate straight to the new id. */
+export async function cloneLoadout(id) {
+  return writeJson(`${API}/loadouts/${id}/clone`, {
+    method: 'POST',
+    credentials: 'same-origin'
+  });
+}
+
+/** Owner-only metadata update. Any subset of { name, description, visibility }.
+ *  Used for rename + switching a cloned PRIVATE loadout to PUBLIC. */
+export async function updateLoadout(id, patch) {
+  return writeJson(`${API}/loadouts/${id}`, {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch || {})
+  });
 }
 
 export async function deleteLoadout(id) {
@@ -559,10 +1002,56 @@ export async function adminRejectWithdrawal(id, reason) {
     body: JSON.stringify({ reason })
   });
 }
-export async function adminUsers(search) {
-  const q = search ? '?search=' + encodeURIComponent(search) : '';
-  const data = await safeJson(`${API}/admin/users${q}`);
+/** Admin users listing (batch 765). `opts` can carry `search`, `role`,
+ *  and `banned`. `search` takes precedence (same as the service). */
+export async function adminUsers(opts) {
+  // Legacy call-shape: `adminUsers("some query string")`. Normalise to
+  // the options-bag shape so we keep one fetch path.
+  if (typeof opts === 'string' || opts == null) {
+    opts = opts ? { search: opts } : {};
+  }
+  const params = new URLSearchParams();
+  if (opts.search) params.set('search', opts.search);
+  if (opts.role && opts.role !== 'ANY') params.set('role', opts.role);
+  if (opts.banned === true)  params.set('banned', 'true');
+  if (opts.banned === false) params.set('banned', 'false');
+  const qs = params.toString();
+  const data = await safeJson(`${API}/admin/users${qs ? '?' + qs : ''}`);
   return Array.isArray(data) ? data : [];
+}
+/** Consolidated per-user staff summary (batch 549) — wallet + dispute
+ *  + 2FA + email-verified state in one round-trip. Returns null if the
+ *  endpoint fails so the drawer can still render basic SteamUser fields. */
+export async function adminUserSummary(id) {
+  try {
+    return await safeJson(`${API}/admin/users/${id}/summary`);
+  } catch (_) {
+    return null;
+  }
+}
+/** Sign-in history for the caller — 20 most-recent USER_SIGN_IN
+ *  audit rows (batch 569). Returns [] on error. */
+export async function fetchSignInHistory() {
+  const data = await safeJson(`${API}/profile/sign-in-history`);
+  return Array.isArray(data) ? data : [];
+}
+
+/** Batch 714 — security-relevant audit events (2FA resets, API key
+ *  mints/revocations, admin actions, withdrawals, disputes). Up to 50
+ *  rows, newest-first, whitelisted event types only. 401 for anon. */
+export async function fetchSecurityActivity() {
+  const data = await safeJson(`${API}/profile/security-activity`);
+  return Array.isArray(data) ? data : [];
+}
+/** Admin drill-down: 100 most-recent wallet transactions for a user
+ *  (batch 568). Returns [] on error so the drawer still renders. */
+export async function adminUserTransactions(id) {
+  try {
+    const data = await safeJson(`${API}/admin/users/${id}/transactions`);
+    return Array.isArray(data) ? data : [];
+  } catch (_) {
+    return [];
+  }
 }
 export async function adminBanUser(id, reason) {
   return writeJson(`${API}/admin/users/${id}/ban`, {
@@ -573,6 +1062,9 @@ export async function adminBanUser(id, reason) {
 }
 export async function adminUnbanUser(id) {
   return writeJson(`${API}/admin/users/${id}/unban`, { method: 'POST', credentials: 'same-origin' });
+}
+export async function adminForceLogout(id) {
+  return writeJson(`${API}/admin/users/${id}/force-logout`, { method: 'POST', credentials: 'same-origin' });
 }
 export async function adminGrant(id) {
   return writeJson(`${API}/admin/users/${id}/grant-admin`, { method: 'POST', credentials: 'same-origin' });
@@ -619,6 +1111,40 @@ export async function adminCreditWallet(id, amount, note) {
     body: JSON.stringify({ amount, note })
   });
 }
+/** Freeze a user's wallet (batch 509). Softer than a ban — refuses
+ *  money-in/out but keeps the account usable otherwise. Reason required. */
+export async function adminFreezeWallet(id, reason) {
+  return writeJson(`${API}/admin/users/${id}/wallet/freeze`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason })
+  });
+}
+/** Lift a wallet freeze. Idempotent — no-op if already unfrozen. */
+export async function adminUnfreezeWallet(id) {
+  return writeJson(`${API}/admin/users/${id}/wallet/unfreeze`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+/** Admin direct message to a single user (batch 580). Rejected for
+ *  banned targets server-side. title required, body + path optional. */
+export async function adminMessageUser(id, title, body, path) {
+  return writeJson(`${API}/admin/users/${id}/message`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body, path })
+  });
+}
+/** Admin broadcast notification to every non-banned user (batch 566).
+ *  Returns {sent, batches} on success. title is required; body + path
+ *  optional. 120/500/200-char server-side caps. */
+export async function adminBroadcast(title, body, path) {
+  return writeJson(`${API}/admin/broadcast`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body, path })
+  });
+}
 export async function adminRemoveListing(id, reason) {
   return writeJson(`${API}/admin/listings/${id}/remove`, {
     method: 'POST', credentials: 'same-origin',
@@ -637,9 +1163,15 @@ export async function adminDismissReports(id, note) {
     body: JSON.stringify({ note })
   });
 }
-export async function adminTickets(status) {
-  const q = status ? '?status=' + encodeURIComponent(status) : '';
-  const data = await safeJson(`${API}/admin/tickets${q}`);
+export async function adminTickets(status, search) {
+  // Batch 576 — optional free-text narrows the triage queue by
+  // subject / username / category. Both params encode safely; neither
+  // widens the response shape.
+  const qp = new URLSearchParams();
+  if (status) qp.set('status', status);
+  if (search) qp.set('search', search);
+  const suffix = qp.toString() ? '?' + qp.toString() : '';
+  const data = await safeJson(`${API}/admin/tickets${suffix}`);
   return Array.isArray(data) ? data : [];
 }
 export async function adminTicket(id) { return safeJson(`${API}/admin/tickets/${id}`); }
@@ -690,6 +1222,37 @@ export async function adminFraudSignals() {
   const data = await safeJson(`${API}/admin/fraud`);
   return Array.isArray(data) ? data : [];
 }
+
+/** Batch 700 — admin fraud-triage helper. Paste a prefix fragment
+ *  from a log line (e.g. `sbx_live_abc12`) and get back every matching
+ *  key with owner id + label + scope + revoked-flag + last-used. */
+export async function adminApiKeyLookup(prefix) {
+  const p = (prefix || '').trim();
+  if (p.length < 3) return [];
+  const data = await safeJson(`${API}/admin/api-keys/lookup?prefix=${encodeURIComponent(p)}`);
+  return Array.isArray(data) ? data : [];
+}
+
+/** Admin chargeback queue (batch 462) — every DEPOSIT transaction in
+ *  DISPUTED state, flagged via Stripe's charge.dispute.created webhook.
+ *  Returns the user info inline so the table can render without an N+1
+ *  lookup loop. */
+export async function adminDisputes() {
+  const data = await safeJson(`${API}/admin/disputes`);
+  return Array.isArray(data) ? data : [];
+}
+
+/** Clear a DISPUTED deposit (batch 467) — flips it back to COMPLETED so
+ *  the user's withdrawal hold lifts. Used when the chargeback resolves
+ *  in our favour, or staff verify the dispute is a false positive. */
+export async function adminClearDispute(txId, reason) {
+  return writeJson(`${API}/admin/transactions/${txId}/clear-dispute`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: reason || '' })
+  });
+}
 export async function adminRefundDeposit(id, amount) {
   return writeJson(`${API}/admin/deposits/${id}/refund`, {
     method: 'POST', credentials: 'same-origin',
@@ -719,6 +1282,15 @@ export async function adminSyncScmm() {
   if (!r.ok) return { error: `HTTP ${r.status}` };
   return r.json();
 }
+/** Kicks off the Steam Community Market priceoverview sync in a background
+ *  thread server-side (returns immediately — full sync takes ~11 min for 80
+ *  items × 8s throttle). Caller polls /api/items afterwards to see the
+ *  updated lowestPrice + trendPercent. Admin-gated. */
+export async function adminSyncSteamPrices() {
+  return writeJson(`${API}/admin/sync-prices`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
 // ── Reviews ─────────────────────────────────────────────────────
 export async function leaveReview(tradeId, rating, comment) {
   return writeJson(`${API}/reviews`, {
@@ -731,6 +1303,12 @@ export async function fetchReviewsForUser(userId) {
   const data = await safeJson(`${API}/reviews/user/${userId}`);
   return Array.isArray(data) ? data : [];
 }
+/** Reviews the signed-in user has authored (as a buyer). Auth-gated —
+ *  returns [] when anonymous. Drives the Profile → Reviews → Given tab. */
+export async function fetchMyAuthoredReviews() {
+  const data = await safeJson(`${API}/reviews/mine`);
+  return Array.isArray(data) ? data : [];
+}
 export async function fetchReviewSummary(userId) {
   return (await safeJson(`${API}/reviews/user/${userId}/summary`)) || { count: 0, average: null };
 }
@@ -741,6 +1319,40 @@ export async function fetchEligibleReviews(sellerUserId) {
   const data = await safeJson(`${API}/reviews/eligible/${sellerUserId}`);
   return Array.isArray(data) ? data : [];
 }
+/** Every unreviewed verified trade for the signed-in user, across every
+ *  seller. Drives the Profile → Reviews "N trades to review" chip + list.
+ *  Returns { count: 0, items: [] } for anonymous viewers. */
+export async function fetchPendingReviews() {
+  const data = await safeJson(`${API}/reviews/pending`);
+  return (data && typeof data === 'object') ? data : { count: 0, items: [] };
+}
+
+/** Users the signed-in caller has blocked. Auth-gated — returns
+ *  { count: 0, items: [] } for anonymous callers. Drives Profile →
+ *  Personal → Blocked list. */
+export async function fetchBlockedUsers() {
+  const data = await safeJson(`${API}/profile/blocks`);
+  return (data && typeof data === 'object') ? data : { count: 0, items: [] };
+}
+/** Block another user — non-destructive, silent to the blocked user. */
+export async function blockUser(userId) {
+  return writeJson(`${API}/profile/blocks/${userId}`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+/** Reverse: remove a block. Idempotent — 0 rows deleted for an
+ *  already-unblocked pair is not an error. */
+export async function unblockUser(userId) {
+  return writeJson(`${API}/profile/blocks/${userId}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+/** Bulk-unblock — clears the caller's entire block list. Batch 355. */
+export async function unblockAllUsers() {
+  return writeJson(`${API}/profile/blocks`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
 /** Seller posts a public reply (or clears with empty string) on one of
  *  their own received reviews. Only the review's toUserId can call this. */
 export async function replyToReview(reviewId, reply) {
@@ -750,11 +1362,95 @@ export async function replyToReview(reviewId, reply) {
     body: JSON.stringify({ reply })
   });
 }
-/** Aggregate top sellers for the homepage social-proof rail. Public,
- *  8-row cap server-side, excludes sellers with <5 completed sales. */
-export async function fetchTopSellers() {
-  const data = await safeJson(`${API}/listings/top-sellers`);
+/** Remove a review the signed-in user authored. Server enforces
+ *  fromUserId == caller — nobody else can delete a review. */
+export async function deleteReview(reviewId) {
+  return writeJson(`${API}/reviews/${reviewId}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+/** Top sellers over the last N days (default 7) — powers the "This
+ *  week" homepage rail per CSFloat Manual §4. Rolling window is more
+ *  honest social proof than the all-time leaderboard (which is frozen
+ *  in a few veteran sellers forever). Response is a list of
+ *  { sellerUserId, displayName, avatarUrl, saleCount, totalRevenue,
+ *    rating: {average, count} | null }. Capped server-side. */
+export async function fetchTopSellers(days = 7, limit = 8) {
+  const d = Math.max(1, Math.min(parseInt(days, 10) || 7, 90));
+  const l = Math.max(1, Math.min(parseInt(limit, 10) || 8, 20));
+  const data = await safeJson(`${API}/sellers/top?days=${d}&limit=${l}`);
   return Array.isArray(data) ? data : [];
+}
+/** Signed-in seller's progress toward the Verified Seller badge.
+ *  Returns {verified, soldCount, salesNeeded, ratingAverage, ratingCount,
+ *  ratingOk, thresholdSales, thresholdRating}. 401 for anon. */
+export async function fetchMyVerificationProgress() {
+  return safeJson(`${API}/sellers/me/verification-progress`);
+}
+
+/** Public seller search by display name (batch 666). Returns an array of
+ *  {sellerUserId, displayName, avatarUrl, activeListings, soldCount}.
+ *  Empty-query and <2-char queries short-circuit to [] without a round-trip.
+ *  Backend caps response size at 25 rows; we cap `limit` at 25 client-side
+ *  to match. */
+export async function searchSellers(q, limit = 10) {
+  const trimmed = (q || '').trim();
+  if (trimmed.length < 2) return [];
+  const l = Math.max(1, Math.min(parseInt(limit, 10) || 10, 25));
+  const url = `${API}/sellers/search?q=${encodeURIComponent(trimmed)}&limit=${l}`;
+  const data = await safeJson(url);
+  return Array.isArray(data) ? data : [];
+}
+
+/** Signed-in seller's revenue + sold counts across lifetime / 30d / 7d
+ *  windows. Drives the MyStall header summary chips. 401 for anon. */
+export async function fetchMyStallEarnings() {
+  return safeJson(`${API}/listings/my-stall/earnings`);
+}
+
+/** Bulk verified-seller lookup — drives the ✓ badge on marketplace
+ *  cards next to the seller name. Returns `{userId: true}` (only
+ *  verified ids emitted; missing ids = false). Public endpoint, cap
+ *  200 input ids. Empty input → empty map without a round-trip. */
+export async function fetchVerifiedSellers(userIds) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return {};
+  const ids = [...new Set(userIds.filter(Boolean))].join(',');
+  if (!ids) return {};
+  const data = await safeJson(`${API}/sellers/verified?ids=${encodeURIComponent(ids)}`);
+  return (data && typeof data === 'object') ? data : {};
+}
+
+/** Bulk Steam-avatar-URL lookup for the marketplace grid + ItemModal
+ *  Active Listings rows. Returns `{sellerUserId: avatarUrl}` — sellers
+ *  without a Steam profile photo on file are absent so the frontend
+ *  falls through to the monogram. Public endpoint, cap 200 ids. */
+export async function fetchSellerAvatars(userIds) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return {};
+  const ids = [...new Set(userIds.filter(Boolean))].join(',');
+  if (!ids) return {};
+  const data = await safeJson(`${API}/sellers/avatars?ids=${encodeURIComponent(ids)}`);
+  return (data && typeof data === 'object') ? data : {};
+}
+
+/** Bulk displayName lookup. Replaces per-seller `/api/listings/stall/{id}`
+ *  fan-out in surfaces that only need the name. Public endpoint, cap 200 ids. */
+export async function fetchSellerNames(userIds) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return {};
+  const ids = [...new Set(userIds.filter(Boolean))].join(',');
+  if (!ids) return {};
+  const data = await safeJson(`${API}/sellers/names?ids=${encodeURIComponent(ids)}`);
+  return (data && typeof data === 'object') ? data : {};
+}
+
+/** Batch 710 — bulk typical-ship-time lookup. Median over 90d per
+ *  seller. Returns `{sellerUserId: msNumber}` with sellers below the
+ *  3-sample noise floor absent. Public endpoint, cap 200 ids. */
+export async function fetchSellerShipTimes(userIds) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return {};
+  const ids = [...new Set(userIds.filter(Boolean))].join(',');
+  if (!ids) return {};
+  const data = await safeJson(`${API}/sellers/ship-times?ids=${encodeURIComponent(ids)}`);
+  return (data && typeof data === 'object') ? data : {};
 }
 /** Newest active listings — powers the "Just listed" rail on the
  *  marketplace home. 20-row cap server-side, excludes hidden rows. */
@@ -782,10 +1478,13 @@ export async function fetchAuctionsEndingSoon(withinMs) {
   const data = await safeJson(`${API}/listings/ending-soon${qs}`);
   return Array.isArray(data) ? data : [];
 }
-/** Last 10 actual sale rows for an item — powers the "Recent sales" strip
- *  on the ItemModal. Counterparties are NOT returned (privacy). */
-export async function fetchRecentSales(itemId) {
-  const data = await safeJson(`${API}/items/${itemId}/recent-sales`);
+/** Last N actual sale rows for an item — powers the "Recent sales" strip
+ *  on the ItemModal. Counterparties are NOT returned (privacy). `limit`
+ *  defaults to 10 (CSFloat parity); pass up to 50 when the user clicks
+ *  "Show more" on the strip for a deeper-history view. */
+export async function fetchRecentSales(itemId, limit) {
+  const qs = limit ? `?limit=${limit}` : '';
+  const data = await safeJson(`${API}/items/${itemId}/recent-sales${qs}`);
   return Array.isArray(data) ? data : [];
 }
 /** Aggregate buy-order signals for an item: count of ACTIVE orders
@@ -798,6 +1497,16 @@ export async function fetchBuyOrderCountForItem(itemId) {
     count:   Number(data?.count || 0),
     bestBid: data?.bestBid != null ? Number(data.bestBid) : null
   };
+}
+
+/** Batch 639 — top-N ACTIVE buy orders for this item (aggregate only,
+ *  no counterparty identity). Drives the CSFloat-style Buy Orders
+ *  table on the item detail modal. Returns an array of
+ *  `{id, maxPrice, quantity, createdAt}`. */
+export async function fetchBuyOrdersForItem(itemId, limit = 10) {
+  if (!itemId) return [];
+  const data = await safeJson(`${API}/buy-orders/for-item/${itemId}?limit=${limit}`);
+  return Array.isArray(data) ? data : [];
 }
 
 /** Projected queue position for a hypothetical buy order at (itemId,
@@ -865,9 +1574,14 @@ export async function csrLookup(q) {
   if (!r.ok) return { matches: [] };
   return r.json();
 }
-export async function csrTickets(status) {
-  const q = status ? '?status=' + encodeURIComponent(status) : '';
-  const data = await safeJson(`${API}/csr/tickets${q}`);
+export async function csrTickets(status, search) {
+  // Batch 581 — mirror admin ticket search: free-text narrows the
+  // CSR queue by subject / username / category.
+  const qp = new URLSearchParams();
+  if (status) qp.set('status', status);
+  if (search) qp.set('search', search);
+  const suffix = qp.toString() ? '?' + qp.toString() : '';
+  const data = await safeJson(`${API}/csr/tickets${suffix}`);
   return Array.isArray(data) ? data : [];
 }
 export async function csrTicket(id) { return safeJson(`${API}/csr/tickets/${id}`); }
@@ -897,12 +1611,21 @@ export async function csrFlagListing(id, reason) {
 }
 
 // ── Cart (bulk checkout) ────────────────────────────────────────
-export async function checkoutCart(listingIds) {
+/** Bulk-buy the listings in `listingIds`. Optional `expectedPrices`
+ *  map (`{listingId: price}`) pins what the client saw in the cart
+ *  confirm dialog — server rejects rows where the live price has
+ *  drifted (seller edit mid-click) with code `PRICE_CHANGED` instead
+ *  of debiting at the surprise amount. */
+export async function checkoutCart(listingIds, expectedPrices) {
+  const body = { listingIds };
+  if (expectedPrices && typeof expectedPrices === 'object') {
+    body.expectedPrices = expectedPrices;
+  }
   return writeJson(`${API}/cart/checkout`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ listingIds })
+    body: JSON.stringify(body)
   });
 }
 
@@ -911,11 +1634,44 @@ export async function fetchTrades() {
   const data = await safeJson(`${API}/trades`);
   return Array.isArray(data) ? data : [];
 }
+
+/** Variant that also returns the server's true trade count via the
+ *  `X-Total-Count` header — feeds the "Showing most recent 200 of N"
+ *  overflow banner in the Profile → Trades tab. Leaves the array
+ *  contract of plain `fetchTrades()` intact for other callers. */
+export async function fetchTradesWithTotal() {
+  try {
+    const res = await fetch(`${API}/trades`, { credentials: 'same-origin' });
+    if (!res.ok) return { items: [], total: 0 };
+    const items = await res.json();
+    const totalHeader = res.headers.get('X-Total-Count');
+    const parsed = totalHeader != null ? parseInt(totalHeader, 10) : NaN;
+    const fallback = Array.isArray(items) ? items.length : 0;
+    return {
+      items: Array.isArray(items) ? items : [],
+      total: Number.isFinite(parsed) ? parsed : fallback
+    };
+  } catch {
+    return { items: [], total: 0 };
+  }
+}
 export async function tradeAccept(id) {
   return writeJson(`${API}/trades/${id}/accept`, { method: 'POST', credentials: 'same-origin' });
 }
-export async function tradeMarkSent(id) {
-  return writeJson(`${API}/trades/${id}/sent`, { method: 'POST', credentials: 'same-origin' });
+/** Mark the seller's side of a trade as sent (batch 773). Optionally
+ *  attaches the Steam trade-offer URL so the buyer can open it in one
+ *  click from their Trades tab. Omit the URL to preserve the legacy
+ *  no-body POST contract. */
+export async function tradeMarkSent(id, tradeOfferUrl) {
+  const body = (tradeOfferUrl && tradeOfferUrl.trim())
+    ? JSON.stringify({ tradeOfferUrl: tradeOfferUrl.trim() })
+    : null;
+  return writeJson(`${API}/trades/${id}/sent`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body
+  });
 }
 export async function tradeConfirm(id) {
   return writeJson(`${API}/trades/${id}/confirm`, { method: 'POST', credentials: 'same-origin' });
@@ -1007,12 +1763,146 @@ export async function disable2fa(code) {
     body: JSON.stringify({ code })
   });
 }
+/** Regenerate the user's 2FA backup codes — requires a current TOTP
+ *  code. Returns a plaintext list shown once, never retrievable again. */
+export async function regenerate2faBackupCodes(code) {
+  return writeJson(`${API}/profile/2fa/regenerate-codes`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+}
+/** How many unused backup codes the user has left. Opaque count — the
+ *  codes themselves are never returned by this endpoint. */
+export async function fetch2faRecoveryStatus() {
+  const r = await fetch(`${API}/profile/2fa/recovery-status`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
+}
 
 // ── Profile aggregate ───────────────────────────────────────────
 export async function fetchProfile() {
   const r = await fetch(`${API}/profile/me`, { credentials: 'same-origin' });
   if (!r.ok) return null;
   return r.json();
+}
+/** Count of things that need the user's attention — unanswered trades,
+ *  offers waiting on them, disputed trades. Drives the nav-avatar red
+ *  dot. Returns null on 401 (anonymous) so the caller can short-circuit
+ *  without rendering a badge. */
+export async function fetchPendingActions() {
+  const r = await fetch(`${API}/profile/pending-actions`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
+}
+/** Toggle a "helpful" upvote on a review. Single POST — the server
+ *  inserts the vote if it doesn't exist, deletes it if it does.
+ *  Returns `{helpfulCount, viewerHasVoted}` — the authoritative post-
+ *  toggle state so the UI can replace its optimistic figures. */
+export async function toggleReviewHelpful(reviewId) {
+  return writeJson(`${API}/reviews/${reviewId}/helpful`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+/** Server-side watchlist (cross-device sync). The localStorage cache
+ *  is still maintained by the App, but these helpers let the signed-in
+ *  session persist + read the authoritative set from the server. */
+export async function fetchWatchlist() {
+  const r = await fetch(`${API}/watchlist`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
+}
+export async function starItem(itemId) {
+  return writeJson(`${API}/watchlist/${itemId}`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+export async function unstarItem(itemId) {
+  return writeJson(`${API}/watchlist/${itemId}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+/** Clear every starred row in one call. Returns `{cleared:N}`. */
+export async function clearWatchlist() {
+  return writeJson(`${API}/watchlist`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+/** One-shot bridge — POST the localStorage ids to merge into the
+ *  server set on first sign-in after this feature ships. Returns the
+ *  authoritative post-merge list. */
+export async function bulkMergeWatchlist(ids) {
+  return writeJson(`${API}/watchlist/bulk`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: Array.isArray(ids) ? ids : [] })
+  });
+}
+/** Server-side cart (cross-device sync) — listing-id only. The
+ *  localStorage `sb_cart` cache stays as the offline source for the
+ *  per-row metadata (name, price snapshot, thumb), but the set of
+ *  listing ids in it is shadowed by the server. */
+export async function fetchCartIds() {
+  const r = await fetch(`${API}/cart`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
+}
+export async function addCartItem(listingId) {
+  return writeJson(`${API}/cart/${listingId}`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+export async function removeCartItem(listingId) {
+  return writeJson(`${API}/cart/${listingId}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+export async function clearServerCart() {
+  return writeJson(`${API}/cart`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+export async function bulkMergeCart(ids) {
+  return writeJson(`${API}/cart/bulk`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: Array.isArray(ids) ? ids : [] })
+  });
+}
+/** Server-side saved-search persistence (cross-device sync). The
+ *  localStorage `sb_saved_searches` array is still kept as the
+ *  offline cache; the server set is the source of truth for
+ *  signed-in users. */
+export async function fetchSavedSearches() {
+  const r = await fetch(`${API}/saved-searches`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
+}
+export async function upsertSavedSearch(entry) {
+  return writeJson(`${API}/saved-searches`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry || {})
+  });
+}
+export async function deleteSavedSearchById(id) {
+  return writeJson(`${API}/saved-searches/${id}`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+/** Bulk-delete — wipes every saved search the user owns. Parity with
+ *  the watchlist "Clear all" + follow "Unfollow all" affordances. */
+export async function deleteAllSavedSearches() {
+  return writeJson(`${API}/saved-searches`, {
+    method: 'DELETE', credentials: 'same-origin'
+  });
+}
+export async function bulkMergeSavedSearches(entries) {
+  return writeJson(`${API}/saved-searches/bulk`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entries: Array.isArray(entries) ? entries : [] })
+  });
 }
 
 // ── Steam inventory + sync ──────────────────────────────────────
@@ -1028,12 +1918,51 @@ export async function syncSteam() {
   return r.json();
 }
 
-export async function listFromSteam(assetId, price) {
+export async function listFromSteam(assetId, price, opts = {}) {
+  const body = { assetId, price };
+  if (opts.listingType)   body.listingType = opts.listingType;
+  if (opts.durationHours) body.durationHours = opts.durationHours;
+  if (opts.description)   body.description = opts.description;
+  if (opts.buyNowPrice != null) body.buyNowPrice = opts.buyNowPrice;
+  // Batch 646 — auto-accept threshold on first-list (matches relistItem).
+  if (opts.maxDiscount != null) body.maxDiscount = opts.maxDiscount;
   return writeJson(`${API}/steam/list`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ assetId, price })
+    body: JSON.stringify(body)
+  });
+}
+
+/** Auction Buy-Now — closes the auction instantly at the seller's
+ *  pre-set `buyNowPrice` and awards the listing to the caller. Only
+ *  valid on AUCTION listings that have a buyNowPrice set. Returns
+ *  400 with `NO_BUY_NOW` if the auction doesn't support Buy Now.
+ *  Optional `expectedPrice` pins what the user saw; server rejects
+ *  with `PRICE_CHANGED` if the seller edited the Buy-Now price
+ *  between modal render and click (batch 961). */
+export async function buyNowAuction(listingId, expectedPrice) {
+  const body = expectedPrice != null ? { expectedPrice: String(expectedPrice) } : null;
+  return writeJson(`${API}/bids/listing/${listingId}/buy-now`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+}
+
+/** Bulk-list multiple Steam inventory items at a single flat price
+ *  (batch 370). Per-asset failures are returned in the `failed` array
+ *  without aborting the batch. BUY_NOW only — auction duration semantics
+ *  on a batch get weird (single expiry for 8 auctions?).
+ *  Batch 648 — optional `maxDiscount` (0..1) applies uniformly to
+ *  every listing in the batch. Null = no auto-accept. */
+export async function bulkListFromSteam(assetIds, price, opts = {}) {
+  const body = { assetIds: Array.isArray(assetIds) ? assetIds : [], price };
+  if (opts.maxDiscount != null) body.maxDiscount = opts.maxDiscount;
+  return writeJson(`${API}/steam/list-bulk`, {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
 }
 
@@ -1071,23 +2000,41 @@ export async function resolveSupportTicket(id) {
   });
 }
 
+// Reopen a RESOLVED ticket (batch 858) — flips status to WAITING_STAFF
+// so the same thread continues instead of forcing the user to open a
+// brand-new ticket with no context.
+export async function reopenSupportTicket(id) {
+  return writeJson(`${API}/support/tickets/${id}/reopen`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+
 // ── API keys ────────────────────────────────────────────────────
 export async function fetchApiKeys() {
   const data = await safeJson(`${API}/api-keys`);
   return Array.isArray(data) ? data : [];
 }
 
-export async function createApiKey(label) {
+export async function createApiKey(label, scope) {
+  const body = { label };
+  if (scope === 'RO' || scope === 'RW') body.scope = scope;
   return writeJson(`${API}/api-keys`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ label })
+    body: JSON.stringify(body)
   });
 }
 
 export async function revokeApiKey(id) {
   return writeJson(`${API}/api-keys/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+}
+
+/** Batch 705 — security panic button. Revokes every non-revoked key
+ *  on the caller's account in one round-trip. Idempotent — zero-key
+ *  callers get `{revoked: 0}` rather than a 404. */
+export async function revokeAllApiKeys() {
+  return writeJson(`${API}/api-keys`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
 // ── My Stall ────────────────────────────────────────────────────
@@ -1100,11 +2047,23 @@ export async function updateStallListing(id, patch) {
   });
 }
 
-export async function setAwayMode(hidden) {
+export async function setAwayMode(hidden, untilEpochMs) {
+  const body = { hidden };
+  if (untilEpochMs != null && Number.isFinite(Number(untilEpochMs))) {
+    body.until = Number(untilEpochMs);
+  }
   return writeJson(`${API}/listings/away`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hidden })
+    body: JSON.stringify(body)
   });
+}
+/** Read the current vacation-mode state — `{hidden, until}`. Drives
+ *  the My Stall toolbar's "scheduled return" chip on first paint so a
+ *  returning seller sees their resume time without flipping the toggle. */
+export async function fetchAwayMode() {
+  const r = await fetch(`${API}/listings/away`, { credentials: 'same-origin' });
+  if (!r.ok) return null;
+  return r.json();
 }

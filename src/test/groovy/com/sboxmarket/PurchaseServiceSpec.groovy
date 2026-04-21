@@ -8,11 +8,13 @@ import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Wallet
+import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.PurchaseService
+import com.sboxmarket.service.PriceHistoryService
 import com.sboxmarket.service.TradeService
 import com.sboxmarket.service.security.BanGuard
 import spock.lang.Specification
@@ -30,6 +32,8 @@ class PurchaseServiceSpec extends Specification {
     TransactionRepository txRepo      = Mock()
     SteamUserRepository   steamUserRepo = Mock()
     BanGuard              banGuard    = Mock()
+    PriceHistoryService   priceHistoryService = Mock()
+    ItemRepository        itemRepo = Mock()
 
     @Subject
     PurchaseService service = new PurchaseService(
@@ -37,7 +41,9 @@ class PurchaseServiceSpec extends Specification {
         walletRepository     : walletRepo,
         transactionRepository: txRepo,
         steamUserRepository  : steamUserRepo,
-        banGuard             : banGuard
+        banGuard             : banGuard,
+        priceHistoryService  : priceHistoryService,
+        itemRepository       : itemRepo
     )
 
     def "buy succeeds: debits buyer, marks listing SOLD, records transaction"() {
@@ -61,6 +67,172 @@ class PurchaseServiceSpec extends Specification {
         1 * walletRepo.save({ it.balance == new BigDecimal("50.00") })
         1 * listingRepo.save(listing)
         1 * txRepo.save({ it.type == 'PURCHASE' && it.amount == new BigDecimal("50.00") })
+        1 * priceHistoryService.record(item, new BigDecimal("50.00"), 1)
+        1 * itemRepo.incrementTotalSold(10L)
+    }
+
+    def "buy fans out CART_ITEM_SOLD to other cart-holders + scrubs the listing from every cart (batch 503)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('200.00'))
+        def item = new Item(id: 10L, name: 'Wizard Hat', lowestPrice: new BigDecimal('50.00'))
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        // 3 other cart-holders had this listing queued
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> [42L, 77L, 88L]
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        // Buyer's own ITEM_PURCHASED fires (batch 631: via safePush)
+        1 * notifier.safePush(999L, 'ITEM_PURCHASED', _, _, _, _)
+        // CART_ITEM_SOLD fans out to each of the 3 other holders
+        1 * notifier.push(42L, 'CART_ITEM_SOLD', _, _, 5L, '/item/10')
+        1 * notifier.push(77L, 'CART_ITEM_SOLD', _, _, 5L, '/item/10')
+        1 * notifier.push(88L, 'CART_ITEM_SOLD', _, _, 5L, '/item/10')
+        // And the listing is scrubbed from every cart via bulk DELETE
+        1 * cartRepo.deleteAllByListing(5L)
+    }
+
+    def "buy emails the buyer a purchase receipt when their email is verified (batch 571)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('200.00'))
+        def item = new Item(id: 10L, name: 'Wizard Hat', lowestPrice: new BigDecimal('50.00'))
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot', sellerUserId: 500L)
+        def emailSvc = Mock(com.sboxmarket.service.EmailService) {
+            // Batch 622: delegate the gate check to the user's flags so
+            // the "unverified email" test case still closes the gate.
+            canSendTo(_, _) >> { user, bucket ->
+                user != null &&
+                user.email && !user.email.isEmpty() &&
+                Boolean.TRUE.equals(user.emailVerified) &&
+                Boolean.TRUE.equals(user.emailNotificationsEnabled)
+            }
+        }
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.emailService = emailSvc
+        service.notificationService = notifier
+        // Trade URL required — buyer's Steam-side trade URL gate (line 116 of PurchaseService).
+        def buyerUser = new SteamUser(id: 999L, displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true,
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        def sellerUser = new SteamUser(id: 500L, displayName: 'Bob')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(999L) >> Optional.of(buyerUser)
+        steamUserRepo.findById(500L) >> Optional.of(sellerUser)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        1 * emailSvc.sendPurchaseReceipt('alice@example.com', 'Alice', 'Wizard Hat', 'Bob', new BigDecimal('50.00'), 5L)
+    }
+
+    def "buy skips the purchase-receipt email when the buyer's email is unverified (batch 571)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('200.00'))
+        def item = new Item(id: 10L, name: 'Wizard Hat', lowestPrice: new BigDecimal('50.00'))
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot', sellerUserId: 500L)
+        def emailSvc = Mock(com.sboxmarket.service.EmailService) {
+            // Batch 622: delegate the gate check to the user's flags so
+            // the "unverified email" test case still closes the gate.
+            canSendTo(_, _) >> { user, bucket ->
+                user != null &&
+                user.email && !user.email.isEmpty() &&
+                Boolean.TRUE.equals(user.emailVerified) &&
+                Boolean.TRUE.equals(user.emailNotificationsEnabled)
+            }
+        }
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.emailService = emailSvc
+        service.notificationService = notifier
+        // Unverified buyer — email must be skipped. Trade URL still set
+        // so the earlier gate doesn't throw before we reach the email path.
+        def buyerUser = new SteamUser(id: 999L, displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: false,
+            emailNotificationsEnabled: true,
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(999L) >> Optional.of(buyerUser)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        0 * emailSvc.sendPurchaseReceipt(*_)
+    }
+
+    def "buy doesn't fan CART_ITEM_SOLD when nobody else has it in cart (batch 503)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('200.00'))
+        def item = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> []
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        1 * notifier.safePush(999L, 'ITEM_PURCHASED', _, _, _, _)
+        0 * notifier.push(_, 'CART_ITEM_SOLD', _, _, _, _)
+        // Scrub still skips when there's nobody to notify
+        0 * cartRepo.deleteAllByListing(_)
+    }
+
+    def "buy refuses a frozen wallet (batch 509)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('100.00'),
+                               frozen: true, frozenReason: 'Staff freeze during investigation')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+
+        and: "no listing probe, no money moved"
+        0 * listingRepo.findById(_)
+        0 * walletRepo.save(_)
+        0 * txRepo.save(_)
+    }
+
+    def "buy refuses a wallet with an active deposit dispute (batch 511)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('100.00'))
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        txRepo.countActiveDisputedDeposits(1L) >> 1L
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+
+        and: "no listing probe, no money moved"
+        0 * listingRepo.findById(_)
+        0 * walletRepo.save(_)
+        0 * txRepo.save(_)
     }
 
     def "buy throws InsufficientBalanceException when wallet has too little"() {
@@ -229,6 +401,33 @@ class PurchaseServiceSpec extends Specification {
     }
 
     // ── AUCTION guard (bug #29) ───────────────────────────────────
+
+    def "buy refuses hidden listings (batch 308 bug fix)"() {
+        // A hidden listing is off-market to the public grid but the id
+        // is stable. Reject so a cached client / scraped-id payload
+        // can't buy a listing the seller has pulled.
+        given:
+        def buyer = new Wallet(id: 1L, balance: new BigDecimal("500.00"))
+        def item = new Item(id: 10L, name: "Rare Helmet")
+        def listing = new Listing(
+            id: 5L, item: item, price: new BigDecimal("50.00"),
+            status: 'ACTIVE', hidden: true, sellerName: 'Bot',
+            listingType: 'BUY_NOW'
+        )
+
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        thrown(ListingNotAvailableException)
+        listing.status == 'ACTIVE'   // not mutated
+        buyer.balance == new BigDecimal("500.00")
+        0 * walletRepo.save(_)
+        0 * listingRepo.save(_)
+    }
 
     def "buy refuses to bypass an AUCTION via the BUY_NOW path"() {
         given:

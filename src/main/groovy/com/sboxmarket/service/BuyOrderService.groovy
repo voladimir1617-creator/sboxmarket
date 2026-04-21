@@ -13,6 +13,7 @@ import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,16 +34,74 @@ class BuyOrderService {
     @Autowired NotificationService notificationService
     @Autowired TextSanitizer textSanitizer
     @Autowired BanGuard banGuard
+    @Autowired(required = false) com.sboxmarket.repository.TransactionRepository transactionRepository
+    @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
+    @Autowired(required = false) EmailService emailService
 
     // Lazy to break the circular dependency: PurchaseService has no inbound
     // references here, but we are *called from* ListingService which in turn
     // calls PurchaseService. Using @Lazy keeps Spring's graph happy.
     @Autowired @Lazy PurchaseService purchaseService
 
+    // Per-buyer ACTIVE buy-order cap. Prevents a single account from
+    // queueing 100k+ standing orders that tie up the matcher (the matcher
+    // scans all ACTIVE orders when a listing lands, so a large backlog
+    // from one buyer would slow every listing creation). 200 is generous
+    // — a serious collector might want 50-100 open orders across
+    // different items, rarities, and price ceilings — while still
+    // capping the attack surface. CANCELLED / FILLED / EXPIRED orders
+    // don't count, so the cap is pressure to manage the active set.
+    static final long MAX_ACTIVE_ORDERS_PER_BUYER = 200L
+
     @Transactional
     BuyOrder create(Long buyerUserId, String buyerName, Long itemId, String category,
                     String rarity, BigDecimal maxPrice, Integer quantity) {
         banGuard.assertNotBanned(buyerUserId)
+        if (buyerUserId != null
+                && buyOrderRepository.countActiveByBuyer(buyerUserId) >= MAX_ACTIVE_ORDERS_PER_BUYER) {
+            throw new BadRequestException("BUY_ORDER_CAP",
+                "You've reached the ${MAX_ACTIVE_ORDERS_PER_BUYER}-active-order cap. " +
+                "Cancel one from Profile → Buy Orders before placing another.")
+        }
+        // Upfront trade-URL gate (batch 388). When a matching listing comes
+        // along the matcher calls PurchaseService.buy, which (since batch
+        // 380) refuses a buyer without a Steam trade URL. Without this
+        // pre-check the buy order silently sits ACTIVE while every match
+        // attempt throws and is swallowed — the buyer never sees why
+        // nothing fills. Reject at creation time so the buyer fixes their
+        // profile before committing to a standing order.
+        def buyer = steamUserRepository?.findById(buyerUserId)?.orElse(null)
+        if (buyer != null && !buyer.tradeUrl?.trim()) {
+            throw new BadRequestException("TRADE_URL_MISSING",
+                "Set your Steam trade URL in Profile before placing a buy order — sellers need it to send you the item when a match fills.")
+        }
+        // Wallet freeze gate (batch 511). A frozen buyer's buy order
+        // would sit ACTIVE forever because every match attempt throws
+        // WALLET_FROZEN in PurchaseService.buy and the matcher swallows
+        // the exception — invisible failure. Reject at creation so the
+        // buyer knows why nothing fills.
+        if (buyer != null) {
+            def buyerWallet = walletRepository.findByUsername("steam_${buyer.steamId64}")
+            if (buyerWallet != null && Boolean.TRUE.equals(buyerWallet.frozen)) {
+                throw new BadRequestException("WALLET_FROZEN",
+                    "Your wallet is frozen by staff" +
+                        (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
+                        ". Open a support ticket to resolve.")
+            }
+            // Dispute-hold fail-early (batch 511). Same rationale as
+            // the WALLET_FROZEN check above: a buy order from a user
+            // with an active chargeback would silently never fill
+            // because the matcher's PurchaseService.buy rejects with
+            // PURCHASE_DISPUTE_HOLD. Refuse at creation time.
+            if (buyerWallet != null && transactionRepository != null) {
+                long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
+                if (disputed > 0L) {
+                    throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                        "Buy orders are paused while you have ${disputed} unresolved deposit " +
+                        "dispute${disputed == 1 ? '' : 's'} on file.")
+                }
+            }
+        }
         if (maxPrice == null || maxPrice <= BigDecimal.ZERO) {
             throw new BadRequestException("INVALID_PRICE", "Max price must be positive")
         }
@@ -77,11 +136,93 @@ class BuyOrderService {
             quantity:         q,
             originalQuantity: q
         )
-        buyOrderRepository.save(order)
+        def saved = buyOrderRepository.save(order)
+        // Auto-fill against EXISTING active listings — closes a real
+        // user-visible bug where a buy order at $30 sat un-fired even
+        // when a $25 listing was already on the market. The original
+        // matching engine only fired on the listing-creation side, so
+        // a freshly-placed buy order had to wait for a future relist
+        // before it would clear. Best-effort: failure here doesn't
+        // un-save the order; the standing order keeps its place.
+        try {
+            tryFillFromExisting(saved)
+        } catch (Exception e) {
+            log.warn("Buy order ${saved.id} initial fill attempt failed: ${e.message}")
+        }
+        saved
     }
 
+    /**
+     * Walk the cheapest-first ACTIVE listings that match the buy
+     * order's filter and price ceiling, attempting an auto-purchase
+     * with the buyer's wallet. Re-uses every gate `tryMatch` already
+     * applies (skip self, balance check, swallow per-row failures).
+     *
+     * Stops as soon as the order's quantity hits zero or no more
+     * candidates remain. Capped at 50 listing probes to bound cost on
+     * a hot category.
+     */
+    @Transactional
+    void tryFillFromExisting(BuyOrder order) {
+        if (order == null || listingRepository == null) return
+        if (order.status != 'ACTIVE' || order.quantity <= 0) return
+        def candidates = listingRepository.findMatchingForBuyOrder(
+            order.itemId, order.category, order.rarity, order.maxPrice,
+            org.springframework.data.domain.PageRequest.of(0, 50)
+        )
+        for (Listing listing : candidates) {
+            if (order.quantity <= 0 || order.status != 'ACTIVE') break
+            if (listing.sellerUserId != null && listing.sellerUserId == order.buyerUserId) continue
+
+            def user = steamUserRepository.findById(order.buyerUserId).orElse(null)
+            if (user == null) break
+            def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
+            if (wallet == null || wallet.balance < listing.price) {
+                // Out of money — no point checking the next listing,
+                // they all cost > the cheapest unaffordable one. The
+                // candidate set is sorted ASC.
+                break
+            }
+            try {
+                purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
+                order.quantity = Math.max(0, order.quantity - 1)
+                order.updatedAt = System.currentTimeMillis()
+                if (order.quantity == 0) order.status = 'FILLED'
+                buyOrderRepository.save(order)
+                notificationService.push(
+                    order.buyerUserId,
+                    'BUY_ORDER_FILLED',
+                    "Buy order auto-filled · ${listing.item?.name}",
+                    "Paid \$${listing.price.toPlainString()} (cap \$${order.maxPrice.toPlainString()})",
+                    listing.id,
+                    '/profile?tab=buyorders'
+                )
+                fireBuyOrderFilledEmail(order, listing)
+                log.info("Buy order ${order.id} auto-filled by EXISTING listing ${listing.id}")
+            } catch (Exception e) {
+                log.warn("Buy order ${order.id} initial-fill attempt against listing ${listing.id} failed: ${e.message}")
+            }
+        }
+    }
+
+    /** Display cap on the Profile → Buy Orders tab. 300 matches the
+     *  Offers tab (OFFER_LIST_CAP, batch 1008) since buy orders have
+     *  similar lifecycle churn — ACTIVE ones stay capped at 200 via
+     *  MAX_ACTIVE_ORDERS_PER_BUYER (batch 1000), but CANCELLED / FILLED /
+     *  EXPIRED accumulate unbounded. Display-only. */
+    static final int BUY_ORDER_LIST_CAP = 300
+
     List<BuyOrder> listForBuyer(Long buyerUserId) {
-        buyOrderRepository.findByBuyer(buyerUserId)
+        if (buyerUserId == null) return []
+        buyOrderRepository.findByBuyerPaged(buyerUserId,
+            org.springframework.data.domain.PageRequest.of(0, BUY_ORDER_LIST_CAP))
+    }
+
+    /** Total buy-order count for the X-Total-Count header on
+     *  /api/buy-orders. */
+    long countForBuyer(Long buyerUserId) {
+        if (buyerUserId == null) return 0L
+        buyOrderRepository.countByBuyer(buyerUserId)
     }
 
     /** Top-of-book for an item — highest maxPrice among ACTIVE buy
@@ -91,12 +232,87 @@ class BuyOrderService {
         buyOrderRepository.findBestBidForItem(itemId) ?: BigDecimal.ZERO
     }
 
+    /** Top-N active buy orders site-wide, sorted by maxPrice — drives
+     *  the homepage "Top buy orders" rail (batch 369). Decorates each
+     *  row with item name + image so the frontend can render without
+     *  a second round-trip. Buyer identity is deliberately omitted
+     *  (aggregate demand signal only). */
+    List<Map> listTopActive(int limit) {
+        int lim = Math.min(Math.max(limit, 1), 20)
+        def rows = buyOrderRepository.findTopActive(
+            org.springframework.data.domain.PageRequest.of(0, lim))
+        if (rows.isEmpty()) return []
+        def itemIds = rows*.itemId.findAll { it != null }.unique()
+        def itemsById = [:]
+        if (!itemIds.isEmpty()) {
+            itemRepository.findAllById(itemIds).each { itemsById[it.id] = it }
+        }
+        rows.collect { b ->
+            def item = itemsById[b.itemId]
+            [
+                id:           b.id,
+                itemId:       b.itemId,
+                itemName:     item?.name ?: b.itemName,
+                itemImageUrl: item?.imageUrl,
+                category:     b.category ?: item?.category,
+                rarity:       b.rarity   ?: item?.rarity,
+                maxPrice:     b.maxPrice,
+                createdAt:    b.createdAt
+            ]
+        }
+    }
+
     /** Public demand-count for an item — used by the item detail modal
      *  to render a "N buyers want this" chip. Aggregate only; no
      *  counterparty identities are exposed. */
     long countActiveForItem(Long itemId) {
         if (itemId == null) return 0L
         buyOrderRepository.countActiveForItem(itemId)
+    }
+
+    /**
+     * Top-N active buy orders pinned to an item (batch 639). Drives the
+     * "Buy Orders" table on the item detail modal — buyers see the
+     * demand curve (top 10 bids sorted highest first), sellers can size
+     * their asking price to what the market is actually paying.
+     *
+     * Counterparty identity is NOT surfaced (no buyer handle, no
+     * avatar) — this mirrors the policy on every other aggregate buy-
+     * order endpoint (topActive, countForItem, bulkDemand). Exposing
+     * "user X wants this at $Y" would let scrapers target high-bid
+     * buyers for private trade pitches. Only price + quantity + age
+     * leak; those are what sellers need to size their listing.
+     */
+    List<Map> listActiveForItem(Long itemId, int limit) {
+        if (itemId == null) return []
+        int lim = Math.min(Math.max(limit, 1), 20)
+        def rows = buyOrderRepository.findActiveForItem(itemId,
+            org.springframework.data.domain.PageRequest.of(0, lim))
+        if (rows.isEmpty()) return []
+        rows.collect { b ->
+            [
+                id:        b.id,
+                maxPrice:  b.maxPrice,
+                quantity:  b.quantity,
+                createdAt: b.createdAt
+            ]
+        }
+    }
+
+    /** Bulk {count, bestBid} per item (batch 415). Powers the MyStall
+     *  "N want · best $X" chip without N+1 per-row queries. Returns a
+     *  map keyed on itemId; missing keys mean no active buy orders. */
+    Map<Long, Map> bulkDemandByItemIds(List<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) return [:]
+        def rows = buyOrderRepository.countAndBestBidByItemIds(itemIds.findAll { it != null })
+        def out = [:]
+        rows.each { row ->
+            def id    = row[0] as Long
+            def count = (row[1] as Number)?.longValue() ?: 0L
+            def best  = (row[2] as BigDecimal) ?: BigDecimal.ZERO
+            out[id] = [count: count, bestBid: best > BigDecimal.ZERO ? best : null]
+        }
+        out
     }
 
     /** Number of buy orders ahead of the given (itemId, maxPrice,
@@ -119,6 +335,37 @@ class BuyOrderService {
         o.status = "CANCELLED"
         o.updatedAt = System.currentTimeMillis()
         buyOrderRepository.save(o)
+    }
+
+    /**
+     * Bulk-cancel every ACTIVE buy order belonging to the user. Mirrors
+     * `BidService.cancelAllAutoBidsForUser` so a user with a long-tail
+     * of forgotten orders can liquidate their queue in one click rather
+     * than N separate API calls (batch 290).
+     *
+     * Returns the count of rows flipped to CANCELLED. Per-row save
+     * failures fall through to the next row — best-effort.
+     */
+    @Transactional
+    int cancelAllForUser(Long buyerUserId) {
+        if (buyerUserId == null) return 0
+        def active = buyOrderRepository.findByBuyer(buyerUserId)
+            .findAll { it.status == 'ACTIVE' }
+        if (active.isEmpty()) return 0
+        int n = 0
+        def now = System.currentTimeMillis()
+        active.each { o ->
+            try {
+                o.status = 'CANCELLED'
+                o.updatedAt = now
+                buyOrderRepository.save(o)
+                n++
+            } catch (Exception e) {
+                log.warn("Bulk cancel failed for order ${o.id}: ${e.message}")
+            }
+        }
+        log.info("Bulk-cancelled ${n} buy order(s) for user ${buyerUserId}")
+        n
     }
 
     /**
@@ -179,8 +426,13 @@ class BuyOrderService {
         if (listing == null || listing.status != 'ACTIVE' || listing.listingType != 'BUY_NOW') return
         if (Boolean.TRUE.equals(listing.hidden)) return
 
+        // Cap the candidate list at 50 — the first matching order with
+        // enough balance wins, so iterating every single matching order
+        // for a hot item wastes wallet lookups. 50 is plenty of headroom
+        // for skipping insolvent candidates.
         def candidates = buyOrderRepository.findMatching(
-            listing.item?.id, listing.item?.category, listing.item?.rarity, listing.price
+            listing.item?.id, listing.item?.category, listing.item?.rarity, listing.price,
+            org.springframework.data.domain.PageRequest.of(0, 50)
         )
         for (BuyOrder order : candidates) {
             if (order.quantity <= 0 || order.status != 'ACTIVE') continue
@@ -188,8 +440,45 @@ class BuyOrderService {
 
             def user = steamUserRepository.findById(order.buyerUserId).orElse(null)
             if (user == null) continue
+            // Batch 331 ban filter — a user banned after they placed a buy
+            // order would otherwise have their wallet surprise-drained by
+            // tryMatch on the next matching listing, AND purchaseService.buy
+            // would throw (its own banGuard catches the real write), so the
+            // order would just sit spinning its wheels every listing event.
+            // Flip to EXPIRED + notify so the order doesn't keep firing and
+            // the buyer has a record of why it stopped if/when they're unbanned.
+            if (Boolean.TRUE.equals(user.banned)) {
+                try {
+                    order.status = 'EXPIRED'
+                    order.updatedAt = System.currentTimeMillis()
+                    buyOrderRepository.save(order)
+                } catch (Exception e) {
+                    log.warn("Failed to expire banned buy order ${order.id}: ${e.message}")
+                }
+                continue
+            }
             def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
             if (wallet == null || wallet.balance < listing.price) continue
+
+            // Wallet-freeze / dispute-hold fast path (batch 517). Without
+            // this, a frozen or disputed wallet's order sits ACTIVE
+            // forever — every match fails silently inside the catch
+            // block below. Expire + notify so the user gets told why
+            // nothing fills, symmetric with the banned-user branch
+            // above.
+            if (Boolean.TRUE.equals(wallet.frozen)) {
+                expireOrderWithHold(order, 'BUY_ORDER_EXPIRED',
+                    "Buy order paused · wallet frozen",
+                    "Your wallet is frozen (${wallet.frozenReason ?: 'staff action'}). Re-place the order once the hold is cleared.")
+                continue
+            }
+            if (transactionRepository != null &&
+                    transactionRepository.countActiveDisputedDeposits(wallet.id) > 0L) {
+                expireOrderWithHold(order, 'BUY_ORDER_EXPIRED',
+                    "Buy order paused · deposit dispute",
+                    "A deposit dispute on your wallet has paused outflows. Re-place the order once the dispute closes.")
+                continue
+            }
 
             try {
                 purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
@@ -205,10 +494,106 @@ class BuyOrderService {
                     listing.id,
                     '/profile?tab=buyorders'
                 )
+                fireBuyOrderFilledEmail(order, listing)
                 log.info("Buy order ${order.id} auto-filled by listing ${listing.id}")
                 return // listing is now sold; stop iterating
             } catch (Exception e) {
                 log.warn("Buy order ${order.id} match attempt failed: ${e.message}")
+            }
+        }
+    }
+
+    /** Fire BUY_ORDER_FILLED email to the buyer (batch 574). Shared by
+     *  both auto-fill paths (new-listing match + existing-listing
+     *  tryMatch on order create). Same opt-in + bucket-mute gate as
+     *  every other transactional email. Silent-fail so a flaky SMTP
+     *  relay doesn't roll back the auto-fill. */
+    private void fireBuyOrderFilledEmail(BuyOrder order, com.sboxmarket.model.Listing listing) {
+        if (emailService == null || order?.buyerUserId == null) return
+        try {
+            def buyer = steamUserRepository.findById(order.buyerUserId).orElse(null)
+            if (emailService.canSendTo(buyer, 'TRADES')) {
+                def itemUrl = listing?.item?.id != null ? "/item/${listing.item.id}".toString() : null
+                emailService.sendBuyOrderFilled(buyer.email, buyer.displayName,
+                    listing?.item?.name, listing?.price, order.maxPrice, itemUrl)
+            }
+        } catch (Exception e) {
+            log.warn("BUY_ORDER_FILLED email failed for buyer ${order?.buyerUserId}: ${e.message}")
+        }
+    }
+
+    /** Flip a buy order to EXPIRED with a user-facing explanation push.
+     *  Used by the wallet-hold fast path (batch 517) so a frozen /
+     *  disputed buyer knows their order stopped because of a wallet
+     *  state they can fix, not because the market has nothing for them. */
+    private void expireOrderWithHold(BuyOrder order, String kind, String title, String bodyText) {
+        try {
+            order.status = 'EXPIRED'
+            order.updatedAt = System.currentTimeMillis()
+            buyOrderRepository.save(order)
+            notificationService?.push(order.buyerUserId, kind, title, bodyText,
+                order.id, '/profile?tab=buyorders')
+            log.info("Buy order ${order.id} expired on wallet-hold: ${title}")
+        } catch (Exception e) {
+            log.warn("Failed to expire held buy order ${order.id}: ${e.message}")
+        }
+    }
+
+    /** How long an ACTIVE buy order can sit idle (no fills, no edits)
+     *  before the auto-expire sweep flips it to EXPIRED. 30 days is
+     *  the CSFloat default — long enough that legitimate "wait for
+     *  the right one" patience is respected, short enough that
+     *  abandoned orders don't snipe a buyer's wallet months later. */
+    private static final long IDLE_EXPIRE_MS = 30L * 24L * 60L * 60L * 1000L
+
+    /**
+     * Daily sweep that auto-expires ACTIVE buy orders idle for >30
+     * days. Without this an abandoned order at, say, $50 for a Wizard
+     * Hat could surprise-fire months after the buyer forgot it
+     * existed — drains their wallet on something they no longer want.
+     *
+     * Pushes a `BUY_ORDER_EXPIRED` notification so the user knows
+     * what happened. Per-row try/catch so one failure doesn't poison
+     * the loop.
+     */
+    @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L, initialDelay = 60L * 60L * 1000L)
+    @Transactional
+    void sweepStaleBuyOrders() {
+        def cutoff = System.currentTimeMillis() - IDLE_EXPIRE_MS
+        def stale = buyOrderRepository.findStaleActive(cutoff)
+        if (stale.isEmpty()) return
+        log.info("Buy-order auto-expire sweep: ${stale.size()} idle order(s) past ${IDLE_EXPIRE_MS / 86_400_000L}d")
+        stale.each { order ->
+            try {
+                order.status = 'EXPIRED'
+                order.updatedAt = System.currentTimeMillis()
+                buyOrderRepository.save(order)
+                // Mirror the bell to email (batch 596). A user idle for
+                // 30 days almost certainly hasn't checked the bell; the
+                // email is how they actually hear about the expire.
+                // Best-effort, TRADES-bucketed, verified-only.
+                try {
+                    if (emailService != null && order.buyerUserId != null) {
+                        def buyer = steamUserRepository.findById(order.buyerUserId).orElse(null)
+                        if (emailService.canSendTo(buyer, 'TRADES')) {
+                            def itemUrl = order.itemId != null ? "/item/${order.itemId}".toString() : null
+                            emailService.sendBuyOrderExpired(buyer.email, buyer.displayName,
+                                order.itemName, order.maxPrice, itemUrl)
+                        }
+                    }
+                } catch (Exception ee) {
+                    log.warn("BUY_ORDER_EXPIRED email failed for order ${order.id}: ${ee.message}")
+                }
+                notificationService?.push(
+                    order.buyerUserId,
+                    'BUY_ORDER_EXPIRED',
+                    "Buy order auto-expired",
+                    "${order.itemName ?: 'Your buy order'} (\$${order.maxPrice}) sat idle for 30 days and was auto-expired. Re-create it from the Buy Orders tab if you still want it.",
+                    order.id,
+                    '/profile?tab=buyorders'
+                )
+            } catch (Exception e) {
+                log.warn("Buy-order expire sweep failed on ${order.id}: ${e.message}")
             }
         }
     }

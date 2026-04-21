@@ -24,4 +24,11 @@ class SellerFollow {
 
     @Column(name = "created_at", nullable = false)
     Long createdAt = System.currentTimeMillis()
+
+    /** Mute new-listing pings without unfollowing — keeps the follower
+     *  count + the discovery-feed inclusion intact, just suppresses
+     *  the bell + email fan-out for this specific seller. Default
+     *  false (loud) for backward compatibility. */
+    @Column(name = "notifications_muted", nullable = false)
+    Boolean notificationsMuted = false
 }

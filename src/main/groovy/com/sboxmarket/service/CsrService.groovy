@@ -57,6 +57,9 @@ class CsrService {
     @Autowired SupportMessageRepository supportMessageRepository
     @Autowired NotificationService notificationService
     @Autowired TextSanitizer textSanitizer
+    @Autowired(required = false) EmailService emailService
+    @Autowired(required = false) AuditService auditService
+    @Autowired(required = false) com.sboxmarket.repository.ReviewRepository reviewRepository
 
     // ── Auth ────────────────────────────────────────────────────────
 
@@ -115,17 +118,45 @@ class CsrService {
         def matches = users.take(20).collect { u ->
             def wallet = walletRepository.findByUsername("steam_${u.steamId64}")
             def tx = wallet ? transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id).take(10) : []
+            // Chargeback context (batch 469). Active count = currently
+            // DISPUTED deposits (drives the user's withdrawal hold);
+            // lifetime count = every DISPUTED tx ever including cleared
+            // ones, so CSR can spot a repeat-offender pattern even after
+            // staff cleared the row.
+            long activeDisputes = wallet ? transactionRepository.countActiveDisputedDeposits(wallet.id) : 0L
+            long lifetimeDisputes = tx.count { it.type == 'DEPOSIT' && (it.status == 'DISPUTED' || (it.description ?: '').contains('DISPUTE_CLEARED')) } as long
+            // Rating summary (batch 489) — gives CSR a one-glance
+            // trust signal for the user. Null when no reviews yet.
+            Map ratingSummary = null
+            if (reviewRepository != null) {
+                try {
+                    def agg = reviewRepository.aggregateForUser(u.id)
+                    if (agg != null && !agg.isEmpty()) {
+                        def row = agg[0]
+                        def count = (row[0] ?: 0L) as long
+                        if (count > 0) {
+                            def avg = row[1] != null
+                                ? (row[1] as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP)
+                                : null
+                            ratingSummary = [count: count, average: avg]
+                        }
+                    }
+                } catch (Exception ignored) { /* keep ratingSummary null */ }
+            }
             [
-                id:              u.id,
-                steamId64:       u.steamId64,
-                displayName:     u.displayName,
-                avatarUrl:       u.avatarUrl,
-                role:            u.role,
-                banned:          u.banned,
-                banReason:       u.banReason,
-                createdAt:       u.createdAt,
-                balance:         wallet?.balance,
-                recentTx:        tx.collect { t ->
+                id:               u.id,
+                steamId64:        u.steamId64,
+                displayName:      u.displayName,
+                avatarUrl:        u.avatarUrl,
+                role:             u.role,
+                banned:           u.banned,
+                banReason:        u.banReason,
+                createdAt:        u.createdAt,
+                balance:          wallet?.balance,
+                activeDisputes:   activeDisputes,
+                lifetimeDisputes: lifetimeDisputes,
+                rating:           ratingSummary,
+                recentTx:         tx.collect { t ->
                     [id: t.id, type: t.type, status: t.status, amount: t.amount, description: t.description, createdAt: t.createdAt]
                 }
             ]
@@ -135,21 +166,63 @@ class CsrService {
 
     // ── Ticket handling ─────────────────────────────────────────────
 
-    List<Map> listTickets(String statusFilter) {
+    List<Map> listTickets(String statusFilter, String search = null) {
         // Same pushdown pattern as AdminService.listAllTickets (bug #20).
         // The old `findAll() + Groovy filter/sort` loaded every ticket
         // into memory on every CSR panel refresh.
         def status = statusFilter ? statusFilter.toUpperCase() : ''
-        supportTicketRepository.findForAdmin(status).collect { t ->
+        // Batch 581 — mirror admin ticket search: case-insensitive LIKE
+        // across subject / username / category. Same server-side cap
+        // + null-byte strip so the query can't be poisoned.
+        def q = (search ?: '').trim()
+        if (q.length() > 100) q = q.substring(0, 100)
+        q = q.replace('\u0000', '')
+        // Cap at 500 rows — consistent with AdminService.listWithdrawals /
+        // listTrades. Past that the CSR UI should use CSV / direct DB for
+        // historical digging rather than hydrating a mega-list per refresh.
+        def rows = q.isEmpty()
+            ? (supportTicketRepository.findForAdmin(status) ?: []).take(500)
+            : (supportTicketRepository.searchForAdmin(status, q) ?: []).take(500)
+        if (rows.isEmpty()) return []
+        // Fraud-signal enrichment (batch 527). Mirrors batch 525's
+        // admin-ticket enrichment so CSR has the same triage context
+        // (account age, prior chargebacks, frozen wallet, banned,
+        // email-unverified). Batches user lookups to stay O(N+K).
+        def userIds = rows*.userId.findAll { it != null }.unique()
+        def userById = userIds.isEmpty() ? [:] :
+            steamUserRepository.findAllById(userIds).collectEntries { [(it.id): it] }
+        rows.collect { t ->
+            def user = userById[t.userId]
+            long lifetimeDisputes = 0L
+            boolean walletFrozen = false
+            if (user != null) {
+                try {
+                    def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
+                    if (wallet != null) {
+                        walletFrozen = Boolean.TRUE.equals(wallet.frozen)
+                        def allTx = transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id,
+                            org.springframework.data.domain.PageRequest.of(0, 500))
+                        lifetimeDisputes = allTx.count { tx ->
+                            tx.type == 'DEPOSIT' &&
+                            (tx.status == 'DISPUTED' || (tx.description ?: '').contains('DISPUTE_CLEARED'))
+                        } as long
+                    }
+                } catch (Exception ignored) { /* fall through */ }
+            }
             [
-                id:        t.id,
-                subject:   t.subject,
-                category:  t.category,
-                status:    t.status,
-                userId:    t.userId,
-                username:  t.username,
-                createdAt: t.createdAt,
-                updatedAt: t.updatedAt
+                id:              t.id,
+                subject:         t.subject,
+                category:        t.category,
+                status:          t.status,
+                userId:          t.userId,
+                username:        t.username,
+                createdAt:       t.createdAt,
+                updatedAt:       t.updatedAt,
+                userCreatedAt:   user?.createdAt,
+                userEmailVerified: user?.emailVerified,
+                userBanned:      user?.banned,
+                walletFrozen:    walletFrozen,
+                lifetimeDisputes: lifetimeDisputes
             ]
         }
     }
@@ -185,6 +258,22 @@ class CsrService {
         notificationService?.push(t.userId, 'SUPPORT_REPLY',
             "New reply on ticket #${t.id}",
             t.subject, t.id, '/support')
+        // Email the user too (batch 475). The bell notification can sit
+        // unread for hours; an email lands in the user's inbox so they
+        // know to come back. Gated on email + verified — same pattern
+        // as withdrawal-approved emails. Failure-tolerant: a bad SMTP
+        // doesn't block the reply from saving.
+        if (emailService != null) {
+            try {
+                def user = steamUserRepository.findById(t.userId).orElse(null)
+                if (emailService.canSendSecurityTo(user)) {
+                    emailService.sendSupportReply(user.email, user.displayName,
+                        t.id, t.subject, cleanBody)
+                }
+            } catch (Exception e) {
+                log.warn("Support-reply email failed for ticket ${t.id}: ${e.message}")
+            }
+        }
         msg
     }
 
@@ -243,6 +332,17 @@ class CsrService {
             "Goodwill credit · +\$${amount.toPlainString()}",
             note, null, '/wallet')
 
+        // Audit-log the goodwill credit (batch 484). The transaction
+        // row carries the reason in its description, but staff actions
+        // on user wallets need a separate audit trail — without this,
+        // the Audit tab's per-user view wouldn't show goodwill credits
+        // alongside other staff interventions (bans, forced trades).
+        try {
+            auditService?.log('CSR_CREDIT', csrUserId, targetUserId, wallet.id,
+                "Goodwill credit of \$${amount.toPlainString()} to user ${targetUserId}: ${note}")
+        } catch (Exception e) {
+            log.warn("CSR_CREDIT audit-log failed for csr=${csrUserId} target=${targetUserId}: ${e.message}")
+        }
         log.info("CSR ${csrUserId} issued goodwill \$${amount} to user ${targetUserId}: ${note}")
         [walletId: wallet.id, newBalance: wallet.balance, cap: cap]
     }
@@ -260,7 +360,11 @@ class CsrService {
         // a low-risk hint that the admin can act on, nothing more.
         def cleanReason = textSanitizer.cleanShort(reason ?: 'no reason')
         def note = "[FLAGGED by ${textSanitizer.cleanShort(csr?.displayName ?: csrUserId.toString())}: ${cleanReason}]"
-        listing.description = textSanitizer.clean(((listing.description ?: '') + ' ' + note), 64)
+        // 500-char cap matches the column size (V39). Append-append
+        // patterns will eventually hit the ceiling but that's intended —
+        // once a listing's description is full of flag notes it's past
+        // the point where another flag helps anyone.
+        listing.description = textSanitizer.clean(((listing.description ?: '') + ' ' + note), 500)
         listingRepository.save(listing)
         log.warn("CSR ${csrUserId} flagged listing ${listingId}: ${reason}")
         [id: listing.id, flagged: true, description: listing.description]

@@ -27,4 +27,18 @@ class TradeMessage {
 
     @Column(name = "created_at", nullable = false)
     Long createdAt = System.currentTimeMillis()
+
+    /** Set the first time the OTHER trade participant pulls this row
+     *  via `TradeService.listMessages`. Drives the "✓✓ read" indicator
+     *  on own messages so a sender can tell when the counterparty has
+     *  at least loaded the thread (V37 / batch 280). Null = unread. */
+    @Column(name = "read_at")
+    Long readAt
+
+    /** Timestamp staff soft-redacted this message (V41 / batch 349).
+     *  When non-null, `body` is cleared and consumers render a "Message
+     *  removed by moderators" placeholder in place of the original
+     *  text. Preserves chat continuity vs the previous hard-delete. */
+    @Column(name = "redacted_at")
+    Long redactedAt
 }

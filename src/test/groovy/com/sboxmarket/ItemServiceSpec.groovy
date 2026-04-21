@@ -222,9 +222,9 @@ class ItemServiceSpec extends Specification {
         thrown(NotFoundException)
     }
 
-    def "getPriceHistory delegates to repository in date order"() {
+    def "getPriceHistory delegates to repository in date order (400-day window, batch 1022)"() {
         given:
-        priceHistoryRepository.findByItemIdOrdered(1L) >> [
+        priceHistoryRepository.findByItemIdSince(1L, _) >> [
             new PriceHistory(id: 1L, price: new BigDecimal("10")),
             new PriceHistory(id: 2L, price: new BigDecimal("12"))
         ]
@@ -240,10 +240,14 @@ class ItemServiceSpec extends Specification {
 
     def "getStats rolls up totals, rarity counts, and price extremes"() {
         given:
-        itemRepository.findAll() >> [
-            item(1L, 'A', 'Hats',  'Standard', new BigDecimal("5")),
-            item(2L, 'B', 'Hats',  'Limited',  new BigDecimal("100")),
-            item(3L, 'C', 'Pants', 'Standard', new BigDecimal("20")),
+        // Batch 618: ItemService.getStats now uses indexed aggregates
+        // (catalogueSummary + countByCategory) instead of findAll() +
+        // in-memory groupings. Mock returns List<Object[]> per the
+        // Spring Data JPA convention.
+        itemRepository.catalogueSummary() >> [([3L, 1L, new BigDecimal("5"), new BigDecimal("100")] as Object[])]
+        itemRepository.countByCategory() >> [
+            (['Hats',  2L] as Object[]),
+            (['Pants', 1L] as Object[])
         ]
 
         when:
@@ -254,19 +258,20 @@ class ItemServiceSpec extends Specification {
         stats.limitedCount == 1
         stats.floorPrice == new BigDecimal("5")
         stats.highestPrice == new BigDecimal("100")
-        stats.categories == [Hats: 2, Pants: 1]
+        stats.categories == [Hats: 2L, Pants: 1L]
     }
 
     def "getStats returns 0 extremes when the catalogue is empty"() {
         given:
-        itemRepository.findAll() >> []
+        itemRepository.catalogueSummary() >> [([0L, 0L, null, null] as Object[])]
+        itemRepository.countByCategory() >> []
 
         when:
         def stats = service.getStats()
 
         then:
         stats.totalItems == 0
-        stats.floorPrice == 0
-        stats.highestPrice == 0
+        stats.floorPrice == BigDecimal.ZERO
+        stats.highestPrice == BigDecimal.ZERO
     }
 }

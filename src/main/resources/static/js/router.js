@@ -35,6 +35,7 @@ const ROUTES = [
   { name: 'help',          pattern: /^\/help\/?$/                                   },
   { name: 'faq',           pattern: /^\/faq\/?$/                                    },
   { name: 'settings',      pattern: /^\/settings\/?$/                               },
+  { name: 'affiliate',     pattern: /^\/affiliate\/?$/                              },
   { name: 'admin',         pattern: /^\/admin\/?$/                                  },
   { name: 'csr',           pattern: /^\/csr\/?$/                                    },
 ];
@@ -54,18 +55,106 @@ export function parsePath(path) {
   return { name: 'notfound', params: {}, path: clean };
 }
 
+// Count pushState calls in the current session so `closeToPrevious()` knows
+// whether `history.back()` is safe (returns the user to an in-site URL we
+// actually pushed) or whether we'd accidentally navigate out to the referrer.
+// replaceState doesn't add a stack entry so it doesn't count. Decrements on
+// popstate so browser Back keeps the counter in sync — without that the
+// counter would drift up and `closeToPrevious` could try to back past the
+// origin entry (bouncing the user to the referrer).
+let internalPushes = 0;
+
+// Scroll-restoration map — keyed by URL, value is the .layout scrollTop
+// recorded just before a forward navigate(). On browser-back (popstate)
+// we restore the captured value for the target URL so the user lands
+// exactly where they left off (CSFloat parity). Cleared on a forward
+// navigate to the same URL so a refresh starts fresh. Capped at 32
+// entries so a long browsing session doesn't accumulate unbounded state.
+const scrollByUrl = new Map();
+const SCROLL_CAP = 32;
+function snapshotScroll() {
+  const layout = document.querySelector('.layout');
+  const key = window.location.pathname + window.location.search;
+  const top = layout ? layout.scrollTop : window.scrollY;
+  if (top > 0) {
+    if (scrollByUrl.size >= SCROLL_CAP) {
+      // Evict oldest entry (insertion-order preserved by Map).
+      const first = scrollByUrl.keys().next().value;
+      if (first !== undefined) scrollByUrl.delete(first);
+    }
+    scrollByUrl.set(key, top);
+  }
+}
+function restoreScrollFor(key) {
+  const saved = scrollByUrl.get(key);
+  const layout = document.querySelector('.layout');
+  // Next frame so the route's component has rendered and the scrollHeight
+  // has grown enough that the target scrollTop is reachable.
+  requestAnimationFrame(() => {
+    if (saved && saved > 0) {
+      if (layout) layout.scrollTop = saved;
+      window.scrollTo({ top: saved, behavior: 'instant' });
+    } else {
+      if (layout) layout.scrollTop = 0;
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  });
+}
+if (typeof window !== 'undefined') {
+  // Disable the browser's built-in restoration so our map owns the behaviour;
+  // otherwise on a hard refresh Chrome's own restoration can race ours.
+  if ('scrollRestoration' in window.history) {
+    try { window.history.scrollRestoration = 'manual'; } catch (_) {}
+  }
+  window.addEventListener('popstate', () => {
+    if (internalPushes > 0) internalPushes--;
+    // On browser back/forward, restore the scroll position we saved for
+    // the URL we're arriving at.
+    const key = window.location.pathname + window.location.search;
+    restoreScrollFor(key);
+  });
+}
+
 /** Imperative navigate — pushes a new entry into history and fires popstate. */
 export function navigate(path, replace = false) {
   if (!path) return;
   const current = window.location.pathname + window.location.search + window.location.hash;
   if (path === current) return;
+  // Snapshot the OUTGOING url's scroll before we push the new entry, so
+  // browser-back restores this exact position.
+  if (!replace) snapshotScroll();
   if (replace) history.replaceState({}, '', path);
-  else          history.pushState({}, '', path);
+  else        { history.pushState({}, '', path); internalPushes++; }
   window.dispatchEvent(new PopStateEvent('popstate'));
-  // CSFloat-style: scroll the main column to top on page change
+  // Forward navigate always lands at the top — CSFloat behaviour. Clear
+  // any stale saved position for the new URL so a later back-to-back
+  // doesn't accidentally restore a previous session's scroll.
+  const newKey = path.split('#')[0];
+  scrollByUrl.delete(newKey);
   const layout = document.querySelector('.layout');
   if (layout) layout.scrollTop = 0;
   window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+/**
+ * Close-a-modal helper: goes back one step when we know the previous entry
+ * is an in-site URL (we pushed it ourselves), otherwise navigates to a
+ * fallback path. Used by modal onClose handlers so closing `/item/:id`
+ * from a search returns to `/?q=hat` instead of wiping the query state.
+ *
+ * Why this matters: `navigate(paths.market())` always lands on bare `/`,
+ * which means any URL-hydrated filter (search, category, rarity, listingType)
+ * is lost on modal close. The pushState counter lets us safely prefer
+ * `history.back()` when it's going to stay within the app.
+ */
+export function closeToPrevious(fallback = '/') {
+  // internalPushes decrements inside the popstate listener triggered by
+  // history.back(), so no manual decrement here.
+  if (internalPushes > 0) {
+    window.history.back();
+    return;
+  }
+  navigate(fallback);
 }
 
 /** Build URL paths for common destinations. Keeps magic strings out of components. */
@@ -89,6 +178,7 @@ export const paths = {
   help:          ()     => '/help',
   faq:           ()     => '/faq',
   settings:      ()     => '/settings',
+  affiliate:     ()     => '/affiliate',
   admin:         ()     => '/admin',
   csr:           ()     => '/csr',
 };

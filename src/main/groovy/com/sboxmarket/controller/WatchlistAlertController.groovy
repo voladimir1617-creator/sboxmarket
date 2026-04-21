@@ -33,10 +33,13 @@ class WatchlistAlertController {
      *  identities are exposed. */
     @GetMapping('/count/item/{id}')
     ResponseEntity<Map> countForItem(@PathVariable Long id) {
-        ResponseEntity.ok([
-            itemId:   id,
-            watching: service.countWatchersForItem(id)
-        ])
+        // Batch 811 — public/60s cache. Viewer-agnostic aggregate.
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=60')
+            .body([
+                itemId:   id,
+                watching: service.countWatchersForItem(id)
+            ])
     }
 
     @PostMapping

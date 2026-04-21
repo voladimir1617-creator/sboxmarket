@@ -39,6 +39,7 @@ class SteamInventoryController {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired ItemRepository itemRepository
     @Autowired ListingService listingService
+    @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -155,6 +156,84 @@ class SteamInventoryController {
             log.info("Auto-created catalogue item \"${item.name}\" from Steam inventory of ${user.steamId64}")
         }
 
+        // Optional auction fields — same shape as the /api/listings/sell
+        // DTO. Whitelist the type so anything bogus falls back to BUY_NOW;
+        // AUCTION must carry a durationHours in [1,168].
+        def rawType = (body?.listingType as String ?: 'BUY_NOW').toUpperCase()
+        def resolvedType = (rawType in ['BUY_NOW', 'AUCTION']) ? rawType : 'BUY_NOW'
+        Long durationHours = null
+        if (resolvedType == 'AUCTION') {
+            def rawDur = body?.durationHours
+            if (rawDur == null) {
+                throw new BadRequestException("DURATION_REQUIRED", "durationHours is required for AUCTION listings")
+            }
+            try {
+                durationHours = Long.parseLong(rawDur.toString())
+            } catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_DURATION", "durationHours must be a valid number")
+            }
+            if (durationHours < 1L || durationHours > 168L) {
+                throw new BadRequestException("INVALID_DURATION", "durationHours must be between 1 and 168")
+            }
+        }
+
+        // Optional Buy-Now ceiling on an auction (batch 371). Lets a
+        // buyer skip the auction entirely at this price. Must exceed
+        // the starting bid to be meaningful; equals/below would make
+        // Buy-Now cheaper than the first bid, which breaks the price
+        // discovery. Rejected outright on BUY_NOW — it's an auction-
+        // only concept.
+        BigDecimal buyNowPrice = null
+        def rawBuyNow = body?.buyNowPrice
+        if (rawBuyNow != null && rawBuyNow.toString().trim()) {
+            if (resolvedType != 'AUCTION') {
+                throw new BadRequestException("BUY_NOW_ON_BUY_NOW",
+                    "buyNowPrice only applies to AUCTION listings — the price field already sets the Buy Now amount on BUY_NOW listings.")
+            }
+            try {
+                buyNowPrice = new BigDecimal(rawBuyNow.toString())
+            } catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_BUY_NOW", "buyNowPrice must be a valid number")
+            }
+            if (buyNowPrice <= price) {
+                throw new BadRequestException("INVALID_BUY_NOW",
+                    "buyNowPrice must be greater than the starting bid (\$${price})")
+            }
+            if (buyNowPrice > new BigDecimal("100000")) {
+                throw new BadRequestException("BUY_NOW_TOO_HIGH",
+                    "buyNowPrice must not exceed \$100,000")
+            }
+        }
+
+        // Optional seller note (batch 304). Sanitised server-side;
+        // 500-char cap matches the column size and the edit form.
+        String cleanDesc = null
+        def rawDesc = body?.description as String
+        if (rawDesc != null && rawDesc.trim()) {
+            if (rawDesc.length() > 500) {
+                throw new BadRequestException("DESCRIPTION_TOO_LONG",
+                    "description must not exceed 500 characters")
+            }
+            cleanDesc = textSanitizer.clean(rawDesc, 500)
+        }
+        // Optional auto-accept threshold (batch 646). Fraction 0..1 —
+        // 0.20 means "auto-accept offers >= 80% of ask". Null / 0 =
+        // no auto-accept. Mirrors the MyStall edit form + the
+        // ListingController /sell DTO. Strict numeric parse; defensive
+        // bounds (same as SellService.relist).
+        BigDecimal maxDiscount = null
+        def rawMaxDisc = body?.maxDiscount
+        if (rawMaxDisc != null && rawMaxDisc.toString().trim()) {
+            try { maxDiscount = new BigDecimal(rawMaxDisc.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
+            }
+            if (maxDiscount < BigDecimal.ZERO || maxDiscount >= BigDecimal.ONE) {
+                throw new BadRequestException("INVALID_DISCOUNT",
+                    "maxDiscount must be between 0 and 1 (exclusive)")
+            }
+            if (maxDiscount.signum() == 0) maxDiscount = null
+        }
         def listing = new Listing(
             item:         item,
             price:        price,
@@ -164,14 +243,150 @@ class SteamInventoryController {
             rarityScore:  BigDecimal.ZERO,
             status:       'ACTIVE',
             sellerUserId: uid,
-            listingType:  'BUY_NOW'
+            listingType:  resolvedType,
+            description:  cleanDesc,
+            buyNowPrice:  buyNowPrice,
+            maxDiscount:  maxDiscount
         )
+        if (resolvedType == 'AUCTION') {
+            listing.expiresAt = System.currentTimeMillis() + (durationHours * 60L * 60L * 1000L)
+        }
         def saved = listingService.createListing(listing)
         ResponseEntity.ok([
-            listingId: saved.id,
-            itemId:    item.id,
-            price:     saved.price,
-            status:    saved.status
+            listingId:    saved.id,
+            itemId:       item.id,
+            price:        saved.price,
+            status:       saved.status,
+            listingType:  saved.listingType,
+            expiresAt:    saved.expiresAt,
+            buyNowPrice:  saved.buyNowPrice
         ])
+    }
+
+    /**
+     * Bulk-list every asset in the request body at the same flat price
+     * (batch 370). Common power-seller use case: "I've got 8 Wizard Hats,
+     * list them all at $10 each" without clicking through the sell form
+     * 8 times. Reuses the single-list flow internally — each item gets
+     * its own inventory probe, catalogue lookup, and Listing row, and one
+     * failing asset doesn't abort the batch.
+     *
+     * Payload: `{ assetIds: [String], price: Number, listingType?: 'BUY_NOW' }`
+     * Response: `{ ok: [{assetId, listingId, itemId, price}], failed: [{assetId, code, message}] }`
+     *
+     * BUY_NOW only — auction duration semantics on a batch get weird
+     * (do all 8 auctions share the same expiry?) so we keep that flow
+     * single-item. Capped at 20 assets per call to bound the tx.
+     */
+    @PostMapping("/list-bulk")
+    ResponseEntity<Map> listBulkFromSteam(@RequestBody Map body, HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+
+        def raw = body?.assetIds
+        if (!(raw instanceof List)) {
+            throw new BadRequestException("INVALID_BODY", "assetIds must be an array")
+        }
+        def assetIds = (raw as List)
+            .collect { it == null ? null : it.toString().trim() }
+            .findAll { it && it.matches(/^\d{1,32}$/) }
+            .unique()
+        if (assetIds.isEmpty()) {
+            throw new BadRequestException("INVALID_BODY", "assetIds must contain at least one numeric id")
+        }
+        if (assetIds.size() > 20) {
+            throw new BadRequestException("TOO_MANY", "bulk-list is capped at 20 assets per call")
+        }
+        def priceRaw = body?.price
+        if (priceRaw == null) throw new BadRequestException("INVALID_PRICE", "price is required")
+        BigDecimal price
+        try { price = new BigDecimal(priceRaw.toString()) }
+        catch (NumberFormatException ignored) {
+            throw new BadRequestException("INVALID_PRICE", "price must be a valid number")
+        }
+        if (price <= BigDecimal.ZERO) throw new BadRequestException("INVALID_PRICE", "price must be positive")
+        if (price > new BigDecimal("100000")) {
+            throw new BadRequestException("PRICE_TOO_HIGH", "price must not exceed \$100,000")
+        }
+
+        // Batch 648 — optional auto-accept threshold applied uniformly
+        // across every listing in the batch. Same shape + validation as
+        // the single-list path. Null / 0 / omitted = no auto-accept.
+        BigDecimal bulkMaxDiscount = null
+        def rawBulkMaxDisc = body?.maxDiscount
+        if (rawBulkMaxDisc != null && rawBulkMaxDisc.toString().trim()) {
+            try { bulkMaxDiscount = new BigDecimal(rawBulkMaxDisc.toString()) }
+            catch (NumberFormatException ignored) {
+                throw new BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
+            }
+            if (bulkMaxDiscount < BigDecimal.ZERO || bulkMaxDiscount >= BigDecimal.ONE) {
+                throw new BadRequestException("INVALID_DISCOUNT",
+                    "maxDiscount must be between 0 and 1 (exclusive)")
+            }
+            if (bulkMaxDiscount.signum() == 0) bulkMaxDiscount = null
+        }
+
+        // Fetch inventory ONCE; per-asset lookup walks the in-memory list.
+        def inv = steamInventoryService.fetchInventory(user.steamId64)
+        def byAsset = [:]
+        inv.each { byAsset[(it.assetId as String)] = it }
+
+        String sellerName = user.displayName ?: ("Player_" + user.steamId64.takeRight(6))
+        String sellerAvatar = (user.displayName ?: 'US').take(2).toUpperCase()
+
+        def results = []
+        def failed = []
+        assetIds.each { assetId ->
+            try {
+                def steamItem = byAsset[assetId]
+                if (steamItem == null) {
+                    failed << [assetId: assetId, code: 'NOT_IN_INVENTORY',
+                        message: 'Not in current Steam inventory']
+                    return
+                }
+                if (!steamItem.tradable) {
+                    failed << [assetId: assetId, code: 'NOT_TRADABLE',
+                        message: 'Not tradable on Steam right now']
+                    return
+                }
+                def name = (steamItem.name ?: '').toString()
+                def item = itemRepository.findByNameIgnoreCase(name)
+                if (item == null) {
+                    item = itemRepository.save(new Item(
+                        name:        name.take(255),
+                        category:    steamInventoryService.inferCategory(steamItem),
+                        rarity:      'Standard',
+                        imageUrl:    steamItem.iconUrl as String,
+                        accentColor: '#13192a',
+                        lowestPrice: price,
+                        steamPrice:  price,
+                        supply:      1,
+                        totalSold:   0,
+                        trendPercent: 0
+                    ))
+                }
+                def listing = new Listing(
+                    item:         item,
+                    price:        price,
+                    sellerName:   sellerName,
+                    sellerAvatar: sellerAvatar,
+                    condition:    '',
+                    rarityScore:  BigDecimal.ZERO,
+                    status:       'ACTIVE',
+                    sellerUserId: uid,
+                    listingType:  'BUY_NOW',
+                    maxDiscount:  bulkMaxDiscount
+                )
+                def saved = listingService.createListing(listing)
+                results << [assetId: assetId, listingId: saved.id, itemId: item.id, price: saved.price]
+            } catch (BadRequestException e) {
+                failed << [assetId: assetId, code: e.code ?: 'BAD_REQUEST', message: e.message]
+            } catch (Exception e) {
+                log.warn("bulk-list failed for asset ${assetId}: ${e.message}")
+                failed << [assetId: assetId, code: 'INTERNAL_ERROR', message: 'Could not list this item']
+            }
+        }
+        log.info("Bulk-list: user ${uid} · ${results.size()} ok · ${failed.size()} failed")
+        ResponseEntity.ok([ok: results, failed: failed])
     }
 }

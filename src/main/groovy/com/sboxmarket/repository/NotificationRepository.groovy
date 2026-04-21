@@ -22,4 +22,13 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.userId = :uid AND n.read = false")
     Long countUnread(@Param("uid") Long uid)
+
+    /** Bulk-delete every READ notification older than the given cutoff.
+     *  Drives the daily purge sweeper (batch 359) that keeps the
+     *  notifications table bounded on heavy accounts. Unread rows are
+     *  preserved regardless of age — they're still actionable. Returns
+     *  the row count removed. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Notification n WHERE n.read = true AND n.createdAt < :cutoff")
+    int deleteReadOlderThan(@Param("cutoff") Long cutoff)
 }

@@ -30,6 +30,7 @@ class SteamAuthService {
     @Autowired WalletRepository walletRepository
     // Lazy to break the cycle: AdminService → SteamUserRepository → SteamAuthService
     @Autowired(required = false) @Lazy AdminService adminService
+    @Autowired(required = false) NotificationService notificationService
 
     /** Build the URL we redirect the browser to so Steam can authenticate the user. */
     String buildLoginUrl() {
@@ -114,6 +115,21 @@ class SteamAuthService {
                 balance : BigDecimal.ZERO
             ))
             log.info("Created new Steam user: $steamId64")
+            // Welcome push — first-time users otherwise land on an empty
+            // bell + empty wallet with zero guidance. A single notification
+            // anchored to the Profile page's setup checklist gives them
+            // a concrete next step (set trade URL, verify email, top up).
+            // Non-fatal: any failure here is logged but doesn't abort
+            // the login.
+            try {
+                notificationService?.push(user.id, 'WELCOME',
+                    "Welcome to SkinBox",
+                    "Set your Steam trade URL, verify your email, and top up your wallet to start buying and selling.",
+                    null,
+                    '/profile')
+            } catch (Exception e) {
+                log.warn("Welcome notification failed for new user ${steamId64}: ${e.message}")
+            }
         } else {
             user.lastLoginAt = System.currentTimeMillis()
             user = steamUserRepository.save(user)

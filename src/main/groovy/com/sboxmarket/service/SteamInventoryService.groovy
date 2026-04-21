@@ -27,8 +27,32 @@ class SteamInventoryService {
     static final String SBOX_APP_ID = "590830"
     static final String CONTEXT_ID  = "2"
 
+    /** Per-user cache (60s TTL). A user reloading /sell twice in a row,
+     *  paging through their inventory, then triggering a bulk-list,
+     *  used to fire 3+ outbound Steam HTTP calls in 10 seconds. The
+     *  cache collapses repeated fetches to one call/min/user, easing
+     *  Steam's rate-limit pressure and shaving the perceived latency
+     *  on mobile (the second open is now a memory probe, not a 10s
+     *  network round-trip). Bounded at 5000 entries with FIFO
+     *  eviction so a long-running container can't accumulate
+     *  unbounded state. */
+    private static final long CACHE_TTL_MS = 60_000L
+    private static final int  CACHE_MAX = 5000
+    private final java.util.concurrent.ConcurrentHashMap<String, Map> inventoryCache = new java.util.concurrent.ConcurrentHashMap<>()
+
+    /** Test-friendly clear hook. Production code should never call this. */
+    void clearCache() { inventoryCache.clear() }
+
     List<Map> fetchInventory(String steamId64) {
         if (!steamId64) return []
+        // Cache probe — short-circuit if we have a fresh hit.
+        def cached = inventoryCache.get(steamId64)
+        if (cached != null) {
+            long age = System.currentTimeMillis() - (cached.at as long)
+            if (age < CACHE_TTL_MS) {
+                return (cached.items as List<Map>)
+            }
+        }
         def url = "https://steamcommunity.com/inventory/${steamId64}/${SBOX_APP_ID}/${CONTEXT_ID}?l=english&count=500"
         def conn = (HttpURLConnection) new URL(url).openConnection()
         conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
@@ -108,6 +132,13 @@ class SteamInventoryService {
             ]
         }
         log.info("Fetched ${out.size()} s&box inventory items for $steamId64 (icons: ${out.count { it.iconUrl }}/${out.size()})")
+        // Cache the result. FIFO eviction at the soft cap so a long-
+        // running container doesn't accumulate unbounded entries.
+        if (inventoryCache.size() >= CACHE_MAX) {
+            def first = inventoryCache.keys().nextElement()
+            if (first != null) inventoryCache.remove(first)
+        }
+        inventoryCache.put(steamId64, [at: System.currentTimeMillis(), items: out] as Map)
         out
     }
 

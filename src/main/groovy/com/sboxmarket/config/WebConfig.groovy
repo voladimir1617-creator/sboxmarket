@@ -13,7 +13,7 @@ class WebConfig implements WebMvcConfigurer {
     /**
      * Comma-separated allowed origins for CORS. Defaults to `*` for dev so
      * `localhost:*` just works. In production this MUST be set to the
-     * public origin(s) — e.g. `https://skinbox.example`. Wildcard is refused
+     * public origin(s) — e.g. `https://skinbox.market`. Wildcard is refused
      * when `allowCredentials=true`, so we branch based on the first value.
      */
     @Value('${security.cors-allowed-origins:*}') String corsAllowedOrigins
@@ -70,6 +70,55 @@ class WebConfig implements WebMvcConfigurer {
 
     @Override
     void addViewControllers(ViewControllerRegistry registry) {
+        // Batch 1064 — friendly redirects for URLs users type reflexively
+        // that don't have an SPA route. `/login` most commonly — every
+        // website with auth has a /login convention, and a user typing it
+        // out of habit should land on the sign-in flow, not the 404 view.
+        // 302 temporary redirect so the browser tab's URL bar ends up at
+        // the real Steam OpenID redirector rather than /login.
+        registry.addRedirectViewController('/login', '/api/auth/steam/login')
+        registry.addRedirectViewController('/signin', '/api/auth/steam/login')
+        registry.addRedirectViewController('/sign-in', '/api/auth/steam/login')
+        // Batch 1065 — there's no separate registration flow (Steam OpenID
+        // handles both first-time signup + returning login via the same
+        // handshake), but users type /signup / /register reflexively. Send
+        // them through the same door as /login. Also catch /home → / so
+        // a "click home" muscle-memory URL doesn't hit the 404 view.
+        registry.addRedirectViewController('/signup', '/api/auth/steam/login')
+        registry.addRedirectViewController('/sign-up', '/api/auth/steam/login')
+        registry.addRedirectViewController('/register', '/api/auth/steam/login')
+        registry.addRedirectViewController('/home', '/')
+        // Batch 1066 — more reflexive URLs. Users type `/terms`, `/privacy`,
+        // `/cookies` expecting the legal docs; `/about` expecting a company
+        // page (closest fit is the Help Center hero); `/contact` expecting
+        // support. Without these redirects each URL lands on the SPA 404
+        // view. Redirect to the real destinations so the browser URL bar
+        // ends up correct (302 temporary).
+        registry.addRedirectViewController('/terms',   '/legal/terms.html')
+        registry.addRedirectViewController('/privacy', '/legal/privacy.html')
+        registry.addRedirectViewController('/cookies', '/legal/cookies.html')
+        registry.addRedirectViewController('/about',   '/help')
+        registry.addRedirectViewController('/contact', '/support')
+
+        // Batch 1063 — clean-URL aliases for the handful of .html static
+        // pages that a human might type without the extension. These
+        // documents exist in /static as .html but the SPA's generic
+        // `{path:[^.]*}` forward would catch `/changelog` / `/status` /
+        // `/legal/terms` first and render the 404 view because the client
+        // router has no such route. Explicit forwards here resolve to the
+        // real HTML file so the URL works with OR without the extension.
+        // Registered BEFORE the generic SPA catchall so these win on match.
+        registry.addViewController('/changelog').setViewName('forward:/changelog.html')
+        registry.addViewController('/status').setViewName('forward:/status.html')
+        registry.addViewController('/legal/terms').setViewName('forward:/legal/terms.html')
+        registry.addViewController('/legal/privacy').setViewName('forward:/legal/privacy.html')
+        registry.addViewController('/legal/refunds').setViewName('forward:/legal/refunds.html')
+        registry.addViewController('/legal/trade-safety').setViewName('forward:/legal/trade-safety.html')
+        registry.addViewController('/legal/disclaimer').setViewName('forward:/legal/disclaimer.html')
+        registry.addViewController('/legal/acceptable-use').setViewName('forward:/legal/acceptable-use.html')
+        registry.addViewController('/legal/cookies').setViewName('forward:/legal/cookies.html')
+        registry.addViewController('/legal/responsible-disclosure').setViewName('forward:/legal/responsible-disclosure.html')
+
         // SPA history-API routing — any non-API URL without a file extension
         // should serve index.html so the client-side router can pick it up.
         // These patterns cover the full CSFloat-style URL surface:
@@ -89,6 +138,22 @@ class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/{segment:[^.]*}/{path:[^.]*}")
                 .setViewName("forward:/index.html")
         registry.addViewController("/{segment:[^.]*}/{sub:[^.]*}/{path:[^.]*}")
+                .setViewName("forward:/index.html")
+
+        // Batch 969 — trailing-slash variants. Spring Boot 3's
+        // PathPatternParser no longer auto-matches a trailing slash on
+        // a registered pattern, so `/help/`, `/search/`, `/db/`,
+        // `/loadout/`, `/profile/` etc. all 404'd even though the SPA
+        // router (`router.js`) happily accepts both shapes. Re-register
+        // each depth with an explicit trailing `/` so crawlers +
+        // inbound-link copy/paste + old-school URL bars all resolve.
+        // Keeps the `[^.]*` guard so real static assets don't fall
+        // into the fallback.
+        registry.addViewController("/{path:[^.]*}/")
+                .setViewName("forward:/index.html")
+        registry.addViewController("/{segment:[^.]*}/{path:[^.]*}/")
+                .setViewName("forward:/index.html")
+        registry.addViewController("/{segment:[^.]*}/{sub:[^.]*}/{path:[^.]*}/")
                 .setViewName("forward:/index.html")
     }
 }

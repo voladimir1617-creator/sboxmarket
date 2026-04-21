@@ -42,24 +42,43 @@ class AdminServiceSpec extends Specification {
     }
     AdminAuthorization      adminAuthorization      = Mock()
     BanGuard                banGuard                = Mock()
-    com.sboxmarket.service.EmailService emailService = Mock()
+    com.sboxmarket.service.EmailService emailService = Mock() {
+        // Batch 623: mimic the real canSendSecurityTo gate (verified +
+        // has email). Tests with `emailVerified: false` / null email
+        // fixtures still see the gate close; no per-test stub churn.
+        // Single-arg closure form: Spock passes `args` list directly.
+        canSendSecurityTo(_) >> { args ->
+            def user = args[0]
+            user != null &&
+            user.email && !user.email.isEmpty() &&
+            Boolean.TRUE.equals(user.emailVerified)
+        }
+    }
     com.sboxmarket.repository.TradeRepository tradeRepository = Mock()
+    com.sboxmarket.service.TradeService tradeService = Mock()
+    com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository = Mock()
+    com.sboxmarket.service.BuyOrderService buyOrderService = Mock()
+    com.sboxmarket.repository.OfferRepository offerRepository = Mock()
 
     @Subject
     AdminService service = new AdminService(
-        steamUserRepository     : steamUserRepository,
-        walletRepository        : walletRepository,
-        transactionRepository   : transactionRepository,
-        listingRepository       : listingRepository,
-        listingReportRepository : listingReportRepository,
-        supportTicketRepository : supportTicketRepository,
-        itemRepository          : itemRepository,
-        notificationService     : notificationService,
-        textSanitizer           : textSanitizer,
-        adminAuthorization      : adminAuthorization,
-        banGuard                : banGuard,
-        emailService            : emailService,
-        tradeRepository         : tradeRepository
+        steamUserRepository      : steamUserRepository,
+        walletRepository         : walletRepository,
+        transactionRepository    : transactionRepository,
+        listingRepository        : listingRepository,
+        listingReportRepository  : listingReportRepository,
+        supportTicketRepository  : supportTicketRepository,
+        itemRepository           : itemRepository,
+        notificationService      : notificationService,
+        textSanitizer            : textSanitizer,
+        adminAuthorization       : adminAuthorization,
+        banGuard                 : banGuard,
+        emailService             : emailService,
+        tradeRepository          : tradeRepository,
+        tradeService             : tradeService,
+        watchlistAlertRepository : watchlistAlertRepository,
+        buyOrderService          : buyOrderService,
+        offerRepository          : offerRepository
     )
 
     // ── ban / unban ───────────────────────────────────────────────
@@ -81,7 +100,7 @@ class AdminServiceSpec extends Specification {
         result.banned == true
         result.banReason == 'bad behaviour'
         activeListing.status == 'CANCELLED'
-        1 * notificationService.push(20L, 'ACCOUNT_BANNED', _, _, _, _)
+        1 * notificationService.safePush(20L, 'ACCOUNT_BANNED', _, _, _, _)
     }
 
     def "banUser forbids self-ban"() {
@@ -130,6 +149,145 @@ class AdminServiceSpec extends Specification {
         1 * adminAuthorization.requireAdmin(1L)
         result.banned == false
         result.banReason == null
+    }
+
+    def "banUser cancels the banned user's outgoing PENDING offers + pings the sellers (batch 598)"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
+            role: 'USER', banned: false, sessionEpoch: 0L)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        listingRepository.findActiveBySeller(20L) >> []
+        // Two outgoing offers — one PENDING (must be cancelled),
+        // one already REJECTED (must be left alone).
+        def pendingOffer = new com.sboxmarket.model.Offer(
+            id: 1L, buyerUserId: 20L, sellerUserId: 50L,
+            itemName: 'Hat', status: 'PENDING',
+            amount: new BigDecimal('40'))
+        def rejectedOffer = new com.sboxmarket.model.Offer(
+            id: 2L, buyerUserId: 20L, sellerUserId: 51L,
+            itemName: 'Pants', status: 'REJECTED',
+            amount: new BigDecimal('30'))
+        // Batch 1030 — ban cascade now queries PENDING-only at the repo
+        // layer. Non-PENDING row `rejectedOffer` is no longer surfaced
+        // to the service; the test stub matches the narrowed fetch.
+        offerRepository.findPendingByBuyer(20L) >> [pendingOffer]
+        offerRepository.saveAll(_) >> { args -> args[0] }
+
+        when:
+        service.banUser(1L, 20L, 'reason')
+
+        then:
+        // Only the PENDING row flipped to CANCELLED.
+        pendingOffer.status == 'CANCELLED'
+        rejectedOffer.status == 'REJECTED'
+        // Seller of the PENDING offer got a notification.
+        1 * notificationService.push(50L, 'OFFER_REJECTED', _, _, 1L, '/offers')
+        // Seller of the already-REJECTED offer was NOT re-notified.
+        0 * notificationService.push(51L, 'OFFER_REJECTED', _, _, _, _)
+    }
+
+    def "banUser cancels the banned user's active buy orders (batch 598)"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
+            role: 'USER', banned: false)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        listingRepository.findActiveBySeller(20L) >> []
+
+        when:
+        service.banUser(1L, 20L, 'reason')
+
+        then:
+        1 * buyOrderService.cancelAllForUser(20L)
+    }
+
+    def "banUser bumps sessionEpoch so live sessions invalidate on next request (batch 592)"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
+            role: 'USER', banned: false, sessionEpoch: 0L)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        listingRepository.findActiveBySeller(20L) >> []
+        def before = System.currentTimeMillis()
+
+        when:
+        def result = service.banUser(1L, 20L, 'reason')
+
+        then:
+        // Epoch must be set to a fresh timestamp — SessionEpochFilter
+        // compares stashed vs live; the bump makes every stashed cookie
+        // stale on its next round-trip.
+        result.sessionEpoch != null
+        result.sessionEpoch >= before
+    }
+
+    def "forceLogout bumps sessionEpoch without flipping the banned flag (batch 592)"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
+            role: 'USER', banned: false, sessionEpoch: 100L)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        def before = System.currentTimeMillis()
+
+        when:
+        def result = service.forceLogout(1L, 20L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        result.sessionEpoch >= before
+        result.banned == false   // still NOT banned
+    }
+
+    def "forceLogout refuses self-logout (batch 592)"() {
+        when:
+        service.forceLogout(1L, 1L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        def ex = thrown(BadRequestException)
+        ex.code == 'CANT_FORCE_LOGOUT_SELF'
+    }
+
+    def "forceLogout 404s for unknown target (batch 592)"() {
+        given:
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.forceLogout(1L, 999L)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "forceLogout emails the user when they have an address on file (batch 702)"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
+            role: 'USER', banned: false, sessionEpoch: 100L,
+            email: 'bob@example.com')
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.forceLogout(1L, 20L)
+
+        then:
+        1 * emailService.sendForceLogout('bob@example.com', 'Bob', null)
+    }
+
+    def "forceLogout silently skips the email when no address is on file"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
+            role: 'USER', banned: false, sessionEpoch: 100L, email: null)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.forceLogout(1L, 20L)
+
+        then:
+        // No email on file → nothing to send. Must not throw NPE.
+        0 * emailService.sendForceLogout(_, _, _)
     }
 
     // ── grant / revoke admin ──────────────────────────────────────
@@ -237,9 +395,10 @@ class AdminServiceSpec extends Specification {
 
     def "reset2faFor wipes the secret, notifies the user, and writes an audit row"() {
         given:
-        def target = new SteamUser(id: 22L, steamId64: '444', role: 'USER', totpSecret: 'ABCDEF', lastTotpStep: 123L)
+        def target = new SteamUser(id: 22L, steamId64: '444', role: 'USER', totpSecret: 'ABCDEF', lastTotpStep: 123L, sessionEpoch: 0L)
         steamUserRepository.findById(22L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
+        def before = System.currentTimeMillis()
 
         when:
         def res = service.reset2faFor(1L, 22L, 'Lost phone — confirmed via Steam OpenID handshake')
@@ -247,8 +406,42 @@ class AdminServiceSpec extends Specification {
         then:
         target.totpSecret == null
         target.lastTotpStep == null
+        // Batch 592: 2FA reset bumps sessionEpoch to kick any attacker
+        // session that might have survived the password-less login flow.
+        target.sessionEpoch != null && target.sessionEpoch >= before
         res.totpEnabled == false
-        1 * notificationService.push(22L, 'TWOFA_RESET', _, _, _, _)
+        1 * notificationService.safePush(22L, 'TWOFA_RESET', _, _, _, _)
+    }
+
+    def "reset2faFor fires a security-alert email to the user's verified address (batch 575)"() {
+        given:
+        def target = new SteamUser(
+            id: 22L, steamId64: '444', displayName: 'Alice', role: 'USER',
+            totpSecret: 'ABCDEF', lastTotpStep: 123L,
+            email: 'alice@example.com', emailVerified: true)
+        steamUserRepository.findById(22L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.reset2faFor(1L, 22L, 'Lost phone')
+
+        then:
+        1 * emailService.sendTwoFactorReset('alice@example.com', 'Alice', 'Lost phone')
+    }
+
+    def "reset2faFor skips the security email when the user has no verified address"() {
+        given:
+        def target = new SteamUser(
+            id: 22L, steamId64: '444', displayName: 'Alice', role: 'USER',
+            totpSecret: 'ABCDEF', email: 'alice@example.com', emailVerified: false)
+        steamUserRepository.findById(22L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.reset2faFor(1L, 22L, 'note')
+
+        then:
+        0 * emailService.sendTwoFactorReset(*_)
     }
 
     def "reset2faFor refuses when the user has no TOTP to reset"() {
@@ -503,6 +696,50 @@ class AdminServiceSpec extends Specification {
         target.banned == true
         target.deletionRequestedAt == null
         activeListing.status == 'CANCELLED'
+        // Batch 597: finalizeDeletion bumps sessionEpoch to kick any
+        // still-live session (legit owner OR attacker who initiated
+        // the compromise-recovery deletion request).
+        target.sessionEpoch != null && target.sessionEpoch > 0L
+    }
+
+    def "finalizeDeletion wipes watchlist alerts + cancels buy orders (batch 313 cleanup)"() {
+        // The sweeper-load leak: without this cleanup, WatchlistAlert
+        // and BuyOrder rows for a deleted user keep getting scanned
+        // forever. finalizeDeletion must flush both.
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann', deletionRequestedAt: 1234L)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> []
+        listingRepository.findActiveBySeller(60L) >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.finalizeDeletion(1L, 60L)
+
+        then:
+        1 * watchlistAlertRepository.deleteByUser(60L)
+        1 * buyOrderService.cancelAllForUser(60L)
+    }
+
+    def "finalizeDeletion swallows watchlist-alert cleanup failures"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann', deletionRequestedAt: 1234L)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> []
+        listingRepository.findActiveBySeller(60L) >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+        watchlistAlertRepository.deleteByUser(60L) >> { throw new RuntimeException('db down') }
+
+        when:
+        def res = service.finalizeDeletion(1L, 60L)
+
+        then:
+        // Buy-order cleanup still ran even after alert-cleanup failed.
+        1 * buyOrderService.cancelAllForUser(60L)
+        res.finalised == true
+        noExceptionThrown()
     }
 
     // ── approve / reject withdrawal ───────────────────────────────
@@ -623,7 +860,7 @@ class AdminServiceSpec extends Specification {
             amount: new BigDecimal("50"), currency: 'USD',
             createdAt: 1000L, stripeReference: 'acct_ext'
         )
-        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('WITHDRAW', 'PENDING') >> [pendingTx]
+        transactionRepository.findByTypeAndStatusPaged('WITHDRAW', 'PENDING', _) >> [pendingTx]
         // Batched wallet resolve — bug #37 fix. Per-row findById would
         // be an N+1, so the service now calls findAllById once.
         walletRepository.findAllById([500L]) >> [new Wallet(id: 500L, username: 'steam_111')]
@@ -645,7 +882,7 @@ class AdminServiceSpec extends Specification {
         def result = service.listWithdrawals('completed')
 
         then:
-        1 * transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('WITHDRAW', 'COMPLETED') >> []
+        1 * transactionRepository.findByTypeAndStatusPaged('WITHDRAW', 'COMPLETED', _) >> []
         result == []
     }
 
@@ -771,6 +1008,74 @@ class AdminServiceSpec extends Specification {
         1 * notificationService.push(99L, 'REPORT_ACTIONED', _, _, _, _)
     }
 
+    def "forceCancelListing refunds the buyer when the listing has an open escrow trade (batch 309 bug fix)"() {
+        // Before batch 309, admin force-cancel of a listing with an
+        // in-escrow trade orphaned the trade and trapped the buyer's
+        // funds — classic escrow-leak bug. Now tradeService.cancel
+        // runs FIRST so the buyer is made whole.
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item, reportCount: 0)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        def openTrade = new com.sboxmarket.model.Trade(
+            id: 500L, listingId: 100L, buyerUserId: 55L, sellerUserId: 999L,
+            state: 'PENDING_BUYER_CONFIRM', price: new BigDecimal("50")
+        )
+        tradeRepository.findByListingId(100L) >> openTrade
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> []
+
+        when:
+        service.forceCancelListing(1L, 100L, 'Policy violation')
+
+        then:
+        // Trade-cancel invoked with the admin user id — adminAuthorization
+        // path on TradeService.cancel will pass for a real admin.
+        1 * tradeService.cancel(1L, 500L, { String r -> r?.contains('Staff removed listing') })
+        listing.status == 'CANCELLED'
+    }
+
+    def "forceCancelListing skips the trade-refund branch when no open trade exists"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item, reportCount: 0)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        tradeRepository.findByListingId(100L) >> null
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> []
+
+        when:
+        service.forceCancelListing(1L, 100L, 'Policy violation')
+
+        then:
+        0 * tradeService.cancel(_, _, _)
+        listing.status == 'CANCELLED'
+    }
+
+    def "forceCancelListing swallows a failing trade-cancel so the listing still flips to CANCELLED"() {
+        given:
+        def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, sellerUserId: 999L, status: 'ACTIVE', item: item, reportCount: 0)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        def openTrade = new com.sboxmarket.model.Trade(
+            id: 500L, listingId: 100L, state: 'PENDING_SELLER_ACCEPT'
+        )
+        tradeRepository.findByListingId(100L) >> openTrade
+        tradeService.cancel(_, _, _) >> { throw new RuntimeException('trade-cancel boom') }
+        listingReportRepository.findByListingIdOrderByCreatedAtDesc(100L) >> []
+
+        when:
+        service.forceCancelListing(1L, 100L, 'Policy violation')
+
+        then:
+        // Admin can still pull the listing off-market even if the
+        // trade-refund side-channel fails; staff have manual
+        // compensation flows.
+        listing.status == 'CANCELLED'
+        noExceptionThrown()
+    }
+
     def "forceCancelListing keeps working when the report-notification push throws"() {
         given:
         def item = new com.sboxmarket.model.Item(id: 7L, name: 'Wizard Hat')
@@ -833,5 +1138,357 @@ class AdminServiceSpec extends Specification {
         res.dismissed == 0
         res.distinctReporters == 0
         0 * notificationService.push(_, 'REPORT_REVIEWED', _, _, _, _)
+    }
+
+    // ── listAllTickets search (batch 576) ───────────────────────────
+
+    def "listAllTickets without a search term hits findForAdmin"() {
+        given:
+        supportTicketRepository.findForAdmin('WAITING_STAFF') >> [
+            new com.sboxmarket.model.SupportTicket(id: 1L, userId: 10L, subject: 'stuck deposit', status: 'WAITING_STAFF', updatedAt: 1L)
+        ]
+        steamUserRepository.findAllById(_) >> []
+
+        when:
+        def rows = service.listAllTickets('WAITING_STAFF', null)
+
+        then:
+        rows.size() == 1
+        0 * supportTicketRepository.searchForAdmin(*_)
+    }
+
+    def "listAllTickets with a search term hits searchForAdmin"() {
+        given:
+        supportTicketRepository.searchForAdmin('', 'deposit') >> [
+            new com.sboxmarket.model.SupportTicket(id: 1L, userId: 10L, subject: 'stuck deposit', status: 'WAITING_STAFF', updatedAt: 1L)
+        ]
+        steamUserRepository.findAllById(_) >> []
+
+        when:
+        def rows = service.listAllTickets(null, 'deposit')
+
+        then:
+        rows.size() == 1
+        0 * supportTicketRepository.findForAdmin(_)
+    }
+
+    def "listAllTickets truncates overly-long search strings + strips null bytes"() {
+        given:
+        def longQuery = 'x' * 200
+        String captured = null
+        supportTicketRepository.searchForAdmin(_, _) >> { args ->
+            captured = args[1] as String
+            []
+        }
+
+        when:
+        service.listAllTickets('', longQuery + '\u0000bad')
+
+        then:
+        captured != null
+        captured.length() == 100
+        !captured.contains('\u0000')
+    }
+
+    // ── listTransactionsFor (batch 568) ─────────────────────────────
+
+    def "listTransactionsFor requires an admin"() {
+        given:
+        1 * adminAuthorization.requireAdmin(99L) >> { throw new ForbiddenException('not admin') }
+
+        when:
+        service.listTransactionsFor(99L, 10L)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "listTransactionsFor 404s for an unknown user id"() {
+        given:
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.listTransactionsFor(1L, 999L)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "listTransactionsFor returns [] when the user has no wallet"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '123', displayName: 'Alice')
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_123') >> null
+
+        when:
+        def rows = service.listTransactionsFor(1L, 10L)
+
+        then:
+        rows == []
+        0 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(*_)
+    }
+
+    def "listTransactionsFor projects 100 most-recent transactions for fraud triage"() {
+        given:
+        def user   = new SteamUser(id: 10L, steamId64: '123', displayName: 'Alice')
+        def wallet = new Wallet(id: 500L, username: 'steam_123', balance: new BigDecimal("50"))
+        def tx1 = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT',
+            status: 'COMPLETED', amount: new BigDecimal("25.00"),
+            currency: 'USD', description: 'Stripe session', stripeReference: 'cs_123',
+            createdAt: 1000L, updatedAt: 1000L)
+        def tx2 = new Transaction(id: 2L, walletId: 500L, type: 'PURCHASE',
+            status: 'COMPLETED', amount: new BigDecimal("5.00"),
+            currency: 'USD', description: 'Bought a hat',
+            createdAt: 2000L, updatedAt: 2000L)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_123') >> wallet
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L,
+            _ as org.springframework.data.domain.Pageable) >> [tx1, tx2]
+
+        when:
+        def rows = service.listTransactionsFor(1L, 10L)
+
+        then:
+        rows.size() == 2
+        rows[0].id == 1L
+        rows[0].type == 'DEPOSIT'
+        rows[0].stripeReference == 'cs_123'
+        rows[1].id == 2L
+        rows[1].type == 'PURCHASE'
+    }
+
+    // ── freezeWallet / unfreezeWallet security email (batch 584) ────
+
+    def "freezeWallet sends a security-alert email to the user's verified address"() {
+        given:
+        def target = new SteamUser(
+            id: 10L, steamId64: '111', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true)
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("50.00"), frozen: false)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.save(_) >> { args -> args[0] }
+        textSanitizer.medium(_) >> 'Suspicious chargeback pattern'
+
+        when:
+        service.freezeWallet(1L, 10L, 'Suspicious chargeback pattern')
+
+        then:
+        1 * emailService.sendWalletFrozen('alice@example.com', 'Alice', 'Suspicious chargeback pattern')
+    }
+
+    def "freezeWallet skips the email when the target has no verified email"() {
+        given:
+        def target = new SteamUser(
+            id: 10L, steamId64: '111', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: false)
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("50.00"), frozen: false)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.freezeWallet(1L, 10L, 'reason')
+
+        then:
+        0 * emailService.sendWalletFrozen(*_)
+    }
+
+    def "unfreezeWallet sends the good-news email to the verified address"() {
+        given:
+        def target = new SteamUser(
+            id: 10L, steamId64: '111', displayName: 'Alice',
+            email: 'alice@example.com', emailVerified: true)
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("50.00"), frozen: true)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.unfreezeWallet(1L, 10L)
+
+        then:
+        1 * emailService.sendWalletUnfrozen('alice@example.com', 'Alice')
+    }
+
+    // ── sendDirectMessage (batch 580) ───────────────────────────────
+
+    def "sendDirectMessage requires an admin"() {
+        given:
+        1 * adminAuthorization.requireAdmin(99L) >> { throw new ForbiddenException('not admin') }
+
+        when:
+        service.sendDirectMessage(99L, 10L, 'hi', null, null)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "sendDirectMessage rejects a banned target"() {
+        given:
+        def target = new SteamUser(id: 10L, steamId64: '111', banned: true)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+
+        when:
+        service.sendDirectMessage(1L, 10L, 'test', null, null)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'USER_BANNED'
+    }
+
+    def "sendDirectMessage 404s for unknown target"() {
+        given:
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.sendDirectMessage(1L, 999L, 'test', null, null)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "sendDirectMessage rejects empty title"() {
+        given:
+        def target = new SteamUser(id: 10L, steamId64: '111', banned: false)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+
+        when:
+        service.sendDirectMessage(1L, 10L, '   ', 'body', null)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'EMPTY_TITLE'
+    }
+
+    def "sendDirectMessage pushes ADMIN_MESSAGE to the target user"() {
+        given:
+        def target = new SteamUser(id: 10L, steamId64: '111', banned: false)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+
+        when:
+        def res = service.sendDirectMessage(1L, 10L, 'Verify your email', 'Withdrawals require a verified email.', '/profile')
+
+        then:
+        1 * notificationService.push(10L, 'ADMIN_MESSAGE', 'Verify your email',
+            'Withdrawals require a verified email.', null, '/profile')
+        res.sent == true
+        res.to == 10L
+    }
+
+    // ── broadcastNotification (batch 566) ───────────────────────────
+
+    def "broadcastNotification requires an admin"() {
+        given:
+        1 * adminAuthorization.requireAdmin(99L) >> { throw new ForbiddenException('not admin') }
+
+        when:
+        service.broadcastNotification(99L, 'hi', null, null)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "broadcastNotification rejects an empty title with EMPTY_TITLE"() {
+        when:
+        service.broadcastNotification(1L, '   ', 'body', null)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'EMPTY_TITLE'
+    }
+
+    def "broadcastNotification rejects a path that doesn't start with /"() {
+        when:
+        service.broadcastNotification(1L, 'Launch', 'body', 'help')  // missing leading slash
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'INVALID_PATH'
+    }
+
+    def "broadcastNotification pushes ADMIN_BROADCAST to every active user in batches"() {
+        given:
+        // Three users in the first batch, empty second batch signals end.
+        steamUserRepository.findActiveUserIds(_ as org.springframework.data.domain.Pageable) >>> [
+            [10L, 11L, 12L],
+            []
+        ]
+
+        when:
+        def res = service.broadcastNotification(1L, 'Feature launch', 'Check out the new database page', '/db')
+
+        then:
+        1 * notificationService.push(10L, 'ADMIN_BROADCAST', 'Feature launch', 'Check out the new database page', null, '/db')
+        1 * notificationService.push(11L, 'ADMIN_BROADCAST', 'Feature launch', 'Check out the new database page', null, '/db')
+        1 * notificationService.push(12L, 'ADMIN_BROADCAST', 'Feature launch', 'Check out the new database page', null, '/db')
+        res.sent == 3
+        res.batches == 1
+    }
+
+    def "listUsers with search delegates to searchByNameOrSteamId (batch 765)"() {
+        when:
+        service.listUsers('alice', null, null)
+
+        then:
+        1 * steamUserRepository.searchByNameOrSteamId('alice', _) >> []
+        0 * steamUserRepository.listByRoleAndBanned(_, _, _)
+        0 * steamUserRepository.findAll(_ as org.springframework.data.domain.Pageable)
+    }
+
+    def "listUsers with no filters hits findAll (fast path) (batch 765)"() {
+        given:
+        // Use a concrete PageImpl so the service can read `.content`
+        // without needing a fancy mock.
+        def emptyPage = new org.springframework.data.domain.PageImpl<SteamUser>([])
+
+        when:
+        service.listUsers(null, null, null)
+
+        then:
+        1 * steamUserRepository.findAll(_ as org.springframework.data.domain.Pageable) >> emptyPage
+        0 * steamUserRepository.listByRoleAndBanned(_, _, _)
+        0 * steamUserRepository.searchByNameOrSteamId(_, _)
+    }
+
+    def "listUsers with role filter calls listByRoleAndBanned (batch 765)"() {
+        when:
+        service.listUsers(null, 'ADMIN', false)
+
+        then:
+        1 * steamUserRepository.listByRoleAndBanned('ADMIN', false, _) >> []
+        0 * steamUserRepository.findAll(_ as org.springframework.data.domain.Pageable)
+    }
+
+    def "listUsers banned-only passes banned=true with role=ANY (batch 765)"() {
+        when:
+        service.listUsers(null, null, true)
+
+        then:
+        1 * steamUserRepository.listByRoleAndBanned('ANY', true, _) >> []
+    }
+
+    def "listUsers role filter uppercases caller input (batch 765)"() {
+        when:
+        service.listUsers(null, 'csr', false)
+
+        then:
+        // Defensive against frontend typo / case drift — service
+        // normalises to canonical uppercase before hitting the repo.
+        1 * steamUserRepository.listByRoleAndBanned('CSR', false, _) >> []
+    }
+
+    def "broadcastNotification keeps pushing when one per-user call throws (batch 566)"() {
+        given:
+        steamUserRepository.findActiveUserIds(_ as org.springframework.data.domain.Pageable) >>> [[10L, 11L], []]
+        notificationService.push(10L, 'ADMIN_BROADCAST', _, _, _, _) >> { throw new RuntimeException('push down') }
+
+        when:
+        def res = service.broadcastNotification(1L, 'Launch', null, null)
+
+        then:
+        1 * notificationService.push(11L, 'ADMIN_BROADCAST', _, _, _, _)
+        // Failing push doesn't count toward `sent`, the rest still do.
+        res.sent == 1
     }
 }

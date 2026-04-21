@@ -79,6 +79,28 @@ class StripeServiceSpec extends Specification {
         saved.amount == new BigDecimal("50")
     }
 
+    def "devModeDeposit rejects non-positive amounts (batch 318)"() {
+        // Without this guard, a misconfigured prod deployment without
+        // Stripe keys would happily accept a zero/negative deposit
+        // through the dev-mode fallback and log it as a real credit.
+        when:
+        service.createDepositSession(500L, amount)
+
+        then:
+        thrown(IllegalArgumentException)
+
+        where:
+        amount << [null, BigDecimal.ZERO, new BigDecimal("-0.01")]
+    }
+
+    def "devModeDeposit rejects amounts above the \$10,000 cap (batch 318)"() {
+        when:
+        service.createDepositSession(500L, new BigDecimal("10000.01"))
+
+        then:
+        thrown(IllegalArgumentException)
+    }
+
     // ── requestWithdrawal ─────────────────────────────────────────
 
     def "requestWithdrawal debits the wallet and records a COMPLETED tx in dev mode"() {

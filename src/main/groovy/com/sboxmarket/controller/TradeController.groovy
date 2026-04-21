@@ -33,8 +33,16 @@ class TradeController {
         // Enriched list — each row carries counterpartyTradeUrl +
         // counterpartyName so the Profile → Trades tab can show a
         // "Copy seller trade URL" button without the client having to
-        // fan out /api/auth lookups per row.
-        ResponseEntity.ok(tradeService.listForUserWithCounterparty(requireUser(req)))
+        // fan out /api/auth lookups per row. Capped at TRADE_LIST_CAP
+        // (200); X-Total-Count header carries the true row count so
+        // the Trades tab can render "Showing most recent 200 of N"
+        // for power-users.
+        def uid = requireUser(req)
+        def rows = tradeService.listForUserWithCounterparty(uid)
+        long total = tradeService.countForUser(uid)
+        ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(total))
+            .body(rows)
     }
 
     @GetMapping("/{id}")
@@ -55,8 +63,15 @@ class TradeController {
     }
 
     @PostMapping("/{id}/sent")
-    ResponseEntity<Trade> markSent(@PathVariable Long id, HttpServletRequest req) {
-        ResponseEntity.ok(tradeService.sellerMarkSent(requireUser(req), id))
+    ResponseEntity<Trade> markSent(@PathVariable Long id,
+                                   @RequestBody(required = false) Map body,
+                                   HttpServletRequest req) {
+        // Batch 773 — optional `tradeOfferUrl` body param lets the seller
+        // attach the Steam trade-offer link at Mark-Sent time. Legacy
+        // clients posting no body still work (url falls through to null
+        // and the service just skips the update).
+        def url = body?.tradeOfferUrl as String
+        ResponseEntity.ok(tradeService.sellerMarkSent(requireUser(req), id, url))
     }
 
     @PostMapping("/{id}/confirm")

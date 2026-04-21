@@ -101,6 +101,14 @@ class Listing {
     @Column
     Integer bidCount = 0
 
+    /** Optional auction Buy-Now ceiling (V42 / batch 371). When set, a
+     *  buyer can skip the auction and instantly settle at this price
+     *  via `POST /listings/{id}/buy-now-auction`. Service layer enforces
+     *  `buyNowPrice > price` (must exceed the starting bid). Null for
+     *  plain auctions + every BUY_NOW listing. */
+    @Column(name = 'buy_now_price', precision = 10, scale = 2)
+    BigDecimal buyNowPrice
+
     /** Optional per-listing max discount offer (0..1, e.g. 0.20 = accept offers >= 80% asking). */
     @Column(precision = 5, scale = 2)
     BigDecimal maxDiscount
@@ -110,11 +118,12 @@ class Listing {
     @Column
     Boolean hidden = false
 
-    /** Optional free-text seller description, capped at 64 chars server-side
-     *  by the ListingController.updateStall textSanitizer.clean(_, 64) call.
-     *  The column is sized to match; bumping the column would need a Flyway
-     *  migration. */
-    @Column(length = 64)
+    /** Optional free-text seller description. Capped at 500 chars by the
+     *  SellService.relist / SteamInventoryController.listFromSteam /
+     *  ListingController.update sanitiser calls AND by the column size
+     *  itself. Migration V39 widened the column from 64 → 500 when the
+     *  sell form got a real textarea (batch 304). */
+    @Column(length = 500)
     String description
 
     /** Aggregate count of user-submitted reports. Admins surface high-count listings first. */

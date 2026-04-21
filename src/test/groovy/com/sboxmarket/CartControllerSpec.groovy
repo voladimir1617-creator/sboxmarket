@@ -31,12 +31,14 @@ class CartControllerSpec extends Specification {
     PurchaseService      purchaseService      = Mock()
     WalletRepository     walletRepository     = Mock()
     SteamUserRepository  steamUserRepository  = Mock()
+    com.sboxmarket.repository.ListingRepository listingRepository = Mock()
 
     @Subject
     CartController controller = new CartController(
         purchaseService    : purchaseService,
         walletRepository   : walletRepository,
-        steamUserRepository: steamUserRepository
+        steamUserRepository: steamUserRepository,
+        listingRepository  : listingRepository
     )
 
     private HttpServletRequest reqFor(Long uid) {
@@ -117,6 +119,13 @@ class CartControllerSpec extends Specification {
         body.results[0].status == 'OK'
         body.results[1].status == 'FAILED'
         body.results[1].code == 'INSUFFICIENT_BALANCE'
+        // Batch 964 — per-row details surface the same required/available/
+        // shortfall the top-level ErrorResponse carries, so the frontend
+        // can sum exact top-up gaps instead of re-deriving from cart
+        // totals + wallet balance (which can drift mid-checkout).
+        body.results[1].details.required  == new BigDecimal('50')
+        body.results[1].details.available == new BigDecimal('490')
+        body.results[1].details.shortfall == new BigDecimal('-440')
         body.results[2].status == 'OK'
     }
 
@@ -137,6 +146,99 @@ class CartControllerSpec extends Specification {
         body.results[0].code == 'LISTING_NOT_AVAILABLE'
         body.results[1].code == 'LISTING_NOT_AVAILABLE'
         body.results[2].code == 'NOT_FOUND'
+    }
+
+    def "rejects rows with PRICE_CHANGED when expectedPrice differs from server price (batch 321)"() {
+        given:
+        def req = reqFor(10L)
+        steamUserRepository.findById(10L) >> Optional.of(user())
+        walletRepository.findByUsername('steam_111') >> wallet()
+        // Listing 1's server price is $12 but client passed $10 — seller
+        // raised it between cart-confirm and Confirm-click. Must reject
+        // without debiting the wallet.
+        def staleListing = new com.sboxmarket.model.Listing(id: 1L, price: new BigDecimal("12.00"))
+        listingRepository.findById(1L) >> Optional.of(staleListing)
+
+        when:
+        def resp = controller.checkout([
+            listingIds: [1L],
+            expectedPrices: ['1': '10.00']
+        ], req)
+        def body = resp.body
+
+        then:
+        // Server rejected the row BEFORE purchaseService.buy was called.
+        0 * purchaseService.buy(_, _, _)
+        body.results[0].code == 'PRICE_CHANGED'
+        body.results[0].expected == new BigDecimal("10.00")
+        body.results[0].actual == new BigDecimal("12.00")
+        body.successful == 0
+        body.failed == 1
+    }
+
+    def "expectedPrice that matches the server price lets the row go through"() {
+        given:
+        def req = reqFor(10L)
+        steamUserRepository.findById(10L) >> Optional.of(user())
+        walletRepository.findByUsername('steam_111') >> wallet()
+        def listing = new com.sboxmarket.model.Listing(id: 1L, price: new BigDecimal("10.00"))
+        listingRepository.findById(1L) >> Optional.of(listing)
+
+        when:
+        def resp = controller.checkout([
+            listingIds: [1L],
+            expectedPrices: ['1': '10.00']
+        ], req)
+
+        then:
+        // Interaction + return-value combined so the mock actually produces
+        // a result when the buy runs.
+        1 * purchaseService.buy(500L, 10L, 1L) >> [
+            newBalance: new BigDecimal("490"),
+            listing:    listing
+        ]
+        resp.body.successful == 1
+    }
+
+    def "rows WITHOUT an expectedPrice entry skip the price-match guard (back-compat)"() {
+        given:
+        def req = reqFor(10L)
+        steamUserRepository.findById(10L) >> Optional.of(user())
+        walletRepository.findByUsername('steam_111') >> wallet()
+
+        when:
+        // Old client calling WITHOUT expectedPrices — still works.
+        def resp = controller.checkout([listingIds: [1L]], req)
+
+        then:
+        // No findById for price-check — purchase runs directly.
+        0 * listingRepository.findById(_)
+        1 * purchaseService.buy(500L, 10L, 1L) >> [
+            newBalance: new BigDecimal("488"),
+            listing:    new com.sboxmarket.model.Listing(price: new BigDecimal("12"))
+        ]
+        resp.body.successful == 1
+    }
+
+    def "silently drops malformed expectedPrices entries instead of 400-ing the whole cart"() {
+        given:
+        def req = reqFor(10L)
+        steamUserRepository.findById(10L) >> Optional.of(user())
+        walletRepository.findByUsername('steam_111') >> wallet()
+
+        when:
+        // "abc" is not a valid number — that entry drops, row 1 still goes through.
+        def resp = controller.checkout([
+            listingIds: [1L],
+            expectedPrices: ['1': 'abc']
+        ], req)
+
+        then:
+        1 * purchaseService.buy(500L, 10L, 1L) >> [
+            newBalance: new BigDecimal("490"),
+            listing:    new com.sboxmarket.model.Listing(price: new BigDecimal("10"))
+        ]
+        resp.body.results[0].status == 'OK'
     }
 
     def "unexpected RuntimeException does NOT leak the raw message (bug #28)"() {

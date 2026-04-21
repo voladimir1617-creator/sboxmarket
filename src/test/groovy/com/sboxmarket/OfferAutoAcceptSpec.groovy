@@ -70,7 +70,8 @@ class OfferAutoAcceptSpec extends Specification {
         listingRepository.findById(10L) >> Optional.of(listing)
         listingRepository.save(_) >> { args -> args[0] }
 
-        def buyer = new SteamUser(id: 42L, steamId64: '111')
+        def buyer = new SteamUser(id: 42L, steamId64: '111',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=42&token=abc')
         steamUserRepository.findById(42L) >> Optional.of(buyer)
         walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal('200'))
 
@@ -147,7 +148,8 @@ class OfferAutoAcceptSpec extends Specification {
         listingRepository.findById(10L) >> Optional.of(listing)
         listingRepository.save(_) >> { args -> args[0] }
 
-        def buyer = new SteamUser(id: 42L, steamId64: '111')
+        def buyer = new SteamUser(id: 42L, steamId64: '111',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=42&token=abc')
         steamUserRepository.findById(42L) >> Optional.of(buyer)
         walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal('200'))
 

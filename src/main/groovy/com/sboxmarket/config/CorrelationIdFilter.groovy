@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter
  * name causes a BeanDefinitionOverrideException at startup.
  */
 @Component
-@Order(1)
+@Order(0)
 class CorrelationIdFilter extends OncePerRequestFilter {
 
     private static final String HEADER = "X-Correlation-Id"
@@ -84,7 +84,53 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         // The rule of thumb: if the response depends on who's asking
         // (session-scoped) or could leak data between users through a
         // shared cache, the path belongs on this list.
+        //
+        // Batch 759 — `/api/buy-orders` listed here is overly broad: the
+        // public read-aggregates (`/top`, `/count/item/*`, `/for-item/*`,
+        // `/count/bulk`, `/projected-position`) return viewer-agnostic
+        // demand signals that a shared cache can serve safely. The
+        // private surfaces (`GET /api/buy-orders` listing the caller's
+        // orders, POST/DELETE for mutations) ARE per-user. So we scope
+        // the no-cache to the caller's own listing + the mutation paths;
+        // the read-aggregates fall through and honor their controller-
+        // set `public, max-age=60`.
         String path = req.requestURI
+        String method = req.method
+        boolean isBuyOrderPublicRead = path != null && (
+                path == '/api/buy-orders/top' || path.startsWith('/api/buy-orders/top?') ||
+                path.startsWith('/api/buy-orders/count/') ||
+                path.startsWith('/api/buy-orders/for-item/') ||
+                path.startsWith('/api/buy-orders/projected-position'))
+        boolean isBuyOrderPrivate = path != null && path.startsWith('/api/buy-orders') && !isBuyOrderPublicRead
+        // Watchlist mirrors the buy-order split: `/counts` and
+        // `/alerts/count/*` are viewer-agnostic aggregates safe for a
+        // shared cache (controller sets `public, max-age=60`). The
+        // per-viewer listing + alert mutations are session-scoped.
+        boolean isWatchlistPublicRead = path != null && (
+                path == '/api/watchlist/counts' || path.startsWith('/api/watchlist/counts?') ||
+                path.startsWith('/api/watchlist/alerts/count/'))
+        boolean isWatchlistPrivate = path != null && path.startsWith('/api/watchlist') && !isWatchlistPublicRead
+
+        // Loadout split: `/discover` is a public browse feed; every
+        // other loadout surface is viewer-dependent (even `GET /{id}`
+        // filters private loadouts by owner) or a mutation. Keep
+        // Discover cacheable by a shared cache, force no-store on the
+        // rest. Rationale: without this, a CDN could cache one
+        // viewer's owner-only loadout view and leak it.
+        boolean isLoadoutPublicRead = path != null && (
+                path == '/api/loadouts/discover' || path.startsWith('/api/loadouts/discover?'))
+        boolean isLoadoutPrivate = path != null && path.startsWith('/api/loadouts') && !isLoadoutPublicRead
+
+        // Review split: `/user/{id}` and `/user/{id}/summary` are
+        // public seller-scoped aggregates; everything else (mine /
+        // pending / eligible / mutations / helpful / reply) is
+        // viewer-dependent.
+        boolean isReviewPublicRead = path != null && (
+                path.matches('/api/reviews/user/\\d+') ||
+                path.matches('/api/reviews/user/\\d+\\?.*') ||
+                path.matches('/api/reviews/user/\\d+/summary') ||
+                path.matches('/api/reviews/user/\\d+/summary\\?.*'))
+        boolean isReviewPrivate = path != null && path.startsWith('/api/reviews') && !isReviewPublicRead
         if (path != null && (
                 path.startsWith('/api/wallet') ||
                 path.startsWith('/api/auth') ||
@@ -98,20 +144,54 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                 path.startsWith('/api/offers') ||
                 path.startsWith('/api/bids') ||
                 path.startsWith('/api/api-keys') ||
-                path.startsWith('/api/buy-orders') ||
+                path.startsWith('/api/saved-searches') ||
+                path.startsWith('/api/follows') ||
+                path.startsWith('/api/steam') ||
+                isBuyOrderPrivate ||
+                isWatchlistPrivate ||
+                isLoadoutPrivate ||
+                isReviewPrivate ||
                 path.startsWith('/api/cart'))) {
             resp.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private")
             resp.setHeader("Pragma", "no-cache")
             resp.setHeader("Expires", "0")
         }
 
-        // Static assets — cache at the Cloudflare edge for 4 hours so
-        // EU users don't round-trip to the origin on every page load.
-        // JS/CSS/fonts/images are fingerprinted by content, so a 4-hour
-        // TTL is safe — a code deploy just changes the file content and
-        // Cloudflare fetches the new version on the next miss.
-        if (path != null && path.matches('.*\\.(js|css|woff2?|svg|png|ico|jpg|webp)$')) {
+        // Static assets — split into two tiers:
+        //   - JS/CSS bundles: `no-cache` so the browser MUST revalidate via
+        //     the existing Last-Modified header on every request. The
+        //     usual response is a cheap 304, but a fresh deploy lands
+        //     instantly on the next pageview instead of being shadowed by
+        //     a stale cached copy for hours. Bundle filenames are NOT
+        //     content-hashed (just /js/app.js etc) so a long TTL would
+        //     trap users on whichever build was current the last time
+        //     their browser cached it.
+        //   - Fonts / images / icons: 4-hour edge + browser cache. These
+        //     change rarely, are addressed by a stable URL, and the
+        //     bandwidth/round-trip savings are real on mobile.
+        if (path != null && path.matches('.*\\.(js|css)$')) {
+            resp.setHeader("Cache-Control", "no-cache, must-revalidate")
+        } else if (path != null && path.matches('.*\\.(woff2?|svg|png|ico|jpg|webp)$')) {
             resp.setHeader("Cache-Control", "public, max-age=14400")
+        } else if (path != null && method == 'GET'
+                   && !path.startsWith('/api/')
+                   && !path.contains('.')
+                   && !path.startsWith('/item/')
+                   && !path.startsWith('/stall/')
+                   && !path.startsWith('/loadout/')
+                   && path != '/faq') {
+            // SPA shell route (e.g. `/`, `/market`, `/search`, `/watchlist`).
+            // Forwards to /index.html which references non-content-hashed
+            // /js/*.js bundles, so the shell must revalidate on every load
+            // to pick up new bundle contents the moment a deploy lands.
+            //
+            // OG-rewriting routes (/item/{id}, /stall/{id}, /loadout/{id},
+            // /faq) are skipped here because OpenGraphController sets its
+            // own `public, max-age=300` via ResponseEntity.header(), and
+            // ResponseEntity headers APPEND rather than replace — pre-
+            // setting Cache-Control here would emit two conflicting
+            // values like the /api/buy-orders bug fixed earlier.
+            resp.setHeader("Cache-Control", "no-cache, must-revalidate")
         }
 
         try {

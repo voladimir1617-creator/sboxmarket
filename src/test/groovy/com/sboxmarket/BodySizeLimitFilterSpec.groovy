@@ -102,4 +102,52 @@ class BodySizeLimitFilterSpec extends Specification {
         then:
         1 * chain.doFilter(req, resp)
     }
+
+    def "POST with Transfer-Encoding: chunked is rejected with 411 (batch 319)"() {
+        // Without the Content-Length header, contentLengthLong is -1 which
+        // silently passes the > 2MB check. A malicious client could stream
+        // an arbitrarily large body into Jackson. The filter now rejects
+        // chunked transfer explicitly.
+        given:
+        def req = new MockHttpServletRequest('POST', '/api/offers')
+        req.addHeader('Transfer-Encoding', 'chunked')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        0 * chain.doFilter(_, _)
+        resp.status == 411
+        resp.contentAsString.contains('"code":"LENGTH_REQUIRED"')
+    }
+
+    def "POST with mixed Transfer-Encoding that includes chunked is also rejected"() {
+        given:
+        def req = new MockHttpServletRequest('POST', '/api/offers')
+        req.addHeader('Transfer-Encoding', 'gzip, chunked')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        0 * chain.doFilter(_, _)
+        resp.status == 411
+    }
+
+    def "POST with empty body and no Content-Length passes (logout, idempotent)"() {
+        // Sanity: empty-body POSTs (like /api/auth/steam/logout) should
+        // still fall through. The filter now only blocks chunked requests
+        // explicitly, not zero-length ones.
+        given:
+        def req = new MockHttpServletRequest('POST', '/api/auth/steam/logout')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * chain.doFilter(req, resp)
+    }
 }

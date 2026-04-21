@@ -4,9 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Changelog — SkinBox</title>
-  <link rel="icon" type="image/png" href="/img/favicon-32.png">
-  <link rel="stylesheet" href="/css/styles.css">
   <meta name="description" content="What's new on SkinBox — the s&box skin marketplace.">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="SkinBox">
+  <meta property="og:title" content="Changelog · SkinBox">
+  <meta property="og:description" content="Every user-visible change that ships on SkinBox — features, fixes, and security hardening.">
+  <meta property="og:image" content="/img/favicon-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Changelog · SkinBox">
+  <meta name="twitter:description" content="Every user-visible change that ships on SkinBox.">
+  <link rel="canonical" href="https://skinbox.market/changelog.html">
+  <meta name="theme-color" content="#1ea5ff">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/design.css">
   <style>
     .changelog { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); }
     .changelog h1 { font-size: 32px; margin-bottom: 8px; }
@@ -15,17 +30,36 @@
     .changelog-entry:last-child { border-bottom: none; }
     .changelog-date { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
     .changelog-title { font-size: 20px; margin: 6px 0 14px; color: var(--text-primary); }
-    .changelog-tag   { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; margin-right: 6px; letter-spacing: 0.5px; vertical-align: 1px; }
-    .changelog-tag.feature { background: rgba(34,197,94,0.15);  color: #22c55e; }
-    .changelog-tag.fix     { background: rgba(251,191,36,0.15); color: #fbbf24; }
-    .changelog-tag.security{ background: rgba(248,113,113,0.15); color: #f87171; }
-    .changelog-tag.polish  { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    /* Batch 1068 — editorial changelog tags. Mono text, hairline border,
+       color-coded only via a 3px left-stripe (severity accent), no full-
+       pill tint. Matches the editorial severity-stripe pattern used for
+       announce banners. */
+    .changelog-tag {
+      display: inline-block;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 9px;
+      font-weight: 500;
+      padding: 2px 8px 2px 6px;
+      border-radius: 3px;
+      margin-right: 6px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      vertical-align: 1px;
+      background: var(--bg-1, rgba(255,255,255,0.04));
+      color: var(--ink-3, #8a93b0);
+      border: 1px solid var(--line, rgba(255,255,255,0.08));
+      border-left-width: 3px;
+    }
+    .changelog-tag.feature  { border-left-color: #4ade80; }
+    .changelog-tag.fix      { border-left-color: #fbbf24; }
+    .changelog-tag.security { border-left-color: #f87171; }
+    .changelog-tag.polish   { border-left-color: #60a5fa; }
     .changelog-list li     { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; font-size: 14px; }
     .changelog-back        { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
   </style>
 </head>
 <body>
-  <div class="changelog">
+  <main class="changelog">
     <a class="changelog-back" href="/">← Back to SkinBox</a>
     <h1>Changelog</h1>
     <p class="changelog-intro">
@@ -34,6 +68,161 @@
       check <code>/api/version</code>. System status lives at
       <a href="/status.html" style="color:var(--accent)">/status.html</a>.
     </p>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026 — latest</div>
+      <div class="changelog-title">Trust signals · perf sweep · Profile overflow banners · staff-panel rate limits</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Homepage "Marketplace at a glance" strip expanded from 4 to 10 trust signals: active listings + seller count ("41 from 12 sellers"), 24h volume + sale count ("$84 · 3 sales"), 7d volume + count, price range (floor → ceiling), live auctions, and a "Last sale Xm ago" green liveness chip when a real buyer just closed a trade. Anon visitors read a much fuller "is this marketplace alive" signal.</li>
+        <li><span class="changelog-tag feature">NEW</span>Seller stall hero carries "Last listed Xh ago" + green "Last sold Xh ago" chips — listing activity and sales activity tell different stories (a seller who relists but never sells vs one who moves inventory routinely). Auto-hide on stale / missing values so dormant stalls stay quiet.</li>
+        <li><span class="changelog-tag feature">NEW</span>Self-visit "Manage stall" affordance: signed-in users visiting their own <code>/stall/{id}</code> URL see an accent-styled one-click jump to <code>/me/stall</code>. Previously they saw a muted-but-identical visitor view with no management hook.</li>
+        <li><span class="changelog-tag feature">NEW</span>404 page recovery rail — lands users who followed a dead link on their last-viewed items so they can resume where they left off.</li>
+        <li><span class="changelog-tag feature">NEW</span>Profile → Trades / Buy Orders / MyStall Sold / MyStall Active / Inventory tabs all surface a subtle overflow banner ("Showing most recent 200 of 1,842 trades · Use ⇣ CSV for the full history") when the server's display cap trims the payload. Silent for normal users.</li>
+        <li><span class="changelog-tag feature">NEW</span>Nav bell poll is 10× lighter — mount + 25s poll now hit <code>/api/notifications/unread-count</code> (a cheap indexed COUNT) instead of shipping the full 100-row notification list. Full list lazy-fetches only when the dropdown opens.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Every create-a-row user endpoint now carries a sanity cap: Cart 50 · SavedSearch 10 · Watchlist 500 · UserBlock 100 · ApiKey 20 · Loadout 50 · BuyOrder 200 (active) · Offer 100 (pending) · SellerFollow 200. Bounded DB growth per account.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Every user-history fetch (trades, offers, buy orders, inventory, MyStall Sold, MyStall Active, public stall, watchlist alerts, trade-chat messages, price-history chart, admin withdraw / disputed-deposit queues) pages at the SQL layer instead of hydrating every historical row and trimming in memory.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Rate-limit coverage expanded to <code>/api/admin</code>, <code>/api/csr</code>, broader <code>/api/support</code>, <code>/api/wallet/*</code>, <code>/api/unsubscribe</code>. Compromised staff / CSR / unsubscribe sessions can no longer exfiltrate CSVs or scan user tables at 1000 req/s.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Dead chat-panel CSS (<code>.chat-panel</code>, <code>.chat-reopen</code>, <code>--chat-w</code>, padding references) fully removed following the panel's retirement. Restored a missing <code>.toggle-switch</code> class that three settings toggles depended on — the cleanup commit had silently broken them.</li>
+        <li><span class="changelog-tag fix">FIX</span>Sitemap no longer hydrates the entire catalogue into memory before slicing — paged JPQL query with SQL-level LIMIT keeps the generator safe at 50M-row scale.</li>
+        <li><span class="changelog-tag fix">FIX</span>Unsubscribe endpoint swapped full-table scan for an indexed <code>findByEmailIgnoreCase</code>. Token-gated but anonymously reachable, so a scanner was forcing a scan per hit.</li>
+        <li><span class="changelog-tag fix">FIX</span>Regression where the seller stall's "away mode" derivation hydrated every row twice just to call <code>.size()</code> — now a single indexed <code>countActiveBySeller</code>. Same fix applied to every <code>findBy…().size()</code> anti-pattern in the codebase.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026 — prior</div>
+      <div class="changelog-title">Security hardening · CSV injection fix · trailing-slash sweep · wallet leak fix</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>♿ Full WAI-ARIA tablist semantics on every tab strip: Profile, Wallet, Offers, Admin, CSR. Arrow keys cycle tabs, <code>Home</code>/<code>End</code> jump to first/last, screen readers announce "Tab 3 of 9, selected" instead of raw button labels.</li>
+        <li><span class="changelog-tag feature">NEW</span>Marketplace sidebar filters become keyboard-navigable <code>radiogroup</code>s — category and rarity filters now work for keyboard-only users + announce selected state to screen readers.</li>
+        <li><span class="changelog-tag feature">NEW</span>Keyboard-accessible user chip: the nav avatar (user menu trigger) now has <code>role="button"</code>, <code>aria-haspopup</code>, <code>aria-expanded</code>, and Enter/Space keydown. Menu closes on Esc.</li>
+        <li><span class="changelog-tag feature">NEW</span>Clickable table rows on the marketplace list view are now focusable (<code>tabIndex</code>) and open the item detail on Enter or Space. Same for TrendCards on the home page rails.</li>
+        <li><span class="changelog-tag feature">NEW</span>Loadout Favorite button reflects state (<code>♥ Favorited</code> vs <code>♡ Favorite</code>) via a new <code>favorited</code> flag on the loadout detail response — no more guessing whether you've already starred something.</li>
+        <li><span class="changelog-tag feature">NEW</span>Mobile keypads: every money / quantity input across the SPA carries <code>inputMode="decimal"</code> or <code>"numeric"</code> so iOS Safari and Android surface the right keyboard (no QWERTY for $12.50).</li>
+        <li><span class="changelog-tag feature">NEW</span>Every toggle-style filter chip (tx type, buy-order status, trade role, review stars, sell rarity, etc.) now carries <code>aria-pressed</code> so SRs announce "pressed" alongside the label.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Personalised toasts across every confirmation path: buy-order cancel names the item + freed funds, offer accept/counter names the item + amount, review post renders star glyphs, staff bans/role-changes cite the target user + concrete policy shift.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Withdrawal reject / dispute clear / stall removal / trade force-cancel all moved from blocking <code>window.prompt()</code> to the shared <code>ReasonDrawer</code> primitive with char counter + Ctrl+Enter submit + aria-haspopup on the trigger.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Recent-searches dropdown gets a <code>Clear all</code> affordance for users with 2+ saved queries. Notifications empty-state splits four ways (search-zero / unread-zero / type-filter-zero / brand-new) with per-branch CTAs.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Skip-to-main link finally moves keyboard focus (prior pattern only scrolled into view; the next Tab fired from the skip-link again). CSP-safe delegated handler in <code>main.js</code>.</li>
+        <li><span class="changelog-tag fix">FIX</span>Silent render bug on the cart-empty and watchlist-empty "Recently viewed" pills — they read <code>it.thumb</code> / <code>it.price</code> but the writer stored <code>imageUrl</code> / <code>lowestPrice</code>, so thumbnails + price chips never appeared.</li>
+        <li><span class="changelog-tag fix">FIX</span>Nested <code>&lt;main&gt;</code> element (invalid HTML, confused screen readers' landmark navigation) — the content region is now a semantic <code>&lt;div&gt;</code>, and the search container gains <code>role="search"</code>.</li>
+        <li><span class="changelog-tag fix">FIX</span>Account-deletion request / cancel no longer does a jarring <code>location.reload()</code>; it re-fetches the profile in place and toasts the SLO.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Dropped explicit <code>hibernate.dialect</code> property — Hibernate 6+ auto-detects from the driver and emits <code>HHH90000025</code> when specified unnecessarily. Now lets the ORM pick future PG-specific subclasses without a config push.</li>
+        <li><span class="changelog-tag feature">NEW</span>Keyboard parity on every remaining clickable row + tile: Database page, support ticket list, staff ticket queue + reported-listing rows, sell-page Steam and platform inventory grids, buy-order item picker, loadout cards, and loadout slot pickers. Each carries a concrete <code>aria-label</code> naming the target (e.g. "List <em>Wizard Hat</em> for sale" or "Open ticket <em>#42 — Refund request</em>") plus Enter/Space activation.</li>
+        <li><span class="changelog-tag fix">FIX</span>Marketplace grid-card floor price now matches the real cheapest listing. 39 of 40 listed items had drifted up to $1.74 below the true MIN(active listings.price) because the Steam-Market price sync was clobbering the platform floor on every cycle. Card-advertised floor is now pinned to the listings table; Steam's market floor is a fallback only used when the item has zero active listings.</li>
+        <li><span class="changelog-tag fix">FIX</span>Item detail modal no longer lies about listing state — <code>items.is_listed</code> was stuck at <code>true</code> on 40 catalogue rows that had never been listed on sboxmarket. Flyway V54 reconciled against the real listings table; the default + the SCMM import path now start at <code>false</code> so <code>updateItemFloorPrice</code> is the sole source of truth.</li>
+        <li><span class="changelog-tag feature">NEW</span>Saved searches now round-trip every toolbar filter — <code>minDiscountPct</code>, <code>dealsOnly</code>, <code>newOnly</code>, <code>affordableOnly</code>, and <code>listingType</code> (ALL / BUY_NOW / AUCTION). Pre-fix, saving a "Hats · ≥20% off · AUCTIONs" preset silently stored only the category; re-applying showed a much broader view. Server-side <code>LISTING_MATCH</code> notifier also now respects all 5 extra fields so match alerts are real matches.</li>
+        <li><span class="changelog-tag polish">POLISH</span>"Hot right now" homepage rail no longer vanishes on cold-start marketplaces. When no sales exist in the 7-day window it falls back to most-watched → most-viewed (both projected to the cheapest active listing per item) so the rail always has curated content.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Footer "Catalog updated X ago" badge now reflects the live Steam-Market sync timestamp instead of the retired SCMM one, which meant the badge was permanently hidden since the sync change.</li>
+        <li><span class="changelog-tag security">SECURITY</span>CSRF cookie shipped with explicit <code>SameSite=Lax</code> — previously relied on browser defaults (footgun for security-critical cookies). Session + CSRF cookies are now symmetric.</li>
+        <li><span class="changelog-tag security">SECURITY</span>OWASP CSV Injection defence on every <code>.csv</code> export. Formula-trigger first chars (<code>= + - @ \t \r</code>) are prefixed with <code>'</code> so Excel / LibreOffice / Sheets render as text, not formula — 10 endpoints covered (wallet transactions, admin withdrawals / tickets / audit / fraud / disputes / trades / users / per-user listings + transactions, buy orders, my-stall sold + active, profile offers, watchlist). Shared <code>CsvUtil.safeCell</code> ensures future CSVs inherit the guard.</li>
+        <li><span class="changelog-tag security">SECURITY</span><code>/api/wallet</code> + <code>/api/wallet/transactions</code> no longer leak the persisted demo wallet to anonymous callers. Signed-out users get a zeroed snapshot (<code>id:null, balance:0</code>) instead of the demo wallet's live state.</li>
+        <li><span class="changelog-tag security">SECURITY</span><code>/api/notifications</code> writes (<code>read-all</code>, <code>clear-read</code>, <code>delete-batch</code>) added to the 20-writes-per-10s rate-limit bucket. Previously unbounded — an authenticated attacker could thrash the DB with UPDATE / DELETE scans.</li>
+        <li><span class="changelog-tag security">SECURITY</span>OPTIONS preflight requests no longer count against the write rate-limit bucket. Cross-origin callers (e.g. the Valuer browser extension) no longer 429 on preflight before the real request runs.</li>
+        <li><span class="changelog-tag fix">FIX</span>Every public URL now resolves cleanly with or without a trailing slash. <code>/item/1/</code>, <code>/stall/1/</code>, <code>/help/</code>, <code>/faq/</code>, <code>/profile/</code>, <code>/api/health/</code>, <code>/api/ready/</code>, <code>/api/version/</code> all returned 404 before; Spring Boot 3's PathPatternParser doesn't auto-match the trailing slash variant. Inbound links with accidental trailing slashes (crawler bookmarks, copy-paste) now resolve.</li>
+        <li><span class="changelog-tag fix">FIX</span><code>/item/99999</code> + <code>/stall/99999</code> + <code>/loadout/&lt;PRIVATE&gt;</code> now return real HTTP 404 instead of 200 with the generic site template. Google drops phantom URLs from its index instead of preserving them indefinitely. SPA client-side 404 modal still renders for real users.</li>
+        <li><span class="changelog-tag feature">NEW</span>Sitemap now carries <code>&lt;lastmod&gt;</code> tags on every dynamic URL (items from <code>createdAt</code>, stalls from <code>lastSyncedAt</code>, loadouts from <code>updatedAt</code>). Google + Bing use this as a strong crawl-scheduling signal — previously they had to re-crawl every URL at the <code>changefreq</code> cadence.</li>
+        <li><span class="changelog-tag feature">NEW</span>Wallet withdraw form gets a "Max" preset that one-taps the full withdrawable balance (clamped to the $10k per-request cap).</li>
+        <li><span class="changelog-tag polish">POLISH</span><code>INSUFFICIENT_BALANCE</code> error body now carries structured <code>{required, available, shortfall}</code> details so the frontend toast renders "Top up $40.00 to complete this purchase" instead of string-parsing the human message. Cart checkout aggregates per-row shortfalls for accurate deposit pre-fill.</li>
+        <li><span class="changelog-tag fix">FIX</span>DatabaseModal + LoadoutLabModal search inputs debounced 300ms. Each keystroke previously fired a <code>/api/database</code> or <code>/api/loadouts/public</code> round-trip — 10-char queries = 10 round-trips + 10 LIKE scans + 10 rate-limit tokens. Under real typing speed the page was consistently hitting the 429 ceiling.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Profile analytics + trust signals</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Capital-exposure summary strips on Profile → Buy Orders, Active Bids, and Offers — see your total potential outlay across standing positions at a glance instead of hand-summing rows.</li>
+        <li><span class="changelog-tag feature">NEW</span>Past Bids sub-tab gains a win-rate + wins-spend + lost-bids summary: "72% win rate (13/18), $4,521 spent on wins."</li>
+        <li><span class="changelog-tag feature">NEW</span>Wallet hero now shows a spending summary (7d / 30d / lifetime) mirroring the seller-earnings strip on /me/stall.</li>
+        <li><span class="changelog-tag feature">NEW</span>Counterparty reputation chips on the Offers tab — sellers see buyer's completed-trade count + star rating on incoming offers; buyers see seller's star rating on outgoing offers. Sort incoming offers by buyer reputation.</li>
+        <li><span class="changelog-tag feature">NEW</span>Outgoing offer rows now show <em>To @sellerName</em> instead of the uninformative "Your offer".</li>
+        <li><span class="changelog-tag feature">NEW</span>View-count chip on MyStall listing rows — pair with watcher-count to read "lots of views, no stars" (price/desc issue) vs "stars but stagnant views" (needs re-promotion).</li>
+        <li><span class="changelog-tag feature">NEW</span>One-click Bump button on near-expiring buy orders resets the 30-day auto-expire without opening the edit flow.</li>
+        <li><span class="changelog-tag feature">NEW</span>Reopen resolved support tickets with one click — the thread continues instead of forcing a brand-new ticket.</li>
+        <li><span class="changelog-tag feature">NEW</span>Contact Seller and Save Search now use accessible inline drawers (role="dialog", screen-reader support, Ctrl+Enter to submit) instead of native <code>window.prompt</code> dialogs.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Invalid trade-offer URLs on Mark Sent now reject with a clear error — previously silently dropped, which could hide phishing URLs during dispute triage.</li>
+        <li><span class="changelog-tag fix">FIX</span>Path-variable parsing errors (e.g. <code>/api/items/%20</code>) now return 400 with an <code>INVALID_PATH_VARIABLE</code> code instead of a generic 500.</li>
+        <li><span class="changelog-tag polish">POLISH</span>HEAD requests on rate-limited endpoints now use the safe-method budget (same as GET), fixing misleading X-RateLimit headers on health probes and link-preview bots.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Per-viewer private endpoints (saved-searches, follows, steam, loadouts, reviews, watchlist) gain explicit <code>no-store</code> Cache-Control so intermediate caches can't leak across users.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Polish sprint · loadouts + cart + cache</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Loadout slots can now be locked — click the on a filled slot and Generate keeps it intact while reshuffling the rest.</li>
+        <li><span class="changelog-tag feature">NEW</span>Cart rows and the confirm dialog now show each item's seller, linked to their stall. A multi-seller cart also shows "N sellers — expect N separate trade offers" so you're not surprised by multiple inbound Steam offers.</li>
+        <li><span class="changelog-tag feature">NEW</span>Marketplace grid now paginates past 100 listings with a "↓ Load more" button. Same filter state, appends to the existing set — no infinite scroll trap.</li>
+        <li><span class="changelog-tag feature">NEW</span>Auction Buy Now is now gated on your Steam trade URL, matching Buy / Offer / Bid / Cart. A bidder without a trade URL gets a tooltip-explained disabled state instead of a surprise error.</li>
+        <li><span class="changelog-tag feature">NEW</span>Withdraw review now shows a concrete arrival date ("by Mon, Apr 22") computed as today + 2 business days, weekend-aware and locale-formatted.</li>
+        <li><span class="changelog-tag feature">NEW</span>Daily deposit / withdraw caps hit? A "Request a raise →" link opens a pre-filled PAYMENT ticket with your used/cap numbers baked into the body.</li>
+        <li><span class="changelog-tag feature">NEW</span>Fees &amp; Pricing footer link jumps straight to the FAQ's 2%-platform-fee answer. Report a Bug footer link pre-fills a support ticket with a full bug-report scaffold.</li>
+        <li><span class="changelog-tag feature">NEW</span>Logout now confirms with a toast and bounces you to /market if you were on a private page, so the URL bar matches what you see.</li>
+        <li><span class="changelog-tag feature">NEW</span>Ctrl/⌘+K works from every page — if the search input isn't mounted, we bounce to /market and focus it for you.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Every marketplace rail and nav badge now pauses polling while its tab is hidden. A user with 50 backgrounded SkinBox tabs no longer hammers the server for zero visual benefit.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Public read endpoints (listings, items, buy-orders aggregates, database) now carry explicit Cache-Control headers so CDN + browser caches can absorb the hottest-items traffic.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Post-deploy, the SPA shell and JS bundles revalidate via 304 on every load — no more "I see stale code for 4 hours after a deploy."</li>
+        <li><span class="changelog-tag security">SECURITY</span>Private routes (/profile, /wallet, /admin, …) now ship with <code>noindex, nofollow</code> meta — defense-in-depth if a crawler ignores robots.txt.</li>
+        <li><span class="changelog-tag fix">FIX</span>robots.txt Disallow lines now match the real router paths (/me/stall, /buy-orders) — the old rules protected non-existent paths.</li>
+        <li><span class="changelog-tag fix">FIX</span>Admin can now remove TOS-violating loadouts directly from the Loadout Lab (previously the API endpoint existed but had no button).</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">Developer platform + export surface</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Find a seller by name — debounced dropdown under the Top Sellers rail with ★ rating, verified badge, and keyboard nav (↑↓ Enter Esc).</li>
+        <li><span class="changelog-tag feature">NEW</span>API keys gain an RW / RO scope picker in Profile → Developers. RO keys can fetch data but can't buy, sell, or move funds.</li>
+        <li><span class="changelog-tag feature">NEW</span>Bearer-token auth goes live: <code>Authorization: Bearer sbx_live_…</code> now authenticates <code>/api/*</code> for bots and extensions, with CSRF bypass on validated tokens.</li>
+        <li><span class="changelog-tag feature">NEW</span>Complete your download-your-data set: wallet transactions, my-stall sold + active listings, offer history, and now watchlist export as CSV.</li>
+        <li><span class="changelog-tag feature">NEW</span>Machine-readable security disclosure at <code>/.well-known/security.txt</code> with a full policy page at <a href="/legal/responsible-disclosure.html" style="color:var(--accent)">/legal/responsible-disclosure.html</a>.</li>
+        <li><span class="changelog-tag feature">NEW</span>Readiness probe at <code>/api/ready</code> separate from liveness <code>/api/health</code> — load balancers now route away from pods with a broken DB pool.</li>
+        <li><span class="changelog-tag feature">NEW</span>Support ticket form spells out response-time SLOs (≤4h for trade + payment, ≤24h elsewhere).</li>
+        <li><span class="changelog-tag feature">NEW</span>Withdrawal pending chip shows age + ETA ("requested 2h ago, typically arrives in 1-2 business days"); flips to an "open a support ticket" prompt if it's past SLO.</li>
+        <li><span class="changelog-tag feature">NEW</span>Admin dashboard shows 30-day rolling chargeback count alongside active — trend signal for card-fraud surges.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Every API key mint now fires a security-alert email to the account owner (mirrors sign-in / 2FA-reset / wallet-frozen alerts).</li>
+        <li><span class="changelog-tag security">SECURITY</span>Per-user API key ceiling (20 active max) — a compromised session can't silently mint an army of long-lived tokens.</li>
+        <li><span class="changelog-tag fix">FIX</span>Stall pages get SEO-indexed from day one: sitemap now includes every seller with at least one active listing, not just those with closed sales.</li>
+        <li><span class="changelog-tag fix">FIX</span>Client-side crashes (ErrorBoundary catches, global <code>window.error</code> + unhandled promise rejections) now forward to the server so ops can see production issues.</li>
+        <li><span class="changelog-tag fix">FIX</span>Case-insensitive sort / category / rarity / listingType params — shared links like <code>?category=hats</code> no longer silently return an empty grid.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Sitemap + CSV exports are gzip-compressed (~95% bandwidth win on crawler fetches).</li>
+        <li><span class="changelog-tag polish">POLISH</span>Legal pages reference the real <code>@skinbox.market</code> support / abuse / privacy inboxes instead of the placeholder <code>.example</code> domain.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <div class="changelog-date">April 2026</div>
+      <div class="changelog-title">CSFloat-manual parity sprint</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Affiliate Program page at <a href="/affiliate" style="color:var(--accent)">/affiliate</a> with hero banner, platform requirements, and apply CTA.</li>
+        <li><span class="changelog-tag feature">NEW</span>Account Standing gauge on the Profile hero (Excellent / Good / Poor / At Risk / Banned). Collapses your trade + review history into a glance-sized status.</li>
+        <li><span class="changelog-tag feature">NEW</span>Profile → Trades progress bar is now a 6-node stepper (Seller → Accepts → Sends → Receives → Verified → Buyer) matching CSFloat's layout.</li>
+        <li><span class="changelog-tag feature">NEW</span>Transactions ledger has a month-picker chip — narrow to a specific month with one click.</li>
+        <li><span class="changelog-tag feature">NEW</span>Item share button uses <code>navigator.share</code> — opens the OS share sheet (Discord, Messages, AirDrop, X, etc.) on devices that support it.</li>
+        <li><span class="changelog-tag feature">NEW</span>Dynamic theme — accent hue drifts through the day (cool morning → warm evening).</li>
+        <li><span class="changelog-tag feature">NEW</span>"Why SkinBox" trust strip on the homepage for anonymous visitors (Auctions · Bargains · No 7-day Steam hold).</li>
+        <li><span class="changelog-tag feature">NEW</span>Auction panel surfaces your auto-bid cap with an inline <em>cancel</em> link, so retracting the cap no longer needs a profile-page detour.</li>
+        <li><span class="changelog-tag feature">NEW</span>Active Bids tab now shows a live Ends countdown + top-bid gap chip per row.</li>
+        <li><span class="changelog-tag feature">NEW</span>Buyers can delete their own reviews; profile has a "Given" sub-tab alongside Received.</li>
+        <li><span class="changelog-tag feature">NEW</span>"Verified buyer" chip on every review — every rating is trade-anchored.</li>
+        <li><span class="changelog-tag feature">NEW</span>Counter / Raise actions inline on the Offers queue (no round trip to item page).</li>
+        <li><span class="changelog-tag feature">NEW</span>"Ending Soonest" sort option on the marketplace; auctions bubble up by closing time.</li>
+        <li><span class="changelog-tag feature">NEW</span>Item price-check chip ("Good deal" / "High price") based on the 30-day range.</li>
+        <li><span class="changelog-tag feature">NEW</span>"Last N sold · median" price chip on the sell form so sellers anchor on real clearing prices.</li>
+        <li><span class="changelog-tag feature">NEW</span>Sell form warns when your asking price beats the Steam Community Market price.</li>
+        <li><span class="changelog-tag feature">NEW</span>Database page has a "Listed only" filter toggle.</li>
+        <li><span class="changelog-tag feature">NEW</span>⌘/Ctrl + K focuses search from anywhere (works even while typing in another input).</li>
+        <li><span class="changelog-tag fix">FIX</span>Trade cancel now returns the listing to the seller's inventory for relisting — previously the item stayed in the refunded buyer's "platform inventory" as a phantom.</li>
+        <li><span class="changelog-tag fix">FIX</span>Dispute now pushes a TRADE_DISPUTED notification to the counterparty — previously they only found out hours later from staff.</li>
+        <li><span class="changelog-tag fix">FIX</span>Seller-pending trades auto-cancel + refund the buyer after 3 days of seller silence (was indefinite escrow hold).</li>
+        <li><span class="changelog-tag fix">FIX</span><code>Item.totalSold</code> + <code>Item.isListed</code> now stay in sync with real platform sales — "Most Traded" and "Listed only" sorts read accurate data.</li>
+        <li><span class="changelog-tag fix">FIX</span>Price history now records every real sale, not just external market sync — sparkline works on a fresh deployment.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Error-boundary page rewritten as a friendly "Something went wrong" screen with Reload / Go home / Contact support buttons and a collapsed technical-details toggle.</li>
+      </ul>
+    </div>
 
     <div class="changelog-entry">
       <div class="changelog-date">April 2026</div>
@@ -53,7 +242,7 @@
       <div class="changelog-date">April 2026</div>
       <div class="changelog-title">Moderation + staff tooling</div>
       <ul class="changelog-list">
-        <li><span class="changelog-tag feature">NEW</span>Users can 🚩 Report a listing or report a seller — reports route to a dedicated admin queue.</li>
+        <li><span class="changelog-tag feature">NEW</span>Users can Report a listing or report a seller — reports route to a dedicated admin queue.</li>
         <li><span class="changelog-tag feature">NEW</span>Admin can dismiss reports without cancelling (reviewers notified), or force-cancel and notify all reporters of the action.</li>
         <li><span class="changelog-tag feature">NEW</span>Admin can grant/revoke CSR role, reset 2FA for a locked-out user, and filter the user list by role chip.</li>
         <li><span class="changelog-tag feature">NEW</span>Audit log gains a free-text search over summary + names.</li>
@@ -94,6 +283,6 @@
         <li><span class="changelog-tag fix">FIX</span>Docker HEALTHCHECK now respects SERVER_PORT (was hard-coded to 8080).</li>
       </ul>
     </div>
-  </div>
+  </main>
 </body>
 </html>

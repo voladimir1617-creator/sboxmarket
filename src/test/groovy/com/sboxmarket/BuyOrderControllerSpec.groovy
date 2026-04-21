@@ -1,0 +1,480 @@
+package com.sboxmarket
+
+import com.sboxmarket.controller.BuyOrderController
+import com.sboxmarket.controller.SteamAuthController
+import com.sboxmarket.dto.request.CreateBuyOrderRequest
+import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.UnauthorizedException
+import com.sboxmarket.model.BuyOrder
+import com.sboxmarket.model.Item
+import com.sboxmarket.model.SteamUser
+import com.sboxmarket.repository.ItemRepository
+import com.sboxmarket.repository.SteamUserRepository
+import com.sboxmarket.service.BuyOrderService
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpSession
+import spock.lang.Specification
+import spock.lang.Subject
+
+/**
+ * Coverage for the standing-buy-order endpoints. The ones that get
+ * extra attention:
+ *
+ *   - `mine()` row enrichment: floor price, floor-gap, and the
+ *     "queuePosition" projection that only fires for ACTIVE + item-
+ *     pinned orders. Basket orders (category/rarity only, no itemId)
+ *     get `queuePosition: null` so the SPA chip hides cleanly.
+ *
+ *   - `update()` field validation codes (INVALID_PRICE /
+ *     INVALID_QUANTITY). These are documented client contracts.
+ *
+ *   - `countBulk()` parser — same family as WatchlistController's
+ *     bulkCounts / SellerStatsController's verifiedBulk — 200-cap,
+ *     malformed-token skip, empty-map short-circuit.
+ *
+ *   - Public-aggregate endpoints all carry `public, max-age=60` so
+ *     the homepage + item modal reads are CDN-cacheable.
+ *
+ * Batch 1068 — added to close the coverage gap identified by walking
+ * the controller list vs. the test directory.
+ */
+class BuyOrderControllerSpec extends Specification {
+
+    BuyOrderService     buyOrderService     = Mock()
+    SteamUserRepository steamUserRepository = Mock()
+    ItemRepository      itemRepository      = Mock()
+
+    @Subject
+    BuyOrderController controller = new BuyOrderController(
+        buyOrderService    : buyOrderService,
+        steamUserRepository: steamUserRepository,
+        itemRepository     : itemRepository
+    )
+
+    HttpServletRequest req = Mock()
+    HttpSession        ses = Mock()
+
+    private void anonSession() {
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+    }
+    private void authedSession(long uid = 100L) {
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> uid
+    }
+
+    // ── mine() row enrichment ──────────────────────────────────
+
+    def "mine() requires sign-in"() {
+        given: anonSession()
+        when:  controller.mine(req)
+        then:  thrown(UnauthorizedException)
+        0 * buyOrderService.listForBuyer(_)
+    }
+
+    def "mine() enriches an ACTIVE item-pinned order with floor, gap, and queuePosition"() {
+        given:
+        def o = new BuyOrder(id: 1L, itemId: 42L, itemName: 'Hat',
+                             category: 'Hats', rarity: 'Standard',
+                             maxPrice: new BigDecimal('45.00'), quantity: 2,
+                             originalQuantity: 3, status: 'ACTIVE',
+                             createdAt: 1700L, updatedAt: 1700L)
+        def item = new Item(id: 42L, lowestPrice: new BigDecimal('50.00'))
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [o]
+        1 * itemRepository.findAllById([42L]) >> [item]
+        1 * buyOrderService.countAheadInQueue(42L, new BigDecimal('45.00'), 1700L) >> 2L
+        1 * buyOrderService.countForBuyer(100L) >> 1L
+
+        when:
+        def resp = controller.mine(req)
+
+        then:
+        resp.headers.getFirst('X-Total-Count') == '1'
+        def row = resp.body[0]
+        row.id == 1L
+        row.currentFloor == new BigDecimal('50.00')
+        row.floorGap == new BigDecimal('5.00')      // 50 − 45
+        row.queuePosition == 3L                      // 2 ahead + 1
+        row.originalQuantity == 3
+    }
+
+    def "mine() returns queuePosition:null for a basket (category-only) order"() {
+        given:
+        def o = new BuyOrder(id: 2L, itemId: null, category: 'Hats',
+                             rarity: 'Limited', maxPrice: new BigDecimal('20.00'),
+                             quantity: 1, status: 'ACTIVE',
+                             createdAt: 1700L, updatedAt: 1700L)
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [o]
+        // no itemRepository.findAllById call — itemIds is empty
+        0 * itemRepository.findAllById(_)
+        0 * buyOrderService.countAheadInQueue(_, _, _)
+        1 * buyOrderService.countForBuyer(100L) >> 1L
+
+        when:
+        def resp = controller.mine(req)
+
+        then:
+        resp.body[0].currentFloor == null
+        resp.body[0].floorGap == null
+        resp.body[0].queuePosition == null
+    }
+
+    def "mine() returns queuePosition:null for a CANCELLED / FILLED order even with itemId"() {
+        given:
+        def o = new BuyOrder(id: 3L, itemId: 42L, maxPrice: new BigDecimal('10'),
+                             status: 'CANCELLED', createdAt: 1L, updatedAt: 1L)
+        def item = new Item(id: 42L, lowestPrice: new BigDecimal('9'))
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [o]
+        1 * itemRepository.findAllById([42L]) >> [item]
+        0 * buyOrderService.countAheadInQueue(_, _, _)  // status gate
+        1 * buyOrderService.countForBuyer(100L) >> 1L
+
+        when:
+        def resp = controller.mine(req)
+
+        then: 'floor is shown for context, but no queue position on a dead order'
+        resp.body[0].currentFloor == new BigDecimal('9')
+        resp.body[0].queuePosition == null
+    }
+
+    def "mine() handles a negative gap (order already above floor)"() {
+        given:
+        def o = new BuyOrder(id: 4L, itemId: 42L, maxPrice: new BigDecimal('60'),
+                             status: 'ACTIVE', createdAt: 1L, updatedAt: 1L)
+        def item = new Item(id: 42L, lowestPrice: new BigDecimal('50'))
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [o]
+        1 * itemRepository.findAllById([42L]) >> [item]
+        1 * buyOrderService.countAheadInQueue(42L, new BigDecimal('60'), 1L) >> 0L
+        1 * buyOrderService.countForBuyer(100L) >> 1L
+
+        when:
+        def resp = controller.mine(req)
+
+        then: 'negative gap surfaces so the UI can signal "should match"'
+        resp.body[0].floorGap == new BigDecimal('-10')
+    }
+
+    // ── public aggregate endpoints ────────────────────────────
+
+    def "topActive() clamps limit to 1..20 and carries 60s public cache"() {
+        given:
+        int seenLim = -1
+        1 * buyOrderService.listTopActive(_) >> { args ->
+            seenLim = args[0]
+            []
+        }
+
+        when:
+        def resp = controller.topActive(500)
+
+        then:
+        seenLim == 20
+        def cc = resp.headers.getFirst('Cache-Control')
+        cc?.contains('public')
+        cc?.contains('max-age=60')
+    }
+
+    def "topActive() defaults to 8 rows when limit is null"() {
+        given:
+        int seenLim = -1
+        1 * buyOrderService.listTopActive(_) >> { args ->
+            seenLim = args[0]
+            []
+        }
+
+        when:
+        controller.topActive(null)
+
+        then:
+        seenLim == 8
+    }
+
+    def "countForItem() returns {itemId, count, bestBid} — best null when zero"() {
+        given:
+        1 * buyOrderService.countActiveForItem(42L) >> 0L
+        1 * buyOrderService.bestBidForItem(42L) >> BigDecimal.ZERO
+
+        when:
+        def resp = controller.countForItem(42L)
+
+        then:
+        resp.body == [itemId: 42L, count: 0L, bestBid: null]
+    }
+
+    def "countForItem() surfaces bestBid when positive"() {
+        given:
+        1 * buyOrderService.countActiveForItem(42L) >> 5L
+        1 * buyOrderService.bestBidForItem(42L) >> new BigDecimal('99.99')
+
+        when:
+        def resp = controller.countForItem(42L)
+
+        then:
+        resp.body == [itemId: 42L, count: 5L, bestBid: new BigDecimal('99.99')]
+    }
+
+    // ── countBulk() parser ────────────────────────────────────
+
+    def "countBulk() returns {} on null ids"() {
+        when:
+        def resp = controller.countBulk(null)
+
+        then:
+        0 * buyOrderService.bulkDemandByItemIds(_)
+        resp.body == [:]
+    }
+
+    def "countBulk() returns {} on empty string ids"() {
+        when:
+        def resp = controller.countBulk('')
+
+        then:
+        0 * buyOrderService.bulkDemandByItemIds(_)
+        resp.body == [:]
+    }
+
+    def "countBulk() parses valid tokens + skips malformed + negatives"() {
+        given:
+        List<Long> captured = null
+        1 * buyOrderService.bulkDemandByItemIds(_) >> { args ->
+            captured = args[0]
+            [1L: [count: 3L, bestBid: new BigDecimal('5')]]
+        }
+
+        when:
+        controller.countBulk('1,abc,-5,')
+
+        then:
+        captured == [1L]
+    }
+
+    def "countBulk() caps input at 200"() {
+        given: 'request with 250 valid ids'
+        def lots = (1..250).collect { String.valueOf(it) }.join(',')
+        List<Long> captured = null
+        1 * buyOrderService.bulkDemandByItemIds(_) >> { args ->
+            captured = args[0]
+            [:]
+        }
+
+        when:
+        controller.countBulk(lots)
+
+        then:
+        captured.size() == 200
+    }
+
+    def "countBulk() returns {} when every token is malformed (no service call)"() {
+        when:
+        def resp = controller.countBulk('abc,xyz,')
+
+        then:
+        0 * buyOrderService.bulkDemandByItemIds(_)
+        resp.body == [:]
+    }
+
+    // ── projectedPosition() ───────────────────────────────────
+
+    def "projectedPosition() returns null position on invalid inputs"() {
+        expect:
+        controller.projectedPosition(null, new BigDecimal('5')).body.position == null
+        controller.projectedPosition(42L, null).body.position == null
+        controller.projectedPosition(42L, BigDecimal.ZERO).body.position == null
+        controller.projectedPosition(42L, new BigDecimal('-1')).body.position == null
+    }
+
+    def "projectedPosition() returns position = countAhead + 1"() {
+        given:
+        1 * buyOrderService.countAheadInQueue(42L, new BigDecimal('10'), { it > 0L }) >> 4L
+
+        when:
+        def resp = controller.projectedPosition(42L, new BigDecimal('10'))
+
+        then:
+        resp.body.position == 5L
+        resp.body.itemId == 42L
+        resp.body.maxPrice == new BigDecimal('10')
+    }
+
+    // ── create / cancel / cancelAll ───────────────────────────
+
+    def "create() requires sign-in"() {
+        given: anonSession()
+        def body = new CreateBuyOrderRequest(itemId: 1L, maxPrice: new BigDecimal('5'), quantity: 1)
+
+        when:
+        controller.create(body, req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * buyOrderService.create(_, _, _, _, _, _, _)
+    }
+
+    def "create() falls back to 'Player' when user displayName is null"() {
+        given:
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(new SteamUser(id: 100L, displayName: null))
+        1 * buyOrderService.create(100L, 'Player', 1L, null, null, new BigDecimal('5'), 1) >> new BuyOrder()
+        def body = new CreateBuyOrderRequest(itemId: 1L, maxPrice: new BigDecimal('5'), quantity: 1)
+
+        when:
+        controller.create(body, req)
+
+        then:
+        true
+    }
+
+    def "create() defaults quantity to 1 when omitted"() {
+        given:
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(new SteamUser(id: 100L, displayName: 'a'))
+        1 * buyOrderService.create(100L, 'a', 1L, null, null, new BigDecimal('5'), 1) >> new BuyOrder()
+        def body = new CreateBuyOrderRequest(itemId: 1L, maxPrice: new BigDecimal('5'), quantity: null)
+
+        when:
+        controller.create(body, req)
+
+        then:
+        true
+    }
+
+    def "cancel() returns {id, status} envelope"() {
+        given:
+        def o = new BuyOrder(id: 9L, status: 'CANCELLED')
+        authedSession(100L)
+        1 * buyOrderService.cancel(100L, 9L) >> o
+
+        when:
+        def resp = controller.cancel(9L, req)
+
+        then:
+        resp.body == [id: 9L, status: 'CANCELLED']
+    }
+
+    def "cancelAll() idempotent — zero-row caller gets {cancelled:0}"() {
+        given:
+        authedSession(100L)
+        1 * buyOrderService.cancelAllForUser(100L) >> 0
+
+        when:
+        def resp = controller.cancelAll(req)
+
+        then:
+        resp.body == [cancelled: 0]
+    }
+
+    def "cancelAll() reports the real flipped count when non-zero"() {
+        given:
+        authedSession(100L)
+        1 * buyOrderService.cancelAllForUser(100L) >> 5
+
+        when:
+        def resp = controller.cancelAll(req)
+
+        then:
+        resp.body == [cancelled: 5]
+    }
+
+    // ── update() validation ──────────────────────────────────
+
+    def "update() rejects non-numeric maxPrice with INVALID_PRICE"() {
+        given: authedSession(100L)
+
+        when:
+        controller.update(9L, [maxPrice: 'abc'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_PRICE'
+        0 * buyOrderService.update(_, _, _, _)
+    }
+
+    def "update() rejects non-integer quantity with INVALID_QUANTITY"() {
+        given: authedSession(100L)
+
+        when:
+        controller.update(9L, [quantity: 'two'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_QUANTITY'
+        0 * buyOrderService.update(_, _, _, _)
+    }
+
+    def "update() passes parsed values through to the service"() {
+        given:
+        def saved = new BuyOrder(id: 9L, maxPrice: new BigDecimal('12'), quantity: 3)
+        authedSession(100L)
+        1 * buyOrderService.update(100L, 9L, new BigDecimal('12'), 3) >> saved
+
+        when:
+        def resp = controller.update(9L, [maxPrice: '12', quantity: '3'], req)
+
+        then:
+        resp.body.is(saved)
+    }
+
+    def "update() with only maxPrice passes null quantity through"() {
+        given:
+        authedSession(100L)
+        1 * buyOrderService.update(100L, 9L, new BigDecimal('20'), null) >> new BuyOrder()
+
+        when:
+        controller.update(9L, [maxPrice: '20'], req)
+
+        then:
+        true
+    }
+
+    def "update() requires sign-in"() {
+        given: anonSession()
+        when:  controller.update(9L, [:], req)
+        then:  thrown(UnauthorizedException)
+        0 * buyOrderService.update(_, _, _, _)
+    }
+
+    // ── exportCsv ────────────────────────────────────────────
+
+    def "exportCsv() returns header + one row per buy order"() {
+        given:
+        def row = new BuyOrder(id: 1L, itemId: 42L, itemName: 'Hat',
+                               category: 'Hats', rarity: 'Standard',
+                               maxPrice: new BigDecimal('5.50'), quantity: 2,
+                               originalQuantity: 3, status: 'ACTIVE',
+                               createdAt: 1700L, updatedAt: 1800L)
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [row]
+
+        when:
+        def resp = controller.exportCsv(req)
+
+        then:
+        resp.headers.getFirst('Content-Disposition')?.contains('buy-orders.csv')
+        def lines = resp.body.split('\n')
+        lines[0] == 'order_id,item_id,item_name,category,rarity,max_price,quantity,original_quantity,status,created_at,updated_at'
+        lines[1] == '1,42,Hat,Hats,Standard,5.50,2,3,ACTIVE,1700,1800'
+    }
+
+    def "exportCsv() with no orders emits just the header row"() {
+        given:
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> []
+
+        when:
+        def resp = controller.exportCsv(req)
+
+        then:
+        resp.body.trim().split('\n').size() == 1
+    }
+
+    def "exportCsv() requires sign-in"() {
+        given: anonSession()
+        when:  controller.exportCsv(req)
+        then:  thrown(UnauthorizedException)
+        0 * buyOrderService.listForBuyer(_)
+    }
+}

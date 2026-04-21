@@ -1,6 +1,6 @@
 // Item card components: grid, table row, trending carousel.
-import { h, React, useState, useEffect, fmt, timeAgo, discountPct } from './utils.js';
-import { ItemImage, RarityBadge, SteamMarketLink } from './primitives.js';
+import { h, React, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch } from './utils.js';
+import { ItemImage, RarityBadge, SteamMarketLink, Avatar } from './primitives.js';
 
 // ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
 function formatRemaining(ms) {
@@ -34,7 +34,7 @@ export function AuctionCountdown({ expiresAt, className }) {
   );
 }
 
-export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId }) {
+export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId, watcherCount, salesVelocity, searchQuery }) {
   const item = listing?.item;
   if (!item) return null;
   const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
@@ -54,11 +54,52 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       auctionBadge = { label: '↑ Outbid',          cls: 'loss' };
     }
   }
-  return h('div', { className: `grid-card${isAuction ? ' is-auction' : ''}`, onClick },
+  // Anchor-based card (batch 422). Left click runs the SPA onClick
+  // (state-based navigation); middle-click / Ctrl+click fall through to
+  // browser default, opening /item/:id in a new tab. The `installAnchor
+  // Interceptor` in app.js already wires same-tab anchor clicks to the
+  // SPA router, so we let that run unless the caller's onClick wants
+  // to intercept first (e.g. rails that also need to track the click
+  // for recently-viewed). preventDefault inside onClick stops the
+  // anchor's default, keeping the existing UX.
+  const href = item?.id ? '/item/' + item.id : '#';
+  const handleClick = (e) => {
+    // Browser default for middle / modifier clicks: open in a new tab.
+    // Let them through untouched.
+    if (e.button === 1 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (onClick) {
+      e.preventDefault();
+      onClick(e);
+    }
+  };
+  // Tooltip summary (batch 429). Surfaces the seller + key listing
+  // facts on hover so shoppers don't have to open the modal just to
+  // check "who's selling and how hot is this?".
+  const parts = [];
+  if (listing.sellerName) parts.push('by ' + listing.sellerName);
+  if (disc > 0) parts.push('−' + disc + '% vs Steam');
+  if (listingCount != null && listingCount > 1) parts.push(listingCount + ' listings');
+  if (watcherCount > 0) parts.push(watcherCount + ' watching');
+  if (salesVelocity > 0) parts.push(salesVelocity + ' sold 7d');
+  const hoverTip = [item.name, parts.length ? parts.join(' · ') : null].filter(Boolean).join(' — ');
+  return h('a', {
+    className: `grid-card${isAuction ? ' is-auction' : ''}`,
+    href, onClick: handleClick,
+    title: hoverTip,
+    style: { color: 'inherit', textDecoration: 'none', display: 'block' }
+  },
     h('div', { className: 'grid-thumb' },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       disc > 0 && h('div', { className: 'grid-discount' }, `−${disc}%`),
+      // Batch 1068 — editorial sweep: deleted the NEW / BEST PRICE /
+       // 👁 watcher-count / 🔥 sales-velocity chips from the card. The
+       // operator called the colorful stack of chips noise ("we don't
+       // want all of that fs"). The freshness + best-price + demand
+       // signals are already carried by the parent rail headers ("TOP
+       // DEALS TODAY", "JUST LISTED", "MOST VIEWED RIGHT NOW"), so the
+       // per-card chip duplication was redundant visual load. Rarity
+       // and discount stay — they're primary info, not ornament.
       isAuction && h(AuctionCountdown, { expiresAt: listing.expiresAt }),
       auctionBadge && h('div', {
         className: 'grid-auction-badge',
@@ -75,21 +116,41 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // parent tell us when it's already in the cart so the label flips.
       !isAuction && onAddToCart && h('button', {
         className: `grid-cart-btn ${inCart ? 'in' : ''}`,
-        onClick: e => { e.stopPropagation(); if (!inCart) onAddToCart(listing); },
+        onClick: e => { e.preventDefault(); e.stopPropagation(); if (!inCart) onAddToCart(listing); },
         title: inCart ? 'Already in cart' : 'Add to cart',
-        'aria-label': inCart ? 'Already in cart' : 'Add to cart',
+        // Batch 950 — name the item in the aria-label so a SR user
+        // skimming 30 cart buttons on the grid hears "Add Wizard Hat
+        // to cart" instead of 30 identical "Add to cart" reads.
+        // Matches the batch-931 watchlist ♥ pattern.
+        'aria-label': inCart
+          ? `${item?.name || 'Item'} already in cart`
+          : `Add ${item?.name || 'item'} to cart`,
         disabled: inCart
       }, inCart ? '✓' : '+'),
       onToggleStar && h('button', {
         className: `grid-star ${starred ? 'on' : ''}`,
-        onClick: e => { e.stopPropagation(); onToggleStar(item.id); },
-        title: starred ? 'Remove from watchlist' : 'Add to watchlist'
+        onClick: e => { e.preventDefault(); e.stopPropagation(); onToggleStar(item.id); },
+        title: starred ? 'Remove from watchlist' : 'Add to watchlist',
+        'aria-label': starred ? `Remove ${item?.name || 'item'} from watchlist` : `Add ${item?.name || 'item'} to watchlist`,
+        'aria-pressed': !!starred
       }, starred ? '♥' : '♡')
     ),
     h('div', { className: 'grid-body' },
-      h('div', { className: 'grid-name' }, item.name),
+      h('div', { className: 'grid-name' }, highlightMatch(item.name || '', searchQuery)),
       h('div', { className: 'grid-cat' },
         isAuction && h('span', { className: 'grid-auction-tag' }, 'AUCTION'),
+        // Buy-Now chip on auction cards (batch 372). Tells a browsing
+        // buyer "you can skip the auction at $X" at a glance. Only
+        // rendered on auction cards with buyNowPrice set.
+        isAuction && listing.buyNowPrice && parseFloat(listing.buyNowPrice) > 0 && h('span', {
+          style: {
+            marginLeft: 6,
+            fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 3,
+            background: 'rgba(34,197,94,0.15)', color: 'var(--green)',
+            border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
+          },
+          title: 'This auction has a Buy Now ceiling — skip the timer and settle instantly.'
+        }, 'BIN ' + fmt(listing.buyNowPrice)),
         item.category
       ),
       h('div', { className: 'grid-footer' },
@@ -102,8 +163,31 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           ),
           isAuction && listing.bidCount > 0
             ? h('div', { className: 'grid-bid-count' }, `${listing.bidCount} bid${listing.bidCount === 1 ? '' : 's'}`)
-            : item.steamPrice && parseFloat(item.steamPrice) > parseFloat(listing.price) &&
-              h('div', { className: 'grid-steam-price' }, fmt(item.steamPrice))
+            : (() => {
+                // Batch 637 — always surface a Steam reference when we
+                // have one, even at parity. Previously the row was
+                // hidden when `steamPrice <= listing.price`, which left
+                // most cards with no Steam anchor at all (seed data +
+                // Steam Market rate-limits conspire to give us lots of
+                // items where steamPrice equals the floor). Showing
+                // "Steam $X" muted + unstruck is a cleaner "no discount
+                // to brag about, but here's the reference" signal vs
+                // the silent hide.
+                const sp = parseFloat(item?.steamPrice ?? 0);
+                const lp = parseFloat(listing?.price ?? 0);
+                if (!(sp > 0) || !(lp > 0)) return null;
+                if (sp > lp) {
+                  // Real discount — struck-through to anchor the saving.
+                  return h('div', { className: 'grid-steam-price' }, fmt(sp));
+                }
+                // Parity / premium — show as a plain reference, no strike,
+                // slightly dimmer so it doesn't compete with a real deal.
+                return h('div', {
+                  className: 'grid-steam-price',
+                  style: { textDecoration: 'none', opacity: 0.6 },
+                  title: 'Steam Market reference price for this item'
+                }, 'Steam ', fmt(sp));
+              })()
         ),
         listingCount > 1 && h('div', { className: 'grid-supply' }, listingCount + ' listings')
       )
@@ -111,17 +195,37 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   );
 }
 
-export function ListingRow({ listing, onClick, onBuy }) {
+export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerAvatarUrl, searchQuery }) {
   const item = listing?.item;
   if (!item) return null;
   const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
   const disc = discountPct(listing.price, item.steamPrice);
-  return h('tr', { onClick },
+  // Batch 931 — keyboard-accessible list rows. The row is clickable
+  // (opens the item detail modal) but `<tr onClick>` is pointer-only.
+  // Adding role=button + tabIndex lets screen-reader / keyboard users
+  // focus the row and press Enter/Space to open it. aria-label gives
+  // the SR a concrete "open X detail" announce instead of "row 3".
+  return h('tr', {
+    onClick,
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `Open ${item.name} detail`,
+    onKeyDown: (e) => {
+      // Don't intercept keys when focus is on an inline button inside
+      // the row (Buy / Sign in). Those have their own handlers.
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'button' || tag === 'a' || tag === 'input') return;
+      if ((e.key === 'Enter' || e.key === ' ') && typeof onClick === 'function') {
+        e.preventDefault();
+        onClick(e);
+      }
+    }
+  },
     h('td', null,
       h('div', { className: 'item-cell' },
         h('div', { className: 'item-thumb' }, h(ItemImage, { item, variant: 'thumb' })),
         h('div', { className: 'item-info' },
-          h('div', { className: 'item-name' }, item.name),
+          h('div', { className: 'item-name' }, highlightMatch(item.name || '', searchQuery)),
           h('div', { className: 'item-sub' }, item.category)
         )
       )
@@ -139,7 +243,17 @@ export function ListingRow({ listing, onClick, onBuy }) {
     ),
     h('td', null,
       h('div', { className: 'seller-cell' },
-        h('div', { className: 'seller-avatar' }, (listing.sellerAvatar || 'US').toUpperCase()),
+        // Steam profile photo when we have it (bulk-fetched in the
+        // marketplace page), else the historical monogram fallback.
+        sellerAvatarUrl
+          ? h(Avatar, {
+              src: sellerAvatarUrl,
+              name: listing.sellerName,
+              alt: '',
+              className: 'seller-avatar',
+              style: { width: 28, height: 28, borderRadius: '50%', padding: 0, background: 'transparent', objectFit: 'cover', border: '1px solid var(--border)' }
+            })
+          : h('div', { className: 'seller-avatar' }, (listing.sellerAvatar || 'US').toUpperCase()),
         h('span', { className: 'seller-name' }, listing.sellerName)
       )
     ),
@@ -151,7 +265,44 @@ export function ListingRow({ listing, onClick, onBuy }) {
       )
     ),
     h('td', { className: 'center' },
-      h('button', { className: 'buy-btn', onClick: e => { e.stopPropagation(); onBuy(listing.id); } }, 'Buy')
+      // Anon viewers see a sign-in CTA rather than a Buy button that
+      // would bounce off the auth filter with a generic error. Sellers
+      // viewing their own listing get a disabled "Your listing" chip.
+      // Batch 950 — aria-label on every row's action button names the
+      // item + price so a screen-reader user scanning 30 rows hears
+      // "Buy Wizard Hat for $12.50" instead of 30 identical "Buy" reads.
+      !meId
+        ? h('button', {
+            className: 'buy-btn',
+            onClick: e => { e.preventDefault(); e.stopPropagation(); signInWithSteam(); },
+            title: 'Sign in with Steam to buy',
+            'aria-label': `Sign in to buy ${item.name}`
+          }, 'Sign in')
+        : meId === listing.sellerUserId
+          ? h('button', {
+              className: 'buy-btn',
+              disabled: true,
+              style: { opacity: 0.4, cursor: 'not-allowed' },
+              title: "You can't buy your own listing",
+              'aria-label': `Your listing of ${item.name} — can't buy yourself`
+            }, 'Yours')
+          : h('button', {
+              className: 'buy-btn',
+              // Batch 794 — trade-URL gate (same rationale as batches
+              // 791-793). Table-row Buy button was the last un-gated
+              // money-moving control. Tooltip explains the block so
+              // the user doesn't confuse a disabled Buy with a broken
+              // page.
+              disabled: hasTradeUrl === false,
+              style: hasTradeUrl === false ? { opacity: 0.55, cursor: 'not-allowed' } : undefined,
+              title: hasTradeUrl === false
+                ? 'Add your Steam trade URL in Profile before buying'
+                : undefined,
+              'aria-label': hasTradeUrl === false
+                ? `Buy ${item.name} — add a Steam trade URL first`
+                : `Buy ${item.name} for ${fmt(listing.price)}`,
+              onClick: e => { e.preventDefault(); e.stopPropagation(); onBuy(listing.id, listing.price); }
+            }, 'Buy')
     )
   );
 }
@@ -160,7 +311,23 @@ export function TrendCard({ listing, onClick }) {
   const item = listing?.item;
   if (!item) return null;
   const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
-  return h('div', { className: 'trend-card', onClick },
+  // Batch 934 — keyboard-accessible trend card. Was a plain clickable
+  // <div>; not in the tab order, not announced as a button. Add
+  // role=button + tabIndex + Enter/Space keydown so keyboard users
+  // can open the detail modal.
+  return h('div', {
+    className: 'trend-card',
+    onClick,
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `Open ${item.name} detail`,
+    onKeyDown: (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && typeof onClick === 'function') {
+        e.preventDefault();
+        onClick(e);
+      }
+    }
+  },
     h('div', {
       className: 'trend-thumb',
       style: {

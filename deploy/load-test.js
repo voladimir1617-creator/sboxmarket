@@ -18,6 +18,15 @@
 //
 // Or against localhost with k6 installed:
 //   BASE_URL=http://localhost:8082 k6 run deploy/load-test.js
+//
+// On Git-Bash / MSYS under Windows the default `$(pwd)` translates to a
+// POSIX path ("/c/Users/WW/Desktop/sboxmarket") that Docker Desktop
+// mis-resolves as "C:/Program Files/Git/..." — resulting in
+// `moduleSpecifier not found`. Work around with:
+//   MSYS_NO_PATHCONV=1 docker run ... -v "$(pwd -W)/deploy:/scripts:ro" ...
+// `pwd -W` returns the Windows-native path ("C:/Users/...") and the
+// env var stops MSYS rewriting `/scripts:ro` into
+// `C:/Program Files/Git/scripts:ro`.
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';

@@ -14,12 +14,47 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     @Query("SELECT o FROM Offer o WHERE o.buyerUserId = :uid ORDER BY o.createdAt DESC")
     List<Offer> findByBuyer(@Param("uid") Long buyerUserId)
 
+    /** Paged variant — caps the Profile → Offers → Outgoing tab so
+     *  a power-user with thousands of historical offers doesn't force
+     *  the server to hydrate + enrich them all on every tab open. */
+    @Query("SELECT o FROM Offer o WHERE o.buyerUserId = :uid ORDER BY o.createdAt DESC")
+    List<Offer> findByBuyerPaged(@Param("uid") Long buyerUserId,
+                                  org.springframework.data.domain.Pageable pageable)
+
+    /** Total outgoing-offer count for the buyer — feeds X-Total-Count. */
+    @Query("SELECT COUNT(o) FROM Offer o WHERE o.buyerUserId = :uid")
+    long countByBuyer(@Param("uid") Long buyerUserId)
+
     /** Offers the user is receiving (incoming on their listings). */
     @Query("SELECT o FROM Offer o WHERE o.sellerUserId = :uid ORDER BY o.createdAt DESC")
     List<Offer> findBySeller(@Param("uid") Long sellerUserId)
 
+    /** Paged variant — mirror of findByBuyerPaged for the Incoming tab. */
+    @Query("SELECT o FROM Offer o WHERE o.sellerUserId = :uid ORDER BY o.createdAt DESC")
+    List<Offer> findBySellerPaged(@Param("uid") Long sellerUserId,
+                                   org.springframework.data.domain.Pageable pageable)
+
+    /** Total incoming-offer count for the seller — feeds X-Total-Count. */
+    @Query("SELECT COUNT(o) FROM Offer o WHERE o.sellerUserId = :uid")
+    long countBySeller(@Param("uid") Long sellerUserId)
+
     @Query("SELECT o FROM Offer o WHERE o.listingId = :lid AND o.status = 'PENDING'")
     List<Offer> findPendingForListing(@Param("lid") Long listingId)
+
+    /** The caller's PENDING or COUNTERED offer on a given listing, if any.
+     *  Drives the "You offered $X" chip in the ItemModal (batch 368) so a
+     *  buyer revisiting a listing immediately sees their live offer state.
+     *  Newest-first in case old threaded offers are still attached to the
+     *  same listing. */
+    @Query("""
+        SELECT o FROM Offer o
+        WHERE o.listingId = :lid
+          AND o.buyerUserId = :uid
+          AND o.status IN ('PENDING', 'COUNTERED')
+        ORDER BY o.createdAt DESC
+    """)
+    List<Offer> findLiveByBuyerAndListing(@Param("uid") Long buyerUserId,
+                                          @Param("lid") Long listingId)
 
     /** Every offer on a listing, newest first. Uses the
      *  `idx_offers_listing` composite index so it stays O(log N). */
@@ -28,6 +63,15 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
 
     @Query("SELECT COUNT(o) FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING'")
     long countPendingByBuyer(@Param("uid") Long buyerUserId)
+
+    /** PENDING-only offers for a buyer. Used by the ban cascade (batch
+     *  1030) and cancelAllForUser (batch 291) to avoid hydrating every
+     *  historical offer (thousands of ACCEPTED/REJECTED/EXPIRED) just
+     *  to filter down to the 100-or-fewer PENDING rows the caller
+     *  actually needs. Backed by the composite index on
+     *  `(buyer_user_id, status)`. */
+    @Query("SELECT o FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING' ORDER BY o.createdAt DESC")
+    List<Offer> findPendingByBuyer(@Param("uid") Long buyerUserId)
 
     /** Incoming-offer count for a seller — drives the nav badge so sellers
      *  see "3 offers waiting" without opening the Offers tab. PENDING only
@@ -41,6 +85,26 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      *  "time since first created". */
     @Query("SELECT o FROM Offer o WHERE o.status = 'PENDING' AND o.updatedAt <= :cutoff")
     List<Offer> findStalePending(@Param("cutoff") Long cutoff)
+
+    /** PENDING offers that crossed the half-life mark and haven't been
+     *  nudged yet (batch 499). The sweeper pushes a one-time "your offer
+     *  expires soon — act before it auto-declines" notification to the
+     *  seller, then stamps `sellerNudgedAt` so the next pass skips. The
+     *  partial index `idx_offers_pending_unnudged` makes the filter cheap
+     *  even at high offer volume.
+     *  - `:halfLifeCutoff` = now - (autoDeclineDays / 2 days in millis)
+     *  - `:fullLifeCutoff` = now - (autoDeclineDays days in millis); we
+     *    exclude rows past full life so the sweeper doesn't spam a nudge
+     *    immediately followed by the auto-decline notification. */
+    @Query("""
+        SELECT o FROM Offer o
+        WHERE o.status = 'PENDING'
+          AND o.sellerNudgedAt IS NULL
+          AND o.updatedAt <= :halfLifeCutoff
+          AND o.updatedAt > :fullLifeCutoff
+    """)
+    List<Offer> findPendingDueForNudge(@Param("halfLifeCutoff") Long halfLifeCutoff,
+                                        @Param("fullLifeCutoff") Long fullLifeCutoff)
 
     /** Root buyer offers the given seller has resolved (accepted,
      *  rejected, or countered). The delta `updatedAt - createdAt` is

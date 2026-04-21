@@ -343,4 +343,45 @@ class CsrServiceSpec extends Specification {
         stats.oldestWaitingAgeMs > 0
         stats.creditCap == new BigDecimal("25.00")
     }
+
+    // ── listTickets search (batch 581) ──────────────────────────────
+
+    def "listTickets without a search term hits findForAdmin"() {
+        given:
+        supportTicketRepository.findForAdmin('WAITING_STAFF') >> []
+
+        when:
+        service.listTickets('WAITING_STAFF', null)
+
+        then:
+        0 * supportTicketRepository.searchForAdmin(*_)
+    }
+
+    def "listTickets with a search term hits searchForAdmin"() {
+        given:
+        supportTicketRepository.searchForAdmin('', 'deposit') >> []
+
+        when:
+        service.listTickets(null, 'deposit')
+
+        then:
+        0 * supportTicketRepository.findForAdmin(_)
+    }
+
+    def "listTickets truncates the search string and strips null bytes"() {
+        given:
+        def longQuery = 'x' * 200
+        String captured = null
+        supportTicketRepository.searchForAdmin(_, _) >> { args ->
+            captured = args[1] as String
+            []
+        }
+
+        when:
+        service.listTickets('', longQuery + '\u0000bad')
+
+        then:
+        captured.length() == 100
+        !captured.contains('\u0000')
+    }
 }

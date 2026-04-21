@@ -1,0 +1,124 @@
+package com.sboxmarket
+
+import com.sboxmarket.controller.HealthController
+import org.springframework.http.HttpStatus
+import spock.lang.Specification
+import spock.lang.Subject
+
+import javax.sql.DataSource
+import java.sql.Connection
+import java.sql.SQLException
+
+/**
+ * Unit coverage for the app-controlled liveness / readiness / version
+ * trio. These endpoints back Docker HEALTHCHECK, k8s probes, the SPA's
+ * footer "vX.Y.Z" display, and the ops pod-age check — every one of
+ * them being wrong has a real on-call cost.
+ *
+ * Invariants we lock down here:
+ *
+ *   - `/api/health` always returns `{status: UP}` + `Cache-Control:
+ *     no-store` so a load-balancer never caches a stale UP signal for
+ *     a degraded pod.
+ *   - `/api/ready` returns 200 + `db: up` when the DB pings, 503 +
+ *     `db: unreachable` when the driver's `isValid()` throws, and 200
+ *     + `db: unknown` when the DataSource bean is absent (odd config
+ *     but not fatal — liveness stays authoritative).
+ *   - `/api/version` returns the injected `appVersion` and a stable
+ *     startup timestamp (snapshot captured at class-load time).
+ *
+ * Batch 1068 — added to close the coverage gap identified by walking
+ * the controller list vs. the test directory.
+ */
+class HealthControllerSpec extends Specification {
+
+    @Subject
+    HealthController controller = new HealthController(appVersion: '9.9.9-test')
+
+    def "health() returns UP with no-store cache header"() {
+        when:
+        def resp = controller.health()
+
+        then:
+        resp.statusCode == HttpStatus.OK
+        resp.body.status == 'UP'
+
+        and: 'no-store keeps a stale UP from masking a degraded pod'
+        resp.headers.getFirst('Cache-Control')?.contains('no-store')
+    }
+
+    def "ready() returns UP + db:up when the DB probe succeeds"() {
+        given:
+        Connection conn = Mock()
+        DataSource ds = Mock()
+        controller.dataSource = ds
+
+        when:
+        def resp = controller.ready()
+
+        then:
+        1 * ds.getConnection() >> conn
+        1 * conn.isValid(1)   >> true
+        1 * conn.close()
+        resp.statusCode == HttpStatus.OK
+        resp.body.status == 'UP'
+        resp.body.db == 'up'
+        resp.headers.getFirst('Cache-Control')?.contains('no-store')
+    }
+
+    def "ready() returns 503 + db:unreachable when the probe fails"() {
+        given:
+        DataSource ds = Mock()
+        controller.dataSource = ds
+
+        when:
+        def resp = controller.ready()
+
+        then: 'DB is throwing on connection acquisition'
+        1 * ds.getConnection() >> { throw new SQLException('connection refused') }
+        resp.statusCode == HttpStatus.SERVICE_UNAVAILABLE
+        resp.body.status == 'DOWN'
+        resp.body.db == 'unreachable'
+    }
+
+    def "ready() returns 503 when isValid() reports false"() {
+        given:
+        Connection conn = Mock()
+        DataSource ds = Mock()
+        controller.dataSource = ds
+
+        when:
+        def resp = controller.ready()
+
+        then:
+        1 * ds.getConnection() >> conn
+        1 * conn.isValid(1)   >> false
+        1 * conn.close()
+        resp.statusCode == HttpStatus.SERVICE_UNAVAILABLE
+        resp.body.db == 'unreachable'
+    }
+
+    def "ready() without a DataSource bean falls back to UP + db:unknown"() {
+        given: 'a weird config with the pool bean missing'
+        controller.dataSource = null
+
+        when:
+        def resp = controller.ready()
+
+        then: 'liveness stays authoritative; readiness does not false-negative'
+        resp.statusCode == HttpStatus.OK
+        resp.body.status == 'UP'
+        resp.body.db == 'unknown'
+    }
+
+    def "version() surfaces the injected appVersion"() {
+        when:
+        def resp = controller.version()
+
+        then:
+        resp.statusCode == HttpStatus.OK
+        resp.body.version == '9.9.9-test'
+        (resp.body.startupAt as long) > 0
+        resp.headers.getFirst('Cache-Control')?.contains('max-age=600')
+    }
+}

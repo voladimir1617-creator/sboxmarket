@@ -73,4 +73,10 @@ class Review {
 
     @Column
     Long sellerReplyAt
+
+    /** Last time the author edited this review (batch 745). Null = never
+     *  edited. Surfaces as "· edited" next to createdAt on the stall so
+     *  future buyers aren't misled by a silently-rewritten rating. */
+    @Column(name = "edited_at")
+    Long editedAt
 }

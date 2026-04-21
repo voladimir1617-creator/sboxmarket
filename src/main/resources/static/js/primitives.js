@@ -1,5 +1,5 @@
 // Low-level visual primitives used by cards, rows, and modals.
-import { h, useState } from './utils.js';
+import { h, useState, useEffect, useRef } from './utils.js';
 
 /**
  * Renders a Google Material Symbols Rounded glyph. The font file is loaded
@@ -9,12 +9,13 @@ import { h, useState } from './utils.js';
  *
  * Usage: h(MaterialIcon, { name: 'storefront', size: 18, fill: true })
  */
-export function MaterialIcon({ name, size, fill, className }) {
+export function MaterialIcon({ name, size, fill, className, color }) {
   return h('span', {
     className: `material-symbols-rounded mi ${className || ''}`,
     style: {
-      fontSize:           size ? size + 'px' : null,
-      fontVariationSettings: fill ? '"FILL" 1' : null
+      fontSize:              size ? size + 'px' : null,
+      fontVariationSettings: fill ? '"FILL" 1' : null,
+      color:                 color || null
     },
     'aria-hidden': true
   }, name);
@@ -35,21 +36,30 @@ function upscaleSteamImage(url, variant) {
   return url.replace(/\/\d+x\d+(\?.*)?$/, '/' + variant);
 }
 
-// Category → fallback emoji — used when imageUrl is missing or the Steam CDN
-// returns a 404. Matches the s&box clothing slot vocabulary.
+// Category → fallback glyph — used when imageUrl is missing or the Steam CDN
+// returns a 404. Batch 1068: emojis out (🎩🧥👕👖🧤🥾💍), editorial geometric
+// glyphs in (◈▲■▮◉▼◆❖) per the operator's design template. Matches the
+// s&box clothing slot vocabulary.
 const CATEGORY_GLYPH = {
-  Hats:        '🎩',
-  Jackets:     '🧥',
-  Shirts:      '👕',
-  Pants:       '👖',
-  Gloves:      '🧤',
-  Boots:       '🥾',
-  Accessories: '💍'
+  Hats:        '◈',
+  Jackets:     '▲',
+  Shirts:      '■',
+  Pants:       '▮',
+  Gloves:      '◉',
+  Boots:       '▼',
+  Accessories: '◆',
+  Workshop:    '❖'
 };
 
 function posterGlyph(item) {
-  if (!item) return '📦';
-  return item.iconEmoji || CATEGORY_GLYPH[item.category] || '📦';
+  // Batch 1068 — ignore the legacy `item.iconEmoji` field from the DB. That
+  // column was seeded with CS-style category emojis (🎩 🧥 👕 …) when the
+  // marketplace launched; the editorial redesign bans emoji chrome so we
+  // fall back to the geometric CATEGORY_GLYPH map instead, keyed on the
+  // item's editorial category. The DB field still exists for back-compat
+  // but no longer reaches the render path.
+  if (!item) return '❖';
+  return CATEGORY_GLYPH[item.category] || '❖';
 }
 
 /**
@@ -98,7 +108,7 @@ export function SteamMarketLink({ item, compact }) {
 export function ItemImage({ item, alt, variant = 'card' }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  if (!item) return h('span', null, '📦');
+  if (!item) return h('span', null, '—');
 
   const url = item.imageUrl && !failed
     ? upscaleSteamImage(item.imageUrl,
@@ -117,6 +127,43 @@ export function ItemImage({ item, alt, variant = 'card' }) {
     draggable: false,
     className: `item-img ${loaded ? 'loaded' : 'loading'}`,
     onLoad: () => setLoaded(true),
+    onError: () => setFailed(true)
+  });
+}
+
+/**
+ * Avatar image with graceful fallback to a two-letter initials chip.
+ * Many surfaces (nav, stall hero, seller strip, messages) render a
+ * Steam avatar URL directly — when the CDN 404s (renamed user,
+ * rate-limit, transient outage) the default `<img>` tag shows a broken
+ * image icon, which reads as a bug. This primitive flips to the same
+ * initials chip we already use for users with no avatarUrl. The styling
+ * hooks live at the call site so each surface can size / position the
+ * image however it needs; we only own the fallback swap behavior.
+ */
+export function Avatar({ src, name, alt, className, style }) {
+  const [failed, setFailed] = useState(false);
+  const safeName = (name || '').trim() || 'U';
+  const initials = safeName.substring(0, 2).toUpperCase();
+  if (!src || failed) {
+    // Caller-provided styling wins — we only seed sensible defaults when
+    // the caller didn't specify size / background.
+    const wrapStyle = Object.assign({
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: 13, color: 'var(--text-primary)',
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: '50%', width: 32, height: 32
+    }, style || {});
+    return h('span', { className, style: wrapStyle, 'aria-label': safeName }, initials);
+  }
+  return h('img', {
+    src,
+    alt: alt || safeName,
+    loading: 'lazy',
+    decoding: 'async',
+    draggable: false,
+    className,
+    style,
     onError: () => setFailed(true)
   });
 }
@@ -143,6 +190,12 @@ export function RarityBar({ score, compact }) {
 export function Sparkline({ data, color, height }) {
   const [hover, setHover] = useState(null);
   if (!data || data.length < 2) return null;
+  // Batch 1068 — default to the editorial ink-2 color so a caller that
+  // forgets `color` doesn't hit `undefined.replace` (previously NPE'd
+  // in the gradient-id expression below). Sparkline is also used inside
+  // the notification feed + profile chips, both of which may render
+  // before their color context is resolved.
+  const colorSafe = color || '#c8cfe0';
   const prices = data.map(d => parseFloat(d.price));
   const min = Math.min(...prices), max = Math.max(...prices);
   const range = max - min || 1;
@@ -156,7 +209,7 @@ export function Sparkline({ data, color, height }) {
   });
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
   const area = `0,${H} ${polyline} ${W},${H}`;
-  const gradId = 'grad-' + color.replace('#', '');
+  const gradId = 'grad-' + colorSafe.replace('#', '');
   const minIdx = prices.indexOf(min);
   const maxIdx = prices.indexOf(max);
 
@@ -173,18 +226,33 @@ export function Sparkline({ data, color, height }) {
     setHover(nearest);
   };
 
+  // Batch 828 — a11y label on the SVG so a screen reader announces
+  // the chart as "Price history chart, $min to $max, N points" rather
+  // than skipping it entirely (svgs default to "image" with no label).
+  // Hover interactions stay mouse-only — low value for a keyboard-
+  // driven reader and adds significant tab-stop churn.
+  const firstPrice = prices[0];
+  const lastPrice  = prices[prices.length - 1];
+  const deltaPct   = firstPrice > 0 ? Math.round(((lastPrice - firstPrice) / firstPrice) * 100) : 0;
+  const chartDesc  = `Price history chart, ${prices.length} points. ` +
+    `Range $${min.toFixed(2)} to $${max.toFixed(2)}. ` +
+    (deltaPct > 0 ? `Up ${deltaPct}% overall.`
+     : deltaPct < 0 ? `Down ${Math.abs(deltaPct)}% overall.`
+     : 'Flat overall.');
   return h('div', { className: 'sparkline-wrap' },
     h('svg', {
       className: 'chart',
       viewBox: `0 0 ${W} ${H}`,
       preserveAspectRatio: 'none',
       onMouseMove: onMove,
-      onMouseLeave: () => setHover(null)
+      onMouseLeave: () => setHover(null),
+      role: 'img',
+      'aria-label': chartDesc
     },
       h('defs', null,
         h('linearGradient', { id: gradId, x1: '0', y1: '0', x2: '0', y2: '1' },
-          h('stop', { offset: '0%',   stopColor: color, stopOpacity: '0.35' }),
-          h('stop', { offset: '100%', stopColor: color, stopOpacity: '0' })
+          h('stop', { offset: '0%',   stopColor: colorSafe, stopOpacity: '0.35' }),
+          h('stop', { offset: '100%', stopColor: colorSafe, stopOpacity: '0' })
         )
       ),
       // Gridlines at 25% / 50% / 75%
@@ -194,7 +262,7 @@ export function Sparkline({ data, color, height }) {
         stroke: 'rgba(255,255,255,0.04)', strokeWidth: 1
       })),
       h('polygon',  { points: area,     fill: `url(#${gradId})` }),
-      h('polyline', { points: polyline, fill: 'none', stroke: color, strokeWidth: '2.2',
+      h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '2.2',
                       strokeLinejoin: 'round', strokeLinecap: 'round' }),
       // Min / max dots so the viewer can spot the extremes at a glance
       h('circle', { cx: pts[minIdx].x, cy: pts[minIdx].y, r: 4, fill: '#f87171', stroke: '#1a1a2a', strokeWidth: 2 }),
@@ -202,11 +270,11 @@ export function Sparkline({ data, color, height }) {
       // Hover crosshair + point
       hover !== null && h('line', {
         x1: pts[hover].x, x2: pts[hover].x, y1: 0, y2: H,
-        stroke: color, strokeOpacity: 0.25, strokeWidth: 1, strokeDasharray: '3 3'
+        stroke: colorSafe, strokeOpacity: 0.25, strokeWidth: 1, strokeDasharray: '3 3'
       }),
       hover !== null && h('circle', {
         cx: pts[hover].x, cy: pts[hover].y, r: 5,
-        fill: color, stroke: '#0d1320', strokeWidth: 2
+        fill: colorSafe, stroke: '#0d1320', strokeWidth: 2
       })
     ),
     hover !== null && h('div', {
@@ -215,6 +283,94 @@ export function Sparkline({ data, color, height }) {
     },
       h('div', { className: 'sparkline-tt-price' }, '$' + pts[hover].price.toFixed(2)),
       h('div', { className: 'sparkline-tt-date' }, pts[hover].label || '')
+    )
+  );
+}
+
+// Shared inline "reason / note" drawer — replaces `window.prompt()` across
+// moderation + report flows (stall admin-remove, report-review, loadout
+// takedown, etc). Accessible dialog semantics (role=dialog,
+// aria-labelledby), autofocus-with-cursor-at-end, Esc cancels,
+// Ctrl+Enter submits, running char counter, submit disabled on empty.
+// Lives in primitives so both app.js and csfloat-modals.js can import
+// without creating an import cycle (batches 850–852).
+export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubmit, maxLen = 500 }) {
+  const [text, setText]   = useState(initial || '');
+  const textareaRef       = useRef(null);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus({ preventScroll: true });
+        try {
+          const t = textareaRef.current;
+          t.selectionStart = t.value.length;
+          t.selectionEnd   = t.value.length;
+        } catch (_) {}
+      }
+    });
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !busy) { e.stopPropagation(); onCancel(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(id); document.removeEventListener('keydown', onKey); };
+  }, [onCancel, busy]);
+  const trimmed  = (text || '').trim();
+  const canSubmit = trimmed.length > 0 && trimmed.length <= maxLen && !busy;
+  return h('div', {
+    role: 'dialog',
+    'aria-modal': 'false',
+    'aria-labelledby': 'reason-drawer-title',
+    style: {
+      width: '100%', padding: 12,
+      background: 'var(--bg-elevated, #1a1c20)',
+      border: '1px solid var(--border)', borderRadius: 6
+    }
+  },
+    h('div', {
+      id: 'reason-drawer-title',
+      style: { fontSize: 12, fontWeight: 700, marginBottom: 4 }
+    }, title),
+    hint && h('div', {
+      style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 }
+    }, hint),
+    h('textarea', {
+      ref: textareaRef,
+      value: text,
+      maxLength: maxLen,
+      rows: 3,
+      onChange: (e) => setText(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && canSubmit) {
+          e.preventDefault(); onSubmit(trimmed);
+        }
+      },
+      'aria-label': title,
+      style: {
+        width: '100%', padding: '6px 8px', fontSize: 12,
+        background: 'var(--bg, #0f1115)', color: 'var(--text)',
+        border: '1px solid var(--border)', borderRadius: 4,
+        resize: 'vertical', fontFamily: 'inherit'
+      }
+    }),
+    h('div', {
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }
+    },
+      h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
+        `${trimmed.length}/${maxLen} · Ctrl+Enter to send`),
+      h('div', { style: { display: 'flex', gap: 6 } },
+        h('button', {
+          className: 'btn btn-ghost',
+          style: { padding: '5px 12px', fontSize: 11 },
+          onClick: onCancel,
+          disabled: busy
+        }, 'Cancel'),
+        h('button', {
+          className: 'btn btn-primary',
+          style: { padding: '5px 12px', fontSize: 11 },
+          disabled: !canSubmit,
+          onClick: () => onSubmit(trimmed)
+        }, busy ? 'Sending…' : cta)
+      )
     )
   );
 }

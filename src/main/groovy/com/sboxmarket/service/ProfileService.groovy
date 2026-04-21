@@ -5,6 +5,7 @@ import com.sboxmarket.repository.BidRepository
 import com.sboxmarket.repository.BuyOrderRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.OfferRepository
+import com.sboxmarket.repository.ReviewRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
@@ -29,6 +30,44 @@ class ProfileService {
     @Autowired OfferRepository offerRepository
     @Autowired BuyOrderRepository buyOrderRepository
     @Autowired BidRepository bidRepository
+    @Autowired(required = false) ReviewRepository reviewRepository
+
+    /**
+     * Collapse the user's history into a CSFloat-style 5-node standing
+     * gauge (Excellent → Good → Poor → At Risk → Banned). Rendered on the
+     * Profile → Personal card per Visual Manual §23.
+     *
+     *   banned       → user.banned == true
+     *   at_risk      → 1-star review avg (very rare but severe)
+     *   poor         → rating avg < 3.0 with ≥3 reviews
+     *   excellent    → ≥10 completed sales AND (no reviews OR avg ≥ 4.0)
+     *   good         → default (new / clean accounts)
+     *
+     * Never drops from good→poor on a single bad review — the ≥3-review
+     * floor prevents a lone grudge-rating from tanking someone's standing.
+     */
+    private Map computeAccountStanding(SteamUser user, long saleCount) {
+        if (user?.banned) return [state: 'banned', label: 'Banned', note: user.banReason ?: 'Account banned by staff.']
+        Double avg = null
+        Long reviewCount = 0L
+        try {
+            def rows = reviewRepository?.aggregateForUser(user.id)
+            if (rows && rows[0] != null) {
+                reviewCount = ((rows[0][0] as Number) ?: 0).longValue()
+                avg = rows[0][1] == null ? null : ((rows[0][1] as Number).doubleValue())
+            }
+        } catch (Exception ignore) { /* aggregate query optional */ }
+        if (avg != null && reviewCount >= 3L && avg < 2.0d) {
+            return [state: 'at_risk', label: 'At Risk', note: "Average rating ${String.format('%.1f', avg)}★ across ${reviewCount} reviews. Keep trading reliably to recover."]
+        }
+        if (avg != null && reviewCount >= 3L && avg < 3.0d) {
+            return [state: 'poor', label: 'Poor', note: "Average rating ${String.format('%.1f', avg)}★ across ${reviewCount} reviews."]
+        }
+        if (saleCount >= 10L && (reviewCount == 0L || (avg != null && avg >= 4.0d))) {
+            return [state: 'excellent', label: 'Excellent', note: 'No restrictions on your account.']
+        }
+        [state: 'good', label: 'Good', note: 'No restrictions on your account.']
+    }
 
     @Transactional(readOnly = true)
     Map buildProfile(Long userId) {
@@ -53,25 +92,18 @@ class ProfileService {
 
         def net = (totalSold as BigDecimal) - (totalPurchased as BigDecimal)
 
-        def activeListingsRows = listingRepository.findActiveBySeller(userId)
-        def activeListings  = activeListingsRows.size()
-        def activeListingsValue = activeListingsRows.inject(BigDecimal.ZERO) { sum, l ->
-            sum + (l.price ?: BigDecimal.ZERO)
-        }
-        def ownedInventoryRows = listingRepository.findOwnedBy(userId)
-        def ownedInventory  = ownedInventoryRows.size()
-        // Inventory value approximation — sum each item's current floor price.
-        // Floor is what the catalogue currently shows (either SCMM sync or
-        // Steam Market sync populated it); falls back to steamPrice if floor
-        // is null. A future "mark to market" refinement could average the
-        // last N sales instead, but floor is what CSFloat surfaces too.
-        def ownedInventoryValue = ownedInventoryRows.inject(BigDecimal.ZERO) { sum, l ->
-            def item = l.item
-            def v = item?.lowestPrice ?: item?.steamPrice ?: BigDecimal.ZERO
-            sum + v
-        }
+        // Single-query aggregates (batch 1004) — avoids hydrating every
+        // listing + inventory row just to sum them. For a power-user
+        // with hundreds of rows on each side, /profile was pulling
+        // thousands of Listings with JOIN FETCH l.item on every request.
+        def activeListings       = listingRepository.countActiveBySeller(userId)
+        def activeListingsValue  = listingRepository.sumActiveListingPriceBySeller(userId) ?: BigDecimal.ZERO
+        def ownedInventory       = listingRepository.countOwnedBy(userId)
+        // Inventory value approximation — sum each item's current floor
+        // price (with steamPrice fallback). Matches CSFloat's surface.
+        def ownedInventoryValue  = listingRepository.sumOwnedInventoryValueBy(userId) ?: BigDecimal.ZERO
         def openBuyOrders   = buyOrderRepository.countActiveByBuyer(userId)
-        def activeAutoBids  = bidRepository.findActiveAutoBidsForUser(userId).size()
+        def activeAutoBids  = bidRepository.countActiveAutoBidsForUser(userId)
         def openOffers      = offerRepository.countPendingByBuyer(userId)
 
         [
@@ -110,7 +142,32 @@ class ProfileService {
                 inventoryValue: ownedInventoryValue,
                 listingsValue:  activeListingsValue,
                 totalValue:     ownedInventoryValue + activeListingsValue
-            ]
+            ],
+            // Self-facing rating (batch 491) — user sees their own
+            // seller star average + review count on their profile
+            // page. Null when they've never received a review yet.
+            rating: computeUserRating(userId),
+            accountStanding: computeAccountStanding(user, saleCount as long)
         ]
+    }
+
+    /** Compact review summary for a user — same aggregate the public
+     *  stall page uses. Nulled out when reviewRepository isn't wired
+     *  (test harness) or the user has no reviews yet. */
+    private Map computeUserRating(Long userId) {
+        if (reviewRepository == null || userId == null) return null
+        try {
+            def agg = reviewRepository.aggregateForUser(userId)
+            if (agg == null || agg.isEmpty()) return null
+            def row = agg[0]
+            def count = (row[0] ?: 0L) as long
+            if (count <= 0L) return null
+            def avg = row[1] != null
+                ? (row[1] as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP)
+                : null
+            [count: count, average: avg]
+        } catch (Exception ignored) {
+            null
+        }
     }
 }

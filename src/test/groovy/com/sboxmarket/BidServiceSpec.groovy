@@ -37,7 +37,18 @@ class BidServiceSpec extends Specification {
     TextSanitizer         textSanitizer         = Mock() {
         cleanShort(_) >> { String s -> s }
     }
-    com.sboxmarket.service.EmailService emailService = Mock()
+    com.sboxmarket.service.EmailService emailService = Mock() {
+        // Mimic the real canSendTo gate (batch 622): return true only
+        // when the user has a verified email, notifications enabled,
+        // and a non-empty email. Lets existing "skip email when
+        // unverified" tests keep working without per-test stub churn.
+        canSendTo(_, _) >> { user, bucket ->
+            user != null &&
+            user.email && !user.email.isEmpty() &&
+            Boolean.TRUE.equals(user.emailVerified) &&
+            Boolean.TRUE.equals(user.emailNotificationsEnabled)
+        }
+    }
     com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository = Mock()
 
     @Subject
@@ -91,6 +102,45 @@ class BidServiceSpec extends Specification {
         listing.bidCount == 1
     }
 
+    def "placeBid refuses a bidder whose wallet is frozen (batch 510)"() {
+        given:
+        def bidder = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice', tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        def frozenWallet = new com.sboxmarket.model.Wallet(
+            id: 500L,
+            username: 'steam_7656117',
+            balance: new BigDecimal('100.00'),
+            frozen: true,
+            frozenReason: 'Staff freeze during investigation'
+        )
+        listingRepository.findById(100L) >> Optional.of(auctionListing())
+        steamUserRepository.findById(10L) >> Optional.of(bidder)
+        walletRepository.findByUsername('steam_7656117') >> frozenWallet
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('15'), null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+    }
+
+    def "placeBid refuses a bidder with an active deposit dispute (batch 511)"() {
+        given:
+        def bidder = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice', tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        def wallet = new com.sboxmarket.model.Wallet(id: 500L, username: 'steam_7656117', balance: new BigDecimal('100.00'))
+        listingRepository.findById(100L) >> Optional.of(auctionListing())
+        steamUserRepository.findById(10L) >> Optional.of(bidder)
+        walletRepository.findByUsername('steam_7656117') >> wallet
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('15'), null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+    }
+
     def "placeBid with maxAmount > amount flags kind AUTO"() {
         given:
         listingRepository.findById(_) >> Optional.of(auctionListing())
@@ -131,6 +181,120 @@ class BidServiceSpec extends Specification {
 
         then:
         0 * notificationService.push(*_)
+    }
+
+    def "placeBid auto-raises the displaced top's bid when their AUTO cap covers the new bid + increment"() {
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'Previous',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('50'), kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [existing]
+        // Batch 330: bot re-raise now verifies the previous top's wallet covers
+        // the raise. Stub enough balance so the bot fires normally here.
+        steamUserRepository.findById(7L) >> Optional.of(new SteamUser(id: 7L, steamId64: 'SID7'))
+        walletRepository.findByUsername('steam_SID7') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID7', balance: new BigDecimal('100.00')
+        )
+        def savedBids = []
+        bidRepository.save(_) >> { Bid b -> if (b.id == null) b.id = (100L + savedBids.size()); savedBids << b; b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        // Bot fires: new listing currentBid is 25 + 0.05 = 25.05, bidder back to the auto-cap holder
+        listing.currentBid == new BigDecimal('25.05')
+        listing.currentBidderId == 7L
+        // Outbid notification goes to the new bidder (Alice), not the auto-cap holder
+        1 * notificationService.push(10L, 'AUCTION_OUTBID', _, _, 100L, _)
+        0 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, _, _)
+        // Service returns the bot-placed bid, not Alice's bid
+        result.bidderUserId == 7L
+        result.kind == 'AUTO'
+        result.amount == new BigDecimal('25.05')
+    }
+
+    def "placeBid with AUTO vs AUTO: higher-cap bidder wins at loser_cap + INC"() {
+        given:
+        // A has existing AUTO bid amount=$20 max=$40, currently winning.
+        // B places amount=$25 with max=$50. B's cap is higher → B wins at $40.05.
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('40'), kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [existing]
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.placeBid(10L, 'B', 100L, new BigDecimal('25'), new BigDecimal('50'))
+
+        then:
+        // B wins at $40.05 (A's cap + increment), not at their original $25.
+        listing.currentBid == new BigDecimal('40.05')
+        listing.currentBidderId == 10L
+        // A (previous top) gets the plain outbid notification.
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, _, _)
+    }
+
+    def "placeBid skips the auto-raise when the previous top's wallet dropped below the required raise (batch 330)"() {
+        given:
+        // Alice has existing AUTO bid $20 with max=$50 — so aMax=$50. Bob outbids
+        // at $25. The bot would normally re-raise Alice to $25.05. But Alice's
+        // wallet has only $5 now (she withdrew between her original bid and this
+        // moment), so the re-raise would win her an auction she can't pay for.
+        // Batch 330: detect + skip the re-raise so Bob wins cleanly at $25.
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'Alice',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('50'), kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [existing]
+        // Alice's account exists but her balance is now only $5 — can't cover $25.05.
+        steamUserRepository.findById(7L) >> Optional.of(new SteamUser(id: 7L, steamId64: 'SID7'))
+        walletRepository.findByUsername('steam_SID7') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID7', balance: new BigDecimal('5.00')
+        )
+        bidRepository.save(_) >> { Bid b -> b.id = 999L; b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'Bob', 100L, new BigDecimal('25'), null)
+
+        then:
+        // Bob wins cleanly at his submitted amount — no bot re-raise fired.
+        listing.currentBid == new BigDecimal('25')
+        listing.currentBidderId == 10L
+        result.bidderUserId == 10L
+        result.amount == new BigDecimal('25')
+        // Alice gets the explanatory push about her auto-bid being skipped so
+        // she knows her cap didn't fire and why.
+        1 * notificationService.push(7L, 'AUCTION_OUTBID',
+            'Auto-bid skipped — balance too low', _, 100L, _)
+        // No bot-bid saved — only Bob's bid.
+        // (bidRepository.save is called once for Bob's bid)
+    }
+
+    def "placeBid does NOT auto-raise when the displaced top's max can't cover the new bid + increment"() {
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        // Previous top's cap is only $24 — Alice's $25 clears it.
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'Previous',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('24'), kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [existing]
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        // No auto-raise: Alice wins
+        listing.currentBid == new BigDecimal('25')
+        listing.currentBidderId == 10L
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, _, _)
     }
 
     def "placeBid extends expiresAt when bid lands inside the 30s anti-snipe window"() {
@@ -174,6 +338,63 @@ class BidServiceSpec extends Specification {
 
     // ── guard rails ───────────────────────────────────────────────
 
+    def "placeBid refuses a bidder whose wallet can't cover the bid (grief-guard)"() {
+        given:
+        def listing = auctionListing()
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'SID10',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=10&token=abc'))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('5.00')
+        )
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INSUFFICIENT_BALANCE'
+        0 * bidRepository.save(_)
+    }
+
+    def "placeBid checks balance against maxAmount when auto-bidding (the ceiling is what they actually commit to)"() {
+        given:
+        def listing = auctionListing()
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'SID10',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=10&token=abc'))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('20.00')
+        )
+
+        when:
+        // amount $15 fits, but maxAmount $50 exceeds the $20 balance — reject.
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('15'), new BigDecimal('50'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INSUFFICIENT_BALANCE'
+    }
+
+    def "placeBid passes the solvency check when wallet balance covers the bid"() {
+        given:
+        def listing = auctionListing()
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'SID10',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=10&token=abc'))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('100.00')
+        )
+        bidRepository.save(_) >> { Bid b -> b.id = 1L; b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def bid = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        bid.amount == new BigDecimal('25')
+    }
+
     def "placeBid refuses zero/negative/null amounts"() {
         when:
         service.placeBid(10L, 'Alice', 100L, amount, null)
@@ -210,6 +431,22 @@ class BidServiceSpec extends Specification {
     def "placeBid refuses BUY_NOW listings"() {
         given:
         listingRepository.findById(_) >> Optional.of(auctionListing(type: 'BUY_NOW'))
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal("15"), null)
+
+        then:
+        thrown(BadRequestException)
+    }
+
+    def "placeBid refuses hidden auctions (batch 308 bug fix)"() {
+        // A seller who hides an auction after it's live (vacation-mode
+        // or per-listing Hide) would otherwise keep receiving real
+        // bids from cached clients. Must reject.
+        given:
+        def hidden = auctionListing()
+        hidden.hidden = true
+        listingRepository.findById(_) >> Optional.of(hidden)
 
         when:
         service.placeBid(10L, 'Alice', 100L, new BigDecimal("15"), null)
@@ -516,6 +753,12 @@ class BidServiceSpec extends Specification {
         // One watcher (non-bidder) + one overlap (also a bidder — must not
         // duplicate).
         watchlistAlertRepository.findActiveUserIdsForItem(1L) >> [30L, 10L]
+        // All three recipients clean (not banned) — the filter is a no-op.
+        steamUserRepository.findAllById(_) >> [
+            new SteamUser(id: 10L, steamId64: '1', banned: false),
+            new SteamUser(id: 20L, steamId64: '2', banned: false),
+            new SteamUser(id: 30L, steamId64: '3', banned: false)
+        ]
 
         when:
         service.sweepEndingSoon()
@@ -529,5 +772,118 @@ class BidServiceSpec extends Specification {
         // Dedup flag set so the next tick skips this listing.
         listing.endingSoonNotified == true
         1 * listingRepository.save({ Listing l -> l.endingSoonNotified == true })
+    }
+
+    def "sweepEndingSoon fan-outs AUCTION_ENDING email to verified-email recipients (batch 572)"() {
+        given:
+        def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),
+                                     expiresAt: System.currentTimeMillis() + 5 * 60 * 1000L)
+        listingRepository.findEndingSoonUnnotified(_, _) >> [listing]
+        bidRepository.findByListing(100L) >> [
+            new Bid(id: 1L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("15"))
+        ]
+        watchlistAlertRepository.findActiveUserIdsForItem(1L) >> [20L]
+        def optedIn = new SteamUser(id: 10L, steamId64: '1', banned: false,
+            email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true)
+        def optedOut = new SteamUser(id: 20L, steamId64: '2', banned: false,
+            email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: false)  // ← global notifications off
+        steamUserRepository.findAllById(_) >>> [
+            [optedIn, optedOut],  // banned-filter fetch
+            [optedIn, optedOut]   // email fan-out fetch
+        ]
+        def emailSvc = Mock(com.sboxmarket.service.EmailService) {
+            // Delegate to real-gate semantics so opted-out bob is filtered.
+            canSendTo(_, _) >> { user, bucket ->
+                user != null &&
+                user.email && !user.email.isEmpty() &&
+                Boolean.TRUE.equals(user.emailVerified) &&
+                Boolean.TRUE.equals(user.emailNotificationsEnabled)
+            }
+        }
+        service.emailService = emailSvc
+
+        when:
+        service.sweepEndingSoon()
+
+        then:
+        // Push still fires to both recipients (no filter on push path).
+        1 * notificationService.push(10L, 'AUCTION_ENDING', _, _, 100L, _)
+        1 * notificationService.push(20L, 'AUCTION_ENDING', _, _, 100L, _)
+        // Email fires ONLY for the opted-in user.
+        1 * emailSvc.sendAuctionEnding('alice@example.com', _, _, _, _, _)
+        0 * emailSvc.sendAuctionEnding('bob@example.com', _, _, _, _, _)
+    }
+
+    def "settle flips the winner's bid from WINNING to WON (batch 324)"() {
+        // Regression test for the stale Active-Bids row. Prior to 324,
+        // settle flipped losers to LOST but left winners stuck in
+        // WINNING forever, so Profile → Active Bids kept showing the
+        // closed auction as live for the winner.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            expiresAt: now - 1000L  // already expired
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        def winnerBid = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')
+        def loserBid = new Bid(id: 2L, listingId: 100L, bidderUserId: 20L,
+            amount: new BigDecimal("45"), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [winnerBid, loserBid]
+        // Winner setup: has a wallet with enough balance.
+        def winner = new SteamUser(id: 10L, steamId64: 'winner', displayName: 'W', banned: false)
+        steamUserRepository.findById(10L) >> Optional.of(winner)
+        def winnerWallet = new com.sboxmarket.model.Wallet(id: 500L, username: 'steam_winner', balance: new BigDecimal("500"))
+        walletRepository.findByUsername('steam_winner') >> winnerWallet
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        // Seller-side wiring used by settle for fee/credit — noop enough
+        // mocks to let the flow complete.
+        def seller = new SteamUser(id: 99L, steamId64: 'seller')
+        steamUserRepository.findById(99L) >> Optional.of(seller)
+        def sellerWallet = new com.sboxmarket.model.Wallet(id: 501L, username: 'steam_seller', balance: BigDecimal.ZERO)
+        walletRepository.findByUsername('steam_seller') >> sellerWallet
+        walletRepository.save(sellerWallet) >> sellerWallet
+
+        when:
+        service.sweepExpired()
+
+        then:
+        // Winner's bid is WON (not stuck in WINNING).
+        winnerBid.status == 'WON'
+        // Loser flipped to LOST.
+        loserBid.status == 'LOST'
+        // Listing marked SOLD with the winner as buyer.
+        listing.status == 'SOLD'
+        listing.buyerUserId == 10L
+    }
+
+    def "sweepEndingSoon filters banned users out of the recipient set (batch 320)"() {
+        given:
+        def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),
+                                     expiresAt: System.currentTimeMillis() + 5 * 60 * 1000L)
+        listingRepository.findEndingSoonUnnotified(_, _) >> [listing]
+        bidRepository.findByListing(100L) >> [
+            new Bid(id: 1L, listingId: 100L, bidderUserId: 10L, amount: new BigDecimal("15")),
+            new Bid(id: 2L, listingId: 100L, bidderUserId: 20L, amount: new BigDecimal("13"))
+        ]
+        watchlistAlertRepository.findActiveUserIdsForItem(1L) >> []
+        // User 20 is banned. User 10 is clean.
+        steamUserRepository.findAllById(_) >> [
+            new SteamUser(id: 10L, steamId64: '1', banned: false),
+            new SteamUser(id: 20L, steamId64: '2', banned: true)
+        ]
+
+        when:
+        service.sweepEndingSoon()
+
+        then:
+        1 * notificationService.push(10L, 'AUCTION_ENDING', _, _, 100L, _)
+        0 * notificationService.push(20L, _, _, _, _, _)
     }
 }

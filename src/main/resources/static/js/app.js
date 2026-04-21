@@ -1,21 +1,21 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
-import { h, React, useState, useEffect, useCallback, useMemo, fmt, timeAgo, signInWithSteam } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, linkifyText } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
-  checkListingsActive, fetchFollowingFeed, fetchMarketStats
+  checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
-import { ItemImage, MaterialIcon } from './primitives.js';
+import { ItemImage, MaterialIcon, Avatar, ReasonDrawer } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
-  ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, TradesModal,
-  SellItemsModal, MyStallModal, OffersModal, WatchlistModal, MyListingsModal
+  ItemModal, WalletModal, FaqModal, SettingsModal, ProfileModal, AffiliateModal,
+  SellItemsModal, MyStallModal, OffersModal, WatchlistModal
 } from './modals.js';
 import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
@@ -24,7 +24,7 @@ import {
 import { AdminModal, CsrModal } from './staff-modals.js';
 import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
-import { useRoute, navigate, paths, installAnchorInterceptor } from './router.js';
+import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } from './router.js';
 
 // ── Pending trade reminder — surfaces a slim banner whenever the signed-in
 // user has a trade sitting in a state where they're the actor and the
@@ -40,6 +40,10 @@ function PendingTradeReminder({ me }) {
     if (!me) { setPending([]); return; }
     let alive = true;
     const reload = async () => {
+      // Batch 869 — skip polling while tab is hidden (/api/trades is
+      // per-user + no-store, so each poll hits the DB). Pairs with the
+      // rest of the visibility-aware polling pattern (batch 806).
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const r = await fetch('/api/trades', { credentials: 'same-origin' });
         if (!r.ok) return;
@@ -57,7 +61,13 @@ function PendingTradeReminder({ me }) {
     };
     reload();
     const id = setInterval(reload, 60_000);
-    return () => { alive = false; clearInterval(id); };
+    const onVis = () => { if (!document.hidden) reload(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [me?.id]);
   const visible = pending.filter(t => !dismissed.has(t.id));
   if (visible.length === 0) return null;
@@ -92,15 +102,73 @@ function PendingTradeReminder({ me }) {
   );
 }
 
+// Access-denied card (batch 481). Rendered when a non-staff user lands
+// on /admin or /csr — cleaner than silently serving the FAQ. Keeps the
+// CTA consistent with the rest of the empty-state family.
+function StaffAccessDeniedModal({ what, onClose }) {
+  return h('div', { className: 'modal-backdrop', onClick: onClose },
+    h('div', { className: 'modal', onClick: (e) => e.stopPropagation(), style: { maxWidth: 440, textAlign: 'center', padding: '32px 24px' } },
+      h('div', { style: { fontSize: 48, marginBottom: 12 } }, '—'),
+      h('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 } }, 'Staff access only'),
+      h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.55 } },
+        'You need a staff role to open ', what, '. If you think this is a mistake, reach out via ',
+        h('a', {
+          href: '/support',
+          onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate(paths.support()); },
+          style: { color: 'var(--accent)' }
+        }, 'Support'),
+        '.'
+      ),
+      h('a', { className: 'btn btn-accent', href: '/' }, 'Back to marketplace')
+    )
+  );
+}
+
 // ── Stall review row with optional seller reply UI. Always-visible block
 // when the review carries a sellerReply; otherwise the seller themselves
 // (viewing their own stall) sees a "Reply" button that toggles an inline
 // textarea. 300-char cap mirrors the service-layer sanitiser.
-function StallReviewRow({ review, isOwner, onSaved }) {
+function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
+  // Batch 850 — inline reason drawers for admin-remove + report-review.
+  // Replace native `window.prompt` that had no ARIA, no multiline input,
+  // and silently failed on some mobile browsers. `null` = closed; string
+  // = open with that draft text.
+  const [adminRemoveDraft, setAdminRemoveDraft] = useState(null);
+  const [reportDraft, setReportDraft]           = useState(null);
+  // Local mirror so the UI updates optimistically on click; the server
+  // returns the authoritative count in the response. We keep local
+  // state rather than refetching the whole list every vote because
+  // the rails/stall refetch path is expensive (full page worth).
+  const [helpfulCount, setHelpfulCount] = useState(Number(review.helpfulCount || 0));
+  const [hasVoted, setHasVoted]         = useState(!!review.viewerHasVoted);
+  const [voteBusy, setVoteBusy]         = useState(false);
+  const canVote = !!me && !isAuthor;
+  const toggleHelpful = async () => {
+    if (!canVote || voteBusy) return;
+    // Optimistic update — flip the state immediately so the click
+    // feels responsive. Revert on any non-success response.
+    setVoteBusy(true);
+    const prevCount = helpfulCount;
+    const prevVoted = hasVoted;
+    setHasVoted(!prevVoted);
+    setHelpfulCount(prevVoted ? Math.max(0, prevCount - 1) : prevCount + 1);
+    try {
+      const { toggleReviewHelpful } = await import('./api.js');
+      const res = await toggleReviewHelpful(review.id);
+      if (res && (res.error || res.code)) {
+        setHasVoted(prevVoted);
+        setHelpfulCount(prevCount);
+        return;
+      }
+      // Replace optimistic figures with server's authoritative values.
+      if (typeof res?.helpfulCount === 'number') setHelpfulCount(res.helpfulCount);
+      if (typeof res?.viewerHasVoted === 'boolean') setHasVoted(res.viewerHasVoted);
+    } finally { setVoteBusy(false); }
+  };
   const submit = async (clear = false) => {
     setBusy(true); setErr('');
     try {
@@ -111,13 +179,69 @@ function StallReviewRow({ review, isOwner, onSaved }) {
       onSaved && onSaved();
     } finally { setBusy(false); }
   };
+  // Buyer-side delete for their own reviews. Only shown to the review's
+  // author (server still enforces fromUserId == caller). A simple
+  // confirm() is deliberate here — a full modal would out-scope the row.
+  const onDelete = async () => {
+    if (!confirm('Delete this review? This cannot be undone.')) return;
+    setBusy(true); setErr('');
+    try {
+      const { deleteReview } = await import('./api.js');
+      const res = await deleteReview(review.id);
+      if (res && (res.error || res.code)) { setErr(res.message || res.error); return; }
+      onSaved && onSaved();
+    } finally { setBusy(false); }
+  };
   return h('div', { className: 'stall-review' },
     h('div', { className: 'stall-review-head' },
       h('span', { className: 'stall-review-stars' }, '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)),
       h('span', { className: 'stall-review-from' }, review.fromDisplayName || 'Anonymous'),
+      // Every review is anchored to a VERIFIED trade (ReviewService
+      // enforces `trade.state == 'VERIFIED'`), so every row on the stall
+      // page can advertise the badge. Mirrors Amazon's "Verified
+      // Purchase" — tells future buyers the feedback comes from a real
+      // transaction, not a sockpuppet. Tooltip explains the guarantee.
+      h('span', {
+        style: {
+          fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 3,
+          background: 'rgba(34,197,94,0.12)', color: '#22c55e',
+          border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
+        },
+        title: "Every review on SkinBox is tied to a completed trade — this person actually bought from this seller."
+      }, 'Verified buyer'),
       h('span', { className: 'stall-review-time' },
-        new Date(review.createdAt).toLocaleDateString()
-      )
+        new Date(review.createdAt).toLocaleDateString(),
+        // Batch 745 — "· edited" marker when the author updated the
+        // rating or comment after first posting. Future buyers need
+        // to know a review was rewritten (a 5★ that started as 1★
+        // carries very different signal than a 5★ fresh-take).
+        review.editedAt && h('span', {
+          style: { marginLeft: 6, fontSize: 10, fontStyle: 'italic', color: 'var(--text-muted)' },
+          title: 'Last edited ' + new Date(review.editedAt).toLocaleString()
+        }, '· edited')
+      ),
+      // Helpful vote — CSFloat-style upvote so high-signal reviews
+      // (detail, context) bubble above one-liners. Self-authors + anon
+      // viewers see the count as static text; signed-in non-authors
+      // get a clickable toggle. Zero count stays silent to avoid
+      // visual noise on stalls that are just starting out.
+      (helpfulCount > 0 || canVote) && h('button', {
+        className: 'stall-review-helpful',
+        onClick: toggleHelpful,
+        disabled: !canVote || voteBusy,
+        style: {
+          marginLeft: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700,
+          borderRadius: 12, border: '1px solid var(--border)',
+          background: hasVoted ? 'rgba(30,165,255,0.15)' : 'transparent',
+          color: hasVoted ? 'var(--accent)' : 'var(--text-muted)',
+          cursor: canVote ? (voteBusy ? 'wait' : 'pointer') : 'default'
+        },
+        title: !me
+          ? 'Sign in to mark reviews as helpful'
+          : isAuthor
+            ? "You can't vote on your own review"
+            : (hasVoted ? 'Click to undo your helpful vote' : 'Mark this review as helpful')
+      }, hasVoted ? 'Helpful · ' : 'Helpful · ', helpfulCount)
     ),
     review.itemName && h('div', { className: 'stall-review-item' }, '↳ ' + review.itemName),
     review.comment && h('div', { className: 'stall-review-body' }, review.comment),
@@ -137,6 +261,116 @@ function StallReviewRow({ review, isOwner, onSaved }) {
         onClick: () => submit(true)
       }, 'Remove reply')
     ),
+    isAuthor && !editing && h('div', { style: { marginTop: 8, display: 'flex', gap: 8 } },
+      h('button', {
+        className: 'btn btn-ghost',
+        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
+        disabled: busy,
+        onClick: onDelete,
+        title: 'Permanently delete your review'
+      }, busy ? 'Deleting…' : 'Delete my review')
+    ),
+    // Admin-moderation delete (batch 480). Renders when the viewer is
+    // staff AND is NOT the buyer themselves (they already have the
+    // self-delete button above). Uses the admin override endpoint
+    // that bypasses the self-only check + pings the buyer with the
+    // staff-supplied reason.
+    me && me.role === 'ADMIN' && !isAuthor && !editing && h('div', {
+      style: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }
+    },
+      h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+        h('button', {
+          className: 'btn btn-ghost',
+          style: {
+            border: '1px solid rgba(251,191,36,0.4)', color: '#fbbf24',
+            padding: '4px 10px', fontSize: 11
+          },
+          disabled: busy,
+          'aria-haspopup': 'dialog',
+          'aria-expanded': adminRemoveDraft !== null,
+          title: 'Admin override — remove this review and notify the buyer',
+          onClick: () => setAdminRemoveDraft(adminRemoveDraft === null ? 'Violates the community guidelines' : null)
+        }, busy ? 'Removing…' : 'Admin remove')
+      ),
+      adminRemoveDraft !== null && h(ReasonDrawer, {
+        title: 'Remove this review',
+        hint: 'Reason sent to the buyer and logged as REVIEW_DELETED_STAFF.',
+        initial: adminRemoveDraft,
+        cta: 'Remove review',
+        busy,
+        onCancel: () => setAdminRemoveDraft(null),
+        onSubmit: async (reason) => {
+          if (!reason) return;
+          setBusy(true); setErr('');
+          try {
+            const r = await fetch('/api/admin/reviews/' + review.id, {
+              method: 'DELETE',
+              credentials: 'same-origin',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1] || ''
+              },
+              body: JSON.stringify({ reason })
+            });
+            if (!r.ok) { setErr('Admin remove failed (HTTP ' + r.status + ')'); return; }
+            setAdminRemoveDraft(null);
+            onSaved && onSaved();
+          } finally { setBusy(false); }
+        }
+      })
+    ),
+    // Batch 570 — "Report review" for non-author / non-owner signed-in
+    // viewers. Reviews are public and occasionally carry harassment,
+    // PII, or off-topic rants; before this button there was no way
+    // for a visitor to flag one without typing a generic support
+    // ticket. Routes through the existing createSupportTicket
+    // endpoint with a pre-filled body so staff sees the review id +
+    // excerpt inline.
+    me && !isAuthor && !isOwner && !editing && h('div', {
+      style: { marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }
+    },
+      h('div', { style: { display: 'flex', gap: 6 } },
+        h('button', {
+          className: 'btn btn-ghost',
+          style: {
+            border: '1px solid rgba(248,113,113,0.25)', color: 'var(--text-muted)',
+            padding: '3px 10px', fontSize: 11
+          },
+          'aria-haspopup': 'dialog',
+          'aria-expanded': reportDraft !== null,
+          title: 'Report this review — staff will review and remove if it violates the community guidelines',
+          onClick: () => setReportDraft(reportDraft === null ? '' : null)
+        }, 'Report')
+      ),
+      reportDraft !== null && h(ReasonDrawer, {
+        title: 'Report this review',
+        hint: 'What\'s wrong with this review? (harassment, off-topic, PII, etc.) Staff will triage.',
+        initial: reportDraft,
+        cta: 'File report',
+        busy,
+        onCancel: () => setReportDraft(null),
+        onSubmit: async (reason) => {
+          if (!reason) return;
+          setBusy(true);
+          try {
+            const excerpt = (review.comment || '').substring(0, 300);
+            const { createSupportTicket } = await import('./api.js');
+            const res = await createSupportTicket({
+              category: 'ACCOUNT',
+              subject:  `Report review #${review.id}`,
+              body:     `Review ${review.id} (${review.rating}★) by ${review.fromDisplayName || 'anonymous'}:\n\n> ${excerpt.split('\n').join('\n> ')}\n\nReporter's note:\n\n${reason}`
+            });
+            if (res && (res.error || res.code)) {
+              toast(res.message || res.error || 'Could not file the report — try again later.', 'err');
+              return;
+            }
+            setReportDraft(null);
+            toast('Report filed — staff will reach out if needed.', 'ok');
+          } finally { setBusy(false); }
+        }
+      })
+    ),
+    isAuthor && err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
     isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
       h('textarea', {
         value: draft,
@@ -169,6 +403,10 @@ function EmailVerifyNag({ me }) {
     try { return Number(localStorage.getItem('sb_email_nag_dismissed_at') || 0); }
     catch { return 0; }
   });
+  // Inline resend state (batch 482) — lets the user re-trigger the
+  // verification email without navigating to Profile. Flashes "✓ sent"
+  // for 4s on success so the user knows to check their inbox.
+  const [resendState, setResendState] = useState(''); // '' | 'busy' | 'sent' | 'err'
   if (!me) return null;
   if (me.emailVerified) return null;
   if (!me.email) return null;
@@ -178,6 +416,23 @@ function EmailVerifyNag({ me }) {
     try { localStorage.setItem('sb_email_nag_dismissed_at', String(Date.now())); } catch (_) {}
     setDismissedAt(Date.now());
   };
+  const doResend = async () => {
+    setResendState('busy');
+    try {
+      const { resendEmailVerification } = await import('./api.js');
+      const res = await resendEmailVerification();
+      if (res && (res.error || res.code)) {
+        setResendState('err');
+        setTimeout(() => setResendState(''), 4000);
+        return;
+      }
+      setResendState('sent');
+      setTimeout(() => setResendState(''), 4000);
+    } catch (_) {
+      setResendState('err');
+      setTimeout(() => setResendState(''), 4000);
+    }
+  };
   return h('div', { className: 'announce-banner sev-warn', role: 'status' },
     h('span', { className: 'announce-banner-icon' }, '✉'),
     h('div', { className: 'announce-banner-text' },
@@ -185,6 +440,20 @@ function EmailVerifyNag({ me }) {
       h('a', { href: paths.profile(), style: { color: 'inherit', textDecoration: 'underline', fontWeight: 700 } }, 'Confirm it'),
       ' to enable withdrawals and 2FA recovery.'
     ),
+    h('button', {
+      className: 'btn btn-ghost',
+      style: {
+        marginLeft: 10, padding: '4px 10px', fontSize: 11,
+        border: '1px solid currentColor', opacity: resendState === 'busy' ? 0.6 : 1
+      },
+      disabled: resendState === 'busy',
+      onClick: doResend,
+      title: 'Re-send the verification email to ' + me.email
+    },
+      resendState === 'sent' ? 'Sent'
+        : resendState === 'err' ? '✕ Failed'
+        : resendState === 'busy' ? 'Sending…'
+        : 'Resend email'),
     h('button', {
       className: 'announce-banner-close',
       onClick: dismiss,
@@ -209,8 +478,15 @@ function AnnouncementBanner() {
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 120_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — visibility-aware poll. Announcement banner only
+    // matters when the user is looking at the page.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 120_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   if (!ann || ann.id === dismissedId) return null;
   const dismiss = () => {
@@ -272,8 +548,16 @@ function NavOffersBadge() {
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 45_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — visibility-gated poll. Parity with NotificationBell
+    // so a user with dozens of backgrounded tabs doesn't fire a badge
+    // count refresh every 45s from each.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 45_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   return h('a', {
     className: 'nav-icon-btn',
@@ -301,8 +585,18 @@ function AuctionsEndingSoonRail({ watchlist, onToggleStar, onOpen }) {
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — only poll while the tab is visible. A user with 50
+    // background tabs open was firing 50× /ending-soon every 30s for
+    // zero visual benefit. Returning to the tab also triggers an
+    // immediate refresh via visibilitychange so the rail is fresh the
+    // moment they look at it.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 30_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   if (!rows || rows.length === 0) return null;
   return h('section', { className: 'auctions-ending-soon' },
@@ -314,8 +608,8 @@ function AuctionsEndingSoonRail({ watchlist, onToggleStar, onOpen }) {
     h('div', { className: 'auctions-ending-soon-rail' },
       rows.map(l => h('div', {
         key: 'ends-' + l.id,
-        className: 'auctions-ending-soon-card-wrap',
-        onClick: () => onOpen(l)
+        className: 'auctions-ending-soon-card-wrap'
+        // Batch 932 — removed wrapper onClick (see just-listed rail).
       },
         h(GridCard, {
           listing: l,
@@ -339,44 +633,230 @@ function TopSellersRail() {
     let alive = true;
     const load = async () => {
       try {
-        const data = await fetchTopSellers();
+        // Rolling 7-day window per CSFloat Manual §4. "This week's top
+        // sellers" is more honest social proof than the all-time
+        // leaderboard (which freezes in a few veterans forever).
+        const data = await fetchTopSellers(7, 8);
         if (alive) setRows(Array.isArray(data) ? data : []);
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 5 * 60_000);
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
     return () => { alive = false; clearInterval(id); };
   }, []);
   if (!rows || rows.length === 0) return null;
   return h('section', { className: 'top-sellers-rail' },
     h('div', { className: 'top-sellers-head' },
       h('span', { className: 'section-title-dot' }),
-      h('span', null, 'Top sellers'),
+      h('span', null, 'Top sellers · this week'),
       h('span', { className: 'top-sellers-count' }, `${rows.length} active`)
     ),
     h('div', { className: 'top-sellers-track' },
-      rows.map(s => h('a', {
-        key: 'ts-' + s.id,
-        href: paths.stall(s.id),
-        className: 'top-seller-card'
+      rows.map((s, idx) => h('a', {
+        key: 'ts-' + s.sellerUserId,
+        href: paths.stall(s.sellerUserId),
+        className: 'top-seller-card',
+        title: `#${idx + 1} this week — ${s.saleCount} sale${s.saleCount === 1 ? '' : 's'} totalling ${fmt(s.totalRevenue || 0)}`
       },
+        // Rank ribbon for #1-3 — simple gold/silver/bronze dot with the
+        // ordinal. Past rank 3 we drop the ribbon to keep the rail from
+        // looking award-ceremony noisy.
+        idx < 3 && h('span', {
+          className: 'top-seller-rank',
+          style: {
+            position: 'absolute', top: 6, left: 6, fontSize: 10, fontWeight: 800,
+            background: idx === 0 ? '#fbbf24' : idx === 1 ? '#cbd5e1' : '#d97706',
+            color: '#0b0f1a', padding: '2px 6px', borderRadius: 10, letterSpacing: 0.3
+          }
+        }, '#' + (idx + 1)),
         h('div', { className: 'top-seller-avatar' },
-          s.avatarUrl
-            ? h('img', { src: s.avatarUrl, alt: s.displayName, loading: 'lazy' })
-            : (s.displayName || 'U').substring(0, 2).toUpperCase()
+          h(Avatar, {
+            src: s.avatarUrl,
+            name: s.displayName || 'Player',
+            alt: s.displayName,
+            style: { width: '100%', height: '100%', borderRadius: 'inherit',
+                     background: 'transparent', border: 'none', fontSize: 14 }
+          })
         ),
         h('div', { className: 'top-seller-body' },
           h('div', { className: 'top-seller-name' },
-            s.displayName || 'Player',
-            s.verified && h('span', { className: 'top-seller-verified', title: 'Verified seller' }, '✓')
+            s.displayName || 'Player'
           ),
           h('div', { className: 'top-seller-meta' },
-            `${s.soldCount} sold`,
+            `${s.saleCount} sale${s.saleCount === 1 ? '' : 's'}`,
             (s.rating && s.rating.count > 0)
               ? ` · ★ ${Number(s.rating.average || 0).toFixed(1)}`
               : ''
           )
         )
+      ))
+    )
+  );
+}
+
+// Batch 669 — highlight helper for FindSellerBar. Splits `text` on the
+// (case-insensitive) first occurrence of `needle` and wraps the match in
+// a <mark>-ish span. Returns the original text when needle is empty or
+// no match — callers can drop it straight into a React render.
+function renderHighlighted(text, needle) {
+  const str = String(text || '');
+  const n = String(needle || '').trim();
+  if (!n) return h('span', null, str);
+  const lower = str.toLowerCase();
+  const idx = lower.indexOf(n.toLowerCase());
+  if (idx < 0) return h('span', null, str);
+  return h('span', null,
+    str.slice(0, idx),
+    h('span', {
+      style: { background: 'rgba(30,165,255,0.25)', color: 'inherit',
+               borderRadius: 3, padding: '0 2px' }
+    }, str.slice(idx, idx + n.length)),
+    str.slice(idx + n.length)
+  );
+}
+
+// ── Find-a-seller search bar (batch 666). CSFloat-parity discovery UX:
+// a compact input that surfaces matching stalls by display name. Debounced
+// 250ms so each keystroke doesn't round-trip. Only fires after 2+ chars
+// to match the server's short-circuit. Clicking a result deep-links to
+// the public stall.
+function FindSellerBar() {
+  const [q, setQ] = useState('');
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(-1);
+  const rootRef = useRef(null);
+  useEffect(() => {
+    const trimmed = (q || '').trim();
+    if (trimmed.length < 2) { setRows([]); setLoading(false); return; }
+    setLoading(true);
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const data = await searchSellers(trimmed, 10);
+        if (alive) { setRows(data); setLoading(false); setCursor(-1); }
+      } catch { if (alive) setLoading(false); }
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [q]);
+  // Batch 672 — click-outside-to-close so the dropdown disappears when
+  // the user clicks back out to the grid. Without this, the dropdown
+  // persists obscuring the first row of listings until the user clicks
+  // the ✕ or types over it.
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+  return h('section', { ref: rootRef, className: 'find-seller-bar', style: {
+    margin: '16px auto 8px', maxWidth: 560, position: 'relative'
+  }},
+    h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+      h('input', {
+        className: 'price-input',
+        type: 'search',
+        enterKeyHint: 'search',
+        autoComplete: 'off',
+        style: { flex: 1, fontSize: 14 },
+        placeholder: 'Find a seller by name…',
+        value: q,
+        onChange: e => { setQ(e.target.value); setOpen(true); setCursor(-1); },
+        onFocus: () => setOpen(true),
+        // Batch 672 — keyboard navigation. ArrowDown/Up move the
+        // cursor, Enter opens the highlighted (or first) row, Escape
+        // closes the dropdown.
+        onKeyDown: e => {
+          if (!open || rows.length === 0) return;
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setCursor(c => Math.min(c + 1, rows.length - 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setCursor(c => Math.max(c - 1, -1));
+          } else if (e.key === 'Enter') {
+            const pick = cursor >= 0 ? rows[cursor] : rows[0];
+            if (pick) {
+              e.preventDefault();
+              navigate(paths.stall(pick.sellerUserId));
+              setOpen(false);
+            }
+          } else if (e.key === 'Escape') {
+            setOpen(false);
+          }
+        }
+      }),
+      q && h('button', {
+        className: 'btn btn-ghost',
+        style: { padding: '6px 10px', fontSize: 12 },
+        onClick: () => { setQ(''); setRows([]); setOpen(false); },
+        'aria-label': 'Clear seller search'
+      }, '✕')
+    ),
+    open && q.trim().length >= 2 && h('div', {
+      className: 'find-seller-dropdown',
+      role: 'listbox',
+      'aria-label': 'Seller search results',
+      style: {
+        position: 'absolute', top: '100%', left: 0, right: 0,
+        background: 'var(--surface, #0f1524)',
+        border: '1px solid var(--border, #1f2937)',
+        borderRadius: 8, marginTop: 4,
+        maxHeight: 360, overflowY: 'auto', zIndex: 100,
+        boxShadow: '0 8px 24px rgba(0,0,0,.3)'
+      }
+    },
+      loading && h('div', { style: { padding: 12, fontSize: 12, opacity: .7 } }, 'Searching…'),
+      !loading && rows.length === 0 && h('div', {
+        style: { padding: 12, fontSize: 12, opacity: .7 }
+      }, 'No sellers match.'),
+      !loading && rows.map((s, i) => h('a', {
+        key: 'fs-' + s.sellerUserId,
+        href: paths.stall(s.sellerUserId),
+        className: 'find-seller-row',
+        role: 'option',
+        'aria-selected': cursor === i,
+        onMouseEnter: () => setCursor(i),
+        style: {
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', textDecoration: 'none',
+          color: 'inherit', borderBottom: '1px solid var(--border-soft, #111827)',
+          background: cursor === i ? 'var(--bg-elev, #111827)' : 'transparent'
+        }
+      },
+        h(Avatar, { src: s.avatarUrl, name: s.displayName || 'Player',
+          style: { width: 32, height: 32, borderRadius: 8, fontSize: 13 } }),
+        h('div', { style: { flex: 1, minWidth: 0 } },
+          h('div', { style: { fontWeight: 600, fontSize: 13,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 6 } },
+            // Batch 669 — highlight the matched substring in the display
+            // name so the user's eye can jump straight to "why this row
+            // matched my query". Case-insensitive match + bold <mark>.
+            renderHighlighted(s.displayName || 'Player', q),
+            s.verified && h('span', {
+              title: 'Verified seller · 10+ sales · ≥4.0★',
+              style: {
+                background: '#1ea5ff', color: '#fff',
+                fontSize: 10, fontWeight: 700, padding: '1px 5px',
+                borderRadius: 8, letterSpacing: 0.2, lineHeight: 1.2
+              }
+            }, '✓')
+          ),
+          h('div', { style: { fontSize: 11, opacity: .7 } },
+            `${s.activeListings || 0} active · ${s.soldCount || 0} sold`,
+            // Batch 675 — inline rating chip. Only renders when the
+            // seller has reviews so new sellers don't show a "0.00★"
+            // deterrent.
+            s.ratingCount > 0 && h('span', { style: { marginLeft: 6 } },
+              '· ★ ', Number(s.ratingAverage).toFixed(1),
+              ' (', s.ratingCount, ')'))
+        ),
+        h('span', { style: { fontSize: 11, opacity: .5 } }, '→')
       ))
     )
   );
@@ -396,8 +876,14 @@ function TopDealsRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas })
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 120_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 120_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   if (!rows || rows.length === 0) return null;
   return h('section', { className: 'top-deals-rail' },
@@ -409,8 +895,8 @@ function TopDealsRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas })
     h('div', { className: 'top-deals-track' },
       rows.map(l => h('div', {
         key: 'td-' + l.id,
-        className: 'top-deals-card-wrap',
-        onClick: () => onOpen(l)
+        className: 'top-deals-card-wrap'
+        // Batch 932 — removed wrapper onClick (see just-listed rail).
       },
         h(GridCard, {
           listing: l,
@@ -427,6 +913,103 @@ function TopDealsRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas })
 
 // ── Just listed — "what just dropped" rail. Polls every 45s; hides when
 // empty. Sits on the marketplace home below the ending-soon strip.
+// Top active buy orders (batch 369) — sellers scanning the homepage
+// see "buyers are paying up to $X for Wizard Hat" at a glance, a real
+// CSFloat feature. Public endpoint; refreshes every 2 minutes since
+// buy orders don't churn fast. Hides when nobody has an active buy
+// order. Buyer identities deliberately not rendered (aggregate demand
+// signal only, matches /api/buy-orders/top contract).
+function TopBuyOrdersRail({ me }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      // Batch 869 — skip the poll when the tab is hidden. A user with
+      // 20 backgrounded SkinBox tabs was otherwise hitting /top every
+      // 2 min × 20 for zero visual benefit. Matches the visibility-
+      // aware pattern from batch 806 across every other rail.
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        const r = await fetch('/api/buy-orders/top?limit=8', { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 2 * 60 * 1000);
+    // Tab-focus refresh so a user returning after backgrounding sees
+    // fresh demand instead of the cached snapshot from 20 min ago.
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', {
+    className: 'just-listed-rail',
+    style: { borderLeftColor: '#fbbf24' }
+  },
+    h('div', { className: 'just-listed-head' },
+      h('span', { className: 'just-listed-dot', style: { background: '#fbbf24' } }),
+      h('span', null, 'Top buy orders'),
+      h('span', { className: 'just-listed-count' }, 'active demand'),
+      me && h('a', {
+        href: '/sell',
+        style: { marginLeft: 'auto', fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 },
+        title: 'List one of these items to fill a buy order instantly'
+      }, 'List from inventory →')
+    ),
+    h('div', {
+      style: {
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8,
+        padding: '8px 14px'
+      }
+    },
+      rows.map(b => h('a', {
+        key: 'bo-' + b.id,
+        href: '/item/' + b.itemId,
+        style: {
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 10px', borderRadius: 8,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          color: 'var(--text-primary)', textDecoration: 'none',
+          minWidth: 0
+        },
+        title: `Up to $${parseFloat(b.maxPrice).toFixed(2)} — someone's paying this right now for ${b.itemName || 'this item'}`
+      },
+        h('img', {
+          src: b.itemImageUrl || '',
+          alt: '',
+          loading: 'lazy',
+          style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover',
+                   background: 'rgba(148,163,184,0.1)', flexShrink: 0 },
+          onError: e => { e.target.style.display = 'none'; }
+        }),
+        h('div', { style: { flex: 1, minWidth: 0 } },
+          h('div', { style: { fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+            b.itemName || 'Item #' + b.itemId),
+          h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
+            'Up to ', h('span', {
+              style: { color: '#fbbf24', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' }
+            }, fmt(b.maxPrice)),
+            // Batch 871 — freshness signal so a seller can tell a "just-
+            // posted, likely to fill fast" order from a stale one that's
+            // been sitting for weeks. `b.createdAt` has been in the
+            // payload since the endpoint shipped but wasn't surfaced.
+            b.createdAt && h('span', {
+              style: { marginLeft: 6, fontSize: 10, opacity: 0.65 }
+            }, '· ', timeAgo(b.createdAt))
+          )
+        )
+      ))
+    )
+  );
+}
+
 function JustListedRail({ watchlist, onToggleStar, onOpen }) {
   const [rows, setRows] = useState([]);
   useEffect(() => {
@@ -438,8 +1021,14 @@ function JustListedRail({ watchlist, onToggleStar, onOpen }) {
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 45_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 45_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   if (!rows || rows.length === 0) return null;
   return h('section', { className: 'just-listed-rail' },
@@ -451,14 +1040,173 @@ function JustListedRail({ watchlist, onToggleStar, onOpen }) {
     h('div', { className: 'just-listed-track' },
       rows.map(l => h('div', {
         key: 'just-' + l.id,
-        className: 'just-listed-card-wrap',
-        onClick: () => onOpen(l)
+        className: 'just-listed-card-wrap'
+        // Batch 932 — removed wrapper onClick: GridCard is an <a> that
+        // already fires onClick (via handleClick). The wrapper's handler
+        // duplicated the onOpen call (click bubbled up) AND made a
+        // non-semantic div read as clickable to screen readers without
+        // keyboard accessibility.
       },
         h(GridCard, {
           listing: l,
           starred: watchlist.includes(l.item.id),
           onToggleStar,
           onClick: () => onOpen(l)
+        })
+      ))
+    )
+  );
+}
+
+// ── Most-watched — pure social proof using the V30 watchlist data
+// (batch 273). Polls every 5 minutes — watcher counts move slowly and
+// the underlying query touches every star ever placed; not worth a
+// faster cadence. Hides when no items have been starred yet.
+function MostWatchedRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/listings/most-watched?limit=8', { credentials: 'same-origin' });
+        if (!alive || !r.ok) return;
+        const data = await r.json();
+        setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'just-listed-rail' },
+    h('div', { className: 'just-listed-head' },
+      h('span', { className: 'section-title-dot' }),
+      h('span', null, 'Most watched right now'),
+      h('span', { className: 'just-listed-count' }, `${rows.length} popular`)
+    ),
+    h('div', { className: 'just-listed-track' },
+      rows.map(l => h('div', {
+        key: 'mw-' + l.id,
+        className: 'just-listed-card-wrap'
+        // Batch 932 — removed wrapper onClick: GridCard is an <a> that
+        // already fires onClick (via handleClick). The wrapper's handler
+        // duplicated the onOpen call (click bubbled up) AND made a
+        // non-semantic div read as clickable to screen readers without
+        // keyboard accessibility.
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l),
+          onAddToCart,
+          cartHas
+        })
+      ))
+    )
+  );
+}
+
+// Most-viewed rail (batch 412) — passive-interest signal from the V46
+// view_count counter bumped on every /api/items/{id} GET. Complement
+// to MostWatched (users who explicitly starred) and Hottest (realised
+// sales) — this is "people are clicking through to look, whether or
+// not they converted". Polls every 5 minutes. Silent when no items
+// have views > 0 (cold start).
+function MostViewedRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/listings/most-viewed?limit=8', { credentials: 'same-origin' });
+        if (!alive || !r.ok) return;
+        const data = await r.json();
+        setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'just-listed-rail' },
+    h('div', { className: 'just-listed-head' },
+      h('span', { className: 'section-title-dot' }),
+      h('span', null, 'Most viewed right now'),
+      h('span', { className: 'just-listed-count' }, `${rows.length} trending`)
+    ),
+    h('div', { className: 'just-listed-track' },
+      rows.map(l => h('div', {
+        key: 'mv-' + l.id,
+        className: 'just-listed-card-wrap'
+        // Batch 932 — removed wrapper onClick: GridCard is an <a> that
+        // already fires onClick (via handleClick). The wrapper's handler
+        // duplicated the onOpen call (click bubbled up) AND made a
+        // non-semantic div read as clickable to screen readers without
+        // keyboard accessibility.
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l),
+          onAddToCart,
+          cartHas
+        })
+      ))
+    )
+  );
+}
+
+// ── Hottest right now — uses the V1 SOLD aggregate (batch 289).
+// Complement to MostWatchedRail (passive demand): this shows
+// realised-volume hot items. Polls every 5min — sales aggregates
+// move slowly. Hides cleanly on a fresh platform with no sales.
+function HottestRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/listings/hottest?limit=8', { credentials: 'same-origin' });
+        if (!alive || !r.ok) return;
+        const data = await r.json();
+        setRows(Array.isArray(data) ? data : []);
+      } catch (_) {}
+    };
+    load();
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  return h('section', { className: 'just-listed-rail' },
+    h('div', { className: 'just-listed-head' },
+      h('span', { className: 'section-title-dot', style: { background: 'var(--red)' } }),
+      h('span', null, 'Hot right now'),
+      h('span', { className: 'just-listed-count' }, `${rows.length} trending · last 7d`)
+    ),
+    h('div', { className: 'just-listed-track' },
+      rows.map(l => h('div', {
+        key: 'hot-' + l.id,
+        className: 'just-listed-card-wrap'
+        // Batch 932 — removed wrapper onClick: GridCard is an <a> that
+        // already fires onClick (via handleClick). The wrapper's handler
+        // duplicated the onOpen call (click bubbled up) AND made a
+        // non-semantic div read as clickable to screen readers without
+        // keyboard accessibility.
+      },
+        h(GridCard, {
+          listing: l,
+          starred: watchlist.includes(l.item.id),
+          onToggleStar,
+          onClick: () => onOpen(l),
+          onAddToCart,
+          cartHas
         })
       ))
     )
@@ -494,6 +1242,12 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       }
       setEditing(false);
       onSaved && onSaved();
+      // Batch 923 — surface save success. Previously the block collapsed
+      // back to read-mode silently, and a user who'd scrolled away while
+      // the save was in flight had no way to know it landed. Toast copy
+      // differentiates first-time add vs. edit.
+      const wasEmpty = !bio;
+      toast(wasEmpty ? 'Bio added — buyers see it on your stall.' : 'Bio updated.', 'ok');
     } finally { setBusy(false); }
   };
   if (!bio && !canEdit) return null;
@@ -509,7 +1263,21 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         value: draft,
         maxLength: CAP,
         onChange: e => setDraft(e.target.value),
-        placeholder: 'Tell buyers how you trade — response times, preferred payment flow, anything that helps set expectations. Plain text, 500 chars.',
+        // Batch 923 — Ctrl+Enter saves so a seller typing a multi-line
+        // bio doesn't need to mouse over to Save. Matches the drawer
+        // submit pattern from the shared ReasonDrawer.
+        // Batch 933 — Esc cancels the edit so keyboard users have a
+        // parallel path to the Cancel button without mouse reach.
+        onKeyDown: (e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !busy && draft.trim()) {
+            e.preventDefault();
+            save();
+          } else if (e.key === 'Escape' && !busy) {
+            e.stopPropagation();
+            cancel();
+          }
+        },
+        placeholder: 'Tell buyers how you trade — response times, preferred payment flow, anything that helps set expectations. Plain text, 500 chars. Ctrl+Enter to save.',
         style: {
           width: '100%', minHeight: 80, padding: '8px 10px',
           background: 'var(--bg-input)', color: 'var(--text-primary)',
@@ -556,7 +1324,9 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       display: 'flex', gap: 10, alignItems: 'flex-start'
     }
   },
-    h('div', { style: { flex: 1 } }, bio),
+    // Auto-linkify URLs in the bio (batch 442) — sellers often paste a
+    // Discord/Twitter/Steam-group contact link.
+    h('div', { style: { flex: 1 } }, linkifyText(bio, 'biolnk')),
     canEdit && h('button', {
       className: 'btn btn-ghost',
       style: { flexShrink: 0, padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)' },
@@ -581,14 +1351,16 @@ function MarketStatsStrip() {
     load();
     // 5-minute poll — the endpoint is a single indexed aggregate query
     // so refreshing isn't expensive, but stats don't change fast enough
-    // to need anything snappier.
-    const id = setInterval(load, 5 * 60 * 1000);
+    // to need anything snappier. Batch 806 — gate on visibility so
+    // backgrounded tabs don't tick.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
     return () => { alive = false; clearInterval(id); };
   }, []);
   if (!s) return null;
-  const active = Number(s.activeListings || 0);
-  const vol    = parseFloat(s.volume24h || 0);
-  const floor  = parseFloat(s.floorPrice || 0);
+  const active   = Number(s.activeListings || 0);
+  const auctions = Number(s.activeAuctions || 0);
+  const vol      = parseFloat(s.volume24h || 0);
+  const floor    = parseFloat(s.floorPrice || 0);
   if (active === 0 && vol === 0) return null;  // empty-state guard
   const Stat = (label, value) => h('div', {
     style: {
@@ -611,10 +1383,274 @@ function MarketStatsStrip() {
       display: 'flex', gap: 36, flexWrap: 'wrap', alignItems: 'center'
     }
   },
-    h('span', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 } }, '📊 Marketplace at a glance'),
-    Stat('Active listings', active.toLocaleString()),
-    vol > 0 && Stat('24h volume', fmt(vol)),
-    floor > 0 && Stat('Starting at', fmt(floor))
+    h('span', { style: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' } }, 'Marketplace at a glance'),
+    (() => {
+      // Batch 1050 — "N listings from M sellers" merges the activeListings
+      // + activeSellers counters into one compact liquidity signal.
+      // Counterparty diversity is the thing buyers actually care about:
+      // 41 listings from 12 sellers is a healthier market than 41 from 1.
+      const sellers = Number(s.activeSellers || 0);
+      if (sellers > 0 && active > 0) {
+        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, 'Active listings'),
+          h('span', { style: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' } },
+            active.toLocaleString(),
+            h('span', { style: { color: 'var(--text-secondary)', fontWeight: 600 } },
+              ` · from ${sellers.toLocaleString()} seller${sellers === 1 ? '' : 's'}`)
+          )
+        );
+      }
+      return Stat('Active listings', active.toLocaleString());
+    })(),
+    auctions > 0 && h('a', {
+      // Batch 837 — URL param is `type`, not `listingType` (batch 812
+      // shortened the name when mirroring the filter to URL). The old
+      // `?listingType=AUCTION` link landed the user on an unfiltered
+      // grid because the SPA ignored the param.
+      href: '/?type=AUCTION',
+      style: { textDecoration: 'none' },
+      title: 'Browse all active auctions'
+    },
+      h('div', {
+        style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }
+      },
+        h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, 'Live auctions'),
+        h('span', { style: { fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, auctions.toLocaleString())
+      )
+    ),
+    // Batch 1054 — pair 24h volume with the sale count. "3 sales totalling
+    // $84" is a sharper signal than "$84 24h volume" alone — tells anon
+    // visitors both that real sales are closing AND roughly what kind
+    // of basket size they settle at (volume / count = avg sale). Falls
+    // back to plain "24h volume" when count is 0 but volume > 0
+    // (defensive: shouldn't happen, but the aggregates can't prove it).
+    (() => {
+      if (vol <= 0) return null;
+      const count = Number(s.sold24h || 0);
+      if (count > 0) {
+        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, '24h volume'),
+          h('span', { style: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' } },
+            fmt(vol),
+            h('span', { style: { color: 'var(--text-secondary)', fontWeight: 600 } },
+              ` · ${count} sale${count === 1 ? '' : 's'}`)
+          )
+        );
+      }
+      return Stat('24h volume', fmt(vol));
+    })(),
+    // Batch 1048 — surface the 7-day volume alongside 24h. Gives a
+    // longer-window trust signal that smooths the weekly cycle (24h
+    // alone looks soft on a quiet Tuesday night). Hidden when empty so
+    // a fresh marketplace doesn't show "$0 past week".
+    // Batch 1056 — also pair with sold7d count when non-zero for the
+    // same "$X · N sales" shape the 24h chip uses.
+    (() => {
+      const vol7 = parseFloat(s.volume7d || 0);
+      if (vol7 <= 0) return null;
+      const count7 = Number(s.sold7d || 0);
+      if (count7 > 0) {
+        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, '7d volume'),
+          h('span', { style: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' } },
+            fmt(vol7),
+            h('span', { style: { color: 'var(--text-secondary)', fontWeight: 600 } },
+              ` · ${count7} sale${count7 === 1 ? '' : 's'}`)
+          )
+        );
+      }
+      return Stat('7d volume', fmt(vol7));
+    })(),
+    // Batch 1052 — price RANGE (floor → ceiling) instead of just floor.
+    // Tells a buyer the marketplace carries items at both their budget
+    // AND at the premium tier. Only renders when ceiling > floor so
+    // we don't say "$5 to $5" on a sparse catalog.
+    (() => {
+      const ceiling = parseFloat(s.ceilingPrice || 0);
+      if (floor > 0 && ceiling > floor) {
+        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, 'Price range'),
+          h('span', { style: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' } },
+            fmt(floor), h('span', { style: { color: 'var(--text-secondary)', fontWeight: 600 } }, ' – '), fmt(ceiling))
+        );
+      }
+      return floor > 0 ? Stat('Starting at', fmt(floor)) : null;
+    })(),
+    // Batch 1052 — "Last sale Xm ago" liveness chip. Strongest possible
+    // "this marketplace is alive right now" signal for anon visitors —
+    // real human just bought something. Auto-hides when null (brand-new
+    // install with no sales) OR older than 7 days (a 2-month-old last-
+    // sale isn't a current-activity signal).
+    // Batch 1062 — pulsing green dot next to the timestamp when the
+    // sale is very recent (< 10 min). Animated heartbeat is a stronger
+    // "live right now" cue than plain text for the narrow window when
+    // a sale just closed.
+    s.lastSaleAt && (Date.now() - s.lastSaleAt) < 7 * 24 * 3600_000 && h('div', {
+      style: { display: 'flex', flexDirection: 'column', gap: 2 },
+      title: 'Most recent settled sale across the marketplace: ' + new Date(s.lastSaleAt).toLocaleString()
+    },
+      h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 } }, 'Last sale'),
+      h('span', {
+        style: { fontSize: 14, fontWeight: 800, color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace', display: 'inline-flex', alignItems: 'center', gap: 6 }
+      },
+        // Heartbeat dot visible only for fresh sales (<10 min) so an
+        // idle marketplace stops pulsing — otherwise the chip cries
+        // wolf on stale "Last sale 4h ago" reads.
+        (Date.now() - s.lastSaleAt) < 10 * 60_000 && h('span', {
+          style: {
+            width: 8, height: 8, borderRadius: '50%',
+            background: 'var(--green)',
+            boxShadow: '0 0 8px var(--green)',
+            animation: 'pulse 1.8s ease-in-out infinite',
+            flexShrink: 0
+          },
+          'aria-hidden': 'true'
+        }),
+        timeAgo(s.lastSaleAt)
+      )
+    )
+  );
+}
+
+// Batch 1068 — inline SVG icon set ported from the operator's template
+// (primitives.jsx). Geometrically consistent 24×24 viewbox, 1.8 stroke
+// width, currentColor fill. Call with: h(Icon, { name: 'cart', size: 16 }).
+// Material Symbols Rounded is the legacy system; Icon is the new one.
+function Icon({ name, size }) {
+  const s = size || 16;
+  const paths = {
+    search: h(React.Fragment, null,
+      h('circle', { cx: 11, cy: 11, r: 7 }),
+      h('path', { d: 'm20 20-3.5-3.5' })),
+    cart: h(React.Fragment, null,
+      h('path', { d: 'M3 4h2l2.5 11.5a2 2 0 0 0 2 1.5h7.5a2 2 0 0 0 2-1.5L21 8H6' }),
+      h('circle', { cx: 10, cy: 20, r: 1 }),
+      h('circle', { cx: 18, cy: 20, r: 1 })),
+    bell: h(React.Fragment, null,
+      h('path', { d: 'M6 8a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6' }),
+      h('path', { d: 'M10 19a2 2 0 0 0 4 0' })),
+    heart: h('path', { d: 'M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z' }),
+    grid: h(React.Fragment, null,
+      h('rect', { x: 3, y: 3, width: 7, height: 7, rx: 1 }),
+      h('rect', { x: 14, y: 3, width: 7, height: 7, rx: 1 }),
+      h('rect', { x: 3, y: 14, width: 7, height: 7, rx: 1 }),
+      h('rect', { x: 14, y: 14, width: 7, height: 7, rx: 1 })),
+    rows: h(React.Fragment, null,
+      h('rect', { x: 3, y: 4, width: 18, height: 4, rx: 1 }),
+      h('rect', { x: 3, y: 10, width: 18, height: 4, rx: 1 }),
+      h('rect', { x: 3, y: 16, width: 18, height: 4, rx: 1 })),
+    up: h('path', { d: 'm6 15 6-6 6 6' }),
+    down: h('path', { d: 'm6 9 6 6 6-6' }),
+    arrow: h(React.Fragment, null,
+      h('path', { d: 'M5 12h14' }),
+      h('path', { d: 'm13 5 7 7-7 7' })),
+    plus: h('path', { d: 'M12 5v14M5 12h14' }),
+    close: h('path', { d: 'M18 6 6 18M6 6l12 12' }),
+    steam: h(React.Fragment, null,
+      h('circle', { cx: 12, cy: 12, r: 9 }),
+      h('circle', { cx: 15, cy: 9, r: 2.4 }),
+      h('circle', { cx: 8, cy: 14.5, r: 1.4 })),
+    wallet: h(React.Fragment, null,
+      h('rect', { x: 3, y: 6, width: 18, height: 13, rx: 2 }),
+      h('path', { d: 'M16 13h3' }),
+      h('path', { d: 'M3 9h14' })),
+    check: h('path', { d: 'm5 12 4 4 10-10' }),
+    tag: h(React.Fragment, null,
+      h('path', { d: 'M3 12V3h9l9 9-9 9-9-9Z' }),
+      h('circle', { cx: 7.5, cy: 7.5, r: 1 })),
+    lock: h(React.Fragment, null,
+      h('rect', { x: 5, y: 11, width: 14, height: 10, rx: 2 }),
+      h('path', { d: 'M8 11V8a4 4 0 0 1 8 0v3' })),
+    wand: h(React.Fragment, null,
+      h('path', { d: 'm4 20 12-12' }),
+      h('path', { d: 'M14 6h6v6' }),
+      h('path', { d: 'M7 3v2M3 7h2M17 15v2M15 17h2' })),
+    eye: h(React.Fragment, null,
+      h('path', { d: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z' }),
+      h('circle', { cx: 12, cy: 12, r: 3 })),
+    bolt: h('path', { d: 'M13 3 4 14h7l-1 7 9-11h-7l1-7Z' }),
+    star: h('path', { d: 'm12 3 2.9 6 6.6.9-4.8 4.6 1.2 6.6L12 18l-5.9 3.1 1.2-6.6L2.5 9.9l6.6-.9L12 3Z' }),
+    /* Category icons — premium single-line silhouettes, 24×24 viewbox,
+       1.8 stroke width, matching the rest of the Icon set. No emojis,
+       no geometric symbols. */
+    'cat-hat': h(React.Fragment, null,
+      h('path', { d: 'M4 17h16' }),
+      h('path', { d: 'M7 17c0-4 2-9 5-9s5 5 5 9' }),
+      h('path', { d: 'M4 17c0 1 1 2 3 2h10c2 0 3-1 3-2' })),
+    'cat-jacket': h(React.Fragment, null,
+      h('path', { d: 'M7 4 4 7v12h6V9h4v10h6V7l-3-3' }),
+      h('path', { d: 'M9 4h6l-3 3-3-3Z' })),
+    'cat-shirt': h(React.Fragment, null,
+      h('path', { d: 'M6 4 4 7l3 3v10h10V10l3-3-2-3' }),
+      h('path', { d: 'M9 4a3 3 0 0 0 6 0' })),
+    'cat-pants': h(React.Fragment, null,
+      h('path', { d: 'M6 4h12v4l-2 12h-3l-1-9-1 9H8L6 8V4Z' }),
+      h('path', { d: 'M6 6h12' })),
+    'cat-gloves': h(React.Fragment, null,
+      h('path', { d: 'M8 20V10a2 2 0 1 1 4 0V4a2 2 0 1 1 4 0v8l2-2a2 2 0 1 1 2 2l-4 4v4Z' })),
+    'cat-boots': h(React.Fragment, null,
+      h('path', { d: 'M8 4h5v10l5 3v3H5v-5l3-2V4Z' }),
+      h('path', { d: 'M8 12h5' })),
+    'cat-accessories': h(React.Fragment, null,
+      h('circle', { cx: 8, cy: 14, r: 4 }),
+      h('circle', { cx: 16, cy: 14, r: 4 }),
+      h('path', { d: 'M12 14h0M4 14 2 12M20 14l2-2' })),
+    'cat-workshop': h(React.Fragment, null,
+      h('path', { d: 'M6 4h12l-2 4H8L6 4Z' }),
+      h('path', { d: 'M5 10h14v10H5Z' }),
+      h('path', { d: 'M10 14h4v4h-4Z' }))
+  };
+  return h('svg', {
+    width: s, height: s, viewBox: '0 0 24 24', fill: 'none',
+    stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
+    'aria-hidden': 'true'
+  }, paths[name] || null);
+}
+
+// Batch 1068 — Market pulse ticker. Scrolling live-tape tape of the most
+// recent sold listings across the marketplace. Mirrors the operator's
+// template `.pulse` strip (chrome.jsx lines 89–112). Public endpoint,
+// anonymous-friendly. Silent when there are no recent sales (fresh
+// install) so we don't show an empty tape. Polls every 45s.
+function MarketPulse() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/listings/recent-sales?limit=14');
+        if (!r.ok) return;
+        const data = await r.json();
+        if (alive) setRows(Array.isArray(data) ? data : []);
+      } catch (_) { /* silent */ }
+    };
+    load();
+    const id = setInterval(() => { if (!document.hidden) load(); }, 45000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  // Duplicate the row list so the css keyframe (`pulse-scroll`) can
+  // loop seamlessly — by the time the first copy scrolls past, the
+  // second copy is positioned to pick up without a visible seam.
+  const doubled = [...rows, ...rows];
+  const vol24 = rows.reduce((acc, r) => acc + (parseFloat(r.soldPrice) || 0), 0);
+  return h('div', { className: 'pulse', style: { height: 32 } },
+    h('span', { className: 'pulse-led' }),
+    h('span', { style: { fontWeight: 500, color: 'var(--ink-2)' } }, 'LIVE TAPE'),
+    h('div', { className: 'pulse-stream' },
+      h('div', { className: 'pulse-track' },
+        doubled.map((r, i) => h('span', { key: i, className: 'pulse-item' },
+          h('span', { className: 'dot' }),
+          h('b', null, r.itemName || r.name || 'Item'),
+          h('span', { className: 'up' }, '$' + (parseFloat(r.soldPrice) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })),
+          h('span', { style: { color: 'var(--ink-4)' } }, ' · ' + (r.sellerName || r.sellerDisplayName || 'seller'))
+        ))
+      )
+    ),
+    h('span', { style: { color: 'var(--ink-4)' } }, '24H · ',
+      h('b', { style: { color: 'var(--ink-2)' } }, '$' + vol24.toLocaleString('en-US', { maximumFractionDigits: 0 })),
+      ' vol'
+    )
   );
 }
 
@@ -635,8 +1671,15 @@ function FollowingRail({ me, watchlist, onToggleStar, onOpen, onAddToCart, cartH
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 90_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — visibility-aware poll; FollowingRail's feed only
+    // matters while the user is looking at the marketplace page.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 90_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [me?.id]);
   if (!me || !rows || rows.length === 0) return null;
   return h('section', { className: 'top-deals-rail' },
@@ -649,8 +1692,8 @@ function FollowingRail({ me, watchlist, onToggleStar, onOpen, onAddToCart, cartH
     h('div', { className: 'top-deals-track' },
       rows.map(l => h('div', {
         key: 'follow-' + l.id,
-        className: 'top-deals-card-wrap',
-        onClick: () => onOpen(l)
+        className: 'top-deals-card-wrap'
+        // Batch 932 — removed wrapper onClick (see just-listed rail).
       },
         h(GridCard, {
           listing: l,
@@ -676,8 +1719,16 @@ function JustSoldRail() {
       } catch (_) {}
     };
     load();
-    const id = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(id); };
+    // Batch 806 — visibility-aware polling. Same reasoning as the
+    // ending-soon rail: no point burning bandwidth when the user's
+    // looking at a different tab.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 30_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
   if (!rows || rows.length === 0) return null;
   return h('section', { className: 'just-listed-rail' },
@@ -687,22 +1738,42 @@ function JustSoldRail() {
       h('span', { className: 'just-listed-count' }, `${rows.length} recent`)
     ),
     h('div', { className: 'just-listed-track' },
-      rows.map(s => h('a', {
+      rows.map(s => h('div', {
         key: 'js-' + s.listingId,
-        href: s.itemId ? ('/item/' + s.itemId) : '#',
         className: 'top-seller-card',
-        style: { textDecoration: 'none', minWidth: 220, padding: 10 },
-        title: `${s.itemName || 'Item'} sold for ${fmt(s.price)} · ${timeAgo(s.soldAt)}`
+        style: { minWidth: 220, padding: 10 },
       },
         h('div', { className: 'top-seller-body', style: { width: '100%' } },
-          h('div', { className: 'top-seller-name', style: { fontSize: 13, fontWeight: 700 } },
-            s.itemName || 'Item'
+          h('a', {
+            href: s.itemId ? ('/item/' + s.itemId) : '#',
+            style: { textDecoration: 'none', color: 'inherit', display: 'block' },
+            title: `${s.itemName || 'Item'} sold for ${fmt(s.price)} · ${timeAgo(s.soldAt)}`
+          },
+            h('div', { className: 'top-seller-name', style: { fontSize: 13, fontWeight: 700 } },
+              s.itemName || 'Item'
+            ),
+            h('div', { className: 'top-seller-meta' },
+              h('span', { style: { color: 'var(--green)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } },
+                fmt(s.price)),
+              h('span', { style: { color: 'var(--text-muted)', marginLeft: 8 } },
+                timeAgo(s.soldAt))
+            )
           ),
-          h('div', { className: 'top-seller-meta' },
-            h('span', { style: { color: 'var(--green)', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } },
-              fmt(s.price)),
-            h('span', { style: { color: 'var(--text-muted)', marginLeft: 8 } },
-              timeAgo(s.soldAt))
+          // Seller byline — previously the ticker showed just item +
+          // price, with no way to click through to the seller. Now the
+          // seller name is a clickable stall link (when sellerUserId
+          // is known; falls back to plain text for system listings).
+          s.sellerName && h('div', {
+            style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }
+          },
+            'by ',
+            s.sellerUserId
+              ? h('a', {
+                  href: '/stall/' + s.sellerUserId,
+                  style: { color: 'var(--accent)', textDecoration: 'none' },
+                  title: `View ${s.sellerName}'s stall`
+                }, s.sellerName)
+              : s.sellerName
           )
         )
       ))
@@ -710,11 +1781,81 @@ function JustSoldRail() {
   );
 }
 
+// Block / unblock a seller (batch 344). Silent for the blocked user;
+// reversible at any time. On block, fires a confirm dialog because
+// the effect is strong (hides their listings, refuses their offers,
+// muts new-listing pings). On unblock, no confirm — reversal is cheap.
+// Fetches the current block state ad-hoc on mount via the block-list
+// endpoint; there's no dedicated /status endpoint — reads the set once
+// per stall visit, which is fine for the human cadence of a stall page.
+function BlockSellerButton({ sellerId, sellerName, showToast }) {
+  const [blocked, setBlocked] = useState(null); // null = loading
+  const [busy, setBusy]       = useState(false);
+  useEffect(() => {
+    let alive = true;
+    import('./api.js').then(({ fetchBlockedUsers }) => fetchBlockedUsers())
+      .then(data => {
+        if (!alive) return;
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        setBlocked(items.some(it => Number(it.blockedUserId) === Number(sellerId)));
+      })
+      .catch(() => { if (alive) setBlocked(false); });
+    return () => { alive = false; };
+  }, [sellerId]);
+  const toggle = async () => {
+    if (blocked === null || busy) return;
+    if (!blocked) {
+      const who = sellerName ? `@${sellerName}` : 'this seller';
+      const ok = confirm(`Block ${who}?\n\nTheir listings will be hidden from your grid, ` +
+        "you'll stop receiving offers from them, and they'll stop appearing in your following " +
+        "feed. Reversible at any time from Profile → Personal.");
+      if (!ok) return;
+    }
+    setBusy(true);
+    try {
+      const { blockUser, unblockUser } = await import('./api.js');
+      const res = blocked ? await unblockUser(sellerId) : await blockUser(sellerId);
+      if (res && (res.error || res.code) && res.code !== 'BLOCK_LIMIT') {
+        toast(res.message || res.error || 'Could not update block', 'err');
+        return;
+      }
+      if (res?.code === 'BLOCK_LIMIT') {
+        toast(res.message, 'err');
+        return;
+      }
+      setBlocked(!blocked);
+      // Batch 918 — name the seller in the toast so a user bouncing
+      // between stalls sees exactly which one they just flipped.
+      const who = sellerName ? `@${sellerName}` : 'Seller';
+      showToast && showToast(
+        blocked
+          ? `${who} unblocked — their listings return to your grid.`
+          : `${who} blocked — their listings and offers are hidden.`,
+        'ok'
+      );
+    } finally { setBusy(false); }
+  };
+  if (blocked === null) return null; // render nothing until we know
+  return h('button', {
+    className: 'stall-share-btn',
+    style: blocked
+      ? { border: '1px solid var(--red)', color: 'var(--red)', opacity: 0.9 }
+      : { border: '1px solid var(--border)', opacity: 0.7 },
+    disabled: busy,
+    onClick: toggle,
+    title: blocked
+      ? 'You have blocked this seller. Click to unblock.'
+      : 'Hide this seller and refuse their offers/messages.'
+  },
+    blocked ? 'Blocked' : 'Block'
+  );
+}
+
 // Follow / unfollow a seller. Fetches current status once on mount
 // so the button label reflects reality; click flips optimistically.
 // Click-when-following unfollows, click-when-not follows. Shows the
 // current follower count as a quiet chip so buyers see social proof.
-function FollowSellerButton({ sellerId, showToast }) {
+function FollowSellerButton({ sellerId, sellerName, showToast }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy]     = useState(false);
   useEffect(() => {
@@ -731,7 +1872,7 @@ function FollowSellerButton({ sellerId, showToast }) {
       const { followSeller, unfollowSeller } = await import('./api.js');
       const res = status.following ? await unfollowSeller(sellerId) : await followSeller(sellerId);
       if (res && (res.error || res.code)) {
-        alert(res.message || res.error || 'Could not update follow');
+        toast(res.message || res.error || 'Could not update follow', 'err');
         return;
       }
       const nowFollowing = !status.following;
@@ -739,7 +1880,17 @@ function FollowSellerButton({ sellerId, showToast }) {
         following: nowFollowing,
         followerCount: status.followerCount + (nowFollowing ? 1 : -1)
       });
-      showToast && showToast(nowFollowing ? 'Following — you\'ll be notified of new listings' : 'Unfollowed', 'ok');
+      // Batch 918 — name the seller in the follow/unfollow toast so
+      // a user who has bounced between several stalls sees exactly
+      // which one just flipped. Falls back to plain copy when no name
+      // is in scope (legacy callers).
+      const who = sellerName ? `@${sellerName}` : 'seller';
+      showToast && showToast(
+        nowFollowing
+          ? `Following ${who} — you'll be notified of new listings.`
+          : `Unfollowed ${who}.`,
+        'ok'
+      );
     } finally { setBusy(false); }
   };
   if (!status) {
@@ -761,16 +1912,140 @@ function FollowSellerButton({ sellerId, showToast }) {
   );
 }
 
+// Batch 848 — Contact Seller inline drawer. Replaces a `window.prompt()`
+// that (a) had no ARIA dialog role so screen-reader users heard
+// nothing, (b) silently failed on mobile Safari when a password manager
+// treated the prompt as suspicious, and (c) forced single-line text
+// with no multi-line support — a support ticket body often wants
+// paragraphs. The drawer opens inline below the stall hero, autofocus
+// on the textarea, Ctrl+Enter or button to submit, Esc to close.
+function ContactSellerButton({ seller }) {
+  const [open, setOpen]       = useState(false);
+  const [body, setBody]       = useState('');
+  const [busy, setBusy]       = useState(false);
+  const textareaRef           = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      if (textareaRef.current) textareaRef.current.focus({ preventScroll: true });
+    });
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !busy) { e.stopPropagation(); setOpen(false); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, busy]);
+  const submit = async () => {
+    const trimmed = (body || '').trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    try {
+      const { createSupportTicket } = await import('./api.js');
+      const res = await createSupportTicket({
+        category: 'ACCOUNT',
+        subject:  `Contact seller · @${seller.displayName || seller.id}`,
+        body:     `Seller stall: /stall/${seller.id}\n\n${trimmed}`
+      });
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not open ticket.', 'err');
+        return;
+      }
+      toast('Message sent through support — track it in /support.', 'ok');
+      setOpen(false);
+      setBody('');
+    } finally { setBusy(false); }
+  };
+  return h(React.Fragment, null,
+    h('button', {
+      className: 'stall-share-btn',
+      onClick: () => setOpen(v => !v),
+      'aria-haspopup': 'dialog',
+      'aria-expanded': open,
+      title: 'Contact this seller through support'
+    },
+      h('span', { className: 'stall-share-icon' }, '✉'),
+      'Contact'),
+    open && h('div', {
+      role: 'dialog',
+      'aria-modal': 'false',
+      'aria-labelledby': 'contact-seller-drawer-title',
+      style: {
+        width: '100%', marginTop: 10, padding: 14,
+        background: 'var(--bg-elevated, #1a1c20)',
+        border: '1px solid var(--border)', borderRadius: 8
+      }
+    },
+      h('div', {
+        id: 'contact-seller-drawer-title',
+        style: { fontSize: 13, fontWeight: 700, marginBottom: 6 }
+      }, 'Contact @', seller.displayName || 'seller'),
+      h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5 } },
+        'Goes through our support team — we don\'t share your email with the seller. They\'ll reply through /support.'),
+      h('textarea', {
+        ref: textareaRef,
+        value: body,
+        maxLength: 2000,
+        placeholder: 'What do you want to ask? (question about a listing, trade, etc.)',
+        onChange: (e) => setBody(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
+        },
+        rows: 5,
+        'aria-label': 'Message to support about this seller',
+        style: {
+          width: '100%', padding: '8px 10px', fontSize: 13,
+          background: 'var(--bg, #0f1115)', color: 'var(--text)',
+          border: '1px solid var(--border)', borderRadius: 4,
+          resize: 'vertical', fontFamily: 'inherit'
+        }
+      }),
+      h('div', {
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }
+      },
+        h('span', { style: { fontSize: 10, color: 'var(--text-muted)' } },
+          `${body.trim().length}/2000 · Ctrl+Enter to send`),
+        h('div', { style: { display: 'flex', gap: 6 } },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { padding: '6px 14px', fontSize: 12 },
+            onClick: () => { setOpen(false); setBody(''); },
+            disabled: busy
+          }, 'Cancel'),
+          h('button', {
+            className: 'btn btn-primary',
+            style: { padding: '6px 14px', fontSize: 12 },
+            disabled: busy || !body.trim(),
+            onClick: submit
+          }, busy ? 'Sending…' : 'Send')
+        )
+      )
+    )
+  );
+}
+
 // ── Share stall — copies the canonical URL to the clipboard with a
 // toast fallback if the browser doesn't grant clipboard-write permission.
 // Keeps the stall-hero compact; no floating-menu popover.
-function ShareStallButton({ userId, showToast }) {
+function ShareStallButton({ userId, sellerName, showToast }) {
   const [copied, setCopied] = useState(false);
   const share = async () => {
     const url = `${window.location.origin}/stall/${userId}`;
+    // Batch 877 — personalise the native share title so the receiving
+    // surface (Discord/X/Messages/etc.) shows "Check out @Bob's stall
+    // on SkinBox" instead of a generic "SkinBox stall". Much higher
+    // click-through for sellers sharing their own stall.
+    const title = sellerName
+      ? `${sellerName}'s stall on SkinBox`
+      : 'SkinBox stall';
+    const text = sellerName
+      ? `Browse ${sellerName}'s listings on SkinBox — s&box skin marketplace with auctions, buy orders, and secure escrow.`
+      : 'Browse this SkinBox stall — s&box skin marketplace.';
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'SkinBox stall', url });
+        await navigator.share({ title, text, url });
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
         setCopied(true);
@@ -834,8 +2109,8 @@ function RecentlyViewedRail({ watchlist, onToggleStar }) {
         h('div', { className: 'recently-viewed-thumb' },
           it.imageUrl
             ? h('img', { src: it.imageUrl, alt: it.name, loading: 'lazy' })
-            : h('div', { className: 'recently-viewed-glyph', style: { color: it.accentColor || '#60a5fa' } },
-                it.iconEmoji || '📦')
+            : h('div', { className: 'recently-viewed-glyph', style: { color: 'var(--ink-3)' } },
+                ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—')
         ),
         h('div', { className: 'recently-viewed-name' }, it.name),
         h('div', { className: 'recently-viewed-price' },
@@ -846,36 +2121,79 @@ function RecentlyViewedRail({ watchlist, onToggleStar }) {
 }
 
 export class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: null }; }
-  static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error('ErrorBoundary caught:', error, info); }
+  constructor(props) { super(props); this.state = { error: null, showDetails: false }; }
+  static getDerivedStateFromError(error) { return { error, showDetails: false }; }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught:', error, info);
+    // Batch 678 — forward the crash to the server so ops can see
+    // production-user errors instead of relying on the user's console.
+    // Best-effort: a broken global state shouldn't throw here, so the
+    // whole block is wrapped in try/catch. CSRF header is grabbed
+    // inline because importing api.js's writeJson is fragile at
+    // crash-time (we may be crashing because of a module load error).
+    try {
+      // /api/client-errors is CSRF-exempt (batch 688) — no need to
+      // parse and forward the cookie, simplifies the crash path.
+      fetch('/api/client-errors', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: String(error && error.message || error).slice(0, 500),
+          stack:   String((error && error.stack) || '').slice(0, 4000),
+          url:     String(location && location.href || '').slice(0, 500),
+          userAgent: String(navigator && navigator.userAgent || '').slice(0, 300)
+        })
+      }).catch(() => { /* swallow — logging failures shouldn't re-crash */ });
+    } catch (_) { /* noop */ }
+  }
   render() {
     if (this.state.error) {
       const err = this.state.error;
+      const stack = String(err && err.stack ? err.stack : err);
       return h('div', {
         style: {
-          padding: '40px', maxWidth: 900, margin: '40px auto',
-          background: '#1a0a0a', border: '1px solid #f87171',
-          borderRadius: 12, color: '#fca5a5',
-          fontFamily: 'JetBrains Mono, monospace', fontSize: 13, lineHeight: 1.6
+          padding: '48px 32px', maxWidth: 560, margin: '60px auto',
+          background: 'var(--bg-card, #111827)', border: '1px solid var(--border, #1f2937)',
+          borderRadius: 14, color: 'var(--text-primary, #e5e7eb)',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontSize: 15, lineHeight: 1.55,
+          textAlign: 'center', boxShadow: '0 8px 28px rgba(0,0,0,0.35)'
         }
       },
-        h('h1', { style: { color: '#f87171', fontSize: 22, marginBottom: 12 } }, '💥 SkinBox render error'),
-        h('div', { style: { color: '#fca5a5', marginBottom: 16 } },
-          'Something threw during render. Full stack below:'),
-        h('pre', { style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#0a0a0a', padding: 16, borderRadius: 8 } },
-          String(err && err.stack ? err.stack : err)
-        ),
-        h('div', { style: { marginTop: 18, display: 'flex', gap: 10 } },
+        h('div', { style: { fontSize: 44, marginBottom: 10 } }, '—'),
+        h('h1', { style: { fontSize: 22, fontWeight: 800, margin: '0 0 8px', color: 'var(--text-primary, #e5e7eb)' } },
+          'Maintenance in progress'),
+        h('p', { style: { color: 'var(--text-secondary, #9ca3af)', margin: '0 0 24px' } },
+          "SkinBox is undergoing a brief maintenance window. Try refreshing the page, or come back in a few minutes — your wallet, listings and trades are safe."),
+        h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
           h('button', {
-            style: { padding: '10px 20px', background: '#1ea5ff', color: '#051018', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' },
+            style: { padding: '10px 22px', background: 'var(--accent, #1ea5ff)', color: '#051018', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14 },
             onClick: () => location.reload()
-          }, 'Reload'),
+          }, 'Reload page'),
           h('button', {
-            style: { padding: '10px 20px', background: 'transparent', color: '#1ea5ff', border: '1px solid #1ea5ff', borderRadius: 8, fontWeight: 700, cursor: 'pointer' },
+            style: { padding: '10px 22px', background: 'transparent', color: 'var(--text-primary, #e5e7eb)', border: '1px solid var(--border, #374151)', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14 },
             onClick: () => { location.href = '/'; }
-          }, 'Go home')
-        )
+          }, 'Go to home'),
+          h('a', {
+            href: '/support',
+            style: { padding: '10px 22px', background: 'transparent', color: 'var(--text-primary, #e5e7eb)', border: '1px solid var(--border, #374151)', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14, textDecoration: 'none', display: 'inline-block' }
+          }, 'Contact support')
+        ),
+        h('div', { style: { marginTop: 28, fontSize: 12, color: 'var(--text-muted, #6b7280)' } },
+          h('button', {
+            style: { background: 'none', border: 'none', color: 'var(--text-muted, #6b7280)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline', padding: 0 },
+            onClick: () => this.setState({ showDetails: !this.state.showDetails })
+          }, this.state.showDetails ? 'Hide technical details' : 'Show technical details')
+        ),
+        this.state.showDetails && h('pre', {
+          style: {
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            background: 'rgba(0,0,0,0.35)', padding: 14, borderRadius: 8,
+            marginTop: 14, textAlign: 'left', fontSize: 11,
+            fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted, #9ca3af)',
+            maxHeight: 260, overflow: 'auto'
+          }
+        }, stack)
       );
     }
     return this.props.children;
@@ -885,6 +2203,112 @@ export class ErrorBoundary extends React.Component {
 // Install the anchor interceptor exactly once, at module load, so every `<a
 // href="/...">` in the app routes client-side instead of triggering a reload.
 installAnchorInterceptor();
+
+// Floating back-to-top button — shows after the viewer scrolls past
+// 600px on the homepage / long stall / watchlist pages. A plain window
+// scroll listener is enough because the main content isn't wrapped in
+// an overflow:auto container (the scroll container is window itself).
+// Button is pure-DOM — no React state churn on every scroll tick. The
+// event handler is throttled to one raf so continuous scroll doesn't
+// thrash layout.
+function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setVisible(window.scrollY > 600);
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();  // seed on mount
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  if (!visible) return null;
+  return h('button', {
+    'aria-label': 'Back to top',
+    title: 'Back to top',
+    onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+    style: {
+      position: 'fixed', right: 24, bottom: 24,
+      width: 42, height: 42, borderRadius: 21,
+      background: 'var(--bg-page-2)',
+      border: '1px solid var(--border-light)',
+      color: 'var(--accent)',
+      fontSize: 20, fontWeight: 700,
+      cursor: 'pointer',
+      boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(77,200,255,0.06)',
+      zIndex: 40,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      lineHeight: 1
+    }
+  }, '↑');
+}
+
+// Cookie consent banner — bottom-of-page, dismissable, persists choice in
+// localStorage. SkinBox sets only essential cookies (sbox_csrf,
+// JSESSIONID) so legally we can render content without consent, but the
+// banner is the standard EU/UK GDPR + ePrivacy-Directive-compatible UX
+// pattern and a trust signal — visitors expect it. "Accept" stores
+// `sb_cookie_consent=accepted`, "Reject" stores `rejected`. Either
+// dismisses the banner. Re-shown only after a manual `localStorage
+// .removeItem('sb_cookie_consent')` (handled by the Privacy page link).
+function CookieBanner() {
+  const [visible, setVisible] = useState(() => {
+    try { return !localStorage.getItem('sb_cookie_consent'); }
+    catch { return false; }
+  });
+  if (!visible) return null;
+  const decide = (choice) => {
+    try { localStorage.setItem('sb_cookie_consent', choice); } catch (_) {}
+    setVisible(false);
+  };
+  return h('div', {
+    role: 'region',
+    'aria-label': 'Cookie consent',
+    style: {
+      position: 'fixed', left: 16, right: 16, bottom: 16,
+      maxWidth: 720, marginLeft: 'auto', marginRight: 'auto',
+      padding: '14px 18px',
+      background: 'var(--bg-card, #0f1525)',
+      border: '1px solid var(--border-light, #1f2a44)',
+      borderRadius: 12,
+      color: 'var(--text-primary, #e5e7eb)',
+      fontSize: 13, lineHeight: 1.5,
+      boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+      zIndex: 50,
+      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12,
+      justifyContent: 'space-between'
+    }
+  },
+    h('div', { style: { flex: '1 1 320px', minWidth: 240 } },
+      h('div', { style: { fontWeight: 700, marginBottom: 4 } }, 'Cookies on SkinBox'),
+      h('div', { style: { color: 'var(--text-secondary, #9ca3af)' } },
+        'We use a small set of essential cookies to keep you signed in and to protect your wallet from CSRF attacks. ',
+        h('a', {
+          href: '/legal/cookies.html',
+          style: { color: 'var(--accent)', textDecoration: 'underline' }
+        }, 'Read the cookie policy'),
+        '.'
+      )
+    ),
+    h('div', { style: { display: 'flex', gap: 8, flexShrink: 0 } },
+      h('button', {
+        className: 'btn btn-ghost',
+        style: { padding: '8px 14px', fontSize: 12, border: '1px solid var(--border)' },
+        onClick: () => decide('rejected')
+      }, 'Reject non-essential'),
+      h('button', {
+        className: 'btn btn-accent',
+        style: { padding: '8px 16px', fontSize: 12 },
+        onClick: () => decide('accepted')
+      }, 'Accept')
+    )
+  );
+}
 
 // Full-width site footer — rendered at the bottom of every route. Multi-column
 // link map plus a "Powered by Stripe" mark that points users at the real
@@ -912,19 +2336,46 @@ export function SiteFooter() {
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (alive && d?.version) setVersion(d.version); })
       .catch(() => {});
-    const id = setInterval(load, 5 * 60_000);
+    // Batch 806 — visibility-aware poll.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
     return () => { alive = false; clearInterval(id); };
   }, []);
   return h('footer', { className: 'site-footer' },
     h('div', { className: 'site-footer-inner' },
       h('div', { className: 'site-footer-col site-footer-brand' },
         h('div', { className: 'site-footer-logo' },
-          h('div', { className: 'nav-logo-icon' },
-            h('img', {
-              src: '/img/logo.png',
-              alt: 'SkinBox',
-              onError: (e) => { e.target.style.display = 'none'; e.target.parentElement.textContent = 'SB'; }
-            })
+          // Same isometric-crate SVG as the nav logo; blue-fade facets
+          // per the operator's template. See the nav-logo block above
+          // for the gradient definitions (re-declared here so the SVG
+          // is self-contained and renders in isolation).
+          h('div', { className: 'nav-logo-icon', 'aria-hidden': 'true' },
+            h('svg', {
+              viewBox: '0 0 48 48',
+              xmlns: 'http://www.w3.org/2000/svg',
+              width: '100%',
+              height: '100%',
+              fill: 'none'
+            },
+              h('defs', null,
+                h('linearGradient', { id: 'sbmf-top', x1: '24', y1: '2', x2: '24', y2: '26', gradientUnits: 'userSpaceOnUse' },
+                  h('stop', { offset: '0%',   stopColor: '#c0e9ff' }),
+                  h('stop', { offset: '100%', stopColor: '#4dc8ff' })
+                ),
+                h('linearGradient', { id: 'sbmf-left', x1: '4', y1: '24', x2: '24', y2: '46', gradientUnits: 'userSpaceOnUse' },
+                  h('stop', { offset: '0%',   stopColor: '#0a7cc9' }),
+                  h('stop', { offset: '100%', stopColor: '#04121c' })
+                ),
+                h('linearGradient', { id: 'sbmf-right', x1: '46', y1: '24', x2: '24', y2: '46', gradientUnits: 'userSpaceOnUse' },
+                  h('stop', { offset: '0%',   stopColor: '#1ea5ff' }),
+                  h('stop', { offset: '100%', stopColor: '#0d4d78' })
+                )
+              ),
+              h('path', { d: 'M24 3 L44 14 L24 25 L4 14 Z',   fill: 'url(#sbmf-top)',   stroke: 'rgba(120,210,255,0.5)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+              h('path', { d: 'M4 14 L24 25 L24 45 L4 34 Z',   fill: 'url(#sbmf-left)',  stroke: 'rgba(77,200,255,0.12)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+              h('path', { d: 'M44 14 L24 25 L24 45 L44 34 Z', fill: 'url(#sbmf-right)', stroke: 'rgba(77,200,255,0.18)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+              h('path', { d: 'M4 14 L24 3 L44 14',            fill: 'none',             stroke: 'rgba(192,233,255,0.75)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+              h('path', { d: 'M24 25 L24 45',                 stroke: 'rgba(4,18,28,0.55)', strokeWidth: '0.8' })
+            )
           ),
           h('span', { className: 'nav-logo-text' }, 'SkinBox')
         ),
@@ -968,24 +2419,29 @@ export function SiteFooter() {
         h('a', { href: paths.help() }, 'Help Center'),
         h('a', { href: paths.faq() }, 'FAQ'),
         h('a', { href: paths.support() }, 'Support'),
-        h('a', { href: paths.faq() }, 'Fees & Pricing'),
+        h('a', { href: paths.support() + '?topic=bug' }, 'Report a Bug'),
+        h('a', { href: paths.faq() + '?q=' + encodeURIComponent('platform fee') }, 'Fees & Pricing'),
         h('a', { href: '/status.html' }, 'System Status'),
         h('a', { href: '/changelog.html' }, 'Changelog'),
+        h('a', { href: paths.affiliate() }, 'Affiliate Program'),
         h('a', { href: paths.settings() }, 'Settings')
       ),
       h('div', { className: 'site-footer-col' },
         h('div', { className: 'site-footer-title' }, 'Legal'),
         h('a', { href: '/legal/terms.html' }, 'Terms of Service'),
+        h('a', { href: '/legal/privacy.html' }, 'Privacy Policy'),
+        h('a', { href: '/legal/refunds.html' }, 'Refund Policy'),
         h('a', { href: '/legal/trade-safety.html' }, 'Trade Safety'),
         h('a', { href: '/legal/disclaimer.html' }, 'Risk Disclaimer'),
         h('a', { href: '/legal/acceptable-use.html' }, 'Acceptable Use'),
-        h('a', { href: '/legal/cookies.html' }, 'Cookies')
-        /* Privacy Policy and Refund Policy deliberately NOT surfaced here.
-           The HTML files still exist at /legal/privacy.html and
-           /legal/refunds.html so GDPR requests, payment processors, and
-           search engines can discover them, but no user-facing nav links
-           point to them. Payment processors (Stripe) will ask for a
-           Privacy Policy URL — give them the direct link then. */
+        h('a', { href: '/legal/cookies.html' }, 'Cookies'),
+        h('a', { href: '/legal/responsible-disclosure.html' }, 'Responsible Disclosure')
+        /* Privacy Policy and Refund Policy now linked alongside the
+           other legal docs (batch 300). EU/UK GDPR + California CCPA
+           effectively require both to be clearly discoverable from
+           every page, not just the pre-signin modal. robots.txt still
+           allows them; search engines reference them for compliance
+           trust signals. */
       )
     ),
     h('div', { className: 'site-footer-bottom' },
@@ -1033,11 +2489,29 @@ export function PreSigninModal({ onClose, onAccept }) {
     onAccept(email.trim(), marketing);
   };
 
+  // Batch 830 — Escape closes pre-signin modal.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      if (typeof onClose === 'function') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return h('div', { className: 'modal-backdrop', onClick: onClose },
     h('div', {
       className: 'modal presignin-modal',
       onClick: e => e.stopPropagation(),
+      // Batch 830 — PreSigninModal completes the a11y pass: had
+      // role=dialog + aria-labelledby already; adds aria-modal and
+      // an Escape handler at the parent component level (see useEffect
+      // above). Without aria-modal, screen readers didn't know to
+      // trap user attention inside the dialog while Steam handoff was
+      // pending.
       role: 'dialog',
+      'aria-modal': 'true',
       'aria-labelledby': 'presignin-title'
     },
       h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close' }, '✕'),
@@ -1112,6 +2586,83 @@ export function PreSigninModal({ onClose, onAccept }) {
   );
 }
 
+// Inline "Name this saved search" drawer — replaces a `window.prompt()`
+// that was inaccessible (no ARIA semantics, some mobile browsers
+// silently dismiss, password managers often block), and had no client
+// validation feedback. The drawer lives directly beneath the saved-
+// searches toolbar so there's a clear spatial anchor between "I clicked
+// Save search" and "type a name". Autofocuses the input, commits on
+// Enter, cancels on Escape.
+function SaveSearchDrawer({ initial, onCancel, onSave }) {
+  const [name, setName] = useState(initial || '');
+  const inputRef = useRef(null);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        try { inputRef.current.select(); } catch (_) {}
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onCancel(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+  const trimmed = (name || '').trim();
+  const canSave = trimmed.length > 0 && trimmed.length <= 60;
+  return h('div', {
+    role: 'dialog',
+    'aria-modal': 'false',
+    'aria-labelledby': 'save-search-drawer-title',
+    style: {
+      width: '100%', marginTop: 6, padding: '10px 12px',
+      background: 'var(--bg-elevated, #1a1c20)',
+      border: '1px solid var(--border)', borderRadius: 6,
+      display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center'
+    }
+  },
+    h('span', {
+      id: 'save-search-drawer-title',
+      style: { fontSize: 11, opacity: 0.8, marginRight: 4 }
+    }, 'Name this preset'),
+    h('input', {
+      ref: inputRef,
+      type: 'text',
+      value: name,
+      maxLength: 60,
+      placeholder: 'e.g. Limited hats under $20',
+      onChange: (e) => setName(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === 'Enter' && canSave) { e.preventDefault(); onSave(trimmed); }
+      },
+      'aria-label': 'Saved search name',
+      style: {
+        flex: '1 1 220px', minWidth: 180,
+        padding: '6px 10px', fontSize: 12,
+        background: 'var(--bg, #0f1115)', color: 'var(--text)',
+        border: '1px solid var(--border)', borderRadius: 4
+      }
+    }),
+    h('span', { style: { fontSize: 10, opacity: 0.55 } },
+      `${trimmed.length}/60`),
+    h('button', {
+      className: 'btn btn-ghost',
+      style: { padding: '6px 12px', fontSize: 11 },
+      onClick: onCancel
+    }, 'Cancel'),
+    h('button', {
+      className: 'btn btn-primary',
+      style: { padding: '6px 12px', fontSize: 11 },
+      disabled: !canSave,
+      onClick: () => onSave(trimmed)
+    }, 'Save')
+  );
+}
+
 export function App() {
   // Router — every feature is reachable by its own URL. Modal state has been
   // replaced with route-driven rendering. `routeName` is what we switch on.
@@ -1154,7 +2705,28 @@ export function App() {
   // marketplace state
   const [listings, setListings]         = useState([]);
   const [loading, setLoading]           = useState(true);
-  const [view, setView]                 = useState('grid');
+  // Batch 812 — grid/table view choice is persisted in localStorage so
+  // a user who prefers the table view (wider density, more fields per
+  // row) doesn't have to flip the toggle every session.
+  const [view, setViewRaw] = useState(() => {
+    try {
+      const stored = localStorage.getItem('sb_market_view');
+      return (stored === 'table' || stored === 'grid') ? stored : 'grid';
+    } catch { return 'grid'; }
+  });
+  const setView = (v) => {
+    setViewRaw(v);
+    try { localStorage.setItem('sb_market_view', v); } catch (_) {}
+  };
+  // Pagination — marketplace serves 100 listings per page (ListingController
+  // caps the limit). When the first page returns a full 100, we expose a
+  // "Load more" button that fetches the next page and appends. `hasMore`
+  // is conservative: a full page means there MAY be more (could also be
+  // exactly 100 total). The server returning fewer than 100 on the next
+  // fetch flips it to false. Resets on every filter change so a user who
+  // narrows the grid doesn't leak stale offset state.
+  const [hasMore, setHasMore]           = useState(false);
+  const [loadingMore, setLoadingMore]   = useState(false);
 
   // filters
   // Skinport pattern: debounce the raw search input so the filtering
@@ -1171,15 +2743,36 @@ export function App() {
     try { return new URLSearchParams(window.location.search); }
     catch { return new URLSearchParams(); }
   })();
-  const ALLOWED_SORTS      = ['price_desc','price_asc','newest','rarity','discount'];
+  const ALLOWED_SORTS      = ['price_desc','price_asc','newest','rarity','discount','ending_soon','popularity','views'];
   const ALLOWED_CATEGORIES = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const ALLOWED_RARITIES   = ['All','Limited','Off-Market','Standard'];
   const __initialQ        = (__urlParams.get('q') || '').slice(0, 80);
-  const __initialSort     = ALLOWED_SORTS.includes(__urlParams.get('sort')) ? __urlParams.get('sort') : 'price_desc';
+  // Marketplace default sort preference (batch 544). If the URL
+  // didn't specify a sort, fall back to what the user picked last
+  // time. localStorage is per-device so it doesn't sync across
+  // browsers but it makes a single-device returning visitor land on
+  // their preferred ordering (newest / discount / popularity) without
+  // re-picking every time. Invalid stored values collapse to the old
+  // price_desc default so a future ALLOWED_SORTS change can't break
+  // returning users.
+  let __storedSort = null;
+  try { __storedSort = localStorage.getItem('sb_market_sort'); } catch (_) {}
+  const __initialSort     = ALLOWED_SORTS.includes(__urlParams.get('sort'))
+    ? __urlParams.get('sort')
+    : (ALLOWED_SORTS.includes(__storedSort) ? __storedSort : 'price_desc');
   const __initialCategory = ALLOWED_CATEGORIES.includes(__urlParams.get('category')) ? __urlParams.get('category') : 'All';
   const __initialRarity   = ALLOWED_RARITIES.includes(__urlParams.get('rarity')) ? __urlParams.get('rarity') : 'All';
   const __initialMin      = (__urlParams.get('min') || '').slice(0, 16);
   const __initialMax      = (__urlParams.get('max') || '').slice(0, 16);
+  // Batch 651 follow-up — deep-link the min-discount filter so
+  // shareable URLs like `/?discount=30` land the viewer on the pool
+  // the sharer actually saw. Whitelist [0, 5, 10, 20, 30, 50] — same
+  // values the dropdown exposes — so a crafted `discount=99` falls
+  // back to 0 instead of producing an empty grid.
+  const __initialDiscount = (() => {
+    const raw = parseInt(__urlParams.get('discount') || '0', 10);
+    return [0, 5, 10, 20, 30, 50].includes(raw) ? raw : 0;
+  })();
 
   const [searchInput, setSearchInput]   = useState(__initialQ);
   const [search, setSearch]             = useState(__initialQ);
@@ -1222,47 +2815,148 @@ export function App() {
     try { localStorage.setItem('sb_saved_searches', JSON.stringify(next)); } catch (_) {}
     setSavedSearches(next);
   };
-  const saveCurrentSearch = () => {
-    // Require at least one non-default filter — "all items, default sort"
-    // is meaningless to save.
+  // Inline save-search drawer state. `null` = closed, string = open with
+  // that draft name. Replaces an older `window.prompt()` which was
+  // non-accessible (no screen-reader dialog semantics, blocks mobile
+  // keyboards, non-dismissable by Escape on some browsers) and worse,
+  // blocked by some password managers that treat prompts as suspicious.
+  const [saveSearchDraft, setSaveSearchDraft] = useState(null);
+  const openSaveSearchDrawer = () => {
+    // Batch 958 — recognise the extended toolbar filters (batch 957) as
+    // meaningful "adjustments". Before this, a user who flipped Deals
+    // Only or picked ≥20% off (but left category + search blank) got a
+    // confusing "Adjust at least one filter" toast even though they had.
     const hasAnyFilter = search || category !== 'All' || rarity !== 'All' ||
-                         sort !== 'price_desc' || minPrice || maxPrice;
+                         sort !== 'price_desc' || minPrice || maxPrice ||
+                         minDiscountPct > 0 || dealsOnly || newOnly ||
+                         affordableOnly || listingTypeFilter !== 'ALL';
     if (!hasAnyFilter) {
-      alert('Adjust at least one filter before saving a search.');
+      toast('Adjust at least one filter before saving a search.', 'err');
       return;
     }
+    if (savedSearches.length >= 10) {
+      toast('Saved-search slot limit (10) reached — delete one first.', 'err');
+      return;
+    }
+    // Batch 958 — default name covers the full filter set. Each segment
+    // stays terse so the whole name fits the 60-char cap in the input.
+    const listingTypeLabel = listingTypeFilter === 'AUCTION'  ? 'Auctions'
+                           : listingTypeFilter === 'BUY_NOW'  ? 'Buy-now'
+                           : null;
     const defaultName = [
       search ? `"${search}"` : null,
       category !== 'All' ? category : null,
       rarity !== 'All' ? rarity : null,
+      listingTypeLabel,
+      minDiscountPct > 0 ? `≥${minDiscountPct}% off` : (dealsOnly ? 'Deals' : null),
+      newOnly ? 'New' : null,
+      affordableOnly ? 'Affordable' : null,
       (minPrice || maxPrice) ? `$${minPrice || 0}–${maxPrice || '∞'}` : null
     ].filter(Boolean).join(' · ') || 'Untitled';
-    const name = window.prompt('Name this search (shows up in the dropdown):', defaultName);
-    if (!name || !name.trim()) return;
+    setSaveSearchDraft(defaultName);
+  };
+  const commitSaveSearch = async (rawName) => {
+    const name = (rawName || '').trim();
+    if (!name) return;
     if (savedSearches.length >= 10) {
-      alert('Saved-search slot limit (10) reached — delete one first.');
+      toast('Saved-search slot limit (10) reached — delete one first.', 'err');
+      setSaveSearchDraft(null);
       return;
     }
     const entry = {
       id: Date.now(),
-      name: name.trim().slice(0, 60),
+      name: name.slice(0, 60),
       search, category, rarity, sort, minPrice, maxPrice,
+      // Batch 957 — also capture every toolbar filter so re-applying
+      // the preset restores the user's exact intent. Pre-957 presets
+      // silently dropped the discount / type / deals / new toggles.
+      minDiscountPct, dealsOnly, newOnly, affordableOnly,
+      listingType: listingTypeFilter,
       savedAt: Date.now()
     };
     persistSavedSearches([entry, ...savedSearches]);
+    setSaveSearchDraft(null);
+    // Batch 912 — name the saved preset + hint at the match-alert behaviour.
+    // New users don't know saved searches auto-fire notifications when a
+    // fresh listing matches; surfacing it here raises retention.
+    toast(`Saved search "${entry.name}" — you'll get a match alert when a fresh listing fits.`, 'ok');
+    if (!me) return;
+    try {
+      const { upsertSavedSearch } = await import('./api.js');
+      const res = await upsertSavedSearch({
+        name: entry.name, q: entry.search, category: entry.category,
+        rarity: entry.rarity, sort: entry.sort,
+        minPrice: entry.minPrice, maxPrice: entry.maxPrice,
+        minDiscountPct: entry.minDiscountPct,
+        dealsOnly: entry.dealsOnly,
+        newOnly: entry.newOnly,
+        affordableOnly: entry.affordableOnly,
+        listingType: entry.listingType
+      });
+      if (res && (res.error || res.code)) {
+        persistSavedSearches(savedSearches);
+        toast(res.message || res.error, 'err');
+        return;
+      }
+      const { fetchSavedSearches } = await import('./api.js');
+      const fresh = await fetchSavedSearches();
+      if (Array.isArray(fresh)) persistSavedSearches(fresh);
+    } catch (_) { /* offline — keep optimistic local insert */ }
   };
   const applySavedSearch = (s) => {
-    setSearch(s.search || '');
-    setSearchInput(s.search || '');
+    // Batch 957 — restore the full toolbar state. The server payload
+    // uses `q` (rename from `search`), and the extended filters come
+    // through with defaults that match a blank toolbar, so pre-957
+    // presets (no extended fields) still apply cleanly.
+    const q = (s.q != null) ? s.q : (s.search || '');
+    setSearch(q);
+    setSearchInput(q);
     setCategory(s.category || 'All');
     setRarity(s.rarity || 'All');
     setSort(s.sort || 'price_desc');
     setMinPrice(s.minPrice || '');
     setMaxPrice(s.maxPrice || '');
+    setMinDiscountPct(Number.isFinite(+s.minDiscountPct) ? (+s.minDiscountPct) : 0);
+    setDealsOnly(s.dealsOnly === true);
+    setNewOnly(s.newOnly === true);
+    setAffordableOnly(s.affordableOnly === true);
+    const validTypes = ['ALL', 'BUY_NOW', 'AUCTION'];
+    setListingTypeFilter(validTypes.includes(s.listingType) ? s.listingType : 'ALL');
   };
-  const deleteSavedSearch = (id) => {
+  const deleteSavedSearch = async (id) => {
     if (!confirm('Delete this saved search?')) return;
+    const prev = savedSearches;
     persistSavedSearches(savedSearches.filter(s => s.id !== id));
+    if (!me) return;
+    try {
+      const { deleteSavedSearchById } = await import('./api.js');
+      const res = await deleteSavedSearchById(id);
+      if (res && (res.error || res.code)) {
+        persistSavedSearches(prev);
+        toast(res.message || res.error, 'err');
+      }
+    } catch (_) { /* offline — keep local delete */ }
+  };
+  // Bulk-delete every saved search (batch 354). Parity with watchlist
+  // "Clear all" + follow "Unfollow all". Localstorage is wiped
+  // optimistically; server-side bulk delete writes-through for
+  // signed-in users, with a revert if the API rejects.
+  const deleteAllSavedSearchesHandler = async () => {
+    if (savedSearches.length === 0) return;
+    if (!confirm(`Delete all ${savedSearches.length} saved search${savedSearches.length === 1 ? '' : 'es'}? This cannot be undone.`)) return;
+    const prev = savedSearches;
+    persistSavedSearches([]);
+    if (!me) return;
+    try {
+      const { deleteAllSavedSearches } = await import('./api.js');
+      const res = await deleteAllSavedSearches();
+      if (res && (res.error || res.code)) {
+        persistSavedSearches(prev);
+        toast(res.message || res.error, 'err');
+        return;
+      }
+      toast(`Cleared ${res?.removed || prev.length} saved search${(res?.removed || prev.length) === 1 ? '' : 'es'}.`, 'ok');
+    } catch (_) { /* offline — keep local wipe */ }
   };
   useEffect(() => {
     const q = (searchInput || '').trim();
@@ -1293,15 +2987,48 @@ export function App() {
   // apply this client-side on top of the server response so users can
   // toggle instantly without a roundtrip. Buy-now includes null
   // listingType for historical rows.
-  const [listingTypeFilter, setListingTypeFilter] = useState('ALL');
+  // Batch 812 — hydrate from URL so shared filter links restore the
+  // exact type chip (`?type=AUCTION` → only auctions).
+  const __initialType = (() => {
+    const raw = (__urlParams.get('type') || 'ALL').toUpperCase();
+    return ['ALL', 'BUY_NOW', 'AUCTION'].includes(raw) ? raw : 'ALL';
+  })();
+  const [listingTypeFilter, setListingTypeFilter] = useState(__initialType);
   // Deal hunter toggle — when on, only show listings priced below the
   // catalogue steamPrice (i.e. cheaper than you'd pay on Steam Market).
   // Pure client-side filter applied before dedup so the cheapest seller
   // per item still wins the grid card.
-  const [dealsOnly, setDealsOnly] = useState(false);
+  // Batch 812 — hydrate from `?deals=1`.
+  const [dealsOnly, setDealsOnly] = useState(__urlParams.get('deals') === '1');
+  // Batch 651 — min-discount chip filter (CSFloat §10 parity). When
+  // > 0, show only listings with ≥ N% discount vs Steam. Composes with
+  // `dealsOnly` (≥1% floor) so picking a stronger chip narrows the
+  // pool further. 0 = chip inactive. Initial value from `?discount=`
+  // so shared deal-hunter URLs land on the right scope.
+  const [minDiscountPct, setMinDiscountPct] = useState(__initialDiscount);
+  // Batch 662 — "Hide my listings" toggle. Signed-in sellers with
+  // live inventory often open the market to size their ask against
+  // competitors, and their own listings get in the way. Localstorage-
+  // persisted so the preference sticks across sessions; silent
+  // (chip hidden) for anonymous viewers who have no listings to hide.
+  const [hideMine, setHideMine] = useState(() => {
+    try { return localStorage.getItem('sb_market_hide_mine') === '1'; }
+    catch { return false; }
+  });
+  const setHideMineP = (v) => {
+    setHideMine(v);
+    try { localStorage.setItem('sb_market_hide_mine', v ? '1' : '0'); } catch (_) {}
+  };
   // New-in-24h toggle — highlights fresh inventory. Client-side filter
   // on listedAt; pairs cleanly with Deals and the type toggles.
-  const [newOnly, setNewOnly] = useState(false);
+  // Batch 812 — hydrate from `?new=1`.
+  const [newOnly, setNewOnly] = useState(__urlParams.get('new') === '1');
+  // Affordable-only toggle (batch 367) — show listings priced ≤ my
+  // wallet balance so a browsing user doesn't scroll past items they
+  // can't afford. Client-side filter; silently disables for anon
+  // viewers since they have no wallet to compare against.
+  // Batch 812 — hydrate from `?aff=1`.
+  const [affordableOnly, setAffordableOnly] = useState(__urlParams.get('aff') === '1');
 
   // item detail
   const [selected, setSelected]         = useState(null);
@@ -1310,13 +3037,36 @@ export function App() {
   // wallet
   const [wallet, setWallet]             = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [walletOpen, setWalletOpen]     = useState(false);
   const [walletInitialTab, setWalletInitialTab] = useState('deposit');
   // Deposit prefill — when the cart low-balance banner sends the user to
   // /wallet we stash the shortfall so the deposit form opens with the
   // right number already typed. Cleared once consumed. Also respected
   // from the URL: /wallet?prefill=12.34
   const [walletPrefillAmount, setWalletPrefillAmount] = useState(null);
+  // Hydrate prefill from `/wallet?prefill=X` so third-party deeplinks
+  // (e.g. a "top up" button on an external dashboard) can open the
+  // deposit form with the amount pre-filled. Fires only when the wallet
+  // route opens, then strips the param so back/forward doesn't keep
+  // re-prefilling as the user navigates.
+  useEffect(() => {
+    if (routeName !== 'wallet') return;
+    try {
+      const p = new URLSearchParams(window.location.search).get('prefill');
+      if (!p) return;
+      const n = parseFloat(p);
+      if (!Number.isFinite(n) || n <= 0 || n > 100000) return;
+      setWalletInitialTab('deposit');
+      setWalletPrefillAmount(n.toFixed(2));
+      // Strip the ?prefill= param so reload + back/forward don't
+      // re-fire the prefill. Keeps the path clean without dropping
+      // other query params (e.g. ?deposit=success after Stripe).
+      const params = new URLSearchParams(window.location.search);
+      params.delete('prefill');
+      const q = params.toString();
+      const next = window.location.pathname + (q ? ('?' + q) : '');
+      window.history.replaceState({}, '', next);
+    } catch (_) { /* URL parse failure — silently ignore */ }
+  }, [routeName]);
 
   // auth
   // `meLoaded` is false until the first fetchMe() resolves. We use this
@@ -1328,15 +3078,54 @@ export function App() {
   const [me, setMe]                     = useState(null);
   const [meLoaded, setMeLoaded]         = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
+  // Batch 933 — close the user menu on Escape. Pointer users can click
+  // the backdrop to close; keyboard-only users were stranded inside
+  // the open menu with no dismissal path. Listener mounts only while
+  // the menu is open so unrelated Esc presses aren't intercepted.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); setMenuOpen(false); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
   const [isAdmin, setIsAdmin]           = useState(false);
   const [isCsr, setIsCsrRole]           = useState(false);
+  // Pending-actions counts — drives the red dot on the user-chip avatar.
+  // Polls every 60s while signed in so a newly-opened trade / offer
+  // surfaces quickly without a page reload. Null = not-yet-fetched or
+  // anonymous (no badge rendered).
+  const [pendingActions, setPendingActions] = useState(null);
+  useEffect(() => {
+    if (!me) { setPendingActions(null); return; }
+    let alive = true;
+    const load = async () => {
+      try {
+        const { fetchPendingActions } = await import('./api.js');
+        const data = await fetchPendingActions();
+        if (alive && data) setPendingActions(data);
+      } catch (_) {}
+    };
+    load();
+    // Batch 806 — visibility-aware poll. The red pending-actions dot
+    // doesn't need to tick every 60s on every backgrounded tab of a
+    // user with a busy browser. Refresh kicks back in on visibility
+    // change so a returning user sees the fresh count.
+    const id = setInterval(() => { if (!document.hidden) load(); }, 60_000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false; clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [me?.id]);
   // Pre-signin ToS + email modal state. Opens on the "Sign in through
   // Steam" button; redirects to the real OpenID flow after the user ticks
   // the ToS box and enters a valid email.
   const [signinOpen, setSigninOpen]     = useState(false);
 
   // layout
-  const chatHidden = true; // chat removed
   const [heroTab, setHeroTab]           = useState('topDeals');
   const [feeInput, setFeeInput]         = useState('100');
 
@@ -1350,16 +3139,86 @@ export function App() {
   // rating chip + "Recent reviews" block render together. Eligible trades
   // only populate when a signed-in viewer loads someone else's stall.
   const [stallData, setStallData] = useState(null);
+  // Batch 835 — inline drawer for "Report seller" on the stall hero.
+  // Replaces the two-step window.prompt flow (pick reason by number,
+  // type context) with a proper dialog. Same pattern as the trade-
+  // counterparty report drawer in modals.js.
+  const [reportSellerOpen, setReportSellerOpen] = useState(false);
+  const [reportSellerReason, setReportSellerReason] = useState('Scam attempt');
+  const [reportSellerContext, setReportSellerContext] = useState('');
+  const [reportSellerBusy, setReportSellerBusy] = useState(false);
+  const [reportSellerErr, setReportSellerErr] = useState('');
+  const openReportSeller = () => {
+    setReportSellerReason('Scam attempt');
+    setReportSellerContext('');
+    setReportSellerErr('');
+    setReportSellerOpen(true);
+  };
+  const submitReportSeller = async () => {
+    if (!stallData?.seller?.id) return;
+    setReportSellerErr('');
+    setReportSellerBusy(true);
+    try {
+      const { reportUser } = await import('./api.js');
+      const res = await reportUser(stallData.seller.id, reportSellerReason, reportSellerContext || '');
+      if (res && (res.error || res.code)) {
+        setReportSellerErr(res.message || res.error || 'Could not file report');
+        return;
+      }
+      setReportSellerOpen(false);
+      toast('Report filed — Support will review, track in /support.', 'ok');
+    } finally { setReportSellerBusy(false); }
+  };
+  // Escape closes the report drawer (busy-guarded).
+  useEffect(() => {
+    if (!reportSellerOpen) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || reportSellerBusy) return;
+      e.stopPropagation();
+      setReportSellerOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [reportSellerOpen, reportSellerBusy]);
   const [stallReviews, setStallReviews] = useState(null);
   const [stallSold, setStallSold]       = useState([]);
   const [eligibleTrades, setEligibleTrades] = useState([]);
   // Star-rating filter for the recent-reviews strip. 0 = all.
   const [stallStarFilter, setStallStarFilter] = useState(0);
+  // Batch 751 — "Show all N" expander state for the reviews strip.
+  // Starts collapsed at 10 rows (CSFloat parity for the default strip);
+  // a click bumps to "all visible after filter/sort" so buyers auditing
+  // a long-tenured seller aren't silently hiding 20+ rows of context.
+  const [stallReviewsExpanded, setStallReviewsExpanded] = useState(false);
+  // Batch 752 — matching expander for the Recent Sales strip. The
+  // backend already returns up to 200 rows via fetchPublicStallSold,
+  // but the UI was silently truncating to 10. A heavy-volume seller's
+  // "did they actually move inventory?" signal was getting cut short.
+  const [stallSoldExpanded, setStallSoldExpanded] = useState(false);
+  // Review sort order on the stall page. 'newest' is the default — matches
+  // the "Recent reviews" heading for casual visitors. 'helpful' uses the
+  // upvote counts shipped in batch 259 and is the CSFloat-parity default
+  // for long-tail stalls with lots of reviews. Persisted so a buyer who
+  // prefers "most helpful" doesn't have to re-pick it on every visit.
+  const [stallReviewSort, setStallReviewSort] = useState(() => {
+    try { return localStorage.getItem('sb_stall_review_sort') || 'newest'; }
+    catch { return 'newest'; }
+  });
+  const setStallReviewSortPersist = (v) => {
+    setStallReviewSort(v);
+    try { localStorage.setItem('sb_stall_review_sort', v); } catch (_) {}
+  };
   // Stall listing filter + sort controls. Rarity stays 'All' by default
   // so new visitors see every listing; sort defaults to price_asc which
   // mirrors CSFloat's "best deal first" convention on stall views.
   const [stallRarity, setStallRarity] = useState('All');
   const [stallSort, setStallSort]     = useState('price_asc');
+  // Name-search across the stall listings. Large stalls (50+ items) were
+  // hard to scan by rarity chips alone — a seller sharing "blue shirt"
+  // with a buyer wanted the buyer to land on that exact item, not paginate
+  // the whole rarity bucket. Client-side filter on the already-fetched
+  // stall payload so typing is instant and doesn't hit the API.
+  const [stallSearch, setStallSearch] = useState('');
   useEffect(() => {
     if (routeName !== 'stall' || !route.params?.id) {
       setStallData(null); setStallReviews(null); setEligibleTrades([]); setStallSold([]); return;
@@ -1369,7 +3228,10 @@ export function App() {
       fetchPublicStall(route.params.id),
       fetchReviewsForUser(route.params.id),
       me ? fetchEligibleReviews(route.params.id) : Promise.resolve([]),
-      fetchPublicStallSold(route.params.id)
+      // Fetch a deeper sample (200) so the stall-sales sparkline
+      // (batch 362) has meaningful data — the strip below still
+      // renders only the first 10.
+      fetchPublicStallSold(route.params.id, 200)
     ]).then(([stall, reviews, eligible, sold]) => {
       if (!alive) return;
       // Distinguish "still loading" (null) from "loaded but 404"
@@ -1379,6 +3241,31 @@ export function App() {
       setStallReviews(reviews);
       setEligibleTrades(Array.isArray(eligible) ? eligible : []);
       setStallSold(Array.isArray(sold) ? sold : []);
+      // Deep-link support for Profile → Reviews → Pending "Leave review →"
+      // (batch 341). If the URL carries ?leaveReview={tradeId} AND that
+      // trade is actually un-reviewed between this viewer and this
+      // seller, auto-focus the review form on it so the user lands on
+      // the right row without having to scan the CTA list.
+      try {
+        const qs = new URLSearchParams(window.location.search);
+        const wantTradeId = qs.get('leaveReview');
+        if (wantTradeId && Array.isArray(eligible)) {
+          const match = eligible.find(t =>
+            String(t.tradeId) === wantTradeId && !t.reviewed);
+          if (match) {
+            setReviewTradeId(match.tradeId);
+            setReviewStars(5);
+            setReviewText('');
+            // Strip the bridging param so a refresh doesn't re-open the
+            // form after the user cancels or submits — matches the same
+            // pattern SellItemsModal uses for its ?q= bridge.
+            qs.delete('leaveReview');
+            const next = qs.toString();
+            window.history.replaceState({}, '',
+              window.location.pathname + (next ? '?' + next : ''));
+          }
+        }
+      } catch (_) {}
     });
     return () => { alive = false; };
   }, [routeName, route.params?.id, me?.user?.id]);
@@ -1409,6 +3296,18 @@ export function App() {
   // privacy mode — hides balance + sensitive amounts across the whole UI
   const [privacy, setPrivacy] = useState(() => localStorage.getItem('sb_privacy') === '1');
   useEffect(() => { localStorage.setItem('sb_privacy', privacy ? '1' : '0'); }, [privacy]);
+  // Cross-tab sync — when the user toggles privacy in tab A (via Ctrl-click
+  // on the nav wallet, or from inside WalletModal if we ever expose a
+  // toggle there), every other open tab's App needs to re-render so the
+  // nav balance chip and every masked surface flips instantly. Without
+  // this, tab B keeps showing the real amounts until a full refresh.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'sb_privacy') setPrivacy(e.newValue === '1');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // Settings change ticker — bumps on storage events so every rendered
   // `fmt()` call re-reads the current currency even when it was changed
@@ -1453,13 +3352,18 @@ export function App() {
     if (routeName !== 'cart' || cart.length === 0) return;
     let alive = true;
     (async () => {
-      const results = await Promise.all(cart.map(async it => {
-        const l = await fetchListingById(it.id).catch(() => null);
-        // null = 404 / network error; !ACTIVE = sold, cancelled, etc.
-        return { id: it.id, stillActive: l && l.status === 'ACTIVE' };
-      }));
+      // Single bulk probe (batch 474) — the previous N-parallel
+      // fetchListingById loop made one HTTP round-trip per cart row.
+      // For a 50-item cart that's 50 separate request lifecycles;
+      // /listings/check-active returns the same {active, price} per
+      // id in one shot. Caps at 50 ids server-side which matches the
+      // existing cart cap so no truncation risk.
+      const rows = await checkListingsActive(cart.map(it => it.id));
       if (!alive) return;
-      const goneIds = new Set(results.filter(r => !r.stillActive).map(r => r.id));
+      if (!Array.isArray(rows)) return;
+      const goneIds = new Set(
+        rows.filter(r => r && r.active === false).map(r => r.id)
+      );
       if (goneIds.size === 0) return;
       setCart(c => c.filter(x => !goneIds.has(x.id)));
       setToast({
@@ -1471,14 +3375,26 @@ export function App() {
     return () => { alive = false; };
   }, [routeName]);
   const cartCount = cart.length;
-  const cartTotal = useMemo(() => cart.reduce((s, it) => s + (parseFloat(it.price) || 0), 0), [cart]);
   // Server-side freshness map — keyed by listing id. Re-fetched every
   // time /cart is opened because the cart is persisted client-side and
   // a row can go stale (bought by someone else) or have its price
   // edited by the seller between sessions. Missing keys render
   // neutrally (no banner) so a transient network blip doesn't scare
-  // the buyer.
+  // the buyer. Declared BEFORE cartTotal so the useMemo dep array
+  // doesn't read it from the temporal dead zone.
   const [cartFreshness, setCartFreshness] = useState({});
+  // Cart total uses the FRESH server-reported price when available so
+  // sellers' mid-session price edits are reflected in the total (server
+  // charges the current price at checkout — the cart display should
+  // match what the user will actually pay). Falls back to the cached
+  // client-side price when freshness isn't loaded yet.
+  const cartTotal = useMemo(() => cart.reduce((s, it) => {
+    const fresh = cartFreshness?.[it.id];
+    const p = fresh && fresh.active && fresh.price != null
+      ? parseFloat(fresh.price)
+      : (parseFloat(it.price) || 0);
+    return s + (Number.isFinite(p) ? p : 0);
+  }, 0), [cart, cartFreshness]);
   useEffect(() => {
     if (routeName !== 'cart' || cart.length === 0) { setCartFreshness({}); return; }
     let alive = true;
@@ -1500,8 +3416,16 @@ export function App() {
     return !fresh || fresh.active;
   }));
   const addToCart = (listing) => {
+    let alreadyHad = false;
+    let atCap = false;
     setCart(c => {
-      if (c.find(x => x.id === listing.id)) return c;
+      if (c.find(x => x.id === listing.id)) { alreadyHad = true; return c; }
+      // Batch 988 — mirror the server's 50-item cart cap client-side.
+      // Anonymous users keep the cart in localStorage only, so without
+      // a local guard the count could grow past 50 and silently fail
+      // at checkout with CART_TOO_LARGE. The toast explains the cap
+      // instead of just dropping the click.
+      if (c.length >= 50) { atCap = true; return c; }
       return [...c, {
         id:         listing.id,
         itemId:     listing.item?.id,
@@ -1512,9 +3436,37 @@ export function App() {
         // every render. Falls back to null when the catalogue has no
         // Steam Market data yet (new item, pre-sync).
         steamPrice: listing.item?.steamPrice ?? null,
-        thumb:      listing.item?.imageUrl || null
+        thumb:      listing.item?.imageUrl || null,
+        // Seller snapshot so the cart row can link to their stall
+        // without a round-trip. sellerUserId is null for system
+        // listings ("SkinBox Store") — we render the name as plain
+        // text in that case.
+        sellerUserId: listing.sellerUserId ?? null,
+        sellerName:   listing.sellerName  ?? null
       }];
     });
+    if (atCap) {
+      if (typeof showToast === 'function') {
+        showToast('Cart full (50 items). Remove some rows before adding more.', 'err');
+      }
+      return;
+    }
+    // Mirror to the server cart for cross-device sync. Anonymous users
+    // stay localStorage-only, no behaviour change. Best-effort: if the
+    // server rejects (CART_FULL) we revert the local add so the count
+    // stays honest.
+    if (me && !alreadyHad) {
+      (async () => {
+        try {
+          const { addCartItem } = await import('./api.js');
+          const res = await addCartItem(listing.id);
+          if (res && (res.error || res.code)) {
+            setCart(c => c.filter(x => x.id !== listing.id));
+            if (typeof showToast === 'function') showToast(res.message || res.error, 'err');
+          }
+        } catch (_) { /* offline — keep local add, sign-in bridge will reconcile */ }
+      })();
+    }
   };
   // Total Steam-reference price for every cart row that has a
   // steamPrice snapshot. Saves = max(0, steamTotal - cartTotal).
@@ -1524,30 +3476,132 @@ export function App() {
   }, 0), [cart]);
   const cartSavings = Math.max(0, cartSteamTotal - parseFloat(
     cart.reduce((s, it) => s + (parseFloat(it.price) || 0), 0)));
-  const removeFromCart = (id) => setCart(c => c.filter(x => x.id !== id));
-  const clearCart = () => setCart([]);
+  const removeFromCart = (id) => {
+    setCart(c => c.filter(x => x.id !== id));
+    if (me) {
+      (async () => {
+        try {
+          const { removeCartItem } = await import('./api.js');
+          await removeCartItem(id);
+        } catch (_) {}
+      })();
+    }
+  };
+  const clearCart = () => {
+    // Confirm before blowing away a non-trivial cart. Misclicks on the
+    // Clear button used to silently wipe 10+ listings the buyer had
+    // carefully curated; a quick yes/no prompt costs nothing on the
+    // happy path and saves the user a lot of pain on the mistake path.
+    if (cart.length >= 2 && !confirm(`Clear ${cart.length} item${cart.length === 1 ? '' : 's'} from your cart?`)) return;
+    setCart([]);
+    if (me) {
+      (async () => {
+        try {
+          const { clearServerCart } = await import('./api.js');
+          await clearServerCart();
+        } catch (_) {}
+      })();
+    }
+  };
   // Confirmation gate so buyers see a summary before bulk checkout fires.
   // Without this the "Buy Now" button on /cart silently paid-and-trade-opened
   // every row, and if one failed the user had no reviewable explanation.
   const [cartConfirmOpen, setCartConfirmOpen] = useState(false);
   const [cartBusy, setCartBusy] = useState(false);
+  // Batch 827 — Escape closes the cart-confirm dialog. Busy-guarded
+  // so mid-flight checkout can't be cancelled via a stray keypress.
+  useEffect(() => {
+    if (!cartConfirmOpen) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (cartBusy) return;
+      e.stopPropagation();
+      setCartConfirmOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [cartConfirmOpen, cartBusy]);
   const doCheckout = async () => {
     if (cart.length === 0) return;
     setCartBusy(true);
     try {
       const ids = cart.map(x => x.id);
-      const res = await checkoutCart(ids);
+      // Build the expectedPrices map from whatever price the user
+      // actually saw in the confirm dialog. Prefer the fresh server
+      // price (cart-freshness probe) over the cached add-time price —
+      // the confirm modal's Total row uses the same preference, so
+      // expected == total. Server rejects rows with PRICE_CHANGED if
+      // the price drifted in the last second (seller edit mid-click).
+      const expectedPrices = {};
+      cart.forEach(x => {
+        const fresh = cartFreshness?.[x.id];
+        const p = fresh && fresh.active && fresh.price != null
+          ? parseFloat(fresh.price)
+          : parseFloat(x.price);
+        if (Number.isFinite(p)) expectedPrices[x.id] = p.toFixed(2);
+      });
+      const res = await checkoutCart(ids, expectedPrices);
       if (res && res.error) {
         showToast(res.error, 'err');
       } else if (res && res.results) {
         const ok = res.successful || 0;
         const fail = res.failed || 0;
-        showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
-        const failedIds = new Set(res.results.filter(r => r.status !== 'OK').map(r => r.listingId));
+        const failedRows = res.results.filter(r => r.status !== 'OK');
+        const failedIds = new Set(failedRows.map(r => r.listingId));
+        // Insufficient-balance is the single most common failure mode on a
+        // bulk cart checkout and has a specific remediation — top up your
+        // wallet. When every failure is INSUFFICIENT_BALANCE, bounce the
+        // user straight to /wallet with the shortfall prefilled so they can
+        // fund and retry in one click instead of wondering what went wrong.
+        const insufficientCount = failedRows.filter(r => r.code === 'INSUFFICIENT_BALANCE').length;
+        const priceChangedCount = failedRows.filter(r => r.code === 'PRICE_CHANGED').length;
+        const allInsufficient = fail > 0 && ok === 0 && insufficientCount === fail;
+        // Price-changed failures get a distinct toast so users know to
+        // refresh instead of wondering what "failed" meant. Falls back
+        // to the generic count-toast when the failures are mixed.
+        if (priceChangedCount === fail && fail > 0 && ok === 0) {
+          showToast(`Price changed on ${fail} item${fail === 1 ? '' : 's'} — refresh and retry`, 'err');
+        } else {
+          showToast(`Bought ${ok} item${ok === 1 ? '' : 's'}${fail > 0 ? ` · ${fail} failed` : ''}`, fail > 0 ? 'err' : 'ok');
+        }
         setCart(c => c.filter(x => failedIds.has(x.id)));
         setCartConfirmOpen(false);
         await loadWallet();
         load();
+        if (allInsufficient) {
+          // Batch 964 — prefer the server's authoritative per-row
+          // `required` + `available` (batch 963 carried them into cart
+          // row results). Every failed row attempted at the SAME starting
+          // balance (no row succeeded, so no debit), so:
+          //   top_up = sum(row.required) - available
+          // That's exactly what the user must deposit to clear every
+          // failed row on retry — no over/under-counting. Falls back to
+          // client-side math for pre-964 servers that don't send details.
+          let gap = 0;
+          const haveServerDetails = failedRows.every(
+            r => r.details?.required != null && r.details?.available != null);
+          if (haveServerDetails) {
+            const sumRequired = failedRows.reduce(
+              (s, r) => s + (parseFloat(r.details.required) || 0), 0);
+            const available = parseFloat(failedRows[0].details.available) || 0;
+            gap = sumRequired - available;
+          } else {
+            const total = cart.filter(x => failedIds.has(x.id)).reduce((s, x) => {
+              const fresh = cartFreshness?.[x.id];
+              const p = fresh && fresh.active && fresh.price != null
+                ? parseFloat(fresh.price)
+                : (parseFloat(x.price) || 0);
+              return s + (Number.isFinite(p) ? p : 0);
+            }, 0);
+            const bal = parseFloat(wallet?.balance || 0);
+            gap = total - bal;
+          }
+          gap = Math.max(1, Math.ceil(gap));
+          setWalletInitialTab('deposit');
+          setWalletPrefillAmount(gap.toFixed(2));
+          navigate(paths.wallet());
+          return;
+        }
         // Every successful cart row opens a trade — route straight to
         // the Trades tab so the user sees the escrow state machine
         // instead of landing on the Personal tab and having to switch.
@@ -1558,13 +3612,153 @@ export function App() {
     } finally { setCartBusy(false); }
   };
 
-  // watchlist (localStorage)
+  // Watchlist — server-side for signed-in users (cross-device sync via
+  // /api/watchlist), localStorage for anon. The localStorage array is
+  // also kept up-to-date as a write-through cache so an offline reload
+  // of a signed-in session shows stars without a network round trip.
   const [watchlist, setWatchlist]       = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_watchlist') || '[]'); } catch { return []; }
   });
   useEffect(() => { localStorage.setItem('sb_watchlist', JSON.stringify(watchlist)); }, [watchlist]);
-  const toggleStar = (itemId) => {
-    setWatchlist(w => w.includes(itemId) ? w.filter(id => id !== itemId) : [...w, itemId]);
+  // One-shot bridge on first sign-in after batch 262: POST whatever the
+  // anon localStorage had → /api/watchlist/bulk so the user keeps every
+  // star they made before signing in. Server returns the merged set;
+  // we replace `watchlist` with that. Subsequent sessions skip the
+  // bridge (the localStorage flag is sticky).
+  useEffect(() => {
+    if (!me) return;
+    let alive = true;
+    const sentKey = `sb_watchlist_synced:${me.id}`;
+    (async () => {
+      try {
+        const { fetchWatchlist, bulkMergeWatchlist } = await import('./api.js');
+        if (!localStorage.getItem(sentKey)) {
+          // First-touch merge — push localStorage ids to server, accept
+          // server's truth back. Empty local set still hits the bridge
+          // so the flag gets set and we skip next time.
+          const merged = await bulkMergeWatchlist(watchlist || []);
+          if (!alive) return;
+          if (merged && Array.isArray(merged.ids)) setWatchlist(merged.ids);
+          try { localStorage.setItem(sentKey, '1'); } catch (_) {}
+        } else {
+          // Returning session — server is source of truth; refresh local
+          // cache so a star added on another device shows up here.
+          const ids = await fetchWatchlist();
+          if (!alive) return;
+          if (Array.isArray(ids)) setWatchlist(ids);
+        }
+      } catch (_) { /* offline / 5xx — keep local cache */ }
+    })();
+    return () => { alive = false; };
+  }, [me?.id]);
+  // Saved-searches sign-in bridge — same shape as watchlist + cart.
+  // First-touch: POST localStorage entries → server merges → replace
+  // local with the merged authoritative list. Returning sessions: GET
+  // and replace local cache so a preset added on another device shows
+  // up here. Per-user flag so we only do the merge once per browser.
+  useEffect(() => {
+    if (!me) return;
+    let alive = true;
+    const sentKey = `sb_saved_searches_synced:${me.id}`;
+    (async () => {
+      try {
+        const { fetchSavedSearches, bulkMergeSavedSearches } = await import('./api.js');
+        if (!localStorage.getItem(sentKey)) {
+          // Send only the filter fields — server generates fresh ids.
+          const payload = (savedSearches || []).map(s => ({
+            name:     s.name,
+            q:        s.search || '',
+            category: s.category,
+            rarity:   s.rarity,
+            sort:     s.sort,
+            minPrice: s.minPrice || '',
+            maxPrice: s.maxPrice || ''
+          }));
+          const merged = await bulkMergeSavedSearches(payload);
+          if (!alive) return;
+          if (merged && Array.isArray(merged.entries)) {
+            persistSavedSearches(merged.entries);
+          }
+          try { localStorage.setItem(sentKey, '1'); } catch (_) {}
+        } else {
+          const fresh = await fetchSavedSearches();
+          if (!alive) return;
+          if (Array.isArray(fresh)) persistSavedSearches(fresh);
+        }
+      } catch (_) { /* offline — keep local cache */ }
+    })();
+    return () => { alive = false; };
+  }, [me?.id]);
+
+  // Cart sign-in bridge — same shape as the watchlist bridge above. The
+  // server stores listing ids only; the per-row metadata (name/price/
+  // thumb) stays in localStorage so the /cart page can render even
+  // before the freshness ping completes. Reconcile by:
+  //   - First-touch:  POST localStorage ids → server merges → server
+  //     returns post-merge ids → drop any local rows the server didn't
+  //     accept (cap, deleted listing) and KEEP per-row metadata for
+  //     accepted rows.
+  //   - Returning: GET ids → drop local rows the server doesn't have,
+  //     and synthesize stub rows for ids the server has but local
+  //     doesn't (other-device adds — metadata fills in lazily via the
+  //     existing /cart freshness ping).
+  useEffect(() => {
+    if (!me) return;
+    let alive = true;
+    const sentKey = `sb_cart_synced:${me.id}`;
+    (async () => {
+      try {
+        const { fetchCartIds, bulkMergeCart } = await import('./api.js');
+        let serverIds;
+        if (!localStorage.getItem(sentKey)) {
+          const merged = await bulkMergeCart((cart || []).map(x => x.id));
+          serverIds = merged && Array.isArray(merged.ids) ? merged.ids : null;
+          try { localStorage.setItem(sentKey, '1'); } catch (_) {}
+        } else {
+          serverIds = await fetchCartIds();
+        }
+        if (!alive || !Array.isArray(serverIds)) return;
+        const localById = {};
+        (cart || []).forEach(x => { localById[x.id] = x; });
+        const merged = serverIds.map(id => localById[id] || {
+          id,
+          itemId:     null,
+          name:       'Loading…',
+          price:      null,
+          steamPrice: null,
+          thumb:      null
+        });
+        setCart(merged);
+      } catch (_) { /* offline — keep local cache */ }
+    })();
+    return () => { alive = false; };
+  }, [me?.id]);
+  const toggleStar = async (itemId) => {
+    if (itemId == null) return;
+    // Optimistic local flip — feels instant and works offline. The
+    // server call below reconciles or reverts.
+    let willStar = false;
+    setWatchlist(w => {
+      const has = w.includes(itemId);
+      willStar = !has;
+      return has ? w.filter(id => id !== itemId) : [...w, itemId];
+    });
+    if (!me) return;  // anon: localStorage only
+    try {
+      const { starItem, unstarItem } = await import('./api.js');
+      const res = willStar ? await starItem(itemId) : await unstarItem(itemId);
+      if (res && (res.error || res.code)) {
+        // Revert on failure (e.g. WATCHLIST_FULL).
+        setWatchlist(w => willStar ? w.filter(id => id !== itemId) : [...w, itemId]);
+        if (typeof showToast === 'function') showToast(res.message || res.error, 'err');
+        return;
+      }
+      // Trust server's authoritative ids if it shipped them.
+      if (res && Array.isArray(res.ids)) setWatchlist(res.ids);
+    } catch (_) {
+      // Network error — keep optimistic local change; the next sign-in
+      // bridge will reconcile.
+    }
   };
   // Navigate helper closes the user-menu dropdown in the same click and
   // pushes a real URL onto history.
@@ -1641,11 +3835,69 @@ export function App() {
   }, []);
   useEffect(() => { loadWallet(); }, [loadWallet]);
 
+  // Tab-focus refresh (batch 424). Stripe deposits + admin-approved
+  // withdrawals + new sales all update the wallet asynchronously while
+  // the user is in another tab waiting (or has switched to Steam to
+  // accept a trade offer). Refetch the wallet + transactions whenever
+  // visibility flips back to visible so the balance + pending chips
+  // reflect reality without a manual page refresh. Cheap — two
+  // small JSON GETs.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadWallet();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadWallet]);
+
+  // Batch 664 — active-tab wallet polling while a deposit is mid-flight.
+  // The tab-focus refresh above catches the common "user flips to
+  // Stripe Checkout then back" case, but a user who stays on /wallet
+  // in the foreground (e.g. on their phone, with the Stripe tab on a
+  // second device) won't see the pending deposit resolve. Stripe
+  // webhooks usually land within 10s, so poll every 8s while there's
+  // at least one PENDING deposit AND the /wallet route is active.
+  // Stops the moment no pending row remains to avoid background noise.
+  useEffect(() => {
+    if (routeName !== 'wallet') return;
+    const hasPending = (transactions || []).some(t =>
+      t && t.type === 'DEPOSIT' && t.status === 'PENDING');
+    if (!hasPending) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') loadWallet();
+    }, 8000);
+    return () => clearInterval(id);
+  }, [routeName, transactions, loadWallet]);
+
   // Keyboard-shortcut help overlay state. `?` opens it, `Esc` closes.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Keyboard shortcuts — CSFloat uses `/` to focus the market search.
   useEffect(() => {
+    // Cmd/Ctrl+K — modern universal "open search" shortcut (Spotlight,
+    // Raycast, Linear, GitHub, Slack, Notion etc). Fires even when the
+    // focus is inside an input so it always works; the other shortcuts
+    // are plain-letter and only fire when the user isn't typing.
+    const onMetaKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const tryFocus = () => {
+          const el = document.querySelector('.search-input');
+          if (el) { el.focus(); el.select(); return true; }
+          return false;
+        };
+        // Batch 802 — off-route Ctrl+K now bounces to /market first and
+        // then focuses the search once the toolbar has rendered. Before
+        // this, pressing Ctrl+K from /profile or /wallet was a silent
+        // no-op because the search input only lives on the market route.
+        if (tryFocus()) return;
+        navigate(paths.market());
+        // requestAnimationFrame twice to let the router re-render and
+        // the toolbar mount before we reach for the input node.
+        requestAnimationFrame(() => requestAnimationFrame(tryFocus));
+      }
+    };
+    document.addEventListener('keydown', onMetaKey);
     const onKey = (e) => {
       const tag = (e.target?.tagName || '').toLowerCase();
       // Ignore keys typed inside any input/textarea/select/contenteditable
@@ -1670,7 +3922,7 @@ export function App() {
             w: paths.wallet(),  c: paths.cart(),     l: paths.loadouts(),
             s: paths.sell(),    f: paths.watchlist(),h: paths.help(),
             o: paths.offers(),  b: paths.buyorders(), n: paths.notifications(),
-            a: paths.admin(),   r: paths.csr()
+            a: paths.admin(),   r: paths.csr(),      t: paths.settings()
           };
           if (map[ev.key]) { ev.preventDefault(); navigate(map[ev.key]); }
         };
@@ -1679,11 +3931,20 @@ export function App() {
         if (shortcutsOpen)        setShortcutsOpen(false);
         else if (selected)        setSelected(null);
         else if (routeName !== 'market') navigate(paths.market());
+      } else if (e.key === 'v' && routeName === 'market') {
+        // Grid ↔ Table view toggle. Scoped to /market so pressing `v`
+        // on a modal-heavy page (profile / wallet / cart) doesn't
+        // silently flip the marketplace view the user can't see.
+        e.preventDefault();
+        setView(view === 'grid' ? 'table' : 'grid');
       }
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [routeName, selected, shortcutsOpen]);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onMetaKey);
+    };
+  }, [routeName, selected, shortcutsOpen, view]);
 
   // logout
   const doLogout = async () => {
@@ -1691,6 +3952,17 @@ export function App() {
     setMe(null);
     setMenuOpen(false);
     loadWallet();
+    // Any route that only makes sense for a signed-in user would now
+    // render the generic sign-in empty state on the current URL. Land
+    // the user on the public marketplace instead so the post-logout
+    // page actually has content and the URL bar matches what they
+    // see. Public routes (market, stall, item, etc.) stay put.
+    const privateRoutes = new Set([
+      'profile','wallet','cart','mystall','watchlist','notifications',
+      'offers','buyorders','sell','support','admin','csr','loadouts'
+    ]);
+    if (privateRoutes.has(routeName)) navigate(paths.market());
+    toast('Signed out — see you soon.', 'ok');
   };
 
   // Handle Stripe / Steam redirect
@@ -1759,7 +4031,7 @@ export function App() {
         }
       } catch (_) { /* no sessionStorage — stay on / */ }
     }
-    else if (login === 'failed')     { alert('Steam sign-in failed. Please try again.'); dirty = true; }
+    else if (login === 'failed')     { toast('Steam sign-in failed. Please try again.', 'err'); dirty = true; }
     if (dirty) window.history.replaceState({}, '', window.location.pathname);
   }, [loadWallet, loadMe]);
 
@@ -1784,12 +4056,26 @@ export function App() {
     if (rarity && rarity !== 'All')     qs.set('rarity', rarity);
     if (minPrice)                  qs.set('min', minPrice);
     if (maxPrice)                  qs.set('max', maxPrice);
+    // Batch 812 — mirror the remaining quick-filter toggles so a
+    // shared link like `/?type=AUCTION&deals=1&discount=20&new=1`
+    // reconstructs the exact view. Missing params were a real gap
+    // for sellers sharing a curated slice (e.g. "all AUCTIONS ending
+    // soon with a 20%+ discount") via Discord — the recipient got a
+    // broader pool than the sender intended.
+    if (minDiscountPct > 0)        qs.set('discount', String(minDiscountPct));
+    if (dealsOnly)                 qs.set('deals', '1');
+    if (newOnly)                   qs.set('new', '1');
+    if (affordableOnly)            qs.set('aff', '1');
+    if (listingTypeFilter && listingTypeFilter !== 'ALL') {
+      qs.set('type', listingTypeFilter);
+    }
     const q = qs.toString();
     const nextSearch = q ? '?' + q : '';
     if (window.location.search !== nextSearch) {
       window.history.replaceState({}, '', window.location.pathname + nextSearch);
     }
-  }, [routeName, search, sort, category, rarity, minPrice, maxPrice]);
+  }, [routeName, search, sort, category, rarity, minPrice, maxPrice,
+      minDiscountPct, dealsOnly, newOnly, affordableOnly, listingTypeFilter]);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -1824,6 +4110,10 @@ export function App() {
           return bd - ad;
         });
       }
+      // Conservative hasMore — a full 100-item page means there MAY be
+      // a second page. Only the "Load more" click can confirm by trying
+      // to fetch offset=100 and checking the response.
+      setHasMore(data.length >= 100);
       if (silent) {
         setListings(prev => {
           const prevIds = new Set(prev.map(l => l.id));
@@ -1846,6 +4136,44 @@ export function App() {
     } catch (e) { console.error(e); }
     finally { if (!silent) setLoading(false); }
   }, [sort, category, rarity, minPrice, maxPrice, search, listingTypeFilter]);
+
+  // Fetch the next page and append. Uses the same filter state as the
+  // initial load; the only difference is `offset = current listings count`
+  // so pages align. Server caps at limit=100 so repeatedly clicking
+  // Load More walks 100-row chunks. No optimistic "no more" on a short
+  // tail: when the returned batch is shorter than 100, we flip hasMore
+  // off so the button hides itself.
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const backendSort = sort === 'discount' ? 'newest' : sort;
+      const next = await fetchListings({
+        sort: backendSort,
+        category: category !== 'All' ? category : null,
+        rarity:   rarity !== 'All'   ? rarity   : null,
+        listingType: listingTypeFilter && listingTypeFilter !== 'ALL' ? listingTypeFilter : null,
+        minPrice: minPrice || null,
+        maxPrice: maxPrice || null,
+        search:   search   || null,
+        limit:    100,
+        offset:   listings.length
+      });
+      if (!Array.isArray(next) || next.length === 0) {
+        setHasMore(false);
+        return;
+      }
+      setListings(prev => {
+        const have = new Set(prev.map(l => l.id));
+        const merged = [...prev];
+        next.forEach(l => { if (l && !have.has(l.id)) merged.push(l); });
+        return merged;
+      });
+      setHasMore(next.length >= 100);
+    } catch (e) { console.error(e); }
+    finally { setLoadingMore(false); }
+  }, [loadingMore, hasMore, sort, category, rarity, minPrice, maxPrice,
+      search, listingTypeFilter, listings.length]);
   useEffect(() => { load(); }, [load]);
 
   // Soft poll the marketplace grid every 30s while the user is on a
@@ -1927,17 +4255,75 @@ export function App() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  // buy flow — errors now come as {code, message} from GlobalExceptionHandler
-  const handleBuy = async (listingId) => {
+  // Session-expired broadcast from the api.js write wrapper. When any
+  // write op hits a 401 it dispatches `sb:session-expired`; the App flips
+  // `me` back to null so the nav avatar returns to the "Sign in with
+  // Steam" affordance. The failing operation still returns its error
+  // object, so the caller's own toast fires with the friendly message.
+  // Debounced to once per 10s so a burst of stale-cookie requests doesn't
+  // bounce the UI back and forth.
+  const sessionExpiredRef = useRef(0);
+  useEffect(() => {
+    const handler = () => {
+      const now = Date.now();
+      if (now - sessionExpiredRef.current < 10_000) return;
+      sessionExpiredRef.current = now;
+      setMe(null);
+      setIsAdmin(false);
+      setIsCsrRole(false);
+      showToast('Your session expired — sign in again to continue.', 'err');
+    };
+    window.addEventListener('sb:session-expired', handler);
+    return () => window.removeEventListener('sb:session-expired', handler);
+  }, []);
+
+  // Batch 711 — service-unavailable banner. On any 503, the api.js
+  // wrappers dispatch `sb:service-unavailable`; we flip a banner
+  // state on. Any subsequent 2xx clears it automatically (via
+  // `sb:service-restored`) so the UI self-heals when the pod
+  // recovers, no refresh needed. Distinct from the ErrorBoundary
+  // page — this is a recoverable network-level signal, not a
+  // render-time crash.
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
+  useEffect(() => {
+    const down = () => setServiceUnavailable(true);
+    const up   = () => setServiceUnavailable(false);
+    window.addEventListener('sb:service-unavailable', down);
+    window.addEventListener('sb:service-restored', up);
+    return () => {
+      window.removeEventListener('sb:service-unavailable', down);
+      window.removeEventListener('sb:service-restored', up);
+    };
+  }, []);
+
+  // buy flow — errors now come as {code, message} from GlobalExceptionHandler.
+  // expectedPrice (optional) pins what the user saw in the modal / card so
+  // the server can 400 PRICE_CHANGED if a seller raised the price mid-click
+  // (batch 323). Callers pass the listing's .price; legacy callers still work.
+  const handleBuy = async (listingId, expectedPrice) => {
     try {
-      const res = await buyListing(listingId);
+      const res = await buyListing(listingId, expectedPrice);
       if (res && (res.code || res.error)) {
-        const msg = res.message || res.error;
+        let msg = res.message || res.error;
+        // Batch 963 — compose a precise "Top up $X" toast when the
+        // server returns structured shortfall details. Falls through
+        // to the message-string path if details aren't present (older
+        // server, non-purchase error).
+        if (res.code === 'INSUFFICIENT_BALANCE' && res.details?.shortfall) {
+          const short = parseFloat(res.details.shortfall);
+          if (Number.isFinite(short) && short > 0) {
+            msg = `Top up $${short.toFixed(2)} to complete this purchase.`;
+          }
+        }
         showToast(msg, 'err');
         if (res.code === 'INSUFFICIENT_BALANCE' || /insufficient/i.test(msg || '')) {
           setSelected(null);
           setWalletInitialTab('deposit');
-          setWalletOpen(true);
+          // Route-driven wallet surface — old code toggled a dead
+          // `walletOpen` boolean that nothing read anymore (/wallet
+          // became a real route). Navigate so back/forward + URL share
+          // still work on the deposit nudge.
+          navigate(paths.wallet());
         }
         return;
       }
@@ -1947,7 +4333,17 @@ export function App() {
       // said "added to your inventory" which was misleading during the
       // pending window. Nudge them toward the trades tab so they can
       // watch the state machine instead of hunting for the item.
-      showToast('Purchase complete — trade opened, see Profile › Trades', 'ok');
+      //
+      // Batch 880 — include the item name + price from the response so
+      // the user sees what they bought at a glance, not just a generic
+      // "purchase complete". Falls back to the generic copy when the
+      // response shape is missing the fields (backwards-compat).
+      const boughtName = res?.itemName;
+      const boughtPrice = res?.price != null ? parseFloat(res.price) : null;
+      const toastCopy = boughtName
+        ? `Bought "${boughtName}"${boughtPrice != null && !isNaN(boughtPrice) ? ` for ${fmt(boughtPrice)}` : ''} — trade opened, see Profile › Trades`
+        : 'Purchase complete — trade opened, see Profile › Trades';
+      showToast(toastCopy, 'ok');
       await loadWallet();
       load();
     } catch (e) {
@@ -1955,16 +4351,35 @@ export function App() {
     }
   };
 
-  const handleMakeOffer = async (listingId, amount) => {
+  const handleMakeOffer = async (listingId, amount, message) => {
     if (!listingId || !amount) return { error: 'Missing data' };
-    const res = await makeOffer(listingId, amount);
-    if (!res.code && !res.error) showToast('Offer sent', 'ok');
+    const res = await makeOffer(listingId, amount, message);
+    if (!res.code && !res.error) {
+      // Batch 881 — include amount + item name (when available from the
+      // response DTO) so the offer-sent toast confirms exactly what was
+      // offered. Matches the buy-success personalisation (batch 880).
+      const n = parseFloat(amount);
+      const itemName = res.itemName;
+      const copy = itemName
+        ? `Offered ${fmt(n)} on "${itemName}" — the seller has 7 days to respond.`
+        : `Offered ${fmt(n)} — the seller has 7 days to respond.`;
+      showToast(copy, 'ok');
+    }
     return res;
   };
 
   const clearFilters = () => {
     setCategory('All'); setRarity('All');
     setMinPrice(''); setMaxPrice(''); setSearch(''); setSearchInput('');
+    // Batch 651 — include the new chip in the full-reset action.
+    setMinDiscountPct(0);
+    // Batch 812 — also drop the quick-filter toggles + type chip so
+    // "Clear Filters" truly resets the grid to the default view
+    // regardless of which chips the user had checked.
+    setDealsOnly(false);
+    setNewOnly(false);
+    setAffordableOnly(false);
+    setListingTypeFilter('ALL');
   };
 
   // derived data
@@ -2006,14 +4421,53 @@ export function App() {
     return { topDeals, newest, unique };
   }, [listings]);
 
-  const recentSales = useMemo(() =>
-    [...listings].slice(0, 12).map((l, i) => ({ listing: l, time: (i * 3 + 2) + 'm ago' })),
-  [listings]);
+  // Live-sales ticker — real SOLD rows from /api/listings/recent-sales.
+  // Previously this used ACTIVE listings with synthetic "Xm ago" labels,
+  // which was misleading (the ticker claimed "LIVE SALES" but showed
+  // items that hadn't sold). Now every row is a real settlement with
+  // its actual soldAt timestamp. Fetched once on mount + on every
+  // marketplace refresh so a user who just completed a purchase sees
+  // their row appear in the ticker.
+  const [recentSales, setRecentSales] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetchPlatformRecentSales(12).then(rows => {
+      if (!alive || !Array.isArray(rows)) return;
+      setRecentSales(rows.map(r => ({
+        listing: {
+          id:    r.listingId,
+          price: r.price,
+          item:  {
+            id:         r.itemId,
+            name:       r.itemName,
+            category:   r.category,
+            rarity:     r.rarity,
+            imageUrl:   r.imageUrl,
+            steamPrice: r.steamPrice
+          }
+        },
+        time: r.soldAt ? timeAgo(r.soldAt) : 'just now'
+      })));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [listings.length]);
 
   // One-card-per-item view of the marketplace. We show the cheapest listing
   // per item with the total listing count as a "3 listings from $X" badge.
   // Matches CSFloat's grid layout and fixes the watchlist "starring one
   // card highlights every card of the same item" confusion.
+  // Bulk watcher counts for the visible marketplace grid — keyed by
+  // item id. One round-trip after the listings settle, no per-card
+  // fan-out. Items not in the map render no chip (treated as zero-watch).
+  const [watcherCounts, setWatcherCounts] = useState({});
+  // Sales-velocity (last 7d) per item — drives the "🔥 N sold" hot
+  // chip on cards (batch 288). Same fetch shape as watcherCounts.
+  const [salesVelocity, setSalesVelocity] = useState({});
+  // Bulk Steam avatar URLs per sellerUserId — drives real profile
+  // photos on the listing-table seller column instead of the legacy
+  // all-caps 2-letter monogram. Sellers without an avatarUrl on file
+  // are absent, and ListingRow falls through to the monogram.
+  const [sellerAvatarUrls, setSellerAvatarUrls] = useState({});
   const dedupedListings = useMemo(() => {
     // Apply the listing-type filter before dedup so "Auction only" doesn't
     // pick the buy-now as the representative card for an item that has both.
@@ -2029,9 +4483,40 @@ export function App() {
         return isFinite(sp) && isFinite(p) && sp > 0 && p < sp;
       });
     }
+    // Batch 662 — hide-my-listings filter. Dropped from the pool so
+    // the dedup step + count strip reflect what the seller actually
+    // wants to look at. Silent when the viewer is anonymous or has
+    // no listings in the pool.
+    if (hideMine && me?.id) {
+      pool = pool.filter(l => l?.sellerUserId !== me.id);
+    }
+    // Batch 651 — min-discount threshold filter. Only applies when
+    // minDiscountPct > 0 (chip inactive at 0). Items without a Steam
+    // reference price are excluded from the pool so the filter
+    // strictly narrows the set and never leaks "unknown discount"
+    // rows through a positive threshold.
+    if (minDiscountPct > 0) {
+      const floor = minDiscountPct / 100;
+      pool = pool.filter(l => {
+        const sp = parseFloat(l?.item?.steamPrice);
+        const p  = parseFloat(l?.price);
+        if (!(isFinite(sp) && sp > 0 && isFinite(p) && p > 0)) return false;
+        return (1 - p / sp) >= floor;
+      });
+    }
     if (newOnly) {
       const cutoff = Date.now() - 24 * 3600 * 1000;
       pool = pool.filter(l => (l?.listedAt || 0) >= cutoff);
+    }
+    // Affordable-only (batch 367). Rides on the wallet balance fetched
+    // by the usual loadWallet() effect. Anon viewers never reach this
+    // branch because the chip is hidden for them.
+    if (affordableOnly && wallet && parseFloat(wallet.balance) > 0) {
+      const bal = parseFloat(wallet.balance);
+      pool = pool.filter(l => {
+        const p = parseFloat(l?.price);
+        return isFinite(p) && p <= bal;
+      });
     }
     const byItem = {};
     pool.filter(l => l?.item).forEach(l => {
@@ -2045,21 +4530,131 @@ export function App() {
     pool.forEach(l => { if (l?.item) counts[l.item.id] = (counts[l.item.id] || 0) + 1; });
     return Object.values(byItem)
       .map(e => ({ ...e.listing, __listingCount: counts[e.listing.item.id] || 1 }));
-  }, [listings, listingTypeFilter, dealsOnly, newOnly]);
+  }, [listings, listingTypeFilter, dealsOnly, minDiscountPct, newOnly, affordableOnly, hideMine, me?.id, wallet?.balance]);
+
+  // Bulk-fetch watcher counts AND sales velocity for the visible item
+  // ids whenever the marketplace grid recomputes. One round-trip each,
+  // debounced by the dedup memo so swapping filters doesn't fan out
+  // per change. Anonymous viewers see both — both endpoints are public.
+  useEffect(() => {
+    if (!dedupedListings || dedupedListings.length === 0) {
+      setWatcherCounts({});
+      setSalesVelocity({});
+      return;
+    }
+    let alive = true;
+    const ids = dedupedListings.map(l => l?.item?.id).filter(Boolean);
+    if (ids.length === 0) return;
+    const idStr = ids.join(',');
+    (async () => {
+      try {
+        const r = await fetch(`/api/watchlist/counts?ids=${idStr}`, { credentials: 'same-origin' });
+        if (!alive || !r.ok) return;
+        const data = await r.json();
+        if (data && typeof data === 'object') setWatcherCounts(data);
+      } catch (_) { /* offline — leave counts empty so cards just render no chip */ }
+    })();
+    (async () => {
+      try {
+        const r = await fetch(`/api/listings/sales-velocity?ids=${idStr}&days=7`, { credentials: 'same-origin' });
+        if (!alive || !r.ok) return;
+        const data = await r.json();
+        if (data && typeof data === 'object') setSalesVelocity(data);
+      } catch (_) { /* offline — chip stays hidden */ }
+    })();
+    // Steam-avatar bulk lookup keyed on the visible sellers. Replaces
+    // the monogram on the table view's Seller column with a real profile
+    // photo when available. Sellers without avatarUrl are absent from
+    // the response; ListingRow falls through to the monogram.
+    (async () => {
+      try {
+        const sellerIds = [...new Set(dedupedListings.map(l => l?.sellerUserId).filter(Boolean))];
+        if (sellerIds.length === 0) return;
+        const { fetchSellerAvatars } = await import('./api.js');
+        const map = await fetchSellerAvatars(sellerIds);
+        if (!alive) return;
+        setSellerAvatarUrls(map || {});
+      } catch (_) { /* offline — monogram remains */ }
+    })();
+    return () => { alive = false; };
+  }, [dedupedListings.map(l => l?.item?.id).join(',')]);
 
   // Full-page routes vs overlay routes. CSFloat-style: most destinations
   // are real pages that replace the marketplace body; only the item detail
   // stays as a slide-in overlay on top of the grid.
-  const FULL_PAGE_ROUTES = ['profile','wallet','cart','help','faq','watchlist','database','loadouts','loadout','sell','mystall','offers','buyorders','notifications','support','settings','admin','csr','notfound','stall'];
+  const FULL_PAGE_ROUTES = ['profile','wallet','cart','help','faq','watchlist','database','loadouts','loadout','sell','mystall','offers','buyorders','notifications','support','settings','affiliate','admin','csr','notfound','stall'];
   const isFullPage = FULL_PAGE_ROUTES.includes(routeName);
 
   return h('div', {
-    className: `site-root ${chatHidden ? 'chat-hidden' : ''} ${isFullPage ? 'full-page-mode' : ''}`
+    className: `site-root ${isFullPage ? 'full-page-mode' : ''}`
   },
     /* Chat removed — was placeholder with fake messages */
 
     /* Sitewide ops announcement — one row at a time, dismissible. */
     h(AnnouncementBanner, null),
+    /* Batch 711 — service-unavailable banner. Fires when any /api/*
+       read hits 503 (DB pool unreachable, maintenance mode, etc).
+       Auto-clears when the next request returns 2xx, so the user
+       doesn't have to refresh. Distinct from ErrorBoundary (which
+       handles render-time JS crashes) — this is a recoverable
+       network-level condition. */
+    serviceUnavailable && h('div', {
+      role: 'alert',
+      style: {
+        background: 'linear-gradient(90deg, rgba(250,204,21,0.15), rgba(250,204,21,0.25))',
+        borderBottom: '1px solid rgba(250,204,21,0.45)',
+        color: '#fcd34d', padding: '10px 18px',
+        fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap'
+      }
+    },
+      h('span', { style: { fontSize: 16 } }, '⚠'),
+      h('span', { style: { flex: 1 } },
+        h('strong', null, 'SkinBox is temporarily unavailable. '),
+        'The service is reporting a degraded state. Your wallet, listings, and trades are safe — refreshed data will appear once service is restored.'),
+      h('a', {
+        href: '/status.html',
+        style: { color: '#fcd34d', background: 'rgba(255,255,255,0.08)',
+                 border: '1px solid rgba(250,204,21,0.5)',
+                 padding: '5px 12px', borderRadius: 4, fontSize: 11, fontWeight: 800,
+                 textDecoration: 'none', whiteSpace: 'nowrap' }
+      }, 'View status')),
+    /* Batch 663 — persistent "account suspended" banner for signed-in
+       users whose `banned` flag is true. Can't be dismissed — a banned
+       user navigating the site should never forget why Sell / Bid /
+       Withdraw 403s. Sits above every other banner so it's the first
+       thing the user sees on load. Anon viewers + non-banned users
+       render nothing. */
+    me && me.banned && h('div', {
+      role: 'alert',
+      style: {
+        background: 'linear-gradient(90deg, rgba(248,113,113,0.18), rgba(220,38,38,0.25))',
+        borderBottom: '1px solid rgba(248,113,113,0.45)',
+        color: '#fca5a5', padding: '10px 18px',
+        fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap'
+      }
+    },
+      h('span', { style: { fontSize: 16 } }, '⛔'),
+      h('span', { style: { flex: 1 } },
+        h('strong', null, 'Your account is suspended — read-only access.'),
+        ' Listings, bids, offers, trades, deposits, and withdrawals are all disabled. ',
+        me.banReason
+          ? h('span', null, 'Reason: ', h('em', null, me.banReason), '. ')
+          : null,
+        'Contact support if you want to appeal.'
+      ),
+      h('a', {
+        href: paths.support(),
+        style: {
+          color: '#fca5a5', background: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(248,113,113,0.55)',
+          padding: '5px 12px', borderRadius: 4, fontSize: 11, fontWeight: 800,
+          textDecoration: 'none', whiteSpace: 'nowrap'
+        },
+        title: 'Open a support ticket to appeal'
+      }, 'Appeal →')
+    ),
     h(EmailVerifyNag, { me }),
 
     /* Pending-trade reminder — nudges users whose escrow has been
@@ -2070,29 +4665,77 @@ export function App() {
     h('nav', { className: 'nav' },
       h('div', { className: 'nav-inner' },
       h('a', { className: 'nav-logo', href: '/' },
-        // Loot-crate logo. The <img> falls back to the "SB" initials inside
-        // the gradient square if the file isn't present yet — so this
-        // renders cleanly even before the user drops the real PNG into
-        // /static/img/logo.png.
-        h('div', { className: 'nav-logo-icon' },
-          h('img', {
-            src: '/img/logo-square.png',
-            alt: 'SkinBox',
-            onError: (e) => { e.target.style.display = 'none'; e.target.parentElement.textContent = 'SB'; }
-          })
+        // Batch 1068 — isometric-crate SVG logo per the operator's template
+        // (~/Downloads/skinbox_files/chrome.jsx), recolored with a blue
+        // fade. Top facet is the lightest blue, right facet mid, left
+        // facet deepest — the crate reads as a single object lit from
+        // above-left. Blue accent lines up with the --cta brand blue.
+        h('div', { className: 'nav-logo-icon', 'aria-hidden': 'true' },
+          h('svg', {
+            viewBox: '0 0 48 48',
+            xmlns: 'http://www.w3.org/2000/svg',
+            width: '100%',
+            height: '100%',
+            fill: 'none'
+          },
+            h('defs', null,
+              h('linearGradient', { id: 'sbm-top', x1: '24', y1: '2', x2: '24', y2: '26', gradientUnits: 'userSpaceOnUse' },
+                h('stop', { offset: '0%',   stopColor: '#c0e9ff' }),
+                h('stop', { offset: '100%', stopColor: '#4dc8ff' })
+              ),
+              h('linearGradient', { id: 'sbm-left', x1: '4', y1: '24', x2: '24', y2: '46', gradientUnits: 'userSpaceOnUse' },
+                h('stop', { offset: '0%',   stopColor: '#0a7cc9' }),
+                h('stop', { offset: '100%', stopColor: '#04121c' })
+              ),
+              h('linearGradient', { id: 'sbm-right', x1: '46', y1: '24', x2: '24', y2: '46', gradientUnits: 'userSpaceOnUse' },
+                h('stop', { offset: '0%',   stopColor: '#1ea5ff' }),
+                h('stop', { offset: '100%', stopColor: '#0d4d78' })
+              )
+            ),
+            h('path', { d: 'M24 3 L44 14 L24 25 L4 14 Z',   fill: 'url(#sbm-top)',   stroke: 'rgba(120,210,255,0.5)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+            h('path', { d: 'M4 14 L24 25 L24 45 L4 34 Z',   fill: 'url(#sbm-left)',  stroke: 'rgba(77,200,255,0.12)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+            h('path', { d: 'M44 14 L24 25 L24 45 L44 34 Z', fill: 'url(#sbm-right)', stroke: 'rgba(77,200,255,0.18)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+            h('path', { d: 'M4 14 L24 3 L44 14',            fill: 'none',           stroke: 'rgba(192,233,255,0.75)', strokeWidth: '0.8', strokeLinejoin: 'round' }),
+            h('path', { d: 'M24 25 L24 45',                 stroke: 'rgba(4,18,28,0.55)', strokeWidth: '0.8' })
+          )
         ),
         h('span', { className: 'nav-logo-text' }, 'SkinBox'),
         h('span', { className: 'nav-logo-badge' }, 's&box')
       ),
-      h('div', { className: 'nav-links' },
-        h('a', { className: `nav-link ${routeName === 'market' ? 'active' : ''}`, href: paths.market() }, 'Market'),
-        h('a', { className: `nav-link ${routeName === 'database' ? 'active' : ''}`, href: paths.database() }, 'Database'),
-        h('a', { className: `nav-link ${routeName === 'loadouts' || routeName === 'loadout' ? 'active' : ''}`, href: paths.loadouts() }, 'Loadout Lab'),
-        h('a', { className: `nav-link ${routeName === 'watchlist' ? 'active' : ''}`, href: paths.watchlist() },
+      // Batch 777 — `role="navigation"` lets screen readers treat this
+      // as a proper navigation landmark so a user can jump straight to
+      // it with their SR's landmark navigation shortcut. `aria-current`
+      // on the active link tells the SR which page the user is on
+      // without them having to read every label.
+      h('nav', { className: 'nav-links', 'aria-label': 'Primary' },
+        h('a', {
+          className: `nav-link ${routeName === 'market' ? 'active' : ''}`,
+          href: paths.market(),
+          'aria-current': routeName === 'market' ? 'page' : undefined
+        }, 'Market'),
+        h('a', {
+          className: `nav-link ${routeName === 'database' ? 'active' : ''}`,
+          href: paths.database(),
+          'aria-current': routeName === 'database' ? 'page' : undefined
+        }, 'Database'),
+        h('a', {
+          className: `nav-link ${routeName === 'loadouts' || routeName === 'loadout' ? 'active' : ''}`,
+          href: paths.loadouts(),
+          'aria-current': (routeName === 'loadouts' || routeName === 'loadout') ? 'page' : undefined
+        }, 'Loadout Lab'),
+        h('a', {
+          className: `nav-link ${routeName === 'watchlist' ? 'active' : ''}`,
+          href: paths.watchlist(),
+          'aria-current': routeName === 'watchlist' ? 'page' : undefined
+        },
           'Watchlist',
           watchlist.length > 0 && h('span', { className: 'nav-link-badge' }, watchlist.length)
         ),
-        h('a', { className: `nav-link ${routeName === 'help' || routeName === 'faq' ? 'active' : ''}`, href: paths.help() }, 'Help'),
+        h('a', {
+          className: `nav-link ${routeName === 'help' || routeName === 'faq' ? 'active' : ''}`,
+          href: paths.help(),
+          'aria-current': (routeName === 'help' || routeName === 'faq') ? 'page' : undefined
+        }, 'Help'),
       ),
       h('div', { className: 'nav-right' },
         // Offers inbox icon + actionable pending-incoming badge. Clicking
@@ -2100,15 +4743,29 @@ export function App() {
         // less real-time than notifications so a slower cadence is fine.
         me && h(NavOffersBadge, null),
         h(NotificationBell, { me }),
-        h(ThemePicker, null),
-        h('a', {
-          className: 'nav-icon-btn',
-          href: paths.cart(),
-          title: 'Cart'
-        },
-          h(MaterialIcon, { name: 'shopping_cart', size: 18 }),
-          cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount)
-        ),
+        /* Batch 1068 — ThemePicker removed from nav per operator:
+           editorial design is locked to the blue accent; no palette
+           picker needed. */
+        (() => {
+          // Cart total value surfaced in the title attribute (batch 397).
+          // A one-click hover tells the user what's in there without
+          // opening /cart — useful after bulk-adding items from the grid.
+          // `cartTotal` already uses fresh server-reported prices when
+          // available; stale local price is the fallback.
+          const total = parseFloat(cartTotal) || 0;
+          const tip = cartCount === 0
+            ? 'Cart is empty'
+            : `Cart · ${cartCount} item${cartCount === 1 ? '' : 's'} · ${privacy ? '$•••••' : fmt(total)}`;
+          return h('a', {
+            className: 'nav-icon-btn',
+            href: paths.cart(),
+            title: tip,
+            'aria-label': tip
+          },
+            h(MaterialIcon, { name: 'shopping_cart', size: 20, fill: cartCount > 0, color: cartCount > 0 ? 'var(--accent)' : 'var(--text-secondary)' }),
+            cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount)
+          );
+        })(),
         me && wallet && (() => {
           // Low-balance indicator — quiet amber amp on the wallet button
           // when balance < $5. Pending withdrawals still surface via the
@@ -2117,29 +4774,121 @@ export function App() {
           // it'd leak the fact that balance is low.
           const bal = parseFloat(wallet.balance) || 0;
           const low = !privacy && bal < 5 && bal >= 0;
+          // Pending-money-flow dot. Before this the only surface that
+          // showed "a deposit/withdrawal is in flight" was the inside of
+          // the WalletModal — a user who kicked off a Stripe Checkout,
+          // closed the tab, and came back had to OPEN the wallet to see
+          // that it was still pending. A small dot on the nav wallet
+          // chip replaces one open with one glance. Blue for deposit-in,
+          // amber for withdrawal-out, pulsing. Hidden when nothing is
+          // pending so the default chip stays clean.
+          const pendingWithdraw = parseFloat(wallet.pendingWithdrawAmt) || 0;
+          const pendingDeposit  = parseFloat(wallet.pendingDepositAmt)  || 0;
+          const pendingDot = pendingWithdraw > 0
+            ? { color: '#fbbf24', title: `Withdrawal in flight · ${fmt(pendingWithdraw)}` }
+            : pendingDeposit > 0
+              ? { color: 'var(--accent)', title: `Deposit in flight · ${fmt(pendingDeposit)}` }
+              : null;
           return h('button', {
             className: `wallet-btn${low ? ' low-balance' : ''}`,
             onClick: (e) => {
               if (e.ctrlKey || e.metaKey) { e.preventDefault(); setPrivacy(p => !p); return; }
               navigate(paths.wallet());
             },
-            title: low
-              ? `Balance is under $5 — top up to keep checking out.  ·  Ctrl-click to toggle privacy`
-              : 'Open wallet · Ctrl-click to toggle privacy'
+            title: pendingDot
+              ? pendingDot.title + ' · Open wallet · Ctrl-click to toggle privacy'
+              : low
+                ? `Balance is under $5 — top up to keep checking out.  ·  Ctrl-click to toggle privacy`
+                : 'Open wallet · Ctrl-click to toggle privacy',
+            style: { position: 'relative' }
           },
             h('div', { className: 'wallet-btn-icon' }, low ? '!' : '$'),
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 } },
               h('span', { className: 'wallet-btn-label' }, low ? 'Top up' : 'Balance'),
               h('span', { className: 'wallet-btn-amt' }, privacy ? '$•••••' : fmt(wallet.balance))
-            )
+            ),
+            pendingDot && h('span', {
+              'aria-hidden': 'true',
+              style: {
+                position: 'absolute', top: 6, right: 6,
+                width: 7, height: 7, borderRadius: '50%',
+                background: pendingDot.color,
+                boxShadow: '0 0 0 2px var(--bg)',
+                animation: 'pulse 2s ease-in-out infinite'
+              }
+            })
           );
         })(),
         me
-          ? h('div', { className: 'user-chip', onClick: () => setMenuOpen(o => !o) },
-              h('div', { className: 'user-chip-avatar' },
-                me.avatarUrl
-                  ? h('img', { src: me.avatarUrl, alt: me.displayName })
-                  : (me.displayName || 'U').substring(0, 2).toUpperCase()
+          ? h('div', {
+              className: 'user-chip',
+              // Batch 934 — a11y: make the user-chip keyboard-activatable.
+              // Was a plain <div onClick> — not in the Tab order, screen
+              // readers didn't announce it as a menu trigger. role=button
+              // + aria-haspopup=menu + aria-expanded bound to menuOpen
+              // gives SRs the right shape; tabIndex + keydown lets
+              // keyboard users toggle with Enter/Space.
+              role: 'button',
+              tabIndex: 0,
+              'aria-haspopup': 'menu',
+              'aria-expanded': menuOpen,
+              'aria-label': `User menu · @${me.displayName || 'Player'}${
+                pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} need attention` : ''
+              }`,
+              onKeyDown: (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setMenuOpen(o => !o);
+                }
+              },
+              onClick: () => setMenuOpen(o => !o),
+              // Avatar badge tooltip (batch 532). Shows WHICH surface
+              // needs attention, not just the raw count — "3 seller
+              // actions · 2 offers · 1 review" helps the user pick
+              // where to click instead of hunting through the menu.
+              title: pendingActions && pendingActions.total > 0
+                ? (() => {
+                    const parts = [];
+                    const seller = (pendingActions.sellerTrades || 0);
+                    const buyer  = (pendingActions.buyerTrades || 0);
+                    const dispt  = (pendingActions.disputedTrades || 0);
+                    const offers = (pendingActions.incomingOffers || 0);
+                    const chat   = (pendingActions.unreadChat || 0);
+                    const revs   = (pendingActions.pendingReviews || 0);
+                    if (seller) parts.push(`${seller} seller action${seller === 1 ? '' : 's'}`);
+                    if (buyer)  parts.push(`${buyer} buyer action${buyer === 1 ? '' : 's'}`);
+                    if (dispt)  parts.push(`${dispt} disputed trade${dispt === 1 ? '' : 's'}`);
+                    if (offers) parts.push(`${offers} incoming offer${offers === 1 ? '' : 's'}`);
+                    if (chat)   parts.push(`${chat} unread message${chat === 1 ? '' : 's'}`);
+                    if (revs)   parts.push(`${revs} trade${revs === 1 ? '' : 's'} to review`);
+                    return parts.length > 0
+                      ? `${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} · ${parts.join(' · ')}`
+                      : `${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} need your attention`;
+                  })()
+                : null
+            },
+              h('div', { className: 'user-chip-avatar', style: { position: 'relative' } },
+                h(Avatar, {
+                  src: me.avatarUrl,
+                  name: me.displayName || 'Player',
+                  alt: me.displayName,
+                  style: { width: '100%', height: '100%', borderRadius: 'inherit',
+                           background: 'transparent', border: 'none', fontSize: 11 }
+                }),
+                // Pending-actions badge. Red dot with the count, ≤99
+                // caps to '99+'. Absolute-positioned on the avatar so it
+                // survives the chip-layout without shoving the name.
+                pendingActions && pendingActions.total > 0 && h('span', {
+                  className: 'pending-actions-badge',
+                  style: {
+                    position: 'absolute', top: -4, right: -4,
+                    minWidth: 16, height: 16, padding: '0 4px',
+                    borderRadius: 8, background: 'var(--red)', color: '#0b0f1a',
+                    fontSize: 10, fontWeight: 900, lineHeight: '16px',
+                    textAlign: 'center', border: '2px solid var(--bg-primary)',
+                    boxShadow: '0 1px 4px rgba(248,113,113,0.5)'
+                  }
+                }, pendingActions.total > 99 ? '99+' : pendingActions.total)
               ),
               h('span', { className: 'user-chip-name' }, me.displayName || 'Player'),
               menuOpen && h('div', {
@@ -2147,28 +4896,55 @@ export function App() {
                 onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
               }),
               menuOpen && h('div', { className: 'user-menu', onClick: e => e.stopPropagation() },
-                h('a', { className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18 }), 'Profile'),
+                h('a', { className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--text-primary)' }), 'Profile'),
                 h('div', { className: 'user-menu-divider' }),
-                h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'south', size: 18 }), 'Deposit'),
-                h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('withdraw'); navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'north', size: 18 }), 'Withdraw'),
-                h('a', { className: 'user-menu-item', href: '/profile?tab=trades', onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'swap_horiz', size: 18 }), 'Trades'),
+                h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'upload', size: 18, fill: true, color: '#22c55e' }), 'Deposit'),
+                h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('withdraw'); navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'credit_card', size: 18, fill: true, color: '#60a5fa' }), 'Withdraw'),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { className: 'user-menu-item', href: paths.sell(),          onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18 }), 'Sell Items'),
-                h('a', { className: 'user-menu-item', href: paths.mystall(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18 }), 'My Stall'),
-                h('a', { className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'forum', size: 18 }), 'Offers'),
-                h('a', { className: 'user-menu-item', href: paths.buyorders(),     onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'bolt', size: 18 }), 'Buy Orders'),
-                h('a', { className: 'user-menu-item', href: paths.notifications(), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'notifications', size: 18 }), 'Notifications'),
-                h('a', { className: 'user-menu-item', href: paths.loadouts(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'checkroom', size: 18 }), 'Loadout Lab'),
+                h('a', { className: 'user-menu-item', href: '/profile?tab=trades', onClick: () => setMenuOpen(false) },
+                  h(MaterialIcon, { name: 'swap_horiz', size: 18, fill: true, color: '#fb923c' }),
+                  'Trades',
+                  // Combined seller+buyer+disputed+unread-chat+pending-reviews
+                  // (batches 282, 338) — the number of things on the user's
+                  // Profile page that need their attention. Matches the avatar
+                  // badge total minus the incomingOffers count (which has its
+                  // own per-item badge on Offers below).
+                  pendingActions && ((pendingActions.sellerTrades || 0) + (pendingActions.buyerTrades || 0) + (pendingActions.disputedTrades || 0) + (pendingActions.unreadChat || 0) + (pendingActions.pendingReviews || 0)) > 0 &&
+                    h('span', {
+                      className: 'filter-count',
+                      style: { marginLeft: 'auto', background: 'var(--red)', color: '#0b0f1a', fontWeight: 800 },
+                      title: [
+                        (pendingActions.unreadChat || 0) > 0 ? `${pendingActions.unreadChat} unread chat` : null,
+                        (pendingActions.pendingReviews || 0) > 0 ? `${pendingActions.pendingReviews} trade${pendingActions.pendingReviews === 1 ? '' : 's'} to review` : null
+                      ].filter(Boolean).join(' · ') || null
+                    }, (pendingActions.sellerTrades || 0) + (pendingActions.buyerTrades || 0) + (pendingActions.disputedTrades || 0) + (pendingActions.unreadChat || 0) + (pendingActions.pendingReviews || 0))
+                ),
+                h('div', { className: 'user-menu-divider' }),
+                h('a', { className: 'user-menu-item', href: paths.sell(),          onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'sell', size: 18, fill: true, color: '#fbbf24' }), 'Sell Items'),
+                h('a', { className: 'user-menu-item', href: paths.mystall(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'storefront', size: 18, fill: true, color: '#f97316' }), 'My Stall'),
+                h('a', { className: 'user-menu-item', href: paths.offers(),        onClick: () => setMenuOpen(false) },
+                  h(MaterialIcon, { name: 'swap_vert', size: 18, fill: true, color: 'var(--accent)' }),
+                  'Offers',
+                  // Only incoming offers need the seller to take action — outgoing offers are waiting on the other party.
+                  pendingActions && (pendingActions.incomingOffers || 0) > 0 &&
+                    h('span', {
+                      className: 'filter-count',
+                      style: { marginLeft: 'auto', background: 'var(--red)', color: '#0b0f1a', fontWeight: 800 }
+                    }, pendingActions.incomingOffers)
+                ),
+                h('a', { className: 'user-menu-item', href: paths.buyorders(),     onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'bolt', size: 18, fill: true, color: '#fbbf24' }), 'Buy Orders'),
                 h('a', { className: 'user-menu-item', href: paths.watchlist(),     onClick: () => setMenuOpen(false) },
-                  h(MaterialIcon, { name: 'favorite_border', size: 18 }),
+                  h(MaterialIcon, { name: 'visibility', size: 18, fill: true, color: '#60a5fa' }),
                   'Watchlist',
                   watchlist.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 'auto' } }, watchlist.length)
                 ),
+                h('a', { className: 'user-menu-item', href: paths.notifications(), onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'notifications', size: 18, fill: true, color: '#fbbf24' }), 'Notifications'),
+                h('a', { className: 'user-menu-item', href: paths.loadouts(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'checkroom', size: 18, fill: true, color: 'var(--accent)' }), 'Loadout Lab'),
                 h('div', { className: 'user-menu-divider' }),
-                h('a', { className: 'user-menu-item', href: paths.database(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'database', size: 18 }), 'Database'),
-                h('a', { className: 'user-menu-item', href: paths.help(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'help', size: 18 }), 'Help Center'),
-                h('a', { className: 'user-menu-item', href: paths.support(),   onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'support_agent', size: 18 }), 'Support'),
-                h('a', { className: 'user-menu-item', href: paths.settings(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'settings', size: 18 }), 'Settings'),
+                h('a', { className: 'user-menu-item', href: paths.database(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'database', size: 18, fill: true, color: 'var(--text-secondary)' }), 'Database'),
+                h('a', { className: 'user-menu-item', href: paths.help(),      onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'help', size: 18, fill: true, color: 'var(--text-secondary)' }), 'Help Center'),
+                h('a', { className: 'user-menu-item', href: paths.support(),   onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'chat_bubble', size: 18, fill: true, color: 'var(--text-secondary)' }), 'Support'),
+                h('a', { className: 'user-menu-item', href: paths.settings(),  onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'settings', size: 18, fill: true, color: 'var(--text-secondary)' }), 'Settings'),
                 // Staff shortcuts — only visible to CSR / ADMIN roles. Admin
                 // role is ONLY granted via the server-side bootstrap list
                 // (env var ADMIN_BOOTSTRAP_STEAM_IDS) or by an existing admin
@@ -2177,13 +4953,13 @@ export function App() {
                 isCsr && h('a', {
                   className: 'user-menu-item staff',
                   href: paths.csr(), onClick: () => setMenuOpen(false)
-                }, h(MaterialIcon, { name: 'headset_mic', size: 18 }), 'Customer Service'),
+                }, h(MaterialIcon, { name: 'headset_mic', size: 18, fill: true, color: '#60a5fa' }), 'Customer Service'),
                 isAdmin && h('a', {
                   className: 'user-menu-item staff admin',
                   href: paths.admin(), onClick: () => setMenuOpen(false)
-                }, h(MaterialIcon, { name: 'admin_panel_settings', size: 18 }), 'Admin Panel'),
+                }, h(MaterialIcon, { name: 'admin_panel_settings', size: 18, fill: true, color: 'var(--red)' }), 'Admin Panel'),
                 h('div', { className: 'user-menu-divider' }),
-                h('button', { className: 'user-menu-item danger', onClick: doLogout }, h(MaterialIcon, { name: 'logout', size: 18 }), 'Logout')
+                h('button', { className: 'user-menu-item danger', onClick: doLogout }, h(MaterialIcon, { name: 'logout', size: 18, fill: true, color: 'var(--red)' }), 'Logout')
               )
             )
           : h('button', {
@@ -2214,6 +4990,12 @@ export function App() {
       )
     ),
 
+    /* Batch 1068 — live-tape pulse ticker directly under the nav.
+       Scrolling list of the most recent sold listings sitewide. The
+       component hides itself on empty-state installs so fresh boots
+       don't show a motionless bar. */
+    h(MarketPulse, null),
+
     /* HERO — single-row banner. Signed-in users just see the welcome +
        action buttons; signed-out users also get the marketing tagline.
        We only render the hero AFTER the first /api/me response has
@@ -2221,56 +5003,63 @@ export function App() {
        placeholder with the same vertical footprint, so the user never
        sees the wrong hero flash in and get replaced a moment later. */
     !meLoaded
-      ? h('section', { className: 'hero', style: { visibility: 'hidden' } },
-          h('div', { className: 'hero-inner' },
-            h('div', { className: 'hero-text' },
-              h('h1', null, ' '),
+      ? h('section', { className: 'hero px-hero', style: { visibility: 'hidden' } },
+          h('div', { className: 'hero-inner px-hero-inner' },
+            h('div', { className: 'hero-text px-hero-text' },
+              h('h1', { className: 'px-h1' }, ' '),
               h('p', null, ' ')
             )
           )
         )
-      : h('section', { className: 'hero' },
-          h('div', { className: 'hero-inner' },
-            h('div', { className: 'hero-text' },
+      : h('section', { className: 'hero px-hero' },
+          h('div', { className: 'hero-inner px-hero-inner' },
+            h('div', { className: 'hero-text px-hero-text' },
+              h('div', { className: 'px-eyebrow' },
+                me ? 'SkinBox Studio' : 's&box Marketplace'),
               me
-                ? h('h1', null, 'Welcome back, ',
-                    h('span', { className: 'accent-word' }, me.displayName || 'Player'),
+                ? h('h1', { className: 'px-h1' }, 'Welcome back, ',
+                    h('span', { className: 'px-accent-word' }, me.displayName || 'Player'),
                     '.')
-                : h('h1', null, 'The ', h('span', { className: 'accent-word' }, 's&box'), ' Skin Marketplace'),
-              h('p', null,
+                : h('h1', { className: 'px-h1' }, 'Trade s&box skins',
+                    h('br'),
+                    h('span', { className: 'px-accent-word' }, 'like a collector.')),
+              h('p', { className: 'px-lede' },
                 me
-                  ? 'Pick up where you left off — browse the marketplace, check your stall, or drop something new on sale.'
-                  : 'Trade Workshop items, hats, and clothing with full price history, edition sizes, and trusted sellers.'
+                  ? 'Your wallet, your stall, your watchlist — picked up right where you left off.'
+                  : 'Real-time price history. Verified sellers. Escrowed trades. Zero Steam hold.'
               )
             ),
-            h('div', { className: 'hero-actions' },
+            h('div', { className: 'hero-actions px-hero-actions' },
               h('button', {
-                className: 'btn btn-accent',
+                className: 'px-btn px-btn-primary px-btn-lg',
                 onClick: () => {
                   const el = document.querySelector('.layout');
                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
-              }, 'Browse Market'),
+              }, me ? 'Browse Market' : 'Explore Market'),
               h('a', {
-                className: 'btn btn-ghost',
-                style: { border: '1px solid var(--border-light)' },
+                className: 'px-btn px-btn-ghost px-btn-lg',
                 href: paths.help()
-              }, 'How it Works')
+              }, me ? 'Open Settings' : 'How it works')
             )
           )
         ),
 
-    /* CATEGORY TABS — thin underline row */
+    /* Batch 1068 — category tabs with premium inline-SVG icons. The
+       geometric-glyph version read juvenile per operator; swapped for
+       line-art silhouettes (hat, jacket, shirt, pants, gloves, boots,
+       accessory ring) in the same 1.8-stroke editorial Icon set that
+       the rest of the UI uses. */
     h('section', { className: 'cat-tiles' },
       [
-        { name: 'All',         emoji: '' },
-        { name: 'Hats',        emoji: '🎩' },
-        { name: 'Jackets',     emoji: '🧥' },
-        { name: 'Shirts',      emoji: '👕' },
-        { name: 'Pants',       emoji: '👖' },
-        { name: 'Gloves',      emoji: '🧤' },
-        { name: 'Boots',       emoji: '🥾' },
-        { name: 'Accessories', emoji: '💍' },
+        { name: 'All',         icon: null },
+        { name: 'Hats',        icon: 'cat-hat' },
+        { name: 'Jackets',     icon: 'cat-jacket' },
+        { name: 'Shirts',      icon: 'cat-shirt' },
+        { name: 'Pants',       icon: 'cat-pants' },
+        { name: 'Gloves',      icon: 'cat-gloves' },
+        { name: 'Boots',       icon: 'cat-boots' },
+        { name: 'Accessories', icon: 'cat-accessories' },
       ].map(c => h('div', {
         key: c.name,
         className: `cat-tile ${category === c.name ? 'active' : ''}`,
@@ -2280,7 +5069,7 @@ export function App() {
           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       },
-        c.emoji && h('span', { className: 'cat-tile-emoji' }, c.emoji),
+        c.icon && h('span', { className: 'cat-tile-emoji' }, h(Icon, { name: c.icon, size: 14 })),
         h('div', { className: 'cat-tile-name' }, c.name),
         c.name !== 'All' && h('div', { className: 'cat-tile-count' }, catCounts[c.name] || 0)
       ))
@@ -2290,14 +5079,108 @@ export function App() {
        marketplace states, so fresh installs don't see "$0 traded". */
     routeName === 'market' && h(MarketStatsStrip, null),
 
+    /* "Why SkinBox" value-prop strip. Rebuilt on the px-* premium system —
+       no emojis, inline SVG icons in a blue-accent tile. Three cards on a
+       clean grid, subtle hover elevation. Anonymous-only. */
+    routeName === 'market' && !me && h('section', { className: 'px-section-sm' },
+      h('div', { className: 'px-feature-strip' },
+        [
+          {
+            title: 'Live auctions',
+            body: 'Real-time bidding with auto-bid and anti-snipe extensions. Winners settle into escrow automatically — no follow-up DMs, no missed payments.',
+            svg: h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+              h('path', { d: 'm14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10' }),
+              h('path', { d: 'm16 16 6-6' }),
+              h('path', { d: 'm8 8 6-6' }),
+              h('path', { d: 'm9 7 8 8' }),
+              h('path', { d: 'm21 11-8-8' })
+            )
+          },
+          {
+            title: 'Fair-price offers',
+            body: 'Make or receive offers on any buy-now listing. Sellers set auto-accept thresholds so a reasonable bid clears without a manual round trip.',
+            svg: h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+              h('path', { d: 'M7 15h0M2 9.5h20' }),
+              h('rect', { width: 20, height: 14, x: 2, y: 5, rx: 2 })
+            )
+          },
+          {
+            title: 'No Steam hold',
+            body: 'Funds settle into your wallet the moment the buyer confirms receipt — not after Valve\'s 7-day trade hold. Stripe payouts in 1–2 business days.',
+            svg: h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+              h('polygon', { points: '13 2 3 14 12 14 11 22 21 10 12 10 13 2' })
+            )
+          }
+        ].map(c => h('div', {
+          key: c.title,
+          className: 'px-card px-card-interactive'
+        },
+          h('div', { className: 'px-feature-icon' }, c.svg),
+          h('h3', null, c.title),
+          h('p', null, c.body)
+        ))
+      )
+    ),
+
+    /* "How it works" — rebuilt on the px-* premium system. Numbered
+       steps, no emojis. Centered section header with eyebrow kicker.
+       Anonymous-only. */
+    routeName === 'market' && !me && h('section', { className: 'px-section-sm' },
+      h('div', { className: 'px-container' },
+        h('div', { className: 'px-section-header' },
+          h('div', { className: 'px-eyebrow' }, 'How it works'),
+          h('h2', { className: 'px-h2' }, 'Escrow in five steps.'),
+          h('p', { className: 'px-lede' },
+            'Every trade settles through the same non-custodial escrow. No Steam bot, no trade hold, no manual reconciliation.')
+        ),
+        h('div', {
+          style: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 'var(--space-4)'
+          }
+        },
+          [
+            { num: 1, title: 'Find your item', body: 'Browse auctions, buy-now listings, or set a standing buy order and walk away.' },
+            { num: 2, title: 'Pay into escrow', body: 'Wallet funds lock the moment you commit. No hidden 10-minute hold.' },
+            { num: 3, title: 'Seller ships', body: 'Seller has 3 days to send the Steam trade offer — otherwise trade auto-cancels and you\'re refunded.' },
+            { num: 4, title: 'Confirm receipt', body: 'Click Confirm on your Trades tab — or wait 8 days for the auto-release timer.' },
+            { num: 5, title: 'Funds release', body: 'Seller\'s wallet credits instantly after confirm. Stripe payouts in 1–2 business days.' }
+          ].map(step => h('div', {
+            key: step.num,
+            className: 'px-card',
+            style: { padding: 'var(--space-6) var(--space-5)', textAlign: 'left' }
+          },
+            h('div', {
+              style: {
+                fontSize: 'var(--fs-12)',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--px-accent)',
+                fontVariantNumeric: 'tabular-nums',
+                marginBottom: 'var(--space-3)'
+              }
+            }, 'Step ' + String(step.num).padStart(2, '0')),
+            h('h3', {
+              style: { fontSize: 'var(--fs-17)', fontWeight: 600, color: 'var(--px-text)', margin: '0 0 var(--space-2)', letterSpacing: '-0.015em' }
+            }, step.title),
+            h('p', {
+              style: { fontSize: 'var(--fs-13)', color: 'var(--px-text-3)', lineHeight: 1.55, margin: 0 }
+            }, step.body)
+          ))
+        )
+      )
+    ),
+
     /* HERO TABS — only render when there's actually something to show.
        Avoids leaving a ~300px empty panel on a fresh / zero-listing state. */
     ((heroTabs.topDeals || []).length > 0 || (heroTabs.newest || []).length > 0 || (heroTabs.unique || []).length > 0) && (
       h('section', { className: 'hero-tabs' },
         h('div', { className: 'hero-tabs-bar' },
-          h('button', { className: `hero-tab ${heroTab === 'topDeals' ? 'active' : ''}`, onClick: () => setHeroTab('topDeals') }, '🔥 Top Deals'),
-          h('button', { className: `hero-tab ${heroTab === 'newest' ? 'active' : ''}`,   onClick: () => setHeroTab('newest') },   '✨ Newest Items'),
-          h('button', { className: `hero-tab ${heroTab === 'unique' ? 'active' : ''}`,   onClick: () => setHeroTab('unique') },   '🏷 Unique Items'),
+          h('button', { className: `hero-tab ${heroTab === 'topDeals' ? 'active' : ''}`, onClick: () => setHeroTab('topDeals') }, 'Top Deals'),
+          h('button', { className: `hero-tab ${heroTab === 'newest' ? 'active' : ''}`,   onClick: () => setHeroTab('newest') },   'Newest Items'),
+          h('button', { className: `hero-tab ${heroTab === 'unique' ? 'active' : ''}`,   onClick: () => setHeroTab('unique') },   'Unique Items'),
           h('div', { style: { flex: 1 } }),
           h('button', { className: 'hero-tab-cta', onClick: () => { const el = document.querySelector('.layout'); if (el) el.scrollIntoView({ behavior: 'smooth' }); } }, 'Visit Marketplace →')
         ),
@@ -2314,29 +5197,51 @@ export function App() {
     ),
 
     /* MAIN LAYOUT */
-    h('div', { className: 'layout' },
+    h('main', { id: 'main', className: 'layout', role: 'main' },
       h('aside', { className: 'sidebar' },
-        h('div', { className: 'filter-section' },
+        // Batch 935 — sidebar filter sections use role=radiogroup +
+        // role=radio + aria-checked. Each category / rarity row is a
+        // mutually-exclusive selector (one wins, the others unwind),
+        // which is exactly the radio-group semantic. Prior code was
+        // clickable <div>s: not in tab order, not announced as a
+        // selector, keyboard users couldn't filter at all.
+        h('div', { className: 'filter-section', role: 'radiogroup', 'aria-label': 'Category filter' },
           h('div', { className: 'filter-title' }, 'Category'),
           CATEGORIES.map(c =>
             h('div', {
               key: c,
               className: `filter-option ${category === c ? 'selected' : ''}`,
-              onClick: () => setCategory(c)
+              role: 'radio',
+              'aria-checked': category === c,
+              tabIndex: 0,
+              onClick: () => setCategory(c),
+              onKeyDown: (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCategory(c); }
+              }
             },
               c,
-              c !== 'All' && h('span', { className: 'filter-count' }, catCounts[c] || 0)
+              // Batch 1068 — only render the count chip when > 0. Showing
+              // "Hats 0 · Jackets 0 · Shirts 0 · …" on a narrowly-filtered
+              // view read as broken; empty categories are silent now so
+              // the active one's count stands out cleanly.
+              c !== 'All' && (catCounts[c] || 0) > 0 && h('span', { className: 'filter-count' }, catCounts[c])
             )
           )
         ),
         h('div', { className: 'filter-divider' }),
-        h('div', { className: 'filter-section' },
+        h('div', { className: 'filter-section', role: 'radiogroup', 'aria-label': 'Rarity filter' },
           h('div', { className: 'filter-title' }, 'Availability'),
           RARITIES.map(r =>
             h('div', {
               key: r,
               className: `filter-option ${rarity === r ? 'selected' : ''}`,
-              onClick: () => setRarity(r)
+              role: 'radio',
+              'aria-checked': rarity === r,
+              tabIndex: 0,
+              onClick: () => setRarity(r),
+              onKeyDown: (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRarity(r); }
+              }
             },
               r !== 'All' && h('span', {
                 className: 'filter-dot',
@@ -2357,20 +5262,77 @@ export function App() {
             h('input', { className: 'price-input', placeholder: '$ Max', value: maxPrice, onChange: e => setMaxPrice(e.target.value) })
           )
         ),
-        h('button', { className: 'btn-clear', onClick: clearFilters }, 'Clear Filters')
+        h('button', { className: 'btn-clear', onClick: clearFilters }, 'Clear Filters'),
+        // Batch 766 — "Copy filtered URL" lets a user share the current
+        // filter/sort/price-range snapshot (e.g. "hats under $10, sorted
+        // by newest"). The URL already reflects active filters via
+        // batch 95's sync, so we just copy `window.location.href` with a
+        // brief visual confirmation. Batch 1068 — hidden on a bare
+        // market page with no filters active (the comment promised this
+        // but the guard was missing). No point offering to share an
+        // empty-filter default URL.
+        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 || sort !== 'price_desc' || listingTypeFilter !== 'ALL') && h('button', {
+          className: 'btn-clear',
+          style: { marginTop: 8 },
+          onClick: async (e) => {
+            const url = window.location.href;
+            const btn = e.currentTarget;
+            const prev = btn.textContent;
+            const flash = () => {
+              btn.textContent = 'Copied';
+              btn.style.color = 'var(--green)';
+              setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1200);
+            };
+            try {
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(url);
+                flash();
+              } else {
+                window.prompt('Copy this URL:', url);
+              }
+            } catch (_) { window.prompt('Copy this URL:', url); }
+          },
+          title: 'Copy the current marketplace URL — includes your active filters, sort, and price range so you can share or bookmark this exact view'
+        }, '⎘ Copy Filtered URL')
       ),
 
-      h('main', { className: 'main' },
+      // Batch 926 — was a nested <main> which is invalid HTML (the
+      // outer element at line ~4708 is the document's single <main>
+      // landmark). Changed to a semantically-neutral <div> with the
+      // same CSS class so screen readers see one main landmark, not
+      // two. Also adds `role="search"` to the search container below
+      // so assistive tech lists the search field in its landmark menu.
+      h('div', { className: 'main' },
         h('div', { className: 'toolbar' },
-          h('div', { className: 'search-wrap' },
-            h('span', { className: 'search-icon' }, '⌕'),
+          h('div', { className: 'search-wrap', role: 'search' },
+            h('span', { className: 'search-icon' }, h(Icon, { name: 'search', size: 14 })),
             h('input', {
               className: 'search-input',
+              type: 'search',
+              // Mobile keyboards respect enterkeyhint — showing "Search"
+              // on the Enter key instead of the generic "Return" gives
+              // touch users a clearer affordance that Enter submits.
+              enterKeyHint: 'search',
+              autoComplete: 'off',
               placeholder: 'Search s&box skins…  (press / to focus)',
               value: searchInput,
               onChange: e => { setSearchInput(e.target.value); setSuggestOpen(true); setSuggestIdx(-1); },
               onFocus: () => { setSuggestOpen(true); },
               onKeyDown: (e) => {
+                // Batch 763 — Escape handler runs regardless of
+                // suggestOpen so a user can clear an active search even
+                // when the suggestion dropdown has already closed (e.g.
+                // they tabbed away and back). Other shortcuts still gate
+                // on suggestOpen to avoid hijacking Arrow keys when the
+                // dropdown isn't showing.
+                if (e.key === 'Escape') {
+                  if (suggestOpen) {
+                    setSuggestOpen(false); setSuggestIdx(-1);
+                  } else if (searchInput) {
+                    setSearchInput(''); setSearch('');
+                  }
+                  return;
+                }
                 if (!suggestOpen) return;
                 if (e.key === 'ArrowDown' && suggest.length > 0) {
                   e.preventDefault();
@@ -2392,7 +5354,6 @@ export function App() {
                     setSuggestOpen(false);
                   }
                 }
-                else if (e.key === 'Escape') { setSuggestOpen(false); setSuggestIdx(-1); }
               },
               'aria-label': 'Search listings',
               'aria-autocomplete': 'list',
@@ -2411,7 +5372,27 @@ export function App() {
               className: 'search-suggest',
               role: 'listbox'
             },
-              h('div', { className: 'search-suggest-heading' }, 'Recent searches'),
+              // Batch 922 — header row now includes a "Clear all" affordance
+              // for users who've accumulated 5-6 recent searches and want
+              // to wipe the history in one click instead of clicking the
+              // ✕ on each row. Only rendered when there are 2+ rows —
+              // the per-row ✕ is cleaner for a single entry.
+              h('div', {
+                className: 'search-suggest-heading',
+                style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+              },
+                h('span', null, 'Recent searches'),
+                recentSearches.length >= 2 && h('button', {
+                  className: 'search-suggest-forget',
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    setRecentSearches([]);
+                    try { localStorage.removeItem('sb_recent_searches'); } catch (_) {}
+                  },
+                  style: { fontSize: 10, fontWeight: 700, opacity: 0.7 },
+                  title: 'Forget every recent search on this device'
+                }, 'Clear all')
+              ),
               recentSearches.map((q, i) => h('div', {
                 key: 'rs-' + i,
                 className: 'search-suggest-row recent',
@@ -2457,7 +5438,7 @@ export function App() {
                 h('div', { className: 'search-suggest-thumb' },
                   item.imageUrl
                     ? h('img', { src: item.imageUrl, alt: '', loading: 'lazy' })
-                    : h('span', { style: { color: item.accentColor || '#60a5fa' } }, item.iconEmoji || '📦')
+                    : h('span', { style: { color: 'var(--ink-3)' } }, ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[item.category] || '—')
                 ),
                 h('div', { className: 'search-suggest-body' },
                   h('div', { className: 'search-suggest-name' }, item.name),
@@ -2475,14 +5456,23 @@ export function App() {
           h('select', {
             className: 'sort-select',
             value: sort,
-            onChange: e => setSort(e.target.value),
+            onChange: e => {
+              const v = e.target.value;
+              setSort(v);
+              // Persist the user's choice so the next session lands on it
+              // by default (batch 544). URL ?sort= still overrides.
+              try { localStorage.setItem('sb_market_sort', v); } catch (_) {}
+            },
             'aria-label': 'Sort listings'
           },
             h('option', { value: 'price_desc' }, 'Price: High → Low'),
             h('option', { value: 'price_asc' },  'Price: Low → High'),
             h('option', { value: 'newest' },     'Newest First'),
+            h('option', { value: 'popularity' }, 'Most Traded'),
+            h('option', { value: 'views' },      'Most Viewed'),
             h('option', { value: 'rarity' },     'Lowest Supply'),
             h('option', { value: 'discount' },   'Biggest Discount'),
+            h('option', { value: 'ending_soon' }, 'Auctions: Ending Soonest'),
           ),
           // Saved searches — dropdown of named filter presets. "Save current"
           // prompts for a name and stashes the full filter state. Picking
@@ -2497,7 +5487,9 @@ export function App() {
               onChange: (e) => {
                 const v = e.target.value;
                 if (!v) return;
-                if (v.startsWith('del:')) {
+                if (v === 'del:all') {
+                  deleteAllSavedSearchesHandler();
+                } else if (v.startsWith('del:')) {
                   deleteSavedSearch(parseInt(v.slice(4), 10));
                 } else {
                   const s = savedSearches.find(x => x.id === parseInt(v, 10));
@@ -2510,15 +5502,28 @@ export function App() {
               h('option', { value: '' }, `★ Saved (${savedSearches.length})`),
               savedSearches.map(s => h('option', { key: s.id, value: s.id }, s.name)),
               savedSearches.length > 0 && h('option', { disabled: true, value: '' }, '─── delete ───'),
-              savedSearches.map(s => h('option', { key: 'del-' + s.id, value: 'del:' + s.id }, '✕  ' + s.name))
+              savedSearches.map(s => h('option', { key: 'del-' + s.id, value: 'del:' + s.id }, '✕  ' + s.name)),
+              // "Clear all" shortcut — parity with watchlist + follows
+              // bulk-delete affordances (batch 354).
+              savedSearches.length > 1 && h('option', { key: 'del-all', value: 'del:all' }, '✕✕  Clear all')
             ),
             h('button', {
               className: 'btn btn-ghost',
               style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
-              onClick: saveCurrentSearch,
+              onClick: openSaveSearchDrawer,
+              'aria-haspopup': 'dialog',
+              'aria-expanded': saveSearchDraft !== null,
               title: 'Save the current filter combination as a named preset'
-            }, '★ Save search')
+            }, 'Save search')
           ),
+          // Inline save-search drawer — replaces the native `window.prompt`
+          // that used to gate naming. Renders directly under the toolbar
+          // with a live-updating draft name, Enter-to-save, and Esc-to-cancel.
+          saveSearchDraft !== null && h(SaveSearchDrawer, {
+            initial: saveSearchDraft,
+            onCancel: () => setSaveSearchDraft(null),
+            onSave: (name) => commitSaveSearch(name)
+          }),
           // Listing-type toggle — three buttons, single active. Since
           // batch 137 the filter rides into SQL via ?listingType=… so
           // flipping a chip re-fetches only the matching type. The
@@ -2543,13 +5548,62 @@ export function App() {
             title: 'Only show listings priced below the Steam Market price',
             'aria-pressed': dealsOnly
           }, '% Deals'),
+          // Batch 651 — min-discount chip strip. 0 = inactive (hidden
+          // state), other values narrow to listings ≥ that % off Steam.
+          // Sits right of the Deals chip so the eye flows "any deal →
+          // strong deal" naturally. Chip renders inline as a <select>
+          // because putting 5 buttons inline (Any / 10 / 20 / 30 / 50)
+          // would push the type toggle to a new row.
+          h('select', {
+            className: `sort-select discount-select`,
+            value: String(minDiscountPct),
+            onChange: e => setMinDiscountPct(parseInt(e.target.value, 10) || 0),
+            title: 'Only show listings with at least this much discount vs Steam Market',
+            style: { padding: '6px 10px', fontSize: 11 }
+          },
+            h('option', { value: '0'  }, 'Any discount'),
+            h('option', { value: '5'  }, '≥ 5%  off'),
+            h('option', { value: '10' }, '≥ 10% off'),
+            h('option', { value: '20' }, '≥ 20% off'),
+            h('option', { value: '30' }, '≥ 30% off'),
+            h('option', { value: '50' }, '≥ 50% off')
+          ),
           // New-in-24h chip. Pairs with Deals; stackable.
           h('button', {
             className: `deals-chip new-chip ${newOnly ? 'active' : ''}`,
             onClick: () => setNewOnly(n => !n),
             title: 'Only show listings posted in the last 24 hours',
             'aria-pressed': newOnly
-          }, '★ New'),
+          }, 'New'),
+          // Affordable-only chip (batch 367) — signed-in users can filter
+          // to listings under their wallet balance in one click. Hidden
+          // for anon viewers (no wallet, no comparison). Stackable with
+          // Deals + New + type filters.
+          me && wallet && parseFloat(wallet.balance) > 0 && h('button', {
+            className: `deals-chip ${affordableOnly ? 'active' : ''}`,
+            onClick: () => setAffordableOnly(v => !v),
+            // Batch 994 — honour sb_privacy on the "💰 Under $X" chip.
+            // Previously leaked the user's balance on every marketplace
+            // render — defeats privacy mode (batch 991-993 masked the
+            // wallet surfaces; this was the last shoulder-surf vector on
+            // the browse page).
+            title: privacy
+              ? 'Only show listings you can afford with your current wallet balance'
+              : `Only show listings ≤ your wallet balance (${fmt(wallet.balance)})`,
+            'aria-pressed': affordableOnly
+          }, 'Under ', privacy ? '$•••••' : fmt(wallet.balance)),
+          // Batch 662 — "Hide my listings" chip. Only renders for a
+          // signed-in viewer AND only when the current listings pool
+          // actually contains at least one of their listings — an
+          // empty-handed seller gets no noisy toggle.
+          me && listings.some(l => l?.sellerUserId === me.id) && h('button', {
+            className: `deals-chip ${hideMine ? 'active' : ''}`,
+            onClick: () => setHideMineP(!hideMine),
+            title: hideMine
+              ? 'Showing your own listings — click to hide them from the grid'
+              : "Hide your own listings so you can size your prices against competitors",
+            'aria-pressed': hideMine
+          }, hideMine ? 'Mine hidden' : 'Hide mine'),
           // Quick-filter chips — CSFloat-style one-click filter presets.
           // Each chip is an (isActive, apply, clear) pair so clicking twice
           // toggles the preset on/off. Chips don't stack with each other
@@ -2587,12 +5641,12 @@ export function App() {
             });
           })(),
           h('div', { className: 'view-btns', role: 'group', 'aria-label': 'View mode' },
-            h('button', { className: `view-btn ${view === 'grid' ? 'active' : ''}`,  onClick: () => setView('grid'), 'aria-label': 'Grid view',  'aria-pressed': view === 'grid' },  '⊞'),
-            h('button', { className: `view-btn ${view === 'table' ? 'active' : ''}`, onClick: () => setView('table'), 'aria-label': 'Table view', 'aria-pressed': view === 'table' }, '☰')
+            h('button', { className: `view-btn ${view === 'grid' ? 'active' : ''}`,  onClick: () => setView('grid'), 'aria-label': 'Grid view',  'aria-pressed': view === 'grid' },  h(Icon, { name: 'grid', size: 16 })),
+            h('button', { className: `view-btn ${view === 'table' ? 'active' : ''}`, onClick: () => setView('table'), 'aria-label': 'Table view', 'aria-pressed': view === 'table' }, h(Icon, { name: 'rows', size: 16 }))
           )
         ),
         // Active filter chips — visible whenever a non-default filter is set.
-        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice) &&
+        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0) &&
           h('div', { className: 'active-filters' },
             search && h('button', { className: 'filter-chip', onClick: () => setSearch('') },
               'search: ', h('strong', null, '"' + search + '"'), h('span', null, ' ✕')),
@@ -2604,10 +5658,24 @@ export function App() {
               '≥ $', h('strong', null, minPrice), h('span', null, ' ✕')),
             maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice('') },
               '≤ $', h('strong', null, maxPrice), h('span', null, ' ✕')),
+            // Batch 651 — removable min-discount chip.
+            minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0) },
+              '≥ ', h('strong', null, minDiscountPct + '%'), ' off', h('span', null, ' ✕')),
             h('button', { className: 'filter-chip clear-all', onClick: clearFilters },
               h('strong', null, 'Clear all'))
           ),
-        h('div', { className: 'results-meta' },
+        h('div', {
+          className: 'results-meta',
+          // Batch 841 — a11y: announce result-count changes to screen
+          // readers so they hear "41 listings found in Hats" when the
+          // filter narrows. Polite so it doesn't interrupt whatever
+          // the user is currently focused on; atomic=true so the full
+          // sentence reads as one announcement, not piece-by-piece
+          // across the <strong>/<span> fragments.
+          role: 'status',
+          'aria-live': 'polite',
+          'aria-atomic': 'true'
+        },
           h('strong', null, listings.length), ' listings found',
           category !== 'All' && h('span', null, ' in ', h('strong', null, category)),
           search && h('span', null, ' matching ', h('strong', null, `"${search}"`))
@@ -2625,65 +5693,145 @@ export function App() {
                 )
               ))
             )
-          : listings.length === 0
-            ? h('div', { className: 'empty-state' },
-                h('div', { className: 'empty-state-icon' },
-                  h(MaterialIcon, { name: 'inventory_2', size: 42 })
-                ),
-                h('div', { className: 'empty-state-title' },
-                  (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice)
-                    ? 'No listings match your filters'
-                    : 'Marketplace is empty'
-                ),
-                h('div', { className: 'empty-state-sub' },
-                  (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice)
-                    ? 'Try a broader search, clear the filters, or list one of your own items.'
-                    : 'Be the first to list an item — or spin up simulated listings from the admin panel for QA.'
-                ),
-                h('div', { className: 'empty-state-actions' },
-                  (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice) && h('button', {
+          : (listings.length === 0 || dedupedListings.length === 0)
+            ? (() => {
+                // Batch 654 — empty-state now distinguishes:
+                //   - a type-only filter (just Auction / Buy Now) → specific
+                //     "No live auctions right now" copy with a Create-auction
+                //     CTA for signed-in users.
+                //   - a general filter set (category/rarity/price/search) →
+                //     "No listings match your filters" with Clear.
+                //   - no filters at all (cold marketplace) → original "be
+                //     the first to list" empty copy.
+                // Also now triggers when client-side filters (dealsOnly,
+                // minDiscountPct, newOnly, affordableOnly) empty the grid —
+                // previously those paths rendered nothing instead of an
+                // empty-state because the check was on listings, not
+                // dedupedListings.
+                const hasQueryFilters = !!(search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0);
+                const onlyTypeFilter  = !hasQueryFilters && listingTypeFilter !== 'ALL';
+                const hasClientFilters = !hasQueryFilters && !onlyTypeFilter &&
+                    (dealsOnly || newOnly || affordableOnly);
+                let title, sub;
+                if (onlyTypeFilter) {
+                  title = listingTypeFilter === 'AUCTION' ? 'No live auctions right now' : 'No Buy-Now listings right now';
+                  sub   = listingTypeFilter === 'AUCTION'
+                    ? 'Check back soon — or list one of your own items as an auction.'
+                    : 'Only auctions are active. Flip the filter to All to see them, or list your own Buy-Now item.';
+                } else if (hasClientFilters) {
+                  title = 'No listings match your filters';
+                  sub   = 'Try clearing Deals / New / Under $X / discount threshold to broaden the view.';
+                } else if (hasQueryFilters) {
+                  title = 'No listings match your filters';
+                  sub   = 'Try a broader search, clear the filters, or list one of your own items.';
+                } else {
+                  title = 'Marketplace is empty';
+                  sub   = 'Be the first to list an item — or spin up simulated listings from the admin panel for QA.';
+                }
+                const showClear = hasQueryFilters || hasClientFilters || onlyTypeFilter;
+                return h('div', { className: 'empty-state' },
+                  h('div', { className: 'empty-state-icon' },
+                    h(MaterialIcon, { name: listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2', size: 42 })
+                  ),
+                  h('div', { className: 'empty-state-title' }, title),
+                  h('div', { className: 'empty-state-sub' }, sub),
+                  h('div', { className: 'empty-state-actions' },
+                    showClear && h('button', {
+                      className: 'btn btn-ghost',
+                      style: { border: '1px solid var(--border)' },
+                      onClick: () => {
+                        clearFilters();
+                        setListingTypeFilter('ALL');
+                        setDealsOnly(false); setNewOnly(false); setAffordableOnly(false);
+                      }
+                    }, 'Clear Filters'),
+                    me && h('a', { className: 'btn btn-accent', href: paths.sell() }, 'Sell Items')
+                  )
+                );
+              })()
+            : h('div', null,
+                view === 'grid'
+                  ? h('div', { className: 'listing-grid' },
+                      dedupedListings.map(l => h(GridCard, {
+                        key: 'item-' + l.item.id,
+                        listing: l,
+                        listingCount: l.__listingCount,
+                        watcherCount: watcherCounts[l.item.id] || 0,
+                        salesVelocity: salesVelocity[l.item.id] || 0,
+                        onClick: () => openModal(l),
+                        starred: watchlist.includes(l.item.id),
+                        onToggleStar: toggleStar,
+                        meId: me?.id,
+                        // Quick-add to cart — signed-in only; backend gates
+                        // checkout on currentUser regardless.
+                        onAddToCart: me ? addToCart : null,
+                        cartHas: (id) => cart.some(c => c.id === id),
+                        // Highlight the typed search string inside the item
+                        // name so a user scanning 30 cards can see exactly
+                        // which substring matched — the grid already filters
+                        // server-side, this surfaces the "why."
+                        searchQuery: search
+                      }))
+                    )
+                  : h('table', { className: 'listing-table' },
+                      h('thead', null,
+                        h('tr', null,
+                          h('th', null, 'Item'),
+                          h('th', null, 'Availability'),
+                          h('th', { className: 'center' }, 'Steam Disc.'),
+                          h('th', { className: 'center' }, 'Trend'),
+                          h('th', null, 'Seller'),
+                          h('th', null, 'Listed'),
+                          h('th', { className: 'right' }, 'Price'),
+                          h('th', { className: 'center' }, 'Action'),
+                        )
+                      ),
+                      h('tbody', null,
+                        dedupedListings.map(l =>
+                          h(ListingRow, {
+                            key: 'item-row-' + l.item.id,
+                            listing: l,
+                            onClick: () => openModal(l),
+                            onBuy: handleBuy,
+                            meId: me?.id,
+                            // Batch 794 — pass explicit tri-state:
+                            //   undefined = anon (button route is Sign-in)
+                            //   true  = has URL, Buy enabled
+                            //   false = signed-in but no URL, Buy disabled
+                            hasTradeUrl: me ? !!(me.tradeUrl && String(me.tradeUrl).trim()) : undefined,
+                            sellerAvatarUrl: l.sellerUserId ? sellerAvatarUrls[l.sellerUserId] : null,
+                            searchQuery: search
+                          })
+                        )
+                      )
+                    ),
+                // Load-more button — shown when the initial fetch hit the
+                // server cap of 100 listings, meaning there may be more.
+                // Clicking fetches offset=listings.length with the same
+                // filters; response is appended. Rail-style placement
+                // below the grid/table matches CSFloat's pattern — not
+                // infinite-scroll, so the user stays in control of when
+                // more rows load (saves mobile bandwidth).
+                hasMore && h('div', {
+                  style: {
+                    display: 'flex', justifyContent: 'center',
+                    margin: '24px 0 12px'
+                  }
+                },
+                  h('button', {
                     className: 'btn btn-ghost',
-                    style: { border: '1px solid var(--border)' },
-                    onClick: clearFilters
-                  }, 'Clear Filters'),
-                  me && h('a', { className: 'btn btn-accent', href: paths.sell() }, 'Sell Items')
+                    style: {
+                      border: '1px solid var(--border)',
+                      padding: '10px 28px', fontSize: 13,
+                      opacity: loadingMore ? 0.6 : 1,
+                      cursor: loadingMore ? 'wait' : 'pointer'
+                    },
+                    disabled: loadingMore,
+                    onClick: loadMore,
+                    title: `Load the next 100 listings after the current ${listings.length}`
+                  }, loadingMore ? 'Loading…' : `↓ Load more (${listings.length} shown)`)
                 )
               )
-            : view === 'grid'
-              ? h('div', { className: 'listing-grid' },
-                  dedupedListings.map(l => h(GridCard, {
-                    key: 'item-' + l.item.id,
-                    listing: l,
-                    listingCount: l.__listingCount,
-                    onClick: () => openModal(l),
-                    starred: watchlist.includes(l.item.id),
-                    onToggleStar: toggleStar,
-                    meId: me?.id,
-                    // Quick-add to cart — signed-in only; backend gates
-                    // checkout on currentUser regardless.
-                    onAddToCart: me ? addToCart : null,
-                    cartHas: (id) => cart.some(c => c.id === id)
-                  }))
-                )
-              : h('table', { className: 'listing-table' },
-                  h('thead', null,
-                    h('tr', null,
-                      h('th', null, 'Item'),
-                      h('th', null, 'Availability'),
-                      h('th', { className: 'center' }, 'Steam Disc.'),
-                      h('th', { className: 'center' }, 'Trend'),
-                      h('th', null, 'Seller'),
-                      h('th', null, 'Listed'),
-                      h('th', { className: 'right' }, 'Price'),
-                      h('th', { className: 'center' }, 'Action'),
-                    )
-                  ),
-                  h('tbody', null,
-                    dedupedListings.map(l =>
-                      h(ListingRow, { key: 'item-row-' + l.item.id, listing: l, onClick: () => openModal(l), onBuy: handleBuy })
-                    )
-                  )
-                )
       )
     ),
 
@@ -2716,6 +5864,10 @@ export function App() {
       watchlist, onToggleStar: toggleStar, onOpen: openModal
     }),
 
+    /* TOP BUY ORDERS — batch 369. Shows the highest active demand
+       site-wide so sellers immediately see opportunities to list. */
+    routeName === 'market' && h(TopBuyOrdersRail, { me }),
+
     /* JUST SOLD — live sales ticker for social proof. Polls every 30s
        so new platform-wide sales appear in the rail without refresh. */
     routeName === 'market' && h(JustSoldRail, null),
@@ -2725,17 +5877,62 @@ export function App() {
        returns nothing (brand-new platform with <5-sale sellers). */
     routeName === 'market' && h(TopSellersRail, null),
 
+    /* FIND A SELLER — batch 666. Small debounced displayName search that
+       lives between the top-sellers rail and the rest of the homepage
+       rails. CSFloat-parity discovery: a buyer who has heard of a seller
+       by name can find their stall without first happening to spot them
+       in a leaderboard. */
+    routeName === 'market' && h(FindSellerBar, null),
+
+    /* MOST WATCHED — social proof rail using the V30 watchlist data.
+       Sits between top sellers and recently-viewed so the social-proof
+       cluster reads as one block. Auto-hides when no items have been
+       starred yet (fresh platform). */
+    routeName === 'market' && h(MostWatchedRail, {
+      watchlist, onToggleStar: toggleStar, onOpen: openModal,
+      onAddToCart: me ? addToCart : null,
+      cartHas: (id) => cart.some(c => c.id === id)
+    }),
+
+    /* MOST VIEWED — V46 view-count rail (batch 412). Complements
+       MostWatched (explicit star) with a passive click-through signal
+       — surfaces items buyers are CURIOUS about even if they haven't
+       starred or bought. Auto-hides while no items have views yet. */
+    routeName === 'market' && h(MostViewedRail, {
+      watchlist, onToggleStar: toggleStar, onOpen: openModal,
+      onAddToCart: me ? addToCart : null,
+      cartHas: (id) => cart.some(c => c.id === id)
+    }),
+
+    /* HOT RIGHT NOW — realised-volume rail (batch 289). Complement to
+       MostWatched (passive demand) — this shows what people are
+       actually buying. Auto-hides when no sales in the last 7 days. */
+    routeName === 'market' && h(HottestRail, {
+      watchlist, onToggleStar: toggleStar, onOpen: openModal,
+      onAddToCart: me ? addToCart : null,
+      cartHas: (id) => cart.some(c => c.id === id)
+    }),
+
     /* RECENTLY VIEWED RAIL — horizontal scroll strip of the last 12 items
        the user clicked into. Pure localStorage, shown only on the market
        route and only when there's history to display. */
     routeName === 'market' && h(RecentlyViewedRail, { watchlist, onToggleStar: toggleStar }),
 
-    /* RECENT SALES TICKER — below the marketplace grid */
+    /* RECENT SALES TICKER — below the marketplace grid. Each item is a
+       clickable anchor to /item/{id} so a buyer who sees something
+       they like in the scroll can jump straight to the detail page
+       instead of hunting for it in the grid below. */
     recentSales.length > 0 && h('section', { className: 'ticker-section' },
       h('div', { className: 'ticker' },
         h('div', { className: 'ticker-label' }, 'LIVE SALES'),
         h('div', { className: 'ticker-track' },
-          [...recentSales, ...recentSales].map((s, i) => h('div', { key: i, className: 'ticker-item' },
+          [...recentSales, ...recentSales].map((s, i) => h('a', {
+            key: i,
+            className: 'ticker-item',
+            href: s.listing.item.id ? ('/item/' + s.listing.item.id) : '#',
+            style: { textDecoration: 'none', color: 'inherit' },
+            title: `${s.listing.item.name} sold for ${fmt(s.listing.price)} · ${s.time}`
+          },
             h('div', { className: 'ticker-thumb' }, h(ItemImage, { item: s.listing.item, variant: 'thumb' })),
             h('span', { className: 'ticker-name' }, s.listing.item.name),
             h('span', { className: 'ticker-price' }, fmt(s.listing.price)),
@@ -2759,27 +5956,103 @@ export function App() {
       title: stallData?.seller?.displayName
         ? `${stallData.seller.displayName}'s Stall`
         : 'Stall',
-      onClose: () => navigate(paths.market())
+      onClose: () => closeToPrevious(paths.market())
     },
       stallData === null
         ? h('div', { className: 'spinner' })
         : stallData.__notFound
           ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
-              h('div', { className: 'empty-icon' }, '🏚️'),
+              h('div', { className: 'empty-icon' }, '—'),
               h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 } }, 'Stall not found'),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
                 "This seller doesn't exist or has deactivated their account."),
               h('a', { className: 'btn btn-accent', href: '/' }, 'Back to marketplace')
             )
         : h('div', null,
+            // Suspended-account banner (batch 364) — when the seller is
+            // banned, show a clear public notice so visitors don't
+            // misinterpret the empty listings grid as "dormant stall."
+            // Rendered before the block banner so "account suspended"
+            // takes priority over "you've blocked this seller."
+            stallData.seller?.banned && h('div', {
+              style: {
+                padding: '12px 16px',
+                marginBottom: 16,
+                borderRadius: 10,
+                background: 'rgba(248,113,113,0.10)',
+                border: '1px solid rgba(248,113,113,0.35)',
+                color: '#fca5a5',
+                fontSize: 13,
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center'
+              }
+            },
+              h('span', { style: { fontSize: 18 } }, '⛔'),
+              h('div', { style: { flex: 1 } },
+                h('div', { style: { fontWeight: 700, marginBottom: 2 } },
+                  'This account has been suspended'),
+                h('div', { style: { opacity: 0.85, fontSize: 12 } },
+                  'Active listings were removed and the seller cannot post new ones. Reviews and past sales are preserved for record-keeping.')
+              )
+            ),
+            // Block banner (batch 347) — shown at the top of the stall
+            // when the viewer has blocked this seller. Reminds them why
+            // this seller's listings don't show up on their grid + rails
+            // and gives them a one-click unblock without leaving the
+            // page. Self-visits never trigger this because the backend
+            // forces blockedByViewer=false for viewer==sellerId.
+            stallData.blockedByViewer && h('div', {
+              style: {
+                padding: '12px 16px',
+                marginBottom: 16,
+                borderRadius: 10,
+                background: 'rgba(248,113,113,0.10)',
+                border: '1px solid rgba(248,113,113,0.35)',
+                color: '#fca5a5',
+                fontSize: 13,
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                flexWrap: 'wrap'
+              }
+            },
+              h('div', { style: { flex: 1, minWidth: 180 } },
+                h('div', { style: { fontWeight: 700, marginBottom: 2 } },
+                  "You've blocked this seller"),
+                h('div', { style: { opacity: 0.85, fontSize: 12 } },
+                  "Their listings are hidden from your marketplace and rails. You can still view them here.")
+              ),
+              h('button', {
+                className: 'btn btn-ghost',
+                style: { padding: '6px 12px', fontSize: 11, border: '1px solid rgba(248,113,113,0.4)', color: 'inherit' },
+                onClick: async () => {
+                  const { unblockUser } = await import('./api.js');
+                  const res = await unblockUser(stallData.seller.id);
+                  if (res && (res.error || res.code)) {
+                    toast(res.message || res.error || 'Could not unblock', 'err');
+                    return;
+                  }
+                  // Refresh stall so the banner disappears and the
+                  // blockedByViewer flag flips back to false.
+                  const fresh = await fetchPublicStall(stallData.seller.id);
+                  if (fresh) setStallData(fresh);
+                  toast('Unblocked.', 'ok');
+                }
+              }, 'Unblock')
+            ),
             h('div', { className: 'stall-hero' },
               h('div', { className: 'stall-avatar' },
-                stallData.seller.avatarUrl
-                  ? h('img', { src: stallData.seller.avatarUrl, alt: stallData.seller.displayName })
-                  : (stallData.seller.displayName || 'U').substring(0, 2).toUpperCase()
+                h(Avatar, {
+                  src: stallData.seller.avatarUrl,
+                  name: stallData.seller.displayName || 'Player',
+                  alt: stallData.seller.displayName,
+                  style: { width: '100%', height: '100%', borderRadius: 'inherit',
+                           background: 'transparent', border: 'none', fontSize: 22 }
+                })
               ),
               h('div', { style: { flex: 1, minWidth: 0 } },
-                h('div', { className: 'stall-name' },
+                h('h1', { className: 'stall-name' },
                   stallData.seller.displayName || 'Player',
                   // Verified trust badge — 10+ completed sales AND either
                   // no reviews OR 4+ star average. Backend computes it so
@@ -2787,14 +6060,65 @@ export function App() {
                   stallData.seller.verified && h('span', {
                     className: 'seller-verified',
                     title: `Verified seller · ${stallData.seller.soldCount}+ completed sales`
-                  }, '✓ Verified')
+                  }, 'Verified'),
+                  // Batch 726 — small "↗ Steam" link opens the seller's
+                  // Steam community profile in a new tab. Trust signal
+                  // for buyers who want to eyeball account age + badges
+                  // before trusting a new seller. Hidden on banned
+                  // accounts (backend returns null profileUrl).
+                  stallData.seller.profileUrl && h('a', {
+                    href: stallData.seller.profileUrl,
+                    target: '_blank',
+                    rel: 'nofollow noopener noreferrer',
+                    style: { marginLeft: 8, fontSize: 11, color: 'var(--text-muted)',
+                             textDecoration: 'none', fontWeight: 600 },
+                    title: 'View this seller\'s Steam community profile — check account age, friends, badges, trade history',
+                    onClick: (e) => e.stopPropagation()
+                  }, '↗ Steam')
                 ),
                 h('div', { className: 'stall-meta' },
                   stallData.count, ' active listings',
                   stallData.seller.soldCount > 0 && ` · ${stallData.seller.soldCount} sold`,
+                  // Recently-active chip (batch 534, extended in 875).
+                  // Differentiates a seller who's moved 5 items this
+                  // month from a lifetime-veteran account that's been
+                  // dormant for a year. Batch 875 — prefer the
+                  // tightest window with activity: 24h > 7d > 30d.
+                  // "Sold today" is a much stronger signal than
+                  // "sold this month" even if the numeric count is
+                  // lower.
+                  (stallData.seller.soldLast24h > 0 || stallData.seller.soldLast7d > 0 || stallData.seller.soldLast30d > 0) && (() => {
+                    const n24 = Number(stallData.seller.soldLast24h) || 0;
+                    const n7  = Number(stallData.seller.soldLast7d)  || 0;
+                    const n30 = Number(stallData.seller.soldLast30d) || 0;
+                    const tightest = n24 > 0
+                      ? { n: n24, label: 'today',      title: `${n24} sale${n24 === 1 ? '' : 's'} in the last 24 hours` }
+                      : n7  > 0
+                      ? { n: n7,  label: 'last 7d',    title: `${n7} sale${n7 === 1 ? '' : 's'} in the last 7 days` }
+                      : { n: n30, label: 'last 30d',   title: `${n30} sale${n30 === 1 ? '' : 's'} in the last 30 days` };
+                    return h('span', {
+                      style: { marginLeft: 6, fontSize: 11, color: 'var(--green)', fontWeight: 700 },
+                      title: tightest.title
+                    }, `· ${tightest.n} ${tightest.label}`);
+                  })(),
                   stallData.seller.followerCount > 0 && ` · ${stallData.seller.followerCount} follower${stallData.seller.followerCount === 1 ? '' : 's'}`,
+                  // Batch 1061 — swap absolute joined-date for a dual-view
+                  // chip that prefers relative time ("joined 5 months ago")
+                  // within the first year, falls back to an absolute year
+                  // marker ("joined 2024") for older accounts. Relative
+                  // time is a sharper trust signal for anon buyers — "new
+                  // 2 weeks ago" is a warning light that an absolute
+                  // "2026-04-06" date doesn't communicate at a glance.
+                  // Full-precision ISO date stays available via the title
+                  // tooltip for buyers who want to check the exact day.
                   ' · joined ',
-                  stallData.seller.joinedAt ? new Date(stallData.seller.joinedAt).toLocaleDateString() : '—',
+                  stallData.seller.joinedAt ? h('span', {
+                    title: new Date(stallData.seller.joinedAt).toLocaleString()
+                  }, (() => {
+                    const ageMs = Date.now() - stallData.seller.joinedAt;
+                    if (ageMs < 365 * 24 * 3600_000) return timeAgo(stallData.seller.joinedAt);
+                    return new Date(stallData.seller.joinedAt).getFullYear();
+                  })()) : '—',
                   // Last-seen chip — green if within 24h, yellow if 7d,
                   // muted otherwise. Softer than "online now" which we
                   // don't actually track, but clear enough to tell a
@@ -2810,6 +6134,27 @@ export function App() {
                       title: 'Last observed on Steam ' + new Date(stallData.seller.lastSyncedAt).toLocaleString()
                     }, '· ', label);
                   })(),
+                  // Batch 1045 — "Last listed Xh ago" activity chip. A
+                  // sharper engagement signal than lastSyncedAt: it
+                  // reflects real marketplace action (listing / relisting)
+                  // rather than just "logged into Steam". Only renders
+                  // when the seller has at least one active listing AND
+                  // the timestamp is fresh enough to matter (last 30d).
+                  // Stale / missing values hide the chip so a dormant
+                  // stall's hero stays quiet.
+                  stallData.seller.lastListedAt && (Date.now() - stallData.seller.lastListedAt) < 30 * 24 * 3600_000 && h('span', {
+                    style: { marginLeft: 10, fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700 },
+                    title: 'Most recent active listing by this seller: ' + new Date(stallData.seller.lastListedAt).toLocaleString()
+                  }, '· Last listed ', timeAgo(stallData.seller.lastListedAt)),
+                  // Batch 1047 — "Last sold Xh ago" — sales activity
+                  // complement to lastListedAt. Hidden when null (never
+                  // sold) OR stale beyond 60d (a year-old last-sale isn't
+                  // a useful "is this seller active" signal). Green chip
+                  // to distinguish sales-side activity from listings-side.
+                  stallData.seller.lastSoldAt && (Date.now() - stallData.seller.lastSoldAt) < 60 * 24 * 3600_000 && h('span', {
+                    style: { marginLeft: 10, fontSize: 11, color: 'var(--green)', fontWeight: 700 },
+                    title: 'Most recent sale closed by this seller: ' + new Date(stallData.seller.lastSoldAt).toLocaleString()
+                  }, '· Last sold ', timeAgo(stallData.seller.lastSoldAt)),
                   // Typical-response chip — median seller reply time across
                   // the most recent resolved offers. Null (hidden) until the
                   // seller has answered at least 3 offers so the stat isn't
@@ -2838,6 +6183,27 @@ export function App() {
                       style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
                       title: 'Fraction of offers the seller has resolved (accepted / rejected / countered) vs. let auto-expire'
                     }, '· ', Math.round(pct), '% response rate');
+                  })(),
+                  // Typical-ship chip (batch 550) — median wall time from
+                  // "Buy Now" click to the seller pressing "Mark sent" on
+                  // the Steam trade offer, across VERIFIED trades in the
+                  // last 90 days. Null (hidden) until the seller has 3+
+                  // samples so a single fast trade doesn't mislead. This
+                  // is the buyer's "will I actually get the item?" signal
+                  // — complements the offer-response stat above which
+                  // only measures how fast the seller READS offers.
+                  stallData.seller.typicalShipMs != null && (() => {
+                    const ms = stallData.seller.typicalShipMs;
+                    let label;
+                    if (ms < 3_600_000)           label = Math.max(1, Math.round(ms / 60_000)) + 'm';
+                    else if (ms < 24 * 3_600_000) label = Math.max(1, Math.round(ms / 3_600_000)) + 'h';
+                    else                          label = Math.max(1, Math.round(ms / (24 * 3_600_000))) + 'd';
+                    const samples = stallData.seller.typicalShipSamples || 0;
+                    const cls = ms < 4 * 3_600_000 ? 'var(--green)' : ms < 24 * 3_600_000 ? '#fbbf24' : 'var(--text-muted)';
+                    return h('span', {
+                      style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
+                      title: `Median time from purchase to the seller marking the Steam trade sent, across the last ${samples} verified trades (90d window)`
+                    }, '· Typically ships in ~', label);
                   })()
                 ),
                 // Rating chip — only shows if the seller has at least one
@@ -2859,40 +6225,46 @@ export function App() {
               // the seller's id so CSR can triage a buyer's question about
               // a specific seller. Only shown to signed-in viewers on
               // someone else's stall (can't contact yourself).
-              me && me.id !== stallData.seller.id && h('button', {
-                className: 'stall-share-btn',
-                onClick: async () => {
-                  const reason = window.prompt(
-                    `Contact @${stallData.seller.displayName || 'seller'}\n\n` +
-                    `What do you want to ask? (goes through our support team — we don't share your email with the seller):`);
-                  if (!reason || !reason.trim()) return;
-                  const { createSupportTicket } = await import('./api.js');
-                  const res = await createSupportTicket({
-                    category: 'ACCOUNT',
-                    subject:  `Contact seller · @${stallData.seller.displayName || stallData.seller.id}`,
-                    body:     `Seller stall: /stall/${stallData.seller.id}\n\n${reason.trim()}`
-                  });
-                  if (res && (res.error || res.code)) {
-                    alert(res.message || res.error || 'Could not open ticket.');
-                  } else {
-                    alert('Your message was sent through support. You can track it in /support.');
-                  }
-                },
-                title: 'Contact this seller through support'
-              },
-                h('span', { className: 'stall-share-icon' }, '✉'),
-                'Contact'),
+              me && me.id !== stallData.seller.id &&
+                h(ContactSellerButton, { seller: stallData.seller }),
               // Share button copies the canonical stall URL to the clipboard.
               // Useful for sellers promoting their stall on Discord / Steam
               // groups — CSFloat has the same affordance and users expect it.
-              h(ShareStallButton, { userId: stallData.seller.id, showToast }),
+              h(ShareStallButton, { userId: stallData.seller.id, sellerName: stallData.seller.displayName, showToast }),
+              // Batch 1058 — when the viewer IS the seller, surface a
+              // direct affordance to /me/stall. Previously a self-visit
+              // showed the same UI as any other visitor (minus the
+              // Follow/Block/Report buttons which were already gated),
+              // with no indication that MyStall was the management page.
+              // Sellers doing a "how does my stall look?" check now get
+              // a one-click jump to the edit-pricing / bulk-adjust / hide
+              // surface.
+              me && me.id === stallData.seller.id && h('a', {
+                className: 'stall-share-btn',
+                href: paths.mystall(),
+                style: {
+                  background: 'var(--accent)',
+                  color: '#051018',
+                  fontWeight: 700,
+                  textDecoration: 'none'
+                },
+                title: 'This is your own stall — jump to MyStall to edit prices, cancel listings, or toggle away-mode.'
+              },
+                h('span', { className: 'stall-share-icon' }, '—'),
+                'Manage stall'
+              ),
               // Follow/unfollow — subscribes the viewer to NEW_LISTING
               // notifications from this seller. Only meaningful for other
               // users (can't follow yourself). Shown regardless of sign-in
               // state so signed-out users see the social proof chip; the
               // click path nudges them to sign in if needed.
               me && me.id !== stallData.seller.id &&
-                h(FollowSellerButton, { sellerId: stallData.seller.id, showToast }),
+                h(FollowSellerButton, { sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast }),
+              // Block seller — only on someone else's stall (can't block
+              // yourself). Silent for the blocked user; reversible at any
+              // time from Profile → Personal → Blocked. Batch 344.
+              me && me.id !== stallData.seller.id &&
+                h(BlockSellerButton, { sellerId: stallData.seller.id, sellerName: stallData.seller.displayName || stallData.seller.name, showToast }),
               // Report button opens a FRAUD-category support ticket with the
               // seller's id pre-populated. Only shown on someone else's stall
               // (can't report yourself). Opens quietly via prompt so we don't
@@ -2900,39 +6272,20 @@ export function App() {
               me && me.id !== stallData.seller.id && h('button', {
                 className: 'stall-share-btn',
                 style: { opacity: 0.6, border: '1px solid var(--border)' },
-                onClick: async () => {
-                  const REPORT_REASONS = [
-                    'Scam attempt', 'Suspicious pricing', 'Harassment in chat',
-                    'Impersonation', 'Other'
-                  ];
-                  const reason = window.prompt(
-                    `Report @${stallData.seller.displayName || 'seller'}\n\n` +
-                    `Pick a reason by number:\n` +
-                    REPORT_REASONS.map((r, i) => `  ${i + 1}) ${r}`).join('\n'), '1');
-                  if (!reason) return;
-                  const idx = parseInt(reason, 10);
-                  const pickedReason = (idx >= 1 && idx <= REPORT_REASONS.length)
-                    ? REPORT_REASONS[idx - 1] : 'Other';
-                  const context = window.prompt(
-                    `Reason: ${pickedReason}\n\nContext (optional, under 1000 chars — be specific):`, '');
-                  if (context === null) return;
-                  const { reportUser } = await import('./api.js');
-                  const res = await reportUser(stallData.seller.id, pickedReason, context);
-                  if (res && (res.error || res.code)) {
-                    alert(res.message || res.error || 'Could not file report.');
-                  } else {
-                    alert('Report filed. Our support team will review it. You can track the ticket in /support.');
-                  }
-                },
+                // Batch 835 — opens the inline Report-Seller drawer
+                // instead of chaining two window.prompt dialogs.
+                onClick: openReportSeller,
                 title: 'Report this user to support'
               },
-                h('span', { className: 'stall-share-icon' }, '🚩'),
                 'Report')
             ),
             stallData.away && h('div', { className: 'stall-away-banner' },
               h('span', { className: 'stall-away-dot' }),
               h('div', null,
-                h('div', { className: 'stall-away-title' }, 'Seller is away'),
+                h('div', { className: 'stall-away-title' },
+                  stallData.awayUntil
+                    ? `Seller is away · back ${new Date(stallData.awayUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                    : 'Seller is away'),
                 h('div', { className: 'stall-away-sub' },
                   `All ${stallData.awayCount || 'active'} listings are temporarily hidden until the seller is back. You can still view their stall and leave a review.`)
               )
@@ -2948,11 +6301,31 @@ export function App() {
             }),
             stallData.count === 0
               ? h('div', { className: 'empty-inline' },
-                  h('div', { className: 'empty-icon' }, stallData.away ? '🌙' : '🏪'),
-                  h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
+                  h('div', { className: 'empty-icon' }, stallData.away ? '—' : '◦'),
+                  h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 } },
                     stallData.away
                       ? 'The seller will be back soon — check back later or watchlist one of their items.'
-                      : 'This seller has no active listings right now.'))
+                      : 'This seller has no active listings right now.'),
+                  // Batch 900 — concrete CTAs on the empty stall.
+                  // Dead-end "0 listings" copy gave the user nothing to
+                  // do next. Now they can follow the seller for a
+                  // new-listing ping, watchlist any recently sold item
+                  // as a restock-alert target (via /database), or jump
+                  // to the general marketplace.
+                  h('div', {
+                    style: { display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }
+                  },
+                    h('a', {
+                      className: 'btn btn-accent',
+                      style: { padding: '8px 16px', fontSize: 12, textDecoration: 'none' },
+                      href: paths.market()
+                    }, 'Browse marketplace →'),
+                    h('a', {
+                      className: 'btn btn-ghost',
+                      style: { border: '1px solid var(--border)', padding: '8px 16px', fontSize: 12, textDecoration: 'none' },
+                      href: paths.database()
+                    }, 'Browse item catalogue')
+                  ))
               : (() => {
                   // Filter + sort — both purely client-side on the stall
                   // payload. Rarity chips derive from whatever rarities
@@ -2961,9 +6334,17 @@ export function App() {
                   const rarities = Array.from(new Set(
                     stallData.listings.map(l => l?.item?.rarity || 'Standard')
                   )).sort();
+                  const search = (stallSearch || '').trim().toLowerCase();
                   let rows = stallRarity === 'All'
                     ? stallData.listings
                     : stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === stallRarity);
+                  if (search.length > 0) {
+                    rows = rows.filter(l => {
+                      const name = (l?.item?.name || '').toLowerCase();
+                      const cat  = (l?.item?.category || '').toLowerCase();
+                      return name.includes(search) || cat.includes(search);
+                    });
+                  }
                   rows = [...rows].sort((a, b) => {
                     if (stallSort === 'price_asc')  return parseFloat(a.price) - parseFloat(b.price);
                     if (stallSort === 'price_desc') return parseFloat(b.price) - parseFloat(a.price);
@@ -2984,6 +6365,17 @@ export function App() {
                           onClick: () => setStallRarity(r)
                         }, `${r} · ${stallData.listings.filter(l => (l?.item?.rarity || 'Standard') === r).length}`))
                       ),
+                      // Name search — only surfaces when the stall is big
+                      // enough that eyeballing the grid isn't fast.
+                      stallData.listings.length > 10 && h('input', {
+                        className: 'price-input',
+                        type: 'search',
+                        placeholder: 'Filter by name…',
+                        value: stallSearch,
+                        onChange: e => setStallSearch(e.target.value),
+                        style: { minWidth: 160, maxWidth: 220 },
+                        'aria-label': 'Filter stall by item name or category'
+                      }),
                       h('select', {
                         className: 'sort-select',
                         value: stallSort,
@@ -2998,7 +6390,15 @@ export function App() {
                     ),
                     rows.length === 0
                       ? h('div', { className: 'empty-inline' },
-                          h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } }, 'No listings match this filter.'))
+                          h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: search ? 8 : 0 } },
+                            search
+                              ? `No listings match "${stallSearch}" in this stall.`
+                              : 'No listings match this filter.'),
+                          search && h('button', {
+                            className: 'btn btn-ghost',
+                            style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+                            onClick: () => setStallSearch('')
+                          }, 'Clear search'))
                       : h('div', { className: 'listing-grid' },
                           rows.map(l => h(GridCard, {
                             key: l.id,
@@ -3012,6 +6412,54 @@ export function App() {
                         )
                   );
                 })(),
+            // 30-day sales sparkline (batch 362) — buckets the last 200
+            // sold listings by calendar day and renders a mini bar chart
+            // of daily sale count. Gives a quick visual of seller
+            // velocity (spiky = one-off event, steady = active shop,
+            // empty = dormant). Only shown when the seller has ≥ 5 sales
+            // in the last 30 days — otherwise a near-empty chart is
+            // more confusing than useful.
+            (() => {
+              const now = Date.now();
+              const cutoff = now - 30 * 86400_000;
+              const recent = (stallSold || []).filter(s => s.soldAt && s.soldAt >= cutoff);
+              if (recent.length < 5) return null;
+              const days = new Array(30).fill(0);
+              const dayMs = 86400_000;
+              recent.forEach(s => {
+                const idx = 29 - Math.floor((now - s.soldAt) / dayMs);
+                if (idx >= 0 && idx < 30) days[idx] += 1;
+              });
+              const maxCount = Math.max(...days);
+              const total = days.reduce((a, b) => a + b, 0);
+              const revenue = recent.reduce((sum, s) => sum + (parseFloat(s.price) || 0), 0);
+              return h('div', { className: 'stall-recent-sales', style: { marginBottom: 14 } },
+                h('div', { className: 'stall-reviews-head', style: { marginBottom: 8 } },
+                  h('span', { className: 'section-title-dot' }),
+                  `Sales · last 30 days`,
+                  h('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 } },
+                    `${total} sale${total === 1 ? '' : 's'} · ${fmt(revenue)} gross`)
+                ),
+                h('div', {
+                  style: { display: 'flex', alignItems: 'flex-end', gap: 2, height: 46,
+                           padding: '4px 2px', background: 'rgba(148,163,184,0.04)',
+                           border: '1px solid var(--border)', borderRadius: 6 },
+                  title: 'Daily sale count, oldest (30d ago) on the left, today on the right'
+                },
+                  days.map((n, i) => h('div', {
+                    key: i,
+                    style: {
+                      flex: 1,
+                      height: maxCount === 0 ? '1px' : (Math.max(1, Math.round((n / maxCount) * 38)) + 'px'),
+                      background: n === 0 ? 'rgba(148,163,184,0.12)' : 'var(--accent)',
+                      opacity: n === 0 ? 0.35 : Math.max(0.55, n / maxCount),
+                      borderRadius: 1
+                    },
+                    title: n === 0 ? 'no sales' : (n + ' sale' + (n === 1 ? '' : 's'))
+                  }))
+                )
+              );
+            })(),
             // Recent sales strip — last 10 completed sales by this
             // seller. Pure aggregate: item + price + soldAt, no buyer
             // identities. Builds trust by showing the seller actually
@@ -3019,18 +6467,38 @@ export function App() {
             stallSold.length > 0 && h('div', { className: 'stall-recent-sales' },
               h('div', { className: 'stall-reviews-head' },
                 h('span', { className: 'section-title-dot' }),
-                `Recent sales (${stallSold.length})`
+                stallSoldExpanded
+                  ? `Recent sales (${stallSold.length})`
+                  : `Recent sales (${Math.min(stallSold.length, 10)})`
               ),
-              h('div', { className: 'recent-sales-list' },
-                stallSold.map(s => h('div', { key: s.listingId, className: 'recent-sales-row' },
-                  h('span', { className: 'recent-sales-type' },
-                    s.listingType === 'AUCTION' ? 'Auction' : 'Buy now'),
-                  h('span', { style: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                    s.item?.name || 'Item'),
-                  h('span', { className: 'recent-sales-price' }, fmt(s.price)),
-                  h('span', { className: 'recent-sales-time' }, timeAgo(s.soldAt))
-                ))
-              )
+              h('div', {
+                className: 'recent-sales-list',
+                // Scroll-cap when expanded — same 360px cap as the
+                // ItemModal recent-sales list (batch 735) so a seller
+                // with hundreds of sales doesn't blow the stall layout.
+                style: stallSoldExpanded ? { maxHeight: 360, overflowY: 'auto' } : undefined
+              },
+                (stallSoldExpanded ? stallSold : stallSold.slice(0, 10))
+                  .map(s => h('div', { key: s.listingId, className: 'recent-sales-row' },
+                    h('span', { className: 'recent-sales-type' },
+                      s.listingType === 'AUCTION' ? 'Auction' : 'Buy now'),
+                    h('span', { style: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                      s.item?.name || 'Item'),
+                    h('span', { className: 'recent-sales-price' }, fmt(s.price)),
+                    h('span', { className: 'recent-sales-time' }, timeAgo(s.soldAt))
+                  ))
+              ),
+              // Batch 752 — show-all expander for the sold list.
+              stallSold.length > 10 && h('button', {
+                className: 'btn btn-ghost',
+                style: {
+                  width: '100%', marginTop: 8, padding: '8px 12px', fontSize: 12,
+                  border: '1px dashed var(--border)', color: 'var(--text-secondary)'
+                },
+                onClick: () => setStallSoldExpanded(v => !v)
+              }, stallSoldExpanded
+                   ? '↑ Collapse to 10 most recent'
+                   : `↓ Show all ${stallSold.length} sales`)
             ),
             // "Leave a review" CTA — only shows up when the signed-in viewer
             // has at least one VERIFIED trade with this seller. Every trade
@@ -3050,7 +6518,7 @@ export function App() {
                       ' · ', new Date(t.settledAt || Date.now()).toLocaleDateString())
                   ),
                   t.reviewed
-                    ? h('span', { className: 'stall-review-done' }, '✓ Reviewed')
+                    ? h('span', { className: 'stall-review-done' }, 'Reviewed')
                     : h('button', {
                         className: 'btn btn-primary-outline',
                         onClick: () => { setReviewTradeId(t.tradeId); setReviewStars(5); setReviewText(''); }
@@ -3092,72 +6560,295 @@ export function App() {
             // Reviews are trade-anchored so every entry is a real buyer who
             // actually traded with this user (see ReviewService.leaveReview).
             stallReviews && stallReviews.length > 0 && (() => {
-              const displayReviews = stallStarFilter > 0
+              // Star filter first, then sort. Sorting the post-filter set
+              // keeps the top row authoritative ("most helpful 5-star review")
+              // and avoids the filter ever hiding the sort's top pick.
+              const starFiltered = stallStarFilter > 0
                 ? stallReviews.filter(r => r.rating === stallStarFilter)
                 : stallReviews;
+              const displayReviews = [...starFiltered].sort((a, b) => {
+                if (stallReviewSort === 'helpful') {
+                  const ah = Number(a.helpfulCount || 0);
+                  const bh = Number(b.helpfulCount || 0);
+                  if (ah !== bh) return bh - ah;
+                  return (b.createdAt || 0) - (a.createdAt || 0);  // tie-break newest
+                }
+                if (stallReviewSort === 'highest') {
+                  if ((b.rating || 0) !== (a.rating || 0)) return (b.rating || 0) - (a.rating || 0);
+                  return (b.createdAt || 0) - (a.createdAt || 0);
+                }
+                if (stallReviewSort === 'lowest') {
+                  if ((a.rating || 0) !== (b.rating || 0)) return (a.rating || 0) - (b.rating || 0);
+                  return (b.createdAt || 0) - (a.createdAt || 0);
+                }
+                return (b.createdAt || 0) - (a.createdAt || 0);  // default newest
+              });
               return h('div', { className: 'stall-reviews' },
                 h('div', { className: 'stall-reviews-head' },
                   h('span', { className: 'section-title-dot' }),
                   `Recent reviews (${stallReviews.length})`
                 ),
-                // Star filter chips — All + 5★ .. 1★. Hidden when there's
+                // Star filter chips + sort dropdown. Hidden when there's
                 // nothing to filter (just one review makes the filter noise).
-                stallReviews.length >= 3 && h('div', { className: 'stall-reviews-filter' },
-                  [0, 5, 4, 3, 2, 1].map(n => h('button', {
-                    key: n,
-                    className: `wallet-tx-filter-chip ${stallStarFilter === n ? 'active' : ''}`,
-                    onClick: () => setStallStarFilter(n)
-                  }, n === 0 ? 'All' : `${n}★`))
+                stallReviews.length >= 3 && h('div', {
+                  className: 'stall-reviews-filter',
+                  style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }
+                },
+                  h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap' } },
+                    [0, 5, 4, 3, 2, 1].map(n => h('button', {
+                      key: n,
+                      className: `wallet-tx-filter-chip ${stallStarFilter === n ? 'active' : ''}`,
+                      onClick: () => setStallStarFilter(n)
+                    }, n === 0 ? 'All' : `${n}★`))
+                  ),
+                  h('div', { style: { flex: 1 } }),
+                  h('select', {
+                    className: 'sort-select',
+                    value: stallReviewSort,
+                    onChange: e => setStallReviewSortPersist(e.target.value),
+                    style: { fontSize: 12, minWidth: 160 },
+                    'aria-label': 'Sort reviews',
+                    title: 'Choose how to order the review list'
+                  },
+                    h('option', { value: 'newest' },  'Newest first'),
+                    h('option', { value: 'helpful' }, 'Most helpful'),
+                    h('option', { value: 'highest' }, 'Highest rating'),
+                    h('option', { value: 'lowest' },  'Lowest rating')
+                  )
                 ),
                 h('div', { className: 'stall-reviews-list' },
                   displayReviews.length === 0
                     ? h('div', { className: 'empty-inline' },
                         h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
                           `No ${stallStarFilter}★ reviews yet.`))
-                    : displayReviews.slice(0, 10).map(r => h(StallReviewRow, {
-                        key: r.id,
-                        review: r,
-                        isOwner: me && stallData?.seller?.id === me.id,
-                        onSaved: async () => {
-                          const fresh = await fetchReviewsForUser(stallData.seller.id);
-                          setStallReviews(fresh);
-                        }
-                      }))
-                )
+                    : (stallReviewsExpanded ? displayReviews : displayReviews.slice(0, 10))
+                        .map(r => h(StallReviewRow, {
+                          key: r.id,
+                          review: r,
+                          me,
+                          isOwner: me && stallData?.seller?.id === me.id,
+                          isAuthor: me && r.fromUserId === me.id,
+                          onSaved: async () => {
+                            const fresh = await fetchReviewsForUser(stallData.seller.id);
+                            setStallReviews(fresh);
+                          }
+                        }))
+                ),
+                // Batch 751 — "Show all N" / "Collapse" expander when
+                // the filtered list exceeds the default 10-row strip.
+                displayReviews.length > 10 && h('button', {
+                  className: 'btn btn-ghost',
+                  style: {
+                    width: '100%', marginTop: 8, padding: '8px 12px', fontSize: 12,
+                    border: '1px dashed var(--border)', color: 'var(--text-secondary)'
+                  },
+                  onClick: () => setStallReviewsExpanded(v => !v)
+                }, stallReviewsExpanded
+                     ? '↑ Collapse to 10 most relevant'
+                     : `↓ Show all ${displayReviews.length} reviews`)
               );
             })()
           )
     ),
     routeName === 'notfound'      && h(InfoModal,       { title: 'Page not found', onClose: () => navigate(paths.market()) },
-      h('div', { className: 'empty-inline' },
-        h('div', { className: 'empty-icon' }, '🔎'),
-        h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, '404 · nothing here'),
-        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 18px' } },
+      h('div', { className: 'empty-inline', style: { position: 'relative', overflow: 'hidden', paddingTop: 100 } },
+        // Batch 641 — CSFloat Visual Manual §32 parity: scatter small
+        // item thumbnails across the top as a decorative element. We
+        // pull from the current market `listings` pool (already
+        // loaded in the SPA shell) so there's no extra fetch on a
+        // 404. Each image gets a random-but-deterministic-ish
+        // position, size, and opacity so the layout doesn't reshuffle
+        // on re-renders. Hidden on narrow viewports where the clutter
+        // would overlap the main copy.
+        listings && listings.length >= 4 && h('div', {
+          style: {
+            position: 'absolute', inset: '0 0 auto 0', height: 100,
+            pointerEvents: 'none', overflow: 'hidden'
+          },
+          'aria-hidden': 'true'
+        },
+          listings.slice(0, 8).map((l, i) => {
+            const item = l?.item;
+            if (!item) return null;
+            const hash = ((item.id || i) * 2654435761) & 0x7fffffff;
+            const left    = (hash % 86) + 4;             // 4%..90%
+            const top     = ((hash >> 7) % 60) + 4;      // 4..64px
+            const size    = 36 + ((hash >> 12) % 42);    // 36..78px
+            const opacity = 0.20 + ((hash >> 17) % 25) / 100;  // 0.20..0.45
+            const rot     = ((hash >> 20) % 25) - 12;    // -12..12 deg
+            return h('div', {
+              key: 'nf-' + (item.id || i),
+              style: {
+                position: 'absolute',
+                left: left + '%', top: top + 'px',
+                width: size, height: size,
+                opacity, transform: `rotate(${rot}deg)`,
+                borderRadius: 6,
+                background: `url(${item.imageUrl || ''}) center/cover no-repeat, radial-gradient(circle, ${item.accentColor || '#1ea5ff'}22, transparent)`
+              }
+            });
+          })
+        ),
+        h('div', { className: 'empty-icon', style: { position: 'relative', zIndex: 1 } }, h(Icon, { name: 'search', size: 32 })),
+        h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, position: 'relative', zIndex: 1 } }, '404 · nothing here'),
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 18px', position: 'relative', zIndex: 1 } },
           "The URL you followed doesn't match any page. Head back to the marketplace or try the Help Center."),
-        h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center' } },
+        h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', position: 'relative', zIndex: 1 } },
           h('a', { className: 'btn btn-accent', href: paths.market() }, 'Back to Market'),
           h('a', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, href: paths.help() }, 'Help Center')
-        )
+        ),
+        // Batch 1021 — recovery rail. A user who lands on /item/99999 (dead
+        // link from an old share, expired stall URL, etc.) gets their last
+        // few clicked items surfaced so they can resume where they left
+        // off. Pure localStorage — zero network. Silent for fresh visitors
+        // with no view history. Mirrors the empty-cart recently-viewed rail
+        // (batch 427) so the recovery UX is consistent across dead-ends.
+        (() => {
+          let recent = [];
+          try { recent = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
+          catch { recent = []; }
+          recent = (recent || []).slice(0, 6);
+          if (recent.length === 0) return null;
+          return h('div', { style: { marginTop: 30, position: 'relative', zIndex: 1 } },
+            h('div', {
+              style: {
+                fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase',
+                letterSpacing: 0.5, fontWeight: 700, marginBottom: 10, textAlign: 'center'
+              }
+            }, '⟲ Try one of these instead'),
+            h('div', {
+              style: {
+                display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center'
+              }
+            },
+              recent.map(it => {
+                const priceVal = it.lowestPrice != null ? parseFloat(it.lowestPrice) : null;
+                return h('a', {
+                  key: 'nf-rv-' + it.id,
+                  href: '/item/' + it.id,
+                  style: {
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '6px 12px', borderRadius: 999,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    textDecoration: 'none', color: 'var(--text-primary)',
+                    fontSize: 12, fontWeight: 600
+                  },
+                  title: it.name + (priceVal != null ? ' · ' + (privacy ? '$•••••' : fmt(priceVal)) : '')
+                },
+                  it.imageUrl && h('img', {
+                    src: it.imageUrl, alt: '',
+                    style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
+                  }),
+                  h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
+                  priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, privacy ? '$•••••' : fmt(priceVal))
+                );
+              })
+            )
+          );
+        })()
       )
     ),
     routeName === 'help'          && h(HelpModal,       { onClose: () => navigate(paths.market()) }),
     routeName === 'cart'          && h(InfoModal,       { title: `Cart · ${cartCount} item${cartCount === 1 ? '' : 's'}`, onClose: () => navigate(paths.market()) },
       cartCount === 0
-        ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '🛒'),
-            h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
-              'Your cart is empty'),
-            h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
-              'Browse the marketplace, tap the + on any listing card to queue it up, then come back here to check out.'),
-            h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-              h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →'),
-              h('a', {
-                className: 'btn btn-ghost',
-                style: { border: '1px solid var(--border)' },
-                href: '/?sort=discount'
-              }, '% Top deals')
-            ))
+        ? h('div', null,
+            h('div', { className: 'empty-inline' },
+              h('div', { className: 'empty-icon' }, h(Icon, { name: 'cart', size: 32 })),
+              h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+                'Your cart is empty'),
+              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+                'Browse the marketplace, tap the + on any listing card to queue it up, then come back here to check out.'),
+              h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+                h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →'),
+                h('a', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid var(--border)' },
+                  href: '/?sort=discount'
+                }, '% Top deals')
+              )
+            ),
+            // Recently-viewed nudge (batch 427). When the cart is empty,
+            // surface the last few items the user clicked into so they
+            // can re-find what they were considering. Pure localStorage —
+            // zero network. Silent for fresh visitors with empty history.
+            (() => {
+              let recent = [];
+              try { recent = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
+              catch { recent = []; }
+              recent = (recent || []).slice(0, 6);
+              if (recent.length === 0) return null;
+              return h('div', { style: { marginTop: 28 } },
+                h('div', {
+                  style: {
+                    fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase',
+                    letterSpacing: 0.5, fontWeight: 700, marginBottom: 10, textAlign: 'center'
+                  }
+                }, '⟲ Recently viewed'),
+                h('div', {
+                  style: {
+                    display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center'
+                  }
+                },
+                  recent.map(it => {
+                    // Batch 912 — read `imageUrl` + `lowestPrice` to match
+                    // the shape the /item/:id effect writes to localStorage
+                    // at app.js:3803. Prior code read `it.thumb` + `it.price`
+                    // which never exist on the stored records, so the
+                    // thumbnail and price chip silently never rendered
+                    // despite the pill otherwise being wired up.
+                    const priceVal = it.lowestPrice != null ? parseFloat(it.lowestPrice) : null;
+                    return h('a', {
+                    key: 'rv-empty-' + it.id,
+                    href: '/item/' + it.id,
+                    style: {
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 12px', borderRadius: 999,
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      textDecoration: 'none', color: 'var(--text-primary)',
+                      fontSize: 12, fontWeight: 600
+                    },
+                    title: it.name + (priceVal != null ? ' · ' + (privacy ? '$•••••' : fmt(priceVal)) : '')
+                  },
+                    it.imageUrl && h('img', {
+                      src: it.imageUrl, alt: '',
+                      style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
+                    }),
+                    h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
+                    priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, privacy ? '$•••••' : fmt(priceVal))
+                  );
+                  })
+                )
+              );
+            })()
+          )
         : h('div', null,
+            // Batch 790 — same trade-URL preflight as the cart-confirm
+            // modal, but on the main cart page so a buyer with items
+            // in the cart sees the blocker without clicking Buy. Also
+            // fires when the profile data is still loading (me == null
+            // on anon is handled earlier; this is authenticated-but-
+            // no-URL case).
+            me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+              style: {
+                padding: 10, marginBottom: 12, borderRadius: 8,
+                background: 'rgba(250,204,21,0.1)',
+                border: '1px solid rgba(250,204,21,0.4)',
+                color: '#fde68a',
+                display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, fontWeight: 600
+              }
+            },
+              h('span', { style: { fontSize: 14 } }, '⚠'),
+              h('div', { style: { flex: 1 } },
+                h('strong', null, 'Steam trade URL required · '),
+                "sellers can't ship without it. Add yours in Profile before checking out."),
+              h('a', {
+                href: '/profile',
+                className: 'btn btn-accent',
+                style: { padding: '5px 12px', fontSize: 11, textDecoration: 'none' }
+              }, 'Open Profile')
+            ),
             // Unavailable-rows banner — fires when the bulk freshness
             // probe came back with at least one listing that is no
             // longer ACTIVE. Offers a one-click cleanup so the buyer
@@ -3190,8 +6881,8 @@ export function App() {
                   Math.abs(newPrice - parseFloat(it.price)) > 0.005;
                 return h('div', { key: it.id, className: 'cart-row', style: stale ? { opacity: 0.55 } : {} },
                   h('div', { className: 'cart-thumb' }, it.thumb
-                    ? h('img', { src: it.thumb, alt: it.name })
-                    : h('span', null, '📦')),
+                    ? h('img', { src: it.thumb, alt: it.name, loading: 'lazy', decoding: 'async' })
+                    : h('span', null, '—')),
                   h('div', { className: 'cart-info' },
                     h('div', { className: 'cart-name' }, it.name,
                       stale && h('span', {
@@ -3202,12 +6893,58 @@ export function App() {
                         title: `Seller changed the price from ${fmt(it.price)} to ${fmt(newPrice)}`
                       }, `PRICE NOW ${fmt(newPrice)}`)
                     ),
-                    h('div', { className: 'cart-id' }, 'Listing #' + it.id)
+                    // Batch 804 — seller attribution on cart rows. Before
+                    // this the row just said "Listing #N" with no hint of
+                    // which seller the buyer is about to transact with.
+                    // A shopper might have 5 cart items from 3 different
+                    // sellers and want to confirm the stall pages before
+                    // checkout. Links to /stall/:id when it's a real
+                    // user; plain text for system listings (no stall
+                    // page). Null seller snapshot (pre-batch-804 cart
+                    // rows cached in localStorage) silently falls back.
+                    h('div', { className: 'cart-id' },
+                      'Listing #' + it.id,
+                      it.sellerName && h('span', null,
+                        ' · by ',
+                        it.sellerUserId
+                          ? h('a', {
+                              href: paths.stall(it.sellerUserId),
+                              style: { color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 },
+                              onClick: (e) => e.stopPropagation(),
+                              title: `View ${it.sellerName}'s stall`
+                            }, it.sellerName)
+                          : h('span', { style: { color: 'var(--text-secondary)', fontWeight: 600 } }, it.sellerName)
+                      )
+                    )
                   ),
                   h('div', { className: 'cart-price' }, fmt(it.price)),
+                  // Batch 755 — per-row "Save for later" (move this one
+                  // cart row to the watchlist + drop from cart). Silent
+                  // when the item is already watchlisted or when the row
+                  // has no itemId (shouldn't happen for live listings but
+                  // defensive). Complements the bulk "Move to watchlist"
+                  // below; users with a mixed cart (some to-buy, some
+                  // to-watch) can now prune without clearing everything.
+                  it.itemId && !watchlist.includes(it.itemId) && h('button', {
+                    className: 'btn btn-ghost',
+                    style: { border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '6px 10px', fontSize: 11 },
+                    title: 'Move to watchlist — keep tracking the price without holding it in your cart',
+                    onClick: () => {
+                      const id = it.itemId;
+                      setWatchlist(w => Array.from(new Set([...w, id])));
+                      removeFromCart(it.id);
+                      showToast('Moved to watchlist', 'ok');
+                    }
+                  }, '♡ Save'),
                   h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 10px', fontSize: 11 },
+                    // Batch 779 — describe the target item so a screen
+                    // reader user scanning a cart of ✕ buttons hears
+                    // "Remove Black Modern Watch from cart" on focus,
+                    // not five identical "button" labels.
+                    'aria-label': `Remove ${it.name || ('listing #' + it.id)} from cart`,
+                    title: `Remove ${it.name || ('listing #' + it.id)} from cart`,
                     onClick: () => removeFromCart(it.id)
                   }, '✕')
                 );
@@ -3266,26 +7003,182 @@ export function App() {
             )
           )
     ),
+    // Batch 835 — Report-Seller drawer. Opens from the stall hero's
+    // 🚩 Report button. Structured reason picker + optional context,
+    // same shape as ReportCounterpartyDrawer in modals.js but specific
+    // to the public-stall flow where the viewer is a buyer and the
+    // target is the stall owner.
+    reportSellerOpen && stallData?.seller && h('div', {
+      className: 'cart-confirm-backdrop',
+      onClick: () => !reportSellerBusy && setReportSellerOpen(false),
+      style: { zIndex: 100 }
+    },
+      h('div', {
+        className: 'cart-confirm-panel',
+        style: { maxWidth: 460 },
+        onClick: e => e.stopPropagation(),
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-labelledby': 'report-seller-title'
+      },
+        h('div', { className: 'cart-confirm-title', id: 'report-seller-title' },
+          'Report seller'),
+        h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
+          'Reporting ',
+          h('strong', null, stallData.seller.displayName || `#${stallData.seller.id}`),
+          ". This opens a FRAUD-category support ticket and staff will review. For trade-specific issues use the Dispute button on your trade row instead."),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
+        h('select', {
+          className: 'price-input',
+          style: { width: '100%', marginBottom: 12 },
+          value: reportSellerReason,
+          onChange: e => setReportSellerReason(e.target.value),
+          disabled: reportSellerBusy
+        }, ['Scam attempt','Suspicious pricing','Harassment in chat','Impersonation','Other']
+          .map(r => h('option', { key: r, value: r }, r))),
+        h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } },
+          'Context — what happened? ',
+          h('span', { style: { textTransform: 'none', color: 'var(--text-muted)', fontWeight: 400 } },
+            `(${reportSellerContext.length}/1000)`)),
+        h('textarea', {
+          className: 'price-input',
+          style: { width: '100%', minHeight: 90, marginBottom: 12, resize: 'vertical',
+                   fontFamily: 'inherit', fontSize: 13 },
+          placeholder: 'Include timestamps, chat snippets, screenshot links — anything that helps staff triage.',
+          value: reportSellerContext,
+          maxLength: 1000,
+          onChange: e => setReportSellerContext(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); setReportSellerOpen(false); }
+          },
+          disabled: reportSellerBusy
+        }),
+        reportSellerErr && h('div', { className: 'wallet-error', style: { marginBottom: 10 } }, reportSellerErr),
+        h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+          h('button', {
+            className: 'btn btn-ghost',
+            style: { border: '1px solid var(--border)' },
+            disabled: reportSellerBusy,
+            onClick: () => setReportSellerOpen(false)
+          }, 'Cancel'),
+          h('button', {
+            className: 'btn btn-accent',
+            disabled: reportSellerBusy,
+            onClick: submitReportSeller
+          }, reportSellerBusy ? 'Submitting…' : 'File report')
+        )
+      )
+    ),
     cartConfirmOpen && h('div', { className: 'cart-confirm-backdrop', onClick: () => !cartBusy && setCartConfirmOpen(false) },
-      h('div', { className: 'cart-confirm-panel', onClick: e => e.stopPropagation() },
+      h('div', {
+        className: 'cart-confirm-panel',
+        onClick: e => e.stopPropagation(),
+        // Batch 827 — Cart-checkout confirm a11y. Same pattern as
+        // Confirm-receipt (batch 826): role=dialog + aria-modal so
+        // screen readers announce the purchase context, aria-
+        // labelledby points at the inline title.
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-labelledby': 'cart-confirm-title'
+      },
         h('div', { className: 'cart-confirm-head' },
-          h('div', { className: 'cart-confirm-title' }, 'Confirm purchase'),
+          h('div', { className: 'cart-confirm-title', id: 'cart-confirm-title' }, 'Confirm purchase'),
           h('div', { className: 'cart-confirm-sub' },
-            `Buying ${cart.length} item${cart.length === 1 ? '' : 's'} · funds held in escrow until each seller delivers.`)
+            `Buying ${cart.length} item${cart.length === 1 ? '' : 's'} · funds held in escrow until each seller delivers.`,
+            // Batch 804 — multi-seller chip. Tells the buyer how many
+            // distinct sellers they're about to contract with, so they
+            // know to expect N separate trade offers (one per seller).
+            (() => {
+              const sellers = new Set();
+              cart.forEach(it => { if (it.sellerUserId != null) sellers.add(it.sellerUserId); });
+              if (sellers.size <= 1) return null;
+              return h('div', {
+                style: { marginTop: 4, fontSize: 11, color: 'var(--accent)', fontWeight: 600 }
+              }, `· ${sellers.size} sellers — expect ${sellers.size} separate trade offers`);
+            })())
         ),
         h('div', { className: 'cart-confirm-list' },
-          cart.slice(0, 12).map(it => h('div', { key: it.id, className: 'cart-confirm-row' },
-            h('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
-            h('div', { className: 'cart-confirm-amt' }, fmt(it.price))
-          )),
+          cart.slice(0, 12).map(it => {
+            // Use fresh server price when cartFreshness has loaded — keeps
+            // the confirm dialog aligned with what the server will charge.
+            const fresh = cartFreshness?.[it.id];
+            const effectivePrice = fresh && fresh.active && fresh.price != null
+              ? parseFloat(fresh.price)
+              : (parseFloat(it.price) || 0);
+            const priceMoved = fresh && fresh.active && fresh.price != null &&
+              Math.abs(parseFloat(fresh.price) - parseFloat(it.price)) > 0.005;
+            return h('div', { key: it.id, className: 'cart-confirm-row' },
+              h('div', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                it.name,
+                // Batch 804 — seller attribution (confirm-modal variant).
+                // Matches the cart-list row styling so the buyer can
+                // eyeball which seller(s) they're about to commit to
+                // before the wallet is charged.
+                it.sellerName && h('span', {
+                  style: { color: 'var(--text-muted)', fontSize: 11, marginLeft: 6, fontWeight: 500 }
+                }, ' · ', it.sellerName),
+                priceMoved && h('span', {
+                  style: { marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#fbbf24' },
+                  title: `Price changed since added to cart (was ${fmt(it.price)})`
+                }, 'price updated')
+              ),
+              h('div', { className: 'cart-confirm-amt' }, fmt(effectivePrice))
+            );
+          }),
           cart.length > 12 && h('div', { className: 'cart-confirm-more' }, `+ ${cart.length - 12} more`)
         ),
         h('div', { className: 'cart-confirm-total' },
           h('div', null,
             h('div', { className: 'cart-confirm-total-label' }, 'Total charged to wallet'),
-            h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.')
+            h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.'),
+            // Balance-after-checkout preview (batch 458). Shown when the
+            // user can afford it — answers "what will I have left?" so
+            // the buyer can pace their wallet without flipping to a
+            // separate page. Hidden in privacy mode and when the wallet
+            // is already short (the low-balance warning below covers
+            // that case with a different signal). Two decimal places to
+            // match the wallet hero number format.
+            (() => {
+              const bal = parseFloat(wallet?.balance || 0);
+              const after = bal - cartTotal;
+              if (privacy || !(bal > 0) || after < 0) return null;
+              return h('div', {
+                style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }
+              },
+                'Balance after: ',
+                h('span', { style: { color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } },
+                  fmt(after))
+              );
+            })()
           ),
           h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal))
+        ),
+        // Batch 788 — trade-URL preflight. Backend's /api/cart/checkout
+        // opens a Trade per row; each trade requires the buyer's Steam
+        // trade URL for the seller to send the item. Without this banner,
+        // a user cart-checks-out, every row succeeds money-side but the
+        // seller can't fulfil — they'd have to cancel. Surface the
+        // missing URL before the button click rather than after.
+        me && !(me.tradeUrl && String(me.tradeUrl).trim()) && h('div', {
+          style: {
+            margin: '0 0 14px', padding: '10px 14px',
+            background: 'rgba(250,204,21,0.1)',
+            border: '1px solid rgba(250,204,21,0.4)',
+            borderRadius: 8, color: '#fde68a',
+            fontSize: 12, lineHeight: 1.5,
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
+          }
+        },
+          h('span', { style: { fontSize: 16 } }, '⚠'),
+          h('div', { style: { flex: 1 } },
+            h('strong', null, 'Steam trade URL required · '),
+            "sellers can't send your items without it. Add yours in Profile before checking out."),
+          h('a', {
+            href: '/profile',
+            className: 'btn btn-accent',
+            style: { padding: '6px 12px', fontSize: 11, textDecoration: 'none' },
+            onClick: () => setCartConfirmOpen(false)
+          }, 'Open Profile')
         ),
         // Low-balance warning: if wallet balance is below cart total,
         // show a red banner with the shortfall amount + a Deposit CTA.
@@ -3324,13 +7217,23 @@ export function App() {
           h('button', {
             className: 'btn btn-accent',
             onClick: doCheckout,
-            disabled: cartBusy || cart.length === 0 || cartTotal > parseFloat(wallet?.balance || 0)
+            // Batch 789 — also gate the Confirm button on trade-URL
+            // presence (batch 788 just surfaced the warning; click was
+            // still allowed). Without this, a user could ignore the
+            // banner and charge their wallet for rows that'll sit in
+            // PENDING_SELLER_SEND forever until the seller cancels.
+            disabled: cartBusy || cart.length === 0 || cartTotal > parseFloat(wallet?.balance || 0) ||
+              !(me && me.tradeUrl && String(me.tradeUrl).trim()),
+            title: !(me && me.tradeUrl && String(me.tradeUrl).trim())
+              ? 'Add your Steam trade URL in Profile before checking out'
+              : undefined
           }, cartBusy ? 'Placing order…' : `Confirm · ${fmt(cartTotal)}`)
         )
       )
     ),
     routeName === 'faq'           && h(FaqModal,        { onClose: () => navigate(paths.market()) }),
     routeName === 'settings'      && h(SettingsModal,   { onClose: () => navigate(paths.market()) }),
+    routeName === 'affiliate'     && h(AffiliateModal,  { onClose: () => navigate(paths.market()) }),
     // Deep-link handling — notifications like TRADE_MESSAGE land us on
     // `/profile?tab=trades`. Pull the `tab` query param so the Profile
     // modal opens on the right tab instead of the Personal default.
@@ -3356,20 +7259,22 @@ export function App() {
       onAddToCart: me ? addToCart : null,
       cartHas: (id) => cart.some(c => c.id === id)
     }),
-    routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); } }),
-    routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, preselectedItem: preselectedBuyItem }),
+    routeName === 'database'      && h(DatabaseModal,      { onClose: () => navigate(paths.market()), onPickItem: (item) => { navigate(paths.item(item.id)); }, me }),
+    routeName === 'buyorders'     && h(BuyOrdersModal,     { onClose: () => { setPreselectedBuyItem(null); navigate(paths.market()); }, me, wallet, preselectedItem: preselectedBuyItem }),
     routeName === 'loadouts'      && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me }),
     routeName === 'loadout'       && h(LoadoutLabModal,    { onClose: () => navigate(paths.market()), me, loadoutId: route.params?.id }),
     routeName === 'notifications' && h(NotificationsModal, { onClose: () => navigate(paths.market()), me }),
     routeName === 'support'       && h(ProfileModal,        { onClose: () => navigate(paths.market()), me, wallet, transactions, onRefresh: loadWallet, initialTab: 'support' }),
     // Staff panels — role-gated. Non-staff users who type the URL hit a
-    // plain Help modal so they're not stuck on a blank page.
+    // clean "access denied" modal with a back-to-market CTA. Previously
+    // we dropped them on the Help modal which was confusing (looked
+    // like a bug, not a gate).
     routeName === 'admin' && (isAdmin
       ? h(AdminModal, { onClose: () => navigate(paths.market()), me })
-      : h(FaqModal,   { onClose: () => navigate(paths.market()) })),
+      : h(StaffAccessDeniedModal, { what: 'the admin panel', onClose: () => navigate(paths.market()) })),
     routeName === 'csr' && (isCsr
       ? h(CsrModal, { onClose: () => navigate(paths.market()), me })
-      : h(FaqModal, { onClose: () => navigate(paths.market()) })),
+      : h(StaffAccessDeniedModal, { what: 'the customer service panel', onClose: () => navigate(paths.market()) })),
 
     /* ITEM DETAIL — the only modal that isn't a menu destination. Closing it
        navigates back to /, so back/forward work naturally.
@@ -3380,9 +7285,18 @@ export function App() {
        a blank page with no way to figure out what happened. */
     routeName === 'item' && !modalLoading && !selected && (
       h('div', { className: 'modal-backdrop', onClick: () => navigate(paths.market()) },
-        h('div', { className: 'modal', onClick: (e) => e.stopPropagation(), style: { maxWidth: 420, textAlign: 'center', padding: '32px 24px' } },
-          h('div', { style: { fontSize: 48, marginBottom: 12 } }, '🕳️'),
-          h('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 } }, 'Item not found'),
+        h('div', {
+          className: 'modal',
+          onClick: (e) => e.stopPropagation(),
+          style: { maxWidth: 420, textAlign: 'center', padding: '32px 24px' },
+          // Batch 838 — a11y parity with the other modals. role=dialog
+          // + aria-modal + aria-labelledby pointing at the heading.
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-labelledby': 'item-not-found-title'
+        },
+          h('div', { style: { fontSize: 48, marginBottom: 12 }, 'aria-hidden': 'true' }, '—'),
+          h('div', { id: 'item-not-found-title', style: { fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 } }, 'Item not found'),
           h('div', { style: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 } },
             'The item you were looking for has been removed or never existed. It may have been merged into another entry by the catalogue sync.'),
           h('a', { className: 'btn btn-accent', href: '/' }, 'Back to marketplace')
@@ -3397,7 +7311,12 @@ export function App() {
             listings: selected.listings,
             history: selected.history,
             me,
-            onClose: () => navigate(paths.market()),
+            wallet,
+            // Prefer history.back() so closing /item/:id returns the user to
+            // the URL they came from (e.g. /?q=hat&category=Hats) instead of
+            // wiping their search. Falls back to bare / when we don't have
+            // any internal history to pop (direct link / share landing).
+            onClose: () => closeToPrevious(paths.market()),
             onBuy: handleBuy,
             onMakeOffer: handleMakeOffer,
             onRefresh: () => { load(); loadWallet(); },
@@ -3415,11 +7334,22 @@ export function App() {
 
     /* SHORTCUTS HELP OVERLAY — press `?` to toggle */
     shortcutsOpen && h('div', { className: 'shortcuts-backdrop', onClick: () => setShortcutsOpen(false) },
-      h('div', { className: 'shortcuts-card', onClick: e => e.stopPropagation() },
-        h('div', { className: 'shortcuts-title' }, 'Keyboard Shortcuts'),
+      h('div', {
+        className: 'shortcuts-card',
+        onClick: e => e.stopPropagation(),
+        // Batch 831 — a11y on the shortcuts overlay. Escape is already
+        // wired at the app-level keydown handler (line ~3194) which
+        // toggles `shortcutsOpen` false when it's true. Adding role=
+        // dialog + aria-modal so the panel announces correctly.
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-labelledby': 'shortcuts-title'
+      },
+        h('div', { className: 'shortcuts-title', id: 'shortcuts-title' }, 'Keyboard Shortcuts'),
         h('div', { className: 'shortcuts-grid' },
           [
             ['/',       'Focus search'],
+            ['⌘/Ctrl+K','Focus search (works from anywhere)'],
             ['?',       'Toggle this panel'],
             ['Esc',     'Back to market / close detail'],
             ['g m',     'Go to Market'],
@@ -3443,16 +7373,33 @@ export function App() {
       )
     ),
 
+    /* Floating back-to-top affordance — appears after 600px of scroll. */
+    h(BackToTopButton, null),
+
+    /* GDPR cookie consent banner — first visit only, dismissable. */
+    h(CookieBanner, null),
+
     /* TOAST */
-    toast && h('div', { className: `sale-toast ${toast.kind === 'err' ? 'err' : ''}` },
-      h('div', { className: 'sale-toast-thumb', style: {
-        background: toast.kind === 'err' ? 'var(--red-dim)' : 'var(--accent-dim)',
-        color:      toast.kind === 'err' ? 'var(--red)'     : 'var(--accent)'
-      } }, toast.kind === 'err' ? '✕' : '✓'),
-      h('div', { className: 'sale-toast-text' },
-        h('div', { className: 'sale-toast-line2' }, toast.text)
-      )
-    ),
+    toast && (() => {
+      // Batch 925 — proper `warn` kind styling. Prior code collapsed
+      // `warn` to the ok styling (green ✓), which misread "Deposit
+      // cancelled" and "Session expired" as positive confirmations.
+      // Now `warn` renders amber with a ⚠ glyph, matching what users
+      // expect for non-error-but-not-success messaging (Stripe cancel,
+      // session timeout, etc.).
+      const kind = toast.kind;
+      const isErr = kind === 'err';
+      const isWarn = kind === 'warn';
+      const bg = isErr ? 'var(--red-dim)' : isWarn ? 'rgba(251,191,36,0.15)' : 'var(--accent-dim)';
+      const fg = isErr ? 'var(--red)'     : isWarn ? '#fbbf24'               : 'var(--accent)';
+      const glyph = isErr ? '✕' : isWarn ? '⚠' : '✓';
+      return h('div', { className: `sale-toast ${isErr ? 'err' : (isWarn ? 'warn' : '')}` },
+        h('div', { className: 'sale-toast-thumb', style: { background: bg, color: fg } }, glyph),
+        h('div', { className: 'sale-toast-text' },
+          h('div', { className: 'sale-toast-line2' }, toast.text)
+        )
+      );
+    })(),
 
     /* FEE CALCULATOR — sits right above the footer as a marketing strip
        so signed-out visitors see the pricing pitch after they've scrolled
@@ -3471,6 +7418,8 @@ export function App() {
             h('input', {
               className: 'price-input fee-calc-input',
               type: 'number', min: '1', step: '0.01',
+              inputMode: 'decimal',
+              'aria-label': 'Sale amount for fee calculator',
               value: feeInput,
               onChange: e => setFeeInput(e.target.value),
               onFocus: e => e.target.select()
@@ -3479,18 +7428,20 @@ export function App() {
         ),
         h('div', null,
           (() => {
+            // Batch 720 — align marketing with backend reality. The
+            // only fee actually deducted on SkinBox is the 2% platform
+            // fee at sale time. Withdrawals carry no additional fee —
+            // SkinBox absorbs the Stripe Connect payout cost. Previous
+            // code also deducted a 1.5% "withdraw fee" that didn't
+            // exist server-side, so the calculator was quoting users
+            // a lower take-home than they actually receive.
             const amt = Math.max(0, parseFloat(feeInput) || 0);
             const platformFee = (amt * 0.02);
-            const withdrawFee = (amt * 0.015);
-            const take = Math.max(0, amt - platformFee - withdrawFee);
+            const take = Math.max(0, amt - platformFee);
             return h('div', { className: 'fee-calc-breakdown' },
               h('div', { className: 'fee-calc-line' },
                 h('span', null, 'Platform fee (2%)'),
                 h('strong', null, '−' + fmt(platformFee))
-              ),
-              h('div', { className: 'fee-calc-line' },
-                h('span', null, 'Withdraw fee (1.5%)'),
-                h('strong', null, '−' + fmt(withdrawFee))
               ),
               h('div', { className: 'fee-calc-line total' },
                 h('span', null, 'You receive'),
@@ -3498,7 +7449,7 @@ export function App() {
               )
             );
           })(),
-          h('div', { className: 'fee-calc-note' }, 'Steam takes 12% on Workshop sales. SkinBox is 3.5% total (2% platform + 1.5% payout) — you keep nearly 3× more.')
+          h('div', { className: 'fee-calc-note' }, 'Steam takes 12% on Workshop sales. SkinBox is a flat 2% on each sale — you keep 6× more. Deposits + withdrawals are free; payouts arrive in 1-2 business days.')
         )
       ),
     ),

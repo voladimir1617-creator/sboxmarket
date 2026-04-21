@@ -40,6 +40,13 @@ class Item {
     @Column(nullable = false)
     Integer totalSold = 0
 
+    /** Per-item view counter — bumped atomically on every GET /api/items/{id}
+     *  read. Drives the "👁 N views" social-proof chip on ItemModal alongside
+     *  watcher-count + buy-order-count. Null-default 0 so pre-V46 rows still
+     *  hydrate cleanly. Added in V46 / batch 409. */
+    @Column(name = 'view_count', nullable = false)
+    Long viewCount = 0L
+
     @Column(nullable = false)
     BigDecimal lowestPrice = BigDecimal.ZERO
 
@@ -50,7 +57,7 @@ class Item {
     Integer trendPercent = 0  // +/- percent change 30d
 
     @Column(nullable = false)
-    Boolean isListed = true
+    Boolean isListed = false
 
     @Column(name = "created_at", nullable = false)
     Long createdAt = System.currentTimeMillis()

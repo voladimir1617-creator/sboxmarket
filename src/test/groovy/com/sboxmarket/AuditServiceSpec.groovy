@@ -135,4 +135,54 @@ class AuditServiceSpec extends Specification {
         then:
         result.size() == 1
     }
+
+    // ── Date-bounded overloads (batch 556) ──────────────────────────
+
+    def "recent(since) delegates to repository.recentSince when since is set"() {
+        given:
+        auditLogRepository.recentSince(5000L, _) >> [new AuditLog(id: 1L)]
+
+        when:
+        def result = service.recent(5000L)
+
+        then:
+        result.size() == 1
+        0 * auditLogRepository.recent(_)
+    }
+
+    def "recent(null) falls through to the unbounded recent() (legacy shape)"() {
+        given:
+        auditLogRepository.recent(_) >> [new AuditLog(id: 1L)]
+
+        when:
+        def result = service.recent((Long) null)
+
+        then:
+        result.size() == 1
+        0 * auditLogRepository.recentSince(*_)
+    }
+
+    def "byActor(uid, since) routes to the date-bounded repo method"() {
+        given:
+        auditLogRepository.byActorSince(10L, 5000L, _) >> [new AuditLog(id: 1L, actorUserId: 10L)]
+
+        when:
+        def result = service.byActor(10L, 5000L)
+
+        then:
+        result.size() == 1
+        0 * auditLogRepository.byActor(*_)
+    }
+
+    def "byEvent(event, since) routes to the date-bounded repo method"() {
+        given:
+        auditLogRepository.byEventSince('USER_BANNED', 5000L, _) >> [new AuditLog(id: 1L, eventType: 'USER_BANNED')]
+
+        when:
+        def result = service.byEvent('USER_BANNED', 5000L)
+
+        then:
+        result.size() == 1
+        0 * auditLogRepository.byEvent(_, _)
+    }
 }

@@ -46,7 +46,22 @@ class CsrfFilter extends OncePerRequestFilter {
     private static final List<String> EXEMPT_PREFIXES = [
         '/api/stripe/webhook',
         '/api/auth/steam/login',
-        '/api/auth/steam/return'
+        '/api/auth/steam/return',
+        // Batch 688 — crash-reporting endpoint is exempt so the
+        // ErrorBoundary / global error listeners can post even if the
+        // CSRF cookie never landed (rare but real: the cookie is set
+        // by the first response but the first-response JS may crash
+        // before the setHeader side-effect reaches the DOM). The
+        // worst-case cross-site abuse is a noisy log line — not a
+        // privilege escalation, so CSRF gating isn't load-bearing here.
+        '/api/client-errors',
+        // Batch 892 — one-click unsubscribe (RFC 8058). The POST comes
+        // from the user's mail client (Gmail/Outlook) without any
+        // session cookie. The HMAC-signed token in the query string IS
+        // the auth, so CSRF gating adds nothing here and would block
+        // the advertised flow. GET + POST both route to the same
+        // controller action which validates the token.
+        '/api/unsubscribe'
     ]
 
     @Value('${security.csrf-enabled:true}') boolean enabled
@@ -59,12 +74,27 @@ class CsrfFilter extends OncePerRequestFilter {
         def cookieValue = readCookie(req)
         if (!cookieValue) {
             cookieValue = newToken()
-            def c = new Cookie(COOKIE_NAME, cookieValue)
-            c.path = '/'
-            c.maxAge = 60 * 60 * 24 * 7   // 7 days
-            c.secure = secureCookie
-            // NOT httpOnly — the frontend JS must be able to read it.
-            resp.addCookie(c)
+            // Batch 959 — set via an explicit Set-Cookie header so we can
+            // pin SameSite=Lax. Servlet's `javax.servlet.http.Cookie` /
+            // `jakarta.servlet.http.Cookie` class has no first-class
+            // SameSite setter before Servlet 6, so the normal
+            // `resp.addCookie(c)` path ships a cookie with no SameSite
+            // attribute — modern browsers default it to Lax, but relying
+            // on browser defaults for a security-critical cookie is a
+            // DIY footgun. `Lax` (not `Strict`) because a POST from an
+            // email link / social share that lands on the site still
+            // needs the CSRF cookie to pair with the first-page-load
+            // header read. The session cookie is independently set to
+            // SameSite=Lax by Spring via application.yml — pinning the
+            // same attribute here keeps the two cookies symmetric.
+            def sb = new StringBuilder()
+            sb.append(COOKIE_NAME).append('=').append(cookieValue)
+            sb.append("; Max-Age=").append(60 * 60 * 24 * 7)    // 7 days
+            sb.append("; Path=/")
+            sb.append("; SameSite=Lax")
+            if (secureCookie) sb.append("; Secure")
+            // NOT HttpOnly — the frontend JS must be able to read it.
+            resp.addHeader('Set-Cookie', sb.toString())
         }
 
         if (!enabled) {
@@ -78,7 +108,14 @@ class CsrfFilter extends OncePerRequestFilter {
         def isApi   = path?.startsWith('/api/')
         def isExempt = EXEMPT_PREFIXES.any { path.startsWith(it) }
 
-        if (isWrite && isApi && !isExempt) {
+        // Batch 676 — bearer-token bypass. ApiKeyAuthFilter (Order 0)
+        // sets `sbox.apiAuth=true` when a valid `Authorization: Bearer`
+        // has already authenticated the request. Bearer callers have no
+        // session cookie to pair with a CSRF header, and possession of
+        // the bearer token itself is the auth factor. Safe to skip the
+        // double-submit check here.
+        boolean apiAuthenticated = Boolean.TRUE == req.getAttribute('sbox.apiAuth')
+        if (isWrite && isApi && !isExempt && !apiAuthenticated) {
             def header = req.getHeader(HEADER_NAME)
             if (!header || header != cookieValue) {
                 resp.status = 403

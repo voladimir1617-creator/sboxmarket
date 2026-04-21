@@ -1,5 +1,6 @@
 package com.sboxmarket
 
+import com.sboxmarket.model.Item
 import com.sboxmarket.service.SteamMarketPriceService
 import spock.lang.Specification
 import spock.lang.Subject
@@ -63,6 +64,67 @@ class SteamMarketPriceServiceSpec extends Specification {
         // "USD $12.99" → "12.99"
         expect:
         invoke('USD $12.99') == new BigDecimal('12.99')
+    }
+
+    // ── applyPriceUpdate: the floor guard (batch 954 / bug #106) ──
+
+    def "applyPriceUpdate leaves lowestPrice alone when the item is listed"() {
+        given:
+        // Listed item: sboxmarket has real listings, MIN(listings.price)=1.47.
+        // A Steam-market fetch returning $1.34 must NOT clobber the platform
+        // floor — buyers clicking the grid card would otherwise see 1.47
+        // and wonder where 1.34 came from.
+        def item = new Item(
+            name:        'Gold Earrings',
+            isListed:    true,
+            lowestPrice: new BigDecimal('1.47'),
+            steamPrice:  new BigDecimal('1.28'),
+            trendPercent: 0
+        )
+
+        when:
+        service.applyPriceUpdate(item, new BigDecimal('1.34'), new BigDecimal('1.34'))
+
+        then:
+        item.lowestPrice == new BigDecimal('1.47')  // platform floor preserved
+        item.steamPrice  == new BigDecimal('1.28')  // retail reference preserved
+        item.trendPercent == 0                       // trend untouched when listed
+    }
+
+    def "applyPriceUpdate writes lowestPrice AND trendPercent when the item is not listed"() {
+        given:
+        def item = new Item(
+            name:        'SWAG Chain',
+            isListed:    false,
+            lowestPrice: new BigDecimal('10.00'),
+            steamPrice:  new BigDecimal('9.00'),
+            trendPercent: 0
+        )
+
+        when: "Steam reports a new floor 20% higher than the last known"
+        service.applyPriceUpdate(item, new BigDecimal('12.00'), new BigDecimal('12.00'))
+
+        then:
+        item.lowestPrice == new BigDecimal('12.00')
+        item.steamPrice  == new BigDecimal('9.00')  // still preserved
+        item.trendPercent == 20                      // +20% change recorded
+    }
+
+    def "applyPriceUpdate populates steamPrice only when empty"() {
+        given:
+        def item = new Item(
+            name: 'Orphan',
+            isListed: false,
+            lowestPrice: BigDecimal.ZERO,
+            steamPrice:  null,
+            trendPercent: 0
+        )
+
+        when:
+        service.applyPriceUpdate(item, new BigDecimal('5.00'), new BigDecimal('5.00'))
+
+        then:
+        item.steamPrice == new BigDecimal('5.00')
     }
 
     // ── Constants ────────────────────────────────────────────────

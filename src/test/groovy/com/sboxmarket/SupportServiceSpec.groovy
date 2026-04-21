@@ -261,4 +261,60 @@ class SupportServiceSpec extends Specification {
         then:
         thrown(ForbiddenException)
     }
+
+    // ── sweepStaleWaitingUser (batch 553) ───────────────────────────
+    //
+    // Daily auto-resolve sweep for tickets that staff replied to and
+    // the user never came back to. Prevents a long-running site's
+    // support queue from accumulating dead WAITING_USER threads.
+
+    def "sweepStaleWaitingUser flips stale tickets to RESOLVED and pushes TICKET_AUTO_RESOLVED (batch 553)"() {
+        given:
+        service.autoResolveWaitingUserDays = 14L
+        def stale1 = new SupportTicket(id: 1L, userId: 10L, subject: 'where is my deposit', status: 'WAITING_USER', updatedAt: 1L)
+        def stale2 = new SupportTicket(id: 2L, userId: 20L, subject: null, status: 'WAITING_USER', updatedAt: 1L)
+        ticketRepository.findStaleWaitingUser(_) >> [stale1, stale2]
+        ticketRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.sweepStaleWaitingUser()
+
+        then:
+        stale1.status == 'RESOLVED'
+        stale2.status == 'RESOLVED'
+        1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support')
+        1 * notificationService.push(20L, 'TICKET_AUTO_RESOLVED', _, _, 2L, '/support')
+    }
+
+    def "sweepStaleWaitingUser is a no-op when disabled (0 days)"() {
+        given:
+        service.autoResolveWaitingUserDays = 0L
+
+        when:
+        service.sweepStaleWaitingUser()
+
+        then:
+        0 * ticketRepository.findStaleWaitingUser(_)
+        0 * ticketRepository.save(_)
+        0 * notificationService.push(*_)
+    }
+
+    def "sweepStaleWaitingUser keeps going if one row's save throws (batch 553)"() {
+        given:
+        service.autoResolveWaitingUserDays = 14L
+        def good = new SupportTicket(id: 1L, userId: 10L, subject: 'ok', status: 'WAITING_USER', updatedAt: 1L)
+        def bad  = new SupportTicket(id: 2L, userId: 20L, subject: 'boom', status: 'WAITING_USER', updatedAt: 1L)
+        ticketRepository.findStaleWaitingUser(_) >> [bad, good]
+        ticketRepository.save(bad)  >> { throw new RuntimeException('db flake') }
+        ticketRepository.save(good) >> { args -> args[0] }
+
+        when:
+        service.sweepStaleWaitingUser()
+
+        then:
+        good.status == 'RESOLVED'
+        // The good ticket still got its auto-resolved push even though
+        // the bad one blew up mid-batch — per-row isolation holds.
+        1 * notificationService.push(10L, 'TICKET_AUTO_RESOLVED', _, _, 1L, '/support')
+    }
 }

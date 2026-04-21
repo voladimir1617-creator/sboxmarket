@@ -115,6 +115,33 @@ class GlobalExceptionHandlerSpec extends Specification {
         resp.body.message != 'Request could not be completed'
     }
 
+    def "InsufficientBalance exposes structured details (batch 963)"() {
+        // Frontend composes a 'Top up $40 to continue' CTA from these
+        // fields instead of string-parsing the message. Pin the shape.
+        when:
+        def resp = handler.handleApi(
+            new InsufficientBalanceException(new BigDecimal("50.00"), new BigDecimal("10.00")),
+            req()
+        )
+
+        then:
+        resp.body.code == 'INSUFFICIENT_BALANCE'
+        resp.body.details != null
+        resp.body.details.required  == new BigDecimal('50.00')
+        resp.body.details.available == new BigDecimal('10.00')
+        resp.body.details.shortfall == new BigDecimal('40.00')
+    }
+
+    def "other ApiException subclasses do NOT get insufficient-balance details"() {
+        when:
+        def resp = handler.handleApi(new NotFoundException('Listing', 42L), req())
+
+        then:
+        // NotFound doesn't carry required/available fields; the handler
+        // should leave details null rather than invent an empty map.
+        resp.body.details == null
+    }
+
     // ── Verbose mode ──────────────────────────────────────────────
 
     def "verbose mode returns the real error message and request path"() {

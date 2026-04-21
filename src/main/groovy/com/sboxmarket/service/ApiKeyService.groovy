@@ -24,10 +24,19 @@ class ApiKeyService {
 
     private static final SecureRandom RNG = new SecureRandom()
     private static final String PREFIX = "sbx_live_"
+    /** Batch 692 — active-key ceiling per user. A compromised session
+     *  otherwise could mint unlimited long-lived keys in a tight loop
+     *  (faster than the per-surface rate limit closes the window).
+     *  20 is generous for a real power user running multiple bots +
+     *  environments; anyone needing more should revoke stale keys
+     *  first, which is the correct hygiene. */
+    private static final int MAX_ACTIVE_PER_USER = 20
 
     @Autowired ApiKeyRepository apiKeyRepository
     @Autowired(required = false) AuditService auditService
     @Autowired TextSanitizer textSanitizer
+    @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+    @Autowired(required = false) EmailService emailService
 
     List<ApiKey> listForUser(Long userId) {
         apiKeyRepository.findByUser(userId)
@@ -37,25 +46,82 @@ class ApiKeyService {
      * Returns a map containing the persisted ApiKey (without token) AND the raw
      * plaintext token for one-time display. Callers MUST render the token then
      * discard it — it cannot be retrieved again.
+     *
+     * Batch 670 — optional `scope` lets the issuer mint a read-only key
+     * (`RO`) for a price-watcher bot without granting it the authority to
+     * buy, sell, or move funds. Unknown / blank scope falls through to
+     * `RW` (full access) to preserve the pre-scope contract.
      */
     @Transactional
-    Map create(Long userId, String label) {
+    Map create(Long userId, String label, String scope = null) {
+        // Batch 692 — reject the mint if the user is already at the
+        // active-key ceiling. Revoke-first is the intended escape
+        // hatch; revoked keys don't count so a user can always churn
+        // without hitting the wall. Thrown BEFORE any DB write so a
+        // crafted loop can't even burn serial ids on failed mints.
+        def active = apiKeyRepository.countActiveByUser(userId)
+        if (active >= MAX_ACTIVE_PER_USER) {
+            throw new com.sboxmarket.exception.BadRequestException(
+                "API_KEY_LIMIT",
+                "You already have ${active} active API keys (cap: ${MAX_ACTIVE_PER_USER}). Revoke one from Profile → Developers before minting another.")
+        }
         def cleanLabel = textSanitizer.cleanShort(label) ?: 'Untitled'
         def raw = PREFIX + randomToken(32)
         def hash = sha256(raw)
         def prefix = raw.substring(0, Math.min(14, raw.length()))
+        def scp = 'RO'.equalsIgnoreCase(scope) ? 'RO' : 'RW'
         def key = new ApiKey(
             userId:       userId,
             publicPrefix: prefix,
             tokenHash:    hash,
-            label:        cleanLabel
+            label:        cleanLabel,
+            scope:        scp
         )
         apiKeyRepository.save(key)
         try {
             auditService?.log(AuditService.API_KEY_MINTED, userId, userId, key.id,
-                "Minted API key ${key.publicPrefix} (${key.label})")
+                "Minted API key ${key.publicPrefix} (${key.label}) scope=${scp}")
         } catch (Exception ignore) {}
+        // Batch 691 — security-alert email. Fires on every mint so a
+        // compromised-session attacker can't silently provision a long-
+        // lived API key. Non-fatal: any failure here (no email on file,
+        // SMTP outage, DB blip) is logged but doesn't abort the mint
+        // flow — the raw token is still returned to the caller.
+        try {
+            if (emailService != null && steamUserRepository != null) {
+                def user = steamUserRepository.findById(userId).orElse(null)
+                if (user?.email) {
+                    emailService.sendApiKeyMinted(user.email, user.displayName, key.label, key.scope, key.publicPrefix)
+                }
+            }
+        } catch (Exception e) {
+            log.warn("API key mint alert email failed for uid=${userId}: ${e.message}")
+        }
         [key: key, token: raw]
+    }
+
+    /**
+     * Revoke every active API key the user owns in one call (batch 705).
+     * Security panic-button for compromised-session recovery — pairs
+     * with batch 697's Sign-Out-Everywhere. Returns the count of keys
+     * actually revoked so the UI can show "Revoked N keys". Idempotent:
+     * zero active keys returns 0, doesn't 404. Audit-logged as
+     * API_KEY_REVOKED per key so ops can see each row in the audit
+     * trail.
+     */
+    @Transactional
+    int revokeAll(Long userId) {
+        def live = apiKeyRepository.findByUser(userId).findAll { !Boolean.TRUE.equals(it.revoked) }
+        if (live.isEmpty()) return 0
+        live.each { k ->
+            k.revoked = true
+            try {
+                auditService?.log(AuditService.API_KEY_REVOKED, userId, userId, k.id,
+                    "Bulk-revoked API key ${k.publicPrefix} (${k.label})")
+            } catch (Exception ignore) { /* tolerated */ }
+        }
+        apiKeyRepository.saveAll(live)
+        live.size()
     }
 
     @Transactional
@@ -81,6 +147,23 @@ class ApiKeyService {
         key.lastUsedAt = System.currentTimeMillis()
         apiKeyRepository.save(key)
         key.userId
+    }
+
+    /**
+     * Resolve the full auth context for a raw token — userId + scope.
+     * Callers that need to gate write operations on RO keys use this;
+     * callers that only need the owning user id can still use
+     * `authenticate(token)`. Returns null when the token is missing,
+     * unknown, or revoked.
+     */
+    Map authenticateWithScope(String rawToken) {
+        if (!rawToken || !rawToken.startsWith(PREFIX)) return null
+        def hash = sha256(rawToken)
+        def key = apiKeyRepository.findByTokenHash(hash)
+        if (key == null || key.revoked) return null
+        key.lastUsedAt = System.currentTimeMillis()
+        apiKeyRepository.save(key)
+        [userId: key.userId, scope: (key.scope ?: 'RW')]
     }
 
     private static String randomToken(int bytes) {

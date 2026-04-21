@@ -1,0 +1,17 @@
+Contact: mailto:security@skinbox.market
+Contact: https://skinbox.market/support
+Expires: 2027-04-18T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://skinbox.market/.well-known/security.txt
+Policy: https://skinbox.market/legal/responsible-disclosure.html
+Acknowledgments: https://skinbox.market/legal/responsible-disclosure.html#hall-of-fame
+
+# Scope
+# In-scope: the SkinBox marketplace, its API surface at /api/*, the
+# browser extension (SkinBox Valuer), and email / transactional flows.
+# Out-of-scope: third-party dependencies (Steam OpenID, Stripe, Cloudflare)
+# — report those to the respective vendors. Denial-of-service testing,
+# social engineering of staff, and physical intrusion are NEVER in scope.
+#
+# Good-faith reports receive an acknowledgment within 72h and a first
+# status update within 7 days. See the full policy at the Policy URL.

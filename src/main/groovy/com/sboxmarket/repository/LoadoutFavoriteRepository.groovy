@@ -19,4 +19,15 @@ interface LoadoutFavoriteRepository extends JpaRepository<LoadoutFavorite, Long>
 
     @Query("SELECT COUNT(f) FROM LoadoutFavorite f WHERE f.loadoutId = :lid")
     long countByLoadout(@Param("lid") Long loadoutId)
+
+    /** Loadout ids a user has favorited, newest-favorite first. Drives
+     *  the Profile → "Favorite loadouts" tab so a user can find the
+     *  builds they starred earlier without having to browse Discover
+     *  again. */
+    @Query("""
+        SELECT f.loadoutId FROM LoadoutFavorite f
+        WHERE f.userId = :uid
+        ORDER BY f.createdAt DESC
+    """)
+    List<Long> findLoadoutIdsByUser(@Param("uid") Long userId)
 }

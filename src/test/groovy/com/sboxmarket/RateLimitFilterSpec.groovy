@@ -38,6 +38,61 @@ class RateLimitFilterSpec extends Specification {
         r
     }
 
+    private MockHttpServletRequest getAs(String path, String ip, Long userId) {
+        def r = new MockHttpServletRequest('GET', path)
+        r.remoteAddr = ip
+        def sess = new org.springframework.mock.web.MockHttpSession()
+        if (userId != null) sess.setAttribute('steamUserId', userId)
+        r.session = sess
+        r
+    }
+
+    private MockHttpServletRequest opt(String path, String ip = '10.0.0.1') {
+        def r = new MockHttpServletRequest('OPTIONS', path)
+        r.remoteAddr = ip
+        r
+    }
+
+    def "OPTIONS preflight requests are never rate-limited (batch 971)"() {
+        // A user on a third-party page (Valuer extension on
+        // steamcommunity.com) doing 20 rapid clicks fires 20 preflight
+        // probes + 20 real POSTs. If preflights burned write tokens
+        // the 21st preflight would 429 before the actual POST ever ran
+        // — even though the real mutation budget hasn't been touched.
+        given:
+        def responses = (1..50).collect { new MockHttpServletResponse() }
+
+        when: "hammer OPTIONS on a write-budgeted prefix"
+        responses.each { resp ->
+            filter.doFilter(opt('/api/listings/42/buy'), resp, chain)
+        }
+
+        then: "every preflight passes through — none rate-limited"
+        50 * chain.doFilter(_, _)
+        responses.every { it.status != 429 }
+    }
+
+    def "OPTIONS preflight does not decrement the write bucket (batch 971)"() {
+        // Fire 10 OPTIONS first; the real POST budget should still be
+        // 20/10s so 20 POSTs go through.
+        given:
+        (1..10).each {
+            filter.doFilter(opt('/api/listings/42/buy'), new MockHttpServletResponse(), chain)
+        }
+        int allowed = 0, blocked = 0
+
+        when:
+        (1..25).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(post('/api/listings/42/buy'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then: "POST budget is intact — 20 pass, 5 hit 429"
+        allowed == 20
+        blocked == 5
+    }
+
     def "health probe is never rate-limited"() {
         given:
         def req = get('/api/health')
@@ -95,6 +150,71 @@ class RateLimitFilterSpec extends Specification {
         resp.contentAsString.contains('"code":"RATE_LIMITED"')
     }
 
+    def "guarded 2xx responses carry X-RateLimit-* header trio (batch 545)"() {
+        given:
+        def resp = new MockHttpServletResponse()
+
+        when: "first guarded request of the window"
+        filter.doFilter(get('/api/items/1'), resp, chain)
+
+        then:
+        resp.status != 429
+        resp.getHeader('X-RateLimit-Limit') == '40'       // MAX_ENUM
+        resp.getHeader('X-RateLimit-Remaining') == '39'   // one burnt, 39 left
+        resp.getHeader('X-RateLimit-Reset') != null
+    }
+
+    def "signed-in users bucket separately from other users on the same IP (batch 547)"() {
+        given:
+        // Two different users behind the SAME shared-NAT IP. User A
+        // burns the enumeration budget on their own bucket; user B
+        // should still have a full 40 requests left.
+        def sharedIp = '203.0.113.42'
+
+        when: "user A burns the full enumeration budget"
+        (1..40).each {
+            filter.doFilter(getAs('/api/items/1', sharedIp, 100L), new MockHttpServletResponse(), chain)
+        }
+        def userB = new MockHttpServletResponse()
+        filter.doFilter(getAs('/api/items/1', sharedIp, 200L), userB, chain)
+
+        then:
+        userB.status != 429
+        // User B's bucket is fresh — 39 of 40 remaining after one hit
+        userB.getHeader('X-RateLimit-Remaining') == '39'
+    }
+
+    def "anonymous requests still key on IP so enumeration guard holds (batch 547)"() {
+        given:
+        def ip = '203.0.113.99'
+
+        when: "two anonymous sessions on the same IP share one bucket"
+        (1..40).each {
+            filter.doFilter(get('/api/items/1', ip), new MockHttpServletResponse(), chain)
+        }
+        // Same IP, no session attribute → same ip-keyed bucket
+        def resp = new MockHttpServletResponse()
+        filter.doFilter(get('/api/items/1', ip), resp, chain)
+
+        then:
+        resp.status == 429
+    }
+
+    def "429 response also carries X-RateLimit-* headers (batch 545)"() {
+        given:
+        (1..40).each { filter.doFilter(get('/api/items/99'), new MockHttpServletResponse(), chain) }
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(get('/api/items/99'), resp, chain)
+
+        then:
+        resp.status == 429
+        resp.getHeader('X-RateLimit-Limit') == '40'
+        resp.getHeader('X-RateLimit-Remaining') == '0'
+        resp.getHeader('X-RateLimit-Reset') != null
+    }
+
     def "write surface budget is tighter (20/10s) than enumeration budget"() {
         given:
         int allowed = 0
@@ -108,6 +228,44 @@ class RateLimitFilterSpec extends Specification {
         }
 
         then: "first 20 pass, next 5 hit 429"
+        allowed == 20
+        blocked == 5
+    }
+
+    def "POST /api/notifications/read-all is rate-limited (batch 960)"() {
+        given:
+        // Bell-dropdown bulk writes touch every unread row. Uncapped, a
+        // hostile authenticated client could hammer /read-all / /clear-read
+        // / /delete-batch and thrash the DB with full-table UPDATE / DELETE
+        // scans. 20/10s matches the other write surfaces.
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..25).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(post('/api/notifications/read-all'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 20
+        blocked == 5
+    }
+
+    def "POST /api/steam/sync is rate-limited (write-surface budget)"() {
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when: "25 Steam sync hammers from the same IP"
+        (1..25).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(post('/api/steam/sync'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then: "first 20 pass, next 5 hit 429 — prevents fan-out against Steam's inventory endpoint"
         allowed == 20
         blocked == 5
     }
@@ -267,6 +425,38 @@ class RateLimitFilterSpec extends Specification {
             (1..25).each {
                 def resp = new MockHttpServletResponse()
                 filter.doFilter(post(p, '10.0.0.2'), resp, chain)
+                if (resp.status == 429) blocked++ else allowed++
+            }
+            [p: p, allowed: allowed, blocked: blocked]
+        }
+
+        then:
+        results.every { it.allowed == 20 && it.blocked == 5 }
+    }
+
+    def "batch 562 watchlist / alerts / saved-searches / follows are in the write bucket"() {
+        // Social-feature surfaces added to GUARDED_PREFIXES in batch 562.
+        // Uncapped, a hostile client could churn inserts until the DB
+        // cap kicks in at MAX_PER_USER rows — each POST costs one
+        // INSERT on the hot path until then. Sweep each prefix from its
+        // own IP so no cross-surface state bleeds through.
+        given:
+        def prefixes = [
+            '/api/watchlist',
+            '/api/watchlist/alerts',
+            '/api/saved-searches',
+            '/api/follows'
+        ]
+
+        when: "each endpoint independently hits 429 after 20 rapid writes"
+        def results = prefixes.collect { p ->
+            int allowed = 0
+            int blocked = 0
+            // One fresh ip per surface so the test is order-independent.
+            def ip = '10.0.5.' + (prefixes.indexOf(p) + 1)
+            (1..25).each {
+                def resp = new MockHttpServletResponse()
+                filter.doFilter(post(p, ip), resp, chain)
                 if (resp.status == 429) blocked++ else allowed++
             }
             [p: p, allowed: allowed, blocked: blocked]

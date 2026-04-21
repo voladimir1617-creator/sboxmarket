@@ -210,4 +210,150 @@ class NotificationServiceSpec extends Specification {
         0 * notificationRepository.findById(_)
         0 * notificationRepository.delete(_)
     }
+
+    // ── safePush (batch 625) ────────────────────────────────────────
+
+    def "safePush saves the notification on the happy path"() {
+        given:
+        notificationRepository.save(_) >> { Notification n -> n.id = 7L; n }
+
+        when:
+        def n = service.safePush(10L, 'OFFER_RECEIVED', 'Title', 'Body', 5L, '/offers')
+
+        then:
+        n != null
+        n.id == 7L
+        n.kind == 'OFFER_RECEIVED'
+    }
+
+    def "safePush returns null when userId is null without touching the repo"() {
+        when:
+        def n = service.safePush(null, 'WHATEVER', 'Title')
+
+        then:
+        n == null
+        0 * notificationRepository.save(_)
+    }
+
+    def "safePush swallows repo exceptions and returns null"() {
+        given:
+        notificationRepository.save(_) >> { throw new RuntimeException('DB down') }
+
+        when:
+        def n = service.safePush(10L, 'OFFER_RECEIVED', 'Title')
+
+        then:
+        // The parent operation (accepted offer, purchase, etc.) must
+        // not fail because of a notification-push hiccup. safePush
+        // eats the exception + logs a warning.
+        n == null
+        noExceptionThrown()
+    }
+
+    // ── markReadByIds (batch 635) ─────────────────────────────────────
+
+    def "markReadByIds flips only unread rows the caller owns + returns the count"() {
+        given:
+        def rows = [
+            new Notification(id: 1L, userId: 10L, read: false, title: 'a'),
+            new Notification(id: 2L, userId: 10L, read: true,  title: 'b'),  // already read
+            new Notification(id: 3L, userId: 99L, read: false, title: 'c'),  // someone else's row
+            new Notification(id: 4L, userId: 10L, read: false, title: 'd')
+        ]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.markReadByIds(10L, [1L, 2L, 3L, 4L])
+
+        then:
+        n == 2
+        1 * notificationRepository.saveAll({ List<Notification> saved ->
+            saved.size() == 2 &&
+            saved.every { it.read == true } &&
+            saved*.id.containsAll([1L, 4L])
+        })
+        // Another user's row stayed unread
+        rows.find { it.id == 3L }.read == false
+    }
+
+    def "markReadByIds short-circuits on null user, null ids, or empty ids"() {
+        when:
+        def a = service.markReadByIds(null, [1L])
+        def b = service.markReadByIds(10L, null)
+        def c = service.markReadByIds(10L, [])
+
+        then:
+        a == 0 && b == 0 && c == 0
+        0 * notificationRepository.findAllById(_)
+    }
+
+    def "markReadByIds dedupes + caps the input so a huge id list can't drown the repo"() {
+        given:
+        // Feed a 600-id list with duplicates. Cap is 500; dedupe first,
+        // then take 500. We assert the repo is called with <= 500 ids.
+        def ids = (1..600).collect { (long) it } + [1L, 2L, 3L]  // 603 with dupes
+        def passedToRepo = null
+        notificationRepository.findAllById(_) >> { args -> passedToRepo = args[0]; [] }
+
+        when:
+        service.markReadByIds(10L, ids)
+
+        then:
+        passedToRepo != null
+        passedToRepo.size() <= 500
+        // Dedup happened — no duplicate of 1L inside the capped slice.
+        passedToRepo.count(1L) <= 1
+    }
+
+    // ── deleteReadByIds (batch 636) ───────────────────────────────────
+
+    def "deleteReadByIds removes only read rows the caller owns + returns the count"() {
+        given:
+        def rows = [
+            new Notification(id: 1L, userId: 10L, read: true,  title: 'a'),
+            new Notification(id: 2L, userId: 10L, read: false, title: 'b'),  // unread — skip
+            new Notification(id: 3L, userId: 99L, read: true,  title: 'c'),  // foreign — skip
+            new Notification(id: 4L, userId: 10L, read: true,  title: 'd')
+        ]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.deleteReadByIds(10L, [1L, 2L, 3L, 4L])
+
+        then:
+        n == 2
+        1 * notificationRepository.deleteAll({ List<Notification> toDelete ->
+            toDelete.size() == 2 &&
+            toDelete.every { it.read == true && it.userId == 10L } &&
+            toDelete*.id.containsAll([1L, 4L])
+        })
+    }
+
+    def "deleteReadByIds refuses to touch UNREAD rows even when the caller owns them"() {
+        given:
+        // Safety-critical: accidentally deleting an unread row would hide
+        // something actionable from the user. Spec pins the invariant.
+        def rows = [
+            new Notification(id: 1L, userId: 10L, read: false, title: 'a')
+        ]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.deleteReadByIds(10L, [1L])
+
+        then:
+        n == 0
+        0 * notificationRepository.deleteAll(_)
+    }
+
+    def "deleteReadByIds short-circuits on null user, null ids, or empty ids"() {
+        when:
+        def a = service.deleteReadByIds(null, [1L])
+        def b = service.deleteReadByIds(10L, null)
+        def c = service.deleteReadByIds(10L, [])
+
+        then:
+        a == 0 && b == 0 && c == 0
+        0 * notificationRepository.findAllById(_)
+    }
 }

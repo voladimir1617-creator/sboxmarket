@@ -36,12 +36,14 @@ class ListingServiceSpec extends Specification {
 
     private Listing listingFor(Map args = [:]) {
         new Listing(
-            id:       args.id ?: 100L,
-            item:     args.item ?: itemFor(),
-            price:    args.price ?: new BigDecimal("10"),
-            status:   args.status ?: 'ACTIVE',
-            hidden:   args.hidden ?: false,
-            listedAt: args.listedAt ?: 1000L
+            id:          args.id ?: 100L,
+            item:        args.item ?: itemFor(),
+            price:       args.price ?: new BigDecimal("10"),
+            status:      args.status ?: 'ACTIVE',
+            hidden:      args.hidden ?: false,
+            listedAt:    args.listedAt ?: 1000L,
+            listingType: args.listingType ?: 'BUY_NOW',
+            expiresAt:   args.expiresAt
         )
     }
 
@@ -166,6 +168,52 @@ class ListingServiceSpec extends Specification {
         result*.id == [2L, 1L]
     }
 
+    private Item itemWithSteamPrice(long id, BigDecimal steamPrice) {
+        def it = itemFor(id, 'Item ' + id, 'Standard', 100)
+        it.steamPrice = steamPrice
+        it
+    }
+
+    def "sort=discount ranks deepest %-off-Steam first, 0% / no-steam rows drop to the bottom"() {
+        given:
+        // a: $4 listed, $10 steam → 60% off.
+        // b: $9 listed, $10 steam → 10% off.
+        // c: $5 listed, no steam reference → 0% (tie-breaker: lowest price wins among 0%).
+        // d: $12 listed, $10 steam → price > steam, ratio 0, drops to bottom.
+        def a = listingFor(id: 1L, item: itemWithSteamPrice(1L, new BigDecimal('10.00')), price: new BigDecimal('4.00'))
+        def b = listingFor(id: 2L, item: itemWithSteamPrice(2L, new BigDecimal('10.00')), price: new BigDecimal('9.00'))
+        def c = listingFor(id: 3L, item: itemFor(3L, 'No Steam', 'Standard', 100),        price: new BigDecimal('5.00'))
+        def d = listingFor(id: 4L, item: itemWithSteamPrice(4L, new BigDecimal('10.00')), price: new BigDecimal('12.00'))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [a, b, c, d]
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, null, null)
+
+        then:
+        // a (60%) > b (10%) > c,d (both 0%, tie-broken by cheaper price first).
+        result*.id == [1L, 2L, 3L, 4L]
+    }
+
+    def "sort=ending_soon orders AUCTION listings by expiresAt asc, BUY_NOW rows last"() {
+        given:
+        // Two auctions (one ending sooner) plus a BUY_NOW. The BUY_NOW has
+        // the lowest price so if ending_soon fell through to price ASC
+        // (the JPQL default) it would come first — proving it really is
+        // the expiresAt comparator that's running.
+        def auctionSoon  = listingFor(id: 1L, price: new BigDecimal('50'),
+            listingType: 'AUCTION', expiresAt: 2000L)
+        def auctionLater = listingFor(id: 2L, price: new BigDecimal('40'),
+            listingType: 'AUCTION', expiresAt: 9000L)
+        def buyNow       = listingFor(id: 3L, price: new BigDecimal('5'))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [auctionLater, buyNow, auctionSoon]
+
+        when:
+        def result = service.getActiveListings('ending_soon', null, null, null, null, null, null)
+
+        then:
+        result*.id == [1L, 2L, 3L]
+    }
+
     def "sort=rarity orders by item.supply ascending (lowest supply first)"() {
         given:
         listingRepository.findActivePublic('', '', '', '', null, null) >> [
@@ -196,6 +244,47 @@ class ListingServiceSpec extends Specification {
         a.hidden == true
         b.hidden == true
         1 * listingRepository.saveAll({ List<Listing> list -> list.size() == 2 })
+    }
+
+    def "setAwayMode recomputes Item.lowestPrice for every item it touched (batch 306 bug fix)"() {
+        given:
+        // Two listings on DIFFERENT items. Batch hide must re-run the
+        // floor-price aggregate for each distinct item.id so hidden
+        // listings drop out of the public floor.
+        def itemA = itemFor(1L)
+        def itemB = itemFor(2L)
+        def a = listingFor(id: 10L, item: itemA, hidden: false)
+        def b = listingFor(id: 11L, item: itemB, hidden: false)
+        listingRepository.findActiveBySeller(10L) >> [a, b]
+        itemRepository.findById(1L) >> Optional.of(itemA)
+        itemRepository.findById(2L) >> Optional.of(itemB)
+        listingRepository.minPriceForItem(1L) >> new BigDecimal("15")
+        listingRepository.minPriceForItem(2L) >> new BigDecimal("20")
+
+        when:
+        service.setAwayMode(10L, true)
+
+        then:
+        // Both items triggered a floor recompute.
+        1 * listingRepository.minPriceForItem(1L)
+        1 * listingRepository.minPriceForItem(2L)
+    }
+
+    def "setAwayMode dedupes the floor-recompute when two listings share one item"() {
+        given:
+        def shared = itemFor(1L)
+        def a = listingFor(id: 10L, item: shared, hidden: false)
+        def b = listingFor(id: 11L, item: shared, hidden: false)
+        listingRepository.findActiveBySeller(10L) >> [a, b]
+        itemRepository.findById(1L) >> Optional.of(shared)
+        listingRepository.minPriceForItem(1L) >> new BigDecimal("10")
+
+        when:
+        service.setAwayMode(10L, true)
+
+        then:
+        // One call, not two.
+        1 * listingRepository.minPriceForItem(1L)
     }
 
     // buyListing + cancelListing removed — both were dead code superseded
@@ -235,6 +324,132 @@ class ListingServiceSpec extends Specification {
         noExceptionThrown()
     }
 
+    // ── updateItemFloorPrice keeps item.isListed in sync (batch 237 / bug #104) ──
+
+    def "createListing updates item.lowestPrice AND flips isListed=true when floor > 0"() {
+        given:
+        def item = itemFor()
+        item.isListed = false  // start false to prove the sync sets it true
+        item.lowestPrice = BigDecimal.ZERO
+        def listing = listingFor(item: item)
+        listingRepository.save(_) >> { args -> args[0] }
+        // Repo returns a real floor — simulates at least one active listing.
+        listingRepository.minPriceForItem(1L) >> new BigDecimal('7.50')
+        itemRepository.findById(1L) >> Optional.of(item)
+        itemRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.createListing(listing)
+
+        then:
+        item.lowestPrice == new BigDecimal('7.50')
+        item.isListed == true
+    }
+
+    // ── findHottest fallback chain (batch 955) ────────────────────
+
+    def "findHottest returns recent sales when the window has activity"() {
+        given:
+        def listing = listingFor()
+        listingRepository.findTopSoldItemIds(_, _) >> [[1L, 5L] as Object[]]
+        listingRepository.findCheapestForItem(1L) >> [listing]
+
+        when:
+        def rows = service.findHottest(8)
+
+        then:
+        rows.size() == 1
+        rows[0].id == listing.id
+    }
+
+    def "findHottest falls back to most-watched when no recent sales"() {
+        given:
+        def item = itemFor(9L)
+        def listing = listingFor(id: 77L, item: item)
+        // No recent sales:
+        listingRepository.findTopSoldItemIds(_, _) >> []
+        // Most-watched has one item — exercised via service.findMostWatched()
+        // which is called internally. Mock the repo it depends on:
+        def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
+        service.watchlistItemRepository = watchRepo
+        watchRepo.findTopWatchedItemIds(_) >> [[9L, 3L] as Object[]]
+        listingRepository.findCheapestForItem(9L) >> [listing]
+
+        when:
+        def rows = service.findHottest(8)
+
+        then:
+        rows.size() == 1
+        rows[0].id == 77L
+    }
+
+    def "findHottest falls back to most-viewed when neither sales nor watches exist"() {
+        given:
+        def item = itemFor(12L)
+        def listing = listingFor(id: 88L, item: item)
+        listingRepository.findTopSoldItemIds(_, _) >> []
+        def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
+        service.watchlistItemRepository = watchRepo
+        watchRepo.findTopWatchedItemIds(_) >> []
+        // Most-viewed has one item:
+        itemRepository.findTopViewedItemIds(_) >> [[12L] as Object[]]
+        listingRepository.findCheapestForItem(12L) >> [listing]
+
+        when:
+        def rows = service.findHottest(8)
+
+        then:
+        rows.size() == 1
+        rows[0].id == 88L
+    }
+
+    def "findHottest de-duplicates across the fallback chain"() {
+        // Same item surfaced by both sales AND watches — must appear only
+        // once in the projected output.
+        given:
+        def item = itemFor(5L)
+        def listing = listingFor(id: 101L, item: item)
+        listingRepository.findTopSoldItemIds(_, _) >> [[5L, 2L] as Object[]]
+        def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
+        service.watchlistItemRepository = watchRepo
+        watchRepo.findTopWatchedItemIds(_) >> [[5L, 4L] as Object[]]
+        listingRepository.findCheapestForItem(5L) >> [listing]
+
+        when:
+        def rows = service.findHottest(8)
+
+        then:
+        rows.size() == 1
+    }
+
+    def "a freshly-constructed Item defaults isListed=false (bug #105 regression)"() {
+        // Previously Item.isListed defaulted to true, which meant catalogue
+        // rows imported from the SCMM sync were flagged listed even though
+        // no one had ever created a user listing against them. Fixed by the
+        // model default flip + V54 reconciliation migration.
+        expect:
+        !(new Item().isListed)
+    }
+
+    def "updateItemFloorPrice flips isListed=false when the last active listing is gone"() {
+        given:
+        def item = itemFor()
+        item.isListed = true  // start true — the last active listing just sold
+        def listing = listingFor(item: item)
+        listingRepository.save(_) >> { args -> args[0] }
+        // Repo returns null floor — no active listings remain for this item.
+        listingRepository.minPriceForItem(1L) >> null
+        itemRepository.findById(1L) >> Optional.of(item)
+        itemRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.createListing(listing)
+
+        then:
+        item.lowestPrice == BigDecimal.ZERO
+        item.isListed == false
+    }
+
     // ── getMarketStats ────────────────────────────────────────────
 
     def "getMarketStats returns rolled-up volume, active count and floor"() {
@@ -265,6 +480,30 @@ class ListingServiceSpec extends Specification {
         stats.volume24h == new BigDecimal("0.00")
         stats.activeListings == 0L
         stats.floorPrice == new BigDecimal("0.00")
+    }
+
+    // Batch 561 — a second call within the TTL window returns the cached
+    // snapshot without re-hitting the repo. Prevents regressions that
+    // silently drop the cache (e.g. a refactor that nukes the volatile
+    // fields) and restores the 4-round-trip-per-call tax on /stats.
+    def "getMarketStats caches for 30s — second call inside window skips the DB"() {
+        when: "two back-to-back calls"
+        def a = service.getMarketStats()
+        def b = service.getMarketStats()
+
+        then: "each repo-backed counter fired exactly once despite two gets"
+        1 * listingRepository.countActive() >> 42L
+        // Batch 1048 — sumVolumeAfter is now called twice per snapshot
+        // build (24h window + 7d window), but STILL only on the first
+        // call of the pair; the second getMarketStats within the 30s
+        // TTL returns the cached snapshot. 2 * invocations, NOT 4.
+        2 * listingRepository.sumVolumeAfter(_) >> new BigDecimal("100.00")
+        1 * listingRepository.findMinActivePrice() >> new BigDecimal("1.00")
+        1 * listingRepository.countActiveAuctions(_) >> 0L
+
+        and: "both return the same snapshot"
+        a.activeListings == 42L
+        b.activeListings == 42L
     }
 
     // ── bulkAdjustPrices ──────────────────────────────────────────
@@ -304,6 +543,47 @@ class ListingServiceSpec extends Specification {
         // Auction price untouched, buy-now bumped +10%
         auction.price == new BigDecimal("10")
         buyNow.price  == new BigDecimal("11.00")
+    }
+
+    def "bulkAdjustPrices fans out PRICE_DROPPED to cart-holders of every reduced listing (batch 539)"() {
+        given:
+        def l1 = listingFor(id: 1L, price: new BigDecimal('10.00'))
+        def l2 = listingFor(id: 2L, price: new BigDecimal('20.00'))
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository  = cartRepo
+        service.notificationService = notifier
+        listingRepository.findActiveBySeller(99L) >> [l1, l2]
+        itemRepository.findById(_) >> Optional.empty()
+        // listing#1 is in uid=42's cart; listing#2 has two cart-holders
+        cartRepo.findOtherUsersWithListing(1L, 99L) >> [42L]
+        cartRepo.findOtherUsersWithListing(2L, 99L) >> [42L, 77L]
+
+        when:
+        service.bulkAdjustPrices(99L, new BigDecimal('-10'))
+
+        then:
+        // Three total PRICE_DROPPED pushes — one per (listing, holder) pair.
+        1 * notifier.push(42L, 'PRICE_DROPPED', _, _, 1L, _)
+        1 * notifier.push(42L, 'PRICE_DROPPED', _, _, 2L, _)
+        1 * notifier.push(77L, 'PRICE_DROPPED', _, _, 2L, _)
+    }
+
+    def "bulkAdjustPrices does NOT fire PRICE_DROPPED on a price increase (batch 539)"() {
+        given:
+        def l1 = listingFor(id: 1L, price: new BigDecimal('10.00'))
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository  = cartRepo
+        service.notificationService = notifier
+        listingRepository.findActiveBySeller(99L) >> [l1]
+        itemRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.bulkAdjustPrices(99L, new BigDecimal('10'))  // +10%
+
+        then:
+        0 * notifier.push(_, 'PRICE_DROPPED', _, _, _, _)
     }
 
     def 'bulkAdjustPrices clamps to $0.01 floor and $100k ceiling'() {
@@ -420,9 +700,9 @@ class ListingServiceSpec extends Specification {
         def l = listingFor(id: 50L, price: new BigDecimal('12.34'))
         l.soldAt = 1_700_000_000_000L
         l.sellerName = 'Alice'
-        // Stub + assert the pageable arrives with pageSize == 30 (the cap).
-        // Combining the >> on the interaction keeps Spock from counting the
-        // call twice when the given-block stub also exists.
+        // Service over-fetches at 2x the requested cap so banned-seller
+        // eviction has headroom; the public cap of 30 still applies to
+        // the returned size, but the page request widens to 60.
         org.springframework.data.domain.Pageable seen = null
         listingRepository.findRecentlySold(_) >> { args -> seen = args[0]; [l] }
 
@@ -431,7 +711,7 @@ class ListingServiceSpec extends Specification {
 
         then:
         seen != null
-        seen.pageSize == 30
+        seen.pageSize == 60
         rows.size() == 1
         rows[0].listingId == 50L
         rows[0].price == new BigDecimal('12.34')
@@ -449,7 +729,8 @@ class ListingServiceSpec extends Specification {
 
         then:
         seen != null
-        seen.pageSize == 1
+        // Floor of 1 still applies; over-fetch multiplier doubles to 2.
+        seen.pageSize == 2
     }
 
     def "findRecentSales returns an empty list when no sales exist"() {
@@ -475,5 +756,113 @@ class ListingServiceSpec extends Specification {
 
         then:
         rows.size() == 1
+    }
+
+    // ── Vacation-mode scheduling (V33 / batch 265) ──────────────────
+
+    def "setAwayMode with a future 'until' stores the timestamp on the user row"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def user = new com.sboxmarket.model.SteamUser(id: 5L)
+        steamUserRepo.findById(5L) >> Optional.of(user)
+        listingRepository.findActiveBySeller(5L) >> [listingFor(id: 1L), listingFor(id: 2L)]
+        def future = System.currentTimeMillis() + (3L * 24L * 60L * 60L * 1000L)
+
+        when:
+        def n = service.setAwayMode(5L, true, future)
+
+        then:
+        1 * steamUserRepo.save({ it.awayModeUntil == future })
+        1 * listingRepository.saveAll(_)
+        user.awayModeUntil == future
+        n == 2
+    }
+
+    def "setAwayMode rejects a past 'until' so a clock-skewed client can't auto-expire instantly"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        steamUserRepo.findById(5L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 5L))
+        def past = System.currentTimeMillis() - 60_000L
+
+        when:
+        service.setAwayMode(5L, true, past)
+
+        then:
+        thrown(com.sboxmarket.exception.BadRequestException)
+        0 * listingRepository.saveAll(_)
+    }
+
+    def "setAwayMode rejects a 'until' more than 90 days out"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        steamUserRepo.findById(5L) >> Optional.of(new com.sboxmarket.model.SteamUser(id: 5L))
+        def tooFar = System.currentTimeMillis() + (95L * 24L * 60L * 60L * 1000L)
+
+        when:
+        service.setAwayMode(5L, true, tooFar)
+
+        then:
+        thrown(com.sboxmarket.exception.BadRequestException)
+    }
+
+    def "setAwayMode hidden=false clears any pending awayModeUntil"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def user = new com.sboxmarket.model.SteamUser(id: 5L,
+            awayModeUntil: System.currentTimeMillis() + 86400_000L)
+        steamUserRepo.findById(5L) >> Optional.of(user)
+        listingRepository.findActiveBySeller(5L) >> []
+
+        when:
+        service.setAwayMode(5L, false, null)
+
+        then:
+        1 * steamUserRepo.save({ it.awayModeUntil == null })
+        user.awayModeUntil == null
+    }
+
+    def "sweepExpiredAwayMode un-hides every active listing and clears the column"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def user = new com.sboxmarket.model.SteamUser(id: 7L,
+            awayModeUntil: System.currentTimeMillis() - 60_000L)
+        steamUserRepo.findExpiredAwayMode(_) >> [user]
+        def listings = [listingFor(id: 1L, hidden: true), listingFor(id: 2L, hidden: true)]
+        listingRepository.findActiveBySeller(7L) >> listings
+
+        when:
+        service.sweepExpiredAwayMode()
+
+        then:
+        listings.every { it.hidden == false }
+        1 * listingRepository.saveAll(_)
+        1 * steamUserRepo.save({ it.id == 7L && it.awayModeUntil == null })
+    }
+
+    def "sweepExpiredAwayMode is a no-op when nothing is expired"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        steamUserRepo.findExpiredAwayMode(_) >> []
+
+        when:
+        service.sweepExpiredAwayMode()
+
+        then:
+        0 * listingRepository.saveAll(_)
+        0 * steamUserRepo.save(_)
+    }
+
+    def "countHiddenActive forwards to the indexed COUNT query"() {
+        given:
+        listingRepository.countHiddenActiveBySeller(5L) >> 2L
+
+        expect:
+        service.countHiddenActive(5L) == 2L
     }
 }

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsible Disclosure — SkinBox</title>
+  <link rel="canonical" href="https://skinbox.market/legal/responsible-disclosure.html">
+  <meta name="theme-color" content="#1ea5ff">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/design.css">
+  <style>
+    .legal-doc { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); line-height: 1.7; font-size: 15px; }
+    .legal-doc h1 { font-size: 32px; margin-bottom: 8px; }
+    .legal-doc .legal-meta { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+    .legal-doc h2 { font-size: 20px; margin: 32px 0 12px; color: var(--text-primary); }
+    .legal-doc p, .legal-doc li { color: var(--text-secondary); }
+    .legal-doc ul { padding-left: 24px; margin-bottom: 16px; }
+    .legal-doc li { margin-bottom: 6px; }
+    .legal-doc strong { color: var(--text-primary); }
+    .legal-doc a { color: var(--accent); }
+    .legal-back { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+    .legal-doc code { background: var(--bg-card); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main class="legal-doc">
+    <a class="legal-back" href="/">← Back to SkinBox</a>
+    <h1>Responsible Disclosure Policy</h1>
+    <div class="legal-meta">Last updated: 18 April 2026.</div>
+
+    <p>
+      SkinBox welcomes good-faith security research. This document describes
+      how to report a vulnerability, what you can expect from us in return, and
+      the ground rules that keep the program safe for both sides.
+    </p>
+
+    <h2>How to report</h2>
+    <ul>
+      <li>Email <a href="mailto:security@skinbox.market">security@skinbox.market</a> with the subject <code>[disclosure] short title</code>.</li>
+      <li>Include reproduction steps, affected URL(s), and the likely impact (information disclosure, privilege escalation, money movement, etc.).</li>
+      <li>If you need to share a proof-of-concept that involves sensitive data, PGP-encrypt it — our key fingerprint is published via <code>/.well-known/security.txt</code>.</li>
+      <li>One finding per report. If you have a cluster, send one intake email and we'll loop in a thread.</li>
+    </ul>
+
+    <h2>What you can expect from us</h2>
+    <ul>
+      <li><strong>Acknowledgment within 72 hours</strong> — a real person, not a bot, confirming the report landed.</li>
+      <li><strong>First status update within 7 days</strong> — triage outcome, expected remediation window, and any clarifying questions.</li>
+      <li><strong>Fix timelines</strong>: critical (account takeover, money movement) target 72h; high (data leak, auth bypass) target 14d; medium/low target 60d.</li>
+      <li><strong>Credit</strong>: with your permission, we list your name / handle in the Hall of Fame below once the fix ships.</li>
+      <li><strong>No legal action</strong> for good-faith research within the scope and rules on this page.</li>
+    </ul>
+
+    <h2>In scope</h2>
+    <ul>
+      <li>The SkinBox marketplace at <code>skinbox.market</code> and its API surface at <code>/api/*</code>.</li>
+      <li>Our browser extension (<strong>SkinBox Valuer</strong>) published on the Chrome Web Store.</li>
+      <li>Email and transactional flows (verification, password reset, 2FA, sign-in alerts, withdrawal approval).</li>
+      <li>The wallet, deposit (Stripe), withdrawal, escrow, and dispute flows.</li>
+    </ul>
+
+    <h2>Out of scope</h2>
+    <ul>
+      <li>Third-party dependencies — report to the vendor (Stripe, Steam, Cloudflare, unpkg).</li>
+      <li>Denial-of-service testing, traffic flooding, or volumetric attacks.</li>
+      <li>Social engineering of SkinBox staff or CSRs.</li>
+      <li>Physical intrusion into our infrastructure providers.</li>
+      <li>Automated scanner noise (missing security headers we already set, self-XSS that requires the victim to paste attacker-supplied JS into the console, etc.).</li>
+      <li>Vulnerabilities requiring access to a root'd / malware-infected user device.</li>
+    </ul>
+
+    <h2>Ground rules</h2>
+    <ul>
+      <li>Don't exfiltrate more data than you need to prove impact. If you stumble on another user's data, stop, document, and email us.</li>
+      <li>Don't pivot into other users' accounts, move money, or tamper with trades.</li>
+      <li>Don't publish the finding (blog post, CVE, tweet thread) until we've confirmed the fix ships — 90 days default, extendable by mutual agreement.</li>
+      <li>Use accounts you own for testing. If you need a test account with inventory, ask — we'll provision one.</li>
+      <li>Stay within the scope above; anything outside it may fall outside our safe-harbor commitment.</li>
+    </ul>
+
+    <h2>Rewards</h2>
+    <p>
+      We're a small team and don't run a paid bug bounty yet. What we offer:
+      public credit, a personalized thank-you, and a SkinBox swag pack once our
+      merch tier ships. If you find something critical (account takeover, funds
+      movement, mass data exposure) we'll negotiate a one-off reward.
+    </p>
+
+    <h2 id="hall-of-fame">Hall of Fame</h2>
+    <p>
+      Researchers who reported a valid issue and gave us time to fix it before
+      disclosure. Want your handle on this list? Send us a finding.
+    </p>
+    <ul>
+      <li><em>Pending our first external report.</em></li>
+    </ul>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      We may update this page as the program matures. The <code>Expires</code>
+      field in <code>/.well-known/security.txt</code> is refreshed on every
+      review; if that date is in the past, the policy is stale and we'd still
+      love to hear from you — email anyway.
+    </p>
+  </main>
+</body>
+</html>

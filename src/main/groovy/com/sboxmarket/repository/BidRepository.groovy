@@ -17,4 +17,30 @@ interface BidRepository extends JpaRepository<Bid, Long> {
 
     @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid AND b.kind = 'AUTO' AND b.status = 'WINNING' ORDER BY b.createdAt DESC")
     List<Bid> findActiveAutoBidsForUser(@Param("uid") Long uid)
+
+    /** Count-only companion for the /profile hero strip. Avoids
+     *  hydrating every Bid row just to call .size() on the list. */
+    @Query("SELECT COUNT(b) FROM Bid b WHERE b.bidderUserId = :uid AND b.kind = 'AUTO' AND b.status = 'WINNING'")
+    long countActiveAutoBidsForUser(@Param("uid") Long uid)
+
+    /** Every bid the user currently has live — WINNING (top bid) or OUTBID
+     *  (still in the auction, just not at the top). Drives the "Active Bids"
+     *  tab so users can see at a glance which auctions they're still in
+     *  without having to remember. Closed auctions (WON, LOST, CANCELLED)
+     *  are excluded. */
+    @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid " +
+           "AND (b.status = 'WINNING' OR b.status = 'OUTBID') " +
+           "ORDER BY b.createdAt DESC")
+    List<Bid> findLiveBidsForUser(@Param("uid") Long uid)
+
+    /** Past bids — WON, LOST, CANCELLED. Drives the Profile → Bids
+     *  "Past" sub-tab (batch 361) so users can review their auction
+     *  history after the live set closes. Capped via Pageable on the
+     *  caller — no cap in the query itself so admin / CSR use can
+     *  walk the full history when needed. Newest-first. */
+    @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid " +
+           "AND b.status IN ('WON', 'LOST', 'CANCELLED') " +
+           "ORDER BY b.createdAt DESC")
+    List<Bid> findPastBidsForUser(@Param("uid") Long uid,
+                                  org.springframework.data.domain.Pageable page)
 }

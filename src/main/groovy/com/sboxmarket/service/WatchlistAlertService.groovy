@@ -77,8 +77,17 @@ class WatchlistAlertService {
         alert
     }
 
+    /** Display cap on the Watchlist → Alerts tab. ACTIVE alerts are
+     *  naturally bounded at 50 (PER_USER_LIMIT) but FIRED / CANCELLED
+     *  rows accumulate unbounded. 300 is generous — months of alert
+     *  history — while protecting a power-watcher's tab open from a
+     *  thousand-row hydration. */
+    static final int ALERT_LIST_CAP = 300
+
     List<WatchlistAlert> listForUser(Long userId) {
-        repo.findByUserId(userId)
+        if (userId == null) return []
+        repo.findByUserIdPaged(userId,
+            org.springframework.data.domain.PageRequest.of(0, ALERT_LIST_CAP))
     }
 
     /** Public demand-side social proof for an item: how many viewers
@@ -122,25 +131,54 @@ class WatchlistAlertService {
     void sweep() {
         def triggered = repo.findTriggered()
         if (triggered.isEmpty()) return
-        int fired = 0
-        triggered.each { row ->
-            try {
-                WatchlistAlert a = row[0] as WatchlistAlert
-                BigDecimal currentFloor = (row[1] as BigDecimal) ?: BigDecimal.ZERO
-                def item = itemRepository.findById(a.itemId).orElse(null)
-                def name = item?.name ?: "Item #${a.itemId}"
+        int fired = triggered.count { fireRow(it) ? 1 : 0 } as int
+        log.info("Watchlist alert sweep: fired ${fired} of ${triggered.size()} matches")
+    }
+
+    /**
+     * Synchronous per-item sweep (batch 389). Called right after a fresh
+     * listing lands so any pending price alerts on that item fire within
+     * seconds instead of waiting up to 5 minutes for the next scheduled
+     * pass. Scoped query keeps the work O(alerts-on-this-item) even when
+     * the global pool grows to thousands. Safe to call from inside the
+     * sell transaction — all work wraps in try/catch and is best-effort.
+     */
+    @Transactional
+    void sweepForItem(Long itemId) {
+        if (itemId == null) return
+        try {
+            def triggered = repo.findTriggeredForItem(itemId)
+            if (triggered.isEmpty()) return
+            int fired = triggered.count { fireRow(it) ? 1 : 0 } as int
+            if (fired > 0) {
+                log.info("Watchlist alert sync-sweep (item ${itemId}): fired ${fired} of ${triggered.size()}")
+            }
+        } catch (Exception e) {
+            log.warn("Sync watchlist sweep for item ${itemId} failed: ${e.message}")
+        }
+    }
+
+    /** Fires a single triggered row — notification + email + FIRED flip.
+     *  Extracted so both the periodic sweep and the per-item synchronous
+     *  sweep share the same logic. Returns true when the row was fired
+     *  (notification actually pushed), false when the user was banned or
+     *  the save failed. */
+    private boolean fireRow(Object[] row) {
+        try {
+            WatchlistAlert a = row[0] as WatchlistAlert
+            BigDecimal currentFloor = (row[1] as BigDecimal) ?: BigDecimal.ZERO
+            def item = itemRepository.findById(a.itemId).orElse(null)
+            def name = item?.name ?: "Item #${a.itemId}"
+            def user = steamUserRepository?.findById(a.userId)?.orElse(null)
+            boolean userBanned = user != null && Boolean.TRUE.equals(user.banned)
+            if (!userBanned) {
                 notificationService?.push(a.userId, 'WATCHLIST_PRICE_DROP',
                     "Price drop · ${name}",
                     "Floor price reached \$${currentFloor.toPlainString()} (target \$${a.targetPrice.toPlainString()})",
                     a.itemId,
                     "/item/${a.itemId}")
-                // Email the user too — price drops are time-sensitive.
-                // Gated on the email-notifications preference + verified.
                 try {
-                    def user = steamUserRepository?.findById(a.userId)?.orElse(null)
-                    if (emailService != null && user != null &&
-                            Boolean.TRUE.equals(user.emailVerified) && user.email &&
-                            Boolean.TRUE.equals(user.emailNotificationsEnabled)) {
+                    if (emailService != null && emailService.canSendTo(user, 'WATCHLIST')) {
                         emailService.sendPriceDrop(user.email, user.displayName,
                             name, currentFloor, a.targetPrice,
                             "/item/${a.itemId}".toString())
@@ -148,14 +186,14 @@ class WatchlistAlertService {
                 } catch (Exception inner) {
                     log.warn("Price-drop email failed for user ${a.userId}: ${inner.message}")
                 }
-                a.status = 'FIRED'
-                a.firedAt = System.currentTimeMillis()
-                repo.save(a)
-                fired++
-            } catch (Exception e) {
-                log.warn("Watchlist alert sweep failed for one row: ${e.message}")
             }
+            a.status = 'FIRED'
+            a.firedAt = System.currentTimeMillis()
+            repo.save(a)
+            return !userBanned
+        } catch (Exception e) {
+            log.warn("Watchlist alert fire failed for one row: ${e.message}")
+            return false
         }
-        log.info("Watchlist alert sweep: fired ${fired} of ${triggered.size()} matches")
     }
 }

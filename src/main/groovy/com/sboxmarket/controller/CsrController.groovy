@@ -57,9 +57,10 @@ class CsrController {
 
     @GetMapping("/tickets")
     ResponseEntity<List<Map>> tickets(@RequestParam(required = false) String status,
+                                      @RequestParam(required = false) String search,
                                       HttpServletRequest req) {
         requireCsr(req)
-        ResponseEntity.ok(csrService.listTickets(status))
+        ResponseEntity.ok(csrService.listTickets(status, search))
     }
 
     @GetMapping("/tickets/{id}")

@@ -66,4 +66,15 @@ class ItemControllerSpec extends Specification {
         response.body.containsKey("floorPrice")
         response.body.containsKey("categories")
     }
+
+    def "GET /api/items/stats exposes lastSyncedAt so the footer can render Catalog-updated-X-ago (batch 956)"() {
+        when:
+        def response = rest.getForEntity("http://localhost:$port/api/items/stats", Map)
+
+        then:
+        response.statusCode == HttpStatus.OK
+        response.body.containsKey("lastSyncedAt")
+        // Value is a Long (epoch ms) or 0 on first boot. Never null.
+        response.body.lastSyncedAt != null
+    }
 }
