@@ -496,7 +496,6 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // (and so the viewer's own first-open doesn't look weird).
           item && Number(item.viewCount) >= 10 && h('div', {
             className: 'modal-demand-chip',
-            style: { background: 'rgba(96,165,250,0.12)', borderColor: 'rgba(96,165,250,0.4)', color: '#60a5fa' },
             title: `${Number(item.viewCount).toLocaleString()} lifetime item-detail opens`
           },
             '—',
@@ -510,7 +509,6 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // the velocity angle.
           item && Number(item.totalSold) >= 3 && h('div', {
             className: 'modal-demand-chip',
-            style: { background: 'rgba(74,222,128,0.12)', borderColor: 'rgba(74,222,128,0.4)', color: 'var(--green)' },
             title: `${Number(item.totalSold).toLocaleString()} lifetime sales on SkinBox`
           },
             '✓ ',
@@ -547,7 +545,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // there's pressure, "Best bid $X" tells you the cheapest way
           // to auto-match. Silent when no standing bids.
           bestBid != null && bestBid > 0 &&
-            h('div', { className: 'modal-demand-chip', style: { background: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.4)', color: '#fbbf24' } },
+            h('div', { className: 'modal-demand-chip' },
               'Best bid · ',
               h('span', { className: 'modal-demand-chip-num' }, fmt(bestBid))
             ),
@@ -558,7 +556,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // style orders pinned to category/rarity rather than item).
           myBuyOrder && h('div', {
             className: 'modal-demand-chip',
-            style: { background: 'rgba(30,165,255,0.15)', borderColor: 'var(--accent-border)', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }
+            style: { display: 'flex', alignItems: 'center', gap: 6 }
           },
             'Your buy order · ',
             h('span', { className: 'modal-demand-chip-num' }, fmt(myBuyOrder.maxPrice)),
@@ -614,9 +612,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // or the recent floor?" A cheap anchor for buyers. Silent until
           // there are at least two price-history rows to compare.
           priceExtremes &&
-            h('div', { className: 'modal-demand-chip', style: { background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--text-secondary)' } },
+            h('div', { className: 'modal-demand-chip' },
               '30D range · ',
-              h('span', { className: 'modal-demand-chip-num', style: { color: 'var(--text-primary)' } },
+              h('span', { className: 'modal-demand-chip-num' },
                 `${fmt(priceExtremes.low30d)} – ${fmt(priceExtremes.high30d)}`)
             ),
           // Price-check chip — collapses the 30D range comparison into a
@@ -634,16 +632,16 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             const { low30d, high30d } = priceExtremes;
             const span = high30d - low30d;
             if (floor < low30d) {
-              return h('div', { className: 'modal-demand-chip', style: { background: 'rgba(16,185,129,0.18)', borderColor: 'rgba(16,185,129,0.55)', color: '#10b981' }, title: `Current floor ${fmt(floor)} is below the 30-day low of ${fmt(low30d)}.` },
+              return h('div', { className: 'modal-demand-chip signal-up', title: `Current floor ${fmt(floor)} is below the 30-day low of ${fmt(low30d)}.` },
                 'Below 30D low');
             }
             const pct = (floor - low30d) / span;
             if (pct <= 0.25) {
-              return h('div', { className: 'modal-demand-chip', style: { background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.45)', color: '#22c55e' }, title: `Current floor is in the bottom ${Math.round(pct * 100)}% of the 30-day range.` },
+              return h('div', { className: 'modal-demand-chip signal-up', title: `Current floor is in the bottom ${Math.round(pct * 100)}% of the 30-day range.` },
                 'Good deal');
             }
             if (pct >= 0.75) {
-              return h('div', { className: 'modal-demand-chip', style: { background: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.45)', color: '#f87171' }, title: `Current floor is in the top ${Math.round((1 - pct) * 100)}% of the 30-day range — consider waiting.` },
+              return h('div', { className: 'modal-demand-chip signal-down', title: `Current floor is in the top ${Math.round((1 - pct) * 100)}% of the 30-day range — consider waiting.` },
                 'High price');
             }
             return null;
@@ -652,7 +650,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // below the cheapest it's ever been?" Green to match the rest
           // of the "this is a deal" signals (below-30D-low + good-deal).
           priceExtremes && priceExtremes.allTimeLow < priceExtremes.low30d &&
-            h('div', { className: 'modal-demand-chip', style: { background: 'rgba(34,197,94,0.14)', borderColor: 'rgba(34,197,94,0.4)', color: 'var(--green)' } },
+            h('div', { className: 'modal-demand-chip signal-up' },
               'All-time low · ',
               h('span', { className: 'modal-demand-chip-num' }, fmt(priceExtremes.allTimeLow))
             )

@@ -2273,37 +2273,39 @@ function CookieBanner() {
       position: 'fixed', left: 16, right: 16, bottom: 16,
       maxWidth: 720, marginLeft: 'auto', marginRight: 'auto',
       padding: '14px 18px',
-      background: 'var(--bg-card, #0f1525)',
-      border: '1px solid var(--border-light, #1f2a44)',
-      borderRadius: 12,
-      color: 'var(--text-primary, #e5e7eb)',
+      background: 'var(--bg-1)',
+      border: '1px solid var(--line-2)',
+      borderRadius: 10,
+      color: 'var(--ink)',
       fontSize: 13, lineHeight: 1.5,
-      boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
-      zIndex: 50,
+      boxShadow: '0 12px 40px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset',
+      zIndex: 150,
       display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12,
-      justifyContent: 'space-between'
+      justifyContent: 'space-between',
+      backdropFilter: 'blur(8px) saturate(140%)',
+      WebkitBackdropFilter: 'blur(8px) saturate(140%)'
     }
   },
     h('div', { style: { flex: '1 1 320px', minWidth: 240 } },
-      h('div', { style: { fontWeight: 700, marginBottom: 4 } }, 'Cookies on SkinBox'),
-      h('div', { style: { color: 'var(--text-secondary, #9ca3af)' } },
+      h('div', { style: { fontWeight: 600, marginBottom: 4, letterSpacing: '-0.005em', color: 'var(--ink)' } }, 'Cookies on SkinBox'),
+      h('div', { style: { color: 'var(--ink-3)' } },
         'We use a small set of essential cookies to keep you signed in and to protect your wallet from CSRF attacks. ',
         h('a', {
           href: '/legal/cookies.html',
-          style: { color: 'var(--accent)', textDecoration: 'underline' }
+          style: { color: 'var(--ink)', textDecoration: 'underline', textDecorationColor: 'var(--line-2)', textUnderlineOffset: '3px' }
         }, 'Read the cookie policy'),
         '.'
       )
     ),
     h('div', { style: { display: 'flex', gap: 8, flexShrink: 0 } },
       h('button', {
-        className: 'btn btn-ghost',
-        style: { padding: '8px 14px', fontSize: 12, border: '1px solid var(--border)' },
+        className: 'btn-ghost',
+        style: { padding: '8px 14px', fontSize: 12, height: 34 },
         onClick: () => decide('rejected')
       }, 'Reject non-essential'),
       h('button', {
-        className: 'btn btn-accent',
-        style: { padding: '8px 16px', fontSize: 12 },
+        className: 'btn-accent',
+        style: { padding: '8px 16px', fontSize: 12, height: 34 },
         onClick: () => decide('accepted')
       }, 'Accept')
     )

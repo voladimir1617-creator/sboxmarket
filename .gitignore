@@ -38,3 +38,6 @@ docker-compose.override.yml
 
 # Claude memory (project-local, not committed)
 .claude/
+.playwright-mcp/
+cycle*.png
+*.png

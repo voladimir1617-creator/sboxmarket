@@ -489,26 +489,23 @@ export function NotificationBell({ me }) {
 }
 
 // Accent theme system deleted per operator directive: the editorial
-// template (design.css) is the single source of truth for colours —
-// near-white mono for chrome, #1ea5ff blue only for CTAs and LEDs.
-// Previously a bootstrap IIFE read `localStorage.sb_theme` on load
-// and wrote inline `--accent` / `--accent-2` / `--accent-dim` on the
-// <html> element. Those inline styles beat the CSS cascade, which
-// meant any user who had ever opened the old Violet / Pink / Dynamic
-// presets would see purple chrome across the whole app — Wallet tabs,
-// quick-deposit buttons, step circles, Deposit CTA — until they wiped
-// localStorage by hand. We also scrub the stored key on first load so
-// carry-over purple state clears itself on next visit.
+// template (design.css) is the single source of truth for colours.
+// Operator directive tightened 2026-04-20: default palette is MONO
+// (near-white on warm near-black); --cta (#3b82f6 blue) shows up only
+// on primary CTA buttons, live LEDs, and active-tab underlines.
+// Previously this bootstrap hard-locked data-accent="blue", which
+// painted every `var(--accent)` site-wide — icons, borders, hover
+// tints — with SkinBox blue. That contradicted the mono-primary
+// direction, so we now set data-accent="mono".
 (function purgeLegacyTheme() {
   try {
     const r = document.documentElement;
     ['--accent','--accent-2','--accent-dim','--accent-strong','--accent-border']
       .forEach(k => r.style.removeProperty(k));
-    // Hard-lock the template's blue-accent palette so any legacy CSS
-    // that still reads `var(--accent)` resolves to SkinBox blue,
-    // never an old violet / pink carryover. design.css owns the
-    // rest of the cascade.
-    r.setAttribute('data-accent', 'blue');
+    // Mono-primary: --accent resolves to near-white; --cta stays blue
+    // and is the only blue signal on the page (CTAs + LEDs + active
+    // underlines). design.css owns the rest of the cascade.
+    r.setAttribute('data-accent', 'mono');
     localStorage.removeItem('sb_theme');
   } catch (_) { /* private mode / SSR */ }
 })();
