@@ -4745,9 +4745,9 @@ export function App() {
         // less real-time than notifications so a slower cadence is fine.
         me && h(NavOffersBadge, null),
         h(NotificationBell, { me }),
-        /* Batch 1068 — ThemePicker removed from nav per operator:
-           editorial design is locked to the blue accent; no palette
-           picker needed. */
+        /* ThemePicker removed from nav per operator: editorial design
+           is locked to the mono-primary palette — near-white accent,
+           blue only on CTAs + live LEDs. No palette picker needed. */
         (() => {
           // Cart total value surfaced in the title attribute (batch 397).
           // A one-click hover tells the user what's in there without

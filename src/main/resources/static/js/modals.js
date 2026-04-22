@@ -2486,8 +2486,8 @@ export function SettingsModal({ onClose }) {
       Toggle(reduceMotion, () => setRM(v => !v))),
     Row('High contrast',      'Boost text / border contrast for readability',
       Toggle(highContrast, () => setHC(v => !v))),
-    Row('Accent colour',      'The editorial design is locked to a single blue accent — no theme picker.',
-      h('span', { style: { color: 'var(--text-muted)', fontSize: 12 } }, 'Dark · single accent')
+    Row('Accent colour',      'Editorial mono-primary palette — near-white chrome with blue reserved for CTAs and live indicators. No theme picker.',
+      h('span', { style: { color: 'var(--text-muted)', fontSize: 12 } }, 'Dark · mono')
     ),
     h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' } },
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 } },
@@ -2499,8 +2499,8 @@ export function SettingsModal({ onClose }) {
           onClick: resetLocal
         }, 'Reset UI preferences'),
         h('button', {
-          className: 'btn btn-ghost',
-          style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '8px 14px', fontSize: 11 },
+          className: 'btn-danger-ghost',
+          style: { padding: '8px 14px', fontSize: 11 },
           onClick: wipeAllLocal,
           title: 'Clear every piece of local state this site has stored (cart, watchlist, alerts, dismissed banners, recent searches, …)'
         }, '✕ Clear all local data')
@@ -11861,8 +11861,8 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
             // un-highlight immediately — the server-side DELETE is a
             // best-effort reconcile on top.
             rows.length > 0 && h('button', {
-              className: 'btn btn-ghost',
-              style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '6px 12px', fontSize: 11 },
+              className: 'btn-danger-ghost',
+              style: { padding: '6px 12px', fontSize: 11 },
               onClick: async () => {
                 if (!confirm(`Clear all ${rows.length} watchlisted items?`)) return;
                 try {
