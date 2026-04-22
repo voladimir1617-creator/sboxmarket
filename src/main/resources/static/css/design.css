@@ -4873,12 +4873,15 @@ nav.nav {
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   display: flex; justify-content: space-between; align-items: center;
-}
-.notif-header h3 {
   font-family: var(--serif);
   font-size: 18px; font-weight: 360; letter-spacing: -0.015em;
   color: var(--ink);
   font-variation-settings: "opsz" 144;
+  line-height: 1.2;
+}
+.notif-header h3 {
+  font-family: inherit; font-size: inherit; font-weight: inherit;
+  letter-spacing: inherit; color: inherit; line-height: inherit;
 }
 .notif-clear {
   background: transparent; border: 0;
