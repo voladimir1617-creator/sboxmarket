@@ -88,6 +88,13 @@ class WebConfig implements WebMvcConfigurer {
         registry.addRedirectViewController('/sign-up', '/api/auth/steam/login')
         registry.addRedirectViewController('/register', '/api/auth/steam/login')
         registry.addRedirectViewController('/home', '/')
+        // Common reflexive URLs users type that aren't SPA route keys.
+        // The canonical database route is /db — typing /database 404'd.
+        // Loadouts index lives at /loadout (singular); /loadouts was 404.
+        // /notification (singular) → /notifications plural.
+        registry.addRedirectViewController('/database',     '/db')
+        registry.addRedirectViewController('/loadouts',     '/loadout')
+        registry.addRedirectViewController('/notification', '/notifications')
         // Batch 1066 — more reflexive URLs. Users type `/terms`, `/privacy`,
         // `/cookies` expecting the legal docs; `/about` expecting a company
         // page (closest fit is the Help Center hero); `/contact` expecting
