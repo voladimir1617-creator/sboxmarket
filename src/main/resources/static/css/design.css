@@ -7302,4 +7302,61 @@ nav.nav {
 .user-menu, .notif-dropdown, .tweaks-panel { z-index: 120; }
 nav.nav { z-index: 50; }
 
+/* Batch 1073 — editorial polish
+   Three visual bugs caught on /market and the home catalog.
+
+   1. `.results-meta` used justify-content: space-between on a flex container
+      whose children were `<strong>41</strong>` + text node ` listings found`.
+      space-between flung them to opposite ends of the row, so the phrase
+      read as "41 ........... listings found". Should sit inline left.
+
+   2. `.price-cell` was designed for the item-detail modal price chart
+      (pill with bg/border/radius). It's also reused in the market table
+      as the PRICE td, where its pill chrome reads as a second button
+      next to the real action button in the next cell. Flatten it when
+      it's inside a <td>.
+
+   3. `.grid-price` renders the price inline with a Steam-market-link
+      SVG tucked flush right. With no gap, "$1.47" and the Steam glyph
+      glue into one illegible token. Add breathing room. */
+.results-meta { justify-content: flex-start; }
+
+td > .price-cell {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.grid-price .steam-market-link.compact { margin-left: 6px; }
+
+/* Wallet modal: on a short viewport the modal's max-height:92vh + overflow:hidden
+   + flex-column shell squeezes every direct child. `.wallet-hero` then compresses
+   to its min-content and its own overflow:hidden clips the big $balance and
+   @user line. Let the modal scroll internally instead of chopping. */
+.wallet-modal { overflow-y: auto; }
+.wallet-modal > * { flex-shrink: 0; }
+
+/* Profile stats: the 4-column grid gets a 5th "Net" tile that wraps onto a
+   new row, leaving 3 empty bordered cells beside it. Span any 5th+ tile so
+   it reads as a full-width summary bar instead of an orphan next to voids. */
+.profile-stats > .profile-stat:nth-child(n+5) { grid-column: 1 / -1; }
+
+/* Item-detail modal: the preview + stats panels live inside `.modal-header`,
+   which is a centered flex row. The preview has `aspect-ratio: 4/3` but no
+   flex basis, so it shrinks to ~165px and leaves a cavernous empty column
+   beside the tall stats panel. Promote the header to a 2-column grid with
+   stretch sizing so the preview fills its half. */
+.modal-header:has(> .modal-preview) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  padding: 22px;
+}
+.modal-header > .modal-preview { width: 100%; height: auto; }
+
 /* END ADAPTER — total: this block + reference = complete editorial system */
