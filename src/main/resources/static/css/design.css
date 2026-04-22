@@ -4290,7 +4290,11 @@ nav.nav {
   color: var(--ink);
   border-bottom-color: var(--ink);
 }
-.offer-tab.active { border-bottom-color: var(--cta); }
+/* Batch 1075 — was: `.offer-tab.active { border-bottom-color: var(--cta) }`.
+   Every other tab family (profile, mystall, wallet, admin) uses the white
+   --ink underline for active. The one-off blue here read as a bug, not as
+   intentional emphasis. Fall back to the shared white underline defined
+   two rules above. */
 
 .profile-tab-badge, .tab-badge {
   padding: 1px 6px;

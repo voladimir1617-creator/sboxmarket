@@ -95,6 +95,11 @@ class WebConfig implements WebMvcConfigurer {
         registry.addRedirectViewController('/database',     '/db')
         registry.addRedirectViewController('/loadouts',     '/loadout')
         registry.addRedirectViewController('/notification', '/notifications')
+        // Bare /stall isn't a route (canonical forms are /stall/<id> for a
+        // seller's public page and /me/stall for your own). Point both
+        // reflexive URLs at the owner view; anons see a sign-in gate there.
+        registry.addRedirectViewController('/stall',   '/me/stall')
+        registry.addRedirectViewController('/mystall', '/me/stall')
         // Batch 1066 — more reflexive URLs. Users type `/terms`, `/privacy`,
         // `/cookies` expecting the legal docs; `/about` expecting a company
         // page (closest fit is the Help Center hero); `/contact` expecting
