@@ -7359,4 +7359,25 @@ td > .price-cell {
 }
 .modal-header > .modal-preview { width: 100%; height: auto; }
 
+/* Fraud severity dot — replaces the 🔴/🟡/⚪ emojis inline with the HIGH/MED/LOW
+   label. Uses the same palette as the existing `.fraud-sev.high/.med` rules:
+   down-red for HIGH, warm amber for MED, neutral ink-3 for LOW. */
+.sev-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  vertical-align: baseline;
+  transform: translateY(1px);
+}
+.sev-dot.sev-high { background: var(--down); }
+.sev-dot.sev-med  { background: #e8b960; }
+.sev-dot.sev-low  { background: var(--ink-3); }
+
+/* Admin stat tile: compound values like "0 · $0.00" wrap at the middot when
+   the column is narrow, stacking onto two lines and ragging the grid. Keep
+   the value on a single line — if it truly overflows, mono ellipsis reads
+   cleaner than a mid-word break. */
+.admin-stat-val { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* END ADAPTER — total: this block + reference = complete editorial system */

@@ -62,23 +62,23 @@ export function AdminModal({ onClose, me }) {
     };
   }, []);
   const TABS = [
-    { id: 'dashboard',   label: '📊 Dashboard' },
-    { id: 'withdrawals', label: '💸 Withdrawals', badge: badgeCounts.withdrawals },
-    { id: 'trades',      label: '⇄ Trades',       badge: badgeCounts.trades },
-    { id: 'users',       label: '👥 Users' },
-    { id: 'tickets',     label: '🎧 Tickets',     badge: badgeCounts.tickets },
-    { id: 'refunds',     label: '↩ Refunds' },
-    { id: 'catalogue',   label: '🗂 Catalogue' },
-    { id: 'simulator',   label: '🧪 Simulator' },
-    { id: 'fraud',       label: '🚨 Fraud' },
-    { id: 'disputes',    label: '⚠ Disputes',     badge: badgeCounts.disputes },
-    { id: 'reported',    label: '🚩 Reports' },
-    { id: 'deletions',   label: '🗑 Deletions' },
-    { id: 'announce',    label: '📢 Announce' },
-    { id: 'health',      label: '❤ Health' },
-    { id: 'audit',       label: '📜 Audit Log' },
+    { id: 'dashboard',   label: 'Dashboard' },
+    { id: 'withdrawals', label: 'Withdrawals', badge: badgeCounts.withdrawals },
+    { id: 'trades',      label: 'Trades',      badge: badgeCounts.trades },
+    { id: 'users',       label: 'Users' },
+    { id: 'tickets',     label: 'Tickets',     badge: badgeCounts.tickets },
+    { id: 'refunds',     label: 'Refunds' },
+    { id: 'catalogue',   label: 'Catalogue' },
+    { id: 'simulator',   label: 'Simulator' },
+    { id: 'fraud',       label: 'Fraud' },
+    { id: 'disputes',    label: 'Disputes',    badge: badgeCounts.disputes },
+    { id: 'reported',    label: 'Reports' },
+    { id: 'deletions',   label: 'Deletions' },
+    { id: 'announce',    label: 'Announce' },
+    { id: 'health',      label: 'Health' },
+    { id: 'audit',       label: 'Audit Log' },
   ];
-  return h(InfoModal, { title: '⚙ Admin Panel', onClose },
+  return h(InfoModal, { title: 'Admin Panel', onClose },
     h('div', { className: 'staff-banner admin' },
       h('strong', null, 'ADMIN MODE'),
       ' — every action here is logged with your Steam ID and is reversible only by another admin. Use with care.'
@@ -846,7 +846,7 @@ function ApiKeyLookupPanel() {
     } finally { setBusy(false); }
   };
   return h('div', { className: 'admin-card', style: { marginBottom: 16 } },
-    h('div', { className: 'admin-card-title' }, '🔑 API key lookup'),
+    h('div', { className: 'admin-card-title' }, 'API key lookup'),
     h('div', { className: 'admin-card-note' },
       'Paste a prefix fragment from a log line (e.g. ',
       h('code', null, 'sbx_live_abc12'),
@@ -953,7 +953,6 @@ function AdminFraudTab() {
   }, [autoRefresh, load]);
 
   const sevClass = (s) => s === 'HIGH' ? 'sev-high' : s === 'MED' ? 'sev-med' : 'sev-low';
-  const sevIcon  = (s) => s === 'HIGH' ? '🔴' : s === 'MED' ? '🟡' : '⚪';
   const visible = showReviewed ? rows : rows.filter(r => !reviewed.has(rowKey(r)));
   const hiddenCount = rows.length - visible.length;
 
@@ -965,7 +964,7 @@ function AdminFraudTab() {
     // they spot a suspicious log line.
     h(ApiKeyLookupPanel, null),
     h('div', { className: 'admin-card' },
-      h('div', { className: 'admin-card-title' }, '🚨 Fraud Signals (last 24h)'),
+      h('div', { className: 'admin-card-title' }, 'Fraud Signals (last 24h)'),
       h('div', { className: 'admin-card-note' },
         "Rolled up from the audit log. These are patterns worth investigating — " +
         "not guaranteed fraud. Mark a row reviewed to hide it from your queue; " +
@@ -1016,7 +1015,9 @@ function AdminFraudTab() {
             key: key + ':' + i,
             className: `fraud-row ${sevClass(r.severity)}${isReviewed ? ' reviewed' : ''}`
           },
-            h('div', { className: 'fraud-sev' }, sevIcon(r.severity), ' ', r.severity),
+            h('div', { className: 'fraud-sev' },
+              h('span', { className: `sev-dot ${sevClass(r.severity)}` }),
+              ' ', r.severity),
             h('div', { className: 'fraud-body' },
               h('div', { className: 'fraud-type' }, r.type),
               h('div', { className: 'fraud-summary' }, r.summary),
@@ -1098,7 +1099,7 @@ function AdminDisputesTab() {
   };
   return h('div', { className: 'admin-tab-content' },
     h('div', { className: 'admin-card' },
-      h('div', { className: 'admin-card-title' }, '⚠ Stripe Chargebacks'),
+      h('div', { className: 'admin-card-title' }, 'Stripe Chargebacks'),
       h('div', { className: 'admin-card-note' },
         "Deposit transactions Stripe has flagged as DISPUTED. The webhook " +
         "marks the row + notifies you in real time; this tab is your queue. " +
@@ -1304,7 +1305,7 @@ function AdminSimulatorTab() {
 
   return h('div', { className: 'admin-panel' },
     h('div', { className: 'admin-card' },
-      h('div', { className: 'admin-card-title' }, '🧪 Marketplace Simulator'),
+      h('div', { className: 'admin-card-title' }, 'Marketplace Simulator'),
       h('div', { className: 'admin-card-sub' },
         `${count} simulated listing${count === 1 ? '' : 's'} currently live. Real listings are never touched.`
       ),
@@ -3303,12 +3304,12 @@ export function CsrModal({ onClose, me }) {
   })();
   const [tab, setTab] = useState(initialTab);
   const TABS = [
-    { id: 'dashboard', label: '📊 Queue' },
-    { id: 'lookup',    label: '🔎 User Lookup' },
-    { id: 'tickets',   label: '🎧 Tickets' },
-    { id: 'flag',      label: '🚩 Flag Listing' },
+    { id: 'dashboard', label: 'Queue' },
+    { id: 'lookup',    label: 'User Lookup' },
+    { id: 'tickets',   label: 'Tickets' },
+    { id: 'flag',      label: 'Flag Listing' },
   ];
-  return h(InfoModal, { title: '🎧 Customer Service', onClose },
+  return h(InfoModal, { title: 'Customer Service', onClose },
     h('div', { className: 'staff-banner csr' },
       h('strong', null, 'CSR MODE'),
       ' — limited-power panel. You can answer tickets, look up users, and issue small goodwill credits. Anything bigger escalates to an admin.'
