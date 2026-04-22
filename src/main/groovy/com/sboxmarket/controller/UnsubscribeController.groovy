@@ -98,7 +98,10 @@ class UnsubscribeController {
             .replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             .replace('"', '&quot;')
         def icon = ok ? '✓' : '⚠'
-        def color = ok ? '#22c55e' : '#fbbf24'
+        // Title uses Fraunces serif; body + buttons use Geist to match the
+        // editorial system on the main app. Entire page is stand-alone
+        // (no design.css import — this endpoint must render even if the
+        // SPA static bundle is unavailable) but mirrors the tokens.
         def body = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,31 +109,103 @@ class UnsubscribeController {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unsubscribe · SkinBox</title>
   <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Fraunces:opsz,wght@9..144,360;9..144,500&display=swap" rel="stylesheet">
   <style>
-    body { margin: 0; min-height: 100vh; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-           background: #0d1320; color: #e8edf5; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .card { max-width: 480px; width: 100%; padding: 36px 28px; border-radius: 14px;
-            background: #151d2e; border: 1px solid rgba(148,163,184,0.2);
-            text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
-    .icon { font-size: 48px; color: ${color}; margin-bottom: 12px; }
-    h1 { font-size: 20px; margin: 0 0 12px; font-weight: 800; }
-    p { font-size: 14px; line-height: 1.6; color: #b9c3d5; margin: 0 0 20px; }
-    a { color: #1ea5ff; text-decoration: none; font-weight: 600; }
-    .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
-    .btn { padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;
-           text-decoration: none; border: 1px solid rgba(148,163,184,0.25); color: #e8edf5;
-           display: inline-block; }
-    .btn.primary { background: #1ea5ff; color: #0d1320; border-color: transparent; }
+    :root {
+      --bg:   oklch(0.17 0.008 260);
+      --bg-1: oklch(0.20 0.009 260);
+      --bg-2: oklch(0.23 0.010 260);
+      --line: oklch(0.30 0.012 260);
+      --line-2: oklch(0.36 0.014 260);
+      --ink:   oklch(0.97 0.006 90);
+      --ink-3: oklch(0.58 0.010 90);
+      --ink-4: oklch(0.42 0.010 90);
+      --up:    oklch(0.82 0.16 150);
+      --warn:  oklch(0.80 0.16 80);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--ink);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      font-size: 14px; line-height: 1.5;
+    }
+    .card {
+      max-width: 520px; width: 100%;
+      padding: 40px 36px;
+      border-radius: 10px;
+      background: var(--bg-1);
+      border: 1px solid var(--line-2);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset;
+      text-align: center;
+    }
+    .kicker {
+      font-family: 'Geist', ui-monospace, monospace;
+      font-size: 10.5px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--ink-4);
+      margin-bottom: 14px;
+    }
+    .icon {
+      display: inline-grid; place-items: center;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: ${ok ? 'color-mix(in oklab, var(--up) 10%, transparent)' : 'color-mix(in oklab, var(--warn) 10%, transparent)'};
+      border: 1px solid ${ok ? 'color-mix(in oklab, var(--up) 30%, var(--line))' : 'color-mix(in oklab, var(--warn) 30%, var(--line))'};
+      color: ${ok ? 'var(--up)' : 'var(--warn)'};
+      font-size: 22px; font-weight: 600;
+      margin-bottom: 18px;
+    }
+    h1 {
+      font-family: 'Fraunces', 'Times New Roman', Georgia, serif;
+      font-size: 32px; font-weight: 360; letter-spacing: -0.025em;
+      color: var(--ink);
+      font-variation-settings: "opsz" 144, "SOFT" 20;
+      line-height: 1.1;
+      margin: 0 0 14px;
+    }
+    p {
+      font-size: 14px; line-height: 1.55;
+      color: var(--ink-3);
+      margin: 0 auto 24px;
+      max-width: 42ch;
+    }
+    .row {
+      display: flex; gap: 10px;
+      justify-content: center; flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: 38px; padding: 0 18px;
+      font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: filter 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+    .btn.primary {
+      background: var(--ink); color: var(--bg);
+      border: 1px solid var(--ink);
+    }
+    .btn.primary:hover { filter: brightness(0.95); }
+    .btn.ghost {
+      background: transparent; color: var(--ink);
+      border: 1px solid var(--line-2);
+    }
+    .btn.ghost:hover { background: var(--bg-2); border-color: var(--ink-4); }
   </style>
 </head>
 <body>
   <div class="card">
+    <div class="kicker">SkinBox · Email preferences</div>
     <div class="icon">${icon}</div>
     <h1>${ok ? "Unsubscribed" : "Couldn't process"}</h1>
     <p>${escaped}</p>
     <div class="row">
       <a class="btn primary" href="/">Back to SkinBox</a>
-      <a class="btn" href="/settings">Manage preferences</a>
+      <a class="btn ghost" href="/settings">Manage preferences</a>
     </div>
   </div>
 </body>
