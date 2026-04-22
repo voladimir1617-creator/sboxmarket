@@ -237,8 +237,8 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
           );
         })()
       : h('table', { className: 'db-table' },
-          h('thead', null, h('tr', null,
-            h('th', { style: { width: 50 } }, '#'),
+          h('thead', null, h('tr', { className: 'db-row db-head' },
+            h('th', null, '#'),
             h('th', null, 'Item'),
             h('th', null, 'Category'),
             h('th', null, 'Rarity'),
@@ -246,7 +246,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
             h('th', { className: 'right' }, 'Sold'),
             h('th', { className: 'right', title: 'Lifetime GET /api/items/{id} hits' }, 'Views'),
             h('th', { className: 'right' }, 'Floor'),
-            h('th', { style: { width: 38 }, title: 'Add / remove from watchlist' }, '★')
+            h('th', { title: 'Add / remove from watchlist' }, '★')
           )),
           h('tbody', null,
             data.items.map((item, i) => h('tr', {
