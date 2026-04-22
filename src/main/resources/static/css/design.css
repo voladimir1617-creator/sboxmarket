@@ -3844,6 +3844,7 @@ nav.nav {
   border-radius: var(--r-md);
   overflow: hidden;
   background: var(--bg-1);
+  table-layout: fixed;
 }
 .listing-table thead th {
   text-align: left;
@@ -3863,10 +3864,31 @@ nav.nav {
 .listing-table tbody tr:hover { background: var(--bg-2); }
 .listing-table tbody tr:last-child { border-bottom: 0; }
 .listing-table tbody td {
-  padding: 12px 16px;
+  padding: 10px 16px;
   vertical-align: middle;
+  overflow: hidden;
 }
 .listing-table tbody td.num { text-align: right; font-family: var(--mono); }
+
+/* Constrain any image/thumb inside a listing-table row — prevents
+   Steam CDN images from rendering at their native 512×384 size and
+   blowing the row to 500px+ tall. Same fix pattern as .db-thumb. */
+.listing-table tbody td img,
+.listing-table tbody td .item-img,
+.listing-table tbody td .grid-thumb,
+.listing-table tbody td .item-thumb,
+.listing-table tbody td .item-poster {
+  width: 48px; height: 48px;
+  object-fit: contain;
+  display: block;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 4px;
+  overflow: hidden;
+}
+.listing-table tbody td .grid-thumb { aspect-ratio: auto; padding: 0; }
+.listing-table tbody td .grid-thumb img { border: 0; padding: 3px; }
 
 /* ─────────────────────────────────────────────────────────────
    8. BUTTONS — the full family
@@ -3920,13 +3942,34 @@ nav.nav {
 }
 .btn-clear:hover { background: var(--bg-2); color: var(--ink); }
 
-/* CTA blue — only on buy-now + critical checkout */
-.buy-btn, .btn-accent.buy, .cf-feebar-cta.buy {
+/* .buy-btn is a generic row-level CTA (table-row "Sign in" / "Buy") —
+   mono-primary per operator directive. Blue fill is RESERVED for the
+   sticky checkout fee-bar (.cf-feebar-cta.buy) which is the single
+   conversion moment that earns the accent. */
+.buy-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 12px;
+  background: var(--ink);
+  color: var(--bg);
+  border: 1px solid var(--ink);
+  border-radius: var(--r-sm);
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: filter 140ms ease, transform 140ms ease;
+  white-space: nowrap;
+}
+.buy-btn:hover { filter: brightness(0.95); transform: translateY(-1px); }
+.buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
+
+/* Sticky checkout fee-bar is the ONE surface that keeps the blue CTA.
+   High-intent conversion action at the bottom of the market page. */
+.cf-feebar-cta.buy, .cf-feebar-cta {
   background: var(--cta);
   color: var(--cta-ink);
   border-color: var(--cta);
 }
-.buy-btn:hover { filter: brightness(1.08); }
+.cf-feebar-cta:hover { filter: brightness(1.08); }
 
 /* Wishlist / star */
 .btn-wishlist, .star-btn {
