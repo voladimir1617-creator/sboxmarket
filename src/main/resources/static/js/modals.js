@@ -2467,8 +2467,8 @@ export function SettingsModal({ onClose }) {
           { id: 'AUCTIONS', label: 'Auctions' },
           { id: 'OFFERS',   label: 'Offers' },
           { id: 'MATCHES',  label: 'Matches' },
-          { id: 'WALLET',   label: '$ Wallet' },
-          { id: 'OTHER',    label: '• Other' }
+          { id: 'WALLET',   label: 'Wallet' },
+          { id: 'OTHER',    label: 'Other' }
         ].map(opt => h('button', {
           key: opt.id,
           className: `wallet-tx-filter-chip ${muted.has(opt.id) ? '' : 'active'}`,
@@ -9491,6 +9491,13 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
     });
   }, [me, tab, sold]);
 
+  // Hoisted above the early-return for anon viewers so hook order stays
+  // stable across the null→authed transition (React rules of hooks).
+  const [bulkAdjustOpen, setBulkAdjustOpen] = useState(false);
+  const [bulkAdjustPct, setBulkAdjustPct]   = useState('');
+  const [bulkAdjustBusy, setBulkAdjustBusy] = useState(false);
+  const [bulkAdjustErr, setBulkAdjustErr]   = useState('');
+
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
     h(SignInNeededEmptyState, { what: 'your stall' }));
   if (stall === null) return h(InfoModal, { title: 'My Stall', onClose }, h('div', { className: 'spinner' }));
@@ -9668,10 +9675,8 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
   // number, second click confirms. The modal also shows a live
   // "Touches N of M rows" preview so the seller knows exactly how many
   // listings the press will move before committing.
-  const [bulkAdjustOpen, setBulkAdjustOpen] = useState(false);
-  const [bulkAdjustPct, setBulkAdjustPct]   = useState('');
-  const [bulkAdjustBusy, setBulkAdjustBusy] = useState(false);
-  const [bulkAdjustErr, setBulkAdjustErr]   = useState('');
+  // (bulkAdjust useStates hoisted above the anon-guard early return to
+  // keep hook order stable across the null→authed transition.)
   const openBulkAdjust = () => {
     setBulkAdjustPct('');
     setBulkAdjustErr('');
@@ -10770,6 +10775,11 @@ export function OffersModal({ onClose, me, onRefresh }) {
   }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
+  // Hoisted above the early-return so hook order stays stable across
+  // the null→authed transition (React rules of hooks).
+  const [rejectFor, setRejectFor] = useState(null);
+  const [rejectReply, setRejectReply] = useState('');
+
   if (!me) return h(InfoModal, { title: 'Offers', onClose },
     h(SignInNeededEmptyState, { what: 'your offers' }));
 
@@ -10789,8 +10799,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
   // surfaced to the buyer on their rejected offer row + notification body.
   // Separate from the counter drawer state so a seller can line up a
   // rejection note without blowing away an in-progress counter draft.
-  const [rejectFor, setRejectFor] = useState(null);
-  const [rejectReply, setRejectReply] = useState('');
+  // (useState pair hoisted above the anon-guard early return.)
   const confirmReject = async (id) => {
     if (busy) return;
     setBusy(true);
@@ -11525,7 +11534,7 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     return order;
   })();
 
-  return h(InfoModal, { title: `Watchlist · ${starred.length} items`, onClose },
+  return h(InfoModal, { title: `Watchlist · ${starred.length} item${starred.length === 1 ? '' : 's'}`, onClose },
     // Batch 695 — CSV export pill. Only rendered once the user has
     // actually starred something — otherwise it's noise on the empty
     // state. Placed at the top-right via margin-left: auto so it sits

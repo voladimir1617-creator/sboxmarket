@@ -2090,7 +2090,10 @@ function RecentlyViewedRail({ watchlist, onToggleStar }) {
     window.addEventListener('popstate', reload);
     return () => window.removeEventListener('popstate', reload);
   }, []);
-  if (!rows || rows.length < 2) return null;
+  // Rail needs enough items to feel like a rail — a pair of cards left-
+  // aligned under a 1440-wide page reads as "something broken" rather
+  // than "your recent picks." Gate at 4+ so the strip always looks full.
+  if (!rows || rows.length < 4) return null;
   return h('section', { className: 'recently-viewed' },
     h('div', { className: 'recently-viewed-head' },
       h('span', { className: 'section-title-dot' }),
@@ -5041,7 +5044,7 @@ export function App() {
               }, me ? 'Browse Market' : 'Explore Market'),
               h('a', {
                 className: 'px-btn px-btn-ghost px-btn-lg',
-                href: paths.help()
+                href: me ? paths.settings() : paths.help()
               }, me ? 'Open Settings' : 'How it works')
             )
           )

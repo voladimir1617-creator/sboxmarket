@@ -3189,8 +3189,8 @@ nav.nav {
 }
 .site-footer-inner {
   max-width: 1440px; margin: 0 auto;
-  display: grid; grid-template-columns: 1.4fr repeat(3, 1fr);
-  gap: 48px 32px;
+  display: grid; grid-template-columns: 1.5fr repeat(4, 1fr);
+  gap: 48px 28px;
 }
 .site-footer-brand { display: flex; flex-direction: column; gap: 12px; }
 .site-footer-logo {
@@ -3200,7 +3200,12 @@ nav.nav {
   text-decoration: none;
 }
 .site-footer-logo img, .site-footer-logo svg { width: 24px; height: 24px; }
-.site-footer-meta { color: var(--ink-4); line-height: 1.6; max-width: 40ch; }
+.site-footer-meta {
+  color: var(--ink-4); line-height: 1.6;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.site-footer-meta .dot { color: var(--line-2); }
 .site-footer-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .site-footer-col { display: flex; flex-direction: column; gap: 10px; }
 .site-footer-title {
@@ -3401,6 +3406,7 @@ nav.nav {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 1px;
   margin: 32px auto;
+  max-width: 1200px;
   background: var(--line);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -3411,6 +3417,13 @@ nav.nav {
   padding: 22px 24px;
   background: var(--bg-1);
   display: flex; flex-direction: column; gap: 6px;
+}
+/* When only ONE child is rendered (e.g. the fee-calc marketing strip with
+   no adjacent trust tiles) the grid would leave 3 empty columns. Collapse
+   single-child variants to full width so the content actually fills the
+   row. `:has()` is supported everywhere the site already targets. */
+.homepage-trust:has(> *:only-child) {
+  grid-template-columns: 1fr;
 }
 .px-feature-icon {
   width: 32px; height: 32px; border-radius: var(--r-sm);
@@ -3485,7 +3498,7 @@ nav.nav {
 
 /* Category tiles (homepage) */
 .cat-tiles {
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   max-width: 1440px; margin: 0 auto;
   padding: 0 24px;
@@ -4021,26 +4034,29 @@ nav.nav {
 }
 
 /* Marketing-page buttons (px-btn-*) */
-.px-btn-primary, .px-btn-lg {
+/* Shared shape/size — ghost is the default fill, primary overrides below.
+   The ghost rule MUST come before the primary fill rule so primary wins
+   the cascade when a button has both .px-btn and .px-btn-primary. */
+.px-btn, .px-btn-ghost, .px-btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 44px; padding: 0 22px;
-  background: var(--ink); color: var(--bg);
-  border: 1px solid var(--ink); border-radius: 999px;
+  border-radius: 999px;
   font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
   text-decoration: none; cursor: pointer;
-  transition: filter 140ms ease, transform 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease, filter 140ms ease, transform 140ms ease;
 }
-.px-btn-primary:hover, .px-btn-lg:hover { filter: brightness(0.95); transform: translateY(-1px); }
 .px-btn, .px-btn-ghost {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 44px; padding: 0 22px;
   background: transparent; color: var(--ink);
-  border: 1px solid var(--line-2); border-radius: 999px;
-  font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
-  text-decoration: none; cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
+  border: 1px solid var(--line-2);
 }
 .px-btn:hover, .px-btn-ghost:hover { background: var(--bg-2); border-color: var(--ink-4); }
+.px-btn-primary {
+  background: var(--ink); color: var(--bg);
+  border: 1px solid var(--ink);
+}
+.px-btn-primary:hover { filter: brightness(0.95); transform: translateY(-1px); }
+/* Size variant only — fill is owned by -primary / -ghost. */
+.px-btn-lg { height: 48px; padding: 0 28px; font-size: 15px; }
 
 /* Icon-only small square button */
 .iconbtn.sm, .iconbtn.s { width: 28px; height: 28px; }
@@ -6904,6 +6920,15 @@ nav.nav {
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: var(--r-sm);
   font-family: var(--mono); font-size: 12.5px;
+}
+/* Homepage marketing variant — 2-column so the input side and breakdown
+   side balance horizontally instead of stacking and leaving dead space. */
+.homepage-trust .fee-calc {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
+  padding: 24px 28px;
+}
+@media (max-width: 720px) {
+  .homepage-trust .fee-calc { grid-template-columns: 1fr; gap: 16px; padding: 18px; }
 }
 .fee-calc-title {
   font-family: 'Geist';

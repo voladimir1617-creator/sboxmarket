@@ -1348,9 +1348,6 @@ export function NotificationsModal({ onClose, me }) {
   const load = useCallback(async () => { setData(await fetchNotifications()); }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
-  if (!me) return h(InfoModal, { title: 'Notifications', onClose },
-    h(SignInNeededEmptyState, { what: 'your notifications' }));
-
   // Batch 635 — filter-aware "Mark all read". When the user has
   // narrowed the list via type-filter / unread-only / search, the
   // click should only mark the rows they can actually see — otherwise
@@ -1476,6 +1473,9 @@ export function NotificationsModal({ onClose, me }) {
   }, [data.items, filter, typeFilter, search, mutedSet.size]);
 
   const count = groups.reduce((s, g) => s + g.items.length, 0);
+
+  if (!me) return h(InfoModal, { title: 'Notifications', onClose },
+    h(SignInNeededEmptyState, { what: 'your notifications' }));
 
   return h(InfoModal, { title: `Notifications · ${data.unread} unread`, onClose },
     // Batch 769 — muted-kinds banner. When the user has muted specific
