@@ -2,78 +2,68 @@
   "/": {
     "domNodes": 443,
     "paint": {
-      "first-paint": 392
+      "first-paint": 420
     },
     "navTiming": {
-      "domLoaded": 259,
-      "loadEnd": 260,
-      "tti": 209
+      "domLoaded": 241,
+      "loadEnd": 241,
+      "tti": 182
     },
-    "totalBytes": 5761173
+    "totalBytes": 5767581
   },
   "/market": {
     "domNodes": 1340,
     "paint": {
-      "first-paint": 76,
-      "first-contentful-paint": 336
+      "first-paint": 144,
+      "first-contentful-paint": 792
     },
     "navTiming": {
-      "domLoaded": 154,
-      "loadEnd": 154,
-      "tti": 101
+      "domLoaded": 538,
+      "loadEnd": 539,
+      "tti": 190
     },
-    "totalBytes": 9065731
+    "totalBytes": 9072139
   },
   "/db": {
     "domNodes": 772,
     "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 388
+      "first-paint": 88,
+      "first-contentful-paint": 340
     },
     "navTiming": {
-      "domLoaded": 165,
-      "loadEnd": 166,
-      "tti": 107
+      "domLoaded": 164,
+      "loadEnd": 165,
+      "tti": 114
     },
-    "totalBytes": 10564697
+    "totalBytes": 10571105
   },
   "/item/1": {
-    "domNodes": 328,
+    "domNodes": 332,
     "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 216
+      "first-paint": 76,
+      "first-contentful-paint": 344
     },
     "navTiming": {
-      "domLoaded": 156,
-      "loadEnd": 157,
-      "tti": 104
+      "domLoaded": 160,
+      "loadEnd": 160,
+      "tti": 103
     },
-    "totalBytes": 6879628
+    "totalBytes": 6886036
   },
   "/stall/1": {
     "domNodes": 286,
     "paint": {
-      "first-paint": 72,
-      "first-contentful-paint": 216
+      "first-paint": 92,
+      "first-contentful-paint": 256
     },
     "navTiming": {
-      "domLoaded": 151,
-      "loadEnd": 151,
-      "tti": 97
+      "domLoaded": 177,
+      "loadEnd": 177,
+      "tti": 124
     },
-    "totalBytes": 5205302
+    "totalBytes": 5211710
   },
   "/loadout/1": {
-    "domNodes": 241,
-    "paint": {
-      "first-paint": 72,
-      "first-contentful-paint": 212
-    },
-    "navTiming": {
-      "domLoaded": 148,
-      "loadEnd": 148,
-      "tti": 99
-    },
-    "totalBytes": 5172849
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/loadout/1?_qa=1"
   }
 }

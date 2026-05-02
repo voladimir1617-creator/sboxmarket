@@ -6326,7 +6326,14 @@ body:has(.shortcuts-backdrop) {
   gap: 16px; align-items: center;
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
+  /* Boss QA cycle 11 micro-polish — added a hover tint + 140ms ease so
+     pointing at a cart row gives the same physical "I'm focused on this
+     line" feedback every other row-list (db-row, txrow, watchlist row)
+     already had. Pre-fix the row was a static block — clicks landed but
+     the cursor lost track of WHICH row it was over in dense carts. */
+  transition: background 140ms ease;
 }
+.cart-row:hover { background: var(--bg-2); }
 .cart-row:last-child { border-bottom: 0; }
 .cart-thumb {
   width: 64px; height: 64px; border-radius: var(--r-sm);

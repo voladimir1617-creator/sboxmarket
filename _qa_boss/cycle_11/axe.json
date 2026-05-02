@@ -10,43 +10,69 @@
     "violations": []
   },
   "/db": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/db?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/help": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/help?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/faq": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/faq?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/cart": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/cart?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/watchlist": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/watchlist?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/wallet": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/wallet?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/sell": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/sell?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/settings": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/settings?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/profile/personal": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/profile/personal?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/item/1": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/item/1?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/stall/1": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/stall/1?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/loadout/1": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/loadout/1?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/item/missing": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/item/missing?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/stall/missing": {
     "critical": 0,
