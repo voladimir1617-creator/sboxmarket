@@ -4557,13 +4557,26 @@ nav.nav {
   text-align: center;
   border: 1px dashed var(--line-2);
   border-radius: var(--r-md);
-  background: var(--bg-1);
   display: flex; flex-direction: column; gap: 14px; align-items: center;
+  /* Boss QA cycle 11 — radial wash so the empty card has a focal point
+     instead of reading as a flat dashed box. Same lift csfloat uses on
+     its empty cards without a hand-rolled SVG illustration. */
+  background:
+    radial-gradient(circle at 50% 30%, color-mix(in oklab, var(--cta) 7%, transparent) 0%, transparent 56%),
+    var(--bg-1);
 }
 .empty-state-icon, .empty-icon {
-  width: 48px; height: 48px;
+  width: 56px; height: 56px;
   display: grid; place-items: center;
-  color: var(--ink-4);
+  color: var(--ink-3);
+  /* Boss QA cycle 11 — soft cta-tinted ring + bg so the icon feels
+     intentional rather than a dropped-in glyph. Pairs with the .empty-state
+     radial wash above. */
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--cta) 10%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--cta) 14%, var(--line)),
+    inset 0 0 0 1px color-mix(in oklab, var(--cta) 6%, transparent);
 }
 .empty-state-title {
   font-family: var(--serif); font-size: 22px;
@@ -8641,6 +8654,15 @@ td > .price-cell {
   border-color: color-mix(in oklab, var(--cta) 40%, var(--line-2));
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55),
               0 0 0 1px color-mix(in oklab, var(--cta) 18%, transparent) inset;
+}
+/* Boss QA cycle 11 — pressed-state depress on grid cards. Cycle 11 prompt:
+   "pressed state should depress (translateY +1px + shadow tighter)" so the
+   tap is acknowledged before navigation. Settles back to the base shadow. */
+.grid-card:active {
+  transform: translateY(0px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45),
+              0 0 0 1px color-mix(in oklab, var(--cta) 25%, transparent) inset;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
 }
 
 /* Image fade-in is already wired via .item-img.loading/loaded — soften the
@@ -118052,6 +118074,13 @@ h1.modal-h1,
   border-color: color-mix(in oklab, var(--cta) 40%, var(--line));
   box-shadow: 0 14px 28px -14px rgba(0,0,0,0.6),
               0 0 0 1px color-mix(in oklab, var(--cta) 22%, transparent);
+}
+/* Boss QA cycle 11 — pressed-state depress on home preview cards. */
+.csfloat-home-preview-card:active {
+  transform: translateY(0px);
+  box-shadow: 0 2px 6px -2px rgba(0,0,0,0.45),
+              0 0 0 1px color-mix(in oklab, var(--cta) 28%, transparent);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
 }
 .csfloat-home-preview-card-img {
   display: grid;

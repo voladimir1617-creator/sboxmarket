@@ -10,69 +10,43 @@
     "violations": []
   },
   "/db": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/db?_qa=1"
   },
   "/help": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/help?_qa=1"
   },
   "/faq": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/faq?_qa=1"
   },
   "/cart": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/cart?_qa=1"
   },
   "/watchlist": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/watchlist?_qa=1"
   },
   "/wallet": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/wallet?_qa=1"
   },
   "/sell": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/sell?_qa=1"
   },
   "/settings": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/settings?_qa=1"
   },
   "/profile/personal": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/profile/personal?_qa=1"
   },
   "/item/1": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/item/1?_qa=1"
   },
   "/stall/1": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/stall/1?_qa=1"
   },
   "/loadout/1": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/loadout/1?_qa=1"
   },
   "/item/missing": {
-    "critical": 0,
-    "serious": 0,
-    "violations": []
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/item/missing?_qa=1"
   },
   "/stall/missing": {
     "critical": 0,

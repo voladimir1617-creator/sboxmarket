@@ -211,7 +211,39 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       h('strong', null, page + 1), ' / ', totalPages
     ),
     loading
-      ? h('div', { className: 'spinner' })
+      /* Boss QA cycle 11 micro-polish — was a generic .spinner pulse, which
+         left the database surface as a single dot in the middle of dark
+         space for the entire loading window. Replaced with a 10-row
+         shimmer-table skeleton that matches the post-load layout
+         (#, item, category, rarity, supply, sold, views, floor, watch
+         star) so the page stays composed during the wait and the perceived
+         load time drops. Each .skeleton-line uses the existing
+         shimmer keyframe defined in design.css. */
+      ? h('div', { className: 'db-table-scroll', 'aria-label': 'Loading database', role: 'status' },
+          h('table', { className: 'db-table' },
+            h('tbody', null,
+              Array.from({ length: 10 }).map((_, i) => h('tr', { key: 'skl-' + i, className: 'db-row' },
+                h('td', { className: 'db-rank' }, h('div', { className: 'skeleton-line', style: { width: 28, height: 12 } })),
+                h('td', null,
+                  h('div', { className: 'db-item-cell' },
+                    h('div', { className: 'db-thumb skeleton-thumb', style: { width: 48, height: 48 } }),
+                    h('div', { style: { flex: 1 } },
+                      h('div', { className: 'skeleton-line', style: { width: '60%', height: 14, marginBottom: 6 } }),
+                      h('div', { className: 'skeleton-line', style: { width: '30%', height: 10 } })
+                    )
+                  )
+                ),
+                h('td', null, h('div', { className: 'skeleton-line', style: { width: 60, height: 12 } })),
+                h('td', null, h('div', { className: 'skeleton-line', style: { width: 70, height: 18, borderRadius: 6 } })),
+                h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 40, height: 12, marginLeft: 'auto' } })),
+                h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 36, height: 12, marginLeft: 'auto' } })),
+                h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 36, height: 12, marginLeft: 'auto' } })),
+                h('td', { className: 'right' }, h('div', { className: 'skeleton-line', style: { width: 60, height: 12, marginLeft: 'auto' } })),
+                h('td', { className: 'center' }, h('div', { className: 'skeleton-line', style: { width: 24, height: 24, borderRadius: 6, margin: '0 auto' } }))
+              ))
+            )
+          )
+        )
       : (data.items.length === 0 && data.total === 0)
       ? (() => {
           // Batch 867 — empty state for filter combinations that return

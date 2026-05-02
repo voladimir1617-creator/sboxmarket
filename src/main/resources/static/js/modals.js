@@ -1133,6 +1133,25 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ? h('div', { style: { padding: '14px 16px', background: 'var(--bg-1, var(--bg-elevated))', border: '1px solid var(--line, var(--border))', borderRadius: 'var(--r-md, 8px)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
                 // Batch 1068 — 📭 mailbox emoji + ⚡ bolt stripped for
                 // editorial parity. Empty-listings block is all type now.
+                // Boss QA cycle 11 — added a small page-topic SVG (an empty
+                // price-tag stack) before the copy. Cycle 11 prompt: every
+                // empty-state should have a custom branded illustration so
+                // the surface feels $10M instead of like a flat error chip.
+                h('div', {
+                  style: {
+                    width: 42, height: 42, borderRadius: 10, flexShrink: 0,
+                    background: 'color-mix(in oklab, var(--accent) 8%, var(--bg-1))',
+                    border: '1px solid color-mix(in oklab, var(--accent) 18%, var(--line))',
+                    color: 'color-mix(in oklab, var(--accent) 85%, var(--ink-2))',
+                    display: 'grid', placeItems: 'center'
+                  },
+                  'aria-hidden': true
+                },
+                  h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' },
+                    h('path', { d: 'M3 9l8 8a2 2 0 0 0 2.8 0L21 10V4h-6L3 9z' }),
+                    h('circle', { cx: 16.5, cy: 7.5, r: 1.2, fill: 'currentColor', stroke: 'none' })
+                  )
+                ),
                 h('div', { style: { flex: 1, minWidth: 200 } },
                   h('div', { style: { fontFamily: "'Geist', 'Inter', system-ui, sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', color: 'var(--ink, var(--text-primary))', marginBottom: 4 } },
                     'No active listings'),
@@ -8324,7 +8343,22 @@ function ProfileReviewsTab({ me }) {
     ),
     filtered.length === 0
       ? h('div', { className: 'empty-inline' },
-          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
+          /* Boss QA cycle 11 — replaced generic Material 'inbox' glyph with a
+             reviews-themed star-in-quote SVG. Cycle 11 prompt: every empty-
+             state should feel custom-illustrated, not just a stock icon. */
+          h('div', { className: 'empty-icon empty-icon-lg', 'aria-hidden': true,
+            style: {
+              width: 64, height: 64, borderRadius: 16, margin: '0 auto 12px',
+              background: 'color-mix(in oklab, var(--accent) 8%, var(--bg-1))',
+              border: '1px solid color-mix(in oklab, var(--accent) 18%, var(--line))',
+              color: 'color-mix(in oklab, var(--accent) 85%, var(--ink-2))',
+              display: 'grid', placeItems: 'center'
+            } },
+            h('svg', { width: 32, height: 32, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' },
+              h('path', { d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' }),
+              h('path', { d: 'M12 7.5l1.3 2.6 2.9.4-2.1 2 .5 2.9L12 14l-2.6 1.4.5-2.9-2.1-2 2.9-.4z', fill: 'currentColor', stroke: 'none' })
+            )
+          ),
           rows.length === 0 && mode === 'received' && h('div', null,
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'No reviews yet'),
@@ -12605,13 +12639,19 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 color: 'color-mix(in oklab, var(--accent) 85%, var(--ink-2))',
                 display: 'grid', placeItems: 'center'
               }
+            /* Boss QA cycle 11 — replaced generic shopping-cart SVG with a
+               watchlist-themed heart-on-card line drawing tied to the page
+               topic. Cycle 11 prompt: "Even a simple SVG line-drawing tied
+               to the page topic feels $10M." */
             }, h('svg', {
                 width: 40, height: 40, viewBox: '0 0 24 24', fill: 'none',
-                stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round',
+                stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round',
                 strokeLinejoin: 'round', 'aria-hidden': true
               },
-                h('path', { d: 'M22 12h-6l-2 3h-4l-2-3H2' }),
-                h('path', { d: 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z' })
+                h('rect', { x: 3, y: 4, width: 18, height: 16, rx: 2.5 }),
+                h('path', { d: 'M7 9.5h10' }),
+                h('path', { d: 'M7 13h6' }),
+                h('path', { d: 'M16.5 16.5c1.4-1.1 2.5-2 2.5-3.2 0-1-.8-1.8-1.8-1.8-.5 0-1 .2-1.4.6-.4-.4-.9-.6-1.4-.6-1 0-1.8.8-1.8 1.8 0 1.2 1.1 2.1 2.5 3.2.3.2.7.2 1.4 0z', fill: 'currentColor', stroke: 'none' })
               )),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Nothing on your watchlist'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
