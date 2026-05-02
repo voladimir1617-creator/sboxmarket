@@ -1,79 +1,79 @@
 {
   "/": {
-    "domNodes": 443,
+    "domNodes": 444,
     "paint": {
-      "first-paint": 516
+      "first-paint": 492
     },
     "navTiming": {
-      "domLoaded": 367,
-      "loadEnd": 368,
-      "tti": 293
+      "domLoaded": 277,
+      "loadEnd": 277,
+      "tti": 223
     },
-    "totalBytes": 5775067
+    "totalBytes": 5683704
   },
   "/market": {
-    "domNodes": 1340,
+    "domNodes": 1341,
     "paint": {
-      "first-paint": 108,
-      "first-contentful-paint": 408
+      "first-paint": 92,
+      "first-contentful-paint": 536
     },
     "navTiming": {
-      "domLoaded": 217,
-      "loadEnd": 218,
-      "tti": 145
+      "domLoaded": 185,
+      "loadEnd": 186,
+      "tti": 124
     },
-    "totalBytes": 9079625
+    "totalBytes": 8026520
   },
   "/db": {
-    "domNodes": 772,
+    "domNodes": 773,
     "paint": {
-      "first-paint": 76,
-      "first-contentful-paint": 388
+      "first-paint": 80,
+      "first-contentful-paint": 316
     },
     "navTiming": {
-      "domLoaded": 150,
-      "loadEnd": 151,
-      "tti": 100
+      "domLoaded": 162,
+      "loadEnd": 163,
+      "tti": 98
     },
-    "totalBytes": 10578591
+    "totalBytes": 5510994
   },
   "/item/1": {
-    "domNodes": 332,
+    "domNodes": 333,
     "paint": {
-      "first-paint": 88,
-      "first-contentful-paint": 332
+      "first-paint": 80,
+      "first-contentful-paint": 292
     },
     "navTiming": {
-      "domLoaded": 176,
-      "loadEnd": 176,
-      "tti": 120
+      "domLoaded": 160,
+      "loadEnd": 160,
+      "tti": 105
     },
-    "totalBytes": 6893523
+    "totalBytes": 5793452
   },
   "/stall/1": {
-    "domNodes": 286,
+    "domNodes": 287,
     "paint": {
-      "first-paint": 96,
-      "first-contentful-paint": 248
+      "first-paint": 80,
+      "first-contentful-paint": 228
     },
     "navTiming": {
-      "domLoaded": 180,
-      "loadEnd": 181,
-      "tti": 125
+      "domLoaded": 157,
+      "loadEnd": 157,
+      "tti": 107
     },
-    "totalBytes": 5219196
+    "totalBytes": 5226672
   },
   "/loadout/1": {
-    "domNodes": 241,
+    "domNodes": 242,
     "paint": {
-      "first-paint": 84,
-      "first-contentful-paint": 260
+      "first-paint": 80,
+      "first-contentful-paint": 224
     },
     "navTiming": {
-      "domLoaded": 163,
-      "loadEnd": 164,
-      "tti": 112
+      "domLoaded": 157,
+      "loadEnd": 158,
+      "tti": 101
     },
-    "totalBytes": 5186743
+    "totalBytes": 5191320
   }
 }
