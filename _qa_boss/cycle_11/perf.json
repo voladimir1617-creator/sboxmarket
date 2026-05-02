@@ -2,78 +2,78 @@
   "/": {
     "domNodes": 443,
     "paint": {
-      "first-paint": 460
+      "first-paint": 440
     },
     "navTiming": {
-      "domLoaded": 307,
-      "loadEnd": 308,
-      "tti": 234
+      "domLoaded": 255,
+      "loadEnd": 256,
+      "tti": 209
     },
-    "totalBytes": 5768778
+    "totalBytes": 5775067
   },
   "/market": {
     "domNodes": 1340,
     "paint": {
-      "first-paint": 84,
-      "first-contentful-paint": 592
+      "first-paint": 76,
+      "first-contentful-paint": 472
     },
     "navTiming": {
-      "domLoaded": 174,
-      "loadEnd": 175,
-      "tti": 113
+      "domLoaded": 160,
+      "loadEnd": 160,
+      "tti": 105
     },
-    "totalBytes": 9073336
+    "totalBytes": 10420883
   },
   "/db": {
     "domNodes": 772,
     "paint": {
-      "first-paint": 84,
-      "first-contentful-paint": 408
+      "first-paint": 76,
+      "first-contentful-paint": 324
     },
     "navTiming": {
-      "domLoaded": 186,
-      "loadEnd": 187,
-      "tti": 123
+      "domLoaded": 161,
+      "loadEnd": 162,
+      "tti": 102
     },
-    "totalBytes": 10572302
+    "totalBytes": 10578591
   },
   "/item/1": {
     "domNodes": 332,
     "paint": {
-      "first-paint": 132,
-      "first-contentful-paint": 624
+      "first-paint": 80,
+      "first-contentful-paint": 320
     },
     "navTiming": {
-      "domLoaded": 433,
-      "loadEnd": 434,
-      "tti": 176
+      "domLoaded": 173,
+      "loadEnd": 174,
+      "tti": 105
     },
-    "totalBytes": 6887234
+    "totalBytes": 6893523
   },
   "/stall/1": {
     "domNodes": 286,
     "paint": {
-      "first-paint": 124,
-      "first-contentful-paint": 316
+      "first-paint": 80,
+      "first-contentful-paint": 232
     },
     "navTiming": {
-      "domLoaded": 228,
-      "loadEnd": 228,
-      "tti": 165
+      "domLoaded": 162,
+      "loadEnd": 163,
+      "tti": 106
     },
-    "totalBytes": 5212907
+    "totalBytes": 5219196
   },
   "/loadout/1": {
     "domNodes": 241,
     "paint": {
-      "first-paint": 84,
-      "first-contentful-paint": 256
+      "first-paint": 76,
+      "first-contentful-paint": 220
     },
     "navTiming": {
-      "domLoaded": 173,
-      "loadEnd": 173,
-      "tti": 119
+      "domLoaded": 154,
+      "loadEnd": 155,
+      "tti": 100
     },
-    "totalBytes": 5180454
+    "totalBytes": 5186743
   }
 }

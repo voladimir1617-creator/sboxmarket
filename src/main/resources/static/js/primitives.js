@@ -32,8 +32,22 @@ export function MaterialIcon({ name, size, fill, className, color }) {
 // else falls through to the poster glyph.
 function upscaleSteamImage(url, variant) {
   if (typeof url !== 'string' || !url) return null;
-  // Only touch URLs that end with a recognisable `/{w}x{h}` suffix.
-  return url.replace(/\/\d+x\d+(\?.*)?$/, '/' + variant);
+  /* Boss QA cycle 13 — original implementation only RESIZED URLs that
+     already had a `/{w}x{h}` suffix. The /api/items + /api/listings
+     payloads return raw `.../econ/image/{hash}` URLs WITHOUT a size
+     suffix; those slipped through unchanged and Steam's CDN returned
+     the full original (400-500KB). The 'mini' variant was therefore
+     a no-op on /db (the page that needed it most). Now: if the URL
+     already ends with /WxH, swap it; otherwise append /WxH so we get
+     the smaller variant from Steam's CDN regardless of incoming format.
+     Only touch akamaihd Steam CDN URLs to avoid mangling other hosts. */
+  if (!/steamcommunity-a\.akamaihd\.net\/economy\/image\//.test(url)) return url;
+  if (/\/\d+x\d+(\?.*)?$/.test(url)) {
+    return url.replace(/\/\d+x\d+(\?.*)?$/, '/' + variant);
+  }
+  // Strip any trailing query string before appending the size, then re-attach.
+  const m = url.match(/^(.+?)(\?.*)?$/);
+  return (m[1].replace(/\/$/, '')) + '/' + variant + (m[2] || '');
 }
 
 // Category → fallback glyph — used when imageUrl is missing or the Steam CDN
