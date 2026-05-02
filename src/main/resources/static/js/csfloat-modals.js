@@ -882,11 +882,24 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const created = await createLoadout({ name: newName, visibility: 'PUBLIC' });
-    if (created && created.error) { toast(created.error, 'err'); return; }
+    const trimmed = newName.trim();
+    const created = await createLoadout({ name: trimmed, visibility: 'PUBLIC' });
+    // Pre-fix: error check only matched `error`, not `code` — backend
+    // returns INVALID_PARAMETER / RATE_LIMITED via `code` so a rate-
+    // limited create looked silent. Aligned with handleLockSlot pattern.
+    if (created && (created.error || created.code)) {
+      toast(created.message || created.error || 'Could not create loadout', 'err');
+      return;
+    }
     setNewName('');
     setCreating(false);
     if (created && created.id) openLoadout(created.id);
+    // Pre-fix: success path was silent — the modal switched to the new
+    // loadout view but a screen-reader user got no announcement, and
+    // even sighted users seeing a slot grid full of "Empty slot" rows
+    // couldn't tell at a glance whether their loadout was actually
+    // saved. Mirror handleDelete's named-success toast at line 952.
+    toast(`Created loadout "${trimmed}". Generate items or pin slots from your wishlist to fill it.`, 'ok');
   };
 
   const handleSlot = async (slot, itemId) => {

@@ -21,7 +21,41 @@ import {
   DatabaseModal, BuyOrdersModal, LoadoutLabModal,
   NotificationsModal
 } from './csfloat-modals.js';
-import { AdminModal, CsrModal } from './staff-modals.js';
+/* Boss QA cycle 13 P2 — staff-modals.js (198KB) is no longer in the static
+   import graph. The bundle was loading on every public-route page even
+   though only ~0.5% of users hit /admin or /csr. LazyStaffPanel below
+   dynamically imports the module when the user actually navigates to a
+   staff route AND has the matching role; non-staff routes never pay the
+   transfer cost. */
+let _staffModsPromise = null;
+function _loadStaffMods() {
+  if (!_staffModsPromise) _staffModsPromise = import('./staff-modals.js');
+  return _staffModsPromise;
+}
+function LazyStaffPanel({ which, me, onClose }) {
+  const [Mod, setMod] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    _loadStaffMods()
+      .then(mods => {
+        if (!alive) return;
+        setMod(() => (which === 'admin' ? mods.AdminModal : mods.CsrModal));
+      })
+      .catch(e => alive && setErr(e));
+    return () => { alive = false; };
+  }, [which]);
+  if (err) return h('div', { className: 'modal-shell' },
+    h('div', { className: 'modal-card', style: { padding: 24 } },
+      h('div', { style: { fontWeight: 700, marginBottom: 8 } }, 'Staff panel failed to load'),
+      h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 } },
+        'Refresh the page to retry. If it keeps failing, check your network or sign out and back in.'),
+      h('button', { className: 'btn btn-ghost', onClick: onClose }, 'Close')));
+  if (!Mod) return h('div', { className: 'modal-shell' },
+    h('div', { className: 'modal-card', style: { padding: 24, textAlign: 'center' } },
+      h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Loading staff panel…')));
+  return h(Mod, { onClose, me });
+}
 import { HelpModal } from './help-modal.js';
 import { InfoModal } from './info-modal.js';
 import { useRoute, navigate, paths, installAnchorInterceptor, closeToPrevious } from './router.js';
@@ -8607,10 +8641,10 @@ export function App() {
     // we dropped them on the Help modal which was confusing (looked
     // like a bug, not a gate).
     routeName === 'admin' && (isAdmin
-      ? h(AdminModal, { onClose: () => navigate(paths.market()), me })
+      ? h(LazyStaffPanel, { which: 'admin', onClose: () => navigate(paths.market()), me })
       : h(StaffAccessDeniedModal, { what: 'the admin panel', onClose: () => navigate(paths.market()) })),
     routeName === 'csr' && (isCsr
-      ? h(CsrModal, { onClose: () => navigate(paths.market()), me })
+      ? h(LazyStaffPanel, { which: 'csr', onClose: () => navigate(paths.market()), me })
       : h(StaffAccessDeniedModal, { what: 'the customer service panel', onClose: () => navigate(paths.market()) })),
 
     /* ITEM DETAIL — the only modal that isn't a menu destination. Closing it

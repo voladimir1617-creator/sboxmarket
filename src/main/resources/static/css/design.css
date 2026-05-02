@@ -13239,7 +13239,9 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .chart-range button.active,
 .chart-range button.on {
-  background: var(--cta) !important;
+  /* Boss QA cycle 11 — bg darkened from --cta to --cta-d so white text
+     clears WCAG AA 4.5:1 (was 3.67:1, axe-flagged on /item/1). */
+  background: var(--cta-d) !important;
   color: white !important;
 }
 /* END chart-range polish */

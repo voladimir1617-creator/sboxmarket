@@ -1143,11 +1143,19 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     me
                       ? h(React.Fragment, null,
                           'Set a buy order at your max price and let the system auto-match — or browse ',
-                          h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'none' } }, 'Database'),
+                          /* Boss QA cycle 12 — inline link inside paragraph copy needs an
+   underline (or other non-color affordance) per WCAG 1.4.1: links
+   distinguishable without color. axe-link-in-text-block flagged
+   the bare-color variant. */
+                          h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' } }, 'Database'),
                           ' for past sales.')
                       : h(React.Fragment, null,
                           'Sign in to set a restock alert or place a standing buy order — or browse ',
-                          h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'none' } }, 'Database'),
+                          /* Boss QA cycle 12 — inline link inside paragraph copy needs an
+   underline (or other non-color affordance) per WCAG 1.4.1: links
+   distinguishable without color. axe-link-in-text-block flagged
+   the bare-color variant. */
+                          h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' } }, 'Database'),
                           ' for past sales.'))
                 ),
                 me
@@ -6942,9 +6950,16 @@ function ProfileTradesTab({ me, privacy }) {
                   onClick: async (e) => {
                     e.stopPropagation();
                     const s = '#' + t.id;
+                    // Pre-fix: success path was silent — clicking the
+                    // trade-id chip with a button label '#42 ⎘' that
+                    // never visually changed left the user wondering
+                    // whether the copy landed before pasting into a
+                    // support ticket. Toast on success now matches
+                    // every other clipboard surface in this file.
                     try {
                       if (navigator.clipboard?.writeText) {
                         await navigator.clipboard.writeText(s);
+                        toast(`Trade ${s} copied — paste into your support ticket.`, 'ok');
                       } else {
                         window.prompt('Copy trade id:', s);
                       }
@@ -13194,11 +13209,19 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
         const res = await depositFunds(num);
         if (res.code || res.error) { setError(res.message || res.error); return; }
         if (res.live && res.checkoutUrl) {
+          // Real Stripe redirect — the user will land back on
+          // /?deposit=success which already triggers a wallet refresh +
+          // toast in app.js so no toast needed here.
           window.location.href = res.checkoutUrl;
           return;
         }
         setAmount('');
         await onRefresh();
+        // Pre-fix: dev/test path was silent on success. The amount input
+        // cleared and the balance updated, but a user clicking "Deposit
+        // $50" got no explicit confirmation that the credit landed.
+        // Mirrors the named-success pattern from buy/offer/bid handlers.
+        toast(`Deposited ${fmt(num)} — your wallet balance updated.`, 'ok');
       } else {
         const res = await withdrawFunds(num, dest, totpCode);
         if (res.code || res.error) {
@@ -13213,6 +13236,13 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
         }
         setAmount(''); setDest(''); setTotpCode('');
         await onRefresh();
+        // Pre-fix: silent on success — user requested a withdraw, the
+        // form cleared, and the only feedback was the wallet hero
+        // ticking down. Withdrawals are PENDING until staff approves
+        // (could be hours), so an explicit toast is critical so the
+        // user understands the money isn't out yet but the request is
+        // queued.
+        toast(`Withdrawal of ${fmt(num)} requested — pending staff review (typically <24h). Track status in History.`, 'ok');
       }
     } catch (e) {
       setError(e.message || 'Request failed');

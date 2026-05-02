@@ -190,11 +190,12 @@ export function Avatar({ src, name, alt, className, style }) {
 // them. Apply as inline style so it wins against any prior class CSS
 // without needing a dedicated rule per tier.
 //
-// Boss QA cycle 11 — Standard bumped from gray-500 (#6b7280, ~3.0:1
-// against dark bg) to gray-400 (#9ca3af, ~5.4:1) so the badge text
-// clears WCAG AA. axe flagged the previous value as serious contrast.
+// Boss QA cycle 11 — Standard bumped twice. Gray-500 (#6b7280) → 3.0:1
+// (axe FAIL). Gray-400 (#9ca3af) → 3.92:1 against the bg-2 chip backdrop
+// (still axe FAIL because chip's tinted bg lifts the surface). Gray-300
+// (#d1d5db) clears 4.5:1 against bg-2 with comfortable headroom.
 const RARITY_COLORS = {
-  'Standard':   '#9ca3af', // gray-400 — was #6b7280 (axe contrast fail)
+  'Standard':   '#d1d5db', // gray-300 — was gray-400 (still axe contrast fail on tinted chip bg)
   'Off-Market': '#d4a418', // amber (display label = "Scarce")
   'Scarce':     '#d4a418',
   'Rare':       '#1ea5ff', // cta blue

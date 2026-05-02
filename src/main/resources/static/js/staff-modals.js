@@ -890,11 +890,21 @@ function ApiKeyLookupPanel() {
           // tab search without re-typing from the row.
           onClick: async (e) => {
             e.preventDefault();
+            // Pre-fix: clipboard.writeText was called blindly on a
+            // possibly-undefined navigator.clipboard, so on insecure
+            // contexts / blocked permissions it threw and the catch
+            // surfaced a half-useful "User #42" toast without putting
+            // anything on the clipboard. Now: prompt fallback when
+            // the API is missing so admins can always copy by hand.
             try {
-              await navigator.clipboard.writeText(String(k.userId));
-              toast(`User #${k.userId} copied to clipboard`, 'ok');
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(String(k.userId));
+                toast(`User #${k.userId} copied to clipboard`, 'ok');
+              } else {
+                window.prompt('Copy this user id:', String(k.userId));
+              }
             } catch (_) {
-              toast(`User #${k.userId}`, 'ok');
+              window.prompt('Copy this user id:', String(k.userId));
             }
           },
           style: {

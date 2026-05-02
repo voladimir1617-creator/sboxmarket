@@ -107,6 +107,9 @@ const ROUTES = [
     }
     await mp.close();
     process.stdout.write('.');
+    // Throttle so the dev container's connection pool doesn't drop under
+    // back-to-back puppeteer waves
+    await new Promise(r => setTimeout(r, 250));
   }
   console.log('');
   await browser.close();
