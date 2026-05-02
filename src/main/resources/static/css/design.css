@@ -5,6 +5,13 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+/* Boss QA cycle 20 — scroll-padding-top so in-page anchor jumps (skip-link
+   to #main, FAQ TOC clicks, item-detail "Active Listings" anchor) don't
+   hide the target under the 56px sticky nav. Pre-fix the user clicked
+   "Active Listings (12)" in the section-anchor and the heading slid up
+   behind the fixed nav, leaving the rows visible but the title cut off.
+   Uses --nav-h + a small visual breathing margin. */
+html { scroll-padding-top: calc(var(--nav-h, 56px) + 16px); }
 
 :root {
   /* Base — warm near-black */
