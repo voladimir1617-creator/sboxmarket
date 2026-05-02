@@ -2,96 +2,127 @@
   "/": {
     "critical": 0,
     "serious": 0,
+    "moderate": 0,
+    "minor": 0,
     "violations": []
   },
   "/market": {
     "critical": 0,
     "serious": 0,
+    "moderate": 1,
+    "minor": 1,
     "violations": []
   },
   "/db": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/help": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/faq": {
     "critical": 0,
     "serious": 0,
+    "moderate": 3,
+    "minor": 0,
     "violations": []
   },
   "/cart": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/watchlist": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/wallet": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/sell": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/settings": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/profile/personal": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/item/1": {
     "critical": 0,
-    "serious": 2,
-    "violations": [
-      {
-        "id": "color-contrast",
-        "impact": "serious",
-        "help": "Elements must meet minimum color contrast ratio thresholds",
-        "nodes": 2,
-        "firstNodeHTML": "<span class=\"rarity-badge rarity-Standard\" style=\"color: rgb(156, 163, 175); background: color-mix(rgb(156, 163, 175) 16%, transparent); border: 1px solid color-mix(rgb(156, 163, 175) 38%, transparent"
-      },
-      {
-        "id": "link-in-text-block",
-        "impact": "serious",
-        "help": "Links must be distinguishable without relying on color",
-        "nodes": 1,
-        "firstNodeHTML": "<a href=\"/db?q=SWAG%20Chain\" style=\"color: var(--accent); text-decoration: none;\">Database</a>"
-      }
-    ]
+    "serious": 0,
+    "moderate": 2,
+    "minor": 0,
+    "violations": []
   },
   "/stall/1": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
   "/loadout/1": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
-  "/item/missing": {
+  "/buy-orders": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
     "violations": []
   },
-  "/stall/missing": {
+  "/affiliate": {
     "critical": 0,
     "serious": 0,
+    "moderate": 2,
+    "minor": 0,
+    "violations": []
+  },
+  "/support": {
+    "critical": 0,
+    "serious": 0,
+    "moderate": 2,
+    "minor": 0,
+    "violations": []
+  },
+  "/changelog.html": {
+    "critical": 0,
+    "serious": 0,
+    "moderate": 0,
+    "minor": 0,
     "violations": []
   }
 }

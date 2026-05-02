@@ -322,15 +322,19 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
                   : isStarred
                     ? `Remove ${item.name} from watchlist`
                     : `Add ${item.name} to watchlist`;
-                return h('td', { className: 'center', onClick: (e) => e.stopPropagation() },
+                /* Boss QA cycle 11 — db-row star bumped from 30×30 to 36×36
+                   (desktop) and 44×44 (mobile) so the watchlist-toggle
+                   target clears Apple HIG. The icon glyph stays 15px so
+                   density doesn't change. */
+                return h('td', { className: 'center db-row-star-cell', onClick: (e) => e.stopPropagation() },
                   h('button', {
-                    className: 'btn btn-ghost',
+                    className: 'btn btn-ghost db-row-star',
                     style: {
-                      width: 30, height: 30, padding: 0, fontSize: 15,
-                      lineHeight: 1, borderRadius: 6,
+                      padding: 0, fontSize: 15, lineHeight: 1, borderRadius: 6,
                       color: isStarred ? '#fbbf24' : 'var(--text-muted)',
                       background: 'transparent',
-                      border: '1px solid var(--border)'
+                      border: '1px solid var(--border)',
+                      transition: 'transform 100ms ease, color 140ms ease, border-color 140ms ease'
                     },
                     title: label,
                     'aria-label': label,

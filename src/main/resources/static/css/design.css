@@ -4392,7 +4392,10 @@ nav.nav {
   opacity: 0.4; cursor: not-allowed; transform: none; filter: none;
 }
 
-/* Ghost — hairline border */
+/* Ghost — hairline border.
+   Boss QA cycle 11 — added the pressed-state translateY so ghost buttons
+   read physical on click, mirroring .btn-accent's press. Without it the
+   ghost variants felt static while primaries depressed. */
 .btn-ghost, .btn-primary-outline {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 38px; padding: 0 18px;
@@ -4403,14 +4406,16 @@ nav.nav {
   font-family: inherit; font-size: 13px; font-weight: 600;
   letter-spacing: -0.005em;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
   text-decoration: none;
 }
 .btn-ghost:hover, .btn-primary-outline:hover {
   background: var(--bg-2);
   border-color: var(--ink-4);
+  transform: translateY(-1px);
 }
-.btn-ghost:disabled, .btn-primary-outline:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-ghost:active, .btn-primary-outline:active { transform: translateY(0); }
+.btn-ghost:disabled, .btn-primary-outline:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
 .btn-clear {
   height: 30px; padding: 0 12px;
@@ -4450,7 +4455,10 @@ nav.nav {
 }
 .cf-feebar-cta:hover { filter: brightness(1.08); }
 
-/* Wishlist / star */
+/* Wishlist / star.
+   Boss QA cycle 11 — desktop keeps the editorial 36×36 chrome; mobile
+   widens to 44×44 (Apple HIG). Active-state press depresses the chip
+   so the tap feels physical. */
 .btn-wishlist, .star-btn {
   width: 36px; height: 36px;
   display: grid; place-items: center;
@@ -4459,14 +4467,18 @@ nav.nav {
   border-radius: var(--r-sm);
   color: var(--ink-3);
   cursor: pointer;
-  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 100ms ease;
 }
 .btn-wishlist:hover, .star-btn:hover {
   color: var(--ink);
   border-color: var(--line-2);
   background: var(--bg-2);
 }
+.btn-wishlist:active, .star-btn:active { transform: scale(0.94); }
 .btn-wishlist.active, .star-btn.active { color: var(--ink); background: var(--bg-2); }
+@media (max-width: 760px) {
+  .btn-wishlist, .star-btn { width: 44px; height: 44px; }
+}
 
 /* Destructive ghost button — mono at rest, red tint only on hover.
    Used on "Clear all local data", "Clear all watchlist", force-cancel
@@ -8069,7 +8081,12 @@ body:has(.shortcuts-backdrop) {
   .nav-links::-webkit-scrollbar { display: none; }
   .nav-link { flex-shrink: 0; padding: 6px 10px; font-size: 12.5px; }
   .nav-link.active::after { bottom: -6px; }
-  .nav-right .nav-icon-btn { width: 34px; height: 34px; }
+  /* Boss QA cycle 11 — was 34×34, below the Apple HIG 44×44 minimum.
+     Bumped to 44 so the bell / cart / wishlist / lang / currency icon
+     buttons in the mobile nav-right cluster all clear the tap-target
+     bar. Five chips at 44px = 220px which still fits comfortably on a
+     390px viewport with the .steam-btn icon-only state. */
+  .nav-right .nav-icon-btn { width: 44px; height: 44px; }
   .wallet-btn { height: 32px; padding: 0 10px 0 8px; font-size: 11px; }
   .wallet-btn-icon { width: 20px; height: 20px; }
   .user-chip-name { display: none; }
@@ -9171,7 +9188,10 @@ input[type="radio"] {
   box-shadow: 0 0 8px color-mix(in oklab, var(--cta) 60%, transparent);
 }
 
-/* ─── Search-clear "×" — was bare text. Make it a small chrome button. */
+/* ─── Search-clear "×" — was bare text. Make it a small chrome button.
+   Boss QA cycle 11 — desktop keeps the 24×24 chrome target; mobile
+   widens to 44×44 (Apple HIG) so a thumb-tap actually lands. The icon
+   itself stays compact via a flex-centered child glyph. */
 .search-clear {
   width: 24px; height: 24px;
   border-radius: 50%;
@@ -9181,6 +9201,10 @@ input[type="radio"] {
 .search-clear:hover {
   color: var(--ink);
   background: var(--bg-2);
+}
+.search-clear:active { transform: scale(0.92); }
+@media (max-width: 760px) {
+  .search-clear { width: 44px; height: 44px; }
 }
 
 /* ─── Recently-viewed card hover — pick up the same accent border tint
@@ -10156,7 +10180,10 @@ input[type="radio"] {
 
 /* ─── Modal close button — was 32×32 dim ink-3, blended into the modal.
    Bump size, give it a hairline ring + accent on hover, so it reads as a
-   real interactive control instead of a faint glyph. */
+   real interactive control instead of a faint glyph.
+   Boss QA cycle 11 — desktop chrome stays compact at 36×36; mobile
+   widens to 44×44 (Apple HIG) so a thumb-tap on the close-X works
+   without over-aim. */
 .modal-close {
   width: 36px; height: 36px;
   border: 1px solid var(--line);
@@ -10167,6 +10194,9 @@ input[type="radio"] {
   transition: color 160ms ease, background 160ms ease,
               border-color 160ms ease, transform 160ms ease,
               box-shadow 160ms ease;
+}
+@media (max-width: 760px) {
+  .modal-close { width: 44px; height: 44px; font-size: 16px; }
 }
 .modal-close:hover {
   color: var(--ink);
@@ -13845,6 +13875,18 @@ button, .btn, button.btn { text-decoration: none !important; }
   gap: 6px;
 }
 /* END watchlist pills gap */
+
+/* Boss QA cycle 11 — db-row watchlist star tap target. Desktop 36×36
+   for editorial density; mobile widens to 44×44 (Apple HIG). Active
+   press depresses ~6% so the toggle reads physical. */
+.db-row-star {
+  width: 36px; height: 36px;
+}
+.db-row-star:active { transform: scale(0.94); }
+@media (max-width: 760px) {
+  .db-row-star { width: 44px; height: 44px; }
+}
+/* END db-row-star tap target */
 
 /* CSFloat-1:1: Loadout Lab card hover lift. */
 .loadout-card {

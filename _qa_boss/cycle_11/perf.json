@@ -1,218 +1,79 @@
 {
   "/": {
     "domNodes": 443,
-    "fcpMs": null,
-    "fpMs": 552,
-    "domContentLoadedMs": 371.80000001192093,
-    "loadEventMs": 372.5,
-    "transferSize": 3811,
-    "encodedBodySize": 3511,
-    "pageBytesAprox": 3811,
-    "bytesObserved": 6009368,
-    "wallClockMs": 1324
+    "paint": {
+      "first-paint": 432
+    },
+    "navTiming": {
+      "domLoaded": 253,
+      "loadEnd": 253,
+      "tti": 206
+    },
+    "totalBytes": 5757671
   },
   "/market": {
     "domNodes": 1340,
-    "fcpMs": 584,
-    "fpMs": 96,
-    "domContentLoadedMs": 143.09999999403954,
-    "loadEventMs": 143.7000000178814,
-    "transferSize": 3808,
-    "encodedBodySize": 3508,
-    "pageBytesAprox": 3808,
-    "bytesObserved": 8052135,
-    "wallClockMs": 1107
+    "paint": {
+      "first-paint": 92,
+      "first-contentful-paint": 432
+    },
+    "navTiming": {
+      "domLoaded": 175,
+      "loadEnd": 176,
+      "tti": 121
+    },
+    "totalBytes": 9062229
   },
   "/db": {
     "domNodes": 772,
-    "fcpMs": 496,
-    "fpMs": 100,
-    "domContentLoadedMs": 165.60000002384186,
-    "loadEventMs": 166.60000002384186,
-    "transferSize": 3821,
-    "encodedBodySize": 3521,
-    "pageBytesAprox": 3821,
-    "bytesObserved": 10322558,
-    "wallClockMs": 1205
-  },
-  "/help": {
-    "domNodes": 382,
-    "fcpMs": 248,
-    "fpMs": 84,
-    "domContentLoadedMs": 135.69999998807907,
-    "loadEventMs": 136.2999999821186,
-    "transferSize": 3818,
-    "encodedBodySize": 3518,
-    "pageBytesAprox": 3818,
-    "bytesObserved": 5378100,
-    "wallClockMs": 802
-  },
-  "/faq": {
-    "domNodes": 244,
-    "fcpMs": 280,
-    "fpMs": 104,
-    "domContentLoadedMs": 159.69999998807907,
-    "loadEventMs": 160.39999997615814,
-    "transferSize": 5493,
-    "encodedBodySize": 5193,
-    "pageBytesAprox": 5493,
-    "bytesObserved": 5378100,
-    "wallClockMs": 807
-  },
-  "/cart": {
-    "domNodes": 346,
-    "fcpMs": 264,
-    "fpMs": 80,
-    "domContentLoadedMs": 143.7999999821186,
-    "loadEventMs": 144.59999999403954,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5999290,
-    "wallClockMs": 840
-  },
-  "/watchlist": {
-    "domNodes": 191,
-    "fcpMs": 196,
-    "fpMs": 76,
-    "domContentLoadedMs": 113.30000001192093,
-    "loadEventMs": 113.80000001192093,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 723
-  },
-  "/wallet": {
-    "domNodes": 190,
-    "fcpMs": 204,
-    "fpMs": 76,
-    "domContentLoadedMs": 122.59999999403954,
-    "loadEventMs": 123.09999999403954,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 717
-  },
-  "/sell": {
-    "domNodes": 190,
-    "fcpMs": 192,
-    "fpMs": 76,
-    "domContentLoadedMs": 121.09999999403954,
-    "loadEventMs": 121.69999998807907,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 719
-  },
-  "/settings": {
-    "domNodes": 221,
-    "fcpMs": 208,
-    "fpMs": 76,
-    "domContentLoadedMs": 120.40000000596046,
-    "loadEventMs": 120.90000000596046,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 731
-  },
-  "/profile/personal": {
-    "domNodes": 190,
-    "fcpMs": 192,
-    "fpMs": 76,
-    "domContentLoadedMs": 116.09999999403954,
-    "loadEventMs": 116.59999999403954,
-    "transferSize": 3811,
-    "encodedBodySize": 3511,
-    "pageBytesAprox": 3811,
-    "bytesObserved": 5378100,
-    "wallClockMs": 712
+    "paint": {
+      "first-paint": 72,
+      "first-contentful-paint": 352
+    },
+    "navTiming": {
+      "domLoaded": 146,
+      "loadEnd": 147,
+      "tti": 97
+    },
+    "totalBytes": 10561195
   },
   "/item/1": {
     "domNodes": 328,
-    "fcpMs": 220,
-    "fpMs": 112,
-    "domContentLoadedMs": 147.69999998807907,
-    "loadEventMs": 148.09999999403954,
-    "transferSize": 4072,
-    "encodedBodySize": 3772,
-    "pageBytesAprox": 4072,
-    "bytesObserved": 7119827,
-    "wallClockMs": 875
+    "paint": {
+      "first-paint": 80,
+      "first-contentful-paint": 236
+    },
+    "navTiming": {
+      "domLoaded": 169,
+      "loadEnd": 170,
+      "tti": 107
+    },
+    "totalBytes": 6876126
   },
   "/stall/1": {
     "domNodes": 286,
-    "fcpMs": 196,
-    "fpMs": 72,
-    "domContentLoadedMs": 115.60000002384186,
-    "loadEventMs": 116.2000000178814,
-    "transferSize": 3912,
-    "encodedBodySize": 3612,
-    "pageBytesAprox": 3912,
-    "bytesObserved": 5450964,
-    "wallClockMs": 843
+    "paint": {
+      "first-paint": 84,
+      "first-contentful-paint": 228
+    },
+    "navTiming": {
+      "domLoaded": 158,
+      "loadEnd": 158,
+      "tti": 105
+    },
+    "totalBytes": 5201800
   },
   "/loadout/1": {
     "domNodes": 241,
-    "fcpMs": 228,
-    "fpMs": 76,
-    "domContentLoadedMs": 119,
-    "loadEventMs": 119.80000001192093,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 757
-  },
-  "/buy-orders": {
-    "domNodes": 190,
-    "fcpMs": 216,
-    "fpMs": 76,
-    "domContentLoadedMs": 126.40000000596046,
-    "loadEventMs": 127.09999999403954,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 737
-  },
-  "/affiliate": {
-    "domNodes": 236,
-    "fcpMs": 216,
-    "fpMs": 72,
-    "domContentLoadedMs": 115.7000000178814,
-    "loadEventMs": 116.09999999403954,
-    "transferSize": 3828,
-    "encodedBodySize": 3528,
-    "pageBytesAprox": 3828,
-    "bytesObserved": 5445404,
-    "wallClockMs": 755
-  },
-  "/support": {
-    "domNodes": 193,
-    "fcpMs": 188,
-    "fpMs": 72,
-    "domContentLoadedMs": 112.90000000596046,
-    "loadEventMs": 113.2999999821186,
-    "transferSize": 3814,
-    "encodedBodySize": 3514,
-    "pageBytesAprox": 3814,
-    "bytesObserved": 5378100,
-    "wallClockMs": 714
-  },
-  "/changelog.html": {
-    "domNodes": 669,
-    "fcpMs": 156,
-    "fpMs": 156,
-    "domContentLoadedMs": 28.200000017881393,
-    "loadEventMs": 76.59999999403954,
-    "transferSize": 18878,
-    "encodedBodySize": 18578,
-    "pageBytesAprox": 18878,
-    "bytesObserved": 5332844,
-    "wallClockMs": 1041
+    "paint": {
+      "first-paint": 76,
+      "first-contentful-paint": 228
+    },
+    "navTiming": {
+      "domLoaded": 150,
+      "loadEnd": 150,
+      "tti": 99
+    },
+    "totalBytes": 5169347
   }
 }
