@@ -332,7 +332,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
               h('td', { className: 'db-rank' }, '#' + (page * PAGE_SIZE + i + 1)),
               h('td', null,
                 h('div', { className: 'db-item-cell' },
-                  h('div', { className: 'db-thumb' }, h(ItemImage, { item })),
+                  h('div', { className: 'db-thumb' }, h(ItemImage, { item, variant: 'mini' })),
                   h('div', null,
                     h('a', {
                       className: 'db-name',
@@ -593,7 +593,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   }
                 }
               },
-                h('div', { className: 'db-thumb', style: { width: 36, height: 36 } }, h(ItemImage, { item: it, variant: 'thumb' })),
+                h('div', { className: 'db-thumb', style: { width: 36, height: 36 } }, h(ItemImage, { item: it, variant: 'mini' })),
                 h('div', { style: { flex: 1, minWidth: 0 } },
                   h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' } }, it.name),
                   h('div', { style: { fontSize: 10, color: 'var(--text-muted)' } }, it.category + ' · ' + it.rarity)
@@ -606,7 +606,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       // STEP 2 — price + quantity with the selected item locked in
       picked && h('div', null,
         h('div', { className: 'buyorder-picked' },
-          h('div', { className: 'db-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: picked, variant: 'card' })),
+          h('div', { className: 'db-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: picked, variant: 'mini' })),
           h('div', { style: { flex: 1, minWidth: 0 } },
             h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, picked.name),
             h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Floor · ', h('strong', { style: { color: 'var(--accent)' } }, fmt(picked.lowestPrice)))
@@ -693,7 +693,24 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     ),
 
     orders === null
-      ? h('div', { className: 'spinner' })
+      /* Boss QA cycle 11 micro-polish — was a centered .spinner pulse,
+         leaving the modal as a single dot for the entire wait. Replaced
+         with a 4-row .buyorder-row shimmer skeleton that mirrors the
+         post-load row layout (title, sub, cap+status, cancel button) so
+         the modal stays composed during the round-trip. */
+      ? h('div', { className: 'buyorder-list', 'aria-label': 'Loading buy orders', role: 'status' },
+          Array.from({ length: 4 }).map((_, i) => h('div', { key: 'skl-' + i, className: 'buyorder-row' },
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { className: 'skeleton-line', style: { width: '55%', height: 14, marginBottom: 6 } }),
+              h('div', { className: 'skeleton-line', style: { width: '40%', height: 11 } })
+            ),
+            h('div', { style: { textAlign: 'right', marginRight: 14 } },
+              h('div', { className: 'skeleton-line', style: { width: 70, height: 14, marginBottom: 6, marginLeft: 'auto' } }),
+              h('div', { className: 'skeleton-line', style: { width: 50, height: 11, marginLeft: 'auto' } })
+            ),
+            h('div', { className: 'skeleton-line', style: { width: 70, height: 30, borderRadius: 6 } })
+          ))
+        )
       : orders.length === 0
         ? h('div', { className: 'empty-inline' },
             h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'bolt', size: 26 })),

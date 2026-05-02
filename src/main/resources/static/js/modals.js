@@ -10145,7 +10145,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                   }
                 }
               },
-                h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item })),
+                h('div', { className: 'inventory-thumb' }, h(ItemImage, { item: l.item, variant: 'thumb' })),
                 h('div', { className: 'inventory-name' }, l.item.name),
                 h('div', { className: 'inventory-floor' }, 'Floor ' + fmt(l.item.lowestPrice)),
                 // Batch 551 — buy-order demand chip on the internal
@@ -11289,7 +11289,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               h('div', { className: 'recent-sales-list' },
                 sold.map(l => h('div', { key: l.id, className: 'recent-sales-row' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
-                    h('div', { className: 'item-thumb', style: { width: 28, height: 28, flexShrink: 0 } }, h(ItemImage, { item: l.item })),
+                    h('div', { className: 'item-thumb', style: { width: 28, height: 28, flexShrink: 0 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
                     h('span', { style: { fontSize: 12.5, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.item?.name || 'Item')
                   ),
                   h('span', { className: 'recent-sales-price' }, fmt(l.price)),
@@ -11431,7 +11431,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                   h('div', { style: { fontSize: 13, color: 'var(--text-muted)' } },
                     `No ${stallTypeFilter.toLowerCase()} listings.`))]
               : filtered.map(l => h('div', { key: l.id, className: `stall-row ${l.hidden ? 'hidden-listing' : ''}` },
-            h('div', { className: 'item-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: l.item })),
+            h('div', { className: 'item-thumb', style: { width: 48, height: 48 } }, h(ItemImage, { item: l.item, variant: 'mini' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
               h('div', { className: 'item-name' }, l.item.name,
                 l.hidden && h('span', { style: { marginLeft: 8, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 } }, '· HIDDEN'),

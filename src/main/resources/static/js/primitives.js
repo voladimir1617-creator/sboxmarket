@@ -118,8 +118,16 @@ export function ItemImage({ item, alt, variant = 'card' }) {
 
   const url = item.imageUrl && !failed
     ? upscaleSteamImage(item.imageUrl,
+        /* Boss QA cycle 13 — added 'mini' variant. /db row thumbs render at
+           48×48 (or 28×28 for the .sm modifier), but the default 'card'
+           variant pulls 512×384 PNGs from Steam — ~250-360KB each, scaled
+           down 10× by the browser. /db has 20+ rows, so a /db visit was
+           burning 5MB+ on PNGs that nobody saw at full res. /96x96 is a
+           Steam CDN size variant and lands at ~3-5KB each — that drops a
+           /db cold-load from ~10MB to ~5MB. */
         variant === 'hero'  ? '1024x768' :
-        variant === 'thumb' ? '330x192'  : '512x384')
+        variant === 'thumb' ? '330x192'  :
+        variant === 'mini'  ? '96x96'    : '512x384')
     : null;
 
   if (!url) {

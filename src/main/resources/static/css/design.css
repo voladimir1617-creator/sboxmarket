@@ -10644,6 +10644,22 @@ input[type="radio"] {
 }
 .grid-star { top: 8px; }
 .grid-cart-btn { top: 44px; line-height: 1; }
+/* Boss QA cycle 12 — bump per-card overlay buttons to Apple HIG 44×44 on
+   mobile. Pre-fix the watchlist + cart buttons rendered at 30×30 (32×32
+   incl. border) on every grid card — boss prompt explicitly named
+   "watch-star" and "cart-plus" as must-clear tap-targets. Stack offset
+   updated so the cart sits below the now-taller star with the same gap. */
+@media (max-width: 760px) {
+  .grid-cart-btn,
+  .grid-star {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    /* Always fully visible on touch — no hover state on touch devices */
+    opacity: 1;
+  }
+  .grid-star { top: 8px; }
+  .grid-cart-btn { top: 60px; }
+}
 .grid-card:hover .grid-cart-btn,
 .grid-card:hover .grid-star {
   opacity: 1;

@@ -6,11 +6,12 @@ User went to sleep at ~22:00 PT on 2026-05-01. Boss session (this Claude) ran co
 
 | Metric | Value |
 |---|---|
-| **Commits shipped** | **15** |
-| **Insertions** | **157,554** |
-| **Deletions** | **8,921** |
-| **Files touched** | **249** |
+| **Commits shipped** | **17** |
+| **Insertions** | **160,615** |
+| **Deletions** | **8,927** |
+| **Files touched** | **251** |
 | **Boss-QA prompts pushed** | **14** |
+| **Worker self-finds** | **W1-W5 + A6-A7 + chart-range + empty-state polish** (worker walks finding their own gaps) |
 | **IDs shipped** | **~70+** (G1-10, H1-5, M1-4, I1-8, S1-5, D1-5, F1-5, N1-4, B1, Q1-4, M1m-3m, W1-5, CSP1, P1.1-1.5, A1-7, P1-4 perf) |
 | **Click-scan errors (Q1)** | **0** dead links / **0** unlabeled / **0** inline onclick |
 | **Console-network errors (Q2)** | **0** errors / **0** warnings / **0** 4xx-5xx |

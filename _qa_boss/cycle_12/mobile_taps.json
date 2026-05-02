@@ -1,0 +1,894 @@
+{
+  "/": [],
+  "/market": [
+    {
+      "selector": ".sort-select",
+      "tag": "SELECT",
+      "cls": "sort-select discount-select",
+      "w": 87,
+      "h": 36,
+      "label": "Minimum discount % vs Steam Market price"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Cardboard King to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lucky Bastard Helmet to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Trousers 2026 to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Shoes 2026 to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Racer Helmet to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Siren Hands to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Safety Glasses to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Plague Doctor Mask to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Brainy BRN-101 to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Fisherman to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Pirate to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Police Hat to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Mob Boss Waistcoat & Shirt to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add OG Pants - Red to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Surgical Face Mask to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Grand Ball Gown to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Labcoat to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Crossbody Bag Shirt to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Prison Jumpsuit to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add WW1 Helmet to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Bag to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Easter Bunny Nose 2026 to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Faux hawk Hair to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Mob Boss Pinstripe Trousers to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Pirate Hook to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Cowboy Hat to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add The Loving Look to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Bandana Hair to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Chef Shirt to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Chef Hat to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Mob Boss Shoes to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Sports Bandage to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Punk Helmet to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Leopard Print Heel Boots to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Bandana Mask to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Vintage Design Crop Top to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Short Parted Hair to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Gold Earrings to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Frilly Bra to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Love Heart Boxers to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Black Modern Watch to watchlist"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lucky Bastard Helmet to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Trousers 2026 to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Shoes 2026 to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Racer Helmet to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Siren Hands to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Safety Glasses to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Plague Doctor Mask to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Brainy BRN-101 to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Fisherman to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Pirate to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Police Hat to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Mob Boss Waistcoat & Shirt to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add OG Pants - Red to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Surgical Face Mask to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Grand Ball Gown to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Labcoat to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Crossbody Bag Shirt to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Prison Jumpsuit to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add WW1 Helmet to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Bag to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Easter Bunny Nose 2026 to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Faux hawk Hair to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Mob Boss Pinstripe Trousers to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Pirate Hook to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Cowboy Hat to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add The Loving Look to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Bandana Hair to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Chef Shirt to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Chef Hat to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Mob Boss Shoes to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Sports Bandage to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Punk Helmet to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Leopard Print Heel Boots to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Bandana Mask to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Vintage Design Crop Top to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Short Parted Hair to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Gold Earrings to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Frilly Bra to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Love Heart Boxers to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Black Modern Watch to cart"
+    },
+    {
+      "selector": ".view-btns button",
+      "tag": "BUTTON",
+      "cls": "view-btn active",
+      "w": 40,
+      "h": 34,
+      "label": "Grid view"
+    },
+    {
+      "selector": ".view-btns button",
+      "tag": "BUTTON",
+      "cls": "view-btn ",
+      "w": 40,
+      "h": 34,
+      "label": "Table view"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "sort-picker-chip",
+      "w": 200,
+      "h": 37,
+      "label": "Sort listings"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "btn btn-ghost",
+      "w": 103,
+      "h": 36,
+      "label": "bookmark_borderSave search"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "type-toggle-btn active",
+      "w": 42,
+      "h": 33,
+      "label": "All"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "type-toggle-btn ",
+      "w": 77,
+      "h": 33,
+      "label": "Buy Now"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "type-toggle-btn ",
+      "w": 70,
+      "h": 33,
+      "label": "Auction"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "deals-chip ",
+      "w": 73,
+      "h": 36,
+      "label": "% Deals"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "deals-chip new-chip ",
+      "w": 54,
+      "h": 36,
+      "label": "New"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "toolbar-refresh",
+      "w": 40,
+      "h": 40,
+      "label": "Refresh listings"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "view-btn active",
+      "w": 40,
+      "h": 34,
+      "label": "Grid view"
+    },
+    {
+      "selector": ".toolbar button",
+      "tag": "BUTTON",
+      "cls": "view-btn ",
+      "w": 40,
+      "h": 34,
+      "label": "Table view"
+    }
+  ],
+  "/db": [
+    {
+      "selector": ".sort-select",
+      "tag": "SELECT",
+      "cls": "sort-select",
+      "w": 117,
+      "h": 36,
+      "label": "Filter catalogue by category"
+    },
+    {
+      "selector": ".sort-select",
+      "tag": "SELECT",
+      "cls": "sort-select",
+      "w": 115,
+      "h": 36,
+      "label": "Filter catalogue by rarity"
+    },
+    {
+      "selector": ".sort-select",
+      "tag": "SELECT",
+      "cls": "sort-select",
+      "w": 180,
+      "h": 36,
+      "label": "Sort catalogue by"
+    }
+  ],
+  "/cart": [
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Cardboard King to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lucky Bastard Helmet to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Trousers 2026 to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Shoes 2026 to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Racer Helmet to watchlist"
+    },
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Siren Hands to watchlist"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lucky Bastard Helmet to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Trousers 2026 to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Lunar Shoes 2026 to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Racer Helmet to cart"
+    },
+    {
+      "selector": ".grid-cart-btn",
+      "tag": "BUTTON",
+      "cls": "grid-cart-btn ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Siren Hands to cart"
+    }
+  ],
+  "/watchlist": [],
+  "/item/1": [
+    {
+      "selector": ".btn-wishlist",
+      "tag": "BUTTON",
+      "cls": "btn btn-ghost btn-wishlist",
+      "w": 338,
+      "h": 36,
+      "label": "Add SWAG Chain to watchlist"
+    }
+  ],
+  "/stall/1": [
+    {
+      "selector": ".grid-star",
+      "tag": "BUTTON",
+      "cls": "grid-star ",
+      "w": 32,
+      "h": 32,
+      "label": "Add Cardboard King to watchlist"
+    }
+  ]
+}
