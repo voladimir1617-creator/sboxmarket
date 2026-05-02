@@ -9329,6 +9329,12 @@ input[type="radio"] {
   background: var(--cta);
   box-shadow: 0 0 8px color-mix(in oklab, var(--cta) 50%, transparent);
 }
+/* Boss QA cycle 22 — :active deepens the row slightly so a click on a
+   listing row gets a tap-echo before the navigation fires. */
+.modal-listing-row:active {
+  background: color-mix(in oklab, var(--cta) 12%, var(--bg-2));
+  transition: background 80ms ease-out;
+}
 .modal-listing-rarity-bar {
   height: 4px;
   border: 1px solid var(--line);
