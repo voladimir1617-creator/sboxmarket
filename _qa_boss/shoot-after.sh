@@ -4,6 +4,17 @@ BASE="${BASE:-http://localhost:8082}"
 OUT="${OUT:-/c/Users/WW/Desktop/sboxmarket/_qa_boss/after}"
 CHROME="${CHROME:-/c/Program Files/Google/Chrome/Application/chrome.exe}"
 mkdir -p "$OUT"
+
+# Warmup: poke a few key routes before the loop so the JIT + JPA hot paths
+# are primed. Cold-started Spring Boot otherwise drops the first 1-2
+# request bursts as ERR_EMPTY_RESPONSE while the dispatcher initialises.
+echo "Warming up server..."
+for _ in 1 2 3; do
+  curl -fs "$BASE/" -o /dev/null && \
+  curl -fs "$BASE/market" -o /dev/null && \
+  curl -fs "$BASE/api/items?limit=1" -o /dev/null && break
+  sleep 1
+done
 routes=(
   "01-home:/"
   "02-market:/market"
@@ -47,9 +58,12 @@ for r in "${routes[@]}"; do
   case "$path" in *\?*) sep="&";; esac
   url="${BASE}${path}${sep}_qa=1"
   out="$OUT/$name.png"
+  # Pre-warm the route once with curl so headless Chrome doesn't catch
+  # a cold ERR_EMPTY_RESPONSE on the first paint.
+  curl -fs --max-time 8 "$url" -o /dev/null
   "$CHROME" --headless=new --disable-gpu --no-sandbox \
     --window-size=1920,1080 --hide-scrollbars \
-    --virtual-time-budget=6000 \
+    --virtual-time-budget=8000 \
     --screenshot="$out" "$url" >/dev/null 2>&1
   if [ -f "$out" ]; then echo "OK $name"; else echo "FAIL $name"; fi
 done

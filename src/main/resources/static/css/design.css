@@ -197,7 +197,18 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-3);
 }
 
-.nav-right { display: flex; align-items: center; gap: 6px; }
+/* N4 cycle 6 — graduated spacing: 4px within tight groups (e.g. the
+   currency/lang pickers, or the offers/bell/cart icon row), 8-12px
+   between distinct groups (pickers ↔ icons ↔ wallet/user). The user
+   was reading the cluster as one undifferentiated row of 5 controls;
+   the bigger inter-group gap visually parses it into ~3 chunks. */
+.nav-right { display: flex; align-items: center; gap: 4px; }
+.nav-right > .nav-picker + .nav-icon-btn,
+.nav-right > .nav-picker:last-of-type + * { margin-left: 8px; }
+.nav-right > .nav-icon-btn + .wallet-btn,
+.nav-right > .nav-icon-btn + .user-chip,
+.nav-right > .nav-icon-btn + .btn { margin-left: 8px; }
+.nav-right > .wallet-btn + .user-chip { margin-left: 4px; }
 .iconbtn {
   width: 36px; height: 36px;
   display: grid; place-items: center;
@@ -3958,7 +3969,7 @@ nav.nav {
   transition: border-color 140ms ease, background 140ms ease;
 }
 .search-input:focus { border-color: var(--line-2); background: var(--bg-2); }
-.search-input::placeholder { color: var(--ink-4); }
+.search-input::placeholder { color: var(--ink-3); }
 .search-icon { color: var(--ink-4); }
 .search-clear {
   background: transparent; border: 0; cursor: pointer;
@@ -5351,20 +5362,17 @@ body:has(.shortcuts-backdrop) {
     align-items: center;
   }
   .db-table tbody tr.db-row > td { padding: 0; border: 0; display: block; }
-  .db-table tbody tr.db-row > td:nth-child(1) {
-    /* Rank — surfaced as small caption above the name. */
-    grid-area: main;
-    align-self: end;
-    font-size: 10px;
-    color: var(--ink-4);
-    font-family: var(--mono);
-    width: auto;
-    margin-bottom: -2px;
-  }
+  /* Boss QA cycle 3 C3-2 — rank cell + the item-name cell were both
+     mapped to grid-area: main, so the "#N" label sat ON TOP of the
+     item name, hiding it. The mobile cards rendered as bare "#1,
+     #2, #3" with no content. Hide the rank on mobile (the name is
+     the primary scan target), keep it on desktop where the column
+     fits. */
+  .db-table tbody tr.db-row > td:nth-child(1) { display: none; }
   .db-table tbody tr.db-row > td:nth-child(2) {
     grid-area: main;
     min-width: 0;
-    align-self: start;
+    align-self: center;
   }
   .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell {
     display: contents;
@@ -8037,7 +8045,12 @@ body:has(.shortcuts-backdrop) {
   .wallet-btn-icon { width: 20px; height: 20px; }
   .user-chip-name { display: none; }
   .user-chip { padding: 2px; border: 0; background: transparent; }
-  .steam-btn { padding: 0 10px; font-size: 12px; }
+  /* Boss QA cycle 3 C3-1 — icon-only Steam button below 640px so the
+     nav row fits 390px viewports without horizontal scroll. JSX wraps
+     the visible text in .steam-btn-text; aria-label on the parent
+     button keeps SR announcement intact. */
+  .steam-btn { padding: 0 10px; font-size: 12px; gap: 0; }
+  .steam-btn .steam-btn-text { display: none; }
 
   /* Hero */
   .hero { padding: 64px 16px 56px; }
@@ -9696,7 +9709,7 @@ input[type="radio"] {
   font-size: 17px;
   padding: 18px 22px;
 }
-.cmdk-input::placeholder { color: var(--ink-4); }
+.cmdk-input::placeholder { color: var(--ink-3); }
 .cmdk-item {
   position: relative;
 }
@@ -12725,6 +12738,24 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .full-page-mode .modal-body {
   padding-bottom: 24px !important;
 }
+/* Boss QA cycle 3 C3-3 — on <=600px the sticky modal-actions stack
+   vertically and grow to ~180px tall, hiding the price stat boxes
+   underneath. Reserve enough bottom padding on the modal so content
+   isn't covered, and shrink button padding so the stacked bar takes
+   less vertical space. */
+@media (max-width: 600px) {
+  .full-page-mode .modal-body { padding-bottom: 220px !important; }
+  .full-page-mode .modal-actions {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
+  .full-page-mode .modal-actions > button,
+  .full-page-mode .modal-actions > a {
+    padding: 9px 10px !important;
+    font-size: 12px !important;
+    min-height: 36px !important;
+  }
+}
 /* END sticky modal-actions */
 
 /* === /item page sticky right rail (2026-05-02 ship) ====================
@@ -12785,18 +12816,26 @@ body:has(.full-page-mode) { overflow: visible !important; }
   margin-top: 16px;
 }
 @media (max-width: 1100px) {
+  /* M1m fix: minmax(0, 1fr) so the single grid track can SHRINK below
+     min-content. Pre-fix the rail's h1 + chips were ~1040px wide (the
+     intrinsic size of "Listing price" + "Steam reference" labels + the
+     trend pill). 1fr resolves to minmax(auto, 1fr) which preserves that
+     1040px minimum, so the column physically didn't fit a 390px
+     viewport — modal-stats was rendering off-screen to the right.
+     minmax(0, 1fr) lets the track collapse to viewport width. */
   .modal.item-page {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;
   }
-  .modal.item-page > .modal-header > .modal-preview { grid-column: 1; grid-row: 1; }
+  .modal.item-page > .modal-header > .modal-preview { grid-column: 1; grid-row: 1; min-width: 0; }
   .modal.item-page > .modal-header > div:nth-child(2) {
     grid-column: 1; grid-row: 2;
     position: static;
     max-height: none;
     overflow: visible;
+    min-width: 0;
   }
-  .modal.item-page > .modal-body { grid-column: 1; grid-row: 3; }
+  .modal.item-page > .modal-body { grid-column: 1; grid-row: 3; min-width: 0; }
 }
 
 /* CSFloat-1:1: in full-page mode, section titles get bigger sans-serif
@@ -14682,23 +14721,10 @@ select option {
 }
 /* END subnav inner padding */
 
-/* CSFloat-1:1: Top Deals tab strip cleaner active state. */
-.csfloat-band-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--line);
-}
-.csfloat-band-tab {
-  padding: 12px 20px !important;
-  border-radius: 0 !important;
-  border-bottom: 2px solid transparent;
-}
-.csfloat-band-tab.active {
-  border-bottom-color: var(--cta);
-  background: transparent !important;
-  margin-bottom: -1px;
-}
-/* END band tabs */
+/* H3 Boss QA — earlier cycle's underline-tab override removed. The
+   primary `.csfloat-band-tabs` rule above (pill bg, 8px radius, active
+   solid white-on-charcoal) is the single source of truth for the home
+   rail tab strip. */
 
 /* CSFloat-1:1: improve Top Deals row max width. */
 .csfloat-band {
@@ -16345,9 +16371,14 @@ details summary:hover {
 }
 /* END action bar transform */
 
-/* CSFloat-1:1: improve placeholder text color. */
+/* CSFloat-1:1: improve placeholder text color.
+   Boss QA cycle 4 P1.4 — `var(--ink-4)` (~oklch 0.50, near-disabled
+   gray) was reading as barely-visible against dark surfaces, especially
+   the FAQ "Search FAQs…" placeholder. Bump to var(--ink-3) so the
+   placeholder is unambiguously a label, not chrome the user has to
+   squint at. Site-wide so every input gets the contrast bump. */
 input::placeholder, textarea::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
   opacity: 1;
 }
 /* END placeholder color */
@@ -19473,7 +19504,7 @@ a[target="_blank"]::after {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   outline: none;
 }
-.csfloat-cmdk-input::placeholder { color: var(--ink-4); }
+.csfloat-cmdk-input::placeholder { color: var(--ink-3); }
 .csfloat-cmdk-list {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -20151,7 +20182,7 @@ a[target="_blank"]::after {
   color: var(--ink-1);
   transition: border-color 120ms ease, background 120ms ease;
 }
-.csfloat-input::placeholder { color: var(--ink-4); }
+.csfloat-input::placeholder { color: var(--ink-3); }
 .csfloat-input:hover {
   background: var(--bg-2);
   border-color: var(--line-2);
@@ -20208,7 +20239,7 @@ a[target="_blank"]::after {
   transition: border-color 120ms ease, background 120ms ease;
   line-height: 1.5;
 }
-.csfloat-textarea::placeholder { color: var(--ink-4); }
+.csfloat-textarea::placeholder { color: var(--ink-3); }
 .csfloat-textarea:focus {
   outline: none;
   border-color: var(--cta);
@@ -23604,7 +23635,7 @@ html { scroll-behavior: smooth; }
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
-.nav-search-input::placeholder { color: var(--ink-4); }
+.nav-search-input::placeholder { color: var(--ink-3); }
 .nav-search-input:hover {
   background: var(--bg-2);
   border-color: var(--line-2);
@@ -25468,7 +25499,7 @@ html { scroll-behavior: smooth; }
   max-height: 120px;
   padding: 4px 0;
 }
-.csfloat-chat-composer-textarea::placeholder { color: var(--ink-4); }
+.csfloat-chat-composer-textarea::placeholder { color: var(--ink-3); }
 .csfloat-chat-composer-send {
   width: 32px;
   height: 32px;
@@ -29740,7 +29771,7 @@ body::after {
   border-color: var(--cta);
   box-shadow: 0 0 0 2px oklch(0.55 0.18 250 / 0.18);
 }
-.csfloat-combobox-input::placeholder { color: var(--ink-4); }
+.csfloat-combobox-input::placeholder { color: var(--ink-3); }
 .csfloat-combobox-caret {
   position: absolute;
   right: 8px;
@@ -33161,7 +33192,7 @@ hr.csfloat {
   width: 0;
   min-width: 0;
 }
-.csfloat-hero-search-input::placeholder { color: var(--ink-4); }
+.csfloat-hero-search-input::placeholder { color: var(--ink-3); }
 .csfloat-hero-search-button {
   display: inline-flex;
   align-items: center;
@@ -35591,7 +35622,7 @@ hr.csfloat {
   width: 0;
   min-width: 0;
 }
-.csfloat-search-bar-input::placeholder { color: var(--ink-4); }
+.csfloat-search-bar-input::placeholder { color: var(--ink-3); }
 .csfloat-search-bar-button {
   border: none;
   background: var(--bg-2);
@@ -41079,7 +41110,7 @@ hr.csfloat {
   width: 0;
   min-width: 0;
 }
-.csfloat-search-pill-input::placeholder { color: var(--ink-4); }
+.csfloat-search-pill-input::placeholder { color: var(--ink-3); }
 .csfloat-search-pill-shortcut {
   font-family: var(--mono);
   font-size: 10px;
@@ -42312,7 +42343,7 @@ hr.csfloat {
   width: 0;
   min-width: 0;
 }
-.csfloat-page-search-bar-input::placeholder { color: var(--ink-4); }
+.csfloat-page-search-bar-input::placeholder { color: var(--ink-3); }
 
 /* CSFloat-1:1: page header w/ avatar + name + meta. */
 .csfloat-page-id-header {
@@ -52077,7 +52108,7 @@ hr.csfloat {
   width: 0;
   min-width: 0;
 }
-.csfloat-prominent-search-input::placeholder { color: var(--ink-4); }
+.csfloat-prominent-search-input::placeholder { color: var(--ink-3); }
 .csfloat-prominent-search-button {
   padding: 0 22px;
   background: var(--cta);
@@ -64796,7 +64827,7 @@ hr.csfloat {
   width: 0;
   min-width: 0;
 }
-.csfloat-nav-search-wide-input::placeholder { color: var(--ink-4); }
+.csfloat-nav-search-wide-input::placeholder { color: var(--ink-3); }
 
 /* END dropdown multi + nav search wide */
 
@@ -67002,7 +67033,7 @@ hr.csfloat {
   color: var(--ink-1);
   transition: border-color 140ms cubic-bezier(0.2, 0.8, 0.2, 1), background 140ms;
 }
-.csfloat-search-ac-input::placeholder { color: var(--ink-4); }
+.csfloat-search-ac-input::placeholder { color: var(--ink-3); }
 .csfloat-search-ac-input:focus {
   outline: none;
   border-color: var(--cta);
@@ -67817,7 +67848,7 @@ hr.csfloat {
   color: var(--ink-1);
   letter-spacing: -0.005em;
 }
-.csfloat-cmdk-search-input::placeholder { color: var(--ink-4); }
+.csfloat-cmdk-search-input::placeholder { color: var(--ink-3); }
 .csfloat-cmdk-kbd {
   font: 500 10px/1 var(--mono);
   color: var(--ink-3);
@@ -69974,7 +70005,7 @@ hr.csfloat {
   letter-spacing: -0.005em;
 }
 .csfloat-input-group > input::placeholder,
-.csfloat-input-group > textarea::placeholder { color: var(--ink-4); }
+.csfloat-input-group > textarea::placeholder { color: var(--ink-3); }
 .csfloat-input-group > textarea {
   height: auto;
   min-height: 80px;
@@ -74975,7 +75006,7 @@ hr.csfloat {
   width: 100%;
   min-width: 0;
 }
-.csfloat-amount-input > input::placeholder { color: var(--ink-4); }
+.csfloat-amount-input > input::placeholder { color: var(--ink-3); }
 .csfloat-amount-currency {
   display: inline-flex;
   align-items: center;
@@ -76964,7 +76995,7 @@ hr.csfloat {
   letter-spacing: -0.005em;
   transition: all 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.csfloat-report-textarea::placeholder { color: var(--ink-4); }
+.csfloat-report-textarea::placeholder { color: var(--ink-3); }
 .csfloat-report-textarea:focus {
   outline: none;
   border-color: var(--cta);
@@ -79408,7 +79439,7 @@ hr.csfloat {
   letter-spacing: -0.005em;
   min-width: 0;
 }
-.csfloat-hsearch > input::placeholder { color: var(--ink-4); }
+.csfloat-hsearch > input::placeholder { color: var(--ink-3); }
 .csfloat-hsearch-kbd {
   font: 500 10px/1 var(--mono);
   color: var(--ink-3);
@@ -83609,7 +83640,7 @@ tr:hover .csfloat-row-hover-actions,
   width: 80px;
   min-width: 0;
 }
-.csfloat-quick-bid-input::placeholder { color: var(--ink-4); }
+.csfloat-quick-bid-input::placeholder { color: var(--ink-3); }
 .csfloat-quick-bid-prefix {
   display: inline-flex;
   align-items: center;
@@ -84801,7 +84832,7 @@ tr:hover .csfloat-row-hover-actions,
   padding: 6px 4px;
   min-width: 60px;
 }
-.csfloat-tag-input > input::placeholder { color: var(--ink-4); }
+.csfloat-tag-input > input::placeholder { color: var(--ink-3); }
 .csfloat-tag-input.is-error {
   border-color: oklch(0.66 0.18 30);
   background: rgba(248, 113, 113, 0.04);
@@ -86192,7 +86223,7 @@ tr:hover .csfloat-row-hover-actions,
   background: var(--bg-1);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
-.csfloat-list-picker-search > input::placeholder { color: var(--ink-4); }
+.csfloat-list-picker-search > input::placeholder { color: var(--ink-3); }
 .csfloat-list-picker-body {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -88781,7 +88812,7 @@ tr:hover .csfloat-row-hover-actions,
   letter-spacing: -0.005em;
   min-width: 0;
 }
-.csfloat-nav-search > input::placeholder { color: var(--ink-4); }
+.csfloat-nav-search > input::placeholder { color: var(--ink-3); }
 .csfloat-nav-search-kbd {
   font: 500 9px/1 var(--mono);
   color: var(--ink-3);
@@ -90383,7 +90414,7 @@ tr:hover .csfloat-row-hover-actions,
   height: 44px;
   min-width: 0;
 }
-.csfloat-hero-search > input::placeholder { color: var(--ink-4); }
+.csfloat-hero-search > input::placeholder { color: var(--ink-3); }
 .csfloat-hero-search-btn {
   flex: 0 0 auto;
   height: 40px;
@@ -91373,7 +91404,7 @@ tr:hover .csfloat-row-hover-actions,
   width: 100%;
   transition: all 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.csfloat-input::placeholder { color: var(--ink-4); }
+.csfloat-input::placeholder { color: var(--ink-3); }
 .csfloat-input:focus {
   border-color: var(--cta);
   background: var(--bg-1);
@@ -91426,7 +91457,7 @@ tr:hover .csfloat-row-hover-actions,
   resize: vertical;
   transition: all 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.csfloat-textarea::placeholder { color: var(--ink-4); }
+.csfloat-textarea::placeholder { color: var(--ink-3); }
 .csfloat-textarea:focus {
   border-color: var(--cta);
   background: var(--bg-1);
@@ -104390,7 +104421,7 @@ tr:hover .csfloat-row-hover-actions,
   outline: 0;
   transition: all 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.csfloat-input-icon > input::placeholder { color: var(--ink-4); }
+.csfloat-input-icon > input::placeholder { color: var(--ink-3); }
 .csfloat-input-icon > input:focus {
   border-color: var(--cta);
   background: var(--bg-1);
@@ -104618,7 +104649,7 @@ tr:hover .csfloat-row-hover-actions,
   letter-spacing: -0.005em;
   min-width: 0;
 }
-.csfloat-h-search > input::placeholder { color: var(--ink-4); }
+.csfloat-h-search > input::placeholder { color: var(--ink-3); }
 .csfloat-h-search-btn {
   display: inline-flex;
   align-items: center;
@@ -105348,7 +105379,7 @@ tr:hover .csfloat-row-hover-actions,
   letter-spacing: -0.005em;
   min-width: 0;
 }
-.csfloat-search-combo > input::placeholder { color: var(--ink-4); }
+.csfloat-search-combo > input::placeholder { color: var(--ink-3); }
 .csfloat-search-combo-btn {
   display: inline-flex;
   align-items: center;
@@ -116666,6 +116697,22 @@ tr:hover .csfloat-row-hover-actions,
   top: 14px;
   right: 14px;
   z-index: 2;
+  max-width: calc(100% - 28px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Boss QA cycle 3 C3-4 — at <=600px the badge cropped at the right
+   edge ("Stand" not "Standard"). Tighter inset + smaller font so it
+   stays inside the visible image card. */
+@media (max-width: 600px) {
+  .site-root.full-page-mode .modal-preview .rarity-badge {
+    top: 10px;
+    right: 10px;
+    font-size: 9px;
+    padding: 3px 8px;
+    max-width: calc(100% - 20px);
+  }
 }
 /* END /item polish */
 
@@ -117029,11 +117076,68 @@ tr:hover .csfloat-row-hover-actions,
    wrapped after each word ("Gold / Earrings"). Force 1-col stacking
    below the breakpoint so each element gets the full content width. */
 @media (max-width: 768px) {
+  /* M1m belt-and-suspenders: force .modal.item-page to block flow on
+     phones so the grid track-size cannot push children off-screen.
+     The inner items (.modal-preview, the rail-div, .modal-body,
+     .modal-actions) become normal flow children stacked top-to-bottom. */
+  .site-root.full-page-mode .modal.item-page {
+    display: block !important;
+    grid-template-columns: none !important;
+    padding: 14px !important;
+  }
+  .site-root.full-page-mode .modal.item-page > .modal-header > div:nth-child(2) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding-right: 0 !important;
+  }
+  .site-root.full-page-mode .modal.item-page > .modal-header > div:nth-child(2) > * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
   .site-root.full-page-mode .item-modal-grid,
   .site-root.full-page-mode .modal-header,
   .site-root.full-page-mode .modal-body {
     display: block !important;
     grid-template-columns: 1fr !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  /* M1m: H1 was wrapping to ridiculous widths on mobile because the rail
+     was 1040px wide. Now that the rail is constrained, force the h1 to
+     wrap inside its container. */
+  .site-root.full-page-mode .modal-name {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    font-size: 22px !important;
+    line-height: 1.2 !important;
+  }
+  /* M2m: /stall/<n> InfoModal h1 ("<displayName>'s Stall") was touching
+     the right edge on phones because info-modal-header has fixed
+     padding + a flex layout that didn't allow wrapping. Long usernames
+     ("skinbox.market" + apostrophe-s + "Stall") overran the viewport.
+     Apply a clamp + word-break so it wraps inside the page width. */
+  .site-root.full-page-mode .info-modal-header {
+    font-size: clamp(20px, 6.4vw, 26px) !important;
+    line-height: 1.2 !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    flex-wrap: wrap !important;
+  }
+  .site-root.full-page-mode .info-modal-header > * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  .site-root.full-page-mode .stall-name,
+  .site-root.full-page-mode .stall-header-name {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
   }
   /* The desktop alignment-sweep block forced .modal-actions to a
      1fr/auto grid for the Buy + Cart row. On mobile that grid pushes
@@ -117139,98 +117243,11 @@ tr:hover .csfloat-row-hover-actions,
 }
 /* END mobile /item collapse */
 
-/* ─── M3m: /db mobile stacked card layout (2026-05-01) ──────────────
-   Pre-fix the 820px rule kept .db-row as a 9-col grid with min-width
-   780px and forced horizontal scroll. On a 390px viewport that meant
-   the visible content was ONLY the rank column (#1, #2, #3...) — every
-   other column off-screen. Boss flagged in cycle 4 + 5; converting to
-   a 2-row stacked card pattern at ≤600px so each row paints thumb +
-   name + price visibly without sideways scrolling.
-   Strategy: hide rank/rarity/supply/sold/views/watch on mobile. Keep
-   td:nth-child(2) (item cell with thumb + name) as the wide left col;
-   td:nth-child(3) (category) under name; td:nth-child(8) (floor price)
-   on the right. */
-@media (max-width: 600px) {
-  .db-table-scroll { overflow-x: visible !important; }
-  .db-table { display: block; overflow-x: visible; min-width: 0; width: 100%; }
-  .db-table thead { display: none; }
-  .db-table tbody { display: block; width: 100%; }
-  .db-table tbody tr,
-  .db-table tbody tr.db-row {
-    display: grid !important;
-    grid-template-columns: 1fr auto !important;
-    grid-template-rows: auto auto !important;
-    grid-column-gap: 10px !important;
-    grid-row-gap: 4px !important;
-    min-width: 0 !important;
-    width: 100% !important;
-    padding: 10px 12px !important;
-    border-bottom: 1px solid var(--line) !important;
-    align-items: center;
-    height: auto !important;
-  }
-  .db-table tbody td {
-    display: block;
-    padding: 0 !important;
-    text-align: left !important;
-    border: 0 !important;
-    min-width: 0;
-    height: auto !important;
-  }
-  /* hide non-essential columns on mobile */
-  .db-table tbody td.db-rank,
-  .db-table tbody td:nth-child(4),
-  .db-table tbody td:nth-child(5),
-  .db-table tbody td:nth-child(6),
-  .db-table tbody td:nth-child(7),
-  .db-table tbody td:last-child { display: none !important; }
-  /* Item cell (thumb + name + sub) — col 1, row 1 */
-  .db-table tbody td:nth-child(2) {
-    grid-column: 1 / 2;
-    grid-row: 1 / 2;
-    overflow: hidden;
-  }
-  .db-table tbody td:nth-child(2) .db-item-cell {
-    gap: 10px;
-    align-items: center;
-  }
-  .db-table tbody td:nth-child(2) .db-thumb {
-    width: 40px !important;
-    height: 40px !important;
-    flex: 0 0 40px;
-  }
-  .db-table tbody td:nth-child(2) .db-name {
-    font-weight: 600;
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .db-table tbody td:nth-child(2) .db-sub {
-    font-size: 10px;
-    color: var(--ink-4);
-    margin-top: 1px;
-  }
-  /* Category — col 1, row 2, indented to align with name */
-  .db-table tbody td.db-cat {
-    grid-column: 1 / 3;
-    grid-row: 2 / 3;
-    font-size: 11px;
-    color: var(--ink-3);
-    padding-left: 50px !important;
-  }
-  /* Floor price — col 2, row 1, right-aligned */
-  .db-table tbody td:nth-child(8) {
-    grid-column: 2 / 3;
-    grid-row: 1 / 2;
-    text-align: right !important;
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--ink);
-    white-space: nowrap;
-  }
-}
-/* END M3m */
+/* M3m note (cycle 5/6): a duplicate rule formerly lived here that
+   re-declared grid-template-columns: 1fr auto and invalidated the
+   cycle-4 grid-template-areas template. Removed; the "M3m cycle 6 —
+   definitive" rule near the end of the file is now the single source
+   of truth for /db mobile cards. */
 
 /* ─── Ticker strip alignment (2026-04-29) ─────────────────────────
    Operator-flagged: the "LIVE SALES" ticker rendered as a 579px-wide
@@ -117530,21 +117547,28 @@ h1.modal-h1,
   top: 0; left: 0;
   width: 280px;
 }
+/* Boss QA cycle 4 P1.2 — boss flagged the back/mid stack cards as
+   reading invisible at 1920×1080 ("only the front Cardboard King hero
+   card was visible"). Bump opacity (0.40→0.55, 0.60→0.72) and add a
+   real blur (back 2px, mid 1.2px) so they read as deliberate
+   out-of-focus parallax layers rather than failed clones or render
+   bugs. The intent is the cards are clearly visible AS BACKGROUND
+   LAYERS, with the prominent front card still the focus. */
 .csfloat-home-hero-stack .stack-back {
   transform: rotate(5deg) translate(70px, 36px) scale(0.94);
-  opacity: 0.4;
-  filter: blur(0.4px) saturate(0.8);
+  opacity: 0.55;
+  filter: blur(2px) saturate(0.85);
   z-index: 1;
-  box-shadow: 0 22px 50px -18px rgba(0,0,0,0.85),
-              0 8px 24px -12px rgba(0,0,0,0.75);
+  box-shadow: 0 26px 56px -18px rgba(0,0,0,0.9),
+              0 10px 28px -12px rgba(0,0,0,0.8);
 }
 .csfloat-home-hero-stack .stack-mid {
   transform: rotate(-3deg) translate(36px, 18px) scale(0.97);
-  opacity: 0.6;
-  filter: saturate(0.9);
+  opacity: 0.72;
+  filter: blur(1.2px) saturate(0.95);
   z-index: 2;
-  box-shadow: 0 22px 50px -16px rgba(0,0,0,0.85),
-              0 10px 24px -10px rgba(0,0,0,0.75);
+  box-shadow: 0 26px 56px -16px rgba(0,0,0,0.9),
+              0 12px 28px -10px rgba(0,0,0,0.8);
 }
 .csfloat-home-hero-stack .stack-front {
   transform: rotate(-7deg);
@@ -119883,4 +119907,114 @@ h2.auctions-ending-soon-head {
   color: var(--ink-2);
   flex-shrink: 0;
 }
+
+/* ─── M3m cycle 6 — definitive /db mobile stacked-card layout ─────
+   Pre-fix the cascade had ~7 conflicting @media (max-width: 820px) and
+   @media (max-width: 600px) rules touching .db-table that toggled
+   display between block / flex / grid each pass. Net result on a
+   390px phone: only the rank cell + rarity badge were visible; names
+   + prices off-screen right.
+   This rule lives at the END of the file so it wins the cascade at
+   equal specificity. Keeps thumb + name + category in col 1, price
+   in col 2; hides every other cell. */
+@media (max-width: 600px) {
+  .db-table-scroll {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .db-table-scroll > table.db-table {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    table-layout: auto !important;
+  }
+  .db-table-scroll > table.db-table thead { display: none !important; }
+  .db-table-scroll > table.db-table tbody {
+    display: block !important;
+    width: 100% !important;
+  }
+  .db-table-scroll > table.db-table tbody tr,
+  .db-table-scroll > table.db-table tbody tr.db-row {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 10px !important;
+    row-gap: 4px !important;
+    flex-direction: unset !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 12px !important;
+    border-bottom: 1px solid var(--line) !important;
+    border-radius: 0 !important;
+    align-items: center !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+  }
+  .db-table-scroll > table.db-table tbody td {
+    display: block !important;
+    padding: 0 !important;
+    text-align: left !important;
+    border: 0 !important;
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+  }
+  /* Hide every column EXCEPT item (2nd) + category (3rd) + price (8th). */
+  .db-table-scroll > table.db-table tbody td.db-rank,
+  .db-table-scroll > table.db-table tbody td:nth-child(4),
+  .db-table-scroll > table.db-table tbody td:nth-child(5),
+  .db-table-scroll > table.db-table tbody td:nth-child(6),
+  .db-table-scroll > table.db-table tbody td:nth-child(7),
+  .db-table-scroll > table.db-table tbody td:last-child {
+    display: none !important;
+  }
+  .db-table-scroll > table.db-table tbody td:nth-child(2) {
+    grid-column: 1 / 2 !important;
+    grid-row: 1 / 2 !important;
+    overflow: hidden !important;
+  }
+  .db-table-scroll > table.db-table tbody td:nth-child(2) .db-item-cell {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    align-items: center !important;
+    min-width: 0 !important;
+  }
+  .db-table-scroll > table.db-table tbody td:nth-child(2) .db-thumb {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+  .db-table-scroll > table.db-table tbody td:nth-child(2) .db-name {
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+  .db-table-scroll > table.db-table tbody td.db-cat {
+    grid-column: 1 / 3 !important;
+    grid-row: 2 / 3 !important;
+    font-size: 11px !important;
+    color: var(--ink-3) !important;
+    padding-left: 50px !important;
+  }
+  .db-table-scroll > table.db-table tbody td:nth-child(8) {
+    grid-column: 2 / 3 !important;
+    grid-row: 1 / 2 !important;
+    text-align: right !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: var(--ink) !important;
+    white-space: nowrap !important;
+    justify-self: end !important;
+  }
+}
+/* END M3m definitive */
 
