@@ -21,6 +21,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+  <!-- N2 cycle 6 — Material Symbols Rounded so the footer mail icon renders
+       as a glyph instead of the literal word "mail". -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/design.css">
   <style>
     .changelog { max-width: 820px; margin: 40px auto 80px; padding: 0 24px; color: var(--text-primary); }
@@ -28,7 +31,7 @@
     .changelog-intro { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
     .changelog-entry { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
     .changelog-entry:last-child { border-bottom: none; }
-    .changelog-date { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .changelog-date { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; }
     .changelog-title { font-size: 20px; margin: 6px 0 14px; color: var(--text-primary); }
     /* Batch 1068 — editorial changelog tags. Mono text, hairline border,
        color-coded only via a 3px left-stripe (severity accent), no full-
@@ -50,15 +53,38 @@
       border: 1px solid var(--line, rgba(255,255,255,0.08));
       border-left-width: 3px;
     }
-    .changelog-tag.feature  { border-left-color: #4ade80; }
-    .changelog-tag.fix      { border-left-color: #fbbf24; }
-    .changelog-tag.security { border-left-color: #f87171; }
-    .changelog-tag.polish   { border-left-color: #60a5fa; }
+    .changelog-tag.feature  { border-left-color: var(--ink, #e5eaf4); color: var(--ink, #e5eaf4); }
+    .changelog-tag.fix      { border-left-color: var(--ink-3, #8a93b0); }
+    .changelog-tag.security { border-left-color: var(--accent, #1ea5ff); color: var(--accent, #1ea5ff); }
+    .changelog-tag.polish   { border-left-color: var(--line-2, rgba(255,255,255,0.16)); color: var(--ink-4, #5b6280); }
     .changelog-list li     { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; font-size: 14px; }
     .changelog-back        { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
   </style>
 </head>
 <body>
+  <!-- N2 cycle 6 — server-rendered top nav so the standalone changelog
+       page carries the same chrome the SPA does. Uses the SAME .nav /
+       .nav-inner / .nav-brand / .nav-links classes design.css already
+       styles, so it inherits the live look without re-mounting React. -->
+  <nav class="nav" role="navigation" aria-label="Primary">
+    <div class="nav-inner">
+      <a class="nav-brand" href="/" aria-label="SkinBox home">
+        <img src="/img/logo.svg" alt="" width="28" height="28" style="vertical-align:middle">
+        <span style="margin-left:8px;font-weight:700;letter-spacing:-0.01em;font-size:16px;">SkinBox</span>
+      </a>
+      <div class="nav-links" role="menubar">
+        <a class="nav-link" href="/market" role="menuitem">Market</a>
+        <a class="nav-link" href="/database" role="menuitem">Database</a>
+        <a class="nav-link" href="/loadout-lab" role="menuitem">Loadout Lab</a>
+        <a class="nav-link" href="/faq" role="menuitem">FAQ</a>
+        <a class="nav-link active" href="/changelog.html" role="menuitem" aria-current="page">Changelog</a>
+      </div>
+      <div class="nav-right" aria-label="Account">
+        <a class="btn btn-ghost" href="/" style="font-size:12px;padding:6px 12px;">Back to app</a>
+      </div>
+    </div>
+  </nav>
+
   <main class="changelog">
     <a class="changelog-back" href="/">← Back to SkinBox</a>
     <h1>Changelog</h1>
@@ -70,9 +96,66 @@
     </p>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026 — latest</div>
-      <div class="changelog-title">Trust signals · perf sweep · Profile overflow banners · staff-panel rate limits</div>
+      <h2 class="changelog-date">May 1, 2026 — latest</h2>
+      <div class="changelog-title">SEO + PWA + share URL fixes · HSTS · /watchlist 401 silenced · browser-search routing · seller-stall analytics</div>
       <ul class="changelog-list">
+        <li><span class="changelog-tag fix">FIX</span><strong>Public sitemap was emitting <code>http://localhost:8082/...</code> URLs.</strong> Search engines crawling skinbox.market would have indexed broken URLs. <code>SitemapController</code> now derives the base URL from the actual request via <code>X-Forwarded-Proto</code> + <code>X-Forwarded-Host</code> (Cloudflare). Local dev still emits localhost URLs; public visitors get https://skinbox.market. Same fix applied to <code>OpenGraphController</code> (Discord / Facebook / Twitter shares of /item/{id}, /stall/{id}, /faq, /loadout/{id} all leaked localhost canonical + og:url tags).</li>
+        <li><span class="changelog-tag fix">FIX</span><strong>Email links + Stripe redirects.</strong> Outbound verification emails, suspension notices, wallet alerts, and Stripe deposit success/cancel redirects all used <code>APP_PUBLIC_URL</code>, which was hardcoded to localhost in run-local.sh. Real users on skinbox.market got broken localhost links. Now defaults to <code>${PUBLIC_URL:-https://skinbox.market}</code>.</li>
+        <li><span class="changelog-tag fix">FIX</span><strong>Browser-search bar UX.</strong> OpenSearch descriptor pointed `?q={searchTerms}` at <code>/</code> (the marketing landing) — typing "blue hat" in the URL bar landed on the hero ignoring the query. Updated to <code>/market?q={searchTerms}</code> + added an SPA-side redirect for legacy <code>/?q=...</code> links so the user actually sees filtered results.</li>
+        <li><span class="changelog-tag fix">FIX</span><strong>PWA manifest.</strong> <code>start_url</code> + Marketplace shortcut both pointed to <code>/</code> (marketing hero). Returning users tapping the installed app now land on <code>/market</code> grid directly.</li>
+        <li><span class="changelog-tag security">SECURITY</span><strong>HSTS now active on the public site.</strong> Pre-fix, <code>Strict-Transport-Security</code> only emitted when <code>SECURITY_HSTS=true</code> env was set, and <code>run-local.sh</code> sets it to <code>false</code> (correct for local HTTP dev). The same container also serves https://skinbox.market via Cloudflare tunnel — those requests were silently missing HSTS. <code>CorrelationIdFilter</code> now also checks <code>X-Forwarded-Proto: https</code> so HTTPS visitors get HSTS regardless of the env flag.</li>
+        <li><span class="changelog-tag polish">POLISH</span><strong>/watchlist 401 noise gone.</strong> <code>WatchlistModal</code> was unconditionally firing <code>fetchWatchlistAlerts()</code> on mount, which 401's for anon users. Now gated on <code>me?.id</code>. Network panel + console error stream stay clean for sign-out browsing.</li>
+        <li><span class="changelog-tag polish">POLISH</span><strong>aria-label on filter controls.</strong> <code>.discount-select</code> on /market now identifies as "Minimum discount % vs Steam Market price"; affiliate email field on /affiliate as "Affiliate program contact email". 16 of 16 routes audited; 0 a11y issues.</li>
+        <li><span class="changelog-tag feature">NEW</span><strong>Seller-stall analytics tab.</strong> <code>/api/listings/my-stall/analytics</code> + new "Analytics" tab in MyStall: per-active-listing view count, my-price-vs-floor delta, and 30-day item-level demand count (one bulk GROUP BY for the whole stall). Lazy-loaded; opens up a price-strategy surface sellers had to eyeball before.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <h2 class="changelog-date">May 1, 2026 — earlier</h2>
+      <div class="changelog-title">Sessions never expire (365d TTL, persist across restarts) · branded error pages · NUL-byte 500 fix · /sell + /wallet H1 a11y</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span><strong>Sessions effectively never expire and now survive container restarts.</strong> Re-enabled Spring Session JDBC with a 365-day TTL on all three layers — Tomcat servlet session timeout, Spring Session row TTL (<code>@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 365 * 24 * 60 * 60)</code>), and the browser cookie's <code>Max-Age=31536000</code> so the cookie itself sticks across browser closes. Verified live: same <code>SBOX_SESSION</code> cookie issued before <code>docker restart</code> still returns 200 after the restart. Closes the standing complaint about being signed out mid-grind.</li>
+        <li><span class="changelog-tag fix">FIX</span>The session-cookie sanitizer was hardcoded to scan a cookie named <code>SESSION</code>, but the actual Tomcat cookie is <code>SBOX_SESSION</code> — so corrupt cookies (with embedded NUL bytes) sailed past the filter and hit Postgres directly, producing <code>invalid byte sequence for encoding "UTF8": 0x00</code> 500s on every authenticated request. Sanitizer now checks both names and runs a defence-in-depth pass over <em>every</em> inbound cookie (control bytes scrubbed in place for non-session cookies; session cookies dropped + cleared on the response so the browser stops replaying the bad value). Without this fix, the JDBC re-enable above would immediately re-trigger the 500 cascade.</li>
+        <li><span class="changelog-tag security">SECURITY</span>Replaced Spring's default Whitelabel error page with a branded <code>GlobalErrorController</code>. <code>text/html</code> requests get a small SkinBox-themed page (no framework strings, no <code>/error</code> path leak); <code>application/json</code> + every <code>/api/**</code> path get a clean envelope <code>{ status, error, message, path, timestamp }</code> with status-code-specific user-readable copy (no raw exception messages — those leak SQL/stack to anonymous visitors). Disabled Whitelabel via <code>server.error.whitelabel.enabled: false</code> + stripped <code>include-message/stacktrace/binding-errors/exception</code> in both yml profiles.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Every dedicated route (<code>/sell</code>, <code>/wallet</code>, <code>/profile</code>, <code>/cart</code>, etc.) now ships a real <code>&lt;h1&gt;</code> page heading. <code>InfoModal</code>'s title is now <code>&lt;h1 class="info-modal-header"&gt;</code> (was a styled <code>&lt;div&gt;</code>); <code>/wallet</code>'s custom layout gets a <code>visually-hidden</code> H1 so screen readers + SEO crawlers see the page heading without altering the visual layout. Page-heading audit went from 1/10 routes lacking a heading to 0/10.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <h2 class="changelog-date">April 30, 2026</h2>
+      <div class="changelog-title">QA sweep · listing-count sync · sort price-asc fix · reflexive legal redirects · footer column re-balance</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag fix">FIX</span>Sort by price (and any sort that relies on API order) was silently re-ordered alphabetically by <code>item.id</code> after dedup — the dedup map used a plain object whose <code>Object.values()</code> iterates integer-string keys in numeric order. Switched to a <code>Map</code> so insertion order is preserved. Now <code>?sort=price_asc</code> correctly puts $1.08 first instead of $1.47.</li>
+        <li><span class="changelog-tag fix">FIX</span>"<em>X</em> listings found" count text on the marketplace toolbar used the raw API <code>listings.length</code> (40) instead of the post-dedup/post-filter <code>dedupedListings.length</code>. Click "% Deals" and the chip pool narrows to 17 — the count now says "17", not "40".</li>
+        <li><span class="changelog-tag fix">FIX</span>Home rail "Limited" tab dead-ended to "0 listings found" — there are no Limited-rarity items in the catalog. Swapped to "Off-Market", which has 14 live listings.</li>
+        <li><span class="changelog-tag feature">NEW</span>12 reflexive legal-doc redirects so common typed URLs land on the right doc — <code>/trade-safety</code>, <code>/refunds</code>, <code>/disclaimer</code>, <code>/acceptable-use</code>, <code>/responsible-disclosure</code>, plus shorthands (<code>/safety</code>, <code>/risk</code>, <code>/aup</code>, <code>/security</code>, <code>/tos</code>, <code>/eula</code>, <code>/refund-policy</code>) all 302 to <code>/legal/<em>doc</em>.html</code>.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Footer Legal column was cramping "Responsible Disclosure" onto two lines. Re-balanced the 5-column grid (<code>1.4fr 0.85fr 0.85fr 0.95fr 1.25fr</code>) and added <code>white-space: nowrap</code> to all footer links so nothing wraps awkwardly.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <h2 class="changelog-date">April 30, 2026 — earlier</h2>
+      <div class="changelog-title">CSFloat 1:1 home redesign · marketing landing split · grid card chrome · /db hero banner</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span><code>/</code> is now a true marketing landing — pure hero + tab rail + 6-card preview strip + trust strip, no marketplace grid. The visitor lands, scans the live featured listings, and clicks "Visit Marketplace →" (or any tab) to enter <code>/market</code> for the full grid. Mirrors csfloat.com's home/market split.</li>
+        <li><span class="changelog-tag feature">NEW</span>Hero card stack on home: top card pulls a live featured listing, two stack-back cards peek to the right with rotation/translate offsets, every card carries the full csfloat chrome (rarity-tinted top + bottom stripes, magnifier zoom cue, decorative wear bar with deterministic-thumb position, online status row, green USD chip, "Buy now / Bargain / cart" decorative button trio).</li>
+        <li><span class="changelog-tag feature">NEW</span>"Top Deals · Newest Items · Limited" tab rail under the hero. Each tab navigates to <code>/market?sort=…</code> with the matching filter pre-applied. URL re-read on popstate so the deep-link actually lands on the filtered grid (was previously rewritten by the in-memory state).</li>
+        <li><span class="changelog-tag feature">NEW</span>Trust strip below the hero — <code>● 40 live listings · 2% platform fee · 🔒 Steam OpenID auth · ✓ Stripe secured payments</code>. Live-listings dot pulses softly to signal a live marketplace.</li>
+        <li><span class="changelog-tag feature">NEW</span>Every grid card (on /market and /watchlist) now ships the full csfloat chrome: magnifier zoom icon at bottom-right, green→yellow→red rarity-band bar with a thumb position derived from rarity + listing id, the rarity tier name + listing id printed beneath (s&box has no float values — see <code>s&box vs CSFloat</code>), "● Online" / "Offline" + verified-blue check status row, green USD <code>$</code> chip after the price, recolored green discount chip. Cards lift + image-scale on hover.</li>
+        <li><span class="changelog-tag feature">NEW</span><code>/db</code> hero banner — <code>[s&box] Database · [80 Skins indexed across the workshop]</code> block sits above the search controls, mirrors csfloat's "/db" hero treatment with corner tick marks and a centered stat chip.</li>
+        <li><span class="changelog-tag fix">FIX</span><code>/item/{id}</code> wear bar gradient direction — was inverted (red on left, green on right); now reads green Factory-New → red Battle-Scarred to match csfloat's standard wear axis.</li>
+        <li><span class="changelog-tag fix">FIX</span>Home featured pool stays stable when filter tabs are clicked — dedicated <code>/api/listings?sort=price_desc&limit=8</code> fetch on mount caches a separate <code>homeFeatured</code> array so the hero stack never blanks out during filter narrowing.</li>
+        <li><span class="changelog-tag polish">POLISH</span>All <code>'/?…'</code> deep-links throughout the SPA (auction-only chip, rarity badge, breadcrumb Market crumb, sort-by-discount card, etc.) re-pointed to <code>'/market?…'</code> so the home/market split is consistent everywhere.</li>
+        <li><span class="changelog-tag polish">POLISH</span>Card price row collapsed to a single line — <code>flex-wrap: nowrap</code> on <code>.grid-price</code> + <code>white-space: nowrap</code> on <code>.grid-fresh</code> so price + USD chip + Steam icon + green discount chip + "Listed Xd ago" all fit cleanly without wrapping mid-word.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <h2 class="changelog-date">April 2026 — earlier</h2>
+      <div class="changelog-title">Inline seller ratings · trust signals · perf sweep · Profile overflow banners · staff-panel rate limits</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag feature">NEW</span>Inline seller ratings on every listing. Each row in the marketplace grid + the Active Listings table on /item now carries a "★ 4.7" chip when the seller has reviews — populated server-side via a single GROUP BY across every seller in the response (no per-seller round-trip). Buyers see seller reputation at a glance without opening the stall page first. CSFloat-1:1.</li>
+        <li><span class="changelog-tag feature">NEW</span>Date-range filter on every personal CSV export. <code>/api/profile/trades.csv</code>, <code>/api/profile/bids.csv</code>, <code>/api/profile/offers.csv</code>, and <code>/api/listings/my-stall/sold.csv</code> now accept optional <code>from</code> and <code>to</code> query params (epoch ms, inclusive). Lets users pull a quarterly slice for tax bookkeeping without piping through a full-year file. Backward-compatible — calls without the params still export everything.</li>
         <li><span class="changelog-tag feature">NEW</span>Homepage "Marketplace at a glance" strip expanded from 4 to 10 trust signals: active listings + seller count ("41 from 12 sellers"), 24h volume + sale count ("$84 · 3 sales"), 7d volume + count, price range (floor → ceiling), live auctions, and a "Last sale Xm ago" green liveness chip when a real buyer just closed a trade. Anon visitors read a much fuller "is this marketplace alive" signal.</li>
         <li><span class="changelog-tag feature">NEW</span>Seller stall hero carries "Last listed Xh ago" + green "Last sold Xh ago" chips — listing activity and sales activity tell different stories (a seller who relists but never sells vs one who moves inventory routinely). Auto-hide on stale / missing values so dormant stalls stay quiet.</li>
         <li><span class="changelog-tag feature">NEW</span>Self-visit "Manage stall" affordance: signed-in users visiting their own <code>/stall/{id}</code> URL see an accent-styled one-click jump to <code>/me/stall</code>. Previously they saw a muted-but-identical visitor view with no management hook.</li>
@@ -90,7 +173,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026 — prior</div>
+      <h2 class="changelog-date">April 2026 — prior</h2>
       <div class="changelog-title">Security hardening · CSV injection fix · trailing-slash sweep · wallet leak fix</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>♿ Full WAI-ARIA tablist semantics on every tab strip: Profile, Wallet, Offers, Admin, CSR. Arrow keys cycle tabs, <code>Home</code>/<code>End</code> jump to first/last, screen readers announce "Tab 3 of 9, selected" instead of raw button labels.</li>
@@ -129,7 +212,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Profile analytics + trust signals</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Capital-exposure summary strips on Profile → Buy Orders, Active Bids, and Offers — see your total potential outlay across standing positions at a glance instead of hand-summing rows.</li>
@@ -149,7 +232,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Polish sprint · loadouts + cart + cache</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Loadout slots can now be locked — click the on a filled slot and Generate keeps it intact while reshuffling the rest.</li>
@@ -171,7 +254,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Developer platform + export surface</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Find a seller by name — debounced dropdown under the Top Sellers rail with ★ rating, verified badge, and keyboard nav (↑↓ Enter Esc).</li>
@@ -194,7 +277,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">CSFloat-manual parity sprint</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Affiliate Program page at <a href="/affiliate" style="color:var(--accent)">/affiliate</a> with hero banner, platform requirements, and apply CTA.</li>
@@ -225,7 +308,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">SEO + social-preview overhaul</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Platform-wide "Just Sold" ticker on the homepage — social proof from live activity.</li>
@@ -239,7 +322,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Moderation + staff tooling</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Users can Report a listing or report a seller — reports route to a dedicated admin queue.</li>
@@ -250,7 +333,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Profile + wallet upgrades</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Export your trade + offer + transaction history as CSV for tax and accounting.</li>
@@ -262,7 +345,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Marketplace + discovery</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag feature">NEW</span>Biggest-discount sort option + "−X%" chips on listing rows below Steam Market price.</li>
@@ -273,7 +356,7 @@
     </div>
 
     <div class="changelog-entry">
-      <div class="changelog-date">April 2026</div>
+      <h2 class="changelog-date">April 2026</h2>
       <div class="changelog-title">Security + infrastructure</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag security">SECURITY</span>CSRF double-submit-cookie on every write endpoint; session cookies HttpOnly + SameSite-strict in prod.</li>
@@ -284,5 +367,29 @@
       </ul>
     </div>
   </main>
+
+  <!-- N2 cycle 6 — server-rendered site footer so the standalone
+       changelog has the same closing chrome as the SPA pages. Uses
+       site-footer + site-footer-bottom + site-footer-meta classes that
+       design.css already styles. -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer-bottom">
+      <div class="site-footer-copy">
+        © 2026 SkinBox · Not affiliated with Facepunch Studios. s&amp;box is a trademark of Facepunch Ltd.
+      </div>
+      <div class="site-footer-socials" aria-label="Community">
+        <a class="site-footer-social" href="mailto:support@skinbox.market" aria-label="Email support" title="support@skinbox.market">
+          <span class="material-symbols-rounded" style="font-size:20px;vertical-align:middle;">mail</span>
+        </a>
+      </div>
+      <div class="site-footer-meta">
+        <span>All prices in USD</span>
+        <span class="dot">·</span>
+        <span>Stripe-secured payments</span>
+        <span class="dot">·</span>
+        <span>Steam OpenID auth</span>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

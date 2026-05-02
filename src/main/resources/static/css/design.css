@@ -9812,26 +9812,46 @@ input[type="radio"] {
   box-shadow: 0 0 14px color-mix(in oklab, var(--cta) 60%, transparent);
 }
 
-/* ─── Rarity badge variants — bump the contrast so STANDARD / OFF-MARKET /
-   LIMITED reads at a glance from across the grid. */
+/* ─── Rarity badge variants — F4 (cycle 7): boss flagged that every card
+   carrying a Standard tag in the same lockup made rarity reads visually
+   useless. Strategy: dial Standard down to a near-invisible muted token,
+   and pump Limited (blue) + Off-Market/Scarce (gold) into solid filled
+   pills with a 3px left rail so the eye is pulled to the non-Standard
+   rows from across the grid. Same three data tokens as before, much
+   stronger visual hierarchy. */
 .rarity-badge {
   font-weight: 700;
   letter-spacing: 0.06em;
+  border-left-width: 1px;
+  position: relative;
 }
 .rarity-badge.rarity-Standard {
-  color: var(--ink-2);
-  background: color-mix(in oklab, var(--bg) 70%, transparent);
-  border-color: var(--line-2);
+  color: var(--ink-3);
+  background: transparent;
+  border-color: var(--line);
+  opacity: 0.78;
 }
 .rarity-badge.rarity-Off-Market {
-  color: color-mix(in oklab, #e8b960 80%, white);
-  background: color-mix(in oklab, #e8b960 14%, var(--bg));
-  border-color: color-mix(in oklab, #e8b960 35%, var(--line));
+  color: oklch(0.18 0.02 90);
+  background: linear-gradient(180deg,
+    color-mix(in oklab, #e8b960 88%, white) 0%,
+    #e8b960 100%);
+  border-color: color-mix(in oklab, #e8b960 60%, var(--line));
+  border-left: 3px solid color-mix(in oklab, #e8b960 80%, black);
+  padding-left: 8px !important;
+  text-shadow: 0 1px 0 color-mix(in oklab, #fff 30%, transparent);
+  box-shadow: 0 1px 4px -1px color-mix(in oklab, #e8b960 35%, transparent);
 }
 .rarity-badge.rarity-Limited {
-  color: color-mix(in oklab, var(--cta) 80%, white);
-  background: color-mix(in oklab, var(--cta) 14%, var(--bg));
-  border-color: color-mix(in oklab, var(--cta) 35%, var(--line));
+  color: oklch(0.99 0 0);
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--cta) 84%, white) 0%,
+    var(--cta) 100%);
+  border-color: color-mix(in oklab, var(--cta) 60%, var(--line));
+  border-left: 3px solid color-mix(in oklab, var(--cta) 80%, black);
+  padding-left: 8px !important;
+  text-shadow: 0 1px 0 color-mix(in oklab, #000 18%, transparent);
+  box-shadow: 0 1px 4px -1px color-mix(in oklab, var(--cta) 35%, transparent);
 }
 
 /* ─── Listing-table row chrome — bump hover divider to accent + add a
@@ -26181,9 +26201,11 @@ html { scroll-behavior: smooth; }
   font-weight: 600;
 }
 .nav-right {
+  /* N4 cycle 6 — keep this in lockstep with the earlier rule at line 200
+     and the BOSS_PROMPT_3 G2 spec (4px within group, 12px between). */
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -119140,6 +119162,39 @@ h1.modal-h1,
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  /* F5 (cycle 7): premium sites hide native scroll chrome on desktop and
+     surface a slim themed track only when the user actively scrolls /
+     hovers. `scrollbar-gutter: stable` reserves the gutter so the table
+     content doesn't reflow on hover; Firefox uses `scrollbar-width: thin`
+     + `scrollbar-color`; WebKit falls through to the ::-webkit-scrollbar
+     overrides below. */
+  scrollbar-gutter: stable;
+  /* F5 cycle 9 — boss spec: thin always-on track in --line. Slightly
+     darker on hover/focus so the user has a constant reading anchor
+     when the table overflows. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  transition: scrollbar-color 200ms ease;
+}
+.db-table-scroll:hover,
+.db-table-scroll:focus-within {
+  scrollbar-color: var(--line-2) transparent;
+}
+.db-table-scroll::-webkit-scrollbar {
+  height: 8px;
+  background: transparent;
+}
+.db-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+  transition: background 200ms ease;
+}
+.db-table-scroll:hover::-webkit-scrollbar-thumb,
+.db-table-scroll:focus-within::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+}
+.db-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-4);
 }
 .db-table-scroll > .db-table { min-width: 760px; }
 

@@ -2547,11 +2547,16 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
 // page for content creators who want to refer buyers/sellers. Pure
 // presentation — no backend until a real affiliate program launches.
 export function AffiliateModal({ onClose }) {
+  /* N3 cycle 9 — boss QA restated: chip row reads compact, promote to
+     full .stall-stat-grid pattern (icon top, bold value middle,
+     tracked-out caps label below). Same grid CSS as /stall/<n> hero,
+     just inverted vertical order so the value dominates. */
   const REQUIREMENTS = [
-    { platform: 'YouTube', target: '≥ 5,000 subscribers' },
-    { platform: 'X / Twitter', target: '> 2,000 followers' },
-    { platform: 'Twitch', target: '> 3,000 followers' },
-    { platform: 'Website', target: '≥ 2,000 MAU' }
+    { platform: 'YouTube',   icon: 'smart_display',  value: '5,000', unit: 'subscribers' },
+    { platform: 'X',         icon: 'tag',            value: '5,000', unit: 'followers' },
+    { platform: 'TikTok',    icon: 'music_note',     value: '5,000', unit: 'followers' },
+    { platform: 'Instagram', icon: 'photo_camera',   value: '5,000', unit: 'followers' },
+    { platform: 'Website',   icon: 'language',       value: '5,000', unit: 'monthly users' }
   ];
   return h(InfoModal, { title: 'Affiliate Program', onClose },
     // Flat editorial hero — mono-primary eyebrow + Fraunces display.
@@ -2579,15 +2584,46 @@ export function AffiliateModal({ onClose }) {
       ),
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'Requirements'),
-        h('div', { style: { fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 } },
+        h('div', { style: { fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 } },
           'We require our affiliate partners to focus primarily on s&box content and meet at least one of the platform thresholds below.'),
-        h('table', { style: { width: '100%', fontSize: 12.5, borderCollapse: 'collapse' } },
-          h('tbody', null,
-            REQUIREMENTS.map(r => h('tr', { key: r.platform, style: { borderBottom: '1px solid var(--border)' } },
-              h('td', { style: { padding: '8px 4px', color: 'var(--text-secondary)' } }, r.platform),
-              h('td', { style: { padding: '8px 4px', color: 'var(--accent)', fontWeight: 700, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' } }, r.target)
-            ))
-          )
+        /* N3 cycle 9 — stall-stat-grid promotion. Each platform is a
+           tile: Material icon centered top, bold mono value (≥5,000)
+           in the middle, tracked-out caps platform label at the
+           bottom. Reuses .stall-stat shell (auto-fill grid w/ 140px
+           min) so spacing matches /stall/<n>. */
+        h('div', { className: 'stall-stat-grid affiliate-req-grid' },
+          REQUIREMENTS.map(r => h('div', {
+            key: r.platform,
+            className: 'stall-stat affiliate-req-stat',
+            style: { alignItems: 'center', textAlign: 'center', padding: '14px 12px' }
+          },
+            h('div', { style: {
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 36, height: 36, borderRadius: 8,
+              background: 'var(--bg-1)', border: '1px solid var(--line)',
+              marginBottom: 4
+            } },
+              h(MaterialIcon, { name: r.icon, size: 20 })
+            ),
+            h('div', {
+              className: 'stall-stat-val',
+              style: { fontSize: 17, letterSpacing: '-0.01em' }
+            },
+              h('span', { style: { color: 'var(--ink-3)', fontWeight: 500, fontSize: 13, marginRight: 3 } }, '≥'),
+              r.value
+            ),
+            h('div', {
+              className: 'stall-stat-label',
+              style: { marginTop: 2 }
+            }, r.platform),
+            h('div', {
+              style: {
+                fontSize: 10.5, color: 'var(--ink-4)', marginTop: 2,
+                letterSpacing: 0, textTransform: 'none', fontFamily: 'inherit',
+                fontWeight: 400
+              }
+            }, r.unit)
+          ))
         )
       )
     ),
@@ -6484,12 +6520,31 @@ function ProfileTradesTab({ me, privacy }) {
       // trade to avoid a dead-end download on fresh accounts. When the
       // date-range filter is set, the bounds are passed through so the
       // server-side slice matches the on-screen view.
-      trades.length > 0 && h('a', {
+      trades.length > 0 && (() => {
+        // Honour the active state + role filter chips so a user who
+        // narrowed to "VERIFIED · selling" downloads exactly that
+        // slice. ALL state and 'all' role bypass the param so the
+        // "give me everything" URL stays a clean bookmark. Same
+        // UX-parity logic as the wallet/buy-orders/offers CSVs.
+        const params = [];
+        if (filter && filter !== 'ALL') params.push('state=' + encodeURIComponent(filter));
+        if (roleFilter && roleFilter !== 'all') params.push('role=' + encodeURIComponent(roleFilter));
+        let base = '/api/profile/trades.csv';
+        if (params.length > 0) base += '?' + params.join('&');
+        const csvHref = appendDateRange(base, tradeDateFrom, tradeDateTo);
+        const activeCrumbs = [
+          filter && filter !== 'ALL' ? filter : null,
+          roleFilter && roleFilter !== 'all' ? roleFilter : null
+        ].filter(Boolean).join(' · ');
+        return h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: appendDateRange('/api/profile/trades.csv', tradeDateFrom, tradeDateTo),
-        title: 'Download every trade you participated in as a CSV (tax / accounting). Honours the date filter when set.'
-      }, '⇣ CSV')
+        href: csvHref,
+        title: activeCrumbs
+          ? `Download trades matching the active filters (${activeCrumbs}) as CSV. Honours the date filter when set.`
+          : 'Download every trade you participated in as a CSV (tax / accounting). Honours the date filter when set.'
+      }, '⇣ CSV');
+      })()
     ),
     // Batch 1007 — overflow banner when the server's 200-row trade-list
     // cap trims the payload. Silent for ordinary users (tradesTotal
@@ -7837,12 +7892,23 @@ function ProfileOffersTab() {
       }),
       // Batch 694 — CSV export. Only shown when there's actual history
       // worth exporting (otherwise the chip is noise on a fresh account).
-      (data.incoming.length + data.outgoing.length) > 0 && h('a', {
-        className: 'btn btn-ghost',
-        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: appendDateRange('/api/profile/offers.csv', offersDateFrom, offersDateTo),
-        title: 'Download incoming + outgoing offer history as CSV — combined with the wallet export for offer-side reconciliation. Honours the date filter when set.'
-      }, '⇣ CSV')
+      // Honours the active tab via `?role=` so a user on the Outgoing
+      // tab who clicks ⇣ CSV gets just their outgoing offers, not the
+      // merged incoming+outgoing set. Same UX-parity logic as the
+      // wallet/buy-orders CSV filters.
+      (data.incoming.length + data.outgoing.length) > 0 && (() => {
+        const base = '/api/profile/offers.csv';
+        const role = tab === 'incoming' ? 'SELLER' : tab === 'outgoing' ? 'BUYER' : null;
+        const withRole = role ? `${base}?role=${role}` : base;
+        return h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+          href: appendDateRange(withRole, offersDateFrom, offersDateTo),
+          title: role
+            ? `Download ${tab} offer history as CSV — honours the date filter when set.`
+            : 'Download incoming + outgoing offer history as CSV — honours the date filter when set.'
+        }, '⇣ CSV');
+      })()
     ),
     // Batch 855 — pending-offer capital summary, parallel to Buy Orders
     // + Active Bids exposure strips. Offers don't pre-lock funds
@@ -12008,12 +12074,20 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         ];
       })(),
       h('div', { style: { flex: 1 } }),
-      anyOffers && h('a', {
-        className: 'btn btn-ghost',
-        style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: '/api/profile/offers.csv',
-        title: 'Download every offer you made or received as a CSV'
-      }, '⇣ CSV')
+      anyOffers && (() => {
+        // Honour the active tab via `?role=` so a user on Outgoing
+        // who clicks ⇣ CSV gets just their outgoing offers, not the
+        // merged set. Same UX-parity logic as the other CSV exports.
+        const role = tab === 'incoming' ? 'SELLER' : tab === 'outgoing' ? 'BUYER' : null;
+        return h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
+          href: role ? `/api/profile/offers.csv?role=${role}` : '/api/profile/offers.csv',
+          title: role
+            ? `Download ${tab} offer history as CSV`
+            : 'Download every offer you made or received as a CSV'
+        }, '⇣ CSV');
+      })()
     ),
     rawList && rawList.length > 8 && h('div', { style: { marginBottom: 10 } },
       h('input', {

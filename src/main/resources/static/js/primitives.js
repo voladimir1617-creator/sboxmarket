@@ -184,6 +184,18 @@ export function Avatar({ src, name, alt, className, style }) {
   });
 }
 
+// Boss QA F4 cycle 9 — rarity colour map. Even if only Standard is
+// seeded today, ship the full ladder so future tiers (Scarce / Rare /
+// Legendary) render the boss-spec colours the moment seed data adds
+// them. Apply as inline style so it wins against any prior class CSS
+// without needing a dedicated rule per tier.
+const RARITY_COLORS = {
+  'Standard':   '#6b7280', // gray
+  'Off-Market': '#d4a418', // amber (display label = "Scarce")
+  'Scarce':     '#d4a418',
+  'Rare':       '#1ea5ff', // cta blue
+  'Legendary':  '#8b5cf6'  // purple
+};
 export function RarityBadge({ rarity }) {
   // Boss QA D3 — items priced and live on the market were rendering an
   // "OFF-Market" badge because the schema's `rarity = 'Off-Market'` value
@@ -192,7 +204,13 @@ export function RarityBadge({ rarity }) {
   // Map the underlying Off-Market rarity to a clearer "Scarce" label
   // while keeping the data layer + filter chips on the original token.
   const display = rarity === 'Off-Market' ? 'Scarce' : rarity;
-  return h('span', { className: `rarity-badge rarity-${rarity}` }, display);
+  const color = RARITY_COLORS[rarity] || RARITY_COLORS[display] || RARITY_COLORS.Standard;
+  const tint = `color-mix(in oklab, ${color} 16%, transparent)`;
+  const edge = `color-mix(in oklab, ${color} 38%, transparent)`;
+  return h('span', {
+    className: `rarity-badge rarity-${rarity}`,
+    style: { color, background: tint, border: `1px solid ${edge}` }
+  }, display);
 }
 
 export function RarityBar({ score, compact }) {
