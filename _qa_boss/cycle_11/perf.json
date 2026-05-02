@@ -2,68 +2,78 @@
   "/": {
     "domNodes": 443,
     "paint": {
-      "first-paint": 420
+      "first-paint": 460
     },
     "navTiming": {
-      "domLoaded": 241,
-      "loadEnd": 241,
-      "tti": 182
+      "domLoaded": 307,
+      "loadEnd": 308,
+      "tti": 234
     },
-    "totalBytes": 5767581
+    "totalBytes": 5768778
   },
   "/market": {
     "domNodes": 1340,
     "paint": {
-      "first-paint": 144,
-      "first-contentful-paint": 792
+      "first-paint": 84,
+      "first-contentful-paint": 592
     },
     "navTiming": {
-      "domLoaded": 538,
-      "loadEnd": 539,
-      "tti": 190
+      "domLoaded": 174,
+      "loadEnd": 175,
+      "tti": 113
     },
-    "totalBytes": 9072139
+    "totalBytes": 9073336
   },
   "/db": {
     "domNodes": 772,
     "paint": {
-      "first-paint": 88,
-      "first-contentful-paint": 340
+      "first-paint": 84,
+      "first-contentful-paint": 408
     },
     "navTiming": {
-      "domLoaded": 164,
-      "loadEnd": 165,
-      "tti": 114
+      "domLoaded": 186,
+      "loadEnd": 187,
+      "tti": 123
     },
-    "totalBytes": 10571105
+    "totalBytes": 10572302
   },
   "/item/1": {
     "domNodes": 332,
     "paint": {
-      "first-paint": 76,
-      "first-contentful-paint": 344
+      "first-paint": 132,
+      "first-contentful-paint": 624
     },
     "navTiming": {
-      "domLoaded": 160,
-      "loadEnd": 160,
-      "tti": 103
+      "domLoaded": 433,
+      "loadEnd": 434,
+      "tti": 176
     },
-    "totalBytes": 6886036
+    "totalBytes": 6887234
   },
   "/stall/1": {
     "domNodes": 286,
     "paint": {
-      "first-paint": 92,
+      "first-paint": 124,
+      "first-contentful-paint": 316
+    },
+    "navTiming": {
+      "domLoaded": 228,
+      "loadEnd": 228,
+      "tti": 165
+    },
+    "totalBytes": 5212907
+  },
+  "/loadout/1": {
+    "domNodes": 241,
+    "paint": {
+      "first-paint": 84,
       "first-contentful-paint": 256
     },
     "navTiming": {
-      "domLoaded": 177,
-      "loadEnd": 177,
-      "tti": 124
+      "domLoaded": 173,
+      "loadEnd": 173,
+      "tti": 119
     },
-    "totalBytes": 5211710
-  },
-  "/loadout/1": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/loadout/1?_qa=1"
+    "totalBytes": 5180454
   }
 }

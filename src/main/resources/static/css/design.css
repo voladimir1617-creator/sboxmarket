@@ -9231,6 +9231,11 @@ input[type="radio"] {
 .search-suggest-row {
   position: relative;
   padding: 10px 12px;
+  /* Boss QA cycle 11 micro-polish — added a 120ms bg fade so arrow-key
+     navigation through the typeahead reads as a smooth slide rather
+     than a snap-flicker. Matches the .nav-link / .filter-chip
+     transition cadence elsewhere on the site. */
+  transition: background 120ms ease, color 120ms ease;
 }
 .search-suggest-row:hover, .search-suggest-row.sel {
   background: color-mix(in oklab, var(--cta) 10%, var(--bg-2));
