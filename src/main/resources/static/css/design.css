@@ -2888,11 +2888,23 @@ body.modal-open, html.modal-open { overflow: hidden; }
 }
 
 .main   { flex: 1; width: 100%; min-width: 0; }
-.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-/* Was max-width 520px which made the toolbar wrap to 2 rows on common
-   1440-1500px viewports. Capping to 360px keeps everything on one row
-   without sacrificing typing space. */
+/* M3/M4 Boss QA — toolbar gets a clear container chrome (bg + border)
+   so it visually anchors the controls instead of floating naked above
+   the grid. 24px push before the secondary chip cluster + push the
+   refresh / view-mode pair to the right edge gives the row hierarchy:
+   primary filters left, density / view right. */
+.toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
 .toolbar .search-wrap { flex: 1 1 280px; min-width: 240px; max-width: 360px; position: relative; }
+.toolbar .deals-chip:first-of-type { margin-left: 24px; }
+.toolbar .toolbar-refresh { margin-left: auto; }
+.toolbar .view-btns { margin-left: 4px; }
 
 /* Sidebar filter-section rows ("All", "Hats 12", "Jackets 2", etc.) */
 .filter-option {
@@ -6324,6 +6336,116 @@ body:has(.shortcuts-backdrop) {
   display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px;
   font-family: var(--mono); font-size: 11px;
   color: var(--ink-3); letter-spacing: 0.04em;
+}
+/* S2 Boss-QA — labeled stat-card grid for the stall hero. Each cell
+   is a tiny capsule with a label above the value, removing the
+   free-form text salad ("1 last 30d / Active recently / Last sold
+   9d ago") that the boss flagged. Mirrors the modal-stat-box layout
+   on the item-detail page. */
+.stall-stat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.stall-stat {
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.stall-stat-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stall-stat-val {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stall-stat-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  margin-left: 2px;
+}
+/* S1 Boss-QA — trust + discovery panel below the listings/reviews so
+   the bottom of the stall page never bottoms out at "no content".
+   Three cards in a responsive grid: trust signals, reviews teaser,
+   keep-browsing outbound CTAs. */
+.stall-trust-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.stall-trust-card {
+  padding: 18px 18px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.stall-trust-card-head {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 700;
+}
+.stall-trust-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.stall-trust-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.stall-trust-list li > span:last-child { flex: 1; min-width: 0; }
+.stall-trust-list a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.stall-trust-list a:hover { text-decoration: underline; }
+.stall-trust-icon {
+  flex: 0 0 18px;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0.85;
+  text-align: center;
+  line-height: 1.5;
+}
+.stall-trust-empty {
+  padding: 8px 0;
 }
 .stall-rating {
   display: inline-flex; align-items: center; gap: 6px;

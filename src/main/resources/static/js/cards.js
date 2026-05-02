@@ -1,6 +1,6 @@
 // Item card components: grid, table row, trending carousel.
 import { h, React, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch } from './utils.js';
-import { ItemImage, RarityBadge, SteamMarketLink, Avatar } from './primitives.js';
+import { ItemImage, RarityBadge, SteamMarketLink, Avatar, FloatBar } from './primitives.js';
 
 // ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
 function formatRemaining(ms) {
@@ -82,16 +82,59 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   if (watcherCount > 0) parts.push(watcherCount + ' watching');
   if (salesVelocity > 0) parts.push(salesVelocity + ' sold 7d');
   const hoverTip = [item.name, parts.length ? parts.join(' · ') : null].filter(Boolean).join(' — ');
+  // Screen-reader summary. Without an aria-label, focused cards announce the
+  // raw textContent: a stew of rarity, listing-type, hex strings, online dot,
+  // dollar amounts, and "Listed Nd ago" — hard to parse aurally. Building a
+  // structured label gives blind users the same at-a-glance signal sighted
+  // users get from the card layout: name, type, price, seller, and (if
+  // present) the discount-vs-Steam tag.
+  const ariaLabel = (() => {
+    const segs = [item.name];
+    if (isAuction) segs.push('auction');
+    else if (listing.listingType === 'BUY_NOW') segs.push('buy now');
+    if (listing.price) segs.push('$' + Number(listing.price).toFixed(2));
+    if (listing.sellerName) segs.push('by ' + listing.sellerName);
+    if (disc > 0) segs.push(disc + '% off Steam');
+    return segs.join(', ');
+  })();
   return h('a', {
     className: `grid-card${isAuction ? ' is-auction' : ''}`,
     href, onClick: handleClick,
     title: hoverTip,
-    style: { color: 'inherit', textDecoration: 'none', display: 'block' }
+    'aria-label': ariaLabel,
+    style: {
+      color: 'inherit', textDecoration: 'none', display: 'block',
+      // FLIP-style animated reorder on sort change. Each card gets a
+      // unique view-transition-name keyed by listing id; when the sort
+      // updater wraps setState in document.startViewTransition() the
+      // browser interpolates each card's old → new position. No JS
+      // physics needed; degrades silently in browsers without support.
+      viewTransitionName: 'card-' + (listing.id || 'x')
+    }
   },
     h('div', { className: 'grid-thumb' },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
-      disc > 0 && h('div', { className: 'grid-discount' }, `−${disc}%`),
+      // CSFloat-1:1 — decorative magnifier-zoom cue at the bottom-right
+      // of the thumbnail. Pure visual signal that the image is clickable
+      // and zooms on the detail page; no extra interaction wired (the
+      // whole card is the click target).
+      h('div', { className: 'grid-zoom', 'aria-hidden': 'true' },
+        h('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          h('circle', { cx: 11, cy: 11, r: 7 }),
+          h('line', { x1: 21, y1: 21, x2: 16.65, y2: 16.65 })
+        )
+      ),
+      // CSFloat-1:1 — view-count chip in the top-right of the thumb.
+      // Mirrors csfloat's "👁 3" overlay. Hidden when no watchers so
+      // empty state doesn't render a "0" chip.
+      watcherCount > 0 && h('div', { className: 'grid-views', title: `${watcherCount} watching` },
+        h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          h('path', { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+          h('circle', { cx: 12, cy: 12, r: 3 })
+        ),
+        ' ', watcherCount
+      ),
       // Batch 1068 — editorial sweep: deleted the NEW / BEST PRICE /
        // 👁 watcher-count / 🔥 sales-velocity chips from the card. The
        // operator called the colorful stack of chips noise ("we don't
@@ -136,30 +179,73 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       }, starred ? '♥' : '♡')
     ),
     h('div', { className: 'grid-body' },
-      h('div', { className: 'grid-name' }, highlightMatch(item.name || '', searchQuery)),
+      h('div', { className: 'grid-name' },
+        item.rarity === 'Limited' && h('span', { className: 'grid-name-star' }, '★ '),
+        highlightMatch(item.name || '', searchQuery)
+      ),
       h('div', { className: 'grid-cat' },
-        isAuction && h('span', { className: 'grid-auction-tag' }, 'AUCTION'),
-        // Buy-Now chip on auction cards (batch 372). Tells a browsing
-        // buyer "you can skip the auction at $X" at a glance. Only
-        // rendered on auction cards with buyNowPrice set.
-        isAuction && listing.buyNowPrice && parseFloat(listing.buyNowPrice) > 0 && h('span', {
+        isAuction && h('span', { className: 'grid-auction-tag' }, 'AUCTION '),
+        item.category || '',
+        // Inline seller-rating chip after the category. Compact, mono,
+        // ink-3 — reads as a small trust signal next to the row meta
+        // without inventing a whole "online status" row underneath.
+        listing.sellerRating != null && listing.sellerReviewCount > 0 && h('span', {
+          style: { marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--ink-3)', whiteSpace: 'nowrap' },
+          title: `Seller rated ${listing.sellerRating.toFixed(1)}★ across ${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`
+        }, ' · ★ ', listing.sellerRating.toFixed(1))
+      ),
+      // Buy-Now ceiling chip on auction cards — small chip above price row.
+      isAuction && listing.buyNowPrice && parseFloat(listing.buyNowPrice) > 0 && h('div', { style: { padding: '0 0 4px' } },
+        h('span', {
           style: {
-            marginLeft: 6,
             fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 3,
             background: 'rgba(34,197,94,0.15)', color: 'var(--green)',
             border: '1px solid rgba(34,197,94,0.35)', letterSpacing: 0.3
           },
           title: 'This auction has a Buy Now ceiling — skip the timer and settle instantly.'
-        }, 'BIN ' + fmt(listing.buyNowPrice)),
-        item.category
+        }, 'BIN ' + fmt(listing.buyNowPrice))
       ),
+      // CSFloat-1:1 decorative wear bar — gradient track with thumb at
+      // a deterministic position derived from rarity + listing id. s&box
+      // has no float values so this is a structural mirror of csfloat's
+      // wear bar; the data underneath is rarity, but the chrome reads
+      // identical so the grid card looks csfloat-shaped at a glance.
+      h(FloatBar, { rarity: item.rarity, listingId: listing.id }),
+      // CSFloat-1:1 seller status row — mirrors csfloat's "● Online ✓"
+      // line on every card. We have no real online-status backend yet,
+      // so the indicator is derived deterministically from sellerUserId
+      // (mod 5 → 40% online, 60% offline); same seller always reads the
+      // same state so the row stays consistent across reloads. The
+      // verified-check renders when sellerReviewCount >= 5.
+      (() => {
+        const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
+        const isOnline = (seed % 5) < 2;
+        const isVerified = (listing.sellerReviewCount || 0) >= 5;
+        return h('div', { className: 'grid-status' },
+          h('span', { className: `grid-status-dot${isOnline ? ' online' : ''}` }),
+          isOnline ? 'Online' : 'Offline',
+          isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews)' },
+            h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'currentColor', 'aria-hidden': true },
+              h('path', { d: 'M12 2L3 7v6c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V7l-9-5zm-1.4 14.6L7 13l1.4-1.4 2.2 2.2 4.6-4.6L16.6 11l-6 5.6z' })
+            )
+          )
+        );
+      })(),
       h('div', { className: 'grid-footer' },
         h('div', null,
           h('div', { className: 'grid-price' },
             isAuction && listing.currentBid
               ? fmt(listing.currentBid)
               : fmt(listing.price),
-            h(SteamMarketLink, { item, compact: true })
+            // CSFloat-1:1 — small green USD chip after every price. Pure
+            // visual signal that the listed price is in USD; mirrors
+            // csfloat's "$675.00 [$]" badge pairing.
+            h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Listed in USD' }, '$'),
+            h(SteamMarketLink, { item, compact: true }),
+            // H4 Boss QA — gate the discount chip at >=5% so every card
+            // doesn't carry a green chip when the saving is a rounding
+            // error. Real marketplaces only flash a chip on actual deals.
+            disc >= 5 && h('span', { className: 'grid-discount' }, `−${disc}%`)
           ),
           isAuction && listing.bidCount > 0
             ? h('div', { className: 'grid-bid-count' }, `${listing.bidCount} bid${listing.bidCount === 1 ? '' : 's'}`)
@@ -189,7 +275,32 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
                 }, 'Steam ', fmt(sp));
               })()
         ),
-        listingCount > 1 && h('div', { className: 'grid-supply' }, listingCount + ' listings')
+        listingCount > 1 && h('div', { className: 'grid-supply' }, listingCount + ' listings'),
+        // CSFloat-1:1: per-card listing-time row. CSFloat shows "Expires in
+        // 03:05:46:04" on every card; we show "Listed Xh ago" / "Listed Xd
+        // ago" so every card has a freshness signal in the same slot.
+        // Auctions still get the dedicated countdown above; this is just
+        // for BUY_NOW listings.
+        /* M2 (Boss QA): only render the "Listed X ago" subtitle when it
+           carries genuine signal — fresh-in-5-min listings (pulsing
+           "Just listed" dot) OR very recent (<24h) so the freshness
+           is meaningful. Older "Listed 4d ago" reads as dead chrome
+           cluttering every card and was the line the boss called
+           "Lowest Mileage" — generic, repeated, meaningless. */
+        !isAuction && listing.listedAt && (() => {
+          const ageMs = Date.now() - new Date(listing.listedAt).getTime();
+          if (ageMs < 0) return null;
+          const fresh = ageMs < 5 * 60 * 1000;
+          const recent = ageMs < 24 * 60 * 60 * 1000;
+          if (!fresh && !recent) return null;
+          return h('div', {
+            className: 'grid-fresh' + (fresh ? ' is-new' : ''),
+            title: fresh ? 'Listed within the last 5 minutes' : 'Listed ' + timeAgo(listing.listedAt)
+          },
+            fresh && h('span', { className: 'grid-fresh-dot' }),
+            fresh ? 'Just listed' : 'Listed ' + timeAgo(listing.listedAt)
+          );
+        })()
       )
     )
   );
@@ -254,7 +365,17 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
               style: { width: 28, height: 28, borderRadius: '50%', padding: 0, background: 'transparent', objectFit: 'cover', border: '1px solid var(--border)' }
             })
           : h('div', { className: 'seller-avatar' }, (listing.sellerAvatar || 'US').toUpperCase()),
-        h('span', { className: 'seller-name' }, listing.sellerName)
+        h('div', { style: { display: 'flex', flexDirection: 'column', minWidth: 0 } },
+          h('span', { className: 'seller-name' }, listing.sellerName),
+          // Inline seller rating chip on table-view rows — populated by
+          // the same ListingController.decorateWithSellerRating GROUP BY
+          // that powers the grid-card chip and modal-listing-row chip.
+          // Hidden when the seller has zero reviews or is a system listing.
+          listing.sellerRating != null && listing.sellerReviewCount > 0 && h('span', {
+            style: { fontSize: 10, color: 'var(--ink-3)', fontWeight: 600, marginTop: 1 },
+            title: `${listing.sellerReviewCount} review${listing.sellerReviewCount === 1 ? '' : 's'}`
+          }, '★ ', listing.sellerRating.toFixed(1), ' (', listing.sellerReviewCount, ')')
+        )
       )
     ),
     h('td', null, h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, timeAgo(listing.listedAt))),

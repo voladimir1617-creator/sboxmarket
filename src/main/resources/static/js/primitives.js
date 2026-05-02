@@ -79,7 +79,13 @@ export function SteamMarketLink({ item, compact }) {
     target: '_blank',
     rel: 'noopener noreferrer',
     onClick: e => e.stopPropagation(),
-    title: `View "${item.name}" on Steam Community Market`
+    title: `View "${item.name}" on Steam Community Market`,
+    // a11y: title alone is unreliable (only shows on hover, screen readers
+    // skip it inconsistently). aria-label gives the link a real accessible
+    // name for assistive tech + a11y scanners. SVG inside is decorative-
+    // only (aria-hidden=true), so without the explicit label the link
+    // would announce as nothing.
+    'aria-label': `View "${item.name}" on Steam Community Market (opens in new tab)`
   },
     h('svg', {
       viewBox: '0 0 24 24',
@@ -126,7 +132,17 @@ export function ItemImage({ item, alt, variant = 'card' }) {
     decoding: 'async',
     draggable: false,
     className: `item-img ${loaded ? 'loaded' : 'loading'}`,
-    onLoad: () => setLoaded(true),
+    onLoad: (e) => {
+      // Steam CDN sometimes returns 200 with a tiny/transparent pixel for
+      // items whose source image was delisted — onError never fires, so
+      // we'd render an "empty rectangle" card. Treat suspiciously small
+      // natural dimensions as a load failure and fall back to the poster.
+      if (e.target.naturalWidth < 10 || e.target.naturalHeight < 10) {
+        setFailed(true);
+      } else {
+        setLoaded(true);
+      }
+    },
     onError: () => setFailed(true)
   });
 }
@@ -169,7 +185,14 @@ export function Avatar({ src, name, alt, className, style }) {
 }
 
 export function RarityBadge({ rarity }) {
-  return h('span', { className: `rarity-badge rarity-${rarity}` }, rarity);
+  // Boss QA D3 — items priced and live on the market were rendering an
+  // "OFF-Market" badge because the schema's `rarity = 'Off-Market'` value
+  // means low-supply (<5% of total) for s&box items. The badge text was
+  // read as "no longer for sale", which contradicted the visible price.
+  // Map the underlying Off-Market rarity to a clearer "Scarce" label
+  // while keeping the data layer + filter chips on the original token.
+  const display = rarity === 'Off-Market' ? 'Scarce' : rarity;
+  return h('span', { className: `rarity-badge rarity-${rarity}` }, display);
 }
 
 export function RarityBar({ score, compact }) {
@@ -180,6 +203,33 @@ export function RarityBar({ score, compact }) {
     ),
     h('span', { className: 'rarity-score-val' }, parseFloat(score || 0).toFixed(4))
   );
+}
+
+/**
+ * Decorative rarity-band bar. CSFloat shows a gradient bar (green→red)
+ * with a thumb marking the skin's CS float (0.0-1.0). s&box items have
+ * no float / paint-seed (CS-only mechanics — see `s&box vs CSFloat`
+ * memory), so we keep the silhouette but make it represent rarity:
+ *
+ *   Limited     → 0-15%  (green band)
+ *   Off-Market  → 30-50% (yellow band)
+ *   Standard    → 55-80% (red band)
+ *
+ * Within a rarity zone the listing id picks the exact thumb position
+ * so cards of the same rarity don't all share the spot.
+ *
+ * The meta text under the bar reads the rarity band name + the real
+ * listing id (`Standard · #35`). Earlier versions printed a synthetic
+ * `0.56590…` float and a `(#N)` paint-seed-style rank — both CS-only
+ * mechanics that don't exist in s&box, so they were misleading data.
+ */
+export function FloatBar({ rarity, listingId, compact }) {
+  // H1/I1/S5/Boss-QA: there is no float/wear/condition mechanic on s&box
+  // items — only CS-GO has it. Keeping the red→green gradient bar under
+  // every card was leaking CS chrome into a non-CS marketplace and made
+  // the cards look generic. Component now renders nothing; we keep the
+  // export so existing callers don't crash.
+  return null;
 }
 
 /**
@@ -209,7 +259,9 @@ export function Sparkline({ data, color, height }) {
   });
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
   const area = `0,${H} ${polyline} ${W},${H}`;
-  const gradId = 'grad-' + colorSafe.replace('#', '');
+  // Hash-ish id that survives non-hex color inputs (e.g. var(--up))
+  // so callers can pass design-token colors instead of raw hex.
+  const gradId = 'grad-' + String(colorSafe).replace(/[^a-z0-9]/gi, '');
   const minIdx = prices.indexOf(min);
   const maxIdx = prices.indexOf(max);
 
@@ -265,8 +317,8 @@ export function Sparkline({ data, color, height }) {
       h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '2.2',
                       strokeLinejoin: 'round', strokeLinecap: 'round' }),
       // Min / max dots so the viewer can spot the extremes at a glance
-      h('circle', { cx: pts[minIdx].x, cy: pts[minIdx].y, r: 4, fill: '#f87171', stroke: '#1a1a2a', strokeWidth: 2 }),
-      h('circle', { cx: pts[maxIdx].x, cy: pts[maxIdx].y, r: 4, fill: '#4ade80', stroke: '#1a1a2a', strokeWidth: 2 }),
+      h('circle', { cx: pts[minIdx].x, cy: pts[minIdx].y, r: 4, fill: 'var(--down)', stroke: 'var(--bg)',  strokeWidth: 2 }),
+      h('circle', { cx: pts[maxIdx].x, cy: pts[maxIdx].y, r: 4, fill: 'var(--up)',   stroke: 'var(--bg)',  strokeWidth: 2 }),
       // Hover crosshair + point
       hover !== null && h('line', {
         x1: pts[hover].x, x2: pts[hover].x, y1: 0, y2: H,
@@ -274,7 +326,7 @@ export function Sparkline({ data, color, height }) {
       }),
       hover !== null && h('circle', {
         cx: pts[hover].x, cy: pts[hover].y, r: 5,
-        fill: colorSafe, stroke: '#0d1320', strokeWidth: 2
+        fill: colorSafe, stroke: 'var(--bg)', strokeWidth: 2
       })
     ),
     hover !== null && h('div', {
@@ -373,4 +425,95 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
       )
     )
   );
+}
+
+// Inline date-range filter used next to CSV-export buttons on the
+// /profile trades / offers / bids / my-stall sold panels. Two native
+// `<input type="date">` controls (browser-native picker, accessible
+// for free) wired to caller-provided `from` / `to` epoch-ms state. The
+// caller is responsible for using the values to filter the visible row
+// list AND to append `?from=…&to=…` query params on the CSV download
+// link — matches the controller params added in batch 1101.
+//
+// Conventions:
+//   - Empty input -> caller state is null -> no bound on that side.
+//   - `to` is treated as inclusive end-of-day (23:59:59.999) so picking
+//     "Mar 31" on the right does the right thing for tax-quarter
+//     exports without forcing the user to think in UTC.
+//   - A clear button surfaces only when at least one bound is set.
+export function DateRangeFilter({ from, to, onChange, compact }) {
+  const toIsoDay = (ms) => {
+    if (ms == null) return '';
+    const d = new Date(Number(ms));
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const fromStartOfDay = (s) => {
+    if (!s) return null;
+    const [y, m, d] = s.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  };
+  const fromEndOfDay = (s) => {
+    if (!s) return null;
+    const [y, m, d] = s.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  };
+  const inputStyle = {
+    border:  '1px solid var(--border)',
+    background:  'var(--bg-card)',
+    color:   'var(--text-primary)',
+    borderRadius: 6,
+    padding: compact ? '3px 6px' : '4px 8px',
+    fontSize: 11,
+    fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)'
+  };
+  const hasBound = from != null || to != null;
+  return h('span', {
+    className: 'date-range-filter',
+    style: { display: 'inline-flex', alignItems: 'center', gap: 4 }
+  },
+    h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'From'),
+    h('input', {
+      type: 'date',
+      style: inputStyle,
+      value: toIsoDay(from),
+      max:   toIsoDay(to) || undefined,
+      onChange: (e) => onChange({ from: fromStartOfDay(e.target.value), to }),
+      'aria-label': 'Date range start'
+    }),
+    h('span', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'To'),
+    h('input', {
+      type: 'date',
+      style: inputStyle,
+      value: toIsoDay(to),
+      min:   toIsoDay(from) || undefined,
+      onChange: (e) => onChange({ from, to: fromEndOfDay(e.target.value) }),
+      'aria-label': 'Date range end'
+    }),
+    hasBound && h('button', {
+      type: 'button',
+      className: 'btn btn-ghost',
+      style: { border: '1px solid var(--border)', padding: '2px 6px', fontSize: 10 },
+      onClick: () => onChange({ from: null, to: null }),
+      title: 'Clear date filter',
+      'aria-label': 'Clear date filter'
+    }, '×')
+  );
+}
+
+// Helper: append ?from=&to= to a CSV-export URL when bounds are set.
+// Used by the CSV anchor links so a user filtering "last quarter" gets
+// the matching server-side slice in the download.
+export function appendDateRange(href, from, to) {
+  if (from == null && to == null) return href;
+  const sep = href.includes('?') ? '&' : '?';
+  const parts = [];
+  if (from != null) parts.push('from=' + encodeURIComponent(String(from)));
+  if (to   != null) parts.push('to='   + encodeURIComponent(String(to)));
+  return href + sep + parts.join('&');
 }

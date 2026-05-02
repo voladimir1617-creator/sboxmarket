@@ -7161,85 +7161,96 @@ export function App() {
                     onClick: (e) => e.stopPropagation()
                   }, '↗ Steam')
                 ),
-                h('div', { className: 'stall-meta' },
-                  stallData.count, ' active listings',
-                  stallData.seller.soldCount > 0 && ` · ${stallData.seller.soldCount} sold`,
-                  // Recently-active chip (batch 534, extended in 875).
-                  // Differentiates a seller who's moved 5 items this
-                  // month from a lifetime-veteran account that's been
-                  // dormant for a year. Batch 875 — prefer the
-                  // tightest window with activity: 24h > 7d > 30d.
-                  // "Sold today" is a much stronger signal than
-                  // "sold this month" even if the numeric count is
-                  // lower.
+                // S2 Boss-QA — decoration row was a free-form chain of
+                // chips ("1 last 30d / Active recently / Last sold 9d ago")
+                // that read like text salad. Replaced with an explicit
+                // labeled stat-card grid so each value has a clear
+                // header. Order: Joined / Last seen / Lifetime sales /
+                // Last listed / Last sale / Active listings.
+                h('div', { className: 'stall-meta stall-stat-grid' },
+                  // Joined — relative under 1y, year for older accounts.
+                  h('div', { className: 'stall-stat' },
+                    h('div', { className: 'stall-stat-label' }, 'Joined'),
+                    h('div', { className: 'stall-stat-val' },
+                      stallData.seller.joinedAt
+                        ? h('span', { title: new Date(stallData.seller.joinedAt).toLocaleString() },
+                            (() => {
+                              const ageMs = Date.now() - stallData.seller.joinedAt;
+                              if (ageMs < 365 * 24 * 3600_000) return timeAgo(stallData.seller.joinedAt);
+                              return new Date(stallData.seller.joinedAt).getFullYear();
+                            })())
+                        : '—')
+                  ),
+                  // Last seen on Steam — green if recent.
+                  stallData.seller.lastSyncedAt && (() => {
+                    const age = Date.now() - stallData.seller.lastSyncedAt;
+                    let cls, label;
+                    if (age < 24 * 3600_000)          { cls = 'var(--green)'; label = 'Just now'; }
+                    else if (age < 7 * 24 * 3600_000) { cls = '#fbbf24';      label = 'This week'; }
+                    else                              { cls = 'var(--text-muted)'; label = timeAgo(stallData.seller.lastSyncedAt); }
+                    return h('div', { className: 'stall-stat' },
+                      h('div', { className: 'stall-stat-label' }, 'Last seen'),
+                      h('div', {
+                        className: 'stall-stat-val',
+                        style: { color: cls },
+                        title: 'Last observed on Steam ' + new Date(stallData.seller.lastSyncedAt).toLocaleString()
+                      }, label));
+                  })(),
+                  // Lifetime sales count.
+                  stallData.seller.soldCount > 0 && h('div', { className: 'stall-stat' },
+                    h('div', { className: 'stall-stat-label' }, 'Lifetime sales'),
+                    h('div', { className: 'stall-stat-val' },
+                      stallData.seller.soldCount.toLocaleString(),
+                      h('span', { className: 'stall-stat-unit' },
+                        ' sale', stallData.seller.soldCount === 1 ? '' : 's'))
+                  ),
+                  // Sold in tightest active window (24h > 7d > 30d).
                   (stallData.seller.soldLast24h > 0 || stallData.seller.soldLast7d > 0 || stallData.seller.soldLast30d > 0) && (() => {
                     const n24 = Number(stallData.seller.soldLast24h) || 0;
                     const n7  = Number(stallData.seller.soldLast7d)  || 0;
                     const n30 = Number(stallData.seller.soldLast30d) || 0;
                     const tightest = n24 > 0
-                      ? { n: n24, label: 'today',      title: `${n24} sale${n24 === 1 ? '' : 's'} in the last 24 hours` }
+                      ? { n: n24, label: 'Last 24h',  title: `${n24} sale${n24 === 1 ? '' : 's'} in the last 24 hours` }
                       : n7  > 0
-                      ? { n: n7,  label: 'last 7d',    title: `${n7} sale${n7 === 1 ? '' : 's'} in the last 7 days` }
-                      : { n: n30, label: 'last 30d',   title: `${n30} sale${n30 === 1 ? '' : 's'} in the last 30 days` };
-                    return h('span', {
-                      style: { marginLeft: 6, fontSize: 11, color: 'var(--green)', fontWeight: 700 },
-                      title: tightest.title
-                    }, `· ${tightest.n} ${tightest.label}`);
+                      ? { n: n7,  label: 'Last 7d',   title: `${n7} sale${n7 === 1 ? '' : 's'} in the last 7 days` }
+                      : { n: n30, label: 'Last 30d',  title: `${n30} sale${n30 === 1 ? '' : 's'} in the last 30 days` };
+                    return h('div', { className: 'stall-stat', title: tightest.title },
+                      h('div', { className: 'stall-stat-label' }, tightest.label),
+                      h('div', { className: 'stall-stat-val', style: { color: 'var(--green)' } },
+                        tightest.n.toLocaleString(),
+                        h('span', { className: 'stall-stat-unit' },
+                          ' sale', tightest.n === 1 ? '' : 's')));
                   })(),
-                  stallData.seller.followerCount > 0 && ` · ${stallData.seller.followerCount} follower${stallData.seller.followerCount === 1 ? '' : 's'}`,
-                  // Batch 1061 — swap absolute joined-date for a dual-view
-                  // chip that prefers relative time ("joined 5 months ago")
-                  // within the first year, falls back to an absolute year
-                  // marker ("joined 2024") for older accounts. Relative
-                  // time is a sharper trust signal for anon buyers — "new
-                  // 2 weeks ago" is a warning light that an absolute
-                  // "2026-04-06" date doesn't communicate at a glance.
-                  // Full-precision ISO date stays available via the title
-                  // tooltip for buyers who want to check the exact day.
-                  ' · joined ',
-                  stallData.seller.joinedAt ? h('span', {
-                    title: new Date(stallData.seller.joinedAt).toLocaleString()
-                  }, (() => {
-                    const ageMs = Date.now() - stallData.seller.joinedAt;
-                    if (ageMs < 365 * 24 * 3600_000) return timeAgo(stallData.seller.joinedAt);
-                    return new Date(stallData.seller.joinedAt).getFullYear();
-                  })()) : '—',
-                  // Last-seen chip — green if within 24h, yellow if 7d,
-                  // muted otherwise. Softer than "online now" which we
-                  // don't actually track, but clear enough to tell a
-                  // buyer whether this seller is likely to respond.
-                  stallData.seller.lastSyncedAt && (() => {
-                    const age = Date.now() - stallData.seller.lastSyncedAt;
-                    let cls, label;
-                    if (age < 24 * 3600_000)       { cls = 'var(--green)'; label = 'Active recently'; }
-                    else if (age < 7 * 24 * 3600_000) { cls = '#fbbf24';      label = 'Active this week'; }
-                    else                              { cls = 'var(--text-muted)'; label = 'Last seen ' + timeAgo(stallData.seller.lastSyncedAt); }
-                    return h('span', {
-                      style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
-                      title: 'Last observed on Steam ' + new Date(stallData.seller.lastSyncedAt).toLocaleString()
-                    }, '· ', label);
-                  })(),
-                  // Batch 1045 — "Last listed Xh ago" activity chip. A
-                  // sharper engagement signal than lastSyncedAt: it
-                  // reflects real marketplace action (listing / relisting)
-                  // rather than just "logged into Steam". Only renders
-                  // when the seller has at least one active listing AND
-                  // the timestamp is fresh enough to matter (last 30d).
-                  // Stale / missing values hide the chip so a dormant
-                  // stall's hero stays quiet.
-                  stallData.seller.lastListedAt && (Date.now() - stallData.seller.lastListedAt) < 30 * 24 * 3600_000 && h('span', {
-                    style: { marginLeft: 10, fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700 },
-                    title: 'Most recent active listing by this seller: ' + new Date(stallData.seller.lastListedAt).toLocaleString()
-                  }, '· Last listed ', timeAgo(stallData.seller.lastListedAt)),
-                  // Batch 1047 — "Last sold Xh ago" — sales activity
-                  // complement to lastListedAt. Hidden when null (never
-                  // sold) OR stale beyond 60d (a year-old last-sale isn't
-                  // a useful "is this seller active" signal). Green chip
-                  // to distinguish sales-side activity from listings-side.
-                  stallData.seller.lastSoldAt && (Date.now() - stallData.seller.lastSoldAt) < 60 * 24 * 3600_000 && h('span', {
-                    style: { marginLeft: 10, fontSize: 11, color: 'var(--green)', fontWeight: 700 },
-                    title: 'Most recent sale closed by this seller: ' + new Date(stallData.seller.lastSoldAt).toLocaleString()
-                  }, '· Last sold ', timeAgo(stallData.seller.lastSoldAt)),
+                  // Last listed (within 30d).
+                  stallData.seller.lastListedAt && (Date.now() - stallData.seller.lastListedAt) < 30 * 24 * 3600_000 && h('div', { className: 'stall-stat' },
+                    h('div', { className: 'stall-stat-label' }, 'Last listed'),
+                    h('div', {
+                      className: 'stall-stat-val',
+                      title: 'Most recent active listing by this seller: ' + new Date(stallData.seller.lastListedAt).toLocaleString()
+                    }, timeAgo(stallData.seller.lastListedAt))
+                  ),
+                  // Last sale (within 60d).
+                  stallData.seller.lastSoldAt && (Date.now() - stallData.seller.lastSoldAt) < 60 * 24 * 3600_000 && h('div', { className: 'stall-stat' },
+                    h('div', { className: 'stall-stat-label' }, 'Last sale'),
+                    h('div', {
+                      className: 'stall-stat-val',
+                      style: { color: 'var(--green)' },
+                      title: 'Most recent sale closed by this seller: ' + new Date(stallData.seller.lastSoldAt).toLocaleString()
+                    }, timeAgo(stallData.seller.lastSoldAt))
+                  ),
+                  // Active listings + followers — terminal stats.
+                  h('div', { className: 'stall-stat' },
+                    h('div', { className: 'stall-stat-label' }, 'Active listings'),
+                    h('div', { className: 'stall-stat-val' },
+                      Number(stallData.count).toLocaleString(),
+                      h('span', { className: 'stall-stat-unit' },
+                        ' listing', stallData.count === 1 ? '' : 's'))
+                  ),
+                  stallData.seller.followerCount > 0 && h('div', { className: 'stall-stat' },
+                    h('div', { className: 'stall-stat-label' }, 'Followers'),
+                    h('div', { className: 'stall-stat-val' },
+                      Number(stallData.seller.followerCount).toLocaleString())
+                  ),
                   // Typical-response chip — median seller reply time across
                   // the most recent resolved offers. Null (hidden) until the
                   // seller has answered at least 3 offers so the stat isn't
@@ -7364,6 +7375,95 @@ export function App() {
               },
                 'Report')
             ),
+            // Boss QA cycle 2 S2 — labeled stat-card grid replacing the
+            // concatenated chip mush in stall-meta. Four boxes: Joined /
+            // Last seen / Lifetime sales / Last sale. Tooltips carry the
+            // absolute timestamps so the dense info isn't lost. Renders
+            // even when individual stats are unknown ("—") so the grid
+            // shape is consistent across stalls.
+            (() => {
+              const seller = stallData.seller || {};
+              const fmtAge = (ts) => {
+                if (!ts) return '—';
+                const ageMs = Date.now() - ts;
+                if (ageMs < 365 * 24 * 3600_000) return timeAgo(ts);
+                return new Date(ts).getFullYear().toString();
+              };
+              const lastSeenLabel = (ts) => {
+                if (!ts) return '—';
+                const age = Date.now() - ts;
+                if (age < 24 * 3600_000) return 'Active today';
+                if (age < 7 * 24 * 3600_000) return 'This week';
+                return timeAgo(ts);
+              };
+              const cards = [
+                {
+                  label: 'Joined',
+                  value: fmtAge(seller.joinedAt),
+                  title: seller.joinedAt ? new Date(seller.joinedAt).toLocaleString() : 'Account creation date unknown'
+                },
+                {
+                  label: 'Last seen',
+                  value: lastSeenLabel(seller.lastSyncedAt),
+                  title: seller.lastSyncedAt ? 'Last observed on Steam ' + new Date(seller.lastSyncedAt).toLocaleString() : 'No recent activity recorded'
+                },
+                {
+                  label: 'Lifetime sales',
+                  value: (seller.soldCount != null && seller.soldCount > 0) ? Number(seller.soldCount).toLocaleString() : '—',
+                  title: seller.soldCount > 0 ? `${seller.soldCount} completed sale${seller.soldCount === 1 ? '' : 's'} since joining` : 'No completed sales yet'
+                },
+                {
+                  label: 'Last sale',
+                  value: seller.lastSoldAt ? timeAgo(seller.lastSoldAt) : '—',
+                  title: seller.lastSoldAt ? 'Most recent sale closed ' + new Date(seller.lastSoldAt).toLocaleString() : 'No sales recorded'
+                }
+              ];
+              return h('div', { className: 'stall-stat-grid' },
+                cards.map(c => h('div', { key: c.label, className: 'stall-stat-card', title: c.title },
+                  h('div', { className: 'stall-stat-card-label' }, c.label),
+                  h('div', { className: 'stall-stat-card-value' }, c.value)
+                ))
+              );
+            })(),
+            // Trust-badges row — Verified / Active / Response rate /
+            // Typical ship — surfaced as a horizontal pill row for
+            // immediate scannability. Hidden if none of the chips have
+            // data (e.g. brand-new account with no resolved trades).
+            (() => {
+              const seller = stallData.seller || {};
+              const badges = [];
+              if (seller.verified) {
+                badges.push({ key: 'verified', label: 'Verified seller', tone: 'good',
+                  title: 'Verified seller — ' + (seller.soldCount || 10) + '+ completed sales with no negative reviews' });
+              }
+              if (seller.responseRatePct != null) {
+                const tone = seller.responseRatePct >= 80 ? 'good' : seller.responseRatePct >= 50 ? 'warn' : 'bad';
+                badges.push({ key: 'response', label: Math.round(seller.responseRatePct) + '% response',
+                  tone, title: 'Fraction of offers the seller has resolved (accept / reject / counter) vs. let auto-expire' });
+              }
+              if (seller.typicalShipMs != null) {
+                const ms = seller.typicalShipMs;
+                let label;
+                if (ms < 3_600_000)           label = Math.max(1, Math.round(ms / 60_000)) + 'm';
+                else if (ms < 24 * 3_600_000) label = Math.max(1, Math.round(ms / 3_600_000)) + 'h';
+                else                          label = Math.max(1, Math.round(ms / (24 * 3_600_000))) + 'd';
+                const tone = ms < 4 * 3_600_000 ? 'good' : ms < 24 * 3_600_000 ? 'warn' : 'mute';
+                badges.push({ key: 'ship', label: 'Ships in ~' + label, tone,
+                  title: `Median time from purchase to seller marking the Steam trade sent across the last ${seller.typicalShipSamples || 0} verified trades (90d)` });
+              }
+              if (seller.followerCount > 0) {
+                badges.push({ key: 'followers', label: seller.followerCount + ' follower' + (seller.followerCount === 1 ? '' : 's'),
+                  tone: 'mute', title: 'Buyers who have subscribed to NEW_LISTING notifications from this seller' });
+              }
+              if (badges.length === 0) return null;
+              return h('div', { className: 'stall-trust-badges' },
+                badges.map(b => h('span', {
+                  key: b.key,
+                  className: 'stall-trust-badge stall-trust-badge-' + b.tone,
+                  title: b.title
+                }, b.label))
+              );
+            })(),
             stallData.away && h('div', { className: 'stall-away-banner' },
               h('span', { className: 'stall-away-dot' }),
               h('div', null,
@@ -7732,7 +7832,97 @@ export function App() {
                      ? '↑ Collapse to 10 most relevant'
                      : `↓ Show all ${displayReviews.length} reviews`)
               );
-            })()
+            })(),
+            // S1 Boss-QA — trust + discovery panel that fills the empty
+            // bottom of the page even when the seller has only 1
+            // listing / 0 reviews / 1 sold. Replaces the huge dead
+            // void with three cards: trust signals, recent reviews
+            // teaser (when none yet), and a "Discover other sellers"
+            // CTA that points back to the main marketplace. Always
+            // renders (no gating) so a stall page never bottoms out.
+            h('div', { className: 'stall-trust-panel' },
+              // Trust column — verified badge or "Building reputation"
+              // copy + key trust stats from the seller record.
+              h('div', { className: 'stall-trust-card' },
+                h('div', { className: 'stall-trust-card-head' },
+                  h('span', { className: 'section-title-dot' }),
+                  'Trust signals'),
+                h('ul', { className: 'stall-trust-list' },
+                  h('li', null,
+                    h('span', { className: 'stall-trust-icon' },
+                      stallData.seller.verified ? '✓' : '·'),
+                    h('span', null,
+                      stallData.seller.verified
+                        ? h('strong', null, 'Verified seller — 10+ completed sales at 4+ stars')
+                        : (stallData.seller.soldCount > 0
+                            ? `${stallData.seller.soldCount} completed sale${stallData.seller.soldCount === 1 ? '' : 's'} so far — building toward Verified`
+                            : 'New seller — no completed sales yet'))
+                  ),
+                  stallData.seller.profileUrl && h('li', null,
+                    h('span', { className: 'stall-trust-icon' }, '↗'),
+                    h('span', null,
+                      'Steam profile linked · ',
+                      h('a', {
+                        href: stallData.seller.profileUrl,
+                        target: '_blank',
+                        rel: 'nofollow noopener noreferrer'
+                      }, 'view on Steam'))
+                  ),
+                  stallData.seller.joinedAt && h('li', null,
+                    h('span', { className: 'stall-trust-icon' }, '·'),
+                    h('span', null, 'Joined SkinBox ', timeAgo(stallData.seller.joinedAt))
+                  ),
+                  stallData.seller.responseRatePct != null && h('li', null,
+                    h('span', { className: 'stall-trust-icon' }, '·'),
+                    h('span', null,
+                      Math.round(stallData.seller.responseRatePct), '% offer response rate')
+                  ),
+                  h('li', null,
+                    h('span', { className: 'stall-trust-icon' }, '·'),
+                    h('span', null, 'Every trade is escrow-protected by SkinBox until both sides confirm')
+                  )
+                )
+              ),
+              // Reviews teaser — shown only when there are no reviews
+              // yet, so the page doesn't bottom out at "no content."
+              (!stallReviews || stallReviews.length === 0) && h('div', { className: 'stall-trust-card' },
+                h('div', { className: 'stall-trust-card-head' },
+                  h('span', { className: 'section-title-dot' }),
+                  'Reviews'),
+                h('div', { className: 'stall-trust-empty' },
+                  h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 } },
+                    'No reviews yet'),
+                  h('div', { style: { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 } },
+                    me && me.id !== stallData.seller.id && eligibleTrades.length > 0
+                      ? "You've traded with this seller — leave the first review above to help future buyers."
+                      : "Reviews appear here once buyers complete a trade and rate the seller. Check back after your first purchase.")
+                )
+              ),
+              // Discover other sellers — outbound CTA so a buyer who
+              // bottoms out on a sparse stall has somewhere to go next.
+              h('div', { className: 'stall-trust-card' },
+                h('div', { className: 'stall-trust-card-head' },
+                  h('span', { className: 'section-title-dot' }),
+                  'Keep browsing'),
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                  h('a', {
+                    className: 'btn btn-accent',
+                    style: { padding: '10px 14px', fontSize: 13, textDecoration: 'none', textAlign: 'center' },
+                    href: paths.market()
+                  }, 'Browse all listings →'),
+                  h('a', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '10px 14px', fontSize: 13, textDecoration: 'none', textAlign: 'center', border: '1px solid var(--border)' },
+                    href: paths.database()
+                  }, 'Open the catalogue'),
+                  h('a', {
+                    className: 'btn btn-ghost',
+                    style: { padding: '10px 14px', fontSize: 13, textDecoration: 'none', textAlign: 'center', border: '1px solid var(--border)' },
+                    href: paths.help() + '#trust'
+                  }, 'How escrow works')
+                )
+              )
+            )
           )
     ),
     routeName === 'notfound'      && (() => {
