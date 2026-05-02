@@ -16177,7 +16177,13 @@ details summary:hover {
      literal text instead of the cart glyph. font-feature-settings: 'liga'
      turns on the ligature table that Material Symbols uses to map
      descriptive names to codepoints. line-height: 1 + display: inline-block
-     keep the icon vertically centered against adjacent text. */
+     keep the icon vertically centered against adjacent text.
+     Boss QA cycle 11 — vertical-align bumped down 0.16em to baseline-
+     align the glyph with surrounding ink. Without it, the icon rides
+     the text baseline ~3px high; visible on every "Sign in", "Open
+     in new tab", "Refresh" inline-icon affordance. Flex contexts (the
+     vast majority of icon uses) ignore vertical-align and center via
+     align-items, so this fix only kicks in for the inline cases. */
   font-family: 'Material Symbols Rounded';
   font-weight: normal;
   font-style: normal;
@@ -16185,6 +16191,7 @@ details summary:hover {
   letter-spacing: normal;
   text-transform: none;
   display: inline-block;
+  vertical-align: -0.16em;
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;
@@ -120293,4 +120300,41 @@ h2.auctions-ending-soon-head {
   }
 }
 /* END M3m definitive */
+
+/* ─────────────────────────────────────────────────────────────
+   Boss QA cycle 12 — mobile tap-target sweep
+   ─────────────────────────────────────────────────────────────
+   Apple HIG mandates 44×44 minimum on touch. This block lives at
+   end-of-file with !important so prior duplicate rules (.grid-cart-btn
+   at line 16356 resets size to 28×28; .sort-select height 36px throughout)
+   don't override on mobile. Boss QA cycle 12 prompt: "watch-star",
+   "cart-plus", "sort-toggle", "currency dropdown" must all clear 44.
+   Desktop chrome density preserved — only fires below 760px. */
+@media (max-width: 760px) {
+  .grid-cart-btn,
+  .grid-star {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 18px !important;
+    border-radius: 10px !important;
+    opacity: 1 !important;
+  }
+  .grid-star { top: 8px !important; }
+  .grid-cart-btn { top: 60px !important; }
+
+  .sort-select,
+  .discount-select,
+  .toolbar-select {
+    height: 44px !important;
+    padding-right: 38px !important;
+    background-position: right 14px center !important;
+  }
+
+  .type-toggle-btn { padding: 11px 16px !important; min-height: 44px !important; }
+  .deals-chip { min-height: 44px !important; }
+  .view-btns button { min-height: 44px !important; min-width: 44px !important; }
+  .toolbar-refresh { min-height: 44px !important; min-width: 44px !important; }
+  .sort-picker-chip { min-height: 44px !important; }
+}
+/* END Boss QA cycle 12 mobile tap-target sweep */
 
