@@ -6140,7 +6140,11 @@ export function App() {
             h('span', { className: 'csfloat-home-preview-tail-arrow', 'aria-hidden': 'true' }, '→'),
             h('span', { className: 'csfloat-home-preview-tail-text' },
               (homeTotalListings != null && homeTotalListings > 6)
-                ? `View all ${homeTotalListings} listings`
+                /* Boss QA cycle 11 micro-polish — toLocaleString() on the
+                   tail count so a 1,234-listing catalog doesn't render as
+                   "View all 1234 listings" (already-applied pattern on
+                   the parallel .csfloat-home-metric-num just below). */
+                ? `View all ${homeTotalListings.toLocaleString()} listings`
                 : (homeTotalListings != null && homeTotalListings === 0
                   ? 'List your first item →'
                   : 'View all listings')
@@ -7092,7 +7096,7 @@ export function App() {
             style: { textDecoration: 'none', color: 'inherit' },
             title: `${s.listing.item.name} sold for ${fmt(s.listing.price)} · ${s.time}`
           },
-            h('div', { className: 'ticker-thumb' }, h(ItemImage, { item: s.listing.item, variant: 'thumb' })),
+            h('div', { className: 'ticker-thumb' }, h(ItemImage, { item: s.listing.item, variant: 'mini' })),
             h('span', { className: 'ticker-name' }, s.listing.item.name),
             h('span', { className: 'ticker-price' }, fmt(s.listing.price)),
             h('span', { className: 'ticker-time' }, s.time)
