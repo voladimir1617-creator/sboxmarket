@@ -905,7 +905,16 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   const handleSlot = async (slot, itemId) => {
     if (!viewing) return;
     const res = await setLoadoutSlot(viewing.loadout.id, slot, itemId);
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    // Pre-fix: error check only matched `res.error`, missing the
+    // `code`-shaped errors (INVALID_PARAMETER, RATE_LIMITED, FORBIDDEN
+    // when the user isn't the owner of the loadout). A rate-limited
+    // pin-slot click looked silent — slot didn't update, no toast, no
+    // hint why. Same fix-pattern handleCreate (line 890) and
+    // handleLockSlot (line 916) already use.
+    if (res && (res.error || res.code)) {
+      toast(res.message || res.error || 'Could not update slot', 'err');
+      return;
+    }
     const fresh = await fetchLoadout(viewing.loadout.id);
     setViewing(fresh);
   };
@@ -933,7 +942,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     setGeneratingLoadout(true);
     try {
       const res = await generateLoadout(viewing.loadout.id, b);
-      if (res && res.error) { toast(res.error, 'err'); return; }
+      // Pre-fix: missed `code`-shaped errors (RATE_LIMITED on rapid
+      // re-roll, FORBIDDEN if the user lost ownership, INVALID_PARAMETER
+      // for a malformed budget). Same baseline as handleSlot/handleDelete.
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not generate loadout', 'err');
+        return;
+      }
       const fresh = await fetchLoadout(viewing.loadout.id);
       setViewing(fresh);
       // Count how many slots were actually filled for the success
@@ -956,7 +971,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     const name = viewing.loadout?.name || 'this loadout';
     if (!confirm(`Delete "${name}"?\n\nThis can't be undone — the slots, favorites, and share link all go away.`)) return;
     const res = await deleteLoadout(viewing.loadout.id);
-    if (res && res.error) { toast(res.error, 'err'); return; }
+    // Pre-fix: missed `code`-shaped errors (FORBIDDEN if the user isn't
+    // the owner, RATE_LIMITED, etc). Same baseline gap fixed in
+    // handleSlot + handleCreate this lap.
+    if (res && (res.error || res.code)) {
+      toast(res.message || res.error || 'Could not delete loadout', 'err');
+      return;
+    }
     setViewing(null);
     setTab('mine');
     load();

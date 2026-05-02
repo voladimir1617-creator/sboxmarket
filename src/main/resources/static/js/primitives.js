@@ -190,12 +190,13 @@ export function Avatar({ src, name, alt, className, style }) {
 // them. Apply as inline style so it wins against any prior class CSS
 // without needing a dedicated rule per tier.
 //
-// Boss QA cycle 11 — Standard bumped twice. Gray-500 (#6b7280) → 3.0:1
-// (axe FAIL). Gray-400 (#9ca3af) → 3.92:1 against the bg-2 chip backdrop
-// (still axe FAIL because chip's tinted bg lifts the surface). Gray-300
-// (#d1d5db) clears 4.5:1 against bg-2 with comfortable headroom.
+// Boss QA cycle 14 A6 — Standard moved off the hand-rolled gray-300 hex
+// onto var(--ink-2). The literal #d1d5db read fine on the dark body, but
+// on themed surfaces (light theme, accent swap) it stayed cold-gray and
+// fell out of contrast. --ink-2 is the brand "secondary text" token; it
+// re-resolves per theme so contrast holds wherever the badge renders.
 const RARITY_COLORS = {
-  'Standard':   '#d1d5db', // gray-300 — was gray-400 (still axe contrast fail on tinted chip bg)
+  'Standard':   'var(--ink-2)',  // resolves per theme — see comment above
   'Off-Market': '#d4a418', // amber (display label = "Scarce")
   'Scarce':     '#d4a418',
   'Rare':       '#1ea5ff', // cta blue
