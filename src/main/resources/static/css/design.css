@@ -8277,8 +8277,11 @@ body:has(.shortcuts-backdrop) {
   .profile-tabs button, .mystall-tabs button, .wallet-tabs button, .offer-tab { padding: 9px 12px; font-size: 12.5px; white-space: nowrap; }
   .hero-tab-cta { padding: 8px 12px; font-size: 12px; }
 
-  /* Buttons */
-  .btn-accent, .btn-primary, .btn-ghost, .btn-primary-outline { height: 40px; padding: 0 16px; font-size: 13px; }
+  /* Buttons.
+     Boss QA cycle 11/12 — bumped from 40 to 44 (Apple HIG). Two-line copy
+     buttons like /market 'Save search' were 36×103 inline + min-height 40
+     after the @media; 44 finally clears the audit cleanly. */
+  .btn-accent, .btn-primary, .btn-ghost, .btn-primary-outline { height: 44px; padding: 0 16px; font-size: 13px; }
   .px-btn, .px-btn-primary, .px-btn-ghost, .px-btn-lg { height: 44px; padding: 0 20px; font-size: 13.5px; }
 
   /* Settings */
