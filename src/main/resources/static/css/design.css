@@ -2179,8 +2179,7 @@ footer {
   .db-stats { grid-template-columns: repeat(4, 1fr); }
   .db-stats > div { padding: 10px 12px; }
   .db-stats .v { font-size: 16px; }
-  .db-table { overflow-x: auto; }
-  .db-row { grid-template-columns: 32px minmax(180px, 2fr) 70px 100px 80px 60px 60px 90px 32px; min-width: 780px; }
+  .db-row { grid-template-columns: 32px minmax(180px, 2fr) 70px 100px 80px 60px 60px 90px 32px; }
   .offer-row { grid-template-columns: 48px 1fr; gap: 14px; }
   .offer-prices, .offer-actions { grid-column: 1 / -1; }
   .offer-actions { justify-content: flex-end; }
@@ -3888,6 +3887,20 @@ nav.nav {
   background: var(--bg-2);
   border-color: var(--ink-4);
 }
+/* Boss QA cycle 2 Q4 — explicit focus-visible ring on every chip
+   variant. Without it keyboard tab-through reads as identical to
+   inactive (focus moves silently between chips, no visible
+   indicator), failing WCAG 2.4.7. Single rule covers filter chips,
+   wallet-tx filter chips, and price chips. */
+.filter-chip:focus-visible,
+.wallet-tx-filter-chip:focus-visible,
+.price-chip:focus-visible,
+.stall-filter-chips .filter-chip:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--cta) 70%, transparent);
+  outline-offset: 2px;
+  color: var(--ink);
+  border-color: color-mix(in oklab, var(--cta) 60%, var(--line));
+}
 .filter-chip svg { width: 13px; height: 13px; }
 .filter-count, .filter-chip .count {
   font-family: var(--mono); font-size: 10px;
@@ -5306,6 +5319,127 @@ body:has(.shortcuts-backdrop) {
   font-family: var(--mono); font-size: 11px; color: var(--ink-3);
   background: var(--bg);
 }
+/* Boss QA cycle 4 M3m — mobile stacked-card layout for /db. The desktop
+   table has narrow columns that scroll horizontally on a 393px viewport
+   (boss saw rows reading "#1 / #2 / #3" with the rest cut off). At
+   <=600px we ditch the table chrome and render each row as a card:
+   image left, name + rank stacked top, category + rarity inline below,
+   supply/sold/views as a tight monospace strip, floor price as the
+   dominant bottom-right chip, watch star pinned top-right. Every column
+   the desktop table shows survives — just rearranged so it reads as a
+   browseable card list instead of a sliced spreadsheet. */
+@media (max-width: 600px) {
+  .db-table-scroll { overflow-x: visible; }
+  .db-table { table-layout: fixed; }
+  .db-table thead { display: none; }
+  .db-table,
+  .db-table tbody,
+  .db-table tbody tr.db-row { display: block; width: 100%; }
+  .db-table tbody tr.db-row {
+    height: auto;
+    min-height: 0;
+    padding: 14px 14px 12px;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    grid-template-areas:
+      "img main star"
+      "img meta meta"
+      "img kv   price";
+    column-gap: 12px;
+    row-gap: 6px;
+    align-items: center;
+  }
+  .db-table tbody tr.db-row > td { padding: 0; border: 0; display: block; }
+  .db-table tbody tr.db-row > td:nth-child(1) {
+    /* Rank — surfaced as small caption above the name. */
+    grid-area: main;
+    align-self: end;
+    font-size: 10px;
+    color: var(--ink-4);
+    font-family: var(--mono);
+    width: auto;
+    margin-bottom: -2px;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) {
+    grid-area: main;
+    min-width: 0;
+    align-self: start;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell {
+    display: contents;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > .db-thumb {
+    grid-area: img;
+    width: 56px; height: 56px; min-width: 56px;
+    align-self: start;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > div:not(.db-thumb) {
+    grid-area: main;
+    min-width: 0;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.25;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-sub {
+    color: var(--ink-4);
+    font-size: 10px;
+  }
+  .db-table tbody tr.db-row > td:nth-child(3),
+  .db-table tbody tr.db-row > td:nth-child(4) {
+    grid-area: meta;
+    font-size: 11px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: var(--mono);
+    display: inline-flex;
+    align-items: center;
+  }
+  .db-table tbody tr.db-row > td:nth-child(4) {
+    justify-self: end;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .db-table tbody tr.db-row > td:nth-child(5),
+  .db-table tbody tr.db-row > td:nth-child(6),
+  .db-table tbody tr.db-row > td:nth-child(7) {
+    grid-area: kv;
+    font-size: 11px;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    text-align: left;
+    display: inline;
+  }
+  .db-table tbody tr.db-row > td:nth-child(5)::before { content: 'Supply '; color: var(--ink-4); }
+  .db-table tbody tr.db-row > td:nth-child(6)::before { content: ' · Sold '; color: var(--ink-4); }
+  .db-table tbody tr.db-row > td:nth-child(7)::before { content: ' · '; color: var(--ink-4); }
+  .db-table tbody tr.db-row > td:nth-child(7)::after { content: ' views'; color: var(--ink-4); }
+  .db-table tbody tr.db-row > td:nth-child(8) {
+    grid-area: price;
+    justify-self: end;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .db-table tbody tr.db-row > td:nth-child(9) {
+    grid-area: star;
+    justify-self: end;
+    align-self: start;
+  }
+  .db-pager {
+    padding: 12px 14px;
+    font-size: 11px;
+  }
+}
 .db-controls {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   padding: 14px 0;
@@ -5354,6 +5488,16 @@ body:has(.shortcuts-backdrop) {
   color: var(--ink);
   font-variation-settings: "opsz" 144;
   line-height: 1.15;
+  /* Boss QA cycle 4 M2m — long Steam display names ("Chib skinbox.market's
+     Stall") were clipping past 390-393px iPhone-class viewports. Allow
+     wrapping on word/syllable boundaries so the title reads as a
+     deliberate two-line h1, not a chopped overflow. */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+@media (max-width: 420px) {
+  .info-modal-header { font-size: 18px; padding: 16px 18px; gap: 10px; }
 }
 /* When the header DOES have a nested title element, preserve the same
    typography on that wrapper instead. */
@@ -8085,7 +8229,16 @@ body:has(.shortcuts-backdrop) {
   .cat-tiles { grid-template-columns: repeat(2, 1fr); padding: 0 12px; gap: 8px; }
   .listing-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .profile-avatar, .stall-avatar { width: 64px; height: 64px; font-size: 28px; }
-  .profile-name, .stall-name { font-size: 22px; }
+  /* M2m: H1 was overflowing right edge for long usernames
+     ("StoneColdKillerXX-2026's Stall"). clamp + word-break makes it
+     scale and wrap cleanly on any owner name length. */
+  .profile-name, .stall-name {
+    font-size: clamp(20px, 6vw, 30px);
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    hyphens: auto;
+    max-width: 100%;
+  }
   .wallet-hero-balance { font-size: 32px; }
   .cart-total-val { font-size: 24px; }
   .modal-name, .modal-header h2, .modal-header h3 { font-size: 18px; }
@@ -8113,7 +8266,19 @@ body:has(.shortcuts-backdrop) {
 /* ─────────────────────────────────────────────────────────────
    28. GLOBAL POLISH — scrollbar, selection, focus
    ───────────────────────────────────────────────────────────── */
-*:focus-visible { outline: 2px solid var(--ink-4); outline-offset: 2px; border-radius: var(--r-sm); }
+/* Q4 (cycle 5): bump global :focus-visible from a dim ink-4 ring to the
+   accent color so keyboard users can clearly see the focused element on
+   any surface. Specific rules for buttons/inputs/anchors below mirror
+   the same accent + offset so widget-specific overrides stay consistent. */
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 *::selection { background: color-mix(in oklab, var(--ink) 18%, transparent); color: var(--ink); }
 
 /* Reduced motion */
@@ -11035,13 +11200,17 @@ body:has(.full-page-mode) { overflow: visible !important; }
    which read as invisible smudges on dark bg). New: 0.85 / 0.65 with
    no blur on pos-1, lighter blur on pos-2, stronger angle so the fan
    reads like a real 3-card spread. */
+/* P1.2 (cycle 5): boss reported back cards reading as invisible smudges
+   at 0.88/0.66 with no blur. Re-tune to "deliberate parallax depth" —
+   lower opacity but real blur so they're clearly out-of-focus background
+   layers, not failed clones. 0.55 / 0.32 + blur(1.4px) / blur(2.4px). */
 .csfloat-hero-stack-card.pos-1 {
   top: 50%; left: 50%;
   transform: translate(calc(-50% + 80px), calc(-50% - 24px)) rotate(-5deg);
   width: 250px; height: 300px;
   z-index: 2;
-  opacity: 0.88;
-  filter: brightness(0.96);
+  opacity: 0.55;
+  filter: brightness(0.92) blur(1.4px);
   border-color: color-mix(in oklab, var(--cta) 22%, var(--line-2));
 }
 .csfloat-hero-stack-card.pos-2 {
@@ -11049,8 +11218,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
   transform: translate(calc(-50% + 150px), calc(-50% - 48px)) rotate(-9deg);
   width: 240px; height: 280px;
   z-index: 1;
-  opacity: 0.66;
-  filter: brightness(0.88) blur(0.6px);
+  opacity: 0.32;
+  filter: brightness(0.82) blur(2.4px);
   border-color: color-mix(in oklab, var(--cta) 16%, var(--line-2));
 }
 .csfloat-hero-stack-card.pos-0:hover {
@@ -116944,23 +117113,124 @@ tr:hover .csfloat-row-hover-actions,
     font-size: 10px !important;
   }
   /* Sticky bottom action bar — stack the secondary action below the
-     primary so the row doesn't overflow the viewport edge. */
+     primary so the row doesn't overflow the viewport edge.
+     M1m: shrink button heights so the stack doesn't eat 200px of viewport
+     and the rail's stat block stays above the fold. */
   .site-root.full-page-mode .modal-action-sticky,
   .site-root.full-page-mode .item-action-sticky,
-  .site-root.full-page-mode .item-modal-sticky-bar {
+  .site-root.full-page-mode .item-modal-sticky-bar,
+  .site-root.full-page-mode .modal-actions {
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 8px !important;
-    padding: 10px 12px !important;
+    gap: 6px !important;
+    padding: 8px 12px !important;
   }
   .site-root.full-page-mode .modal-action-sticky > *,
   .site-root.full-page-mode .item-action-sticky > *,
-  .site-root.full-page-mode .item-modal-sticky-bar > * {
+  .site-root.full-page-mode .item-modal-sticky-bar > *,
+  .site-root.full-page-mode .modal-actions > * {
     width: 100% !important;
     max-width: 100% !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    font-size: 13px !important;
+    padding: 6px 12px !important;
   }
 }
 /* END mobile /item collapse */
+
+/* ─── M3m: /db mobile stacked card layout (2026-05-01) ──────────────
+   Pre-fix the 820px rule kept .db-row as a 9-col grid with min-width
+   780px and forced horizontal scroll. On a 390px viewport that meant
+   the visible content was ONLY the rank column (#1, #2, #3...) — every
+   other column off-screen. Boss flagged in cycle 4 + 5; converting to
+   a 2-row stacked card pattern at ≤600px so each row paints thumb +
+   name + price visibly without sideways scrolling.
+   Strategy: hide rank/rarity/supply/sold/views/watch on mobile. Keep
+   td:nth-child(2) (item cell with thumb + name) as the wide left col;
+   td:nth-child(3) (category) under name; td:nth-child(8) (floor price)
+   on the right. */
+@media (max-width: 600px) {
+  .db-table-scroll { overflow-x: visible !important; }
+  .db-table { display: block; overflow-x: visible; min-width: 0; width: 100%; }
+  .db-table thead { display: none; }
+  .db-table tbody { display: block; width: 100%; }
+  .db-table tbody tr,
+  .db-table tbody tr.db-row {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto auto !important;
+    grid-column-gap: 10px !important;
+    grid-row-gap: 4px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid var(--line) !important;
+    align-items: center;
+    height: auto !important;
+  }
+  .db-table tbody td {
+    display: block;
+    padding: 0 !important;
+    text-align: left !important;
+    border: 0 !important;
+    min-width: 0;
+    height: auto !important;
+  }
+  /* hide non-essential columns on mobile */
+  .db-table tbody td.db-rank,
+  .db-table tbody td:nth-child(4),
+  .db-table tbody td:nth-child(5),
+  .db-table tbody td:nth-child(6),
+  .db-table tbody td:nth-child(7),
+  .db-table tbody td:last-child { display: none !important; }
+  /* Item cell (thumb + name + sub) — col 1, row 1 */
+  .db-table tbody td:nth-child(2) {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    overflow: hidden;
+  }
+  .db-table tbody td:nth-child(2) .db-item-cell {
+    gap: 10px;
+    align-items: center;
+  }
+  .db-table tbody td:nth-child(2) .db-thumb {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px;
+  }
+  .db-table tbody td:nth-child(2) .db-name {
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .db-table tbody td:nth-child(2) .db-sub {
+    font-size: 10px;
+    color: var(--ink-4);
+    margin-top: 1px;
+  }
+  /* Category — col 1, row 2, indented to align with name */
+  .db-table tbody td.db-cat {
+    grid-column: 1 / 3;
+    grid-row: 2 / 3;
+    font-size: 11px;
+    color: var(--ink-3);
+    padding-left: 50px !important;
+  }
+  /* Floor price — col 2, row 1, right-aligned */
+  .db-table tbody td:nth-child(8) {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+    text-align: right !important;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+}
+/* END M3m */
 
 /* ─── Ticker strip alignment (2026-04-29) ─────────────────────────
    Operator-flagged: the "LIVE SALES" ticker rendered as a 579px-wide
@@ -118396,11 +118666,17 @@ h1.modal-h1,
   outline: 2px solid color-mix(in oklab, var(--cta) 60%, transparent);
   outline-offset: 2px;
 }
+/* P1.1 (cycle 5): active tab was a blue pill, but the brand's "blue is
+   a spice" rule means major nav surfaces stay mono. Switch to an ink-on-bg
+   charcoal pill — same csfloat-style segmented control but in the brand
+   palette. Selector chain raises specificity to beat any later override. */
+.csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+.csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
 .csfloat-home-rail-tab.active {
-  color: oklch(0.98 0 0);
-  background: var(--cta);
-  border-color: color-mix(in oklab, var(--cta) 30%, transparent);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  color: var(--bg) !important;
+  background: var(--ink) !important;
+  border-color: var(--ink) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.35) !important;
 }
 /* H5 (Boss QA): real outlined ghost button — was reading as plain text.
    Solid 1px border in the system blue, transparent fill, hover fills
@@ -119598,9 +119874,13 @@ h2.auctions-ending-soon-head {
   font-weight: 600;
   color: var(--text-primary);
 }
+/* P1.5 (cycle 5): boss flagged contrast on inline FAQ preview rows.
+   Question text (.help-faq-preview-q) is at var(--ink) via --text-primary.
+   The arrow was at --text-muted (=ink-4), too dim against bg-2. Bump to
+   ink-2 so the row reads as one cohesive unit. */
 .help-faq-preview .help-faq-preview-row .help-faq-preview-arrow {
   font-size: 16px;
-  color: var(--text-muted);
+  color: var(--ink-2);
   flex-shrink: 0;
 }
 
