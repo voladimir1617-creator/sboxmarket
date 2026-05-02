@@ -2,7 +2,7 @@
   "name": "SkinBox",
   "short_name": "SkinBox",
   "description": "s&box Skin Marketplace — trade Workshop items with lower fees than Steam",
-  "start_url": "/",
+  "start_url": "/market",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -20,7 +20,7 @@
       "name": "Marketplace",
       "short_name": "Market",
       "description": "Browse active listings",
-      "url": "/",
+      "url": "/market",
       "icons": [{ "src": "/img/favicon-192.png", "sizes": "192x192" }]
     },
     {

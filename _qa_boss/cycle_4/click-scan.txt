@@ -1,0 +1,34 @@
+route=/  total=47  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/market  total=64  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/db  total=43  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/help  total=72  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/faq  total=42  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/cart  total=43  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/watchlist  total=42  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/wallet  total=40  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/sell  total=42  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/settings  total=44  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/profile/personal  total=42  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/item/1  total=41  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/stall/1  total=41  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/loadout/1  total=42  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/item/9999  total=40  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/stall/9999  total=41  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]
+route=/loadout/9999  total=42  dead=1  errors=0  warnings=0  network=0
+  dead samples: [{"tag":"a","label":"SkinBox","href":"/","classes":"nav-logo"}]

@@ -1,0 +1,45 @@
+=== / ===
+[66604:9572:0501/223605.848:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[66604:6592:0501/223605.943:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /market ===
+[70388:52828:0501/223609.227:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[70388:71672:0501/223609.482:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /db ===
+[71300:55604:0501/223613.331:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[71300:66628:0501/223613.415:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /help ===
+[70884:59712:0501/223617.271:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[70884:67376:0501/223617.358:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /faq ===
+[71500:59908:0501/223620.534:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[71500:63052:0501/223620.645:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /cart ===
+[64040:56420:0501/223624.671:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[64040:70432:0501/223624.819:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /watchlist ===
+[66328:66016:0501/223629.027:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[66328:47448:0501/223629.115:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /wallet ===
+[66796:69672:0501/223632.657:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[66796:56600:0501/223632.750:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /sell ===
+[28092:66372:0501/223636.103:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[28092:53888:0501/223636.204:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /settings ===
+[68416:57048:0501/223639.402:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[68416:57660:0501/223639.493:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /profile/personal ===
+[68788:67420:0501/223643.012:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[68788:63148:0501/223643.107:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /item/1 ===
+[70300:63052:0501/223647.082:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[70300:55016:0501/223647.183:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /stall/1 ===
+[22632:63984:0501/223651.305:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[22632:47452:0501/223651.392:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /loadout/1 ===
+[36980:71200:0501/223655.373:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[36980:46912:0501/223655.466:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+=== /loadout/3 ===
+[47452:7636:0501/223659.318:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[47452:55936:0501/223659.526:WARNING:chrome\browser\extensions\external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)

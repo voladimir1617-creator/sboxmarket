@@ -199,14 +199,28 @@ export function toast(text, kind = 'ok') {
 }
 
 export function signInWithSteam() {
+  // Build the post-login destination from the current page so the user
+  // lands back where they triggered auth instead of being dumped at /.
+  // Codex 18:07Z owner finding: clicking Sign In on /sell, /profile,
+  // /watchlist etc threw away the user's intent and conversion suffered.
+  // We pass `next` to the server (authoritative — sanitized server-side)
+  // AND keep the legacy sessionStorage fallback so a failed/aborted login
+  // still has a backup signal for the SPA welcome-toast logic.
+  let nextPath = '/';
   try {
-    const cur = window.location.pathname + window.location.search;
+    const cur = window.location.pathname + window.location.search + window.location.hash;
     const params = new URLSearchParams(window.location.search);
     const isLoginLanding = params.has('login');
-    const isRootNoParams = window.location.pathname === '/' && !window.location.search;
+    const isRootNoParams = window.location.pathname === '/' && !window.location.search && !window.location.hash;
     if (!isLoginLanding && !isRootNoParams) {
       sessionStorage.setItem('sb_login_return_url', cur);
+      nextPath = cur;
     }
   } catch (_) { /* sessionStorage unavailable — still fire the redirect */ }
-  window.location.href = '/api/auth/steam/login';
+  // Only append `?next=...` when the destination differs from `/` so the
+  // server doesn't get a noise param for the trivial home-page case.
+  const url = (nextPath && nextPath !== '/')
+    ? '/api/auth/steam/login?next=' + encodeURIComponent(nextPath)
+    : '/api/auth/steam/login';
+  window.location.href = url;
 }

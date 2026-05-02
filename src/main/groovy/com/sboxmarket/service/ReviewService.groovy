@@ -400,6 +400,36 @@ class ReviewService {
         ]
     }
 
+    /**
+     * Bulk per-seller rating summary keyed by user id. One GROUP BY query
+     * powers the seller-rating decoration on every visible listing row in
+     * a single request — the listing controller calls this once per page
+     * load and attaches `[count, average]` to each Listing.sellerRating /
+     * Listing.sellerReviewCount. Sellers with zero reviews are absent from
+     * the result map (caller treats missing as "no rating yet" — null).
+     */
+    Map<Long, Map> summariesForUsers(Collection<Long> userIds) {
+        def out = [:] as Map<Long, Map>
+        if (userIds == null || userIds.isEmpty()) return out
+        def ids = userIds.findAll { it != null }.toSet().toList()
+        if (ids.isEmpty()) return out
+        try {
+            def rows = reviewRepository.aggregateForUsers(ids)
+            rows?.each { row ->
+                def uid   = (row[0] as Number)?.longValue()
+                def count = ((row[1] as Number) ?: 0).longValue()
+                def avg   = row[2] == null ? null : ((row[2] as Number).doubleValue())
+                def rounded = avg == null ? null : (Math.round(avg * 10.0) / 10.0)
+                if (uid != null && count > 0) {
+                    out[uid] = [count: count, average: rounded]
+                }
+            }
+        } catch (Exception e) {
+            log.debug("summariesForUsers failed: ${e.message}")
+        }
+        out
+    }
+
     /** Aggregate rating summary used by the public stall page header. */
     Map summaryForUser(Long toUserId) {
         def rows = reviewRepository.aggregateForUser(toUserId)

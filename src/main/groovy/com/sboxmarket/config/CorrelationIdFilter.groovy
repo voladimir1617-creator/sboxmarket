@@ -74,7 +74,19 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         resp.setHeader("Cross-Origin-Opener-Policy", "same-origin")
         resp.setHeader("Cross-Origin-Resource-Policy", "same-origin")
         resp.setHeader("Content-Security-Policy", CSP_HEADER)
-        if (enableHsts) {
+        // HSTS: emit whenever the request actually arrived over TLS, not
+        // gated on the env var. The container itself listens on plain
+        // HTTP behind Cloudflare's TLS terminator (cf sets X-Forwarded-Proto:
+        // https on the tunnel hop). Without this fix, public HTTPS
+        // visitors via skinbox.market never received HSTS because
+        // run-local.sh sets SECURITY_HSTS=false (correct for local-dev
+        // HTTP). Spec note: HSTS over HTTP is a no-op per RFC 6797 §7.2,
+        // so emitting it on a true-HTTP request is technically wasted
+        // bytes but harmless — checking the proxy header avoids that.
+        boolean isHttpsRequest = req.isSecure() ||
+            'https'.equalsIgnoreCase(req.getHeader('X-Forwarded-Proto')) ||
+            'https'.equalsIgnoreCase(req.getHeader('X-Forwarded-Scheme'))
+        if (enableHsts || isHttpsRequest) {
             resp.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
         }
 
@@ -131,6 +143,23 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                 path.matches('/api/reviews/user/\\d+/summary') ||
                 path.matches('/api/reviews/user/\\d+/summary\\?.*'))
         boolean isReviewPrivate = path != null && path.startsWith('/api/reviews') && !isReviewPublicRead
+        // /api/listings/my-stall* are the seller's per-user dashboards
+        // (active listings, sold ledger, earnings rollup, per-listing
+        // analytics, plus the .csv exports for each). Personal data —
+        // belongs on the no-store list. Pre-fix the controller had to
+        // emit Cache-Control: no-store itself on the .csv variants and
+        // the JSON variants slipped through with whatever Spring's
+        // default was (typically no Cache-Control = browser disk cache
+        // could persist a stale response across user sessions on a
+        // shared machine). Filter-side coverage means any future
+        // /api/listings/my-stall/<new-feature> automatically inherits
+        // the right header without per-controller plumbing.
+        boolean isMyStall = path != null && path.startsWith('/api/listings/my-stall')
+        // Same shape for the seller's owned-inventory feed (powers the
+        // SellItemsModal grid) and for the seller's own verification-
+        // progress snapshot (KYC milestone counters). Both viewer-scoped.
+        boolean isOwnedInventory = path != null && path == '/api/listings/inventory'
+        boolean isSellerSelf     = path != null && path.startsWith('/api/sellers/me')
         if (path != null && (
                 path.startsWith('/api/wallet') ||
                 path.startsWith('/api/auth') ||
@@ -151,6 +180,9 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                 isWatchlistPrivate ||
                 isLoadoutPrivate ||
                 isReviewPrivate ||
+                isMyStall ||
+                isOwnedInventory ||
+                isSellerSelf ||
                 path.startsWith('/api/cart'))) {
             resp.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private")
             resp.setHeader("Pragma", "no-cache")

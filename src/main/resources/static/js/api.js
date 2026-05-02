@@ -31,7 +31,7 @@ import { API } from './utils.js';
   };
 })();
 
-async function safeJson(url, opts) {
+async function safeJson(url, opts, meta) {
   try {
     const r = await fetch(url, opts);
     if (!r.ok) {
@@ -55,7 +55,13 @@ async function safeJson(url, opts) {
       if (r.status === 503) {
         try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
       }
-      console.warn(`[${url}] HTTP ${r.status}`);
+      // Suppress the warn for callers that have explicitly opted into
+      // expected non-2xx (read-by-id endpoints where the SPA already
+      // surfaces a branded "not found" empty state — stall/loadout/item
+      // dead links). Without this opt-out, every dead-link landing fired
+      // 3-4 console.warns that read as a bug to anyone tailing the tab.
+      const muted = meta && Array.isArray(meta.expect) && meta.expect.indexOf(r.status) >= 0;
+      if (!muted) console.warn(`[${url}] HTTP ${r.status}`);
       return null;
     }
     // Clear the maintenance banner as soon as a real response lands —
@@ -190,7 +196,9 @@ export async function fetchListings(params = {}) {
 }
 
 export async function fetchHistory(itemId) {
-  const data = await safeJson(`${API}/items/${itemId}/history`);
+  // Expected-404 mute: a dead /item/:id link triggers parallel fetches
+  // for listings + history + item; 404s here are normal, not bugs.
+  const data = await safeJson(`${API}/items/${itemId}/history`, undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
 
@@ -203,7 +211,13 @@ export async function fetchMarketStats() {
 /** Single item lookup used by WatchlistModal to surface starred items
  *  even when there are no active listings in the marketplace. */
 export async function fetchItem(itemId) {
-  return (await safeJson(`${API}/items/${itemId}`)) || null;
+  // The endpoint now returns 200 with `{notFound: true}` for missing ids
+  // (so Chrome doesn't auto-log a fetch 404 to console). Translate the
+  // sentinel back to null so every existing caller's truthy/null check
+  // keeps working without changes.
+  const data = await safeJson(`${API}/items/${itemId}`, undefined, { expect: [404] });
+  if (data && data.notFound) return null;
+  return data || null;
 }
 
 export async function fetchSimilar(itemId) {
@@ -369,7 +383,7 @@ export async function setSellerMuted(sellerId, muted) {
  *  Uses the dedicated /api/listings/item/{id} endpoint instead of the
  *  general /api/listings query which doesn't support itemId filtering. */
 export async function fetchListingsForItem(itemId) {
-  const data = await safeJson(`${API}/listings/item/${itemId}`);
+  const data = await safeJson(`${API}/listings/item/${itemId}`, undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
 
@@ -478,11 +492,17 @@ export async function fetchMyStallWithTotal() {
  *  to 200 when you want enough samples for a sales sparkline. */
 export async function fetchPublicStallSold(userId, limit) {
   const qs = (Number.isFinite(+limit) && limit > 0) ? `?limit=${Math.min(+limit, 200)}` : '';
-  const data = await safeJson(`${API}/listings/stall/${userId}/recent-sales${qs}`);
+  const data = await safeJson(`${API}/listings/stall/${userId}/recent-sales${qs}`, undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
 export async function fetchPublicStall(userId) {
-  return safeJson(`${API}/listings/stall/${userId}`);
+  // Endpoint returns 200 with `{notFound: true}` for missing ids (keeps
+  // Chrome's auto-logged fetch 404 out of the console). Translate the
+  // sentinel to null so the SPA's existing `__notFound` branch still
+  // fires from the standard `stall || { __notFound: true }` fallback.
+  const data = await safeJson(`${API}/listings/stall/${userId}`, undefined, { expect: [404] });
+  if (data && data.notFound) return null;
+  return data;
 }
 
 export async function relistItem(listingId, price, opts = {}) {
@@ -568,9 +588,14 @@ export async function confirmDeposit(sessionId) {
 export async function fetchMe() {
   try {
     const r = await fetch(`${API}/auth/steam/me`, { credentials: 'same-origin' });
+    // 401 is the legacy anonymous response, retained as a fallback. Newer
+    // backends return 200 with `{ signedIn: false }` for anon to keep the
+    // browser DevTools console clean (no red "401" line on every page load).
     if (r.status === 401) return null;
     if (!r.ok) return null;
-    return r.json();
+    const data = await r.json();
+    if (data && data.signedIn === false) return null;
+    return data;
   } catch { return null; }
 }
 
@@ -906,7 +931,13 @@ export async function fetchFavoriteLoadouts() {
 }
 
 export async function fetchLoadout(id) {
-  return safeJson(`${API}/loadouts/${id}`);
+  // Endpoint returns 200 with `{notFound: true}` for missing OR private-
+  // from-this-viewer loadouts (keeps Chrome's fetch 404 out of console).
+  // Translate to null so the LoadoutLabModal's existing `__notFound`
+  // sentinel branch still fires from `data || { __notFound: true }`.
+  const data = await safeJson(`${API}/loadouts/${id}`, undefined, { expect: [404] });
+  if (data && data.notFound) return null;
+  return data;
 }
 
 export async function createLoadout(payload) {
@@ -1300,7 +1331,8 @@ export async function leaveReview(tradeId, rating, comment) {
   });
 }
 export async function fetchReviewsForUser(userId) {
-  const data = await safeJson(`${API}/reviews/user/${userId}`);
+  // 404 = unknown user (paired with a dead stall landing); not a bug.
+  const data = await safeJson(`${API}/reviews/user/${userId}`, undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
 /** Reviews the signed-in user has authored (as a buyer). Auth-gated —
@@ -1316,7 +1348,7 @@ export async function fetchReviewSummary(userId) {
  *  whether the viewer has already reviewed it. Drives the "Leave a review"
  *  CTA on the public stall page. Returns [] for anonymous viewers. */
 export async function fetchEligibleReviews(sellerUserId) {
-  const data = await safeJson(`${API}/reviews/eligible/${sellerUserId}`);
+  const data = await safeJson(`${API}/reviews/eligible/${sellerUserId}`, undefined, { expect: [404] });
   return Array.isArray(data) ? data : [];
 }
 /** Every unreviewed verified trade for the signed-in user, across every

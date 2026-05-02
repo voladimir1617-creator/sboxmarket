@@ -6,7 +6,7 @@
   <InputEncoding>UTF-8</InputEncoding>
   <Image width="16" height="16" type="image/x-icon">https://skinbox.market/favicon.ico</Image>
   <Image width="192" height="192" type="image/png">https://skinbox.market/img/favicon-192.png</Image>
-  <Url type="text/html" method="get" template="https://skinbox.market/?q={searchTerms}"/>
+  <Url type="text/html" method="get" template="https://skinbox.market/market?q={searchTerms}"/>
   <Url type="application/opensearchdescription+xml" rel="self" template="https://skinbox.market/opensearch.xml"/>
   <Language>en-US</Language>
   <OutputEncoding>UTF-8</OutputEncoding>

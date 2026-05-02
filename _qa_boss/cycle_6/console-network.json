@@ -1,0 +1,98 @@
+[
+  {
+    "route": "/",
+    "errors": []
+  },
+  {
+    "route": "/market",
+    "errors": []
+  },
+  {
+    "route": "/db",
+    "errors": []
+  },
+  {
+    "route": "/help",
+    "errors": []
+  },
+  {
+    "route": "/faq",
+    "errors": []
+  },
+  {
+    "route": "/cart",
+    "errors": []
+  },
+  {
+    "route": "/watchlist",
+    "errors": []
+  },
+  {
+    "route": "/wallet",
+    "errors": []
+  },
+  {
+    "route": "/sell",
+    "errors": []
+  },
+  {
+    "route": "/settings",
+    "errors": []
+  },
+  {
+    "route": "/profile/personal",
+    "errors": []
+  },
+  {
+    "route": "/item/1",
+    "errors": []
+  },
+  {
+    "route": "/stall/1",
+    "errors": []
+  },
+  {
+    "route": "/loadout/1",
+    "errors": []
+  },
+  {
+    "route": "/item/missing",
+    "errors": []
+  },
+  {
+    "route": "/stall/missing",
+    "errors": []
+  },
+  {
+    "route": "/loadout/missing",
+    "errors": []
+  },
+  {
+    "route": "/affiliate",
+    "errors": []
+  },
+  {
+    "route": "/buy-orders",
+    "errors": []
+  },
+  {
+    "route": "/me/stall",
+    "errors": []
+  },
+  {
+    "route": "/offers",
+    "errors": []
+  },
+  {
+    "route": "/notifications",
+    "errors": []
+  },
+  {
+    "route": "/changelog.html",
+    "errors": []
+  },
+  {
+    "route": "/status.html",
+    "errors": []
+  }
+]

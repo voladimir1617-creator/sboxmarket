@@ -62,17 +62,95 @@ class SteamAuthControllerSpec extends Specification {
     def "login() redirects the browser to the service's OpenID URL"() {
         given:
         1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
+        // No `next` provided → trivial home destination → no session attribute write.
+        0 * req.getSession(_)
 
         when:
-        controller.login(resp)
+        controller.login(null, req, resp)
 
         then:
         1 * resp.sendRedirect('https://steamcommunity.com/openid/login?...')
     }
 
+    // ── /login post-login destination (Codex 18:07Z owner finding) ──
+
+    def "login() stashes a sanitized internal `next` path on the pre-login session"() {
+        given:
+        1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
+        1 * req.getSession(true) >> ses
+
+        when:
+        controller.login('/sell', req, resp)
+
+        then:
+        1 * ses.setAttribute(SteamAuthController.SESSION_NEXT, '/sell')
+        1 * resp.sendRedirect('https://steamcommunity.com/openid/login?...')
+    }
+
+    def "login() preserves query strings and hashes when stashing the next path"() {
+        given:
+        1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
+        1 * req.getSession(true) >> ses
+
+        when:
+        controller.login('/profile?tab=trades', req, resp)
+
+        then:
+        1 * ses.setAttribute(SteamAuthController.SESSION_NEXT, '/profile?tab=trades')
+    }
+
+    def "login() drops a malformed `next` and stashes nothing"() {
+        given:
+        1 * steamAuthService.buildLoginUrl() >> 'https://steamcommunity.com/openid/login?...'
+        // `https://evil.com` sanitises to `/` → trivial → no session attribute write.
+        0 * req.getSession(_)
+
+        when:
+        controller.login('https://evil.com/steal', req, resp)
+
+        then:
+        1 * resp.sendRedirect('https://steamcommunity.com/openid/login?...')
+    }
+
+    def "sanitizeNext rejects every off-site / header-injection vector"() {
+        expect:
+        SteamAuthController.sanitizeNext(input) == expected
+
+        where:
+        input                            | expected
+        // Defaults.
+        null                             | '/'
+        ''                               | '/'
+        '   '                            | '/'
+        // Allowed shapes.
+        '/'                              | '/'
+        '/sell'                          | '/sell'
+        '/profile/transactions'          | '/profile/transactions'
+        '/profile?tab=trades'            | '/profile?tab=trades'
+        '/profile?tab=trades&q=x#anchor' | '/profile?tab=trades&q=x#anchor'
+        // Off-site / protocol-relative URLs.
+        'https://evil.com/steal'         | '/'
+        'http://evil.com'                | '/'
+        '//evil.com'                     | '/'
+        'javascript:alert(1)'            | '/'
+        // Header-injection guards (CR/LF). Spaces in a path are odd but
+        // not in themselves dangerous; CR/LF are the canonical Location-
+        // header smuggling vectors.
+        '/sell\nLocation: https://evil'  | '/'
+        '/sell\rLocation: https://evil'  | '/'
+        // Path-must-start-with-/ guard.
+        'sell'                           | '/'
+        'profile?tab=trades'             | '/'
+        // Backslash + scheme-smuggling guards.
+        '/\\evil.com'                    | '/'
+        '/foo://bar'                     | '/'
+        // Length cap (NEXT_MAX_LEN = 200).
+        ('/' + ('a' * 250))              | '/'
+    }
+
     // ── /me ─────────────────────────────────────────────────────
 
-    def "me() returns 401 when no session user"() {
+    def "me() returns {signedIn:false} when no session user"() {
         given:
         1 * req.session >> ses
         1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
@@ -81,7 +159,11 @@ class SteamAuthControllerSpec extends Specification {
         def r = controller.me(req)
 
         then:
-        r.statusCode.value() == 401
+        // Was 401; switched to 200 + {signedIn:false} so anonymous
+        // visitors don't see a red "Failed to load resource: 401" in
+        // their browser DevTools console on every page load.
+        r.statusCode.value() == 200
+        r.body == [signedIn: false]
         0 * steamUserRepository.findById(_)
     }
 
@@ -100,7 +182,7 @@ class SteamAuthControllerSpec extends Specification {
         r.body.is(user)
     }
 
-    def "me() invalidates session + 401s when session uid points to a deleted user"() {
+    def "me() invalidates session + returns signedIn=false when session uid points to a deleted user"() {
         given: 'session cookie outlived the account — e.g. admin deleted a user'
         // Controller reads `req.session` twice: once to get the uid,
         // once to invalidate.
@@ -113,7 +195,11 @@ class SteamAuthControllerSpec extends Specification {
         def r = controller.me(req)
 
         then: 'session is torn down so the client stops sending the stale cookie'
-        r.statusCode.value() == 401
+        // Was 401; the new contract is 200 + {signedIn:false} for any
+        // not-currently-signed-in caller — including a stale session
+        // pointing at a deleted user.
+        r.statusCode.value() == 200
+        r.body == [signedIn: false]
     }
 
     // ── /logout ────────────────────────────────────────────────

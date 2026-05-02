@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-05-01T15:52Z",
+  "trigger": "Codex 10:37Z heartbeat replay (3rd time this lap)",
+  "viewport_1440x900": {
+    "docOverflow": false,
+    "just_listed_card_wrap_overflowing": 0,
+    "grid_card_overflowing": 0,
+    "similar_card_overflowing": 0,
+    "csfloat_home_preview_card_overflowing": 0,
+    "h2_count_on_home": 2
+  },
+  "viewport_390x844": {
+    "docOverflow": false,
+    "just_listed_card_wrap_overflowing": 0,
+    "grid_card_overflowing": 0,
+    "csfloat_home_preview_card_overflowing": 0
+  },
+  "additional_lap_ships": [
+    "/market added to sitemap.xml STATIC_URLS list",
+    "/market added to robots.txt explicit Allow list",
+    "Home rail section headers promoted div→h2 (RecentlyViewedRail, AuctionsEndingSoonRail, TopSellersRail, HottestRail) with aria-label on each section",
+    "CSS margin reset for the new h2 heads"
+  ],
+  "result": "Codex 10:37Z heartbeat finding stays RESOLVED. No regression. All 4 home rails wrap into responsive grid; all card-wrap children fit inside viewport at every size."
+}

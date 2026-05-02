@@ -140,6 +140,7 @@ class ListingController {
             }
         }
         def page = all.drop(safeOffset).take(safeLimit)
+        decorateWithSellerRating(page)
         // Batch 807 — Cache-Control on the main marketplace list. The
         // response varies by viewer (blocked-seller filter at line 119
         // above) so shared caches would leak; `private` keeps it in the
@@ -203,9 +204,11 @@ class ListingController {
         // filter) so shared caches would leak; 15s is tight because
         // the item modal's "live" feel depends on catching a sold-out
         // state promptly. Matches /api/listings cadence.
+        def rows = filterBlocked(listingService.getListingsForItem(itemId), req)
+        decorateWithSellerRating(rows)
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=15')
-            .body(filterBlocked(listingService.getListingsForItem(itemId), req))
+            .body(rows)
     }
 
     /** "More from this seller" rail — other visible active listings
@@ -216,13 +219,15 @@ class ListingController {
     ResponseEntity<List<Listing>> otherFromSeller(@PathVariable Long sellerUserId,
                                                   @RequestParam Long excludeItemId,
                                                   @RequestParam(required = false, defaultValue = "8") Integer limit) {
+        def rows = listingService.findOtherActiveBySeller(sellerUserId, excludeItemId, limit ?: 8)
+        decorateWithSellerRating(rows)
         // Batch 807 — public cache: seller's own listings don't vary by
         // the viewer (no blocklist — if the viewer has blocked this
         // seller they wouldn't reach this rail). 60s matches the other
         // catalog-scoped aggregates.
         ResponseEntity.ok()
             .header('Cache-Control', 'public, max-age=60')
-            .body(listingService.findOtherActiveBySeller(sellerUserId, excludeItemId, limit ?: 8))
+            .body(rows)
     }
 
     @GetMapping("/{id}")
@@ -308,6 +313,87 @@ class ListingController {
         ])
     }
 
+    /**
+     * Per-listing analytics for the seller's MyStall. Returns one row per
+     * active listing with view-count, watchlist-stars, and a 30-day sales
+     * count for the same item across the whole marketplace (so the seller
+     * can see "this category is hot, my price is competitive"). Drives the
+     * "Analytics" tab in the MyStall UI — operator gap from
+     * `production_checklist.md` ("seller-stall analytics").
+     *
+     * Hard-cap at 500 listings (matches `/my-stall`) so a prolific seller
+     * doesn't dump every row on every render. Cheap because viewCount +
+     * starredCount come straight from the listing/item rows; the 30-day
+     * sales count is one GROUP BY against an indexed soldAt range.
+     */
+    @GetMapping("/my-stall/analytics")
+    ResponseEntity<List<Map>> myStallAnalytics(HttpServletRequest req) {
+        def userId = requireUser(req)
+        def rows = listingService.findActiveBySeller(userId, 500)
+        if (rows == null || rows.isEmpty()) {
+            // Cache-Control owned by CorrelationIdFilter (isMyStall predicate).
+            // Pre-fix the controller emitted `private, max-age=30` here, but
+            // once the filter recognised /api/listings/my-stall as private
+            // the two headers stacked. Filter's no-store wins anyway because
+            // ResponseEntity.header() APPENDS rather than replaces.
+            return ResponseEntity.ok().body([] as List<Map>)
+        }
+        long since30d = System.currentTimeMillis() - 30L * 24L * 60L * 60L * 1000L
+        // Bulk fetch 30-day item-level sales so we don't N+1 across
+        // every listing row. Group by itemId, count sold rows since.
+        def itemIds = rows.collect { it.item?.id }.findAll { it != null }.unique()
+        Map<Long, Long> sales30d = [:]
+        if (!itemIds.isEmpty()) {
+            try {
+                def soldRows = listingService.listingRepository.countSoldByItemsSince(itemIds, since30d)
+                soldRows?.each { r -> sales30d[(r[0] as Long)] = (r[1] ?: 0L) as Long }
+            } catch (Exception e) {
+                log.debug("countSoldByItemsSince failed: ${e.message}")
+            }
+        }
+        def out = rows.collect { l ->
+            def item = l.item
+            long itemSales30d = sales30d[(item?.id as Long)] ?: 0L
+            BigDecimal floorPrice = item?.lowestPrice
+            BigDecimal myPrice = l.price ?: BigDecimal.ZERO
+            // Competitiveness chip: how many cents above the marketplace floor?
+            BigDecimal floorDelta = (floorPrice != null && floorPrice > BigDecimal.ZERO)
+                ? (myPrice - floorPrice).setScale(2, java.math.RoundingMode.HALF_UP)
+                : null
+            [
+                listingId:    l.id,
+                itemId:       item?.id,
+                itemName:     item?.name,
+                itemRarity:   item?.rarity,
+                category:     item?.category,
+                imageUrl:     item?.imageUrl,
+                price:        myPrice.setScale(2, java.math.RoundingMode.HALF_UP),
+                floorPrice:   floorPrice,
+                floorDelta:   floorDelta,
+                viewCount:    item?.viewCount ?: 0,
+                supply:       item?.supply ?: 0,
+                // Two missing-property bugs were paired here pre-fix:
+                // `l.kind` (no such field; the actual column is
+                // `listingType`) and `l.createdAt` (no such field;
+                // listing timestamps live in `listedAt`). Either one
+                // threw MissingPropertyException, which the global
+                // error handler surfaced as a 500 on the analytics tab
+                // for any seller with ≥1 active listing. Frontend
+                // doesn't read these today but they're documented in
+                // the response contract — keep them, fix the access.
+                listingType:  l.listingType,
+                listedAt:     l.listedAt,
+                itemSales30d: itemSales30d
+            ]
+        }
+        // Cache-Control owned by CorrelationIdFilter (isMyStall predicate).
+        // Pre-fix the controller emitted `private, max-age=30` here. Once
+        // the filter recognised /api/listings/my-stall as private the two
+        // headers stacked. Filter's no-store wins anyway because
+        // ResponseEntity.header() APPENDS rather than replaces.
+        ResponseEntity.ok().body(out)
+    }
+
     /** Sale history for the current user — drives the "Sold" tab in the
      *  MyStall UI. Hard-capped at 200 rows so a prolific seller doesn't
      *  dump their entire history on every page render. */
@@ -335,10 +421,18 @@ class ListingController {
      *  to just the truncated buyer id so sellers can reconcile
      *  against their own records without leaking contact-level PII. */
     @GetMapping(value = "/my-stall/sold.csv", produces = "text/csv")
-    ResponseEntity<String> myStallSoldCsv(HttpServletRequest req) {
+    ResponseEntity<String> myStallSoldCsv(
+            @RequestParam(required = false) Long from,
+            @RequestParam(required = false) Long to,
+            HttpServletRequest req) {
         def userId = requireUser(req)
         def rows = listingService.findSoldBySeller(
             userId, org.springframework.data.domain.PageRequest.of(0, 1000))
+        // Date-range filter (epoch ms, inclusive). Filters by `soldAt` since
+        // this is the sold-stall export — a seller pulling Q1 sales for tax
+        // wants the slice "sold between Jan 1 and Mar 31", not "listed in".
+        if (from != null) rows = rows.findAll { (it.soldAt ?: 0L) >= from }
+        if (to   != null) rows = rows.findAll { (it.soldAt ?: 0L) <= to   }
         // Batch 979 — switch to CsvUtil.safeCell so item names containing
         // formula-trigger first chars (=, +, -, @, \t, \r) don't run as
         // spreadsheet formulas when the seller opens their export. Item
@@ -359,8 +453,75 @@ class ListingController {
               .append(l.buyerUserId != null ? ("user_" + l.buyerUserId) : '')
               .append('\n')
         }
+        // Cache-Control: applied by CorrelationIdFilter via the
+        // isMyStall predicate (filter line ~146). Setting it here would
+        // emit two conflicting Cache-Control values.
         ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"mystall-sold.csv\"")
+            .header("Content-Type", "text/csv; charset=utf-8")
+            .body(sb.toString())
+    }
+
+    /** CSV dump of the seller's per-listing analytics — one row per
+     *  ACTIVE listing with viewCount / floor delta / 30-day demand /
+     *  supply. Complements the in-app Analytics tab so a seller running
+     *  >50 listings can rank-sort offline in Excel, build pivot tables
+     *  on category-level demand, or feed the data into a re-pricing
+     *  pipeline. Same 500-row cap as the /my-stall/analytics JSON
+     *  endpoint above — the underlying `findActiveBySeller(userId,
+     *  500)` query is the bound for both surfaces. */
+    @GetMapping(value = "/my-stall/analytics.csv", produces = "text/csv")
+    ResponseEntity<String> myStallAnalyticsCsv(HttpServletRequest req) {
+        def userId = requireUser(req)
+        def rows = listingService.findActiveBySeller(userId, 500)
+        // Same bulk demand probe as the JSON endpoint — one indexed
+        // GROUP BY on `soldAt`, NEVER per-row. Stays cheap as the seller's
+        // active count grows toward the 500 cap.
+        long since30d = System.currentTimeMillis() - 30L * 24L * 60L * 60L * 1000L
+        Map<Long, Long> sales30d = [:]
+        if (rows && !rows.isEmpty()) {
+            def itemIds = rows.collect { it.item?.id }.findAll { it != null }.unique()
+            if (!itemIds.isEmpty()) {
+                try {
+                    def soldRows = listingService.listingRepository.countSoldByItemsSince(itemIds, since30d)
+                    soldRows?.each { r -> sales30d[(r[0] as Long)] = (r[1] ?: 0L) as Long }
+                } catch (Exception e) {
+                    log.debug("countSoldByItemsSince failed in analytics.csv: ${e.message}")
+                }
+            }
+        }
+        // Batch 979 — shared csv-safe escape so item names with =/+/-/@
+        // don't run as Excel formulas when the seller opens the file.
+        def esc = com.sboxmarket.util.CsvUtil.&safeCell
+        def sb = new StringBuilder()
+        sb.append("listing_id,item_id,item_name,category,rarity,listing_type,my_price,floor_price,floor_delta,view_count,supply,item_sales_30d,listed_at\n")
+        rows?.each { l ->
+            def item = l.item
+            BigDecimal myPrice = l.price ?: BigDecimal.ZERO
+            BigDecimal floorPrice = item?.lowestPrice
+            BigDecimal floorDelta = (floorPrice != null && floorPrice > BigDecimal.ZERO)
+                ? (myPrice - floorPrice).setScale(2, java.math.RoundingMode.HALF_UP)
+                : null
+            long itemSales30d = sales30d[(item?.id as Long)] ?: 0L
+            sb.append(l.id).append(',')
+              .append(item?.id ?: '').append(',')
+              .append(esc(item?.name ?: '')).append(',')
+              .append(esc(item?.category ?: '')).append(',')
+              .append(esc(item?.rarity ?: '')).append(',')
+              .append(esc(l.listingType ?: 'BUY_NOW')).append(',')
+              .append(myPrice.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()).append(',')
+              .append(floorPrice != null ? floorPrice.toPlainString() : '').append(',')
+              .append(floorDelta != null ? floorDelta.toPlainString() : '').append(',')
+              .append(item?.viewCount ?: 0).append(',')
+              .append(item?.supply ?: 0).append(',')
+              .append(itemSales30d).append(',')
+              .append(l.listedAt ?: '')
+              .append('\n')
+        }
+        // Cache-Control: applied by CorrelationIdFilter via isMyStall.
+        ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"mystall-analytics.csv\"")
+            .header("Content-Type", "text/csv; charset=utf-8")
             .body(sb.toString())
     }
 
@@ -395,8 +556,10 @@ class ListingController {
               .append(esc(l.description ?: ''))
               .append('\n')
         }
+        // Cache-Control: applied by CorrelationIdFilter via isMyStall.
         ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"mystall-active.csv\"")
+            .header("Content-Type", "text/csv; charset=utf-8")
             .body(sb.toString())
     }
 
@@ -480,13 +643,14 @@ class ListingController {
      *  inventory; this is the "what just dropped" surface. */
     @GetMapping("/just-listed")
     ResponseEntity<List<Listing>> justListed(HttpServletRequest req) {
-        def rows = listingService.findNewestActive(20)
+        def rows = filterBlocked(listingService.findNewestActive(20), req)
+        decorateWithSellerRating(rows)
         // `private` — filterBlocked varies by viewer. 30s cache because
         // "just listed" is a freshness surface; longer caches would
         // defeat the "just" part.
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=30')
-            .body(filterBlocked(rows, req))
+            .body(rows)
     }
 
     /** Top deals rail — active BUY_NOW listings priced furthest below
@@ -494,12 +658,14 @@ class ListingController {
      *  capped at 12 rows. Drives the homepage deal-hunter surface. */
     @GetMapping("/top-deals")
     ResponseEntity<List<Listing>> topDeals(HttpServletRequest req) {
+        def rows = filterBlocked(listingService.findTopDeals(12), req)
+        decorateWithSellerRating(rows)
         // `private` not `public` — filterBlocked varies by viewer
         // (per-session block list). 60s is under the homepage rail's
         // refetch cadence while still catching a just-listed steal.
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=60')
-            .body(filterBlocked(listingService.findTopDeals(12), req))
+            .body(rows)
     }
 
     /**
@@ -518,6 +684,31 @@ class ListingController {
         if (blocked.isEmpty()) return rows
         def set = new HashSet<>(blocked)
         rows.findAll { l -> l.sellerUserId == null || !set.contains(l.sellerUserId) }
+    }
+
+    /**
+     * Bulk-attach seller review summary (avg rating + review count) onto
+     * every listing in the given list. Single GROUP BY across all unique
+     * sellerUserId values — never per-row. Csfloat-parity: every listing
+     * row should show "★ 4.7 (23)" next to the seller name without a
+     * follow-up API call.
+     *
+     * Silent no-op when reviewService is unavailable (test contexts where
+     * the bean isn't registered).
+     */
+    private void decorateWithSellerRating(List<Listing> rows) {
+        if (rows == null || rows.isEmpty() || reviewService == null) return
+        def sellerIds = rows.collect { it.sellerUserId }.findAll { it != null }.toSet()
+        if (sellerIds.isEmpty()) return
+        def summaries = reviewService.summariesForUsers(sellerIds)
+        if (summaries == null || summaries.isEmpty()) return
+        rows.each { l ->
+            def s = l.sellerUserId == null ? null : summaries[l.sellerUserId]
+            if (s != null) {
+                l.sellerRating       = s.average == null ? null : (s.average as Double)
+                l.sellerReviewCount  = (s.count as Number)?.intValue()
+            }
+        }
     }
 
     /** Top sellers rail — aggregates sold counts and surfaces the most
@@ -569,14 +760,15 @@ class ListingController {
         // the whole auction inventory by passing a huge window.
         def window = withinMs != null ? Math.min(withinMs, 24L * 60 * 60 * 1000) : 60L * 60 * 1000
         def deadline = now + window
-        def rows = listingService.findAuctionsEndingBefore(now, deadline)
+        def rows = filterBlocked(listingService.findAuctionsEndingBefore(now, deadline).take(20), req)
+        decorateWithSellerRating(rows)
         // `private` — filterBlocked varies by viewer. 30s cap because
         // auctions ending soon change state fast (outbid, extended by
         // anti-snipe, closed on sale) — a longer cache would show
         // "ending in 2m" for a listing that just closed.
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=30')
-            .body(filterBlocked(rows.take(20), req))
+            .body(rows)
     }
 
     /**
@@ -596,19 +788,26 @@ class ListingController {
     @GetMapping("/stall/{userId}")
     ResponseEntity<Map> publicStall(@PathVariable Long userId, HttpServletRequest req) {
         def user = steamUserRepository.findById(userId).orElse(null)
-        // Throw NotFoundException so GlobalExceptionHandler returns
-        // the canonical JSON error body (batch 524). Previously
-        // `ResponseEntity.notFound().build()` returned 404 with an
-        // empty body, which broke the frontend's uniform error
-        // rendering (toast + retry UI) — all other 404s return the
-        // same {code, message, correlationId, ...} shape.
-        if (user == null) throw new com.sboxmarket.exception.NotFoundException("SteamUser", userId)
+        // 200 + `{notFound: true}` sentinel for unknown user id instead
+        // of a hard 404. Chrome auto-logs every fetch 404 to console
+        // regardless of how the SPA handles it, so a dead /stall/{id}
+        // share link spammed the console with a phantom error that
+        // read as a bug. The SPA's `fetchPublicStall` maps the sentinel
+        // back to null and renders the branded "Stall not found" empty
+        // state. Cache-Control is no-cache so a later signup with this
+        // user id isn't masked by a stale cached sentinel.
+        if (user == null) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', 'no-cache, must-revalidate')
+                .body([notFound: true, id: userId])
+        }
         // Batch 1043 — cap the public stall at 500 visible listings
         // so visiting a prolific seller's /stall/{id} page doesn't
         // force the server to JOIN-FETCH every active row every time.
         // Mirrors the MyStall display cap (batch 1033). Older rows
         // stay in the DB, queryable via item-specific endpoints.
         def visible = listingService.findActiveVisibleBySeller(userId, 500)
+        decorateWithSellerRating(visible)
         // Derive away-mode: seller has active listings but all of them are
         // hidden. Lets the UI show "This seller is away" instead of an
         // indistinguishable "no active listings" empty state.
@@ -1059,12 +1258,14 @@ class ListingController {
     ResponseEntity<List<Listing>> mostWatched(@RequestParam(required = false) Integer limit,
                                               HttpServletRequest req) {
         def lim = Math.min(Math.max(limit ?: 8, 1), 30)
+        def rows = filterBlocked(listingService.findMostWatched(lim), req)
+        decorateWithSellerRating(rows)
         // Batch 811 — private cache: blocklist filter varies by viewer.
         // 60s matches the rail's client-side poll cadence; TopDealsRail
         // already caches at the same rate.
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=60')
-            .body(filterBlocked(listingService.findMostWatched(lim), req))
+            .body(rows)
     }
 
     /** Top-N most-viewed items site-wide, returned as the cheapest active
@@ -1074,10 +1275,12 @@ class ListingController {
     ResponseEntity<List<Listing>> mostViewed(@RequestParam(required = false) Integer limit,
                                              HttpServletRequest req) {
         def lim = Math.min(Math.max(limit ?: 8, 1), 30)
+        def rows = filterBlocked(listingService.findMostViewed(lim), req)
+        decorateWithSellerRating(rows)
         // Batch 811 — private cache (blocklist filter).
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=60')
-            .body(filterBlocked(listingService.findMostViewed(lim), req))
+            .body(rows)
     }
 
     /** Top-N hottest items over the last `days` days (default 7),
@@ -1090,10 +1293,12 @@ class ListingController {
                                           HttpServletRequest req) {
         def lim = Math.min(Math.max(limit ?: 8, 1), 30)
         def win = Math.min(Math.max(days ?: 7, 1), 30)
+        def rows = filterBlocked(listingService.findHottest(lim, win), req)
+        decorateWithSellerRating(rows)
         // Batch 811 — private cache (blocklist filter).
         ResponseEntity.ok()
             .header('Cache-Control', 'private, max-age=60')
-            .body(filterBlocked(listingService.findHottest(lim, win), req))
+            .body(rows)
     }
 
     /** Bulk recent-sales count per item over the rolling window

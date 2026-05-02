@@ -24,16 +24,70 @@ class SitemapControllerSpec extends Specification {
         publicUrl:         'https://skinbox.test/'  // deliberate trailing slash
     )
 
+    /**
+     * Build a default request fixture matching the publicUrl host so the
+     * existing assertions ("loc starts with https://skinbox.test/...")
+     * keep working after the controller switched to deriving the base
+     * from the request rather than the env var.
+     */
+    private org.springframework.mock.web.MockHttpServletRequest req() {
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/sitemap.xml')
+        r.scheme = 'https'
+        r.serverName = 'skinbox.test'
+        r.addHeader('Host', 'skinbox.test')
+        return r
+    }
+
+    def "Cloudflare X-Forwarded-Host overrides plain Host so prod URLs are correct (2026-05-01)"() {
+        // The same container serves http://localhost:8082 (local dev)
+        // AND https://skinbox.market (Cloudflare tunnel). Pre-fix the
+        // sitemap emitted localhost URLs publicly because APP_PUBLIC_URL
+        // was the only signal. Now we honour X-Forwarded-{Proto,Host}
+        // so each request audience gets the URL set it expects.
+        given:
+        itemRepository.findAllForSitemap(_) >> []
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/sitemap.xml')
+        r.scheme = 'http'
+        r.addHeader('Host', 'localhost:8082')
+        r.addHeader('X-Forwarded-Proto', 'https')
+        r.addHeader('X-Forwarded-Host', 'skinbox.market')
+
+        when:
+        def body = controller.sitemap(r).body as String
+
+        then:
+        body.contains('<loc>https://skinbox.market/</loc>')
+        // Critical regression: must NOT leak the local Host into a prod sitemap
+        !body.contains('localhost:8082')
+        !body.contains('http://localhost')
+    }
+
+    def "no proxy headers falls back to direct request scheme + Host (local dev)"() {
+        given:
+        itemRepository.findAllForSitemap(_) >> []
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/sitemap.xml')
+        r.scheme = 'http'
+        r.addHeader('Host', 'localhost:8082')
+
+        when:
+        def body = controller.sitemap(r).body as String
+
+        then:
+        body.contains('<loc>http://localhost:8082/</loc>')
+    }
+
     def "sitemap emits every static URL"() {
         given:
         itemRepository.findAllForSitemap(_) >> []
 
         when:
-        def body = controller.sitemap().body as String
+        def body = controller.sitemap(req()).body as String
 
         then:
         body.contains('<urlset')
         body.contains('<loc>https://skinbox.test/</loc>')
+        // Lap-K added /market alongside /search — both deserve indexing.
+        body.contains('<loc>https://skinbox.test/market</loc>')
         body.contains('<loc>https://skinbox.test/search</loc>')
         body.contains('<loc>https://skinbox.test/db</loc>')
         body.contains('<loc>https://skinbox.test/loadout</loc>')
@@ -53,7 +107,7 @@ class SitemapControllerSpec extends Specification {
         itemRepository.findAllForSitemap(_) >> []
 
         when:
-        def body = controller.sitemap().body as String
+        def body = controller.sitemap(req()).body as String
 
         then:
         // Should emit https://skinbox.test/ (single slash), never
@@ -71,7 +125,7 @@ class SitemapControllerSpec extends Specification {
         ]
 
         when:
-        def body = controller.sitemap().body as String
+        def body = controller.sitemap(req()).body as String
 
         then:
         body.contains('<loc>https://skinbox.test/item/1</loc>')
@@ -89,7 +143,7 @@ class SitemapControllerSpec extends Specification {
         itemRepository.findAllForSitemap(_) >> [new Item(id: 1L, name: 'A', createdAt: 1704067200000L)]
 
         when:
-        def body = controller.sitemap().body as String
+        def body = controller.sitemap(req()).body as String
 
         then:
         body.contains('<lastmod>2024-01-01</lastmod>')
@@ -114,7 +168,7 @@ class SitemapControllerSpec extends Specification {
         itemRepository.findAllForSitemap(_) >> { throw new RuntimeException('database offline') }
 
         when:
-        def response = controller.sitemap()
+        def response = controller.sitemap(req())
 
         then:
         // Still returns 200 with the top-level URLs — sitemap generation
@@ -131,7 +185,7 @@ class SitemapControllerSpec extends Specification {
         itemRepository.findAllForSitemap(_) >> []
 
         when:
-        def response = controller.sitemap()
+        def response = controller.sitemap(req())
 
         then:
         response.headers.getFirst('Content-Type')?.toLowerCase()?.contains('xml')
@@ -147,7 +201,7 @@ class SitemapControllerSpec extends Specification {
         itemRepository.findAllForSitemap(_) >> huge
 
         when:
-        def body = controller.sitemap().body as String
+        def body = controller.sitemap(req()).body as String
 
         then:
         // The very last item (id 20000) must NOT appear — it falls outside
@@ -168,7 +222,7 @@ class SitemapControllerSpec extends Specification {
         listingRepository.findSellerIdsWithAnyListing(_) >> [42L, 99L]
 
         when:
-        def body = controller.sitemap().body as String
+        def body = controller.sitemap(req()).body as String
 
         then:
         body.contains('<loc>https://skinbox.test/stall/42</loc>')
@@ -182,7 +236,7 @@ class SitemapControllerSpec extends Specification {
         listingRepository.findSellerIdsWithAnyListing(_) >> { throw new RuntimeException('db offline') }
 
         when:
-        def response = controller.sitemap()
+        def response = controller.sitemap(req())
 
         then:
         response.statusCode.value() == 200

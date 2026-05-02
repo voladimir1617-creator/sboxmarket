@@ -22,6 +22,14 @@ class SteamAuthController {
      *  the live steam_users.session_epoch — a mismatch means another login
      *  (or an explicit "log out everywhere") has invalidated this session. */
     static final String SESSION_EPOCH = "steamSessionEpoch"
+    /** Session attribute holding the sanitized post-login destination set
+     *  by the /login GET. Read once in /return BEFORE the pre-login
+     *  session is invalidated, then carried into the redirect URL so the
+     *  user lands back on the page they started the auth flow from. */
+    static final String SESSION_NEXT = "steamLoginNext"
+    /** Cap on the post-login next path. Long enough for `/profile/transactions?range=2026-04` style
+     *  deep links, short enough that an attacker can't smuggle anything large. */
+    static final int NEXT_MAX_LEN = 200
 
     @Autowired SteamAuthService steamAuthService
     @Autowired SteamUserRepository steamUserRepository
@@ -29,16 +37,83 @@ class SteamAuthController {
     @Autowired(required = false) com.sboxmarket.service.EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.AuditLogRepository auditLogRepository
 
-    /** Kicks off the OpenID flow — redirects the browser to Steam's login page. */
+    /** Kicks off the OpenID flow — redirects the browser to Steam's login page.
+     *
+     *  Accepts an optional `next` query parameter so the post-login flow can
+     *  drop the user back on the page they started auth from (e.g. /sell,
+     *  /profile?tab=trades, /watchlist). Pre-fix, every login dumped the
+     *  user at "/" regardless of where they began the flow — bad CSFloat-
+     *  parity UX (Codex 18:07Z owner finding).
+     *
+     *  The path is sanitized via {@link #sanitizeNext}: must be a same-
+     *  origin internal path, no `//` (protocol-relative URLs), no scheme
+     *  or host, no CR/LF (header-injection guard), capped at NEXT_MAX_LEN
+     *  characters. Untrusted/malformed → fallback `/`.
+     */
     @GetMapping("/login")
-    void login(HttpServletResponse resp) {
+    void login(@RequestParam(name = 'next', required = false) String next,
+               HttpServletRequest req, HttpServletResponse resp) {
+        String safeNext = sanitizeNext(next)
+        // Stash on the pre-login session so /return can retrieve it
+        // BEFORE invalidating the session on success. We deliberately
+        // don't pass it to Steam itself — keeping it server-side avoids
+        // exposing the destination in the OpenID return query (where
+        // Steam echoes everything back) and prevents an attacker from
+        // crafting a Steam URL that bypasses our sanitizer.
+        if (safeNext != null && safeNext != '/') {
+            try { req.getSession(true).setAttribute(SESSION_NEXT, safeNext) }
+            catch (Exception ignore) { /* session unavailable → just lose the hint */ }
+        }
         resp.sendRedirect(steamAuthService.buildLoginUrl())
+    }
+
+    /**
+     * Strict same-origin path sanitizer for the post-login `next` hint.
+     * Rejects anything that could redirect the user off-site or smuggle
+     * headers into the Location response. Returns "/" for empty / bad input.
+     *
+     * Allowed shape: starts with "/", never with "//", no CR/LF, no
+     * embedded scheme (`http://`, `javascript:`, etc.), <= NEXT_MAX_LEN
+     * chars including any query/hash. The browser still receives a
+     * relative path, so a successful redirect is bound to the same host
+     * regardless of what the underlying servlet container does.
+     */
+    static String sanitizeNext(String raw) {
+        if (raw == null) return '/'
+        String s = raw.trim()
+        if (s.isEmpty()) return '/'
+        // Header-injection guards — newline, carriage-return, NUL.
+        if (s.contains('\n') || s.contains('\r') || s.contains('\u0000')) return '/'
+        // Length cap — apply BEFORE expensive parsing.
+        if (s.length() > NEXT_MAX_LEN) return '/'
+        // Must start with a single "/" to lock to same-origin. "//foo"
+        // is a protocol-relative URL that browsers resolve to the
+        // current scheme + the attacker's host.
+        if (!s.startsWith('/')) return '/'
+        if (s.startsWith('//')) return '/'
+        // Reject anything containing `://` or backslash — guards against
+        // exotic encodings like `/\\evil.com` that some browsers normalise
+        // to `//evil.com` after the redirect lands.
+        if (s.contains('://')) return '/'
+        if (s.contains('\\')) return '/'
+        return s
     }
 
     /** Steam redirects the user here after login. We verify and set a session cookie. */
     @GetMapping("/return")
     void steamReturn(HttpServletRequest req, HttpServletResponse resp) {
         log.info("Steam /return hit. query=${req.queryString}")
+        // Pull the post-login destination from the pre-login session
+        // BEFORE we touch verification — the path is the user's intent
+        // regardless of whether OpenID succeeds. Re-sanitize on read
+        // (defence-in-depth: another endpoint could in theory have
+        // written a value). Default `/` falls through if absent or bad.
+        String nextPath = '/'
+        try {
+            def stash = req.getSession(false)?.getAttribute(SESSION_NEXT) as String
+            if (stash) nextPath = sanitizeNext(stash)
+        } catch (Exception ignore) { /* session lost → fall back to / */ }
+
         String steamId64 = null
         try {
             def claimedId = req.getParameter('openid.claimed_id')
@@ -49,7 +124,11 @@ class SteamAuthController {
 
         if (!steamId64) {
             log.warn("Steam auth: verification returned null")
-            try { resp.sendRedirect("/?login=failed") } catch (Exception ignore) {}
+            // On failure, still respect the user's destination so they
+            // land where they tried to act, with `?login=failed` to
+            // surface the toast. This avoids dumping them on / after
+            // a Steam upstream blip when they were trying to sell.
+            try { resp.sendRedirect(appendLoginParam(nextPath, 'failed')) } catch (Exception ignore) {}
             return
         }
 
@@ -90,22 +169,57 @@ class SteamAuthController {
             } catch (Exception ne) {
                 log.warn("New-sign-in alert check failed for user ${user.id}: ${ne.message}")
             }
-            resp.sendRedirect("/?login=success")
+            resp.sendRedirect(appendLoginParam(nextPath, 'success'))
         } catch (Exception e) {
             log.error("Steam upsertUser/redirect threw for steamId64=$steamId64", e)
-            try { resp.sendRedirect("/?login=failed&reason=upsert") } catch (Exception ignore) {}
+            try { resp.sendRedirect(appendLoginParam(nextPath, 'failed', 'upsert')) } catch (Exception ignore) {}
         }
     }
 
-    /** Returns the currently-authenticated user, or 401 if not logged in. */
+    /**
+     * Build the post-login redirect URL. Preserves the user's existing
+     * query string and hash, appends `login=success` (or `login=failed`)
+     * as a parameter the SPA reads to fire the welcome toast. The
+     * separator picks `?` vs `&` based on whether the path already has
+     * a query string. Hash (everything after `#`) is preserved in place
+     * after the query — `/profile?tab=trades#section` becomes
+     * `/profile?tab=trades&login=success#section`.
+     */
+    static String appendLoginParam(String path, String state, String reason = null) {
+        String safe = sanitizeNext(path)
+        // Split off the hash (browser-only fragment, not sent server-side
+        // but if a client-side router pushed one through then preserve it).
+        int hashIdx = safe.indexOf('#')
+        String hash = hashIdx >= 0 ? safe.substring(hashIdx) : ''
+        String pathPart = hashIdx >= 0 ? safe.substring(0, hashIdx) : safe
+        String sep = pathPart.contains('?') ? '&' : '?'
+        StringBuilder sb = new StringBuilder()
+        sb.append(pathPart).append(sep).append('login=').append(state)
+        if (reason != null) sb.append('&reason=').append(reason)
+        sb.append(hash)
+        return sb.toString()
+    }
+
+    /**
+     * Returns the currently-authenticated user, or `{ signedIn: false }`
+     * for anonymous visitors.
+     *
+     * Was returning 401 for anon, which surfaced as a red "Failed to load
+     * resource: 401" line in every visitor's DevTools console on every
+     * page load. Cosmetic but ugly — anon /me is the expected case for
+     * any unauthenticated session, not an error. Return 200 with an
+     * explicit signed-out shape so the browser stops complaining.
+     */
     @GetMapping("/me")
-    ResponseEntity<SteamUser> me(HttpServletRequest req) {
+    ResponseEntity me(HttpServletRequest req) {
         def userId = req.session.getAttribute(SESSION_USER_ID) as Long
-        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+        if (userId == null) {
+            return ResponseEntity.ok([signedIn: false] as Map)
+        }
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) {
             req.session.invalidate()
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+            return ResponseEntity.ok([signedIn: false] as Map)
         }
         ResponseEntity.ok(user)
     }

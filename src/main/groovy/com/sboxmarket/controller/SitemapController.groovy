@@ -4,6 +4,7 @@ import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.repository.LoadoutRepository
 import groovy.util.logging.Slf4j
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
@@ -39,6 +40,12 @@ class SitemapController {
 
     private static final List<Map<String, String>> STATIC_URLS = [
         [loc: '/',                          freq: 'hourly',  priority: '1.0'],
+        // /market is the canonical marketplace route (PWA start_url + OpenSearch
+        // template both point here). /search is a back-compat alias that the
+        // SPA routes to the same component. Both deserve indexing — but
+        // crawlers that prefer the canonical (per <link rel="canonical">)
+        // will pick /market.
+        [loc: '/market',                    freq: 'hourly',  priority: '0.9'],
         [loc: '/search',                    freq: 'hourly',  priority: '0.9'],
         [loc: '/db',                        freq: 'daily',   priority: '0.8'],
         [loc: '/loadout',                   freq: 'daily',   priority: '0.6'],
@@ -66,8 +73,15 @@ class SitemapController {
     ]
 
     @GetMapping(value = '/sitemap.xml', produces = 'application/xml')
-    ResponseEntity<String> sitemap() {
-        def base = publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+    ResponseEntity<String> sitemap(HttpServletRequest req) {
+        // Derive base URL from the actual request, not the env var.
+        // Same container serves http://localhost:8082 (dev) AND
+        // https://skinbox.market (Cloudflare tunnel) — the env var
+        // can only be one of those, but the request itself tells us
+        // exactly which audience is asking. Falls back to publicUrl
+        // when no Host header (shouldn't happen in HTTP/1.1+ but
+        // belt-and-suspenders).
+        def base = resolveBaseUrl(req)
         def sb = new StringBuilder()
         sb.append('<?xml version="1.0" encoding="UTF-8"?>\n')
         sb.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
@@ -175,6 +189,33 @@ class SitemapController {
             .header('Content-Type', 'application/xml; charset=utf-8')
             .header('Cache-Control', 'public, max-age=3600')
             .body(sb.toString())
+    }
+
+    /**
+     * Build the canonical base URL ("https://skinbox.market") from the
+     * incoming request. Honors X-Forwarded-{Proto,Host} so Cloudflare-
+     * tunneled requests get https://skinbox.market even though the
+     * underlying tunnel hop is plain HTTP. Falls back to the configured
+     * APP_PUBLIC_URL when no Host header is available.
+     *
+     * Strips trailing slash so callers can `base + '/path'` cleanly.
+     * Package-scope so spec can exercise the resolution.
+     */
+    String resolveBaseUrl(HttpServletRequest req) {
+        String proto = req.getHeader('X-Forwarded-Proto')
+            ?: req.getHeader('X-Forwarded-Scheme')
+            ?: req.scheme
+        String host = req.getHeader('X-Forwarded-Host')
+            ?: req.getHeader('Host')
+            ?: req.serverName
+        if (host && proto) {
+            // Strip port from host if it's the default for the scheme
+            // (Cloudflare always sends just the hostname, but local dev
+            // would send "localhost:8082" which we want to keep).
+            String url = "${proto}://${host}".toString()
+            return url.endsWith('/') ? url.substring(0, url.length() - 1) : url
+        }
+        return publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
     }
 
     /**

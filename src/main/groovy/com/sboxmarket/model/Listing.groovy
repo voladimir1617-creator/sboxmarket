@@ -140,4 +140,15 @@ class Listing {
      *  non-auction rows stay at the default FALSE and never read it. */
     @Column(name = "ending_soon_notified", nullable = false)
     Boolean endingSoonNotified = false
+
+    /** Seller's review aggregate, attached at serialization time by
+     *  ListingController. Lets the buyer see "★ 4.7 (23)" on every
+     *  listing row without a per-row API call — csfloat-parity. Null
+     *  when sellerUserId is null (system listings) or when the seller
+     *  has zero reviews. Not persisted. */
+    @Transient
+    Double sellerRating
+
+    @Transient
+    Integer sellerReviewCount
 }

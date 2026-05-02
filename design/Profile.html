@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Profile — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .prof-grid {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: var(--s-32);
+    align-items: start;
+  }
+  @media (max-width: 960px) { .prof-grid { grid-template-columns: 1fr; } }
+
+  .prof-aside {
+    position: sticky;
+    top: calc(var(--nav-h) + var(--s-32));
+    display: flex; flex-direction: column;
+    gap: var(--s-12);
+  }
+  .prof-link {
+    display: flex; align-items: center;
+    gap: var(--s-10);
+    padding: var(--s-10) var(--s-12);
+    border-radius: var(--r-sm);
+    color: var(--ink-3);
+    font-size: var(--t-13);
+    transition: background .12s, color .12s;
+  }
+  .prof-link:hover { color: var(--ink); background: var(--bg-1); }
+  .prof-link.is-active { color: var(--ink); background: var(--bg-1); }
+  .prof-link.is-active::before {
+    content: "";
+    width: 2px; height: 16px;
+    background: var(--blue);
+    border-radius: 2px;
+    margin-left: -2px;
+  }
+  .prof-link .count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+    color: var(--ink-4);
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--s-12);
+    margin-bottom: var(--s-24);
+  }
+  @media (max-width: 800px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
+
+  .activity-list { display: flex; flex-direction: column; gap: 0; }
+  .activity-item {
+    display: grid;
+    grid-template-columns: 36px 1fr auto auto;
+    gap: var(--s-14);
+    align-items: center;
+    padding: var(--s-14) 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .activity-item:last-child { border-bottom: 0; }
+  .activity-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-2);
+  }
+  .activity-icon.up   { color: var(--up);   border-color: color-mix(in oklch, var(--up) 30%, var(--line)); }
+  .activity-icon.down { color: var(--down); border-color: color-mix(in oklch, var(--down) 30%, var(--line)); }
+  .activity-icon.cta  { color: var(--blue); border-color: color-mix(in oklch, var(--blue) 30%, var(--line)); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <!-- Profile header -->
+  <div style="display: flex; align-items: center; gap: var(--s-20); margin-bottom: var(--s-32); padding-bottom: var(--s-24); border-bottom: 1px solid var(--line);">
+    <div class="avatar" style="width: 72px; height: 72px; font-size: var(--t-22); background: linear-gradient(135deg, oklch(0.5 0.15 270), oklch(0.6 0.18 320));">VK</div>
+    <div style="flex: 1;">
+      <div class="row" style="gap: var(--s-10); margin-bottom: var(--s-4);">
+        <h1 style="font-size: var(--t-22); font-weight: 600; letter-spacing: -0.015em;">voladimir.k</h1>
+        <span class="badge live"><span class="led"></span>Online</span>
+        <span class="badge" style="color: var(--blue); border-color: color-mix(in oklch, var(--blue) 30%, var(--line)); background: var(--blue-soft);">Verified</span>
+      </div>
+      <div class="row" style="gap: var(--s-16); font-size: var(--t-12); color: var(--ink-3);">
+        <span>Member since <span class="mono" style="color: var(--ink-2);">Mar 2024</span></span>
+        <span>·</span>
+        <span><span class="mono" style="color: var(--ink-2);">★ 4.97</span> from <span class="mono" style="color: var(--ink-2);">412</span> reviews</span>
+        <span>·</span>
+        <span><span class="mono" style="color: var(--ink-2);">1,284</span> trades completed</span>
+      </div>
+    </div>
+    <div class="row" style="gap: var(--s-8);">
+      <button class="btn btn-ghost">Public stall</button>
+      <button class="btn btn-secondary">Settings</button>
+      <button class="btn btn-primary">Edit profile</button>
+    </div>
+  </div>
+
+  <div class="prof-grid">
+
+    <!-- LEFT NAV -->
+    <aside class="prof-aside">
+      <a href="#" class="prof-link is-active">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        Personal
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+        Transactions <span class="count">142</span>
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 12 6 6 10-12"/></svg>
+        Buy orders <span class="count">3</span>
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12c2-4 5-6 9-6s7 2 9 6c-2 4-5 6-9 6s-7-2-9-6Z"/><circle cx="12" cy="12" r="2"/></svg>
+        Auto-bids <span class="count">8</span>
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17v-6m6 6V7m4 10v-3"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Trades <span class="count">21</span>
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 9V5a3 3 0 0 0-6 0v4"/><rect x="4" y="9" width="16" height="12" rx="2"/></svg>
+        Offers <span class="count">5</span>
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 2.6 7.4 7.4.6-5.6 5 2 7.4-6.4-3.8-6.4 3.8 2-7.4-5.6-5 7.4-.6Z"/></svg>
+        Reviews <span class="count">412</span>
+      </a>
+      <hr class="divider" style="margin: var(--s-8) 0;" />
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Support
+      </a>
+      <a href="#" class="prof-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 18 22 12l-6-6M8 6l-6 6 6 6"/></svg>
+        Developer / API
+      </a>
+    </aside>
+
+    <!-- RIGHT MAIN -->
+    <section>
+
+      <!-- Stat tiles -->
+      <div class="stat-row">
+        <div class="stat">
+          <span class="lbl">Wallet balance</span>
+          <span class="val">$1,284.50</span>
+          <span class="delta dim">+$84 last 7d</span>
+        </div>
+        <div class="stat">
+          <span class="lbl">Active listings</span>
+          <span class="val">14</span>
+          <span class="delta dim">$8,420 list value</span>
+        </div>
+        <div class="stat">
+          <span class="lbl">Sold (30d)</span>
+          <span class="val">$3,148</span>
+          <span class="delta up">+18% vs 30d prior</span>
+        </div>
+        <div class="stat">
+          <span class="lbl">Reputation</span>
+          <span class="val">4.97</span>
+          <span class="delta dim">412 reviews · 97% on-time</span>
+        </div>
+      </div>
+
+      <!-- Activity + recent listings split -->
+      <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--s-16);">
+
+        <div class="card">
+          <div class="card-hd">
+            <span class="title">Recent activity</span>
+            <a href="#" style="font-size: var(--t-12); color: var(--blue);">View all →</a>
+          </div>
+          <div class="card-bd" style="padding: 0 var(--s-16);">
+            <div class="activity-list">
+
+              <div class="activity-item">
+                <div class="activity-icon up">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Sold <strong>AK-47 | Vulcan</strong></div>
+                  <div class="dim" style="font-size: var(--t-11);">to <span class="mono">scope_</span> · 14 minutes ago</div>
+                </div>
+                <span class="mono up">+$284.20</span>
+                <a href="#" class="btn btn-ghost btn-sm">View</a>
+              </div>
+
+              <div class="activity-item">
+                <div class="activity-icon cta">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Listed <strong>★ Sport Gloves | Vice</strong></div>
+                  <div class="dim" style="font-size: var(--t-11);">at <span class="mono">$1,810</span> · 2 hours ago</div>
+                </div>
+                <span class="mono dim">$1,810.00</span>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+              </div>
+
+              <div class="activity-item">
+                <div class="activity-icon down">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Bought <strong>AWP | Neo-Noir</strong></div>
+                  <div class="dim" style="font-size: var(--t-11);">from <span class="mono">jeradel</span> · 5 hours ago</div>
+                </div>
+                <span class="mono down">−$84.40</span>
+                <a href="#" class="btn btn-ghost btn-sm">View</a>
+              </div>
+
+              <div class="activity-item">
+                <div class="activity-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h18l-2 12H5L3 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Offer received on <strong>M4A1-S | Hot Rod</strong></div>
+                  <div class="dim" style="font-size: var(--t-11);">from <span class="mono">tally.</span> · 8 hours ago · expires in 22h</div>
+                </div>
+                <span class="mono">$172.00</span>
+                <a href="#" class="btn btn-secondary btn-sm">Review</a>
+              </div>
+
+              <div class="activity-item">
+                <div class="activity-icon up">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Sold <strong>Glock-18 | Water Elemental</strong></div>
+                  <div class="dim" style="font-size: var(--t-11);">to <span class="mono">m1k_</span> · 1 day ago</div>
+                </div>
+                <span class="mono up">+$8.12</span>
+                <a href="#" class="btn btn-ghost btn-sm">View</a>
+              </div>
+
+              <div class="activity-item">
+                <div class="activity-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2Z"/><path d="m9 12 2 2 4-4"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Review received from <strong>nico</strong></div>
+                  <div class="dim" style="font-size: var(--t-11);">5 stars · "fast delivery, smooth" · 1 day ago</div>
+                </div>
+                <span class="mono">★★★★★</span>
+                <a href="#" class="btn btn-ghost btn-sm">View</a>
+              </div>
+
+              <div class="activity-item">
+                <div class="activity-icon down">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                </div>
+                <div>
+                  <div style="color: var(--ink); font-size: var(--t-13);">Withdrawal to bank</div>
+                  <div class="dim" style="font-size: var(--t-11);">Stripe · 2 days ago · arrived</div>
+                </div>
+                <span class="mono down">−$500.00</span>
+                <a href="#" class="btn btn-ghost btn-sm">Receipt</a>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Sales chart -->
+        <div class="card">
+          <div class="card-hd">
+            <span class="title">Sales · 30d</span>
+            <span class="mono dim">$3,148.20</span>
+          </div>
+          <div class="card-bd" style="padding: var(--s-16) var(--s-10) var(--s-10);">
+            <svg viewBox="0 0 320 120" style="width: 100%; height: 120px;" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="garea" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="#3b82f6" stop-opacity="0.22"/>
+                  <stop offset="1" stop-color="#3b82f6" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,90 L25,80 L50,95 L75,70 L100,85 L125,55 L150,68 L175,42 L200,50 L225,30 L250,38 L275,18 L300,28 L320,15 L320,120 L0,120 Z" fill="url(#garea)" />
+              <path d="M0,90 L25,80 L50,95 L75,70 L100,85 L125,55 L150,68 L175,42 L200,50 L225,30 L250,38 L275,18 L300,28 L320,15" fill="none" stroke="#3b82f6" stroke-width="1.6" />
+            </svg>
+          </div>
+          <div class="card-ft" style="justify-content: flex-start; gap: var(--s-16); font-size: var(--t-11); color: var(--ink-3);">
+            <span>Best day: <span class="mono" style="color: var(--ink-2);">Apr 22 · $284</span></span>
+            <span>·</span>
+            <span>Avg: <span class="mono" style="color: var(--ink-2);">$104/day</span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Active listings -->
+      <div class="tabs-row" style="margin-top: var(--s-32);">
+        <div class="tabs">
+          <button class="tab is-active">Active <span class="count">14</span></button>
+          <button class="tab">Sold <span class="count">142</span></button>
+          <button class="tab">Pending <span class="count">2</span></button>
+        </div>
+        <div class="row" style="gap: var(--s-8);">
+          <button class="btn btn-ghost btn-sm">Bulk edit</button>
+          <a href="/sell" class="btn btn-cta btn-sm">+ List item</a>
+        </div>
+      </div>
+
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Item</th>
+            <th>Wear · Float</th>
+            <th>Listed</th>
+            <th>Views</th>
+            <th class="num">Price</th>
+            <th class="num">vs market</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="row" style="gap: var(--s-10);">
+                <div style="width: 32px; height: 32px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-xs); display: grid; place-items: center;">
+                  <div style="width: 22px; height: 12px; background: linear-gradient(135deg, oklch(0.7 0.18 320), oklch(0.45 0.18 290)); border-radius: 2px; transform: rotate(-4deg);"></div>
+                </div>
+                <div>
+                  <div style="color: var(--ink);">★ Sport Gloves | Vice</div>
+                  <div class="dim" style="font-size: var(--t-11);">Covert · Gloves</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="mono">MW · 0.0814</span></td>
+            <td class="dim">2h ago</td>
+            <td class="mono">42</td>
+            <td class="num mono">$1,810.00</td>
+            <td class="num mono up">−6%</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row" style="gap: var(--s-10);">
+                <div style="width: 32px; height: 32px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-xs); display: grid; place-items: center;">
+                  <div style="width: 22px; height: 12px; background: linear-gradient(135deg, oklch(0.6 0.16 60), oklch(0.40 0.18 40)); border-radius: 2px; transform: rotate(-4deg);"></div>
+                </div>
+                <div>
+                  <div style="color: var(--ink);">M4A1-S | Hot Rod</div>
+                  <div class="dim" style="font-size: var(--t-11);">Covert · Rifle</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="mono">FN · 0.0014</span></td>
+            <td class="dim">1d ago</td>
+            <td class="mono">128</td>
+            <td class="num mono">$184.20</td>
+            <td class="num mono up">−10%</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row" style="gap: var(--s-10);">
+                <div style="width: 32px; height: 32px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-xs); display: grid; place-items: center;">
+                  <div style="width: 22px; height: 12px; background: linear-gradient(135deg, oklch(0.55 0.18 25), oklch(0.40 0.20 18)); border-radius: 2px; transform: rotate(-4deg);"></div>
+                </div>
+                <div>
+                  <div style="color: var(--ink);">AK-47 | Vulcan</div>
+                  <div class="dim" style="font-size: var(--t-11);">Covert · Rifle</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="mono">FT · 0.2147</span></td>
+            <td class="dim">3d ago</td>
+            <td class="mono">412</td>
+            <td class="num mono">$284.20</td>
+            <td class="num mono up">−12%</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row" style="gap: var(--s-10);">
+                <div style="width: 32px; height: 32px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-xs); display: grid; place-items: center;">
+                  <div style="width: 22px; height: 12px; background: linear-gradient(135deg, oklch(0.65 0.18 305), oklch(0.40 0.16 280)); border-radius: 2px; transform: rotate(-4deg);"></div>
+                </div>
+                <div>
+                  <div style="color: var(--ink);">AWP | Neo-Noir</div>
+                  <div class="dim" style="font-size: var(--t-11);">Classified · Sniper</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="mono">FN · 0.0048</span></td>
+            <td class="dim">5d ago</td>
+            <td class="mono">214</td>
+            <td class="num mono">$84.40</td>
+            <td class="num mono up">−15%</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row" style="gap: var(--s-10);">
+                <div style="width: 32px; height: 32px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-xs); display: grid; place-items: center;">
+                  <div style="width: 22px; height: 12px; background: linear-gradient(135deg, oklch(0.55 0.16 320), oklch(0.35 0.14 295)); border-radius: 2px; transform: rotate(-4deg);"></div>
+                </div>
+                <div>
+                  <div style="color: var(--ink);">P90 | Asiimov</div>
+                  <div class="dim" style="font-size: var(--t-11);">Restricted · SMG</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="mono">FT · 0.2042</span></td>
+            <td class="dim">1w ago</td>
+            <td class="mono">86</td>
+            <td class="num mono">$32.40</td>
+            <td class="num mono up">−16%</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+        </tbody>
+      </table>
+
+    </section>
+
+  </div>
+</main>
+
+</body>
+</html>

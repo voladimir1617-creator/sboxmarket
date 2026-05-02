@@ -14,21 +14,37 @@
 import { React, useState, useEffect } from './utils.js';
 
 const ROUTES = [
-  { name: 'market',        pattern: /^\/?$/                                         },
+  // CSFloat-1:1 — `/` is a marketing landing page (home), distinct from
+  // `/market` which is the bare marketplace grid. The home route still
+  // renders the same toolbar+sidebar+grid scaffolding underneath, but
+  // App prepends a hero section + featured-tabs rail above it. Anything
+  // that previously routed to `/?sort=…` now lands on `home` and the
+  // hero shows; navigating into `/market?sort=…` skips the hero.
+  { name: 'home',          pattern: /^\/?$/                                         },
   { name: 'market',        pattern: /^\/market\/?$/                                 },
   { name: 'market',        pattern: /^\/search\/?$/                                 },
   { name: 'cart',          pattern: /^\/cart\/?$/                                   },
   { name: 'database',      pattern: /^\/db\/?$/                                     },
   { name: 'item',          pattern: /^\/item\/(\d+)\/?$/,          keys: ['id']     },
-  { name: 'stall',         pattern: /^\/stall\/([^/]+)\/?$/,       keys: ['id']     },
+  // /stall/:id must be a numeric user id (matches Long PK on User row).
+  // Pre-fix the regex matched any string, so `/stall/abc` mounted the
+  // StallModal and fired 3 API calls that all 400'd before the 404 panel
+  // rendered. Now `abc` falls through to the SPA 404 view directly with
+  // zero network noise.
+  { name: 'stall',         pattern: /^\/stall\/(\d+)\/?$/,         keys: ['id']     },
   { name: 'loadouts',      pattern: /^\/loadout\/?$/                                },
   { name: 'loadout',       pattern: /^\/loadout\/(\d+)\/?$/,       keys: ['id']     },
   { name: 'profile',       pattern: /^\/profile\/?$/                                },
+  { name: 'profile',       pattern: /^\/profile\/(personal|transactions|buyorders|autobids|trades|offers|reviews|support|developers)\/?$/, keys: ['tab'] },
   { name: 'wallet',        pattern: /^\/wallet\/?$/                                 },
+  { name: 'wallet',        pattern: /^\/wallet\/(deposit|withdraw|history)\/?$/, keys: ['tab'] },
   { name: 'watchlist',     pattern: /^\/watchlist\/?$/                              },
+  { name: 'watchlist',     pattern: /^\/watchlist\/(all|drops)\/?$/, keys: ['tab'] },
   { name: 'sell',          pattern: /^\/sell\/?$/                                   },
   { name: 'mystall',       pattern: /^\/me\/stall\/?$/                              },
+  { name: 'mystall',       pattern: /^\/me\/stall\/(active|sold|analytics)\/?$/, keys: ['tab'] },
   { name: 'offers',        pattern: /^\/offers\/?$/                                 },
+  { name: 'offers',        pattern: /^\/offers\/(incoming|outgoing)\/?$/, keys: ['tab'] },
   { name: 'buyorders',     pattern: /^\/buy-orders\/?$/                             },
   { name: 'notifications', pattern: /^\/notifications\/?$/                          },
   { name: 'support',       pattern: /^\/support\/?$/                                },
@@ -159,7 +175,12 @@ export function closeToPrevious(fallback = '/') {
 
 /** Build URL paths for common destinations. Keeps magic strings out of components. */
 export const paths = {
-  market:        ()     => '/',
+  // CSFloat-1:1 — `/` is the marketing home (hero + featured), `/market`
+  // is the bare marketplace grid. Most nav, modal-close callbacks, and
+  // "browse market" CTAs want the grid (so they go to `/market`); only
+  // the brand logo and explicit "go home" actions go to `/`.
+  home:          ()     => '/',
+  market:        ()     => '/market',
   database:      ()     => '/db',
   item:          (id)   => `/item/${id}`,
   stall:         (id)   => `/stall/${id}`,

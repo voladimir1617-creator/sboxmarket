@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buy orders — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s-32); align-items: start; }
+  @media (max-width: 1100px) { .bo-grid { grid-template-columns: 1fr; } }
+
+  .bo-table {
+    width: 100%; border-collapse: collapse; font-size: var(--t-13);
+    border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden;
+  }
+  .bo-table th, .bo-table td { text-align: left; padding: var(--s-10) var(--s-14); border-bottom: 1px solid var(--line); }
+  .bo-table th { background: var(--bg-1); font-weight: 500; color: var(--ink-3); font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em; }
+  .bo-table tbody tr:hover { background: var(--bg-1); }
+  .bo-table tbody tr:last-child td { border-bottom: 0; }
+  .bo-table .num { font-family: var(--font-mono); text-align: right; font-feature-settings: "tnum"; }
+
+  .progress {
+    height: 4px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 2px; overflow: hidden; min-width: 120px;
+  }
+  .progress > span { display: block; height: 100%; background: var(--ink); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link is-active" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb"><span style="color: var(--ink);">Buy orders</span></div>
+      <h1>Standing buy orders</h1>
+    </div>
+    <div class="meta">
+      <span><span class="num">3</span> active orders</span>
+      <span><span class="num">$1,840</span> escrowed</span>
+      <span class="badge live"><span class="led"></span>Auto-filling</span>
+    </div>
+  </div>
+
+  <div class="bo-grid">
+
+    <section>
+      <div class="tabs-row">
+        <div class="tabs">
+          <button class="tab is-active">Active <span class="count">3</span></button>
+          <button class="tab">Filled <span class="count">28</span></button>
+          <button class="tab">Cancelled <span class="count">4</span></button>
+        </div>
+      </div>
+
+      <table class="bo-table">
+        <thead>
+          <tr><th style="width: 30%;">Item</th><th>Criteria</th><th class="num">Max bid</th><th class="num">Filled</th><th class="num">Escrow</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>AK-47 | Vulcan</strong><div class="muted" style="font-size: var(--t-11);">Covert · Rifle</div></td>
+            <td><span class="mono">FT · 0.18–0.25 · stickerless</span></td>
+            <td class="num">$260</td>
+            <td><div class="row" style="gap: var(--s-8);"><div class="progress"><span style="width: 40%;"></span></div><span class="mono">2/5</span></div></td>
+            <td class="num">$520</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+          <tr>
+            <td><strong>★ Karambit | Fade</strong><div class="muted" style="font-size: var(--t-11);">Covert · Knife</div></td>
+            <td><span class="mono">FN · 0.00–0.04 · ≥ 80% fade</span></td>
+            <td class="num">$1,950</td>
+            <td><div class="row" style="gap: var(--s-8);"><div class="progress"><span style="width: 0%;"></span></div><span class="mono">0/1</span></div></td>
+            <td class="num">$0</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+          <tr>
+            <td><strong>M4A1-S | Hot Rod</strong><div class="muted" style="font-size: var(--t-11);">Covert · Rifle</div></td>
+            <td><span class="mono">FN · 0.00–0.02</span></td>
+            <td class="num">$170</td>
+            <td><div class="row" style="gap: var(--s-8);"><div class="progress"><span style="width: 80%;"></span></div><span class="mono">4/5</span></div></td>
+            <td class="num">$1,320</td>
+            <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Filled history (collapsed example) -->
+      <div class="card" style="margin-top: var(--s-32);">
+        <div class="card-hd"><span class="title">Recently filled</span><span class="mono dim">last 30 days</span></div>
+        <div class="card-bd" style="padding: 0;">
+          <table class="tbl" style="border: 0;">
+            <thead><tr><th>Item</th><th>Filled at</th><th class="num">Price</th><th class="num">Δ vs max</th></tr></thead>
+            <tbody>
+              <tr><td>AK-47 | Vulcan FT</td><td class="dim">2d ago</td><td class="num mono">$258</td><td class="num mono up">−$2</td></tr>
+              <tr><td>AK-47 | Vulcan FT</td><td class="dim">3d ago</td><td class="num mono">$248</td><td class="num mono up">−$12</td></tr>
+              <tr><td>M4A1-S | Hot Rod FN</td><td class="dim">5d ago</td><td class="num mono">$165</td><td class="num mono up">−$5</td></tr>
+              <tr><td>M4A1-S | Hot Rod FN</td><td class="dim">6d ago</td><td class="num mono">$170</td><td class="num mono">±$0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sidebar: New buy order -->
+    <aside style="position: sticky; top: calc(var(--nav-h) + var(--s-32));">
+      <div class="card">
+        <div class="card-hd"><span class="title">+ New buy order</span></div>
+        <div class="card-bd" style="display: flex; flex-direction: column; gap: var(--s-14);">
+
+          <div class="field">
+            <label class="label">Item</label>
+            <input class="input" placeholder="e.g. AK-47 | Vulcan" />
+          </div>
+
+          <div class="field">
+            <label class="label">Wear range</label>
+            <div class="range">
+              <input class="input mono" value="FT" />
+              <span class="dim">—</span>
+              <input class="input mono" value="WW" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Float range</label>
+            <div class="range">
+              <input class="input mono" value="0.20" />
+              <span class="dim">—</span>
+              <input class="input mono" value="0.30" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Max price · per item</label>
+            <div style="position: relative;">
+              <input class="input mono" value="$260.00" style="padding-right: 80px; font-size: var(--t-15);" />
+              <span style="position: absolute; right: var(--s-10); top: 50%; transform: translateY(-50%); font-family: var(--font-mono); font-size: var(--t-11); color: var(--up);">−12% mkt</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Quantity</label>
+            <input class="input mono" value="5" />
+          </div>
+
+          <hr class="divider" />
+
+          <div>
+            <span class="label" style="margin-bottom: var(--s-8);">Filters</span>
+            <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" /><span class="box"></span>Stickerless only</label>
+            <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" /><span class="box"></span>StatTrak only</label>
+            <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" checked /><span class="box"></span>Auto-cancel after 30d</label>
+          </div>
+
+          <hr class="divider" />
+
+          <table style="width: 100%; font-size: var(--t-12);">
+            <tr><td style="color: var(--ink-3);">Max total escrow</td><td class="mono" style="text-align: right;">$1,300.00</td></tr>
+            <tr><td style="color: var(--ink-3);">Available balance</td><td class="mono up" style="text-align: right;">$1,284.50</td></tr>
+          </table>
+
+          <div class="muted" style="font-size: var(--t-11);">Funds are locked when an order is placed and released as items fill or you cancel.</div>
+
+          <button class="btn btn-cta btn-block btn-lg">Place buy order</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+</main>
+
+</body>
+</html>

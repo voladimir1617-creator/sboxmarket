@@ -1,0 +1,598 @@
+{
+  "scannedAt": "2026-05-01T10:32:34.578Z",
+  "listingId": 4,
+  "totals": {
+    "pages": 34,
+    "findings": 7,
+    "overflowPages": 5,
+    "namelessPages": 0,
+    "consolePages": 2,
+    "rootEmptyPages": 0
+  },
+  "findings": [
+    {
+      "viewport": "desktop",
+      "route": "/item/4",
+      "location": "/item/4",
+      "title": "Mob Boss Waistcoat & Shirt · SkinBox",
+      "h1": "",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [
+        {
+          "tag": "a",
+          "cls": "similar-card",
+          "text": "Bag $4.07",
+          "left": 1306,
+          "right": 1466,
+          "width": 160,
+          "dx": 26
+        },
+        {
+          "tag": "div",
+          "cls": "similar-thumb",
+          "text": "",
+          "left": 1307,
+          "right": 1465,
+          "width": 158,
+          "dx": 25
+        },
+        {
+          "tag": "img",
+          "cls": "item-img loaded",
+          "text": "",
+          "left": 1323,
+          "right": 1449,
+          "width": 126,
+          "dx": 9
+        },
+        {
+          "tag": "div",
+          "cls": "similar-name",
+          "text": "Bag",
+          "left": 1307,
+          "right": 1465,
+          "width": 158,
+          "dx": 25
+        },
+        {
+          "tag": "div",
+          "cls": "similar-price",
+          "text": "$4.07",
+          "left": 1307,
+          "right": 1465,
+          "width": 158,
+          "dx": 25
+        },
+        {
+          "tag": "a",
+          "cls": "similar-card",
+          "text": "Brainy BRN-101 $6.41",
+          "left": 1476,
+          "right": 1636,
+          "width": 160,
+          "dx": 196
+        },
+        {
+          "tag": "div",
+          "cls": "similar-thumb",
+          "text": "",
+          "left": 1477,
+          "right": 1635,
+          "width": 158,
+          "dx": 195
+        },
+        {
+          "tag": "img",
+          "cls": "item-img loaded",
+          "text": "",
+          "left": 1493,
+          "right": 1619,
+          "width": 126,
+          "dx": 179
+        },
+        {
+          "tag": "div",
+          "cls": "similar-name",
+          "text": "Brainy BRN-101",
+          "left": 1477,
+          "right": 1635,
+          "width": 158,
+          "dx": 195
+        },
+        {
+          "tag": "div",
+          "cls": "similar-price",
+          "text": "$6.41",
+          "left": 1477,
+          "right": 1635,
+          "width": 158,
+          "dx": 195
+        }
+      ],
+      "nameless": [],
+      "clickableCount": 75,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam Standard ⌕ Market › Shirts › Mo",
+      "console": [],
+      "network": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "/watchlist",
+      "location": "/watchlist",
+      "title": "Watchlist · SkinBox",
+      "h1": "Watchlist · 0 items",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [],
+      "nameless": [],
+      "clickableCount": 46,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam Watchlist · 0 items inbox Nothi",
+      "console": [
+        {
+          "type": "warning",
+          "text": "[/api/watchlist/alerts] HTTP 401"
+        }
+      ],
+      "network": [
+        {
+          "status": 401,
+          "url": "/api/watchlist/alerts"
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "/",
+      "location": "/",
+      "title": "SkinBox — s&box Marketplace",
+      "h1": "Buy & Sell s&box Skins on the Most Trusted Marketplace",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [
+        {
+          "tag": "a",
+          "cls": "csfloat-home-preview-card rarity-Standard",
+          "text": "Lunar Trousers 2026 $8.43 $",
+          "left": 372,
+          "right": 532,
+          "width": 160,
+          "dx": 142
+        },
+        {
+          "tag": "div",
+          "cls": "csfloat-home-preview-card-img",
+          "text": "",
+          "left": 385,
+          "right": 519,
+          "width": 134,
+          "dx": 129
+        },
+        {
+          "tag": "img",
+          "cls": "item-img loaded",
+          "text": "",
+          "left": 393,
+          "right": 511,
+          "width": 118,
+          "dx": 121
+        },
+        {
+          "tag": "div",
+          "cls": "csfloat-home-preview-card-name",
+          "text": "Lunar Trousers 2026",
+          "left": 385,
+          "right": 519,
+          "width": 134,
+          "dx": 129
+        },
+        {
+          "tag": "div",
+          "cls": "csfloat-home-preview-card-price",
+          "text": "$8.43 $",
+          "left": 385,
+          "right": 519,
+          "width": 134,
+          "dx": 129
+        },
+        {
+          "tag": "span",
+          "cls": "csfloat-home-preview-card-usd",
+          "text": "$",
+          "left": 428,
+          "right": 442,
+          "width": 14,
+          "dx": 52
+        },
+        {
+          "tag": "a",
+          "cls": "csfloat-home-preview-card rarity-Standard",
+          "text": "Lunar Shoes 2026 $7.88 $",
+          "left": 546,
+          "right": 706,
+          "width": 160,
+          "dx": 316
+        },
+        {
+          "tag": "div",
+          "cls": "csfloat-home-preview-card-img",
+          "text": "",
+          "left": 559,
+          "right": 693,
+          "width": 134,
+          "dx": 303
+        },
+        {
+          "tag": "img",
+          "cls": "item-img loaded",
+          "text": "",
+          "left": 567,
+          "right": 685,
+          "width": 118,
+          "dx": 295
+        },
+        {
+          "tag": "div",
+          "cls": "csfloat-home-preview-card-name",
+          "text": "Lunar Shoes 2026",
+          "left": 559,
+          "right": 693,
+          "width": 134,
+          "dx": 303
+        }
+      ],
+      "nameless": [],
+      "clickableCount": 58,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam Buy & Sell s&box Skins on the M",
+      "screenshot": "C:\\Users\\WW\\Desktop\\sboxmarket\\_screens\\codex-owner-qa\\2026-05-01T10-31-45-287Z-mobile-home.png",
+      "console": [],
+      "network": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "/market",
+      "location": "/market",
+      "title": "Marketplace · SkinBox",
+      "h1": "",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [
+        {
+          "tag": "button",
+          "cls": "csfloat-subnav-tab ",
+          "text": "Gloves",
+          "left": 379,
+          "right": 457,
+          "width": 78,
+          "dx": 67
+        },
+        {
+          "tag": "button",
+          "cls": "csfloat-subnav-tab ",
+          "text": "Boots",
+          "left": 461,
+          "right": 532,
+          "width": 71,
+          "dx": 142
+        },
+        {
+          "tag": "button",
+          "cls": "csfloat-subnav-tab ",
+          "text": "Accessories",
+          "left": 536,
+          "right": 648,
+          "width": 112,
+          "dx": 258
+        },
+        {
+          "tag": "div",
+          "cls": "grid-thumb",
+          "text": "+ ♡",
+          "left": 204,
+          "right": 424,
+          "width": 220,
+          "dx": 34
+        },
+        {
+          "tag": "img",
+          "cls": "item-img loaded",
+          "text": "",
+          "left": 226,
+          "right": 402,
+          "width": 176,
+          "dx": 12
+        },
+        {
+          "tag": "div",
+          "cls": "grid-zoom",
+          "text": "",
+          "left": 388,
+          "right": 416,
+          "width": 28,
+          "dx": 26
+        },
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 395,
+          "right": 409,
+          "width": 14,
+          "dx": 19
+        },
+        {
+          "tag": "circle",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 397,
+          "right": 405,
+          "width": 8,
+          "dx": 15
+        },
+        {
+          "tag": "line",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 405,
+          "right": 407,
+          "width": 3,
+          "dx": 17
+        },
+        {
+          "tag": "button",
+          "cls": "grid-cart-btn ",
+          "text": "+",
+          "left": 388,
+          "right": 416,
+          "width": 28,
+          "dx": 26
+        }
+      ],
+      "nameless": [],
+      "clickableCount": 230,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam All Hats Jackets Shirts Pants G",
+      "screenshot": "C:\\Users\\WW\\Desktop\\sboxmarket\\_screens\\codex-owner-qa\\2026-05-01T10-31-45-287Z-mobile-market.png",
+      "console": [],
+      "network": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "/db",
+      "location": "/db",
+      "title": "Item Database · SkinBox",
+      "h1": "Database · 80 indexed",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [
+        {
+          "tag": "tr",
+          "cls": "db-row db-head",
+          "text": "# ITEM CATEGORY RARITY SUPPLY SOLD VIEWS FLOOR ★",
+          "left": 24,
+          "right": 804,
+          "width": 780,
+          "dx": 414
+        },
+        {
+          "tag": "th",
+          "cls": "",
+          "text": "RARITY",
+          "left": 348,
+          "right": 478,
+          "width": 130,
+          "dx": 88
+        },
+        {
+          "tag": "th",
+          "cls": "right",
+          "text": "SUPPLY",
+          "left": 458,
+          "right": 546,
+          "width": 88,
+          "dx": 156
+        },
+        {
+          "tag": "th",
+          "cls": "right",
+          "text": "SOLD",
+          "left": 548,
+          "right": 620,
+          "width": 72,
+          "dx": 230
+        },
+        {
+          "tag": "th",
+          "cls": "right",
+          "text": "VIEWS",
+          "left": 618,
+          "right": 696,
+          "width": 78,
+          "dx": 306
+        },
+        {
+          "tag": "th",
+          "cls": "right",
+          "text": "FLOOR",
+          "left": 688,
+          "right": 798,
+          "width": 110,
+          "dx": 408
+        },
+        {
+          "tag": "th",
+          "cls": "",
+          "text": "★",
+          "left": 788,
+          "right": 844,
+          "width": 56,
+          "dx": 454
+        },
+        {
+          "tag": "tr",
+          "cls": "db-row",
+          "text": "#1 The Apron Accident #73 Shirts Standard 1 0 16 — ☆",
+          "left": 24,
+          "right": 804,
+          "width": 780,
+          "dx": 414
+        },
+        {
+          "tag": "td",
+          "cls": "",
+          "text": "Standard",
+          "left": 348,
+          "right": 478,
+          "width": 130,
+          "dx": 88
+        },
+        {
+          "tag": "span",
+          "cls": "rarity-badge rarity-Standard",
+          "text": "Standard",
+          "left": 362,
+          "right": 420,
+          "width": 58,
+          "dx": 30
+        }
+      ],
+      "nameless": [],
+      "clickableCount": 113,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam Database · 80 indexed s&box Dat",
+      "screenshot": "C:\\Users\\WW\\Desktop\\sboxmarket\\_screens\\codex-owner-qa\\2026-05-01T10-31-45-287Z-mobile-db.png",
+      "console": [],
+      "network": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "/item/4",
+      "location": "/item/4",
+      "title": "Mob Boss Waistcoat & Shirt · SkinBox",
+      "h1": "",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [
+        {
+          "tag": "svg",
+          "cls": "[object SVGAnimatedString]",
+          "text": "Price history chart, 11 points. Range $4.40 to $5.77. Up 2% overall.",
+          "left": 58,
+          "right": 872,
+          "width": 814,
+          "dx": 482
+        },
+        {
+          "tag": "polygon",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 69,
+          "right": 861,
+          "width": 792,
+          "dx": 471
+        },
+        {
+          "tag": "polyline",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 69,
+          "right": 861,
+          "width": 792,
+          "dx": 471
+        },
+        {
+          "tag": "circle",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 777,
+          "right": 787,
+          "width": 11,
+          "dx": 397
+        },
+        {
+          "tag": "circle",
+          "cls": "[object SVGAnimatedString]",
+          "text": "",
+          "left": 697,
+          "right": 708,
+          "width": 11,
+          "dx": 318
+        },
+        {
+          "tag": "a",
+          "cls": "similar-card",
+          "text": "Labcoat $4.97",
+          "left": 382,
+          "right": 542,
+          "width": 160,
+          "dx": 152
+        },
+        {
+          "tag": "div",
+          "cls": "similar-thumb",
+          "text": "",
+          "left": 383,
+          "right": 541,
+          "width": 158,
+          "dx": 151
+        },
+        {
+          "tag": "img",
+          "cls": "item-img loaded",
+          "text": "",
+          "left": 399,
+          "right": 525,
+          "width": 126,
+          "dx": 135
+        },
+        {
+          "tag": "div",
+          "cls": "similar-name",
+          "text": "Labcoat",
+          "left": 383,
+          "right": 541,
+          "width": 158,
+          "dx": 151
+        },
+        {
+          "tag": "div",
+          "cls": "similar-price",
+          "text": "$4.97",
+          "left": 383,
+          "right": 541,
+          "width": 158,
+          "dx": 151
+        }
+      ],
+      "nameless": [],
+      "clickableCount": 75,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam Standard ⌕ Market › Shirts › Mo",
+      "screenshot": "C:\\Users\\WW\\Desktop\\sboxmarket\\_screens\\codex-owner-qa\\2026-05-01T10-31-45-287Z-mobile-item-4.png",
+      "console": [],
+      "network": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "/watchlist",
+      "location": "/watchlist",
+      "title": "Watchlist · SkinBox",
+      "h1": "Watchlist · 0 items",
+      "rootChildren": 1,
+      "whitelabel": false,
+      "overflow": [],
+      "nameless": [],
+      "clickableCount": 46,
+      "textSample": "Skip to main content SkinBox Market Database Loadout Lab Watchlist Help USD EN notifications shopping_cart Sign in through Steam Watchlist · 0 items inbox Nothi",
+      "console": [
+        {
+          "type": "warning",
+          "text": "[/api/watchlist/alerts] HTTP 401"
+        }
+      ],
+      "network": [
+        {
+          "status": 401,
+          "url": "/api/watchlist/alerts"
+        }
+      ]
+    }
+  ]
+}

@@ -214,4 +214,32 @@ class ListingsHttpSpec extends Specification {
         // /api/listings/{id}/bids is the bid-history endpoint — may be 200 or 404 depending on routing
         result.response.status == 200 || result.response.status == 404
     }
+
+    def "GET /api/listings includes sellerRating + sellerReviewCount fields on every row (csfloat-parity decoration)"() {
+        when:
+        def result = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings')).andReturn()
+
+        then:
+        result.response.status == 200
+        def body = result.response.contentAsString
+        // Both fields must appear in the JSON contract — null when there
+        // are no reviews, but the keys are always serialized so the
+        // frontend can rely on `l.sellerRating != null` rather than
+        // probing for key existence.
+        body.contains('"sellerRating"')
+        body.contains('"sellerReviewCount"')
+    }
+
+    def "GET /api/listings/item/{itemId} also carries the sellerRating decoration"() {
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get("/api/listings/item/${seededItem.id}")
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def body = result.response.contentAsString
+        body.contains('"sellerRating"')
+        body.contains('"sellerReviewCount"')
+    }
 }

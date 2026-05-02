@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>404 — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .nf-page {
+    min-height: calc(100vh - var(--nav-h));
+    display: grid; place-items: center;
+    padding: var(--s-32);
+  }
+  .nf-card {
+    max-width: 720px;
+    width: 100%;
+    text-align: center;
+  }
+  .nf-glyph {
+    width: 100%;
+    aspect-ratio: 5 / 2;
+    max-height: 240px;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r-md);
+    background:
+      repeating-linear-gradient(45deg,
+        color-mix(in oklch, var(--bg-1) 80%, transparent) 0 14px,
+        color-mix(in oklch, var(--bg-2) 70%, transparent) 14px 15px);
+    display: grid; place-items: center;
+    margin-bottom: var(--s-32);
+    font-family: var(--font-mono);
+    font-size: clamp(72px, 16vw, 144px);
+    color: var(--ink-3);
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .nf-h {
+    font-size: var(--t-40);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: var(--s-12);
+  }
+  .nf-p {
+    font-size: var(--t-15);
+    color: var(--ink-2);
+    line-height: 1.55;
+    margin-bottom: var(--s-24);
+    max-width: 50ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .nf-suggest {
+    margin-top: var(--s-40);
+    padding-top: var(--s-24);
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--s-12);
+    text-align: left;
+  }
+  .nf-suggest a {
+    padding: var(--s-14) var(--s-16);
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    transition: border-color .12s, background .12s;
+    display: block;
+  }
+  .nf-suggest a:hover { border-color: var(--line-2); background: var(--bg-2); }
+  .nf-suggest h4 { color: var(--ink); font-size: var(--t-13); font-weight: 500; margin-bottom: 2px; }
+  .nf-suggest p { color: var(--ink-3); font-size: var(--t-11); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+    <div></div>
+    <div class="nav-actions">
+      <a href="/" class="btn btn-ghost btn-sm">Back to market →</a>
+    </div>
+  </div>
+</nav>
+
+<main class="nf-page">
+  <div class="nf-card">
+    <div class="nf-glyph">404</div>
+
+    <h1 class="nf-h">This page didn't list.</h1>
+    <p class="nf-p">The URL you tried doesn't match anything in the marketplace. The item might have been delisted, sold, or the link is mistyped.</p>
+
+    <div class="row" style="justify-content: center; gap: var(--s-10);">
+      <a href="/" class="btn btn-cta">Browse the market</a>
+      <a href="javascript:history.back()" class="btn btn-secondary">Go back</a>
+    </div>
+
+    <div class="nf-suggest">
+      <a href="/">
+        <h4>Market</h4>
+        <p>12,841 listings live now</p>
+      </a>
+      <a href="/db">
+        <h4>Database</h4>
+        <p>Every item, every price</p>
+      </a>
+      <a href="/loadout">
+        <h4>Loadouts</h4>
+        <p>Build a 5-slot rotation</p>
+      </a>
+      <a href="/sell">
+        <h4>Sell</h4>
+        <p>List from your inventory</p>
+      </a>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

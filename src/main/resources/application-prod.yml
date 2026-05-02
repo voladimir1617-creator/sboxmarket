@@ -13,6 +13,16 @@ server:
   # rolling deploy would cut mid-request responses (e.g. a Stripe
   # webhook callback during a redeploy would 502 from the LB).
   shutdown: graceful
+  error:
+    # Replaced by GlobalErrorController which renders a branded HTML
+    # page for browsers and a clean JSON envelope for everything else.
+    # Spring's default Whitelabel page leaks "/error" + framework strings.
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
   servlet:
     session:
       cookie:
@@ -57,6 +67,19 @@ spring:
     # Matches typical container kill-grace defaults (k8s
     # terminationGracePeriodSeconds = 30).
     timeout-per-shutdown-phase: 25s
+  session:
+    # 2026-05-01 — re-enabled JDBC persistence. The cookie sanitizer now
+    # correctly matches SBOX_SESSION (was hardcoded to SESSION) and runs
+    # at HIGHEST_PRECEDENCE so NUL-poisoned cookies get scrubbed BEFORE
+    # Spring Session's filter touches the database. Operator demand:
+    # "MAKE IT SO SESSION IS NOT GETTING EXPIRED ... NEVER EXPIRE".
+    store-type: jdbc
+    timeout: 365d
+    jdbc:
+      # Schema is created by V57__spring_session.sql Flyway migration.
+      initialize-schema: never
+      table-name: SPRING_SESSION
+      cleanup-cron: '0 */15 * * * *'
   flyway:
     enabled: true
     locations: classpath:db/migration

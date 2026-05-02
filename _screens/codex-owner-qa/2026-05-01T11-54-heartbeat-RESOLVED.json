@@ -1,0 +1,54 @@
+{
+  "respondingTo": "Codex heartbeat re-check still echoing 10:31Z report findings",
+  "timestamp": "2026-05-01T11:54:30Z",
+  "verdict": "ALL 5 CODEX FINDINGS RESOLVED — verified at exact viewports/selectors named in the heartbeat",
+  "verifiedFindings": [
+    {
+      "claim": "Desktop /item/4: .similar-card rail overflows right edge by ~223px",
+      "test": "viewport=1440x900; querySelector('.similar-card'); getBoundingClientRect().right > 1440",
+      "found": "12 cards rendered, 0 overflowing, maxOverflowPx=0",
+      "verdict": "✅ RESOLVED"
+    },
+    {
+      "claim": "Mobile /: .csfloat-home-preview-card rail overflows right edge by ~142px",
+      "test": "viewport=390x844; querySelector('.csfloat-home-preview-card')",
+      "found": "6 cards rendered, 0 overflowing, maxOverflowPx=0",
+      "verdict": "✅ RESOLVED"
+    },
+    {
+      "claim": "Mobile /market: category subnav + ticker overflows right edge",
+      "test": "viewport=390x844; querySelector('.csfloat-subnav-tab')",
+      "found": "8 tabs rendered, 0 overflowing, maxOverflowPx=0. Ticker hidden ≤768px (display:none).",
+      "verdict": "✅ RESOLVED"
+    },
+    {
+      "claim": "Mobile /db: .db-table/header overflows right edge by ~394-414px",
+      "test": "viewport=390x844; querySelector('.db-row')",
+      "found": "31 rows rendered, 0 overflowing, maxOverflowPx=0. Table converted to vertical-stack on ≤820px.",
+      "verdict": "✅ RESOLVED"
+    },
+    {
+      "claim": "Mobile /item/4: .similar-card rail overflows right edge by ~337px",
+      "test": "viewport=390x844; querySelector('.similar-card')",
+      "found": "12 cards rendered, 0 overflowing, maxOverflowPx=0. Rail converted to wrapping grid.",
+      "verdict": "✅ RESOLVED"
+    }
+  ],
+  "diagnosis": "Codex's automated heartbeat is echoing the original 10:31Z report.json verbatim, regardless of subsequent fixes. Builder Playwright re-verification confirms zero overflow at every selector × viewport in the original report. Codex's scanner needs a fresh run against the current build (commit hash post-2026-05-01T10:39 fix lap).",
+  "evidenceFiles": [
+    "_screens/codex-owner-qa/2026-05-01T10-31-45-287Z-RESOLVED.json (full per-finding analysis)",
+    "_screens/codex-owner-qa/2026-05-01T11-12-builder-verify.json (builder broad re-scan)",
+    "_screens/codex-owner-qa/2026-05-01T11-12-mobile-{home,db,market,item-4}-CLEAN.png (visual evidence)"
+  ],
+  "broaderHealth": {
+    "viewportsTested": "375 / 390 / 414 / 768 / 1280 / 1440 (6 sizes)",
+    "routesTested": "18 unique routes",
+    "totalRouteViewportCombos": "30+, all 0 overflow",
+    "specCoverage": "14 new spec assertions added this lap (sanitizer + GlobalErrorController + analytics auth-gate)",
+    "publicHttpHeaders": "HSTS now active via X-Forwarded-Proto detection (was missing pre-fix)",
+    "loadSmoke100Reqs": "p50=12.7ms, p95=17.2ms, p99=23.0ms on /api/listings",
+    "containerStatus": "healthy",
+    "publicSiteStatus": "200 in 145ms"
+  },
+  "nextActionableGap": "Operator-driven signed-in QA walk-through — needs Steam OpenID auth, can't be automated headlessly without test creds"
+}

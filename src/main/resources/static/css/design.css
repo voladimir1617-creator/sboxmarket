@@ -17,8 +17,17 @@ html, body { height: 100%; }
 
   --ink:       oklch(0.97 0.006 90);
   --ink-2:     oklch(0.80 0.008 90);
-  --ink-3:     oklch(0.58 0.010 90);
-  --ink-4:     oklch(0.42 0.010 90);
+  /* Boss QA cycle 11 → 12 — ink-3/ink-4 bumped further to clear WCAG AA
+     4.5:1 against bg (oklch 0.17) AND bg-2 (oklch 0.23, sidebar / table
+     headers). Cycle 11 set ink-3=0.66, ink-4=0.56 — still flagged 92
+     nodes across 16 routes (filter-counts, table headers, footer copy,
+     recent-sales-time, help-contact). Cycle 12 pushes ink-3=0.74 (~5.7:1
+     vs bg, ~4.6:1 vs bg-2) and ink-4=0.66 (~4.6:1 vs bg, ~3.7:1 vs bg-2
+     for large-text only — large headers like .db-table th 10px uppercase
+     are treated as small-text by axe so 4.6:1 against the bg-2 backdrop
+     barely clears 4.5:1). */
+  --ink-3:     oklch(0.74 0.010 90);
+  --ink-4:     oklch(0.66 0.010 90);
 
   /* Premium mono + hint-of-blue — primary accent is near-white; blue is
      reserved for CTAs, live LED, and active chip underlines only. */
@@ -953,7 +962,8 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
 .ltable thead th {
   text-align: left; padding: 10px 16px;
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--ink-4); font-weight: 500;
+  /* Boss QA cycle 12 A4 — ink-3 not ink-4 for WCAG AA. */
+  color: var(--ink-3); font-weight: 600;
   border-bottom: 1px solid var(--line);
 }
 .ltable thead th.num { text-align: right; }
@@ -3913,11 +3923,14 @@ nav.nav {
   border-color: color-mix(in oklab, var(--cta) 60%, var(--line));
 }
 .filter-chip svg { width: 13px; height: 13px; }
+/* Boss QA cycle 12 A4 — bumped count chip from ink-4 to ink-3 to clear
+   WCAG AA 4.5:1 against the body bg. ink-4 (oklch 0.66) on bg (oklch 0.17)
+   tested at ~4.0:1 in axe — borderline. ink-3 (oklch 0.74) hits ~4.8:1. */
 .filter-count, .filter-chip .count {
   font-family: var(--mono); font-size: 10px;
-  color: var(--ink-4); letter-spacing: 0.04em;
+  color: var(--ink-3); letter-spacing: 0.04em;
 }
-.filter-chip.active .count { color: var(--ink-3); }
+.filter-chip.active .count { color: var(--ink); }
 .filter-divider { height: 1px; background: var(--line); margin: 12px 0; }
 .filter-dot {
   /* Bumped from 8px to 10px and added a subtle outer halo so the rarity
@@ -4291,8 +4304,9 @@ nav.nav {
   text-align: left;
   padding: 12px 14px;
   font-family: var(--mono); font-size: 10px;
-  font-weight: 500; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--ink-4);
+  /* Boss QA cycle 12 A4 — ink-3 not ink-4 for WCAG AA on bg-2. */
+  font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-3);
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
   white-space: nowrap;
@@ -5280,7 +5294,10 @@ body:has(.shortcuts-backdrop) {
   text-align: left; padding: 10px 12px;
   font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--ink-4); font-weight: 500;
+  /* Boss QA cycle 12 A4 — bumped from ink-4 to ink-3. ink-4 (oklch 0.66)
+     on bg-2 (oklch 0.23) was ~3.7:1, axe-flagged. ink-3 (oklch 0.74)
+     hits ~4.7:1 against bg-2. */
+  color: var(--ink-3); font-weight: 600;
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
   white-space: nowrap;
@@ -5320,7 +5337,12 @@ body:has(.shortcuts-backdrop) {
   width: 48px; white-space: nowrap;
 }
 .db-item-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.db-item-cell .db-name { font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Boss QA cycle 11 — .db-name is now an <a> for keyboard a11y after the
+   row's role=button was dropped. Strip default link styling so it reads
+   identically to the previous <div> visually. */
+.db-item-cell a.db-name { text-decoration: none; }
+.db-item-cell a.db-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.db-item-cell .db-name { font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .db-item-cell .db-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 1px; }
 .db-cat { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
 .db-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
@@ -10817,30 +10839,35 @@ input[type="radio"] {
   color: white !important;
 }
 
-/* Primary CTA: solid blue filled (not white/ink). */
+/* Primary CTA: solid blue filled (not white/ink).
+   Boss QA cycle 12 A4 — was var(--cta) (#3b82f6), white text gave only
+   ~3.8:1 contrast (axe-flagged on every route). Switched to #1d4ed8
+   (Tailwind blue-700) for ~6.8:1 white-text contrast. Border tracks
+   the bg so the focus ring still sits on a solid color. */
 .btn-accent, .btn-primary {
-  background: var(--cta) !important;
+  background: #1d4ed8 !important;
   color: white !important;
-  border-color: var(--cta) !important;
+  border-color: #1d4ed8 !important;
   font-weight: 600 !important;
 }
 .btn-accent:hover, .btn-primary:hover {
-  background: color-mix(in oklab, var(--cta) 90%, white) !important;
-  border-color: color-mix(in oklab, var(--cta) 90%, white) !important;
+  background: #1e40af !important;
+  border-color: #1e40af !important;
   color: white !important;
   filter: none !important;
 }
 
-/* Hero primary CTA: bigger, blue-filled, square. */
+/* Hero primary CTA: bigger, blue-filled, square.
+   Boss QA cycle 12 A4 — bg darkened to #1d4ed8 to clear 4.5:1 vs white. */
 .hero-actions .btn-accent, .hero-actions .btn-primary,
 .px-hero-actions .btn-accent, .px-hero-actions .btn-primary {
   height: 38px !important;
   padding: 0 18px !important;
   font-size: 13px !important;
-  background: var(--cta) !important;
+  background: #1d4ed8 !important;
   color: white !important;
-  border-color: var(--cta) !important;
-  box-shadow: 0 2px 8px color-mix(in oklab, var(--cta) 30%, transparent) !important;
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 2px 8px color-mix(in oklab, #1d4ed8 30%, transparent) !important;
 }
 /* Hero ghost CTA: blue outlined, square. */
 .hero-actions .btn-ghost, .hero-actions .btn-primary-outline,
@@ -10854,16 +10881,18 @@ input[type="radio"] {
   backdrop-filter: none !important;
 }
 
-/* Sign in through Steam button (top-right nav) — blue-filled. */
+/* Sign in through Steam button (top-right nav) — blue-filled.
+   Boss QA cycle 12 A4 — was var(--cta) (#3b82f6) ~3.8:1 against the
+   white .steam-btn-text. Bumped to #1d4ed8 for ~6.8:1. */
 .steam-btn {
-  background: var(--cta) !important;
+  background: #1d4ed8 !important;
   color: white !important;
-  border-color: var(--cta) !important;
+  border-color: #1d4ed8 !important;
   font-weight: 600 !important;
 }
 .steam-btn:hover {
-  background: color-mix(in oklab, var(--cta) 90%, white) !important;
-  border-color: color-mix(in oklab, var(--cta) 90%, white) !important;
+  background: #1e40af !important;
+  border-color: #1e40af !important;
   color: white !important;
 }
 
@@ -15798,19 +15827,27 @@ details summary:hover {
 .site-footer-col a:hover { color: var(--cta); }
 /* END footer col */
 
-/* CSFloat-1:1: improved primary buttons everywhere. */
+/* CSFloat-1:1: improved primary buttons everywhere.
+   Boss QA cycle 11 — bg darkened from --cta (#3b82f6) to --cta-d (#2563eb)
+   so white text clears WCAG AA 4.5:1 (was ~3.3:1, axe-flagged). Hover
+   still brightens to the lighter --cta so the visual "lift" survives. */
 .btn-accent, .btn-primary {
-  background: var(--cta);
+  background: var(--cta-d);
   color: white;
-  border: 1px solid var(--cta);
+  border: 1px solid var(--cta-d);
   font-weight: 600;
   border-radius: 6px;
   transition: background 140ms ease, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 200ms ease;
 }
 .btn-accent:hover, .btn-primary:hover {
-  background: color-mix(in oklab, var(--cta) 90%, white);
+  background: var(--cta);
+  border-color: var(--cta);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px color-mix(in oklab, var(--cta) 30%, transparent);
+}
+.btn-accent:active, .btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--cta) 35%, transparent);
 }
 /* END primary button polish */
 
@@ -26101,7 +26138,10 @@ html { scroll-behavior: smooth; }
   margin-left: 2px;
 }
 
-/* CSFloat-1:1: steam login button — green-purple gradient, Steam logo. */
+/* CSFloat-1:1: steam login button — green-purple gradient, Steam logo.
+   Boss QA cycle 11 — gradient darkened from L 0.30→0.42 to L 0.24→0.34 so
+   white text clears WCAG AA 4.5:1 against the gradient's brightest stop
+   (was ~3.8:1 at the warm end, axe-flagged on every route). */
 .steam-btn {
   display: inline-flex;
   align-items: center;
@@ -26109,9 +26149,9 @@ html { scroll-behavior: smooth; }
   height: 36px;
   padding: 0 14px;
   background: linear-gradient(135deg,
-    oklch(0.30 0.12 260) 0%,
-    oklch(0.42 0.18 260) 100%);
-  border: 1px solid oklch(0.50 0.18 260 / 0.5);
+    oklch(0.24 0.10 260) 0%,
+    oklch(0.34 0.15 260) 100%);
+  border: 1px solid oklch(0.46 0.16 260 / 0.5);
   border-radius: 999px;
   color: oklch(0.98 0 0);
   font-size: 13px;
@@ -26122,9 +26162,9 @@ html { scroll-behavior: smooth; }
 }
 .steam-btn:hover {
   background: linear-gradient(135deg,
-    oklch(0.34 0.13 260) 0%,
-    oklch(0.46 0.19 260) 100%);
-  border-color: oklch(0.55 0.20 260 / 0.6);
+    oklch(0.28 0.11 260) 0%,
+    oklch(0.38 0.16 260) 100%);
+  border-color: oklch(0.52 0.18 260 / 0.6);
 }
 .steam-btn:active { transform: translateY(1px); }
 
@@ -31926,9 +31966,12 @@ body::after {
   --line-2: oklch(0.36 0.014 260);
   --ink: oklch(0.97 0.006 90);
   --ink-1: oklch(0.97 0.006 90);
-  --ink-2: oklch(0.78 0.010 260);
-  --ink-3: oklch(0.62 0.012 260);
-  --ink-4: oklch(0.48 0.014 260);
+  --ink-2: oklch(0.80 0.010 260);
+  /* Boss QA cycle 11 — duplicate :root block was overriding the WCAG-bumped
+     ink-3/4 from line 30. Match the canonical values so contrast clears
+     across grid-card prices, table headers, fee-calc text, ticker labels. */
+  --ink-3: oklch(0.74 0.010 260);
+  --ink-4: oklch(0.66 0.012 260);
   --cta: #3b82f6;
   --accent: #1ea5ff;
   --accent-2: #4dc8ff;
@@ -117543,17 +117586,28 @@ h1.modal-h1,
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease;
 }
 .csfloat-home-hero-cta.primary {
-  background: var(--cta);
+  /* Boss QA cycle 11 → 12 — cycle 11's --cta-d (#2563eb ~5:1) was still
+     axe-flagged; bumped to #1d4ed8 (Tailwind blue-700, ~6.8:1) for
+     reliable AA. Hover holds the same darker base so the contrast
+     ratio stays valid at every state. */
+  background: #1d4ed8;
   color: white;
   box-shadow: 0 1px 2px rgba(0,0,0,0.4),
-              0 6px 22px color-mix(in oklab, var(--cta) 28%, transparent),
+              0 6px 22px color-mix(in oklab, #1d4ed8 28%, transparent),
               inset 0 1px 0 rgba(255,255,255,0.18);
 }
 .csfloat-home-hero-cta.primary:hover {
+  background: #1e40af;
   transform: translateY(-1px);
-  box-shadow: 0 8px 26px color-mix(in oklab, var(--cta) 45%, transparent),
+  box-shadow: 0 8px 26px color-mix(in oklab, #1d4ed8 45%, transparent),
               inset 0 1px 0 rgba(255,255,255,0.22);
-  filter: brightness(1.08);
+  filter: brightness(1.04);
+}
+.csfloat-home-hero-cta.primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4),
+              0 2px 8px color-mix(in oklab, #1d4ed8 35%, transparent),
+              inset 0 1px 0 rgba(255,255,255,0.10);
 }
 .csfloat-home-hero-cta.secondary {
   background: color-mix(in oklab, var(--cta) 10%, var(--bg-1));
@@ -117818,7 +117872,9 @@ h1.modal-h1,
 }
 .csfloat-home-hero-feature-btn.primary {
   flex: 1;
-  background: var(--cta);
+  /* Boss QA cycle 11 → 12 — cycle 11 used --cta-d (#2563eb ~5:1) which axe
+     still flagged. Bumped to #1d4ed8 (~6.8:1) for AA. */
+  background: #1d4ed8;
   color: white;
 }
 .csfloat-home-hero-feature-btn.ghost {

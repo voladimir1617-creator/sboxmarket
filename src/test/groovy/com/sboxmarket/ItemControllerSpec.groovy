@@ -48,12 +48,18 @@ class ItemControllerSpec extends Specification {
         response.body.every { it.rarity == "Limited" }
     }
 
-    def "GET /api/items/{id} returns 404 for missing item"() {
+    def "GET /api/items/{id} returns 200 with a notFound sentinel for a missing item"() {
         when:
         def response = rest.getForEntity("http://localhost:$port/api/items/99999", Map)
 
         then:
-        response.statusCode == HttpStatus.NOT_FOUND
+        // Contract change: missing item reads now return 200 with
+        // `{notFound: true}` instead of 404. Reason: Chrome auto-logs every
+        // fetch 404 to the browser console regardless of JS handling, which
+        // made every /item/{deadId} landing read as a phantom bug. The SPA's
+        // `fetchItem` translates the sentinel back to null.
+        response.statusCode == HttpStatus.OK
+        response.body?.notFound == true
     }
 
     def "GET /api/items/stats returns market stats structure"() {

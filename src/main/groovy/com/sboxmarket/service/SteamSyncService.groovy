@@ -75,30 +75,59 @@ class SteamSyncService {
         }
 
         // 2) inventory snapshot — count items, remember previous count so we
-        // can fire a notification when new items appear.
+        // can fire a notification when new items appear. If Steam blocked us
+        // (rate-limit or private inventory), DON'T overwrite the cached
+        // inventorySize — we want the user's previous good count to stand
+        // until we get a real successful fetch. Otherwise a single 429 would
+        // wipe their pool to zero in the UI for the next 5 minutes.
         def inv = steamInventoryService.fetchInventory(user.steamId64)
+        def blocked = steamInventoryService.blockedUntilMs(user.steamId64) != null
         def before = user.steamInventorySize ?: 0
         def now = inv.size()
         def fresh = steamUserRepository.findById(user.id).orElse(user)
-        fresh.steamInventorySize = now
         fresh.lastSyncedAt = System.currentTimeMillis()
+        if (!blocked) {
+            fresh.steamInventorySize = now
+        }
         steamUserRepository.save(fresh)
 
-        if (now > before) {
+        if (!blocked && now > before) {
             notificationService?.push(user.id, 'STEAM_INVENTORY',
                 "New Steam inventory items",
                 "${now - before} new item(s) ready to list", null, '/sell')
         }
     }
 
-    /** On-demand sync — wired to POST /api/steam/sync from the Profile modal. */
+    /** On-demand sync — wired to POST /api/steam/sync from the Profile modal.
+     *  Drops cached state for this user before retrying so an explicit click
+     *  ALWAYS hits Steam, then surfaces rate-limit / private-inventory state
+     *  back to the caller so the UI can show a real reason instead of a
+     *  pretend "0 items synced" success toast. */
     @Transactional
     Map syncNow(Long userId) {
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) return [ok: false, error: 'Unknown user']
         try {
+            // The user is asking for a real refresh — drop both positive and
+            // negative cache so fetchInventory actually round-trips Steam.
+            steamInventoryService.clearCacheFor(user.steamId64)
             syncOne(user)
+            // Re-read post-sync; check for the rate-limit signal.
+            Long blockedUntil = steamInventoryService.blockedUntilMs(user.steamId64)
             def fresh = steamUserRepository.findById(userId).orElse(user)
+            if (blockedUntil != null) {
+                long retryInSec = Math.max(1L, (blockedUntil - System.currentTimeMillis()) / 1000L)
+                long retryInMin = Math.max(1L, (retryInSec + 59L) / 60L)
+                return [
+                    ok:            false,
+                    reason:        'rate_limited',
+                    retryAt:       blockedUntil,
+                    retryInSec:    retryInSec,
+                    inventorySize: fresh.steamInventorySize ?: 0,
+                    lastSyncedAt:  fresh.lastSyncedAt,
+                    error:         "Steam is rate-limiting our requests — try again in ~${retryInMin} minute${retryInMin == 1L ? '' : 's'}.".toString()
+                ]
+            }
             return [
                 ok:             true,
                 lastSyncedAt:   fresh.lastSyncedAt,

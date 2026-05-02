@@ -59,6 +59,12 @@
     .changelog-tag.polish   { border-left-color: var(--line-2, rgba(255,255,255,0.16)); color: var(--ink-4, #5b6280); }
     .changelog-list li     { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; font-size: 14px; }
     .changelog-back        { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+    /* Boss QA cycle 11 — color-only inline links inside .changelog body
+       failed axe link-in-text-block; add an underline so links are
+       distinguishable without color. The "Back to app" / "Back to SkinBox"
+       chips are buttons and stay un-underlined via opt-out classes. */
+    .changelog p a, .changelog li a { text-decoration: underline; text-underline-offset: 3px; }
+    .changelog p code              { color: var(--text-secondary); background: var(--bg-1); padding: 1px 6px; border-radius: 4px; }
     /* N4 cycle 10 — at 390px the "Back to app" button truncated to "Bac…"
        inside the right-side flex slot of the top nav (5-link nav + brand +
        button can't fit). Hide the label below 600px and keep only the ←

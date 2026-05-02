@@ -63,9 +63,9 @@
     <p>
       Every trade on SkinBox is between two Steam users. We facilitate the handoff,
       but we cannot guarantee the behavior of the person on the other side. Sellers
-      can cancel at the last moment. Buyers can chargeback. Bots can be hacked.
-      Users can be banned by Steam between list and trade. Each of these scenarios
-      is a real-world risk you accept by using the Service.
+      can cancel at the last moment. Buyers can chargeback. Either side's Steam
+      account can be hijacked, or banned by Steam, between list and trade. Each of
+      these scenarios is a real-world risk you accept by using the Service.
     </p>
 
     <h2>Technical risk</h2>
@@ -86,13 +86,16 @@
       we do not guarantee that every user will be made whole.
     </p>
 
-    <h2>Custodial risk</h2>
+    <h2>Payment-processor risk</h2>
     <p>
       Wallet balances on SkinBox are not bank deposits. They are not insured by any
-      government deposit-insurance scheme. They are held by SkinBox's payment
-      processor (Stripe) under Stripe's terms of service, which we do not control. If
-      Stripe freezes the account, your balance may be inaccessible. If Stripe
-      terminates SkinBox, your balance may be delayed in reaching you.
+      government deposit-insurance scheme. They sit with SkinBox's payment processor
+      (Stripe) under Stripe's terms of service, which we do not control. If Stripe
+      freezes the account, your balance may be inaccessible. If Stripe terminates
+      SkinBox, your balance may be delayed in reaching you. SkinBox does not
+      custody your <em>skins</em> at any point — those move directly between Steam
+      accounts via trade offers — but the cash leg of every trade does depend on
+      Stripe staying online.
     </p>
 
     <h2>User-error risk</h2>

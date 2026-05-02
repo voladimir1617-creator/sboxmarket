@@ -11,11 +11,10 @@ const CHECKS = [
   // Batch 689 — add /api/ready so the status page surfaces DB
   // connectivity separately from JVM liveness. /api/health stays
   // green as long as Spring is up; /api/ready goes red when the
-  // Postgres pool is unreachable. Two green rows = fully
-  // operational; /api/health green + /api/ready red = user-
-  // visible degradation.
+  // DB pool is unreachable. Two green rows = fully operational;
+  // /api/health green + /api/ready red = user-visible degradation.
   { id: 'database-conn', name: 'Database',    endpoint: '/api/ready',
-    sub: 'Postgres connection pool · isValid() probe', ok: (r) => r.ok },
+    sub: 'Connection pool · isValid() probe', ok: (r) => r.ok },
   { id: 'market',    name: 'Marketplace',     endpoint: '/api/listings/stats',
     sub: 'Active listings + floor prices', ok: (r) => r.ok },
   { id: 'database',  name: 'Item catalogue',  endpoint: '/api/items?category=Hats',

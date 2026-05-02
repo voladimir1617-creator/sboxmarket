@@ -40,15 +40,60 @@ class SteamInventoryService {
     private static final int  CACHE_MAX = 5000
     private final java.util.concurrent.ConcurrentHashMap<String, Map> inventoryCache = new java.util.concurrent.ConcurrentHashMap<>()
 
+    /** Negative cache for 429 / 403 responses. When Steam rate-limits us
+     *  or the inventory is private, we don't want a frantic user smashing
+     *  "Refresh" to amplify our request rate against an already-pressured
+     *  endpoint. A 5-minute TTL on the negative entry stops follow-up
+     *  fetches and serves an empty list straight from memory. The TTL is
+     *  longer than the positive cache because rate-limit windows on the
+     *  Steam community endpoint are typically multi-minute. */
+    private static final long NEG_CACHE_TTL_MS = 300_000L
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> negativeCache = new java.util.concurrent.ConcurrentHashMap<>()
+
     /** Test-friendly clear hook. Production code should never call this. */
-    void clearCache() { inventoryCache.clear() }
+    void clearCache() { inventoryCache.clear(); negativeCache.clear() }
+
+    /** When did the upstream block us last (negative cache)? Returns the
+     *  unix-ms timestamp at which the block expires, or null if not blocked.
+     *  Used by the on-demand sync path to surface "Steam rate-limited us,
+     *  try in X minutes" to the user instead of pretending the empty result
+     *  was a real sync. */
+    Long blockedUntilMs(String steamId64) {
+        if (!steamId64) return null
+        Long until = negativeCache.get(steamId64)
+        if (until == null) return null
+        if (System.currentTimeMillis() >= until) {
+            negativeCache.remove(steamId64)
+            return null
+        }
+        until
+    }
+
+    /** Force-clear cached state for one user. Wired to the on-demand
+     *  "Re-sync now" button so an explicit user action ALWAYS retries
+     *  Steam — the user clicking Refresh after a rate-limit is exactly
+     *  the moment to drop the negative entry and probe upstream again. */
+    void clearCacheFor(String steamId64) {
+        if (!steamId64) return
+        inventoryCache.remove(steamId64)
+        negativeCache.remove(steamId64)
+    }
 
     List<Map> fetchInventory(String steamId64) {
         if (!steamId64) return []
+        long now = System.currentTimeMillis()
+        // Negative-cache probe — if Steam recently 429'd or 403'd us for
+        // this user, serve an empty list straight from memory rather than
+        // burning another outbound call against a known-failing bucket.
+        Long blockedUntil = negativeCache.get(steamId64)
+        if (blockedUntil != null) {
+            if (now < blockedUntil) return []
+            negativeCache.remove(steamId64)
+        }
         // Cache probe — short-circuit if we have a fresh hit.
         def cached = inventoryCache.get(steamId64)
         if (cached != null) {
-            long age = System.currentTimeMillis() - (cached.at as long)
+            long age = now - (cached.at as long)
             if (age < CACHE_TTL_MS) {
                 return (cached.items as List<Map>)
             }
@@ -72,10 +117,27 @@ class SteamInventoryService {
 
         if (status == 403) {
             log.info("Steam inventory for $steamId64 is private — skipping")
+            // Cache the private-inventory verdict so a frustrated user
+            // hammering Refresh doesn't fire one outbound call per click.
+            // Same TTL as 429 since both are "back off" signals.
+            negativeCache.put(steamId64, now + NEG_CACHE_TTL_MS)
             return []
         }
         if (status == 429) {
             log.warn("Steam inventory rate-limited (429) for $steamId64")
+            // Honour Steam's Retry-After when present (rare on the
+            // community endpoint, but documented for the partner API
+            // and cheap to read). Falls back to our default 5-minute
+            // backoff when missing or unparseable.
+            long backoffMs = NEG_CACHE_TTL_MS
+            try {
+                def retryAfter = conn.getHeaderField('Retry-After')
+                if (retryAfter) {
+                    long sec = Long.parseLong(retryAfter.trim())
+                    if (sec > 0 && sec <= 3600) backoffMs = sec * 1000L
+                }
+            } catch (Exception ignored) { /* fall through to default */ }
+            negativeCache.put(steamId64, now + backoffMs)
             return []
         }
         if (status != 200 || !body) {

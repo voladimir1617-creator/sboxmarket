@@ -239,9 +239,23 @@ class BuyOrderController {
      *  pattern (inline CSV-escape, attachment disposition). Row order
      *  matches the Profile tab. */
     @GetMapping(value = "/export.csv", produces = "text/csv")
-    ResponseEntity<String> exportCsv(HttpServletRequest req) {
+    ResponseEntity<String> exportCsv(@RequestParam(required = false) String status,
+                                     HttpServletRequest req) {
         def uid = requireUser(req)
         def rows = buyOrderService.listForBuyer(uid)
+        // Optional `?status=ACTIVE|FILLED|CANCELLED` mirrors the UI's
+        // filter chip strip — a buyer who narrows the visible list and
+        // clicks ⇣ CSV expects to download what they're looking at, not
+        // a full dump across every status. Same pattern as the wallet
+        // `?month=YYYY-MM` filter. Case-insensitive + falls back to
+        // "no filter" for unknown / blank values so a stale bookmark
+        // still returns a usable file.
+        if (status) {
+            def want = status.trim().toUpperCase()
+            if (want in ['ACTIVE', 'FILLED', 'CANCELLED']) {
+                rows = rows.findAll { (it.status ?: '').toUpperCase() == want }
+            }
+        }
         def esc = com.sboxmarket.util.CsvUtil.&safeCell   // batch 978
         def sb = new StringBuilder()
         sb.append("order_id,item_id,item_name,category,rarity,max_price,quantity,original_quantity,status,created_at,updated_at\n")
@@ -259,8 +273,17 @@ class BuyOrderController {
               .append(o.updatedAt ?: '')
               .append('\n')
         }
+        // Cache-Control: CorrelationIdFilter already applies
+        // `no-store, no-cache, must-revalidate, private` to every
+        // /api/buy-orders/* path that isn't on the public-read whitelist
+        // (/top, /count/*, /for-item/*, /projected-position). Setting
+        // it again here would emit two conflicting Cache-Control headers
+        // (ResponseEntity.header() APPENDS, doesn't replace). The
+        // mystall CSVs DO need controller-level no-store because the
+        // filter doesn't recognise the /api/listings/ prefix as private.
         ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"buy-orders.csv\"")
+            .header("Content-Type", "text/csv; charset=utf-8")
             .body(sb.toString())
     }
 }

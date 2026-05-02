@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-05-01T15:05Z",
+  "lap": "K",
+  "ships_count": 11,
+  "ships": [
+    "Tab-aware document.title across 18 sub-routes (profile/wallet/watchlist/me-stall/offers)",
+    "Wallet H1 reflects active tab (Deposit/Withdraw/Transaction History · Wallet)",
+    "WalletModal initialTab-sync useEffect so route changes update tab state",
+    "MyStall InfoModal title is tab-aware (Sold·, Analytics·, X active)",
+    "Offers InfoModal title is tab-aware (Incoming·, Outgoing·)",
+    "/item/{id} now has H1 (was 0) — modal-name upgraded from div to h1",
+    "/market now has visually-hidden H1 'Marketplace' (was 0)",
+    "/stall/{id} now has 1 H1 (was 2) — stall-name decoration row demoted to h2",
+    "/loadout discover search input now has aria-label",
+    "/item/{id} active-listings count chip (CSFloat parity gap)",
+    "/faq H1 'Support & Help' renamed to 'FAQ' to match route + title"
+  ],
+  "verifications": {
+    "title_h1_audit_18_subroutes": "all match",
+    "anon_a11y_15_routes": "0 unlabeled images / buttons / inputs",
+    "modal_close_aria_label_7_routes": "all have aria-label",
+    "focus_visible_steam_btn": "3px white outline + blue halo",
+    "overflow_5_codex_routes_390x844_1440x900": "0 overflowing nodes",
+    "gradle_test": "BUILD SUCCESSFUL",
+    "container_health": "/api/health returns 200 OK"
+  },
+  "remaining": [
+    "Operator-only: signed-in walk-through (Steam OpenID needed)",
+    "Operator-only: cloudflared service install fix (Admin needed)",
+    "Backlog: k6 CI hook integration"
+  ],
+  "codex_10_31Z_findings_status": "All 5 RESOLVED — re-verified at 14:54Z",
+  "next_gap_to_hunt": "Continue scanning for CSFloat parity nicks; key surfaces audited and clean"
+}

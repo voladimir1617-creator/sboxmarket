@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cart — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .cart-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s-32); align-items: start; }
+  @media (max-width: 1100px) { .cart-grid { grid-template-columns: 1fr; } }
+
+  .ci {
+    display: grid;
+    grid-template-columns: 80px minmax(0, 1fr) 120px 80px 36px;
+    gap: var(--s-16);
+    align-items: center;
+    padding: var(--s-16);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--bg-1);
+    margin-bottom: var(--s-10);
+  }
+  .ci-img {
+    width: 80px; aspect-ratio: 1.4 / 1;
+    border-radius: var(--r-xs);
+    background:
+      repeating-linear-gradient(45deg,
+        color-mix(in oklch, var(--bg-2) 85%, transparent) 0 10px,
+        color-mix(in oklch, var(--bg-3) 75%, transparent) 10px 11px);
+    border: 1px dashed color-mix(in oklch, var(--line-2) 60%, transparent);
+  }
+  .ci-name { color: var(--ink); font-size: var(--t-14); }
+  .ci-meta { font-size: var(--t-11); color: var(--ink-3); margin-top: 2px; font-family: var(--font-mono); }
+  .ci-seller { font-size: var(--t-11); color: var(--ink-3); margin-top: 4px; }
+  .ci-price { font-family: var(--font-mono); font-size: var(--t-15); color: var(--ink); text-align: right; }
+  .ci-discount { font-size: var(--t-11); color: var(--up); text-align: right; font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Search…" /><span class="kbd">⌘K</span></div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb"><span style="color: var(--ink);">Cart</span></div>
+      <h1>Your cart</h1>
+    </div>
+    <div class="meta">
+      <span><span class="num">3</span> items</span>
+      <span>from <span class="num">2</span> sellers</span>
+    </div>
+  </div>
+
+  <div class="cart-grid">
+
+    <section>
+      <article class="ci">
+        <div class="ci-img"></div>
+        <div>
+          <div class="ci-name">AK-47 | Vulcan</div>
+          <div class="ci-meta">FT · 0.2147 · +3 stickers</div>
+          <div class="ci-seller">Sold by <strong>jeradel</strong> · ★ 4.97 · ships in ~12m</div>
+        </div>
+        <div>
+          <div class="ci-price">$284.20</div>
+          <div class="ci-discount">−12%</div>
+        </div>
+        <div></div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M5 6v14h14V6M9 11v6M15 11v6"/></svg></button>
+      </article>
+
+      <article class="ci">
+        <div class="ci-img"></div>
+        <div>
+          <div class="ci-name">★ Sport Gloves | Vice</div>
+          <div class="ci-meta">MW · 0.0814</div>
+          <div class="ci-seller">Sold by <strong>jeradel</strong> · ★ 4.97 · ships in ~12m</div>
+        </div>
+        <div>
+          <div class="ci-price">$1,810.00</div>
+          <div class="ci-discount">−6%</div>
+        </div>
+        <div></div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M5 6v14h14V6M9 11v6M15 11v6"/></svg></button>
+      </article>
+
+      <article class="ci">
+        <div class="ci-img"></div>
+        <div>
+          <div class="ci-name">AWP | Neo-Noir</div>
+          <div class="ci-meta">FN · 0.0048</div>
+          <div class="ci-seller">Sold by <strong>kraut</strong> · ★ 4.92 · ships in ~24m</div>
+        </div>
+        <div>
+          <div class="ci-price">$84.40</div>
+          <div class="ci-discount">−15%</div>
+        </div>
+        <div></div>
+        <button class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M5 6v14h14V6M9 11v6M15 11v6"/></svg></button>
+      </article>
+
+      <a href="/" class="btn btn-ghost btn-sm" style="margin-top: var(--s-12);">← Continue shopping</a>
+    </section>
+
+    <aside style="position: sticky; top: calc(var(--nav-h) + var(--s-32));">
+      <div class="price-block" style="padding: var(--s-22);">
+        <div class="dim" style="font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--s-12);">Order summary</div>
+
+        <table style="width: 100%; font-size: var(--t-13);">
+          <tr><td style="color: var(--ink-3); padding: 6px 0;">Subtotal · 3 items</td><td class="mono" style="text-align: right;">$2,178.60</td></tr>
+          <tr><td style="color: var(--ink-3); padding: 6px 0;">Item discount</td><td class="mono up" style="text-align: right;">−$184.20</td></tr>
+          <tr><td style="color: var(--ink-3); padding: 6px 0;">Estimated fees</td><td class="mono" style="text-align: right;">$0.00</td></tr>
+          <tr style="border-top: 1px solid var(--line);"><td style="color: var(--ink); font-weight: 600; padding: var(--s-12) 0;">Total</td><td class="mono" style="text-align: right; color: var(--ink); font-size: var(--t-22); padding: var(--s-12) 0;">$1,994.40</td></tr>
+        </table>
+
+        <button class="btn btn-cta btn-block btn-lg" style="margin-top: var(--s-12);">Pay $1,994.40</button>
+        <div class="muted" style="font-size: var(--t-11); text-align: center; margin-top: var(--s-10);">Items held in escrow until each seller delivers</div>
+      </div>
+
+      <div class="card" style="margin-top: var(--s-16);">
+        <div class="card-hd"><span class="title">Pay with</span></div>
+        <div class="card-bd">
+          <label class="checkbox" style="font-size: var(--t-13); margin-bottom: var(--s-10);">
+            <input type="radio" name="pay" checked /><span class="box" style="border-radius: 50%;"></span>
+            Wallet balance · <span class="mono dim" style="margin-left: auto;">$1,284.50</span>
+          </label>
+          <label class="checkbox" style="font-size: var(--t-13); margin-bottom: var(--s-10);">
+            <input type="radio" name="pay" /><span class="box" style="border-radius: 50%;"></span>
+            Visa ••4124 · <span class="mono dim" style="margin-left: auto;">+ Stripe fee</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size: var(--t-11); margin-top: var(--s-12); padding: 0 var(--s-4); line-height: 1.6;">
+        By completing this purchase you agree to sboxmarket's <a href="#" style="color: var(--blue);">trade safety</a> policy. Items remain in escrow until each seller delivers. Auto-refund after 24h if not delivered.
+      </div>
+    </aside>
+  </div>
+</main>
+
+</body>
+</html>

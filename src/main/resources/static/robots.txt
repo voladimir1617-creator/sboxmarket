@@ -8,6 +8,7 @@ Allow: /img/
 # Public content surfaces — each has its own OG tags and sits in the sitemap.
 Allow: /item/
 Allow: /stall/
+Allow: /market
 Allow: /search
 Allow: /db
 Allow: /help

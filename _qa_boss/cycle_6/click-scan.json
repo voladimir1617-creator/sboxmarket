@@ -1,0 +1,87 @@
+[
+  {
+    "route": "/",
+    "buttons": 4,
+    "errors": []
+  },
+  {
+    "route": "/market",
+    "buttons": 109,
+    "errors": []
+  },
+  {
+    "route": "/db",
+    "buttons": 67,
+    "errors": []
+  },
+  {
+    "route": "/help",
+    "buttons": 36,
+    "errors": []
+  },
+  {
+    "route": "/faq",
+    "buttons": 5,
+    "errors": []
+  },
+  {
+    "route": "/cart",
+    "buttons": 5,
+    "errors": []
+  },
+  {
+    "route": "/watchlist",
+    "buttons": 6,
+    "errors": []
+  },
+  {
+    "route": "/wallet",
+    "buttons": 6,
+    "errors": []
+  },
+  {
+    "route": "/sell",
+    "buttons": 6,
+    "errors": []
+  },
+  {
+    "route": "/settings",
+    "buttons": 8,
+    "errors": []
+  },
+  {
+    "route": "/profile/personal",
+    "buttons": 6,
+    "errors": []
+  },
+  {
+    "route": "/item/1",
+    "buttons": 16,
+    "errors": []
+  },
+  {
+    "route": "/stall/1",
+    "buttons": 7,
+    "errors": []
+  },
+  {
+    "route": "/loadout/1",
+    "buttons": 8,
+    "errors": []
+  },
+  {
+    "route": "/item/missing",
+    "buttons": 5,
+    "errors": []
+  },
+  {
+    "route": "/stall/missing",
+    "buttons": 5,
+    "errors": []
+  },
+  {
+    "route": "/loadout/missing",
+    "buttons": 5,
+    "errors": []
+  }
+]

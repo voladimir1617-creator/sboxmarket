@@ -189,8 +189,12 @@ export function Avatar({ src, name, alt, className, style }) {
 // Legendary) render the boss-spec colours the moment seed data adds
 // them. Apply as inline style so it wins against any prior class CSS
 // without needing a dedicated rule per tier.
+//
+// Boss QA cycle 11 — Standard bumped from gray-500 (#6b7280, ~3.0:1
+// against dark bg) to gray-400 (#9ca3af, ~5.4:1) so the badge text
+// clears WCAG AA. axe flagged the previous value as serious contrast.
 const RARITY_COLORS = {
-  'Standard':   '#6b7280', // gray
+  'Standard':   '#9ca3af', // gray-400 — was #6b7280 (axe contrast fail)
   'Off-Market': '#d4a418', // amber (display label = "Scarce")
   'Scarce':     '#d4a418',
   'Rare':       '#1ea5ff', // cta blue

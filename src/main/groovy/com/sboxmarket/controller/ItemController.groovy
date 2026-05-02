@@ -100,9 +100,23 @@ class ItemController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<Item> getById(@PathVariable Long id, HttpServletRequest req) {
-        // NotFoundException is mapped to 404 by GlobalExceptionHandler
-        def item = itemService.getById(id)
+    ResponseEntity<?> getById(@PathVariable Long id, HttpServletRequest req) {
+        // 200 + `{notFound: true}` sentinel for missing ids instead of a
+        // hard 404. Why: Chrome auto-logs every fetch 404 to the console
+        // as "Failed to load resource" regardless of JS handling, so
+        // every dead-link landing on /item/{id} fired a phantom error
+        // that read as a real bug. Sentinel keeps the document-level
+        // response 200, the SPA's `fetchItem` translates the sentinel
+        // back to null, and the branded "Item not found" empty state
+        // still renders. SEO is unaffected — the OpenGraphController on
+        // /item/{id} (the HTML surface) emits its own noindex meta.
+        def opt = itemRepository.findById(id)
+        if (!opt.isPresent()) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', 'no-cache, must-revalidate')
+                .body([notFound: true, id: id])
+        }
+        def item = opt.get()
         // Fire-and-forget view-count bump (batch 409) with per-(ip, item)
         // dedupe (batch 413). Isolated in its own @Transactional write
         // via the repo's @Modifying query so a counter-bump failure

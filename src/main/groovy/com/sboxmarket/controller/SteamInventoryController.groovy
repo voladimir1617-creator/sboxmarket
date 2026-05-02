@@ -51,6 +51,12 @@ class SteamInventoryController {
     ResponseEntity<Map> inventory(HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Surface the rate-limit / private-inventory state so the empty-
+        // inventory UI can render a real reason ("Steam is throttling our
+        // requests — retry in ~3 min") instead of "No s&box items in your
+        // Steam inventory" — that copy is correct for a genuinely empty
+        // inventory, but it's misleading when the empty came from a 429.
+        Long blockedUntil = steamInventoryService.blockedUntilMs(user.steamId64)
         def items = steamInventoryService.fetchInventory(user.steamId64)
 
         // Pull ONLY the catalogue rows whose lowercase name matches an
@@ -80,12 +86,24 @@ class SteamInventoryController {
                 suggestedPrice: existing?.lowestPrice ?: BigDecimal.ZERO
             ]
         }
-        ResponseEntity.ok([
+        Map resp = [
             items:         enriched,
             count:         enriched.size(),
             lastSyncedAt:  user.lastSyncedAt,
             steamId64:     user.steamId64
-        ])
+        ]
+        // Re-probe AFTER the fetch — fetchInventory itself may have just
+        // tripped the negative cache on this call (first 429 of the window).
+        Long after = steamInventoryService.blockedUntilMs(user.steamId64)
+        Long signal = (blockedUntil != null) ? blockedUntil : after
+        if (signal != null && enriched.isEmpty()) {
+            long retryInSec = Math.max(1L, (signal - System.currentTimeMillis()) / 1000L)
+            resp.blocked = true
+            resp.blockedUntil = signal
+            resp.retryInSec = retryInSec
+            resp.reason = 'rate_limited'
+        }
+        ResponseEntity.ok(resp)
     }
 
     @PostMapping("/sync")

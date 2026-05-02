@@ -165,12 +165,33 @@ class ProfileController {
      *  /offers.csv, /trades.csv, /buy-orders/export.csv, /wallet/
      *  transactions.csv. Capped at 5000 rows (newest first). */
     @GetMapping(value = "/bids.csv", produces = "text/csv")
-    ResponseEntity<String> exportBidsCsv(HttpServletRequest req) {
+    ResponseEntity<String> exportBidsCsv(
+            @RequestParam(required = false) Long from,
+            @RequestParam(required = false) Long to,
+            @RequestParam(required = false) String scope,
+            HttpServletRequest req) {
         def uid = requireUser(req)
         if (bidRepository == null) {
             return ResponseEntity.status(503).body('')
         }
-        def rows = bidRepository.findByBidder(uid).take(5000)
+        def rows = bidRepository.findByBidder(uid)
+        if (from != null) rows = rows.findAll { (it.createdAt ?: 0L) >= from }
+        if (to   != null) rows = rows.findAll { (it.createdAt ?: 0L) <= to   }
+        // Optional `?scope=active|past` mirrors the Profile / Active Bids
+        // sub-tab. ACTIVE bids are statuses currently in-flight (WINNING /
+        // OUTBID). PAST bids are settled/terminal (WON / LOST / CANCELLED).
+        // Same UX-parity logic as the sibling CSV exports. Unknown / blank
+        // values fall back to "no filter" so a stale bookmarked URL stays
+        // valid.
+        if (scope) {
+            def want = scope.trim().toLowerCase()
+            if (want == 'active') {
+                rows = rows.findAll { (it.status ?: '').toUpperCase() in ['WINNING', 'OUTBID'] }
+            } else if (want == 'past' || want == 'settled') {
+                rows = rows.findAll { (it.status ?: '').toUpperCase() in ['WON', 'LOST', 'CANCELLED'] }
+            }
+        }
+        rows = rows.take(5000)
         def sb = new StringBuilder()
         sb.append('id,date,listingId,kind,status,amount,maxAmount\n')
         def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
@@ -194,20 +215,47 @@ class ProfileController {
 
     /** CSV export of every offer the user made or received. */
     @GetMapping(value = "/offers.csv", produces = "text/csv")
-    ResponseEntity<String> exportOffersCsv(HttpServletRequest req) {
+    ResponseEntity<String> exportOffersCsv(
+            @RequestParam(required = false) Long from,
+            @RequestParam(required = false) Long to,
+            @RequestParam(required = false) String role,
+            HttpServletRequest req) {
         def uid = requireUser(req)
         if (offerRepository == null) {
             return ResponseEntity.status(503).body('')
         }
         // Merge incoming + outgoing so the user sees the full picture in
         // one file. Small enough that a deduped list comprehension is
-        // fine — capped at 5000 rows after sort.
+        // fine — capped at 5000 rows after sort. Date-range filter is
+        // applied AFTER the merge so it covers both directions uniformly.
+        // Optional `?role=BUYER|SELLER` mirrors the OffersModal's tab
+        // strip — a user tabbed to "Outgoing" who clicks ⇣ CSV expects
+        // just their outgoing offers, not the merged set. Same UX-parity
+        // logic as the wallet `?month=` and buy-orders `?status=` filters.
+        // Case-insensitive + falls back to "no filter" for unknown / blank.
         def outgoing = offerRepository.findByBuyer(uid)
         def incoming = offerRepository.findBySeller(uid)
         def merged = new ArrayList<com.sboxmarket.model.Offer>()
-        merged.addAll(outgoing)
-        merged.addAll(incoming)
-        def rows = merged.sort { a, b -> (b.createdAt ?: 0) <=> (a.createdAt ?: 0) }.take(5000)
+        if (role) {
+            def want = role.trim().toUpperCase()
+            if (want == 'BUYER' || want == 'OUTGOING') {
+                merged.addAll(outgoing)
+            } else if (want == 'SELLER' || want == 'INCOMING') {
+                merged.addAll(incoming)
+            } else {
+                // Unknown value → fall back to merged-everything so a
+                // stale bookmarked URL still returns a usable file.
+                merged.addAll(outgoing)
+                merged.addAll(incoming)
+            }
+        } else {
+            merged.addAll(outgoing)
+            merged.addAll(incoming)
+        }
+        def filtered = merged
+        if (from != null) filtered = filtered.findAll { (it.createdAt ?: 0L) >= from }
+        if (to   != null) filtered = filtered.findAll { (it.createdAt ?: 0L) <= to   }
+        def rows = filtered.sort { a, b -> (b.createdAt ?: 0) <=> (a.createdAt ?: 0) }.take(5000)
         def sb = new StringBuilder()
         // Batch 391: include itemName + V43 buyer `message` + V45 seller
         // `sellerReply` so the export matches what the user actually saw
@@ -220,11 +268,13 @@ class ProfileController {
         def csvEscape = com.sboxmarket.util.CsvUtil.&safeCell
         rows.each { o ->
             def isBuyer = (o.buyerUserId == uid)
-            def role = isBuyer ? 'BUYER' : 'SELLER'
+            // Shadow-safe rename: the request-param `role` already
+            // owns the outer name. Per-row label is `rowRole`.
+            def rowRole = isBuyer ? 'BUYER' : 'SELLER'
             def counterparty = isBuyer ? o.sellerUserId : o.buyerUserId
             sb.append(o.id ?: '').append(',')
               .append(df.format(new Date(o.createdAt ?: 0))).append(',')
-              .append(role).append(',')
+              .append(rowRole).append(',')
               .append(o.listingId ?: '').append(',')
               .append(csvEscape(o.itemName ?: '')).append(',')
               .append(csvEscape(o.status ?: '')).append(',')
@@ -251,12 +301,48 @@ class ProfileController {
      * Cap at 5000 rows matching the transactions.csv limit.
      */
     @GetMapping(value = "/trades.csv", produces = "text/csv")
-    ResponseEntity<String> exportTradesCsv(HttpServletRequest req) {
+    ResponseEntity<String> exportTradesCsv(
+            @RequestParam(required = false) Long from,
+            @RequestParam(required = false) Long to,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String role,
+            HttpServletRequest req) {
         def uid = requireUser(req)
         if (tradeRepository == null) {
             return ResponseEntity.status(503).body('')
         }
-        def trades = tradeRepository.findByParticipant(uid).take(5000)
+        // Date-range filter — `from` and `to` are inclusive epoch ms. When
+        // either is null the bound is open-ended, so the legacy "no params
+        // → every trade" callsite still works. Filter is applied in-memory
+        // because findByParticipant doesn't take a time range and the
+        // typical user trade history is small enough that a 5k-row scan
+        // is cheaper than a custom JPQL query. The 5000 cap stays so an
+        // export call can never balloon into a multi-MB attachment.
+        // Optional `?state=` + `?role=` mirror the Trades-tab filter chips
+        // so a user who narrowed to "VERIFIED · selling" downloads exactly
+        // that slice. Same UX-parity logic as the wallet `?month=`,
+        // buy-orders `?status=`, and offers `?role=` filters. Both fall
+        // back to "no filter" on unknown / blank values so a stale
+        // bookmarked URL never 400s.
+        def trades = tradeRepository.findByParticipant(uid)
+        if (from != null) trades = trades.findAll { (it.createdAt ?: 0L) >= from }
+        if (to   != null) trades = trades.findAll { (it.createdAt ?: 0L) <= to   }
+        if (state) {
+            def want = state.trim().toUpperCase()
+            // 'ALL' is a UI-only sentinel meaning "no filter"; ignore it.
+            if (want != 'ALL' && want != '') {
+                trades = trades.findAll { (it.state ?: '').toUpperCase() == want }
+            }
+        }
+        if (role) {
+            def want = role.trim().toLowerCase()
+            if (want == 'buying' || want == 'buyer') {
+                trades = trades.findAll { it.buyerUserId == uid }
+            } else if (want == 'selling' || want == 'seller') {
+                trades = trades.findAll { it.sellerUserId == uid }
+            }
+        }
+        trades = trades.take(5000)
         def sb = new StringBuilder()
         // Batch 782 — tradeOfferUrl appended as the last column so legacy
         // column-indexed spreadsheet macros don't break. Users doing
@@ -270,7 +356,9 @@ class ProfileController {
         def csvEscape = com.sboxmarket.util.CsvUtil.&safeCell
         trades.each { t ->
             def isBuyer = (t.buyerUserId == uid)
-            def role = isBuyer ? 'BUYER' : 'SELLER'
+            // Shadow-safe rename: outer `role` is the request-param
+            // filter; per-row label is `rowRole`.
+            def rowRole = isBuyer ? 'BUYER' : 'SELLER'
             def counterparty = isBuyer ? t.sellerUserId : t.buyerUserId
             def price = t.price ?: BigDecimal.ZERO
             def fee = t.feeAmount ?: BigDecimal.ZERO
@@ -281,7 +369,7 @@ class ProfileController {
             sb.append(t.id ?: '').append(',')
               .append(df.format(new Date(t.createdAt ?: 0))).append(',')
               .append(csvEscape(t.state ?: '')).append(',')
-              .append(role).append(',')
+              .append(rowRole).append(',')
               .append(counterparty ?: '').append(',')
               .append(csvEscape(t.itemName ?: '')).append(',')
               .append(price.toPlainString()).append(',')

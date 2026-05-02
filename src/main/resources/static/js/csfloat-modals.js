@@ -275,26 +275,30 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
             data.items.map((item, i) => h('tr', {
               key: item.id,
               className: 'db-row',
-              onClick: () => onPickItem && onPickItem(item),
-              role: 'button',
-              tabIndex: 0,
-              /* Match the visible em-dash for items with no live listing —
-                 was reading "floor $0.00" to screen readers while sighted
-                 users saw "—". Now consistent across both. */
-              'aria-label': `Open ${item.name} detail · ${item.category} · ${(parseFloat(item.lowestPrice) || 0) > 0 ? 'floor ' + fmt(item.lowestPrice) : 'no listings yet'}`,
-              onKeyDown: (e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && typeof onPickItem === 'function') {
-                  e.preventDefault();
-                  onPickItem(item);
-                }
-              }
+              /* Boss QA cycle 11 — dropped role="button" + tabIndex from <tr>
+                 because the row contained an interactive watchlist <button>,
+                 which axe flagged as nested-interactive (serious). The row's
+                 mouse-click is preserved via onClick, and keyboard a11y now
+                 lives on a real <a> wrapping the item name (focusable, named).
+                 Watchlist button stops propagation so cell clicks don't
+                 double-fire. */
+              onClick: () => onPickItem && onPickItem(item)
             },
               h('td', { className: 'db-rank' }, '#' + (page * PAGE_SIZE + i + 1)),
               h('td', null,
                 h('div', { className: 'db-item-cell' },
                   h('div', { className: 'db-thumb' }, h(ItemImage, { item })),
                   h('div', null,
-                    h('div', { className: 'db-name' }, highlightMatch(item.name || '', search)),
+                    h('a', {
+                      className: 'db-name',
+                      href: '/item/' + item.id,
+                      'aria-label': `Open ${item.name} detail · ${item.category} · ${(parseFloat(item.lowestPrice) || 0) > 0 ? 'floor ' + fmt(item.lowestPrice) : 'no listings yet'}`,
+                      onClick: (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (typeof onPickItem === 'function') onPickItem(item);
+                      }
+                    }, highlightMatch(item.name || '', search)),
                     h('div', { className: 'db-sub' }, '#' + item.id)
                   )
                 )
@@ -432,27 +436,49 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       return;
     }
     setBusy(true);
+    const itemName = picked.name;
+    const qtyN = parseInt(qty || '1', 10) || 1;
     try {
       const res = await createBuyOrder({
         itemId:   picked.id,
         category: picked.category,   // snapshot the category for display only
         rarity:   picked.rarity,     // snapshot the rarity for display only
         maxPrice: max,
-        quantity: parseInt(qty || '1', 10) || 1
+        quantity: qtyN
       });
       if (res.code || res.error) { setErr(res.message || res.error); return; }
       setPicked(null); setMaxPrice(''); setQty('1'); setSearch('');
       setCreating(false);
       load();
+      // Pre-fix: create was silent on success — the new row appeared at
+      // the top of the list but the form-collapse felt the same as the
+      // error path's no-op. The ProfileBuyOrdersTab cancel pair already
+      // toasts richly; pairing the create with a matching named toast
+      // closes the loop. "Wallet escrows funds" reminds the user why
+      // their balance just dropped without the user thinking it's a bug.
+      const qtyStr = qtyN > 1 ? ` × ${qtyN}` : '';
+      toast(`Buy order placed for "${itemName}" at max ${fmt(max)}${qtyStr}. Wallet funds escrowed; auto-fills on the next match.`,
+        'ok');
     } finally { setBusy(false); }
   };
 
   const cancel = async (id) => {
-    if (!confirm('Cancel this buy order?')) return;
+    // Pre-fix: confirm + toast were both generic ("Cancel this buy order?"
+    // / "Buy order cancelled."). The ProfileBuyOrdersTab equivalent already
+    // names the item + remaining qty + reminds the user that wallet funds
+    // are freed. This modal is the more public entry point (toolbar →
+    // /buyorders), so keeping it generic was the inconsistent outlier.
+    const o = (orders || []).find(x => x.id === id);
+    const itemLabel = o?.itemName || 'item';
+    if (!confirm(`Cancel buy order for "${itemLabel}"? Any remaining quantity is freed.`)) return;
     const res = await deleteBuyOrder(id);
     if (res && res.error) { toast(res.error, 'err'); return; }
     load();
-    toast('Buy order cancelled.', 'ok');
+    const priceStr = o?.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
+    const remaining = (o?.quantity || 0) - (o?.filledQuantity || 0);
+    const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
+    toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}. Wallet funds freed.`,
+      'ok');
   };
 
   // Trade-URL nag (batch 388). A buy order that matches a listing fires
@@ -2223,8 +2249,22 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     try {
       const { cancelAutoBid } = await import('./api.js');
       const res = await cancelAutoBid(yourActiveAutoBidId);
-      if (res && (res.error || res.code)) { setErr(res.message || res.error || 'Could not cancel auto-bid'); return; }
+      if (res && (res.error || res.code)) {
+        // Mirror the "surface-failure-as-toast" pattern from the Buy
+        // Now banner above — setErr only paints below the bid form, but
+        // the cancel button lives in a separate auto-bid status row, so
+        // a surface-level toast guarantees the failure is visible.
+        toast(res.message || res.error || 'Could not cancel auto-bid.', 'err');
+        setErr(res.message || res.error || 'Could not cancel auto-bid'); return;
+      }
       await load();
+      // Pre-fix: silent on success — the auto-bid status row simply
+      // disappeared on the next load(). A bidder hitting "stop" got
+      // zero confirmation that the proxy-bidder actually disengaged,
+      // and would re-click expecting feedback. Toast names the
+      // standing-bid amount so the bidder knows their floor stays live.
+      const standingBid = view.currentBid != null ? parseFloat(view.currentBid) : parseFloat(view.price);
+      toast(`Auto-raise stopped — your standing bid${isFinite(standingBid) ? ` of ${fmt(standingBid)}` : ''} is still in.`, 'ok');
     } finally { setCancellingCap(false); }
   };
 
@@ -2426,8 +2466,26 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
                 // higher amount.
                 const res = await buyNowAuction(listing.id, view.buyNowPrice);
                 if (res && (res.error || res.code)) {
+                  // Pre-fix: setErr only renders below the bid form,
+                  // 200+ pixels below the Buy Now banner — a buyer who
+                  // clicks Buy Now and fails could miss the err line.
+                  // Mirror the placeBid toast pattern so the error is
+                  // surfaced page-level too.
+                  toast(res.message || res.error || 'Buy Now failed.', 'err');
                   setErr(res.message || res.error || 'Buy Now failed'); return;
                 }
+                // Pre-fix: silent on success. A buyer paying $X via
+                // Buy Now saw only the auction panel re-render to ENDED
+                // — no toast confirming the trade opened. Mirror the
+                // normal handleBuy toast (app.js:4807) and the placeBid
+                // toast (line 2182) so the success path is symmetric
+                // across all three auction-completion buttons.
+                const name = listing?.item?.name;
+                const paid = res?.price != null ? parseFloat(res.price) : parseFloat(view.buyNowPrice);
+                const copy = name
+                  ? `Bought "${name}" via Buy Now${isFinite(paid) ? ` for ${fmt(paid)}` : ''} — trade opened, see Profile › Trades`
+                  : `Buy Now complete${isFinite(paid) ? ` (${fmt(paid)})` : ''} — trade opened, see Profile › Trades`;
+                toast(copy, 'ok');
                 load();
                 onPlaced && onPlaced();
               } finally { setBusy(false); }

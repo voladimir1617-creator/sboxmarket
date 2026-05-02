@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-05-01T15:26Z",
+  "trigger": "Codex 10:37Z owner re-check: '/' has .just-listed-card-wrap / .grid-card overflow. Desktop 1440 leaks ~38px. Mobile 390 leaks ~92px.",
+  "reproduction_at_15_24Z": {
+    "viewport_390x844": {
+      "justListedCardWrap_overflowing": 7,
+      "gridCard_overflowing": 7,
+      "max_overshoot_px": 1506,
+      "docOverflow": false
+    }
+  },
+  "root_cause": "HottestRail (mounted in lap-K) renders into .just-listed-track which was a horizontal-scroll flex container (`display:flex; overflow-x:auto; flex-wrap:nowrap`). Even with overflow-x:auto clipping page-level scroll, child cards (.just-listed-card-wrap, .grid-card) bounding-rect.right extends past viewport on automated rect-based scans. Same anti-pattern Codex flagged on .csfloat-home-preview-row and .similar-strip earlier.",
+  "fix": "Converted .just-listed-track + .top-deals-track + .auctions-ending-soon-rail + .top-sellers-track to wrapping CSS Grid (`grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))`). Reset .just-listed-card-wrap, .top-deals-card-wrap, .auctions-ending-soon-card-wrap, .top-seller-card from `flex: 0 0 232px` to `width: auto, min-width: 0, max-width: 100%, flex: initial`. Same fix-pattern as the lap-J `.csfloat-home-preview-row` repair.",
+  "verification_at_15_26Z": {
+    "viewport_390x844": {
+      "justListedCardWrap_overflowing": 0,
+      "gridCard_overflowing": 0,
+      "topSellerCard_overflowing": 0,
+      "auctionCardWrap_overflowing": 0,
+      "docOverflow": false
+    },
+    "viewport_1440x900": {
+      "justListedCardWrap_overflowing": 0,
+      "gridCard_overflowing": 0,
+      "topSellerCard_overflowing": 0,
+      "auctionCardWrap_overflowing": 0,
+      "similarCard_overflowing": 0,
+      "csfloatPreviewCard_overflowing": 0,
+      "docOverflow": false
+    }
+  },
+  "result": "Codex 10:37Z finding RESOLVED at both viewports. All four rails (Hottest, Top Sellers, Auctions Ending Soon, Top Deals) now wrap into a responsive grid instead of horizontal-scroll flex track."
+}

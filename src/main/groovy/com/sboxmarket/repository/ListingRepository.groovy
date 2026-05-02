@@ -177,6 +177,12 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'SOLD' AND l.soldAt > :since")
     Long countSoldAfter(@Param("since") Long since)
 
+    /** Lifetime SOLD count - used by SeedService to decide whether to
+     *  backfill demo sales on a fresh boot. Cheap because COUNT against
+     *  the status index is constant-time. */
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'SOLD'")
+    long countAllSold()
+
     @Query("SELECT l FROM Listing l JOIN FETCH l.item WHERE l.sellerUserId = :uid AND l.status = 'ACTIVE' ORDER BY l.listedAt DESC")
     List<Listing> findActiveBySeller(@Param("uid") Long uid)
 
@@ -457,6 +463,20 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
           AND l.soldAt >= :since
     """)
     long countSoldBySellerSince(@Param("uid") Long uid, @Param("since") Long since)
+
+    /** Bulk last-N-days sold count grouped by item id. Powers the
+     *  per-item demand chip on the seller's MyStall analytics tab.
+     *  One GROUP BY against the (status, soldAt, item_id) index range
+     *  beats N+1 round-trips when a stall has 100+ listings. */
+    @Query("""
+        SELECT l.item.id, COUNT(l) FROM Listing l
+        WHERE l.item.id IN :itemIds
+          AND l.status = 'SOLD'
+          AND l.soldAt IS NOT NULL
+          AND l.soldAt >= :since
+        GROUP BY l.item.id
+    """)
+    List<Object[]> countSoldByItemsSince(@Param("itemIds") List<Long> itemIds, @Param("since") Long since)
 
     /** Lifetime + windowed revenue for a seller (batch 605). Sums the
      *  gross listing `price` (not the post-fee credit) so sellers see

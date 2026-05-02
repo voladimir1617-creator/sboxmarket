@@ -95,6 +95,33 @@ class WebConfig implements WebMvcConfigurer {
         registry.addRedirectViewController('/database',     '/db')
         registry.addRedirectViewController('/loadouts',     '/loadout')
         registry.addRedirectViewController('/notification', '/notifications')
+        registry.addRedirectViewController('/buyorders',    '/buy-orders')
+        registry.addRedirectViewController('/orders',       '/buy-orders')
+        registry.addRedirectViewController('/watch',        '/watchlist')
+        // Logout via GET — the canonical logout is `POST /api/auth/logout`
+        // (CSRF + body-less) called from the user menu's signOut() handler.
+        // A typed /logout URL by an existing user should land on /, where
+        // the cookie is preserved (UI shows signed-in nav). If they want
+        // to actually sign out, they hit the menu item which POSTs.
+        // Sending /logout to / is the friendliest interpretation.
+        registry.addRedirectViewController('/logout',  '/')
+        registry.addRedirectViewController('/signout', '/')
+        registry.addRedirectViewController('/sign-out','/')
+        // /buy is muscle-memory for "I want to shop" — point it at the
+        // marketplace grid so the user lands somewhere useful instead of
+        // the SPA 404 view.
+        registry.addRedirectViewController('/buy',     '/market')
+        registry.addRedirectViewController('/shop',    '/market')
+        registry.addRedirectViewController('/browse',  '/market')
+        // Profile aliases — `/me` and `/account` are common reflexive
+        // URLs from other marketplaces (Steam Community, GitHub, Twitter
+        // all use /me as a self-route shortcut). Send them to the
+        // canonical /profile/personal sub-tab. /trades → /profile/trades
+        // sub-tab so a typed URL hits the right tab.
+        registry.addRedirectViewController('/me',          '/profile/personal')
+        registry.addRedirectViewController('/account',     '/profile/personal')
+        registry.addRedirectViewController('/preferences', '/settings')
+        registry.addRedirectViewController('/trades',      '/profile/trades')
         // Bare /stall isn't a route (canonical forms are /stall/<id> for a
         // seller's public page and /me/stall for your own). Point both
         // reflexive URLs at the owner view; anons see a sign-in gate there.
@@ -111,6 +138,26 @@ class WebConfig implements WebMvcConfigurer {
         registry.addRedirectViewController('/cookies', '/legal/cookies.html')
         registry.addRedirectViewController('/about',   '/help')
         registry.addRedirectViewController('/contact', '/support')
+        // Same pattern for the rest of the legal docs - reflexive URLs that
+        // a user might type without the /legal/ prefix or .html suffix.
+        registry.addRedirectViewController('/refunds',                '/legal/refunds.html')
+        registry.addRedirectViewController('/refund-policy',          '/legal/refunds.html')
+        registry.addRedirectViewController('/trade-safety',           '/legal/trade-safety.html')
+        registry.addRedirectViewController('/safety',                 '/legal/trade-safety.html')
+        registry.addRedirectViewController('/disclaimer',             '/legal/disclaimer.html')
+        registry.addRedirectViewController('/risk',                   '/legal/disclaimer.html')
+        registry.addRedirectViewController('/acceptable-use',         '/legal/acceptable-use.html')
+        registry.addRedirectViewController('/aup',                    '/legal/acceptable-use.html')
+        registry.addRedirectViewController('/responsible-disclosure', '/legal/responsible-disclosure.html')
+        registry.addRedirectViewController('/security',               '/legal/responsible-disclosure.html')
+        registry.addRedirectViewController('/tos',                    '/legal/terms.html')
+        registry.addRedirectViewController('/eula',                   '/legal/terms.html')
+        // Footer "Fees & Pricing" link points to /faq?q=platform+fee.
+        // A user who types /fees or /pricing in the address bar should
+        // land on the same FAQ section instead of the SPA 404 view.
+        registry.addRedirectViewController('/fees',                   '/faq?q=platform+fee')
+        registry.addRedirectViewController('/pricing',                '/faq?q=platform+fee')
+        registry.addRedirectViewController('/fees-and-pricing',       '/faq?q=platform+fee')
 
         // Batch 1063 — clean-URL aliases for the handful of .html static
         // pages that a human might type without the extension. These

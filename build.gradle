@@ -23,6 +23,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Spring Session JDBC — wired via SessionConfig.groovy with @Profile("prod")
+    // so the test profile doesn't load it and the existing MockMvc specs keep
+    // working unchanged. In prod, sessions persist in Postgres so a Docker
+    // restart no longer signs every user out.
+    implementation 'org.springframework.session:spring-session-jdbc'
     // JavaMail wrapper. Used by EmailService to send verification emails
     // when SMTP_HOST is set; otherwise EmailService falls back to a
     // log-only sink so local dev and CI never need an SMTP relay.

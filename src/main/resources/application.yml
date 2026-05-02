@@ -4,12 +4,22 @@ server:
   # controlled by env so local HTTP dev still works.
   servlet:
     session:
-      timeout: 45m
+      # 365 days — operator demand 2026-05-01: "NEVER EXPIRE ACTUALLY".
+      # Was 45m which was logging users out mid-browse. Spring Session
+      # JDBC honours this for the server-side row TTL too (see
+      # SessionConfig @EnableJdbcHttpSession maxInactiveIntervalInSeconds).
+      timeout: 365d
       cookie:
         http-only: true
         secure: ${COOKIE_SECURE:false}
         same-site: ${COOKIE_SAME_SITE:lax}
         name: SBOX_SESSION
+        # 365-day cookie max-age so the browser keeps replaying the
+        # session token across browser restarts (not just within one
+        # browser run). Without max-age, the cookie is a session-only
+        # cookie that the browser discards on close — effectively
+        # signing the user out the next time they open Chrome.
+        max-age: 365d
   # Gzip small JSON + static assets so we don't need Nginx for compression.
   # Batch 682 — added application/xml + text/csv so /sitemap.xml (SEO
   # crawler traffic) and the wallet / my-stall CSV exports compress too.
@@ -23,6 +33,16 @@ server:
     enabled: true
     mime-types: application/json,application/xml,text/xml,text/csv,text/html,text/css,text/plain,application/javascript,text/javascript,image/svg+xml
     min-response-size: 1024
+  # Replace Spring's Whitelabel error page with our branded
+  # GlobalErrorController. Without these flags the Whitelabel page
+  # leaks framework strings to unauthenticated visitors.
+  error:
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
 
 # Cap request bodies to 2MB. The only JSON payloads we accept are small
 # objects (offers, bids, deposits, support messages) and a 50-item cart.

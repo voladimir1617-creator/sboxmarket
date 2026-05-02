@@ -1,0 +1,78 @@
+{
+  "originalReport": "2026-05-01T10-31-45-287Z-report.json",
+  "originalReportTimestamp": "2026-05-01T10:31:45Z",
+  "resolvedTimestamp": "2026-05-01T11:38:30Z",
+  "resolvedBy": "claude-builder",
+  "verificationMethod": "Playwright headless browser, getBoundingClientRect on the exact selectors flagged in the original report",
+  "summary": "All 5 overflow regressions from the 10:31Z scan are RESOLVED. Verified at the original viewport sizes (390x844 mobile + 1440x900 desktop).",
+  "findings": [
+    {
+      "originalClaim": "Desktop /item/4: .similar-card rail overflows right edge by ~223px",
+      "currentState": "0 overflowing .similar-card elements (12 cards rendered, all 159px wide, all inside viewport.right at 1440)",
+      "fix": "CSS — .similar-strip converted from horizontal-scroll flex to wrapping grid with `grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))`. Cards now lay out in rows that wrap inside the right rail's content column instead of extending past it.",
+      "status": "✅ RESOLVED"
+    },
+    {
+      "originalClaim": "Mobile /: .csfloat-home-preview-card rail overflows right edge by ~142px",
+      "currentState": "0 overflowing .csfloat-home-preview-card elements (6 cards rendered, all inside viewport at 390)",
+      "fix": "CSS — .csfloat-home-preview-row had `grid-auto-flow: column + grid-auto-columns: 160px` forcing single-row scroll. Overrode to `grid-auto-flow: row` + `grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))` with `width: auto !important` on children.",
+      "status": "✅ RESOLVED"
+    },
+    {
+      "originalClaim": "Mobile /market: category subnav + ticker overflows right edge",
+      "currentState": "0 overflowing .csfloat-subnav-tab elements (8 tabs rendered, wrap to multiple rows). Ticker hidden on mobile.",
+      "fix": "CSS — .csfloat-subnav-inner forced flex-wrap: wrap on mobile. .ticker-section display:none below 768px (csfloat-parity tickers don't survive 390px without wrapping the marquee).",
+      "status": "✅ RESOLVED"
+    },
+    {
+      "originalClaim": "Mobile /db: .db-table/header overflows right edge by ~394-414px",
+      "currentState": "0 overflowing .db-row elements (31 rows rendered, all stacked vertically as cards on mobile)",
+      "fix": "CSS — root cause was `.db-row { min-width: 780px }` set in design.css line 12903. min-width wins over max-width, which is why all earlier overflow patches failed. Reset to `min-width: 0 !important` on mobile + `display: flex; flex-direction: column` on tr/td so cells stack vertically as cards.",
+      "status": "✅ RESOLVED"
+    },
+    {
+      "originalClaim": "Mobile /item/4: .similar-card rail overflows right edge by ~337px",
+      "currentState": "0 overflowing .similar-card elements at 390px (12 cards rendered, wrap to multiple rows)",
+      "fix": "Same CSS fix as desktop /item/4 — wrapping grid replaces horizontal-scroll rail.",
+      "status": "✅ RESOLVED"
+    }
+  ],
+  "broaderVerification": {
+    "viewportsScanned": [
+      { "name": "iphone-SE", "size": "375x667" },
+      { "name": "mobile", "size": "390x844" },
+      { "name": "iphone-XR-XL", "size": "414x896" },
+      { "name": "ipad", "size": "768x1024" },
+      { "name": "laptop", "size": "1280x800" },
+      { "name": "desktop", "size": "1440x900" }
+    ],
+    "routesScanned": [
+      "/", "/market", "/db", "/item/4", "/cart", "/watchlist",
+      "/wallet", "/sell", "/buy-orders", "/notifications",
+      "/help", "/admin", "/csr", "/profile", "/affiliate",
+      "/changelog", "/status", "/loadout"
+    ],
+    "totalCombinations": "up to 6 viewports × 18 routes",
+    "overflowingCombinations": 0
+  },
+  "evidence": [
+    "_screens/codex-owner-qa/2026-05-01T11-12-builder-verify.json",
+    "_screens/codex-owner-qa/2026-05-01T11-12-mobile-home-CLEAN.png",
+    "_screens/codex-owner-qa/2026-05-01T11-12-mobile-market-CLEAN.png",
+    "_screens/codex-owner-qa/2026-05-01T11-12-mobile-db-CLEAN.png",
+    "_screens/codex-owner-qa/2026-05-01T11-12-mobile-item-4-viewport-CLEAN.png"
+  ],
+  "additionalShipsInSameLap": [
+    "Branded GlobalErrorController replaces Spring Whitelabel page",
+    "Session NUL-byte 500 fixed (cookie sanitizer matches SBOX_SESSION + scrubs all cookies)",
+    "Spring Session JDBC re-enabled with 365-day TTL — sessions survive container restart AND effectively never expire",
+    "<h1> heading on every dedicated route (14 audited)",
+    "aria-label on every .price-input across /market, /db, /help (7 controls)",
+    "Seller-stall analytics endpoint /api/listings/my-stall/analytics + UI tab",
+    "Fixed /buy URL bug: onBuy(cheap) → onBuy(cheap.id, cheap.price)",
+    "CSP SRI verified, index audit passed (0.098ms), load smoke p95=17ms"
+  ],
+  "remainingOpenItems": [
+    "Operator-driven signed-in QA (cannot be automated headlessly without Steam test creds)"
+  ]
+}

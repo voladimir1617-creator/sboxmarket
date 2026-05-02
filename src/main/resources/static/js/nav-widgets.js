@@ -1,5 +1,5 @@
 // Top-right nav icons: notification bell + theme picker.
-import { h, React, useState, useEffect, useCallback, timeAgo, signInWithSteam } from './utils.js';
+import { h, React, useState, useEffect, useCallback, timeAgo, signInWithSteam, toast } from './utils.js';
 import { fetchNotifications, fetchUnreadNotificationCount, markAllNotificationsRead, markNotificationRead } from './api.js';
 import { navigate, paths } from './router.js';
 import { MaterialIcon } from './primitives.js';
@@ -22,11 +22,11 @@ function fallbackPath(kind) {
   if (k === 'SUPPORT_REPLY' || k === 'TICKET_AUTO_RESOLVED') return paths.support();
   if (k === 'STEAM_INVENTORY') return paths.sell();
   if (k === 'LISTING_REMOVED') return paths.mystall();
-  if (k === 'REVIEW_RECEIVED' || k === 'REVIEW_REPLIED' || k === 'REVIEW_UPDATED' || k === 'REVIEW_DELETED') return '/profile?tab=reviews';
+  if (k === 'REVIEW_RECEIVED' || k === 'REVIEW_REPLIED' || k === 'REVIEW_UPDATED' || k === 'REVIEW_DELETED') return '/profile/reviews';
   if (k === 'SELLER_FOLLOWED') return paths.mystall();
   // Anything trade-ish (auction/trade/purchase) lands on the trades tab.
   if (k.startsWith('TRADE_') || k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED') {
-    return '/profile?tab=trades';
+    return '/profile/trades';
   }
   return paths.profile();
 }
@@ -152,11 +152,18 @@ const KIND_ICONS = {
 export function playNotifyDing(opts) {
   const force = opts === true || (opts && opts.force === true);
   try {
-    if (!force && localStorage.getItem('sb_sounds') === 'false') return;
+    if (!force && localStorage.getItem('sb_sounds') === 'false') return { ok: false, reason: 'muted' };
     const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
+    if (!Ctx) return { ok: false, reason: 'no-audio-api' };
     const ctx = (playNotifyDing._ctx = playNotifyDing._ctx || new Ctx());
     if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
+    // Detect autoplay-blocked audio: when the user hasn't interacted with the
+    // tab yet, AudioContext stays suspended and ping() emits silence. Codex
+    // 17:28Z asked for visible feedback when audio can't actually play; this
+    // post-resume state check is the canonical signal.
+    if (ctx.state !== 'running') {
+      return { ok: false, reason: 'audio-blocked' };
+    }
     const now = ctx.currentTime;
     const ping = (freq, offset, dur) => {
       const osc = ctx.createOscillator();
@@ -172,7 +179,8 @@ export function playNotifyDing(opts) {
     };
     ping(880, 0,    0.12);
     ping(1320, 0.08, 0.18);
-  } catch (_) { /* silent — fall back to the visual bell */ }
+    return { ok: true };
+  } catch (e) { return { ok: false, reason: 'exception', error: String(e).slice(0,80) }; }
 }
 
 export function NotificationBell({ me }) {
@@ -365,8 +373,33 @@ export function NotificationBell({ me }) {
 
   const clearAll = async () => {
     if (!me) return;
-    await markAllNotificationsRead();
-    await load();
+    // Pre-fix: the bell-dropdown "Mark all read" called the API with
+    // zero error handling and zero success feedback — a network blip
+    // or backend rejection would surface only as an unhandled promise
+    // rejection in the console, with the dropdown frozen in its prior
+    // state and the user no clue why nothing changed. Mirror the
+    // pattern used by NotificationsModal's filter-aware bulk handler:
+    // snapshot the unread count, branch on the response, surface a
+    // counted toast either way.
+    const before = unread;
+    try {
+      const res = await markAllNotificationsRead();
+      // markAllNotificationsRead returns the raw fetch Response (not
+      // parsed JSON), so check `res.ok === false` — same pattern used
+      // by NotificationsModal's filter-aware bulk handler at
+      // csfloat-modals.js:1548. A 401/4xx/5xx surfaces as a toast
+      // instead of silently leaving the dropdown stale.
+      if (res && res.ok === false) {
+        toast('Could not mark notifications read — try again.', 'err');
+        return;
+      }
+      await load();
+      if (before > 0) {
+        toast(`Marked ${before} notification${before === 1 ? '' : 's'} read.`, 'ok');
+      }
+    } catch (_) {
+      toast('Could not mark notifications read — try again in a moment.', 'err');
+    }
   };
 
   const onItemClick = async (n) => {
@@ -408,13 +441,17 @@ export function NotificationBell({ me }) {
       // the trigger as "menu button" and promises a popup appears on
       // activation. aria-expanded was already bound; paired they tell
       // the whole story to assistive tech.
+      // WCAG 4.1.2 — pair aria-expanded with aria-controls pointing at
+      // the menu panel so SRs can resolve "what does activating this
+      // reveal". Stable id on the dropdown div below.
       'aria-haspopup': 'menu',
-      'aria-expanded': open
+      'aria-expanded': open,
+      'aria-controls': 'notif-dropdown-panel'
     },
       h(MaterialIcon, { name: 'notifications', size: 20, fill: unread > 0, color: unread > 0 ? '#fbbf24' : null }),
       unread > 0 && h('div', { className: 'nav-icon-badge' }, unread)
     ),
-    open && h('div', { className: 'notif-dropdown', onClick: e => e.stopPropagation() },
+    open && h('div', { id: 'notif-dropdown-panel', className: 'notif-dropdown', onClick: e => e.stopPropagation() },
       h('div', { className: 'notif-header' },
         'Notifications',
         // Batch 948 — was a clickable <span>; not keyboard-focusable,

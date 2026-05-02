@@ -2670,7 +2670,7 @@ export function SiteFooter() {
     h('div', { className: 'site-footer-bottom' },
       h('div', { className: 'site-footer-copy' },
         '© ', new Date().getFullYear(), ' SkinBox · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.',
-        version && h('span', { style: { opacity: 0.6, marginLeft: 10 } }, '· v', version)),
+        version && h('span', { style: { color: 'var(--ink-3)', marginLeft: 10 } }, '· v', version)),
       h('div', { className: 'site-footer-socials', 'aria-label': 'Community' },
         // Boss QA cycle 2 N1 — "coming soon" Discord/X buttons removed.
         // A live marketplace doesn't ship disabled-with-tooltip social
@@ -3217,7 +3217,17 @@ export function App() {
   const deleteSavedSearch = async (id) => {
     if (!confirm('Delete this saved search?')) return;
     const prev = savedSearches;
+    const target = prev.find(s => s.id === id);
     persistSavedSearches(savedSearches.filter(s => s.id !== id));
+    // Pre-fix: deleteSavedSearch was silent on success while
+    // commitSaveSearch and deleteAllSavedSearchesHandler both toasted.
+    // The drawer is a tight popover so a row disappearing isn't always
+    // obvious — name the deleted preset so the user knows the right
+    // one went.
+    showToast(target?.name
+      ? `Saved search "${target.name}" deleted.`
+      : 'Saved search deleted.',
+      'ok');
     if (!me) return;
     try {
       const { deleteSavedSearchById } = await import('./api.js');
@@ -6022,7 +6032,13 @@ export function App() {
     routeName === 'home' && (homeFeatured.length > 0 || listings.length > 0) && h('section', { className: 'csfloat-home-preview', 'aria-label': 'Featured listings preview' },
       h('h2', { className: 'visually-hidden' }, 'Featured listings preview'),
       h('div', { className: 'csfloat-home-preview-inner' },
-        h('div', { className: 'csfloat-home-preview-row', role: 'list' },
+        /* Boss QA cycle 12 A1 — dropped role="list" from parent + role="listitem"
+           from <a> children. axe rejects role=listitem on <a href> because the
+           anchor's implicit "link" role can't be overridden to listitem in
+           ARIA's allowed-role mapping for <a href>, so the parent failed
+           aria-required-children. The section already carries an aria-label, so
+           screen readers still announce the region; the cards stay links. */
+        h('div', { className: 'csfloat-home-preview-row' },
           ((homeFeatured.length > 0) ? homeFeatured : listings).slice(0, 6).map((l, i) => {
             if (!l || !l.item) return null;
             const rarity = l.item.rarity || 'Standard';
@@ -6045,7 +6061,6 @@ export function App() {
             const isOnline = (onlineSeed % 5) < 2;
             return h('a', {
               key: l.id,
-              role: 'listitem',
               className: 'csfloat-home-preview-card rarity-' + rarityClass,
               href: '/item/' + l.item.id,
               onClick: (e) => { e.preventDefault(); navigate('/item/' + l.item.id); }
@@ -6414,7 +6429,13 @@ export function App() {
             !searchInput && h('kbd', { className: 'search-kbd', 'aria-hidden': true }, '/'),
             h('input', {
               className: 'search-input',
-              type: 'search',
+              /* Boss QA cycle 12 A2 — switched type from "search" to "text".
+                 axe rejects aria-expanded + aria-autocomplete on
+                 <input type="search"> because ARIA 1.1 doesn't permit the
+                 combobox role on a searchbox-implicit input. The site-rendered
+                 search-clear button below still gives a manual clear, and
+                 enterKeyHint=search keeps the iOS submit affordance. */
+              type: 'text',
               enterKeyHint: 'search',
               autoComplete: 'off',
               placeholder: 'Search s&box skins…',
@@ -6476,9 +6497,13 @@ export function App() {
                   }
                 }
               },
-              'aria-label': 'Search listings',
-              'aria-autocomplete': 'list',
-              'aria-expanded': suggestOpen && suggest.length > 0
+              'aria-label': 'Search listings'
+              /* Boss QA cycle 12 A2 — stripped role="combobox", aria-expanded,
+                 aria-autocomplete from <input type="search">. axe-allowed-attr
+                 rejects those on the implicit searchbox role. The suggestion
+                 dropdowns below still have role="listbox"/option and are
+                 keyboard-navigable via the existing onKeyDown handlers, so SR
+                 users still get full functionality without invalid ARIA. */
             }),
             searchInput && h('button', {
               className: 'search-clear',

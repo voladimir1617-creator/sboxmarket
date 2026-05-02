@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Watchlist — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .wl-table {
+    width: 100%; border-collapse: collapse; font-size: var(--t-13);
+    border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden;
+  }
+  .wl-table th, .wl-table td { text-align: left; padding: var(--s-10) var(--s-14); border-bottom: 1px solid var(--line); }
+  .wl-table th { background: var(--bg-1); font-weight: 500; color: var(--ink-3); font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em; }
+  .wl-table tbody tr:hover { background: var(--bg-1); }
+  .wl-table tbody tr:last-child td { border-bottom: 0; }
+  .wl-table .num { font-family: var(--font-mono); text-align: right; font-feature-settings: "tnum"; }
+  .wl-thumb {
+    width: 48px; height: 32px;
+    border-radius: 3px;
+    background:
+      repeating-linear-gradient(45deg,
+        color-mix(in oklch, var(--bg-2) 85%, transparent) 0 6px,
+        color-mix(in oklch, var(--bg-3) 75%, transparent) 6px 7px);
+    border: 1px dashed color-mix(in oklch, var(--line-2) 60%, transparent);
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: var(--s-10);
+  }
+  .alert-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 8px; border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+  }
+  .alert-pill.is-set { color: var(--blue); border-color: color-mix(in oklch, var(--blue) 30%, var(--line)); background: var(--blue-soft); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="row" style="gap: var(--s-32);">
+      <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket</a>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Market</a>
+        <a class="nav-link" href="/db">Database</a>
+        <a class="nav-link" href="/loadout">Loadouts</a>
+        <a class="nav-link" href="/sell">Sell</a>
+        <a class="nav-link" href="/buy-orders">Buy orders</a>
+      </div>
+    </div>
+    <div class="nav-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Search…" />
+      <span class="kbd">⌘K</span>
+    </div>
+    <div class="nav-actions">
+      <span class="balance-pill"><span class="label">Balance</span> $1,284.50</span>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v8l7-4 7 4Z"/></svg></button>
+      <button class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button>
+      <div class="avatar">VK</div>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <div class="page-h">
+    <div>
+      <div class="crumb"><span>Account</span><span class="dot"></span><span style="color: var(--ink);">Watchlist</span></div>
+      <h1>Watchlist</h1>
+    </div>
+    <div class="row" style="gap: var(--s-8);">
+      <button class="btn btn-ghost btn-sm">Export</button>
+      <button class="btn btn-secondary btn-sm">+ Add by URL</button>
+    </div>
+  </div>
+
+  <div class="tabs-row">
+    <div class="tabs">
+      <button class="tab is-active">All <span class="count">21</span></button>
+      <button class="tab">Price drops <span class="count">3</span></button>
+      <button class="tab">Stalls <span class="count">4</span></button>
+    </div>
+    <div class="row" style="gap: var(--s-10);">
+      <input class="input" placeholder="Filter…" style="width: 220px;" />
+      <select class="select" style="width: 180px;"><option>Recently changed</option><option>Median price</option><option>Discount %</option></select>
+    </div>
+  </div>
+
+  <table class="wl-table">
+    <thead>
+      <tr>
+        <th style="width: 32%;">Item</th>
+        <th>Wear</th>
+        <th class="num">Lowest</th>
+        <th class="num">Median</th>
+        <th class="num">7d Δ</th>
+        <th>Alert</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>AK-47 | Wild Lotus</strong> <span class="muted">Covert</span></td>
+        <td><span class="mono">MW · 0.07–0.15</span></td>
+        <td class="num">$11,420</td>
+        <td class="num">$12,140</td>
+        <td class="num up">−8%</td>
+        <td><span class="alert-pill is-set">≤ $11,500</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>★ Karambit | Doppler</strong> <span class="muted">Covert</span></td>
+        <td><span class="mono">FN · sapphire</span></td>
+        <td class="num">$8,440</td>
+        <td class="num">$9,100</td>
+        <td class="num up">−4%</td>
+        <td><span class="alert-pill is-set">≤ $8,500</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>M4A4 | Howl</strong> <span class="muted">Classified</span></td>
+        <td><span class="mono">MW</span></td>
+        <td class="num">$1,940</td>
+        <td class="num">$2,012</td>
+        <td class="num down">+2%</td>
+        <td><span class="alert-pill">none</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>AWP | Dragon Lore</strong> <span class="muted">Covert</span></td>
+        <td><span class="mono">FT · 0.20–0.30</span></td>
+        <td class="num">$5,840</td>
+        <td class="num">$6,420</td>
+        <td class="num up">−1%</td>
+        <td><span class="alert-pill is-set">≤ $5,500</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>★ Sport Gloves | Vice</strong> <span class="muted">Covert</span></td>
+        <td><span class="mono">MW</span></td>
+        <td class="num">$1,810</td>
+        <td class="num">$1,920</td>
+        <td class="num up">−6%</td>
+        <td><span class="alert-pill">none</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>AK-47 | Vulcan</strong> <span class="muted">Covert</span></td>
+        <td><span class="mono">FN · 0.00–0.07</span></td>
+        <td class="num">$412</td>
+        <td class="num">$481</td>
+        <td class="num up">−12%</td>
+        <td><span class="alert-pill is-set">≤ $400</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>Desert Eagle | Blaze</strong> <span class="muted">Restricted</span></td>
+        <td><span class="mono">FN · 0.00–0.07</span></td>
+        <td class="num">$487</td>
+        <td class="num">$524</td>
+        <td class="num up">−18%</td>
+        <td><span class="alert-pill">none</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+      <tr>
+        <td><span class="wl-thumb"></span><strong>AWP | Asiimov</strong> <span class="muted">Classified</span></td>
+        <td><span class="mono">FT</span></td>
+        <td class="num">$94</td>
+        <td class="num">$112</td>
+        <td class="num up">−9%</td>
+        <td><span class="alert-pill">none</span></td>
+        <td><button class="btn btn-ghost btn-sm">View</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+</main>
+
+</body>
+</html>

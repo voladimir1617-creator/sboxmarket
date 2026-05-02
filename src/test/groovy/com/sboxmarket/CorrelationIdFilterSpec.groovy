@@ -137,7 +137,21 @@ class CorrelationIdFilterSpec extends Specification {
             '/api/notifications',
             '/api/admin/stats',
             '/api/csr/tickets',
-            '/api/support/tickets'
+            '/api/support/tickets',
+            // Seller dashboards — personal data. The /api/listings/* prefix
+            // is mostly public (browse/search), but /my-stall* is per-user
+            // and was slipping through without no-store before isMyStall
+            // was added to the filter predicate.
+            '/api/listings/my-stall',
+            '/api/listings/my-stall/sold',
+            '/api/listings/my-stall/active.csv',
+            '/api/listings/my-stall/analytics.csv',
+            '/api/listings/my-stall/sold.csv',
+            '/api/listings/my-stall/earnings',
+            // Same coverage for the seller's owned inventory + their
+            // own verification-progress snapshot (KYC milestones).
+            '/api/listings/inventory',
+            '/api/sellers/me/verification-progress'
         ]
     }
 

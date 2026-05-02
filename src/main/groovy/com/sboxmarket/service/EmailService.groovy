@@ -426,16 +426,29 @@ support ticket.
 
     /** Watchlist price alert fired — the item's floor dropped at or
      *  below the user's target. Time-sensitive (prices move fast) so
-     *  this goes out via email alongside the in-app notification. */
+     *  this goes out via email alongside the in-app notification.
+     *
+     *  Restock-mode alerts encode targetPrice ≥ 99999 as "any future
+     *  listing." For those the body switches from a price-comparison
+     *  blurb to a restock-style one — we don't want the user to read
+     *  "at or below your $100,000 alert target" and think a typo set
+     *  their threshold absurdly high. */
     void sendPriceDrop(String toEmail, String displayName, String itemName,
                        BigDecimal currentFloor, BigDecimal targetPrice, String itemUrl) {
         if (!toEmail || itemName == null) return
-        def subject = "Price drop · ${itemName}"
+        boolean isRestock = targetPrice != null &&
+            targetPrice.compareTo(new BigDecimal('99999')) >= 0
+        def subject = isRestock
+            ? "Restock · ${itemName}"
+            : "Price drop · ${itemName}"
+        def floorStr = (currentFloor ?: BigDecimal.ZERO).toPlainString()
+        def coreLine = isRestock
+            ? "${itemName} is back in stock — listed at \$${floorStr}."
+            : "${itemName} just dropped to \$${floorStr} —\nat or below your \$${(targetPrice ?: BigDecimal.ZERO).toPlainString()} alert target."
         def body = """\
 Hi ${displayName ?: 'there'},
 
-${itemName} just dropped to \$${(currentFloor ?: BigDecimal.ZERO).toPlainString()} —
-at or below your \$${(targetPrice ?: BigDecimal.ZERO).toPlainString()} alert target.
+${coreLine}
 
 Listings move fast. See the item${itemUrl ? ': ' + itemUrl : '.'}
 
@@ -1246,16 +1259,31 @@ Thanks for your patience.
             },
             new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy())
 
+    /** In-flight task counter — incremented when a send job is submitted,
+     *  decremented inside the runnable's finally block. ThreadPoolExecutor's
+     *  activeCount + queue.isEmpty() probe is racy: a worker can dequeue
+     *  a task before its activeCount is bumped, leaving a brief window
+     *  where awaitSmtpForTests sees both 0 and returns prematurely (the
+     *  send fires *after* the test's then-block runs, so Spock records 0
+     *  invocations even though the email actually went out). This counter
+     *  closes that window — increment happens on the submitter thread
+     *  before submit() returns, decrement happens inside the worker's
+     *  finally so a thrown exception still releases the wait. */
+    private final java.util.concurrent.atomic.AtomicInteger smtpPending =
+        new java.util.concurrent.atomic.AtomicInteger(0)
+
     /** Test hook (batch 508) — waits for any pending SMTP work to drain
      *  so tests can assert on mock invocations without sleeping.
      *  Package-private in spirit; public because Groovy Spec inheritance
      *  needs the visibility and there's no harm exposing a synchronous
      *  no-op for production callers. */
     void awaitSmtpForTests() {
-        long deadline = System.currentTimeMillis() + 2000L
+        long deadline = System.currentTimeMillis() + 5000L
         while (System.currentTimeMillis() < deadline) {
-            if (smtpExecutor.activeCount == 0 && smtpExecutor.queue.isEmpty()) return
-            Thread.sleep(10)
+            if (smtpPending.get() == 0
+                    && smtpExecutor.activeCount == 0
+                    && smtpExecutor.queue.isEmpty()) return
+            Thread.sleep(5)
         }
     }
 
@@ -1276,6 +1304,7 @@ Thanks for your patience.
             def lower = to.trim().toLowerCase()
             def tok = unsubscribeToken(lower)
             def base = (publicUrl ?: 'https://skinbox.market').with { u -> u.endsWith('/') ? u[0..-2] : u }
+            smtpPending.incrementAndGet()
             smtpExecutor.submit({
                 try {
                     def mime = mailSender.createMimeMessage()
@@ -1307,6 +1336,8 @@ Thanks for your patience.
                     // 500 the caller (account creation, password reset). The
                     // token is still persisted, the user can retry, and ops
                     // will see the error in the log.
+                } finally {
+                    smtpPending.decrementAndGet()
                 }
             } as Runnable)
         } else {

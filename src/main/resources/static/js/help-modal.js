@@ -13,7 +13,7 @@ const FAQ = [
   },
   {
     q: 'How do I sign in?',
-    a: "Click the blue Steam button in the top-right of any page. You'll be redirected to steamcommunity.com to approve the login. Your password never touches our servers — we only see your public Steam profile via OpenID."
+    a: "Click the ‘Sign in through Steam’ button in the top-right of any page. You'll be redirected to steamcommunity.com to approve the login. Your password never touches our servers — we only see your public Steam profile via OpenID."
   },
   {
     q: 'How do I list an item I own on Steam?',
@@ -45,7 +45,7 @@ const FAQ = [
   },
   {
     q: 'How do auctions work?',
-    a: "Auction listings show a countdown timer and a Bid input. Enter your bid — the minimum is the current price plus $0.05. You can also set an auto-bid cap, and our bot will raise your bid by the minimum increment until it hits your cap. When the timer runs out, the winner's wallet is charged and the seller is credited (minus 2%)."
+    a: "Auction listings show a countdown timer and a Bid input. Enter your bid — the minimum is the current price plus $0.05. You can also set an auto-bid cap, and the proxy-bidder will raise your bid by the minimum increment until it hits your cap. When the timer runs out, the winner's wallet is charged and the seller is credited (minus 2%)."
   },
   {
     q: 'Is my money safe?',
@@ -187,7 +187,7 @@ export function HelpModal({ onClose }) {
       )
     ),
 
-    h('div', { className: 'help-section-title' },
+    h('h2', { className: 'help-section-title' },
       h(MaterialIcon, { name: 'route', size: 18 }), 'Getting Started'),
     h('div', { className: 'help-steps' },
       STEPS.map((s, i) => h('div', { key: i, className: 'help-step' },
@@ -198,10 +198,38 @@ export function HelpModal({ onClose }) {
       ))
     ),
 
-    h('div', { className: 'help-section-title' },
+    h('h2', { className: 'help-section-title' },
       h(MaterialIcon, { name: 'quiz', size: 18 }), 'Frequently Asked Questions'),
+    // Boss QA F2 — surface a 3-question preview just below the section
+    // heading. Pre-fix the heading was followed only by a search box,
+    // leaving the section visually empty until the user clicked. Each
+    // preview row, when clicked, expands the full accordion entry
+    // below + scrolls it into view.
+    !q && h('div', { className: 'help-faq-preview', 'aria-label': 'Top FAQ questions' },
+      FAQ.slice(0, 3).map((item, i) => h('button', {
+        key: 'preview-' + i,
+        type: 'button',
+        className: 'help-faq-preview-row',
+        onClick: () => {
+          setOpenIdx(i);
+          // Defer one frame so the accordion has rendered the panel.
+          requestAnimationFrame(() => {
+            const el = document.getElementById('help-faq-panel-' + i);
+            if (el && typeof el.scrollIntoView === 'function') {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          });
+        }
+      },
+        h('span', { className: 'help-faq-preview-q' }, item.q),
+        h('span', { className: 'help-faq-preview-arrow' }, '→')
+      ))
+    ),
     h('input', {
       className: 'price-input',
+      type: 'search',
+      enterKeyHint: 'search',
+      'aria-label': 'Search frequently asked questions',
       style: { width: '100%', marginBottom: 10, fontSize: 13 },
       placeholder: 'Search FAQs…',
       value: search,
@@ -237,22 +265,35 @@ export function HelpModal({ onClose }) {
           )
         )
       : h('div', { className: 'help-faq' },
-          filteredFaq.map(item => h('div', {
-            key: item.origIdx, className: `help-faq-row ${openIdx === item.origIdx ? 'open' : ''}`
-          },
-            h('button', { className: 'help-faq-q', onClick: () => setOpenIdx(openIdx === item.origIdx ? -1 : item.origIdx) },
-              // Highlight the matched substring so a user searching "2FA"
-              // across five FAQ rows can see where the match is without
-              // expanding every answer. Case-insensitive; rendered as a
-              // <mark> so screen-readers can optionally announce emphasis.
-              highlightMatch(item.q, q),
-              h(MaterialIcon, { name: openIdx === item.origIdx ? 'expand_less' : 'expand_more', size: 20 })
-            ),
-            openIdx === item.origIdx && h('div', { className: 'help-faq-a' }, highlightMatch(item.a, q))
-          ))
+          filteredFaq.map(item => {
+            const isOpen = openIdx === item.origIdx;
+            const panelId = `help-faq-panel-${item.origIdx}`;
+            return h('div', {
+              key: item.origIdx, className: `help-faq-row ${isOpen ? 'open' : ''}`
+            },
+              // aria-expanded + aria-controls form the standard accordion
+              // pattern so screen readers announce "collapsed/expanded"
+              // and can jump to the panel. Without these, blind users
+              // hear an unlabelled button with no state.
+              h('button', {
+                className: 'help-faq-q',
+                'aria-expanded': isOpen,
+                'aria-controls': panelId,
+                onClick: () => setOpenIdx(isOpen ? -1 : item.origIdx)
+              },
+                // Highlight the matched substring so a user searching "2FA"
+                // across five FAQ rows can see where the match is without
+                // expanding every answer. Case-insensitive; rendered as a
+                // <mark> so screen-readers can optionally announce emphasis.
+                highlightMatch(item.q, q),
+                h(MaterialIcon, { name: isOpen ? 'expand_less' : 'expand_more', size: 20 })
+              ),
+              isOpen && h('div', { id: panelId, role: 'region', className: 'help-faq-a' }, highlightMatch(item.a, q))
+            );
+          })
         ),
 
-    h('div', { className: 'help-section-title' },
+    h('h2', { className: 'help-section-title' },
       h(MaterialIcon, { name: 'keyboard', size: 18 }), 'Keyboard Shortcuts'),
     h('div', { className: 'help-shortcuts' },
       SHORTCUTS.map((s, i) => h('div', { key: i, className: 'help-shortcut-row' },
@@ -264,7 +305,7 @@ export function HelpModal({ onClose }) {
     h('div', { className: 'help-contact' },
       h('div', null,
         h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, "Still need a hand?"),
-        h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 4 } },
+        h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 } },
           "Open a support ticket and a CSR will reply within the hour. Include a transaction id if it's about a purchase.")
       ),
       h('button', {

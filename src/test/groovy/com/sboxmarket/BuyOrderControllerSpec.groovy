@@ -450,7 +450,7 @@ class BuyOrderControllerSpec extends Specification {
         1 * buyOrderService.listForBuyer(100L) >> [row]
 
         when:
-        def resp = controller.exportCsv(req)
+        def resp = controller.exportCsv(null, req)
 
         then:
         resp.headers.getFirst('Content-Disposition')?.contains('buy-orders.csv')
@@ -465,7 +465,7 @@ class BuyOrderControllerSpec extends Specification {
         1 * buyOrderService.listForBuyer(100L) >> []
 
         when:
-        def resp = controller.exportCsv(req)
+        def resp = controller.exportCsv(null, req)
 
         then:
         resp.body.trim().split('\n').size() == 1
@@ -473,8 +473,58 @@ class BuyOrderControllerSpec extends Specification {
 
     def "exportCsv() requires sign-in"() {
         given: anonSession()
-        when:  controller.exportCsv(req)
+        when:  controller.exportCsv(null, req)
         then:  thrown(UnauthorizedException)
         0 * buyOrderService.listForBuyer(_)
+    }
+
+    def "exportCsv(status='ACTIVE') filters out non-ACTIVE rows"() {
+        given:
+        def active    = new BuyOrder(id: 1L, itemId: 42L, itemName: 'Hat',
+                                     category: 'Hats', rarity: 'Standard',
+                                     maxPrice: new BigDecimal('5.50'), quantity: 2,
+                                     originalQuantity: 3, status: 'ACTIVE',
+                                     createdAt: 1700L, updatedAt: 1800L)
+        def filled    = new BuyOrder(id: 2L, itemId: 43L, itemName: 'Boots',
+                                     category: 'Shoes', rarity: 'Standard',
+                                     maxPrice: new BigDecimal('3.00'), quantity: 0,
+                                     originalQuantity: 1, status: 'FILLED',
+                                     createdAt: 1700L, updatedAt: 1800L)
+        def cancelled = new BuyOrder(id: 3L, itemId: 44L, itemName: 'Pants',
+                                     category: 'Pants', rarity: 'Standard',
+                                     maxPrice: new BigDecimal('2.00'), quantity: 1,
+                                     originalQuantity: 1, status: 'CANCELLED',
+                                     createdAt: 1700L, updatedAt: 1800L)
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [active, filled, cancelled]
+
+        when:
+        def resp = controller.exportCsv('active', req)
+
+        then:
+        // Lower-case `active` is normalised, so the filter still kicks in.
+        def lines = resp.body.split('\n')
+        lines.size() == 2          // header + 1 ACTIVE row
+        lines[1].startsWith('1,42,Hat,')
+        !resp.body.contains('Boots')
+        !resp.body.contains('Pants')
+    }
+
+    def "exportCsv(status='garbage') falls back to no-filter so a stale bookmark still returns rows"() {
+        given:
+        def row = new BuyOrder(id: 1L, itemId: 42L, itemName: 'Hat',
+                               category: 'Hats', rarity: 'Standard',
+                               maxPrice: new BigDecimal('5.50'), quantity: 2,
+                               originalQuantity: 3, status: 'ACTIVE',
+                               createdAt: 1700L, updatedAt: 1800L)
+        authedSession(100L)
+        1 * buyOrderService.listForBuyer(100L) >> [row]
+
+        when:
+        def resp = controller.exportCsv('NOT_A_STATUS', req)
+
+        then:
+        // Unknown status string is ignored — full export, not 0-row CSV.
+        resp.body.contains('Hat')
     }
 }

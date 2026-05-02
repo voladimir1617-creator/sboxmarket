@@ -57,7 +57,39 @@ class LoadoutController {
     @GetMapping("/{id}")
     ResponseEntity<Map> get(@PathVariable Long id, HttpServletRequest req) {
         def viewer = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
-        ResponseEntity.ok(loadoutService.getWithSlots(id, viewer))
+        // Boss QA cycle 4 B1 — when the requested id is missing OR private-
+        // from-this-viewer, fall back to the lowest-id PUBLIC loadout instead
+        // of returning a `{notFound: true}` sentinel. The H2 IDENTITY sequence
+        // can advance past 1-2 if a user-created loadout was deleted before
+        // the public seed ran, leaving /loadout/1 visually broken. Returning
+        // the curated lowest-id public loadout makes deep-link URLs always
+        // render something useful while preserving anti-enumeration: every
+        // missing-or-private id returns the same fallback shape, so an
+        // attacker can't tell missing from private.
+        try {
+            return ResponseEntity.ok()
+                .header('Cache-Control', 'no-cache, must-revalidate')
+                .body(loadoutService.getWithSlots(id, viewer))
+        } catch (com.sboxmarket.exception.NotFoundException ignore) {
+            def publics = loadoutService.listPublic(null)
+            if (publics != null && !publics.isEmpty()) {
+                def fallback = publics.sort { a, b -> (a?.id ?: 0L) <=> (b?.id ?: 0L) }.first()
+                try {
+                    Map body = (Map) loadoutService.getWithSlots(fallback.id, viewer)
+                    body.put('redirectedFrom', id)
+                    return ResponseEntity.ok()
+                        .header('Cache-Control', 'no-cache, must-revalidate')
+                        .body(body)
+                } catch (com.sboxmarket.exception.NotFoundException ignore2) {
+                    // Race — public loadout vanished between listing and fetch.
+                    // Fall through to the legacy sentinel so the SPA can render
+                    // its branded "not found" empty state.
+                }
+            }
+            return ResponseEntity.ok()
+                .header('Cache-Control', 'no-cache, must-revalidate')
+                .body([notFound: true, id: id])
+        }
     }
 
     @PostMapping

@@ -6,6 +6,7 @@ import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.ListingService
 import groovy.util.logging.Slf4j
 import jakarta.annotation.PostConstruct
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ClassPathResource
@@ -57,13 +58,34 @@ class OpenGraphController {
         }
     }
 
+    /**
+     * Resolve the canonical base URL for OG tags from the actual request.
+     * Same logic as `SitemapController.resolveBaseUrl` — the same container
+     * serves http://localhost:8082 for local dev AND https://skinbox.market
+     * via Cloudflare tunnel. Pre-fix, social shares of /item/{id} URLs
+     * leaked `http://localhost:8082/item/...` into Discord / Facebook /
+     * Twitter previews. Honors `X-Forwarded-{Proto,Host}` set by Cloudflare,
+     * falls back to the direct `Host` header, finally the env var.
+     */
+    String resolveBaseUrl(HttpServletRequest req) {
+        if (req != null) {
+            String proto = req.getHeader('X-Forwarded-Proto') ?: req.getHeader('X-Forwarded-Scheme') ?: req.scheme
+            String host = req.getHeader('X-Forwarded-Host') ?: req.getHeader('Host') ?: req.serverName
+            if (proto && host) {
+                String url = "${proto}://${host}".toString()
+                return url.endsWith('/') ? url.substring(0, url.length() - 1) : url
+            }
+        }
+        return publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+    }
+
     // Batch 968 — register both `/item/{id}` and `/item/{id}/` so a
     // trailing-slash URL (crawler inbound link, copy-paste, old-school
     // site convention) doesn't 404. Spring MVC's path-pattern parser
     // (default in Spring Boot 3) no longer auto-matches the trailing
     // slash variant. Same treatment on stall + loadout below.
     @GetMapping(value = ['/item/{id}', '/item/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<String> itemPage(@PathVariable String id) {
+    ResponseEntity<String> itemPage(@PathVariable String id, HttpServletRequest req) {
         if (template == null) {
             // Template never loaded — let the SPA fallback handler serve it.
             return ResponseEntity.status(404).body('')
@@ -71,21 +93,16 @@ class OpenGraphController {
         Long itemId
         try { itemId = Long.parseLong(id) }
         catch (NumberFormatException ignored) {
-            // Non-numeric id → 404. Previously returned 200 with the
-            // default template; Google would index /item/foo as a real
-            // page forever. Body stays the SPA shell so client-side JS
-            // still renders the not-found modal on the user's browser.
-            return ResponseEntity.status(404).contentType(MediaType.TEXT_HTML).body(template)
+            // Non-numeric id → noindex shell. Crawlers honour the meta
+            // tag and drop the URL; users see the SPA's branded "Item
+            // not found" panel without a console-level document 404.
+            return notFoundSpaShell()
         }
         def item = itemRepository.findById(itemId).orElse(null)
         if (item == null) {
-            // Batch 967 — return real 404 so crawlers drop the URL
-            // from their index instead of preserving a phantom page.
-            // SPA still gets the template body for JS-side rendering
-            // of the friendly "item not found" modal.
-            return ResponseEntity.status(404).contentType(MediaType.TEXT_HTML).body(template)
+            return notFoundSpaShell()
         }
-        def base = publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+        def base = resolveBaseUrl(req)
         def url = base + '/item/' + itemId
         def name = escape(item.name ?: 'Item')
         def priceStr = (item.lowestPrice != null && item.lowestPrice > BigDecimal.ZERO)
@@ -207,19 +224,18 @@ class OpenGraphController {
 
     /** Same treatment for /stall/{id} — seller stall shares. */
     @GetMapping(value = ['/stall/{id}', '/stall/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<String> stallPage(@PathVariable String id) {
+    ResponseEntity<String> stallPage(@PathVariable String id, HttpServletRequest req) {
         if (template == null) return ResponseEntity.status(404).body('')
         Long userId
         try { userId = Long.parseLong(id) }
         catch (NumberFormatException ignored) {
-            // Batch 967 — 404 instead of 200 so crawlers drop the URL.
-            return ResponseEntity.status(404).contentType(MediaType.TEXT_HTML).body(template)
+            return notFoundSpaShell()
         }
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) {
-            return ResponseEntity.status(404).contentType(MediaType.TEXT_HTML).body(template)
+            return notFoundSpaShell()
         }
-        def base = publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+        def base = resolveBaseUrl(req)
         def url = base + '/stall/' + userId
         def name = escape(user.displayName ?: 'Seller')
         def title = "${name}'s Stall · SkinBox"
@@ -274,7 +290,7 @@ class OpenGraphController {
         ['What is SkinBox?',
          "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Every listing comes from a real seller who sets their own price — we're the middle layer that makes transactions safe, fast, and cheaper than going through the Steam store."],
         ['How do I sign in?',
-         "Click the blue Steam button in the top-right. You'll bounce to steamcommunity.com, approve the login, and land back here already authenticated. Your Steam password never touches our servers — everything goes through OpenID."],
+         "Click the 'Sign in through Steam' button in the top-right. You'll bounce to steamcommunity.com, approve the login, and land back here already authenticated. Your Steam password never touches our servers — everything goes through OpenID."],
         ['How do I buy something?',
          "Top up your wallet first, then click any item and hit Buy. Funds are charged from your balance instantly — there's no bid-and-wait or 7-day trade hold like the Steam market."],
         ['How does depositing work?',
@@ -299,10 +315,104 @@ class OpenGraphController {
          "Deposits go through Stripe, the same processor used by millions of websites. We never store card details — only the amount and a Stripe reference. Withdrawal requests are logged and reviewed before payout. All balances are held in USD."]
     ]
 
-    @GetMapping(value = ['/faq', '/faq/'], produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<String> faqPage() {
+    /**
+     * /market is the canonical marketplace route — `/search` is a back-compat
+     * alias the SPA routes to the same component. Without this handler, both
+     * URLs served the static index.html with `<link rel="canonical" href="/">`
+     * which collapsed /market into the marketing landing for SEO + social
+     * shares. This handler emits per-route canonical + OG so Google indexes
+     * /market as a distinct surface and Discord/Twitter shares of /market
+     * preview as the marketplace, not the home hero.
+     */
+    /**
+     * Helper: emit a static-content SPA route page with a per-route
+     * canonical URL + OG bundle. Used for every public SPA route that
+     * has no dynamic data (database/help/loadout-index/affiliate). Without
+     * this, every route fell through to the static index.html with
+     * `<link rel="canonical" href="/">` which collapsed all of them
+     * into the home page in search-engine indexes.
+     */
+    private ResponseEntity<String> spaStaticPage(HttpServletRequest req, String path, String title, String desc, String ogType = 'website') {
         if (template == null) return ResponseEntity.status(404).body('')
-        def base = publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+        def base = resolveBaseUrl(req)
+        def url = base + path
+
+        def Q = java.util.regex.Matcher.&quoteReplacement
+        def out = template
+            .replaceFirst(/<title>[^<]*<\/title>/, Q("<title>${escape(title)}</title>"))
+            .replaceFirst(/<meta property="og:title"[^>]*>/,        Q("<meta property=\"og:title\" content=\"${escape(title)}\">"))
+            .replaceFirst(/<meta property="og:description"[^>]*>/,  Q("<meta property=\"og:description\" content=\"${escape(desc)}\">"))
+            .replaceFirst(/<meta property="og:url"[^>]*>/,          Q("<meta property=\"og:url\" content=\"${escape(url)}\">"))
+            .replaceFirst(/<meta property="og:type"[^>]*>/,         Q("<meta property=\"og:type\" content=\"${escape(ogType)}\">"))
+            .replaceFirst(/<link rel="canonical"[^>]*>/,            Q("<link rel=\"canonical\" href=\"${escape(url)}\">"))
+            .replaceFirst(/<meta name="twitter:title"[^>]*>/,       Q("<meta name=\"twitter:title\" content=\"${escape(title)}\">"))
+            .replaceFirst(/<meta name="twitter:description"[^>]*>/, Q("<meta name=\"twitter:description\" content=\"${escape(desc)}\">"))
+            .replaceFirst(/<meta name="description"[^>]*>/,         Q("<meta name=\"description\" content=\"${escape(desc)}\">"))
+
+        ResponseEntity.ok()
+            .contentType(MediaType.TEXT_HTML)
+            .header('Cache-Control', 'public, max-age=3600')
+            .body(out)
+    }
+
+    @GetMapping(value = ['/db', '/db/'], produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> dbPage(HttpServletRequest req) {
+        return spaStaticPage(req, '/db',
+            'Item Database · SkinBox',
+            "The complete s&box skin catalogue — every Workshop item indexed with supply, sale count, view count, and floor price. Filter by category and rarity, click any row to open the listing detail.")
+    }
+
+    @GetMapping(value = ['/help', '/help/'], produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> helpPage(HttpServletRequest req) {
+        return spaStaticPage(req, '/help',
+            'Help Center · SkinBox',
+            "Step-by-step guide to SkinBox — sign in with Steam, top up your wallet, browse + bargain + buy, list from your inventory, withdraw earnings. Plus FAQs and keyboard shortcuts.")
+    }
+
+    @GetMapping(value = ['/loadout', '/loadout/'], produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> loadoutIndexPage(HttpServletRequest req) {
+        return spaStaticPage(req, '/loadout',
+            'Loadout Lab · SkinBox',
+            "Curate your s&box look — drag listings into named slots, browse public loadouts, auto-generate from a budget, share via copy-link. CSFloat-style outfit builder for s&box cosmetics.")
+    }
+
+    @GetMapping(value = ['/affiliate', '/affiliate/'], produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> affiliatePage(HttpServletRequest req) {
+        return spaStaticPage(req, '/affiliate',
+            'Affiliate Program · SkinBox',
+            "Earn a cut of every trade you bring to SkinBox. Open to creators with 5K+ YouTube subs, 2K+ X/Twitter, 1K+ Twitch followers, or 10K+ Steam group members. Apply with a real audience.")
+    }
+
+    @GetMapping(value = ['/market', '/market/', '/search', '/search/'], produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> marketPage(HttpServletRequest req) {
+        if (template == null) return ResponseEntity.status(404).body('')
+        def base = resolveBaseUrl(req)
+        def title = 'Marketplace · SkinBox'
+        def desc = 'Browse every active s&box skin listing — filter by category, rarity, and price. Live auctions, instant Buy Now, escrowed Stripe checkout, 2% fees.'
+        def url = base + '/market'
+
+        def Q = java.util.regex.Matcher.&quoteReplacement
+        def out = template
+            .replaceFirst(/<title>[^<]*<\/title>/, Q("<title>${escape(title)}</title>"))
+            .replaceFirst(/<meta property="og:title"[^>]*>/,        Q("<meta property=\"og:title\" content=\"${escape(title)}\">"))
+            .replaceFirst(/<meta property="og:description"[^>]*>/,  Q("<meta property=\"og:description\" content=\"${escape(desc)}\">"))
+            .replaceFirst(/<meta property="og:url"[^>]*>/,          Q("<meta property=\"og:url\" content=\"${escape(url)}\">"))
+            .replaceFirst(/<meta property="og:type"[^>]*>/,         Q("<meta property=\"og:type\" content=\"website\">"))
+            .replaceFirst(/<link rel="canonical"[^>]*>/,            Q("<link rel=\"canonical\" href=\"${escape(url)}\">"))
+            .replaceFirst(/<meta name="twitter:title"[^>]*>/,       Q("<meta name=\"twitter:title\" content=\"${escape(title)}\">"))
+            .replaceFirst(/<meta name="twitter:description"[^>]*>/, Q("<meta name=\"twitter:description\" content=\"${escape(desc)}\">"))
+            .replaceFirst(/<meta name="description"[^>]*>/,         Q("<meta name=\"description\" content=\"${escape(desc)}\">"))
+
+        ResponseEntity.ok()
+            .contentType(MediaType.TEXT_HTML)
+            .header('Cache-Control', 'public, max-age=3600')
+            .body(out)
+    }
+
+    @GetMapping(value = ['/faq', '/faq/'], produces = MediaType.TEXT_HTML_VALUE)
+    ResponseEntity<String> faqPage(HttpServletRequest req) {
+        if (template == null) return ResponseEntity.status(404).body('')
+        def base = resolveBaseUrl(req)
         def title = 'FAQ · SkinBox'
         def desc = 'Answers to the most common SkinBox questions — signing in, depositing, buying, selling, withdrawing, and how s&box items differ from CS skins.'
         def url = base + '/faq'
@@ -347,23 +457,22 @@ class OpenGraphController {
      * a protected resource.
      */
     @GetMapping(value = ['/loadout/{id}', '/loadout/{id}/'], produces = MediaType.TEXT_HTML_VALUE)
-    ResponseEntity<String> loadoutPage(@PathVariable String id) {
+    ResponseEntity<String> loadoutPage(@PathVariable String id, HttpServletRequest req) {
         if (template == null) return ResponseEntity.status(404).body('')
         Long loadoutId
         try { loadoutId = Long.parseLong(id) }
         catch (NumberFormatException ignored) {
-            // Batch 967 — 404 instead of 200 for non-numeric ids.
-            return ResponseEntity.status(404).contentType(MediaType.TEXT_HTML).body(template)
+            return notFoundSpaShell()
         }
         def loadout = loadoutRepository.findById(loadoutId).orElse(null)
         if (loadout == null || loadout.visibility != 'PUBLIC') {
-            // Unknown or PRIVATE → default preview, never leak loadout details.
-            // Batch 967 — 404 so crawlers drop the URL. PRIVATE loadouts
-            // intentionally get the same 404 as unknown ones so an
-            // attacker can't enumerate private loadout ids by HTTP status.
-            return ResponseEntity.status(404).contentType(MediaType.TEXT_HTML).body(template)
+            // Unknown or PRIVATE → noindex shell, never leak loadout details.
+            // PRIVATE loadouts intentionally get the same shell as unknown
+            // ones so an attacker can't enumerate private loadout ids by
+            // HTTP status difference.
+            return notFoundSpaShell()
         }
-        def base = publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
+        def base = resolveBaseUrl(req)
         def url = base + '/loadout/' + loadoutId
         def name = escape(loadout.name ?: 'Loadout')
         def ownerName = escape(loadout.ownerName ?: 'a SkinBox user')
@@ -437,6 +546,31 @@ class OpenGraphController {
             .contentType(MediaType.TEXT_HTML)
             .header('Cache-Control', 'no-cache, must-revalidate')
             .body(out)
+    }
+
+    /**
+     * Serve the SPA shell for a missing entity URL with a 200 status and
+     * a `noindex, nofollow` robots meta. The SPA's client-side 404 panel
+     * still renders the branded "stall/loadout/item not found" empty
+     * state. Why 200 instead of 404: the browser console logs every
+     * document-level non-2xx as "Failed to load resource", which read
+     * as a real bug to anyone tailing the console on a routine dead-link
+     * landing. SEO impact is preserved because `robots="noindex"` is a
+     * sufficient de-indexing signal for crawlers; we no longer need the
+     * 404 status as a secondary signal. Cache-Control is no-cache so a
+     * later sync that resurrects the entity isn't masked by a stale 404
+     * preview in the CDN.
+     */
+    private ResponseEntity<String> notFoundSpaShell() {
+        if (template == null) return ResponseEntity.status(404).body('')
+        def Q = java.util.regex.Matcher.&quoteReplacement
+        def out = template
+            .replaceFirst(/<meta name="robots"[^>]*>/,
+                          Q('<meta name="robots" content="noindex, nofollow">'))
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .header('Cache-Control', 'no-cache, must-revalidate')
+                .body(out)
     }
 
     /**

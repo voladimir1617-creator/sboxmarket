@@ -11,6 +11,16 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import com.sboxmarket.service.SeedService
 import groovy.util.logging.Slf4j
 
+/**
+ * Spring Session JDBC is back on (2026-05-01) now that the cookie
+ * sanitizer correctly matches the SBOX_SESSION cookie name and runs
+ * before Spring Session's filter (HIGHEST_PRECEDENCE FilterRegistrationBean
+ * in SessionCookieSanitizerConfig). Sessions persist across container
+ * restarts and effectively never expire — see SessionConfig for the
+ * 365-day max-inactive-interval. Operator's standing demand:
+ * "MAKE IT SO SESSION IS NOT GETTING EXPIRED EVERY 2 MINUTES IT SHOULD
+ * NEVER EXPIRE ACTUALLY".
+ */
 @SpringBootApplication
 @EnableScheduling
 @EnableAsync

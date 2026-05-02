@@ -3,7 +3,7 @@
 // InfoModal as the shell, and call into api.js for I/O.
 import { h, useState, useEffect, useCallback, fmt, timeAgo, toast, linkifyText } from './utils.js';
 import { InfoModal } from './info-modal.js';
-import { ReasonDrawer } from './primitives.js';
+import { ReasonDrawer, MaterialIcon } from './primitives.js';
 import {
   adminStats, adminWithdrawals, adminApproveWithdrawal, adminRejectWithdrawal,
   adminUsers, adminUserSummary, adminUserTransactions, adminMessageUser, adminBanUser, adminUnbanUser, adminForceLogout, adminGrant, adminRevoke,
@@ -440,7 +440,7 @@ function AdminDeletionsTab() {
   if (rows === null) return h('div', { className: 'spinner' });
   if (rows.length === 0) return h('div', { className: 'profile-panel' },
     h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '🗑'),
+      h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'delete', size: 26 })),
       h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
         'No pending deletion requests.')));
   return h('div', { className: 'profile-panel' },
@@ -516,7 +516,7 @@ function AdminReportedTab() {
   if (rows.length === 0) {
     return h('div', { className: 'profile-panel' },
       h('div', { className: 'empty-inline' },
-        h('div', { className: 'empty-icon' }, '🚩'),
+        h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'flag', size: 26 })),
         h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No user-reported listings. Good signal — the marketplace is clean right now.'))
     );
   }
@@ -700,6 +700,7 @@ function AdminAnnouncementsTab() {
       h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' } },
         h('select', {
           value: severity,
+          'aria-label': 'Banner severity',
           onChange: e => setSeverity(e.target.value),
           style: { padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)' }
         },
@@ -881,10 +882,26 @@ function ApiKeyLookupPanel() {
         h('th', null, 'Last Used'))),
       h('tbody', null, rows.map(k => h('tr', { key: k.id, className: 'db-row' },
         h('td', { className: 'db-rank' }, '#' + k.id),
-        h('td', null, h('a', {
-          href: '#', onClick: (e) => { e.preventDefault(); /* admin can pivot via users tab */ },
-          style: { color: 'var(--accent)' },
-          title: 'User #' + k.userId
+        h('td', null, h('button', {
+          type: 'button',
+          // The link previously dead-ended (just preventDefault) and the
+          // accent-blue underline made it look navigable. Copy the user id
+          // to clipboard so an admin can paste it straight into the Users
+          // tab search without re-typing from the row.
+          onClick: async (e) => {
+            e.preventDefault();
+            try {
+              await navigator.clipboard.writeText(String(k.userId));
+              toast(`User #${k.userId} copied to clipboard`, 'ok');
+            } catch (_) {
+              toast(`User #${k.userId}`, 'ok');
+            }
+          },
+          style: {
+            background: 'transparent', border: 0, padding: 0,
+            color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit'
+          },
+          title: 'Copy user id ' + k.userId + ' to clipboard'
         }, 'user #' + k.userId)),
         h('td', null, k.label || '—'),
         h('td', null, h('span', {
@@ -1450,7 +1467,7 @@ function AdminTradesTab() {
       ? h('div', { className: 'spinner' })
       : display.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '⇄'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'swap_horiz', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, `No ${filter.toLowerCase()} trades.`))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
@@ -1687,7 +1704,7 @@ function AdminAuditTab() {
 
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
-      h('select', { className: 'sort-select', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
+      h('select', { className: 'sort-select', 'aria-label': 'Filter by audit event', value: filter.event, onChange: e => setFilter(f => ({ ...f, event: e.target.value })) },
         EVENTS.map(ev => h('option', { key: ev || 'all', value: ev }, ev || 'All events'))
       ),
       h('input', { className: 'price-input', style: { width: 130 }, placeholder: 'Actor user #id', value: filter.actor, onChange: e => setFilter(f => ({ ...f, actor: e.target.value })) }),
@@ -1736,7 +1753,7 @@ function AdminAuditTab() {
     displayRows === null
       ? h('div', { className: 'spinner' })
       : displayRows.length === 0
-        ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, '📜'),
+        ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'receipt_long', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
               textSearch.trim() ? 'No audit entries match "' + textSearch.trim() + '".' : 'No audit entries match those filters.'))
         : h('table', { className: 'db-table' },
@@ -1924,6 +1941,18 @@ function AdminWithdrawalsTab() {
     try {
       const res = await adminApproveWithdrawal(row.id, ref);
       if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
+      // Pre-fix: approve was silent on success while reject toasted. The
+      // sibling reject path (line 1952) confirms with amount + user
+      // context, so an admin processing a queue could tell which click
+      // landed. Approve was the inconsistent outlier — same toast pattern
+      // applied for symmetry. The shape from `adminWithdrawals` carries
+      // `ownerDisplayName` / `ownerUserId` / `walletUsername` (verified
+      // against AdminController#withdrawals.csv columns).
+      const who = row.ownerDisplayName ? `@${row.ownerDisplayName}`
+                : row.walletUsername ? `@${row.walletUsername}`
+                : row.ownerUserId ? `user #${row.ownerUserId}`
+                : 'wallet';
+      toast(`✓ Approved withdrawal #${row.id} — ${fmt(row.amount)} to ${who}.`, 'ok');
       await load();
     } finally { setBusy(false); }
   };
@@ -1960,7 +1989,7 @@ function AdminWithdrawalsTab() {
       ? h('div', { className: 'spinner' })
       : rows.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '💸'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'payments', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, `No ${filter.toLowerCase()} withdrawals.`))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
@@ -2198,6 +2227,7 @@ function AdminCatalogueTab() {
             h('div', { className: 'settings-label' }, 'Rarity'),
             h('select', {
               className: 'sort-select',
+              'aria-label': 'Item rarity',
               value: draft.rarity,
               onChange: e => setDraft(d => ({ ...d, rarity: e.target.value }))
             },
@@ -2474,7 +2504,14 @@ function AdminUsersTab({ me }) {
     try {
       const res = await adminCreditWallet(u.id, amt, note);
       if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
-      toast('New balance: $' + res.newBalance, 'ok');
+      // Pre-fix: the user-list table row binds to `r.walletBalance`, but
+      // doCredit didn't re-fetch the list — so the column kept showing the
+      // pre-adjustment number. The toast confirmed the new balance, then
+      // the row contradicted it. Refresh keeps both surfaces in sync.
+      await load();
+      const label = u.displayName || u.steamId64;
+      const direction = amt >= 0 ? 'credited' : 'debited';
+      toast(`${label} ${direction} ${fmt(Math.abs(amt))} — new balance ${fmt(res.newBalance)}.`, 'ok');
     } finally { setBusy(false); }
   };
 
@@ -2543,7 +2580,7 @@ function AdminUsersTab({ me }) {
       ? h('div', { className: 'spinner' })
       : visibleRows.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '👥'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'group', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
               rows.length === 0 ? 'No matching users.' : `No users match filter "${roleFilter.toLowerCase()}".`))
         : h('table', { className: 'db-table' },
@@ -2587,9 +2624,9 @@ function AdminUsersTab({ me }) {
                   }, '🔎'),
                   h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doCredit(u) }, '$'),
                   u.role === 'USER'
-                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(96,165,250,0.4)', color: '#60a5fa' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role' }, '+CSR')
+                    ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrantCsr(u), title: 'Grant CSR role' }, '+CSR')
                     : u.role === 'CSR'
-                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(96,165,250,0.4)', color: '#60a5fa' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role' }, '−CSR')
+                      ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevokeCsr(u), title: 'Revoke CSR role' }, '−CSR')
                       : null,
                   u.role !== 'ADMIN'
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doGrant(u) }, '+Admin')
@@ -2603,7 +2640,7 @@ function AdminUsersTab({ me }) {
                   // bumps sessionEpoch).
                   me?.id !== u.id && !u.banned && h('button', {
                     className: 'btn btn-ghost',
-                    style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(251,191,36,0.4)', color: '#fbbf24' },
+                    style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' },
                     disabled: busy, onClick: () => doForceLogout(u),
                     title: 'Revoke every live session (does not ban)'
                   }, 'Force logout')
@@ -2723,6 +2760,14 @@ function AdminUsersTab({ me }) {
               if (!note || !note.trim()) return;
               const res = await adminReset2fa(detailUser.id, note.trim());
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
+              // Pre-fix: the Security health-card shows `summary.twoFactorEnabled`
+              // ("🔐 2FA" → "○ 2FA"). Reset flipped the server-side flag but
+              // the local summary kept the old value until the drawer was
+              // reopened, contradicting the toast. In-place patch keeps the
+              // card honest.
+              setDetailData(d => d && d.summary
+                ? { ...d, summary: { ...d.summary, twoFactorEnabled: false } }
+                : d);
               // Batch 944 — name the user in the toast so staff see which
               // reset just landed when bulk-supporting multiple accounts.
               toast(`✓ 2FA reset for ${label} — they'll re-enrol on next sign-in.`, 'ok');
@@ -2745,6 +2790,13 @@ function AdminUsersTab({ me }) {
               if (!reason || !reason.trim()) return;
               const res = await adminFreezeWallet(detailUser.id, reason.trim());
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
+              // Pre-fix: the Wallet health-card at the top of the drawer
+              // reads `summary.walletFrozen` and stayed "Active" until the
+              // drawer was reopened. Patch the local summary so the card
+              // flips to "❄ FROZEN" the moment the toast fires.
+              setDetailData(d => d && d.summary
+                ? { ...d, summary: { ...d.summary, walletFrozen: true, walletFrozenReason: reason.trim() } }
+                : d);
               // Batch 944 — name the user in the toast. Previously generic
               // "Wallet frozen." reading made bulk triaging harder.
               toast(res.noChange
@@ -2762,6 +2814,11 @@ function AdminUsersTab({ me }) {
               if (!confirm(`Unfreeze wallet for ${label}?`)) return;
               const res = await adminUnfreezeWallet(detailUser.id);
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
+              // Same in-place patch as Freeze above so the Wallet health-card
+              // flips to "Active" without a drawer reopen.
+              setDetailData(d => d && d.summary
+                ? { ...d, summary: { ...d.summary, walletFrozen: false, walletFrozenReason: null } }
+                : d);
               toast(res.noChange
                 ? `${label}'s wallet already unfrozen — no-op.`
                 : `✓ ${label}'s wallet unfrozen — money-in/out restored.`,
@@ -3167,7 +3224,7 @@ function AdminTicketsTab() {
     list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
-        ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, '🎧'),
+        ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'support_agent', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No tickets.'))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,
@@ -3393,6 +3450,7 @@ function CsrFlagTab() {
       }),
       h('select', {
         className: 'price-input',
+        'aria-label': 'Penalty reason',
         style: { flex: 1 },
         value: REASONS.includes(reason) ? reason : '',
         onChange: e => setReason(e.target.value)
@@ -3473,7 +3531,7 @@ function CsrLookupTab() {
       h('button', { className: 'btn btn-accent', disabled: busy, onClick: search }, busy ? '…' : 'Search')
     ),
     data && (data.matches.length === 0
-      ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, '🔎'),
+      ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matches.'))
       : data.matches.map(u => h('div', { key: u.id, className: 'csr-user-card' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 } },
@@ -3638,7 +3696,7 @@ function CsrTicketsTab() {
     list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
-        ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, '🎧'),
+        ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'support_agent', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'Queue is clear.'))
         : h('table', { className: 'db-table' },
             h('thead', null, h('tr', null,

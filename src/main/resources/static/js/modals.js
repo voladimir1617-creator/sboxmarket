@@ -2187,6 +2187,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
             h('select', {
               ref: selectRef,
               className: 'price-input',
+              'aria-label': 'Reason',
               style: { width: '100%', marginBottom: 12 },
               value: reason,
               onChange: e => setReason(e.target.value),
@@ -2395,6 +2396,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
                           textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
       h('select', {
         className: 'price-input',
+        'aria-label': 'Report reason',
         style: { width: '100%', marginBottom: 12 },
         value: reason,
         onChange: e => setReason(e.target.value),
@@ -2512,6 +2514,7 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 } }, 'Reason'),
       h('select', {
         className: 'price-input',
+        'aria-label': 'Dispute reason',
         style: { width: '100%', marginBottom: 12 },
         value: reason,
         onChange: e => setReason(e.target.value),
@@ -2900,6 +2903,7 @@ export function SettingsModal({ onClose, me }) {
     Section('Display'),
     Row('Currency', 'Prices shown in your chosen currency (stored as USD)', h('select', {
         className: 'sort-select', value: currency,
+        'aria-label': 'Display currency',
         onChange: e => setCurrency(e.target.value)
       },
       h('option', { value: 'USD' }, 'USD · $'),
@@ -4119,9 +4123,17 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
       const res = await setTradeUrl(raw);
       if (res.code || res.error) { setTradeUrlErr(res.message || res.error); return; }
       setEditingTradeUrl(false); setTradeUrlDraft('');
-      // ProfilePersonalTab receives `profile` as a prop so we can't mutate
-      // it in place; the parent refetches on the next tab switch. Good
-      // enough — the success path is visually terminal (exit edit mode).
+      // Pre-fix: success was visually terminal via exit-edit-mode but
+      // gave no toast — and the empty-string path SILENTLY removed the
+      // user's trade URL, which gates checkout/cart/buy-now. A removal
+      // with no toast is the most disorienting failure mode here, so
+      // we surface a distinct toast for each branch. ProfilePersonalTab
+      // receives `profile` as a prop so we can't mutate it in place;
+      // the parent refetches on the next tab switch.
+      toast(raw && raw.length > 0
+        ? 'Steam trade URL saved — sellers can now send your items.'
+        : 'Steam trade URL removed — checkout will be blocked until you set a new one.',
+        'ok');
     } finally { setTradeUrlBusy(false); }
   };
 
@@ -4701,12 +4713,25 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
                 onClick: async () => {
+                  // Critical safety surface — a silent-failure here used
+                  // to leave users without their 2FA recovery codes if
+                  // clipboard was unavailable (insecure context, denied
+                  // permission, focus loss). Now mirrors the API-key
+                  // copy path: prompt fallback both when the API is
+                  // missing AND when the write throws, plus an error
+                  // toast pointing at the Download button so users
+                  // never lose their codes silently.
+                  const text = backupCodes.join('\n');
                   try {
                     if (navigator.clipboard?.writeText) {
-                      await navigator.clipboard.writeText(backupCodes.join('\n'));
+                      await navigator.clipboard.writeText(text);
                       toast('Backup codes copied to clipboard.', 'ok');
+                    } else {
+                      window.prompt('Copy your backup codes:', text);
                     }
-                  } catch (_) {}
+                  } catch (_) {
+                    window.prompt('Copy your backup codes:', text);
+                  }
                 }
               }, '⎘ Copy'),
               h('button', {
@@ -6316,6 +6341,7 @@ function ProfileTradesTab({ me, privacy }) {
     // toast but gave the seller nothing to retry — they'd have to
     // re-click Mark Sent and re-paste. Now the drawer stays open on
     // error so the seller can fix the URL in place.
+    const t = trades.find(x => x.id === id);
     setBusy(true);
     try {
       const res = await tradeMarkSent(id, url || undefined);
@@ -6325,6 +6351,14 @@ function ProfileTradesTab({ me, privacy }) {
       }
       setMarkSentTrade(null);
       await load();
+      // Pre-fix: silent on success — the seller pasted a Steam offer
+      // URL, hit Send, the drawer closed, and the only feedback that
+      // anything happened was the row's state pill flipping to
+      // "Awaiting buyer confirm" two scrolls down the trades list.
+      // Mirror the named-success pattern from onAccept / onCancel so
+      // every step in the trade state machine surfaces feedback.
+      const label = t?.itemName ? `"${t.itemName}"` : `trade #${id}`;
+      toast(`Marked ${label} as sent — buyer will confirm receipt to release escrow.`, 'ok');
     } finally { setBusy(false); }
   };
   // Buyer confirm is financially irreversible — it releases escrow to the
@@ -6373,8 +6407,21 @@ function ProfileTradesTab({ me, privacy }) {
     setDisputeTrade(t);
   };
   const onCancel  = async (id) => {
+    // Pre-fix: tradeOp(tradeCancel, …) was silent on success — the row
+    // flipped to CANCELLED and the buyer-refund happened with zero
+    // confirmation. Mirrors the named-success pattern from onAccept
+    // (line 6293) so the seller gets symmetric feedback on every step.
+    const t = trades.find(x => x.id === id);
     if (!confirm('Cancel this trade? The buyer will be refunded.')) return;
-    tradeOp(tradeCancel, id, 'User cancelled');
+    setBusy(true);
+    try {
+      const res = await tradeCancel(id, 'User cancelled');
+      if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
+      await load();
+      const label = t?.itemName ? `"${t.itemName}"` : `trade #${id}`;
+      const priceBit = t?.price != null ? ` — ${fmt(t.price)} refunded to the buyer` : '';
+      toast(`Cancelled ${label}${priceBit}.`, 'ok');
+    } finally { setBusy(false); }
   };
 
   // 6-node stepper mapping per CSFloat Visual Manual §29. Node 1 (Seller)
@@ -6790,8 +6837,24 @@ function ProfileTradesTab({ me, privacy }) {
                       type: 'button',
                       title: 'Copy URL to clipboard',
                       onClick: async () => {
-                        try { await navigator.clipboard.writeText(t.counterpartyTradeUrl); }
-                        catch (_) { window.prompt('Copy this trade URL:', t.counterpartyTradeUrl); }
+                        // Counterparty trade URL — sellers paste this
+                        // into Steam to send the trade offer, so silent
+                        // success ("did it copy or not?") is a real
+                        // hold-up. Toast confirms; prompt fallback for
+                        // missing/blocked clipboard API. Pre-fix the
+                        // success path was silent: clipboard wrote but
+                        // the user had no signal whether to switch
+                        // tabs to Steam yet.
+                        try {
+                          if (navigator.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(t.counterpartyTradeUrl);
+                            toast(isSeller
+                              ? "Buyer's trade URL copied — paste into Steam to send the offer."
+                              : "Seller's trade URL copied.", 'ok');
+                          } else {
+                            window.prompt('Copy this trade URL:', t.counterpartyTradeUrl);
+                          }
+                        } catch (_) { window.prompt('Copy this trade URL:', t.counterpartyTradeUrl); }
                       }
                     }, '⎘'),
                     // Direct Steam profile link (batch 399). Lets a seller
@@ -8089,10 +8152,20 @@ function ProfileReviewsTab({ me }) {
   const submit = async (reviewId, clear = false) => {
     setBusy(true);
     try {
+      // Pre-fix: silent on success — seller replies to a review, hits
+      // submit, the reply appears in-place but no toast confirms. Pair
+      // with a matching error toast (already present) so the OK path
+      // isn't the inconsistent outlier on this modal.
+      const r = (received || []).find(x => x.id === reviewId);
       const res = await replyToReview(reviewId, clear ? '' : (draft || '').trim());
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reply failed', 'err'); return; }
       setEditId(null); setDraft('');
       await loadReceived();
+      const who = r?.fromDisplayName ? `@${r.fromDisplayName}` : 'reviewer';
+      toast(clear
+        ? `Reply removed from ${who}'s review.`
+        : `Reply posted to ${who}'s review.`,
+        'ok');
     } finally { setBusy(false); }
   };
   const deleteMine = async (reviewId) => {
@@ -8613,11 +8686,7 @@ function ProfileSupportTab() {
       h('div', { className: 'wallet-input-label' }, 'Subject'),
       h('input', { className: 'wallet-amount-input', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
-      h('select', { className: 'sort-select', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
-        // Batch 903 — REFUND added. Backend `autoReply` has had a
-        // REFUND branch since batch 553 but the frontend select
-        // didn't expose it, so users with refund requests had to
-        // pick TRADE or OTHER and staff had to re-tag post-triage.
+      h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, c))
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
@@ -8739,6 +8808,7 @@ function ProfileDevelopersTab() {
       h('input', { className: 'price-input', placeholder: 'Label (e.g. my-bot)', style: { flex: 1, minWidth: 180 }, value: label, onChange: e => setLabel(e.target.value) }),
       h('select', {
         className: 'price-input',
+        'aria-label': 'API key scope',
         value: scope,
         onChange: e => setScope(e.target.value),
         title: 'RW = full read + write (buy, sell, transfer). RO = read-only — safer for price-watcher bots.',
@@ -11664,15 +11734,30 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   if (!me) return h(InfoModal, { title: 'Offers', onClose },
     h(SignInNeededEmptyState, { what: 'your offers' }));
 
+  // Helper to find an offer row by id across incoming + outgoing so the
+  // success-toast can name the item + offered amount the way the
+  // ProfileOffersTab equivalents (modals.js:7600+) already do. Pre-fix
+  // every state-transition toast on this surface was generic ("Offer
+  // accepted — trade opened.") while the ProfileOffersTab equivalents
+  // had rich `<item>, <amount>, <buyer>` context. Symmetric naming so a
+  // seller bouncing across both surfaces reads the same level of
+  // detail everywhere.
+  const findOffer = (id) => (incoming || []).find(x => x.id === id)
+                          || (outgoing || []).find(x => x.id === id);
+
   const handleAccept = async (id) => {
     if (busy) return;
+    const o = findOffer(id);
     setBusy(true);
     try {
       const res = await acceptOffer(id);
       if (res.code || res.error) { toast(res.message || res.error || 'Could not accept offer', 'err'); return; }
       await load();
       onRefresh && onRefresh();
-      toast('Offer accepted — trade opened.', 'ok');
+      const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
+      const amtBit = o?.amount != null ? ` at ${fmt(parseFloat(o.amount))}` : '';
+      const buyerBit = o?.buyerName ? ` from ${o.buyerName}` : '';
+      toast(`Accepted ${label}${amtBit}${buyerBit} — trade opened.`, 'ok');
     } finally { setBusy(false); }
   };
   // Reject flow (V45 / batch 387). `rejectFor` is the offer id the seller
@@ -11683,6 +11768,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // (useState pair hoisted above the anon-guard early return.)
   const confirmReject = async (id) => {
     if (busy) return;
+    const o = findOffer(id);
     setBusy(true);
     try {
       const res = await rejectOffer(id, rejectReply);
@@ -11692,11 +11778,14 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       }
       setRejectFor(null); setRejectReply('');
       await load();
-      toast('Offer rejected — buyer notified.', 'ok');
+      const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
+      const buyerBit = o?.buyerName ? ` from ${o.buyerName}` : '';
+      toast(`Rejected ${label}${buyerBit} — buyer notified.`, 'ok');
     } finally { setBusy(false); }
   };
   const handleCancel = async (id) => {
     if (busy) return;
+    const o = findOffer(id);
     setBusy(true);
     try {
       // Pre-fix: silent both ways — successful cancel got no toast (the user
@@ -11711,13 +11800,16 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         return;
       }
       await load();
-      toast('Offer cancelled.', 'ok');
+      const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
+      const amtBit = o?.amount != null ? ` (${fmt(parseFloat(o.amount))})` : '';
+      toast(`Cancelled your offer on ${label}${amtBit}.`, 'ok');
     } finally { setBusy(false); }
   };
   const handleCounter = async (id, mode) => {
     if (busy) return;
     const amt = parseFloat(counterAmt);
     if (!Number.isFinite(amt) || amt <= 0) { toast('Enter an amount above $0', 'err'); return; }
+    const o = findOffer(id);
     setBusy(true);
     try {
       // Incoming = seller countering a buyer's offer → /counter.
@@ -11730,7 +11822,12 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
       if (res.code || res.error) { toast(res.message || res.error || 'Action failed', 'err'); return; }
       setCounterFor(null); setCounterAmt(''); setCounterMsg('');
       await load();
-      toast(mode === 'raise' ? 'Offer raised.' : 'Counter sent.', 'ok');
+      const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
+      const wasStr = o?.amount ? ` (was ${fmt(parseFloat(o.amount))})` : '';
+      toast(mode === 'raise'
+        ? `Raised offer on ${label} to ${fmt(amt)}${wasStr}.`
+        : `Countered ${label} at ${fmt(amt)} — buyer notified.`,
+        'ok');
     } finally { setBusy(false); }
   };
 
@@ -13422,6 +13519,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                   // empty inbox shouldn't get a useless dropdown.
                   availableMonths.length > 0 && h('select', {
                     className: 'sort-select',
+                    'aria-label': 'Filter transactions by month',
                     style: { minWidth: 150, fontSize: 12 },
                     value: txMonth,
                     onChange: e => setTxMonth(e.target.value),

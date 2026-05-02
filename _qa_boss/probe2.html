@@ -1,0 +1,19 @@
+﻿<!DOCTYPE html><html><head><meta name=viewport content="width=device-width, initial-scale=1"></head>
+<body>
+<iframe id=f src='http://localhost:8082/changelog.html' width=390 height=200 style='border:0'></iframe>
+<pre id=p>loading...</pre>
+<script>
+document.getElementById('f').addEventListener('load', () => {
+  setTimeout(() => {
+    var doc = document.getElementById('f').contentDocument;
+    var btn = doc.querySelector('.nav-right a.btn');
+    var arrow = doc.querySelector('.back-to-app-arrow');
+    var text = doc.querySelector('.back-to-app-text');
+    var rect = btn ? btn.getBoundingClientRect() : null;
+    var aRect = arrow ? arrow.getBoundingClientRect() : null;
+    var tRect = text ? text.getBoundingClientRect() : null;
+    document.getElementById('p').textContent = JSON.stringify({btn: rect, arrow: aRect, text: tRect, textComputed: text ? doc.defaultView.getComputedStyle(text).display : null, ww: doc.defaultView.innerWidth}, null, 2);
+  }, 1000);
+});
+</script>
+</body></html>

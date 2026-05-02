@@ -286,6 +286,52 @@ class ReviewServiceSpec extends Specification {
         result.average == 4.6
     }
 
+    def "summariesForUsers maps a single GROUP BY result into [uid -> {count,average}]"() {
+        given:
+        // aggregateForUsers returns [uid, count, avg] rows. Sellers with
+        // zero reviews are absent from the result (the WHERE r.toUserId IN
+        // never matches them) and must NOT appear in the output map either.
+        def rawRows = [
+            [20L, 7L, 4.571 as Double],
+            [21L, 3L, 5.0   as Double]
+        ]
+        reviewRepository.aggregateForUsers(_) >> { args -> rawRows }
+
+        when:
+        def out = service.summariesForUsers([20L, 21L, 99L])
+
+        then:
+        out.size() == 2
+        out[20L].count == 7
+        out[20L].average == 4.6
+        out[21L].count == 3
+        out[21L].average == 5.0
+        !out.containsKey(99L)
+    }
+
+    def "summariesForUsers short-circuits on null + empty input without hitting the repo"() {
+        when:
+        def emptyResult = service.summariesForUsers([])
+        def nullResult  = service.summariesForUsers(null)
+
+        then:
+        emptyResult.isEmpty()
+        nullResult.isEmpty()
+        0 * reviewRepository.aggregateForUsers(_)
+    }
+
+    def "summariesForUsers degrades silently when the repo throws"() {
+        given:
+        reviewRepository.aggregateForUsers(_) >> { throw new RuntimeException("db down") }
+
+        when:
+        def out = service.summariesForUsers([20L])
+
+        then:
+        out.isEmpty()
+        notThrown(Exception)
+    }
+
     def "deleteReview removes the row when the caller is the author"() {
         given:
         def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 2, comment: 'meh', itemName: 'Wizard Hat')

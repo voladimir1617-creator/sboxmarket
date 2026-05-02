@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Design System — sboxmarket</title>
+<link rel="stylesheet" href="_design.css" />
+<style>
+  .ds-grid {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: var(--s-32);
+    align-items: start;
+  }
+  .ds-toc { position: sticky; top: calc(var(--nav-h) + var(--s-32)); display: flex; flex-direction: column; gap: 2px; font-size: var(--t-12); }
+  .ds-toc a { color: var(--ink-3); padding: 6px 10px; border-radius: var(--r-sm); }
+  .ds-toc a:hover { color: var(--ink); background: var(--bg-1); }
+  .ds-toc a.is-active { color: var(--ink); border-left: 2px solid var(--blue); border-radius: 0; padding-left: 10px; }
+  .ds-toc h5 { font-size: var(--t-10); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); padding: 14px 10px 6px; font-weight: 600; }
+
+  .ds-section { padding-top: var(--s-40); }
+  .ds-section:first-child { padding-top: 0; }
+  .ds-section h2 {
+    font-size: var(--t-22);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: var(--s-8);
+  }
+  .ds-section .ds-desc { color: var(--ink-3); margin-bottom: var(--s-20); max-width: 60ch; line-height: 1.55; }
+  .ds-block {
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .ds-block .demo { padding: var(--s-32); }
+  .ds-block .meta { padding: var(--s-12) var(--s-16); border-top: 1px solid var(--line); background: var(--bg); font-family: var(--font-mono); font-size: var(--t-11); color: var(--ink-3); display: flex; justify-content: space-between; }
+
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--s-10);
+  }
+  .swatch {
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    background: var(--bg-1);
+  }
+  .swatch .chip-area {
+    height: 80px;
+  }
+  .swatch .meta {
+    padding: var(--s-10) var(--s-12);
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+    color: var(--ink-3);
+    line-height: 1.4;
+    border-top: 1px solid var(--line);
+  }
+  .swatch .meta strong { color: var(--ink); display: block; font-weight: 500; font-family: var(--font-sans); font-size: var(--t-12); margin-bottom: 2px; }
+
+  .type-row {
+    padding: var(--s-20) 0;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: var(--s-32);
+    align-items: baseline;
+  }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .specs { font-family: var(--font-mono); font-size: var(--t-11); color: var(--ink-3); text-align: right; }
+
+  .scale-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--s-10);
+  }
+  .scale-tile {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: var(--s-12);
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+    color: var(--ink-3);
+    text-align: center;
+  }
+  .scale-tile .box {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    margin: 0 auto var(--s-8);
+  }
+  .scale-tile strong { color: var(--ink); display: block; }
+
+  .placeholder-block {
+    background:
+      repeating-linear-gradient(45deg,
+        var(--bg-1) 0 12px,
+        color-mix(in oklch, var(--bg-2) 50%, transparent) 12px 13px);
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r-sm);
+    aspect-ratio: 16/10;
+    display: grid; place-items: center;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-11);
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="brand"><span class="brand-mark"></span>sboxmarket · design system</a>
+    <div></div>
+    <div class="nav-actions">
+      <a href="Market.html" class="btn btn-ghost btn-sm">Market →</a>
+    </div>
+  </div>
+</nav>
+
+<main class="layout">
+
+  <header style="margin-bottom: var(--s-40); padding-bottom: var(--s-24); border-bottom: 1px solid var(--line); max-width: 720px;">
+    <div class="crumb"><span style="color: var(--ink);">Design system</span></div>
+    <h1 style="font-size: var(--t-40); font-weight: 600; letter-spacing: -0.025em; line-height: 1.05; margin-bottom: var(--s-12);">A premium, restrained marketplace UI.</h1>
+    <p style="color: var(--ink-2); font-size: var(--t-15); line-height: 1.55; max-width: 60ch;">
+      Mono ink hierarchy, hairline 1px borders, blue reserved for action. Strict spacing scale.
+      Every component below is a real CSS class — page mockups consume them as-is.
+    </p>
+  </header>
+
+  <div class="ds-grid">
+
+    <!-- TOC -->
+    <aside class="ds-toc">
+      <h5>Foundations</h5>
+      <a href="#tokens" class="is-active">Tokens</a>
+      <a href="#color">Color</a>
+      <a href="#type">Typography</a>
+      <a href="#space">Space</a>
+      <a href="#radius">Radius &amp; shadow</a>
+      <h5>Components</h5>
+      <a href="#buttons">Buttons</a>
+      <a href="#form">Inputs</a>
+      <a href="#chips">Chips &amp; badges</a>
+      <a href="#card">Listing card</a>
+      <a href="#table">Table</a>
+      <a href="#nav">Nav &amp; tabs</a>
+      <a href="#ph">Placeholders</a>
+      <h5>Overlays</h5>
+      <a href="#modal">Modal</a>
+      <a href="#popover">Popover</a>
+      <a href="#tooltip">Tooltip</a>
+      <a href="#toast">Toast</a>
+      <a href="#skeleton">Skeleton</a>
+      <h5>Pages</h5>
+      <a href="Market.html">Market</a>
+      <a href="Item Detail.html">Item Detail</a>
+      <a href="Sell.html">Sell</a>
+      <a href="Profile.html">Profile</a>
+      <a href="Wallet.html">Wallet</a>
+      <a href="Stall.html">Stall</a>
+      <a href="Database.html">Database</a>
+      <a href="Loadouts.html">Loadouts</a>
+      <a href="Watchlist.html">Watchlist</a>
+      <a href="Buy Orders.html">Buy orders</a>
+      <a href="Cart.html">Cart</a>
+      <a href="Notifications.html">Notifications</a>
+      <a href="404.html">404</a>
+    </aside>
+
+    <!-- Sections -->
+    <section>
+
+      <!-- TOKENS -->
+      <section id="tokens" class="ds-section" style="padding-top: 0;">
+        <h2>Tokens</h2>
+        <p class="ds-desc">Defined as CSS custom properties on <code class="mono">:root</code>. Every component reads from these. Theme/density swaps happen by changing tokens, never by overriding component CSS.</p>
+        <div class="ds-block">
+          <div class="demo" style="font-family: var(--font-mono); font-size: var(--t-12); color: var(--ink-2); line-height: 1.7;">
+<span class="dim">/* base */</span><br/>
+<span style="color: var(--blue);">--bg</span>: oklch(0.155 0.008 260);<br/>
+<span style="color: var(--blue);">--bg-1</span>: oklch(0.190 0.009 260);  <span class="dim">/* card surface */</span><br/>
+<span style="color: var(--blue);">--bg-2</span>: oklch(0.225 0.010 260);  <span class="dim">/* hover surface */</span><br/>
+<span style="color: var(--blue);">--line</span>: oklch(0.295 0.012 260);  <span class="dim">/* hairline border */</span><br/>
+<br/>
+<span style="color: var(--blue);">--ink</span>:   oklch(0.975 0.004 90); <span class="dim">/* primary text */</span><br/>
+<span style="color: var(--blue);">--ink-2</span>: oklch(0.815 0.006 90); <span class="dim">/* secondary */</span><br/>
+<span style="color: var(--blue);">--ink-3</span>: oklch(0.595 0.008 90); <span class="dim">/* tertiary */</span><br/>
+<span style="color: var(--blue);">--ink-4</span>: oklch(0.435 0.010 90); <span class="dim">/* dim */</span><br/>
+<br/>
+<span style="color: var(--blue);">--blue</span>: #3b82f6;  <span class="dim">/* spice — CTA, live LED, active tab */</span><br/>
+<span style="color: var(--blue);">--up</span>:   oklch(0.78 0.16 150);<br/>
+<span style="color: var(--blue);">--down</span>: oklch(0.70 0.18 25);
+          </div>
+        </div>
+      </section>
+
+      <!-- COLOR -->
+      <section id="color" class="ds-section">
+        <h2>Color</h2>
+        <p class="ds-desc">Warm near-black base, hue 260, chroma ≤ 0.012 — subtly toned, never neutral gray. Ink hierarchy in hue 90. One blue accent (<code class="mono">#3b82f6</code>) reserved for action; <code class="mono">--up</code> / <code class="mono">--down</code> for delta.</p>
+        <div class="swatch-grid">
+          <div class="swatch"><div class="chip-area" style="background: var(--bg);"></div><div class="meta"><strong>--bg</strong>oklch(0.155 0.008 260)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--bg-1);"></div><div class="meta"><strong>--bg-1</strong>oklch(0.190 0.009 260)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--bg-2);"></div><div class="meta"><strong>--bg-2</strong>oklch(0.225 0.010 260)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--bg-3);"></div><div class="meta"><strong>--bg-3</strong>oklch(0.265 0.011 260)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--line);"></div><div class="meta"><strong>--line</strong>oklch(0.295 0.012 260)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--line-2);"></div><div class="meta"><strong>--line-2</strong>oklch(0.360 0.014 260)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--ink-4);"></div><div class="meta"><strong>--ink-4</strong>oklch(0.435 0.010 90)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--ink-3);"></div><div class="meta"><strong>--ink-3</strong>oklch(0.595 0.008 90)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--ink-2);"></div><div class="meta"><strong>--ink-2</strong>oklch(0.815 0.006 90)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--ink);"></div><div class="meta"><strong>--ink</strong>oklch(0.975 0.004 90)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--blue);"></div><div class="meta"><strong>--blue (spice)</strong>#3b82f6</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--up);"></div><div class="meta"><strong>--up</strong>oklch(0.78 0.16 150)</div></div>
+          <div class="swatch"><div class="chip-area" style="background: var(--down);"></div><div class="meta"><strong>--down</strong>oklch(0.70 0.18 25)</div></div>
+        </div>
+      </section>
+
+      <!-- TYPE -->
+      <section id="type" class="ds-section">
+        <h2>Typography</h2>
+        <p class="ds-desc">Geist for UI &amp; display. Geist Mono for prices, floats, IDs, timestamps — anywhere tabular numerals matter. Strict scale: 10 / 11 / 12 / 13 / 14 / 15 / 18 / 22 / 28 / 40 / 60.</p>
+        <div class="ds-block">
+          <div class="demo">
+            <div class="type-row">
+              <div style="font-size: var(--t-60); font-weight: 600; letter-spacing: -0.035em; line-height: 1;">Display 60</div>
+              <div class="specs">Geist 60 · -0.035em · weight 600</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-40); font-weight: 600; letter-spacing: -0.025em; line-height: 1.05;">Headline 40</div>
+              <div class="specs">Geist 40 · -0.025em · weight 600</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-28); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1;">Title 28</div>
+              <div class="specs">Geist 28 · -0.02em · weight 600</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-22); font-weight: 600; letter-spacing: -0.015em;">Subtitle 22</div>
+              <div class="specs">Geist 22 · -0.015em · weight 600</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-18);">Lede 18 — used for short intro paragraphs above the fold.</div>
+              <div class="specs">Geist 18 · weight 400</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-14); color: var(--ink-2); max-width: 56ch;">Body 14 is the default size for paragraphs, list items, table cells, and most UI text. Line height 1.45, tracking -0.005em.</div>
+              <div class="specs">Geist 14 · 1.45 · -0.005em</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-12); color: var(--ink-3);">Small 12 — captions, secondary labels, helper text.</div>
+              <div class="specs">Geist 12 · 1.4 · ink-3</div>
+            </div>
+            <div class="type-row">
+              <div class="mono" style="font-size: var(--t-22); color: var(--ink); letter-spacing: -0.01em;">$1,284.50</div>
+              <div class="specs">Geist Mono 22 · tnum</div>
+            </div>
+            <div class="type-row">
+              <div style="font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); font-weight: 600;">Eyebrow / label</div>
+              <div class="specs">Geist 11 · 0.08em · upper</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPACE -->
+      <section id="space" class="ds-section">
+        <h2>Space</h2>
+        <p class="ds-desc">Strict scale: 4 / 8 / 10 / 12 / 14 / 16 / 18 / 20 / 22 / 24 / 28 / 32 / 40 / 56 / 80. Nothing in between. Components compose from these — never from arbitrary pixels.</p>
+        <div class="ds-block">
+          <div class="demo">
+            <div class="scale-grid">
+              <div class="scale-tile"><div class="box" style="width: 4px; height: 4px;"></div><strong>4</strong>--s-4</div>
+              <div class="scale-tile"><div class="box" style="width: 8px; height: 8px;"></div><strong>8</strong>--s-8</div>
+              <div class="scale-tile"><div class="box" style="width: 10px; height: 10px;"></div><strong>10</strong>--s-10</div>
+              <div class="scale-tile"><div class="box" style="width: 12px; height: 12px;"></div><strong>12</strong>--s-12</div>
+              <div class="scale-tile"><div class="box" style="width: 14px; height: 14px;"></div><strong>14</strong>--s-14</div>
+              <div class="scale-tile"><div class="box" style="width: 16px; height: 16px;"></div><strong>16</strong>--s-16</div>
+              <div class="scale-tile"><div class="box" style="width: 20px; height: 20px;"></div><strong>20</strong>--s-20</div>
+              <div class="scale-tile"><div class="box" style="width: 24px; height: 24px;"></div><strong>24</strong>--s-24</div>
+              <div class="scale-tile"><div class="box" style="width: 32px; height: 32px;"></div><strong>32</strong>--s-32</div>
+              <div class="scale-tile"><div class="box" style="width: 40px; height: 40px;"></div><strong>40</strong>--s-40</div>
+              <div class="scale-tile"><div class="box" style="width: 56px; height: 56px;"></div><strong>56</strong>--s-56</div>
+              <div class="scale-tile"><div class="box" style="width: 80px; height: 80px;"></div><strong>80</strong>--s-80</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUTTONS -->
+      <section id="buttons" class="ds-section">
+        <h2>Buttons</h2>
+        <p class="ds-desc">Ghost is default for tertiary actions, secondary for filter / cancel / supporting actions, primary (white-on-black) for confirm, and CTA (blue) reserved for the single most important action on the page — typically buying.</p>
+        <div class="ds-block">
+          <div class="demo">
+            <div class="row wrap" style="gap: var(--s-12); margin-bottom: var(--s-20);">
+              <button class="btn btn-ghost">Ghost</button>
+              <button class="btn btn-secondary">Secondary</button>
+              <button class="btn btn-primary">Primary</button>
+              <button class="btn btn-cta">Buy now · $284.20</button>
+              <button class="btn btn-danger">Danger</button>
+            </div>
+            <div class="row wrap" style="gap: var(--s-12); margin-bottom: var(--s-20);">
+              <button class="btn btn-secondary btn-sm">Small</button>
+              <button class="btn btn-secondary">Default</button>
+              <button class="btn btn-secondary btn-lg">Large</button>
+            </div>
+            <div style="max-width: 280px;">
+              <button class="btn btn-cta btn-block btn-lg">Block-level CTA →</button>
+            </div>
+          </div>
+          <div class="meta"><span>.btn .btn-{ghost|secondary|primary|cta|danger}</span><span>.btn-sm · .btn-lg · .btn-block</span></div>
+        </div>
+      </section>
+
+      <!-- INPUTS -->
+      <section id="form" class="ds-section">
+        <h2>Inputs</h2>
+        <p class="ds-desc">Hairline border on flat surface. On focus, border darkens by one step + soft inset glow — never blue (blue means action, not focus).</p>
+        <div class="ds-block">
+          <div class="demo" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-20); max-width: 720px;">
+            <div class="field">
+              <label class="label">Item name</label>
+              <input class="input" placeholder="Search inventory…" />
+            </div>
+            <div class="field">
+              <label class="label">Listing type</label>
+              <select class="select">
+                <option>Buy now</option>
+                <option>Auction</option>
+                <option>Make offer</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column: 1 / -1;">
+              <label class="label">Description (optional)</label>
+              <textarea class="textarea" placeholder="Mention any pattern highlights, sticker positioning, etc."></textarea>
+              <span class="help">Visible on the public listing. 256 character max.</span>
+            </div>
+            <div class="field">
+              <label class="label">Float</label>
+              <div class="range">
+                <input class="input mono" value="0.0042" />
+                <span class="dim">—</span>
+                <input class="input mono" value="0.2147" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="label">Toggles</label>
+              <div style="display: flex; flex-direction: column; gap: var(--s-8);">
+                <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" checked /><span class="box"></span>Allow offers</label>
+                <label class="checkbox" style="font-size: var(--t-13);"><input type="checkbox" /><span class="box"></span>Auto-relist</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHIPS / BADGES -->
+      <section id="chips" class="ds-section">
+        <h2>Chips &amp; badges</h2>
+        <p class="ds-desc">Chips are interactive (filter pills, tag-pickers). Badges are read-only metadata — rarity, status, tier. Active chip inverts to ink-on-bg.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: flex; flex-direction: column; gap: var(--s-20);">
+            <div>
+              <div class="dim" style="font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--s-10);">Chips</div>
+              <div class="row wrap" style="gap: var(--s-8);">
+                <span class="chip">All</span>
+                <span class="chip is-active">Pistols</span>
+                <span class="chip">SMGs</span>
+                <span class="chip">Rifles</span>
+                <span class="chip is-active">Knives <span class="x">×</span></span>
+                <span class="chip">Stickers</span>
+              </div>
+            </div>
+            <div>
+              <div class="dim" style="font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--s-10);">Badges</div>
+              <div class="row wrap" style="gap: var(--s-8);">
+                <span class="badge">Default</span>
+                <span class="badge live"><span class="led"></span>Live · 47 selling</span>
+                <span class="badge up">+12% · 30d</span>
+                <span class="badge down">−4% · 30d</span>
+                <span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span>
+                <span class="badge" style="color: var(--rare-cls); border-color: color-mix(in oklch, var(--rare-cls) 35%, var(--line));">Classified</span>
+                <span class="badge" style="color: var(--rare-rst); border-color: color-mix(in oklch, var(--rare-rst) 35%, var(--line));">Restricted</span>
+                <span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LISTING CARD -->
+      <section id="card" class="ds-section">
+        <h2>Listing card</h2>
+        <p class="ds-desc">The atomic unit of the marketplace. Fixed aspect-ratio image, rarity badge top-left, watch button top-right, footer separates rarity/wear from price/discount. Never wider than 280px in the grid.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--s-14); max-width: 940px;">
+            <article class="lcard">
+              <div class="lcard-img">
+                <div class="badge-row"><span class="badge" style="color: var(--rare-cov); border-color: color-mix(in oklch, var(--rare-cov) 35%, var(--line));">Covert</span><button class="watch-btn">♡</button></div>
+                <div class="skin"></div>
+              </div>
+              <div class="lcard-bd">
+                <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Rifle</div>
+                <div class="lcard-name">AK-47 | Vulcan</div>
+                <div class="lcard-sub">FT <span class="sep"></span> 0.2147 <span class="sep"></span> +3 stickers</div>
+              </div>
+              <div class="lcard-ft"><span class="lcard-price">$284.20</span><span class="lcard-discount up">−12%</span></div>
+            </article>
+            <article class="lcard">
+              <div class="lcard-img">
+                <div class="badge-row"><span class="badge live"><span class="led"></span>Auction · 02:14</span><button class="watch-btn">♡</button></div>
+                <div class="skin" style="background: linear-gradient(135deg, oklch(0.6 0.14 145), oklch(0.45 0.12 130));"></div>
+              </div>
+              <div class="lcard-bd">
+                <div class="lcard-rarity" style="color: var(--rare-cov);">Covert · Knife</div>
+                <div class="lcard-name">★ Karambit | Fade</div>
+                <div class="lcard-sub">FN <span class="sep"></span> 0.0094 <span class="sep"></span> 91% fade</div>
+              </div>
+              <div class="lcard-ft"><span class="lcard-price">$2,140.00</span><span class="lcard-discount up">−7%</span></div>
+            </article>
+            <article class="lcard">
+              <div class="lcard-img">
+                <div class="badge-row"><span class="badge" style="color: var(--rare-mil); border-color: color-mix(in oklch, var(--rare-mil) 35%, var(--line));">Mil-spec</span><button class="watch-btn">♡</button></div>
+                <div class="skin" style="background: linear-gradient(135deg, oklch(0.55 0.10 280), oklch(0.35 0.12 260));"></div>
+              </div>
+              <div class="lcard-bd">
+                <div class="lcard-rarity" style="color: var(--rare-mil);">Mil-spec · SMG</div>
+                <div class="lcard-name">MP9 | Hot Rod</div>
+                <div class="lcard-sub">FT <span class="sep"></span> 0.2104</div>
+              </div>
+              <div class="lcard-ft"><span class="lcard-price">$14.80</span><span class="lcard-discount up">−24%</span></div>
+            </article>
+          </div>
+          <div class="meta"><span>.lcard / .lcard-img / .lcard-bd / .lcard-ft</span><span>min 220px · max 280px</span></div>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section id="table" class="ds-section">
+        <h2>Table</h2>
+        <p class="ds-desc">Single row of column headers in uppercase mini-caps, body rows 13px. Hover state via <code class="mono">--bg-1</code>. Numeric columns right-aligned, mono.</p>
+        <div class="ds-block">
+          <table class="tbl">
+            <thead><tr><th>Time</th><th>Buyer</th><th>Float</th><th>Type</th><th class="num">Price</th></tr></thead>
+            <tbody>
+              <tr><td>14m ago</td><td>scope_</td><td class="mono">0.1812</td><td><span class="badge live"><span class="led"></span>Auction</span></td><td class="num">$284.20</td></tr>
+              <tr><td>2h ago</td><td>kraut</td><td class="mono">0.2410</td><td>Buy now</td><td class="num">$278.00</td></tr>
+              <tr><td>5h ago</td><td>nico</td><td class="mono">0.0712</td><td>Buy now</td><td class="num">$310.50</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- NAV / TABS -->
+      <section id="nav" class="ds-section">
+        <h2>Nav &amp; tabs</h2>
+        <p class="ds-desc">Top nav uses sticky-blur on a near-black surface. Active link gets a 18px blue underline below the row — not a fill, not a glow. Page-level tabs do the same: 2px blue underline, no pill background.</p>
+        <div class="ds-block">
+          <div class="demo">
+            <div class="tabs-row">
+              <div class="tabs">
+                <button class="tab is-active">Active <span class="count">14</span></button>
+                <button class="tab">Sold <span class="count">142</span></button>
+                <button class="tab">Pending <span class="count">2</span></button>
+                <button class="tab">Drafts <span class="count">1</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODAL -->
+      <section id="modal" class="ds-section">
+        <h2>Modal</h2>
+        <p class="ds-desc">Centered, single dialog with a blurred scrim. Use for confirmations, two-step flows, and anything that interrupts the current page. Pages, not popups (per <code class="mono">feedback_pages_not_popups</code>) — but inline confirmations are fine here.</p>
+        <div class="ds-block">
+          <div class="demo" style="position: relative; min-height: 320px; padding: 0;">
+            <div class="scrim" style="position: absolute; z-index: 1;">
+              <div class="modal">
+                <div class="modal-hd">
+                  <h3>Confirm purchase</h3>
+                  <button class="icon-btn" style="width: 28px; height: 28px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                </div>
+                <div class="modal-bd">
+                  <p>You're about to buy <strong style="color: var(--ink);">AK-47 | Vulcan FT</strong> from <strong style="color: var(--ink);">jeradel</strong> for <span class="mono" style="color: var(--ink);">$284.20</span>. Funds are held in escrow until the seller delivers the item.</p>
+                </div>
+                <div class="modal-ft">
+                  <button class="btn btn-ghost">Cancel</button>
+                  <button class="btn btn-cta">Buy now · $284.20</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- POPOVER -->
+      <section id="popover" class="ds-section">
+        <h2>Popover</h2>
+        <p class="ds-desc">Anchored menu for actions and quick options. Items are 13px text with a leading icon and optional keyboard shortcut on the right. Section headers in mini-caps for grouping.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: flex; gap: var(--s-32); padding: var(--s-32);">
+            <div class="popover">
+              <div class="popover-h">Listing</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>Edit listing<span class="kbd">E</span></div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Duplicate</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h18M3 6h18M3 18h18"/></svg>Move to drafts</div>
+              <div class="popover-divider"></div>
+              <div class="popover-h">Pricing</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 5 5 19M5 5l14 14"/></svg>Match market</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12l7-7 7 7"/></svg>+5%</div>
+              <div class="popover-divider"></div>
+              <div class="popover-item" style="color: var(--down);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M5 6v14h14V6M9 11v6M15 11v6"/></svg>Delist</div>
+            </div>
+
+            <div class="popover" style="height: fit-content;">
+              <div class="popover-h">Account</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Profile</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="14" rx="2"/></svg>Wallet</div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Settings<span class="kbd">⌘ ,</span></div>
+              <div class="popover-divider"></div>
+              <div class="popover-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TOOLTIP -->
+      <section id="tooltip" class="ds-section">
+        <h2>Tooltip</h2>
+        <p class="ds-desc">Inline help — defines a term or explains a number. Triggered by a dashed underline and revealed on hover. Body never wraps; if the explanation is long, use a popover instead.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: flex; gap: var(--s-40); padding: var(--s-40); align-items: end;">
+            <div class="tooltip">
+              <span data-tip>Float 0.2147</span>
+              <span class="tooltip-content">Wear value · 0.00 = factory new, 1.00 = battle-scarred</span>
+            </div>
+            <div class="tooltip">
+              <span data-tip>Pattern 561</span>
+              <span class="tooltip-content">Skin pattern index · determines fade / case-hardened look</span>
+            </div>
+            <div class="tooltip">
+              <span data-tip>StatTrak</span>
+              <span class="tooltip-content">Counter on the weapon — confirmed kills since acquisition</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TOAST -->
+      <section id="toast" class="ds-section">
+        <h2>Toast</h2>
+        <p class="ds-desc">Transient confirmation in the bottom-right. Up to 4 stacked. Dismiss after 4s default, longer if the message has an action.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: flex; flex-direction: column; gap: var(--s-10); padding: var(--s-32);">
+            <div class="toast up">
+              <span class="glyph"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m9 12 2 2 4-4"/></svg></span>
+              <span><strong>AK-47 | Vulcan</strong> sold to <span class="mono">scope_</span> for <span class="mono">$284.20</span></span>
+            </div>
+            <div class="toast cta">
+              <span class="glyph"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></span>
+              <span>New offer of <span class="mono">$172.00</span> on <strong>M4A1-S | Hot Rod</strong></span>
+            </div>
+            <div class="toast down">
+              <span class="glyph"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+              <span>Listing <strong>Glock | Reactor</strong> failed — pattern doesn't match</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SKELETON -->
+      <section id="skeleton" class="ds-section">
+        <h2>Skeleton</h2>
+        <p class="ds-desc">Loading placeholder for cards, rows, and inline values. Subtle shimmer to signal motion without seizing attention.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-14);">
+            <div class="lcard">
+              <div class="lcard-img" style="background: var(--bg-1);">
+                <div class="skeleton" style="width: 80%; height: 64%;"></div>
+              </div>
+              <div class="lcard-bd" style="gap: var(--s-8);">
+                <div class="skeleton" style="height: 10px; width: 50%;"></div>
+                <div class="skeleton" style="height: 14px; width: 80%;"></div>
+                <div class="skeleton" style="height: 10px; width: 60%;"></div>
+              </div>
+              <div class="lcard-ft">
+                <div class="skeleton" style="height: 16px; width: 60px;"></div>
+                <div class="skeleton" style="height: 10px; width: 30px;"></div>
+              </div>
+            </div>
+            <div class="lcard">
+              <div class="lcard-img" style="background: var(--bg-1);">
+                <div class="skeleton" style="width: 80%; height: 64%;"></div>
+              </div>
+              <div class="lcard-bd" style="gap: var(--s-8);">
+                <div class="skeleton" style="height: 10px; width: 40%;"></div>
+                <div class="skeleton" style="height: 14px; width: 90%;"></div>
+                <div class="skeleton" style="height: 10px; width: 50%;"></div>
+              </div>
+              <div class="lcard-ft">
+                <div class="skeleton" style="height: 16px; width: 70px;"></div>
+                <div class="skeleton" style="height: 10px; width: 32px;"></div>
+              </div>
+            </div>
+            <div class="lcard">
+              <div class="lcard-img" style="background: var(--bg-1);">
+                <div class="skeleton" style="width: 80%; height: 64%;"></div>
+              </div>
+              <div class="lcard-bd" style="gap: var(--s-8);">
+                <div class="skeleton" style="height: 10px; width: 45%;"></div>
+                <div class="skeleton" style="height: 14px; width: 75%;"></div>
+                <div class="skeleton" style="height: 10px; width: 55%;"></div>
+              </div>
+              <div class="lcard-ft">
+                <div class="skeleton" style="height: 16px; width: 65px;"></div>
+                <div class="skeleton" style="height: 10px; width: 28px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLACEHOLDERS -->
+      <section id="ph" class="ds-section">
+        <h2>Placeholders</h2>
+        <p class="ds-desc">Real placeholders beat fake content. Where the real product needs a skin render or a screenshot, ship a striped block labeled in mono — not a stock photo or hand-drawn cartoon.</p>
+        <div class="ds-block">
+          <div class="demo" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-16);">
+            <div class="placeholder-block">[skin: AK-47 | Vulcan FT]</div>
+            <div class="placeholder-block">[stall banner 1600 × 320]</div>
+            <div class="placeholder-block">[loadout · 5 slots]</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer of the design system page -->
+      <section style="margin-top: var(--s-56); padding-top: var(--s-24); border-top: 1px solid var(--line); color: var(--ink-3); font-size: var(--t-12);">
+        <p>This system anchors the redesign. Page mockups (<a href="Market.html" style="color: var(--blue);">Market</a>, <a href="Item Detail.html" style="color: var(--blue);">Item Detail</a>, <a href="Sell.html" style="color: var(--blue);">Sell</a>, <a href="Profile.html" style="color: var(--blue);">Profile</a>, <a href="Wallet.html" style="color: var(--blue);">Wallet</a>) consume these classes verbatim. To adopt: copy <code class="mono">_design.css</code> tokens + components into <code class="mono">src/main/resources/static/css/design.css</code>, replacing the corresponding sections.</p>
+      </section>
+
+    </section>
+
+  </div>
+</main>
+
+</body>
+</html>

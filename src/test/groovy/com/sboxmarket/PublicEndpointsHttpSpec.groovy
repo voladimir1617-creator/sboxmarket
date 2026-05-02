@@ -168,12 +168,48 @@ class PublicEndpointsHttpSpec extends Specification {
         r.response.status == 401 || r.response.status == 403
     }
 
-    def "GET /api/loadouts/999 returns 404 for an unknown loadout id"() {
+    def "GET /api/loadouts/999 returns 200 with a notFound sentinel for an unknown loadout id"() {
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/loadouts/999')).andReturn()
 
         then:
-        r.response.status == 404
+        // Contract change: missing/private loadout reads now return 200 with
+        // `{notFound: true}` instead of 404. Reason: Chrome auto-logs every
+        // fetch 404 to the browser console regardless of JS handling, which
+        // made every dead-share-link landing read as a phantom bug. The SPA's
+        // `fetchLoadout` translates the sentinel back to null so callers
+        // still get the same null-on-missing semantics.
+        r.response.status == 200
+        r.response.contentAsString.contains('"notFound":true')
+    }
+
+    def "GET /api/items/999999999 returns 200 with a notFound sentinel for an unknown item id"() {
+        // Same dead-link console-cleanliness contract as /api/loadouts/999.
+        // Pre-fix: every /item/{badId} landing fired a 404 from the canonical
+        // /api/items/{id} probe, which Chrome auto-logged to console as a
+        // "Failed to load resource: 404" line on top of safeJson's own warn.
+        // Post-fix: 200 + sentinel; api.js's fetchItem translates back to null
+        // so callers still see null-on-missing.
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/items/999999999')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('"notFound":true')
+        r.response.contentAsString.contains('999999999')
+    }
+
+    def "GET /api/listings/stall/99999999 returns 200 with a notFound sentinel for an unknown user id"() {
+        // Same contract as the item + loadout read-by-id sentinels.
+        // /stall/:badId previously fired 4 parallel API calls including
+        // a 404 here; the 404 is now a 200+sentinel so the SPA's "Stall
+        // not found" branded empty-state lands without console noise.
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/stall/99999999')).andReturn()
+
+        then:
+        r.response.status == 200
+        r.response.contentAsString.contains('"notFound":true')
     }
 
     def "GET /api/loadouts/{id} includes `favorited: false` for anonymous viewers (batch 917 contract)"() {
@@ -1538,6 +1574,17 @@ class PublicEndpointsHttpSpec extends Specification {
         r.response.status == 401
     }
 
+    def "GET /api/listings/my-stall/analytics.csv requires sign-in"() {
+        // Per-listing analytics CSV is seller-only — anon must 401 so a
+        // crafted URL can't enumerate other sellers' view counts /
+        // demand metrics. Mirrors the active.csv + sold.csv auth gate.
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/my-stall/analytics.csv')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
     def "GET /api/ready returns 200 UP when DB is reachable (batch 680)"() {
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/ready')).andReturn()
@@ -1636,6 +1683,18 @@ class PublicEndpointsHttpSpec extends Specification {
         // math is unit-tested at the repository layer.
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/my-stall/earnings')).andReturn()
+
+        then:
+        r.response.status == 401
+    }
+
+    def "GET /api/listings/my-stall/analytics requires sign-in (2026-05-01)"() {
+        // Per-listing analytics surface added 2026-05-01. Returns view
+        // counts + per-item 30-day demand + price-vs-floor delta for
+        // the seller's active listings — sensitive (price strategy
+        // signal). Anon must 401, same as the other my-stall routes.
+        when:
+        def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/listings/my-stall/analytics')).andReturn()
 
         then:
         r.response.status == 401
@@ -1861,19 +1920,24 @@ class PublicEndpointsHttpSpec extends Specification {
         assert body.contains('twitter:title')
     }
 
-    def "GET /item/{id} for an unknown id returns 404 with the template body (batch 967)"() {
+    def "GET /item/{id} for an unknown id returns 200 noindex SPA shell (batch 968 supersedes 967)"() {
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/item/999999999')).andReturn()
 
         then:
-        // Batch 967 — unknown item URLs now return 404 so Google drops
-        // them from the index (prior 200 caused phantom URLs to be
-        // preserved indefinitely). Body is still the SPA shell so
-        // client-side JS renders the friendly not-found modal.
-        r.response.status == 404
+        // Batch 968 — unknown entity URLs now return 200 with a
+        // `noindex, nofollow` robots meta. Why: a document-level non-2xx
+        // status logs as "Failed to load resource" in the browser console
+        // on every dead-link landing, which read as a real bug. The
+        // noindex meta is a sufficient de-indexing signal for crawlers,
+        // so we no longer need 404 as a secondary signal. The SPA's
+        // client-side router renders the branded "Item not found" panel
+        // either way. See OpenGraphController#notFoundSpaShell.
+        r.response.status == 200
         def body = r.response.contentAsString
         body.contains('<html')
         body.contains('og:title')
+        body.contains('name="robots" content="noindex, nofollow"')
     }
 
     def "GET /api/version returns the app version"() {

@@ -1,0 +1,257 @@
+{
+  "/": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 47,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/market": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 64,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/db": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 43,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/help": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 72,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/faq": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 42,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/cart": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 43,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/watchlist": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 42,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/wallet": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 40,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/sell": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 42,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/settings": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 44,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/profile/personal": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 42,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/item/1": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 41,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/stall/1": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 41,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/loadout/1": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 42,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/item/9999": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 40,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/stall/9999": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 41,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  },
+  "/loadout/9999": {
+    "errors": [],
+    "warnings": [],
+    "network": [],
+    "total": 42,
+    "dead": 1,
+    "samples": [
+      {
+        "tag": "a",
+        "label": "SkinBox",
+        "href": "/",
+        "classes": "nav-logo"
+      }
+    ]
+  }
+}
