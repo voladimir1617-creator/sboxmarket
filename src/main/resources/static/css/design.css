@@ -1644,10 +1644,14 @@ footer {
   background: var(--bg-1);
 }
 .db-row {
+  /* D4 Boss QA — bumped row min-height + thumb size + gap so the table
+     reads premium instead of Excel-cramped. 64px rows / 48px thumbs /
+     16px column gap. */
   display: grid;
   grid-template-columns: 44px minmax(260px, 2fr) 110px 120px 100px 80px 80px 140px 38px;
-  gap: 14px; align-items: center;
-  padding: 10px 16px;
+  gap: 16px; align-items: center;
+  padding: 14px 18px;
+  min-height: 64px;
   font-size: 13px;
   border-bottom: 1px solid var(--line);
   cursor: pointer;
@@ -1659,12 +1663,14 @@ footer {
   font-family: var(--mono); font-size: 10px; text-transform: uppercase;
   letter-spacing: 0.12em; color: var(--ink-4);
   background: var(--bg-2); cursor: default;
+  min-height: 0;          /* header doesn't need the 64px row floor */
+  padding: 10px 18px;
 }
 .db-head .clk { cursor: pointer; }
 .db-head .clk:hover { color: var(--ink); }
 .db-item { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .db-thumb {
-  width: 38px; height: 38px; display: grid; place-items: center;
+  width: 48px; height: 48px; display: grid; place-items: center;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm);
   font-size: 18px; flex-shrink: 0;
   overflow: hidden;
@@ -4930,6 +4936,27 @@ body:has(.shortcuts-backdrop) {
   min-width: 48px;
   padding: 0 !important;
   font-size: 18px !important;
+}
+/* I7/I8 Boss-QA — keep the SteamMarketLink in the action bar at the
+   same height as the buttons so they don't wrap to a second row at
+   the standard /item viewport width. */
+.modal-actions .steam-market-link {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.modal-actions .steam-market-link:hover {
+  color: var(--ink);
+  border-color: var(--accent);
 }
 
 /* Item detail modal content */
@@ -11004,21 +11031,27 @@ body:has(.full-page-mode) { overflow: visible !important; }
 /* H2 Boss QA — parallax fan: rotated, depth-blurred shadow cards with
    real perspective so the stack reads as a premium 3-card spread
    instead of one card with two faded ghosts. */
+/* Boss QA cycle 2 N3 — bumped pos-1 / pos-2 opacity (was 0.70 / 0.50,
+   which read as invisible smudges on dark bg). New: 0.85 / 0.65 with
+   no blur on pos-1, lighter blur on pos-2, stronger angle so the fan
+   reads like a real 3-card spread. */
 .csfloat-hero-stack-card.pos-1 {
   top: 50%; left: 50%;
-  transform: translate(calc(-50% + 64px), calc(-50% - 18px)) rotate(-3deg);
+  transform: translate(calc(-50% + 80px), calc(-50% - 24px)) rotate(-5deg);
   width: 250px; height: 300px;
   z-index: 2;
-  opacity: 0.7;
-  filter: brightness(0.92) blur(0.6px);
+  opacity: 0.88;
+  filter: brightness(0.96);
+  border-color: color-mix(in oklab, var(--cta) 22%, var(--line-2));
 }
 .csfloat-hero-stack-card.pos-2 {
   top: 50%; left: 50%;
-  transform: translate(calc(-50% + 124px), calc(-50% - 36px)) rotate(-7deg);
+  transform: translate(calc(-50% + 150px), calc(-50% - 48px)) rotate(-9deg);
   width: 240px; height: 280px;
   z-index: 1;
-  opacity: 0.5;
-  filter: brightness(0.82) blur(1.4px);
+  opacity: 0.66;
+  filter: brightness(0.88) blur(0.6px);
+  border-color: color-mix(in oklab, var(--cta) 16%, var(--line-2));
 }
 .csfloat-hero-stack-card.pos-0:hover {
   /* Bumped scale 1.02 -> 1.04 + accent border + brighter shadow on hover so
@@ -11196,28 +11229,36 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border-bottom: 1px solid var(--line);
   padding-bottom: 0;
 }
+/* H3 Boss QA — segmented-control: pill background, 8px radius, active
+   solid white-on-charcoal, hover bg lift. Matches the segmented pattern
+   the boss called out (used elsewhere on /faq). */
 .csfloat-band-tabs {
-  display: flex; gap: 4px;
+  display: inline-flex;
+  padding: 4px;
+  gap: 2px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
 .csfloat-band-tab {
   background: transparent;
   border: 0;
-  padding: 10px 14px;
+  padding: 8px 14px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  /* Bumped 13->14 to match the subnav (.csfloat-subnav-tab) so both
-     tab strips on the homepage read at consistent weight. */
-  font-size: 14px; font-weight: 600;
+  font-size: 13px; font-weight: 600;
   color: var(--ink-3);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 140ms ease, border-color 140ms ease;
+  border-radius: 8px;
+  transition: background 140ms ease, color 140ms ease;
   letter-spacing: -0.005em;
 }
-.csfloat-band-tab:hover { color: var(--ink-2); }
-.csfloat-band-tab.active {
+.csfloat-band-tab:hover {
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 6%, transparent);
+}
+.csfloat-band-tab.active {
+  color: var(--bg);
+  background: var(--ink);
 }
 .csfloat-band-link {
   display: inline-flex; align-items: center; gap: 6px;
@@ -12562,6 +12603,17 @@ body:has(.full-page-mode) { overflow: visible !important; }
   grid-column: 1;
   grid-row: 2 / span 99;
   padding-bottom: 64px;
+}
+/* I7/I8 Boss QA — explicitly place .modal-actions into col 1 spanning
+   full width so the sticky action bar doesn't get clipped by the right
+   rail's overflow. Buttons wrap onto a second row when they can't all
+   fit inline (Watchlist + Sign-in-to-make-offer + Place buy order +
+   Steam Market + ♥ no longer crammed into 340px). */
+.modal.item-page > .modal-actions {
+  grid-column: 1 / -1;
+  grid-row: 200;
+  align-self: end;
+  margin-top: 16px;
 }
 @media (max-width: 1100px) {
   .modal.item-page {
@@ -116845,8 +116897,17 @@ tr:hover .csfloat-row-hover-actions,
   .site-root.full-page-mode .modal-preview,
   .site-root.full-page-mode .item-modal-preview {
     width: 100% !important;
-    min-height: 320px !important;
-    margin-bottom: 16px;
+    min-height: 0 !important;
+    aspect-ratio: 16 / 11 !important;
+    max-height: 240px !important;
+    margin-bottom: 12px;
+  }
+  .site-root.full-page-mode .modal-preview img,
+  .site-root.full-page-mode .item-modal-preview img {
+    max-height: 220px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
   }
   .site-root.full-page-mode .modal-rail,
   .site-root.full-page-mode .item-modal-rail {
@@ -116856,6 +116917,31 @@ tr:hover .csfloat-row-hover-actions,
   }
   .site-root.full-page-mode .modal-name {
     font-size: 22px !important;
+  }
+  /* M1m: surface stat block + chips ABOVE the fold on mobile.
+     Modal-stats was rendering below the chip row + below the rail-actions,
+     i.e. ~700px down a 852px viewport — completely below the sticky bar.
+     Pulling it up to render right after the breadcrumb + h1 means the
+     viewer sees Listing price / Steam reference / 30D / Total supply
+     without scrolling. */
+  .site-root.full-page-mode .modal-stats {
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    display: grid !important;
+    gap: 8px !important;
+  }
+  .site-root.full-page-mode .modal-stat-box {
+    padding: 10px 12px !important;
+  }
+  .site-root.full-page-mode .modal-stat-val {
+    font-size: 14px !important;
+  }
+  .site-root.full-page-mode .modal-stat-box:first-child .modal-stat-val {
+    font-size: 18px !important;
+  }
+  .site-root.full-page-mode .modal-stat-label {
+    font-size: 10px !important;
   }
   /* Sticky bottom action bar — stack the secondary action below the
      primary so the row doesn't overflow the viewport edge. */

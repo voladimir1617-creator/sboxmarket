@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch } from './utils.js';
-import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar } from './primitives.js';
+import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange } from './primitives.js';
 import { GridCard } from './cards.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
@@ -28,10 +28,25 @@ import {
 export { InfoModal };
 
 // ── Item detail ──────────────────────────────────────────────────
-export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onCreateBuyOrder, onAddToCart, cartHas }) {
+export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
   const [offerOpen, setOfferOpen] = useState(false);
   const [thread, setThread] = useState(null);
   const [chartRange, setChartRange] = useState('30D');
+  // Auto-clamp the active range to what the data can actually support.
+  // Default '30D' is a no-op when history has 11 rows (1M / 3M / 1Y / ALL
+  // all collapse to the same 11 points). Snap back to 7D so the user sees
+  // a label that matches the rendered slice.
+  useEffect(() => {
+    // Wait for history to actually load before clamping — the parent fetches
+    // it async, so on first render `history` is null/[]. Demoting to 7D
+    // before data arrives would also stick on items that DO have rich
+    // history (the effect would run once with len=0 and never restore).
+    if (!history || history.length === 0) return;
+    const len = history.length;
+    if (chartRange === '30D'  && len <= 7)  setChartRange('7D');
+    if (chartRange === '90D'  && len <= 30) setChartRange('7D');
+    if (chartRange === '365D' && len <= 90) setChartRange('7D');
+  }, [history, chartRange]);
   const [similar, setSimilar] = useState(null);
   // Batch 836 — expand/collapse the Active Listings list. Default
   // surfaces the cheapest 6 (matches the previous hard-coded slice);
@@ -75,6 +90,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // first-open and reused.
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReasons, setReportReasons] = useState([]);
+  // Image lightbox open state (clickable magnifier, /item page-mode only).
+  const [zoomOpen, setZoomOpen] = useState(false);
+  useEffect(() => {
+    if (!zoomOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setZoomOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [zoomOpen]);
   useEffect(() => {
     if (reportTarget && reportReasons.length === 0) {
       fetchReportReasons().then(r => setReportReasons(r.length ? r : [
@@ -331,13 +354,18 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     })();
     return () => { alive = false; };
   }, [me?.id, item?.id]);
-  const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
   const change30d = history.length > 1
     ? (parseFloat(item.lowestPrice) - parseFloat(history[0]?.price || item.lowestPrice)).toFixed(2)
     : '0.00';
   const changePct = history.length > 1 && parseFloat(history[0]?.price)
     ? ((change30d / parseFloat(history[0].price)) * 100).toFixed(1)
     : '0.0';
+  /* Derive trend from the LOCAL change30d so the +/-/color signal
+     matches the value the user sees. Was using item.trendPercent (an API
+     field that doesn't always match the displayed delta), which produced
+     positive deltas rendered without a "+" prefix and in default color. */
+  const change30dNum = parseFloat(change30d);
+  const trendUp = change30dNum > 0, trendFlat = change30dNum === 0;
   // Price-range extremes across the full loaded history. Buyers anchor
   // fairness on "how low has this been?" — the ATL chip surfaces the
   // answer in one glance alongside the current floor. We also expose
@@ -355,48 +383,108 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     };
   }, [history]);
 
-  // Batch 821 — a11y on ItemModal. role=dialog + aria-modal so screen
-  // readers announce it; Escape closes (but only when no sub-drawer
-  // is open — closing the parent while a drawer is active would
-  // strand the drawer off-screen).
+  // a11y: in MODAL mode (other surfaces still using ItemModal as overlay),
+  // role=dialog + aria-modal + Escape-closes apply. In PAGE mode (/item/:id
+  // — feedback_pages_not_popups.md), all of those are stripped: the page is
+  // a destination, not a dialog. Browser back / nav anchors handle close.
   useEffect(() => {
+    if (isPageMode) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (offerOpen || reportTarget || alertOpen) return; // let the drawer handle it
+      if (offerOpen || reportTarget || alertOpen) return;
       if (typeof onClose === 'function') onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, offerOpen, reportTarget, alertOpen]);
-  return h('div', { className: 'modal-backdrop', onClick: onClose },
-    h('div', {
-      className: 'modal',
-      onClick: e => e.stopPropagation(),
-      role: 'dialog',
-      'aria-modal': 'true',
-      'aria-label': item?.name ? `${item.name} — item details` : 'Item details'
+  }, [onClose, offerOpen, reportTarget, alertOpen, isPageMode]);
+  const handleBackdropClick = (e) => {
+     if (isPageMode) return;
+     if (document.querySelector('.site-root.full-page-mode')) return;
+     onClose && onClose();
+  };
+  return h('div', { className: 'modal-backdrop' + (isPageMode ? ' page-mode' : ''), onClick: handleBackdropClick },
+    h(isPageMode ? 'main' : 'div', {
+      className: 'modal' + (isPageMode ? ' item-page' : ''),
+      onClick: isPageMode ? undefined : (e => e.stopPropagation()),
+      ...(isPageMode ? { role: 'main', 'aria-label': item?.name ? `${item.name} — item details page` : 'Item details page' } : {
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': item?.name ? `${item.name} — item details` : 'Item details'
+      })
     },
-      h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close item details' }, '✕'),
+      !isPageMode && h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close item details' }, '✕'),
       h('div', { className: 'modal-header' },
-        h('div', { className: 'modal-preview' },
+        h('div', {
+          className: 'modal-preview' + (zoomOpen ? ' zoom-active' : ''),
+          onClick: isPageMode ? (() => setZoomOpen(true)) : undefined,
+          style: isPageMode ? { cursor: 'zoom-in' } : undefined
+        },
           h(ItemImage, { item, variant: 'hero' }),
-          h(RarityBadge, { rarity: item.rarity })
+          h(RarityBadge, { rarity: item.rarity }),
+          /* Clickable magnifier — opens a centered lightbox at full
+             item-image resolution. Available in page mode only since the
+             modal-mode lightbox conflicts with the parent dialog. */
+          h('button', {
+            type: 'button',
+            className: 'modal-preview-zoom',
+            'aria-label': 'Open item image at full size',
+            onClick: (e) => { e.stopPropagation(); setZoomOpen(true); }
+          }, '⌕')
+          /* I1/H1/S5 Boss-QA — float-value gradient bar removed.
+             s&box has no float/wear/condition mechanic (CS-only).
+             Leaving the red→green bar under every item viewer was
+             leaking CS chrome into a non-CS marketplace. */
         ),
         h('div', null,
-          // Clickable category crumb — navigates back to the
-          // marketplace with the matching category filter preselected
-          // via the ?category= query param (batch 95 wired that). Lets
-          // buyers bounce from "I like this hat" to "show me every
-          // other hat" in one click.
+          /* CSFloat-1:1: full breadcrumb on /item page — "Market › Category › Item Name".
+             Market crumb links to /market (the bare grid, post home/market
+             split); category crumb deep-links to /market?category=...; the
+             item-name terminal is plain text. */
+          h('nav', {
+            className: 'modal-breadcrumb',
+            // a11y: <nav aria-label="Breadcrumb"> is the landmark screen
+            // readers use to identify breadcrumb navigation. Without it
+            // assistive tech can't distinguish breadcrumbs from any other
+            // styled link group.
+            'aria-label': 'Breadcrumb'
+          },
+            h('a', {
+              className: 'modal-breadcrumb-link',
+              href: '/market',
+              onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
+              title: 'Browse the marketplace'
+            }, 'Market'),
+            h('span', { className: 'modal-breadcrumb-sep', 'aria-hidden': true }, '›'),
+            h('a', {
+              className: 'modal-breadcrumb-link',
+              href: '/market?category=' + encodeURIComponent(item.category || ''),
+              onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
+              title: `Browse every ${item.category || 'item'} listing`
+            }, item.category || 'Items'),
+            h('span', { className: 'modal-breadcrumb-sep', 'aria-hidden': true }, '›'),
+            // The current page in a breadcrumb gets aria-current="page" so
+            // screen readers announce "current page" when reading it.
+            h('span', { className: 'modal-breadcrumb-cur', 'aria-current': 'page' }, item.name || 'Item')
+          ),
+          // Hidden eyebrow (kept for legacy CSS that targets `.modal-cat`)
           h('a', {
             className: 'modal-cat',
-            href: '/?category=' + encodeURIComponent(item.category || ''),
-            style: { textDecoration: 'none', color: 'inherit' },
-            onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
+            href: '/market?category=' + encodeURIComponent(item.category || ''),
+            style: { display: 'none' },
+            onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
             title: `Browse every ${item.category || 'item'} listing`
           }, item.category),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-            h('div', { className: 'modal-name' }, item.name),
+            h('h1', { className: 'modal-name' }, item.name),
+            /* CSFloat-1:1: rarity chip in orange italic next to title (csfloat
+               shows StatTrak™ here). For s&box we use the rarity tier.
+               Clickable — filters the marketplace by this rarity. */
+            h('a', {
+              className: 'modal-name-rarity',
+              href: '/market?rarity=' + encodeURIComponent(item.rarity || 'Standard'),
+              onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
+              title: `Browse all ${item.rarity || 'Standard'} items`
+            }, item.rarity || 'Standard'),
             // Share button — tries the Web Share API first (opens the
             // native share sheet on mobile + Chrome desktop with every
             // installed app: Discord, Twitter, Messages, AirDrop, etc).
@@ -404,7 +492,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             // to window.prompt when clipboard's also blocked.
             h('button', {
               className: 'btn btn-ghost',
-              style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)', opacity: 0.75 },
+              style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)', opacity: 0.75, display: 'inline-flex', alignItems: 'center', gap: 5 },
               title: 'Share this item',
               onClick: async (e) => {
                 e.stopPropagation();
@@ -413,10 +501,13 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 const text  = `${item.name} — listed from ${fmt(item.lowestPrice)} on SkinBox`;
                 const btn = e.currentTarget;
                 const flashCopied = () => {
-                  const prev = btn.textContent;
+                  /* Use innerHTML so the Material icon span survives the
+                     "Copied" flash. Otherwise textContent overwrites the
+                     icon and only the literal word "Copied" remains. */
+                  const prev = btn.innerHTML;
                   btn.textContent = 'Copied';
                   btn.style.color = 'var(--green)';
-                  setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 1400);
+                  setTimeout(() => { btn.innerHTML = prev; btn.style.color = ''; }, 1400);
                 };
                 // Native share sheet: Discord, Twitter/X, Messages,
                 // AirDrop, etc. — the standard mobile experience and
@@ -442,15 +533,85 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                   window.prompt('Copy this link:', url);
                 }
               }
-            }, '↗ Share')
+            }, h(MaterialIcon, { name: 'share', size: 12 }), 'Share')
           ),
+          /* CSFloat-1:1: inline Buy Now action group at the TOP of the right
+             rail — csfloat's most prominent action sits next to the price.
+             Renders only when there is at least one BUY_NOW listing AND the
+             viewer isn't the seller of that listing. Sticky bottom action
+             bar still shows below for scroll-friendliness. */
+          (() => {
+            const cheap = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id);
+            if (!cheap) return null;
+            const youOwn = me && cheap.sellerUserId === me.id;
+            return h(React.Fragment, null,
+              h('div', { className: 'item-rail-actions' },
+                h('button', {
+                  className: 'item-rail-actions-buy',
+                  onClick: () => {
+                    if (youOwn) return;
+                    // Anon → redirect to Steam OpenID (matches the
+                    // inline `.buy-btn` pattern in the Active Listings
+                    // section). Pre-fix this called `onBuy()` which
+                    // fires a 401 toast — the toast works, but the API
+                    // round-trip was wasteful, and the toast text
+                    // ("Sign in required") was less actionable than a
+                    // direct redirect to the OpenID handshake.
+                    if (!me) { signInWithSteam(); return; }
+                    onBuy(cheap.id, cheap.price);
+                  },
+                  disabled: !!youOwn,
+                  title: youOwn ? 'You are the seller of the cheapest listing' : null
+                },
+                  me
+                    ? h('span', null, 'Buy now · ', fmt(cheap.price))
+                    : h('span', null, 'Sign in to buy · ', fmt(cheap.price))
+                ),
+                h('button', {
+                  className: 'item-rail-actions-cart',
+                  onClick: () => onAddToCart && onAddToCart(cheap),
+                  disabled: cartHas && cartHas(cheap.id),
+                  title: cartHas && cartHas(cheap.id) ? 'Already in your cart' : 'Add this listing to your cart'
+                },
+                  h(MaterialIcon, { name: 'shopping_cart', size: 14 }),
+                  cartHas && cartHas(cheap.id) ? 'In Cart' : 'Cart'
+                )
+              ),
+              /* CSFloat-1:1: Bargain row underneath Buy / Cart, blue ghost.
+                 Anon → redirect to Steam OpenID (matches the action-bar
+                 "Sign in to make offer" button). Signed-in → open the
+                 inline offer drawer (same as the action-bar Make Offer).
+                 Pre-fix this button called `onMakeOffer(cheap)` which
+                 funnelled into App's `handleMakeOffer(listingId, amount,
+                 message)` with `listingId=cheap-object` and `amount=undefined`
+                 — the validator returned `{error: 'Missing data'}` SILENTLY.
+                 Result: anon clicks did nothing, signed-in clicks did
+                 nothing. Now both surfaces have a real path. */
+              !youOwn && h('button', {
+                className: 'item-rail-actions-bargain',
+                onClick: () => {
+                  if (!me) { signInWithSteam(); return; }
+                  setOfferOpen(o => !o);
+                }
+              },
+                h(MaterialIcon, { name: 'forum', size: 14 }),
+                me ? (offerOpen ? 'Cancel Offer' : 'Bargain') : 'Sign in to bargain'
+              )
+            );
+          })(),
           h('div', { className: 'modal-stats' },
+            // I2 Boss-QA: relabel "Floor Price" → "Listing price" to
+            // remove the two-unlabeled-prices confusion. The cheapest
+            // active listing is what the buyer pays before fees.
             h('div', { className: 'modal-stat-box' },
-              h('div', { className: 'modal-stat-label' }, 'Floor Price'),
+              h('div', { className: 'modal-stat-label' }, 'Listing price'),
               h('div', { className: 'modal-stat-val accent' }, fmt(item.lowestPrice))
             ),
+            // I2 Boss-QA: "Steam Price" relabelled "Steam reference"
+            // so the relationship to Listing price is obvious — it's a
+            // fairness anchor, not the price you pay.
             h('div', { className: 'modal-stat-box' },
-              h('div', { className: 'modal-stat-label' }, 'Steam Price'),
+              h('div', { className: 'modal-stat-label' }, 'Steam reference'),
               item.steamPrice
                 ? h('a', {
                     // Batch 725 — clickable "Steam Price" stat jumps to
@@ -468,25 +629,59 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     title: `View ${item.name} on the Steam Community Market`,
                     onClick: (e) => e.stopPropagation()
                   },
-                    h('div', { className: 'modal-stat-val', style: { textDecoration: 'line-through', color: 'var(--text-muted)' } }, fmt(item.steamPrice)),
+                    /* Strikethrough only when our floor BEATS Steam — that's
+                       the only context where the strike communicates a saving.
+                       When our floor is higher than Steam, the strike read
+                       as a stale/cancelled price and was confusing. */
+                    h('div', {
+                      className: 'modal-stat-val',
+                      style: discountPct(item.lowestPrice, item.steamPrice) > 0
+                        ? { textDecoration: 'line-through', color: 'var(--text-muted)' }
+                        : { color: 'var(--text-muted)' }
+                    }, fmt(item.steamPrice)),
                     discountPct(item.lowestPrice, item.steamPrice) > 0
                       ? h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--green)', marginTop: 2 } },
                           `Save ${discountPct(item.lowestPrice, item.steamPrice)}%`
                         )
                       : null,
-                    h('div', { style: { fontSize: 9, color: 'var(--text-muted)', marginTop: 2, letterSpacing: 0.3 } }, '↗ View on Steam')
+                    h('div', { style: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, letterSpacing: 0.3 } }, '↗ View on Steam')
                   )
                 : h('div', { className: 'modal-stat-val' }, '—')
             ),
+            // I3 Boss-QA: 30D delta promoted to a proper trend pill
+            // (matches the home Hottest rail style). Filled badge with
+            // arrow icon + bg tint, not just colored text.
             h('div', { className: 'modal-stat-box' },
-              h('div', { className: 'modal-stat-label' }, '30D Change'),
-              h('div', { className: `modal-stat-val ${trendFlat ? '' : trendUp ? 'green' : 'red'}` },
-                `${trendUp ? '+' : ''}${change30d} (${changePct}%)`
+              h('div', { className: 'modal-stat-label' }, '30-day price change'),
+              h('div', { className: 'modal-stat-val', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                h('span', {
+                  className: 'modal-trend-pill ' + (trendFlat ? 'flat' : trendUp ? 'up' : 'down'),
+                  title: trendFlat
+                    ? 'No change over the last 30 days'
+                    : (trendUp ? `Up ${changePct}% over 30 days` : `Down ${Math.abs(parseFloat(changePct) || 0)}% over 30 days`)
+                },
+                  trendFlat ? '·' : (trendUp ? '▲' : '▼'),
+                  ' ',
+                  `${trendUp ? '+' : ''}${change30d}`,
+                  h('span', { style: { opacity: 0.85, marginLeft: 4 } },
+                    `(${trendUp ? '+' : ''}${changePct}%)`)
+                )
               )
             ),
+            // I4 Boss-QA: explicit "Total supply (in circulation)" label
+            // — the unlabeled "11,652" was unparseable to the boss.
             h('div', { className: 'modal-stat-box' },
-              h('div', { className: 'modal-stat-label' }, 'Supply'),
-              h('div', { className: 'modal-stat-val' }, Number(item.supply).toLocaleString())
+              h('div', { className: 'modal-stat-label' },
+                'Total supply',
+                h('span', { className: 'modal-stat-sublabel' }, ' · in circulation')
+              ),
+              h('div', {
+                className: 'modal-stat-val',
+                title: `${Number(item.supply).toLocaleString()} ${item.name || 'items'} have been minted on the Steam Workshop`
+              },
+                Number(item.supply).toLocaleString(),
+                h('span', { className: 'modal-stat-unit' }, ' items')
+              )
             )
           ),
           // View count chip (batch 409). Lifetime GET /api/items/{id}
@@ -494,6 +689,24 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // complements the buy-order / watcher chips. Threshold at
           // 10 so a fresh item doesn't render a noisy "1 view" chip
           // (and so the viewer's own first-open doesn't look weird).
+          // CSFloat parity — "N active listings" chip. Pulled from the
+          // already-loaded `listings` array so no extra round-trip. Visible
+          // even when 0 (so a buyer who lands on a freshly sold-out item
+          // sees explicit "0 listings" instead of guessing). Distinct
+          // counters next to it on CSFloat: total listings + unique
+          // sellers — we render both.
+          listings && h('button', {
+            className: 'modal-demand-chip',
+            style: { cursor: 'pointer', border: 'inherit', background: 'inherit', color: 'inherit', font: 'inherit' },
+            title: `${listings.length} listing${listings.length === 1 ? '' : 's'} from ${new Set(listings.map(l => l.seller?.id ?? l.sellerId)).size} seller${new Set(listings.map(l => l.seller?.id ?? l.sellerId)).size === 1 ? '' : 's'} — click to scroll to the active listings section`,
+            onClick: () => {
+              const section = document.querySelector('.active-listings-anchor, .listings-section');
+              if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          },
+            h('span', { className: 'modal-demand-chip-num' }, listings.length),
+            ' listing' + (listings.length === 1 ? '' : 's')
+          ),
           item && Number(item.viewCount) >= 10 && h('div', {
             className: 'modal-demand-chip',
             title: `${Number(item.viewCount).toLocaleString()} lifetime item-detail opens`
@@ -743,7 +956,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         listings[0] && listings[0].listingType === 'AUCTION' && h('div', { 'data-auction-panel': 'true' },
           h(AuctionBidPanel, { listing: listings[0], me, wallet, onPlaced: onRefresh })
         ),
-        h('div', { className: 'modal-section-title' },
+        h('h2', { className: 'modal-section-title' },
           h('div', { className: 'section-title-dot' }),
           'Price History',
           // Batch 640 — CSFloat Visual Manual §15 parity time ranges
@@ -752,22 +965,39 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // "90D" / "365D" beat calendar-accurate 3M/1Y math — the
           // sparkline is a trend indicator, not an accountant.
           h('div', { className: 'chart-range' },
+            // Disable ranges that don't add information — if history has 11 rows,
+            // 1M/3M/1Y/ALL all return the same 11 points and clicking them
+            // produces no visible change. CSFloat parity: only enable ranges
+            // whose window is shorter than the available history (so they'd
+            // actually clamp the series to fewer points).
             [
-              { id: '7D',   label: '7D' },
-              { id: '30D',  label: '1M' },
-              { id: '90D',  label: '3M' },
-              { id: '365D', label: '1Y' },
-              { id: 'ALL',  label: 'ALL' }
-            ].map(r => h('button', {
-              key: r.id,
-              className: `chart-range-btn ${chartRange === r.id ? 'active' : ''}`,
-              onClick: () => setChartRange(r.id)
-            }, r.label))
+              { id: '7D',   label: '7D',  needs: 0   },
+              { id: '30D',  label: '1M',  needs: 7   },
+              { id: '90D',  label: '3M',  needs: 30  },
+              { id: '365D', label: '1Y',  needs: 90  },
+              { id: 'ALL',  label: 'ALL', needs: 0   }
+            ].map(r => {
+              const histLen = (history && history.length) || 0;
+              const hasHistory = !!history && histLen > 0;
+              const insufficient = hasHistory && r.needs > 0 && histLen <= r.needs;
+              return h('button', {
+                key: r.id,
+                className: `chart-range-btn ${chartRange === r.id ? 'active' : ''}${insufficient ? ' is-disabled' : ''}`,
+                onClick: () => { if (!insufficient) setChartRange(r.id); },
+                disabled: insufficient,
+                title: insufficient
+                  ? `Need at least ${r.needs + 1} days of price history to compare a ${r.label} window — try 7D.`
+                  : null,
+                'aria-label': insufficient
+                  ? `${r.label} (insufficient history)`
+                  : `Show ${r.label} price history`
+              }, r.label);
+            })
           )
         ),
         h('div', { className: 'chart-wrap' },
           slicedHistory && slicedHistory.length >= 2
-            ? h(Sparkline, { data: slicedHistory, color: trendUp ? '#4ade80' : trendFlat ? '#60a5fa' : '#f87171', height: 150 })
+            ? h(Sparkline, { data: slicedHistory, color: trendUp ? 'var(--up)' : trendFlat ? 'var(--ink-3)' : 'var(--down)', height: 150 })
             : h('div', { className: 'chart-empty', style: { height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, border: '1px dashed var(--border)', borderRadius: 10 } },
                 'Price history will appear here after the next market sync.')
         ),
@@ -777,7 +1007,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // what the market PAID). Counterparties aren't surfaced — buyer
         // privacy is non-negotiable.
         recentSales && recentSales.length > 0 && h('div', null,
-          h('div', { className: 'modal-section-title' },
+          h('h2', { className: 'modal-section-title' },
             h('div', { className: 'section-title-dot' }),
             `Recent sales (${recentSales.length})`
           ),
@@ -861,7 +1091,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         ),
 
         thread && thread.length > 0 && h('div', null,
-          h('div', { className: 'modal-section-title' }, h('div', { className: 'section-title-dot' }), `Offer thread (${thread.length})`),
+          h('h2', { className: 'modal-section-title' }, h('div', { className: 'section-title-dot' }), `Offer thread (${thread.length})`),
           h('div', { className: 'item-offer-thread' },
             thread.slice(-8).map(o => h('div', {
               key: o.id,
@@ -897,7 +1127,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             ))
           )
         ),
-        h('div', { className: 'modal-section-title' }, h('div', { className: 'section-title-dot' }), `Active Listings (${listings.length})`),
+        h('h2', { className: 'modal-section-title active-listings-anchor', id: 'active-listings' }, h('div', { className: 'section-title-dot' }), `Active Listings (${listings.length})`),
         h('div', { className: 'modal-listings' },
           listings.length === 0
             ? h('div', { style: { padding: '14px 16px', background: 'var(--bg-1, var(--bg-elevated))', border: '1px solid var(--line, var(--border))', borderRadius: 'var(--r-md, 8px)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
@@ -906,10 +1136,19 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 h('div', { style: { flex: 1, minWidth: 200 } },
                   h('div', { style: { fontFamily: "'Geist', 'Inter', system-ui, sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: '-0.005em', color: 'var(--ink, var(--text-primary))', marginBottom: 4 } },
                     'No active listings'),
+                  // I6 Boss-QA: copy tweaked to point users at Database
+                  // (past sales) as the next-best surface when nothing
+                  // is currently for sale. Mirrors CSFloat parity.
                   h('div', { style: { fontSize: 12, color: 'var(--ink-3, var(--text-muted))', lineHeight: 1.55 } },
                     me
-                      ? 'Be the first to get notified when someone lists this — or place a standing buy order at your max price and let the system auto-match.'
-                      : 'Sign in to set a restock alert or place a standing buy order.')
+                      ? h(React.Fragment, null,
+                          'Set a buy order at your max price and let the system auto-match — or browse ',
+                          h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'none' } }, 'Database'),
+                          ' for past sales.')
+                      : h(React.Fragment, null,
+                          'Sign in to set a restock alert or place a standing buy order — or browse ',
+                          h('a', { href: '/db?q=' + encodeURIComponent(item?.name || ''), style: { color: 'var(--accent)', textDecoration: 'none' } }, 'Database'),
+                          ' for past sales.'))
                 ),
                 me
                   ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
@@ -926,7 +1165,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     }, 'Sign in with Steam')
               )
             : (showAllListings ? listings : listings.slice(0, 6)).map(l => {
-                const rating = l.sellerUserId ? sellerRatings[l.sellerUserId] : null;
+                // Prefer the inline sellerRating attached by ListingController
+                // (single GROUP BY for all sellers in the request) over the
+                // legacy per-seller fetchReviewSummary loop. Fall back to the
+                // map for backward compat — both routes resolve to the same
+                // {count, average} shape downstream.
+                const rating = (l.sellerRating != null && l.sellerReviewCount != null)
+                  ? { average: l.sellerRating, count: l.sellerReviewCount }
+                  : (l.sellerUserId ? sellerRatings[l.sellerUserId] : null);
                 const isMine = me && l.sellerUserId === me.id;
                 return h('div', {
                     key: l.id,
@@ -1079,7 +1325,24 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     }, isCountered ? '↩ Countered $' : 'Offered $',
                       parseFloat(mine.amount || 0).toFixed(2));
                   })(),
-                  h('span', { className: 'modal-listing-price' }, fmt(l.price)),
+                  // For an auction row, the displayed amount is either the
+                  // current top bid (≥1 bid) or the seller's reserve (0 bids).
+                  // Without a label both read identical to a Buy-Now price,
+                  // which can mislead a buyer into thinking someone has
+                  // already bid the reserve and they need to outbid it. Show
+                  // a small muted prefix so the meaning is unambiguous.
+                  l.listingType === 'AUCTION' && h('span', {
+                    style: {
+                      fontSize: 10, fontWeight: 700, color: 'var(--text-muted)',
+                      letterSpacing: 0.4, textTransform: 'uppercase',
+                      marginRight: 6
+                    },
+                    title: (l.bidCount ?? 0) > 0
+                      ? "Current top bid in this auction"
+                      : "Seller's starting bid — be the first to bid"
+                  }, (l.bidCount ?? 0) > 0 ? 'BID' : 'START'),
+                  h('span', { className: 'modal-listing-price' },
+                    fmt(l.listingType === 'AUCTION' && l.currentBid ? l.currentBid : l.price)),
                   // Anon users get a sign-in CTA — bouncing into the API would
                   // fail with a generic auth error that reads as a bug. Own
                   // listings disable the button so sellers don't accidentally
@@ -1170,7 +1433,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // browsing item X by seller Y is more likely to want another
         // item from Y than a random similar-SKU match.
         otherFromSeller && otherFromSeller.listings.length > 0 && h('div', null,
-          h('div', { className: 'modal-section-title', style: { marginTop: 22 } },
+          h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
             h('div', { className: 'section-title-dot' }),
             `More from ${otherFromSeller.sellerName || 'this seller'}`,
             otherFromSeller.sellerId && h('a', {
@@ -1195,7 +1458,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
 
         // ── Similar items strip ────────────────────────────────────
         similar && similar.length > 0 && h('div', null,
-          h('div', { className: 'modal-section-title', style: { marginTop: 22 } },
+          h('h2', { className: 'modal-section-title', style: { marginTop: 22 } },
             h('div', { className: 'section-title-dot' }), 'You might also like'),
           h('div', { className: 'similar-strip' },
             similar.map(it => h('a', {
@@ -1312,7 +1575,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 onClick: () => setOfferOpen(o => !o),
                 disabled: !listings[0]
               }, offerOpen ? 'Cancel Offer' : 'Make Offer'),
-        onCreateBuyOrder && h('button', {
+        /* Place Buy Order hidden for anon viewers — requires auth anyway.
+           Keeps the action bar focused like csfloat's item page. */
+        onCreateBuyOrder && me && h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)' },
           onClick: () => onCreateBuyOrder(item),
@@ -1324,10 +1589,15 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // alert — uses the $100k cap as the target so any future
           // listing at any price trips the sweeper.
           const outOfStock = !listings || listings.length === 0;
+          // Restock-mode alerts are encoded as targetPrice ≥ 99999 (the
+          // $100k cap). Detect it so the label/tooltip don't read
+          // "Alert at $100,000.00" — that would confuse the user into
+          // thinking they'd set a real threshold near the cap.
+          const isRestock = myAlert && parseFloat(myAlert.targetPrice) >= 99999;
           const alertLabel = outOfStock
-            ? ' Notify When Listed'
+            ? (myAlert ? ' Restock Alert · On' : ' Notify When Listed')
             : myAlert
-              ? ` Alert at ${fmt(myAlert.targetPrice)} · Edit`
+              ? (isRestock ? ' Restock Alert · Edit' : ` Alert at ${fmt(myAlert.targetPrice)} · Edit`)
               : ' Set Price Alert';
           return h('button', {
             className: 'btn btn-ghost',
@@ -1338,9 +1608,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               ...(myAlert ? { borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } : {})
             },
             title: outOfStock
-              ? 'Get notified when this item is listed again'
+              ? (myAlert ? 'Restock alert active — fires the moment any listing appears.' : 'Get notified when this item is listed again')
               : myAlert
-                ? `Active alert · fires when any listing drops to ${fmt(myAlert.targetPrice)}. Click to edit.`
+                ? (isRestock
+                    ? 'Restock-style alert active — fires on any future listing regardless of price. Click to switch to a price target.'
+                    : `Active alert · fires when any listing drops to ${fmt(myAlert.targetPrice)}. Click to edit.`)
                 : 'Get notified when the floor price drops to your target',
             onClick: async () => {
               if (outOfStock) {
@@ -1357,11 +1629,17 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 return;
               }
               // In-stock: open the inline price-alert drawer. If the user
-              // already has an active alert, seed the current target so
-              // "Edit" actually reflects what they set. Otherwise default
-              // to 15% below the current floor for a one-click win.
-              const seed = myAlert
-                ? parseFloat(myAlert.targetPrice).toFixed(2)
+              // already has an active *threshold* alert, seed the current
+              // target so "Edit" actually reflects what they set.
+              // Restock-mode alerts (targetPrice ≥ 99999) used to seed
+              // the input with $100,000 — meaningless once the item is
+              // back in stock. Treat those like a fresh alert and default
+              // to 15% below the current floor instead, so the user
+              // gets a sensible starting point either way.
+              const existingTarget = myAlert ? parseFloat(myAlert.targetPrice) : null;
+              const isRestockSeed = existingTarget != null && existingTarget >= 99999;
+              const seed = (existingTarget != null && !isRestockSeed)
+                ? existingTarget.toFixed(2)
                 : (parseFloat(item.lowestPrice) * 0.85).toFixed(2);
               setAlertTarget(seed);
               setAlertErr('');
@@ -1402,7 +1680,22 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             h(MaterialIcon, { name: 'sell', size: 16 }), ' List one of these');
         })(),
         h(SteamMarketLink, { item }),
-        h('button', { className: 'btn btn-ghost btn-wishlist', style: { border: '1px solid var(--border)' } }, '♡')
+        // Wishlist toggle - reads watchlist + toggleStar from props (passed
+        // through from App). Was previously a placeholder button with no
+        // onClick, so anon visitors saw a heart that did nothing. Now the
+        // heart fills + the localStorage watchlist updates + the nav badge
+        // re-counts, matching the GridCard star behavior.
+        (() => {
+          const starred = Array.isArray(watchlist) && item?.id != null && watchlist.includes(item.id);
+          return h('button', {
+            className: 'btn btn-ghost btn-wishlist' + (starred ? ' on' : ''),
+            style: { border: '1px solid var(--border)' },
+            onClick: () => onToggleStar && item?.id != null && onToggleStar(item.id),
+            title: starred ? 'Remove from watchlist' : 'Add to watchlist',
+            'aria-label': starred ? `Remove ${item.name} from watchlist` : `Add ${item.name} to watchlist`,
+            'aria-pressed': starred
+          }, starred ? '♥' : '♡');
+        })()
       ),
 
       alertOpen && (() => {
@@ -1430,6 +1723,36 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             className: 'wallet-input-label',
             style: { marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' }
           }, 'Notify me when the floor drops to…'),
+          // Percent-off preset chips — csfloat-parity quick-set for "10%
+          // drop / 20% drop / etc." patterns. Computes
+          //   target = floor × (1 - pct/100)
+          // and seeds the input. Only renders when there's a real floor
+          // to discount from; out-of-stock items use the restock flow
+          // instead (handled at the Notify-When-Listed branch above).
+          floor > 0 && h('div', {
+            style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }
+          },
+            h('span', {
+              style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', alignSelf: 'center', marginRight: 4 }
+            }, 'Quick:'),
+            [5, 10, 20, 30, 50].map(pct => {
+              const next = Math.max(0.01, floor * (1 - pct / 100));
+              const isActive = Number.isFinite(typed) && Math.abs(typed - next) < 0.005;
+              return h('button', {
+                key: 'pct-' + pct,
+                type: 'button',
+                className: 'btn btn-ghost',
+                style: {
+                  padding: '4px 10px', fontSize: 11,
+                  border: '1px solid ' + (isActive ? 'var(--accent)' : 'var(--border)'),
+                  color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                  fontWeight: isActive ? 700 : 500
+                },
+                onClick: () => setAlertTarget(next.toFixed(2)),
+                title: `Notify me when the floor drops ${pct}% from current — that's ${fmt(next)}`
+              }, '−', pct, '%');
+            })
+          ),
           h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
             h('div', {
               style: {
@@ -1723,7 +2046,64 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         reasons: reportReasons,
         onCancel: () => setReportTarget(null),
         onSubmitted: () => { setReportTarget(null); onRefresh && onRefresh(); }
-      })
+      }),
+      // CSFloat parity — Recently Viewed strip as the last section in
+      // the item modal, so a buyer who's been browsing 4+ items can hop
+      // back to a recent one without leaving the page. Inlined (rather
+      // than imported from app.js) to avoid a circular module import.
+      // Reads the same `sb_recently_viewed` localStorage key the home
+      // rail uses; hides the active item so the strip points outward.
+      (() => {
+        let recent = [];
+        try { recent = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); } catch (_) {}
+        const visible = (recent || []).filter(r => !item?.id || String(r.id) !== String(item.id));
+        if (visible.length < 4) return null;
+        return h('section', { className: 'recently-viewed', style: { padding: '0 30px 20px' } },
+          h('h2', { className: 'recently-viewed-head' },
+            h('span', { className: 'section-title-dot' }),
+            'Recently viewed'
+          ),
+          h('div', { className: 'recently-viewed-rail' },
+            visible.slice(0, 12).map(it => h('a', {
+              key: it.id,
+              href: '/item/' + it.id,
+              className: 'recently-viewed-card',
+              onClick: (e) => { e.preventDefault(); navigate('/item/' + it.id); }
+            },
+              h('div', { className: 'recently-viewed-thumb' },
+                it.imageUrl
+                  ? h('img', { src: it.imageUrl, alt: it.name, loading: 'lazy' })
+                  : h('div', { className: 'recently-viewed-glyph', style: { color: 'var(--ink-3)' } },
+                      ({Hats:'◈',Jackets:'▲',Shirts:'■',Pants:'▮',Gloves:'◉',Boots:'▼',Accessories:'◆',Workshop:'❖'})[it.category] || '—')
+              ),
+              h('div', { className: 'recently-viewed-name' }, it.name),
+              h('div', { className: 'recently-viewed-price' },
+                it.lowestPrice != null ? fmt(it.lowestPrice) : '—')
+            ))
+          )
+        );
+      })()
+    ),
+    /* Image lightbox — full-viewport overlay opened by the magnifier
+       button on the item-detail image. Click backdrop or the close X to
+       dismiss; Escape also dismisses (handled in the useEffect above). */
+    isPageMode && zoomOpen && h('div', {
+      className: 'item-lightbox',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': item?.name ? `${item.name} — full size image` : 'Item image at full size',
+      onClick: () => setZoomOpen(false)
+    },
+      h('button', {
+        type: 'button',
+        className: 'item-lightbox-close',
+        onClick: (e) => { e.stopPropagation(); setZoomOpen(false); },
+        'aria-label': 'Close full-size image'
+      }, '✕'),
+      h('div', { className: 'item-lightbox-frame', onClick: (e) => e.stopPropagation() },
+        h(ItemImage, { item, variant: 'hero' })
+      ),
+      h('div', { className: 'item-lightbox-cap' }, item?.name || 'Item')
     )
   );
 }
@@ -2174,19 +2554,19 @@ export function AffiliateModal({ onClose }) {
     { platform: 'Website', target: '≥ 2,000 MAU' }
   ];
   return h(InfoModal, { title: 'Affiliate Program', onClose },
-    // Flat editorial hero — no purple gradient, single blue hairline.
+    // Flat editorial hero — mono-primary eyebrow + Fraunces display.
     h('div', {
       style: {
         marginBottom: 22,
         padding: '32px 24px',
         borderRadius: 12,
-        background: 'var(--bg-1, var(--bg-elevated))',
-        border: '1px solid var(--accent-border)',
+        background: 'var(--bg-1)',
+        border: '1px solid var(--line-2)',
         textAlign: 'center'
       }
     },
-      h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 } }, 'SkinBox'),
-      h('div', { style: { fontSize: 28, fontWeight: 800, color: 'var(--text-primary)' } }, 'Affiliate Program')
+      h('div', { style: { fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 500, color: 'var(--ink-4)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 } }, 'SkinBox'),
+      h('div', { style: { fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 360, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariationSettings: '"opsz" 144' } }, 'Affiliate Program')
     ),
     h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 14, marginBottom: 24 } },
       'The SkinBox Affiliate Program pays you a share of the platform fees from every user you refer. Earnings are credited to your SkinBox wallet and can be cashed out to Stripe like any other sale proceeds.'),
@@ -2235,6 +2615,7 @@ export function AffiliateModal({ onClose }) {
           readOnly: true,
           value: 'affiliate@skinbox.market',
           className: 'price-input',
+          'aria-label': 'Affiliate program contact email — click to select',
           style: { width: 220, fontSize: 12.5, fontFamily: 'JetBrains Mono, monospace' },
           onClick: e => e.target.select()
         }),
@@ -2265,7 +2646,7 @@ export function FaqModal({ onClose }) {
     ['What is SkinBox?',
       "SkinBox is a peer-to-peer marketplace for s&box cosmetic items. Every listing comes from a real seller who sets their own price — we're the middle layer that makes transactions safe, fast, and cheaper than going through the Steam store."],
     ['How do I sign in?',
-      "Click the blue Steam button in the top-right. You'll bounce to steamcommunity.com, approve the login, and land back here already authenticated. Your Steam password never touches our servers — everything goes through OpenID."],
+      "Click the ‘Sign in through Steam’ button in the top-right. You'll bounce to steamcommunity.com, approve the login, and land back here already authenticated. Your Steam password never touches our servers — everything goes through OpenID."],
     ['How do I buy something?',
       "Top up your wallet first, then click any item and hit Buy. Funds are charged from your balance instantly — there's no bid-and-wait or 7-day trade hold like the Steam market."],
     ['How does depositing work?',
@@ -2303,15 +2684,18 @@ export function FaqModal({ onClose }) {
   ];
   const t = q.trim().toLowerCase();
   const filtered = t ? ENTRIES.filter(([qq, aa]) => (qq + ' ' + aa).toLowerCase().includes(t)) : ENTRIES;
-  return h(InfoModal, { title: 'Support & Help', onClose },
-    h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 14, padding: '10px 14px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 8 } },
-      'Need something not covered here? ',
+  return h(InfoModal, { title: 'FAQ', onClose },
+    // Boss QA F1 — slim 48px-tall single-line banner so the FAQ
+    // questions sit above the fold. The previous block was a wrapping
+    // multi-line ad with the support link buried mid-sentence; the
+    // shipped copy now reads as a one-liner with the CTA chained on.
+    h('div', { className: 'faq-support-banner' },
+      h('span', null, "Can't find an answer?"),
       h('a', {
         href: '/support',
-        onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); },
-        style: { color: 'var(--accent)', fontWeight: 600 }
-      }, 'Open a support ticket'),
-      ' — our team will reply in your Support tab, typically within 24 hours.'),
+        onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate('/support'); }
+      }, 'Open a support ticket →')
+    ),
     ENTRIES.length > 4 && h('input', {
       className: 'price-input',
       style: { width: '100%', fontSize: 13, marginBottom: 18 },
@@ -2346,14 +2730,17 @@ export function FaqModal({ onClose }) {
           )
         )
       : filtered.map(([question, answer]) => h('div', { key: question, style: { marginBottom: 20 } },
-          h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, fontSize: 14 } }, highlightMatch(question, q)),
+          // h3 (not <div>) so screen-reader heading-list lets users skim
+          // questions without reading every answer. Visual styling matches
+          // the previous div: bold ink-primary, 14px, 6px bottom margin.
+          h('h3', { style: { fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px', fontSize: 14 } }, highlightMatch(question, q)),
           h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 13 } }, highlightMatch(answer, q))
         ))
   );
 }
 
 // ── Settings ────────────────────────────────────────────────────
-export function SettingsModal({ onClose }) {
+export function SettingsModal({ onClose, me }) {
   const [currency, setCurrency] = useState(localStorage.getItem('sb_currency') || 'USD');
   const [notifs, setNotifs]     = useState(localStorage.getItem('sb_notifs') !== 'false');
   const [sounds, setSounds]     = useState(localStorage.getItem('sb_sounds') !== 'false');
@@ -2373,6 +2760,18 @@ export function SettingsModal({ onClose }) {
   };
   const [reduceMotion, setRM]   = useState(localStorage.getItem('sb_reduce_motion') === '1');
   const [highContrast, setHC]   = useState(localStorage.getItem('sb_contrast') === '1');
+  // Codex 17:28Z polish — Sound effects "Test" button was audio-only and
+  // appeared dead if the audio context was blocked by the browser (autoplay
+  // policy, muted tab, or no Web Audio API at all). Surface a short status
+  // message next to the button so a click without audible feedback still
+  // shows "Played", "Audio blocked — interact with the page first", or
+  // "Audio not supported." Auto-clears after 3s so it doesn't linger.
+  const [soundTestStatus, setSoundTestStatus] = useState(null);
+  useEffect(() => {
+    if (!soundTestStatus) return undefined;
+    const id = setTimeout(() => setSoundTestStatus(null), 3000);
+    return () => clearTimeout(id);
+  }, [soundTestStatus]);
 
   useEffect(() => {
     localStorage.setItem('sb_currency', currency);
@@ -2398,6 +2797,12 @@ export function SettingsModal({ onClose }) {
     ),
     control
   );
+  // Visible h2 section headings give screen reader users a navigable
+  // landmark structure on /settings (rotor / heading-list shortcut)
+  // and help sighted users group related preferences at a glance.
+  // Mono-uppercase 11px to match the existing rail / sidebar headings
+  // (`.just-listed-head`, `.filter-title`) elsewhere on the site.
+  const Section = (title) => h('h2', { className: 'settings-section-heading' }, title);
   const Toggle = (on, onChange) => h('div', {
     className: `toggle-switch ${on ? '' : 'off'}`,
     onClick: onChange
@@ -2424,7 +2829,34 @@ export function SettingsModal({ onClose }) {
     location.reload();
   };
 
+  // Boss QA G6 — anonymous viewers can change Display + Accessibility
+  // preferences (currency, reduce-motion, high-contrast — all stored in
+  // localStorage), but Notifications + sound bell-mute belongs to the
+  // signed-in account. Show a clearly-labelled sign-in nudge in place
+  // of the notification panel so anon users aren't toggling an opt-out
+  // for events they can't receive yet.
   return h(InfoModal, { title: 'Settings', onClose },
+    !me && h('div', {
+      style: {
+        marginBottom: 18, padding: '12px 16px',
+        background: 'var(--accent-dim)',
+        border: '1px solid var(--accent-border)',
+        borderRadius: 8,
+        fontSize: 12, color: 'var(--text-secondary)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap'
+      }
+    },
+      h('span', null,
+        h('strong', { style: { color: 'var(--text-primary)' } }, 'Display & Accessibility only'),
+        ' — sign in with Steam to manage notifications, sound mutes, and per-account preferences.'),
+      h('button', {
+        className: 'btn btn-accent',
+        style: { padding: '6px 14px', fontSize: 12 },
+        onClick: () => signInWithSteam()
+      }, 'Sign in with Steam')
+    ),
+    Section('Display'),
     Row('Currency', 'Prices shown in your chosen currency (stored as USD)', h('select', {
         className: 'sort-select', value: currency,
         onChange: e => setCurrency(e.target.value)
@@ -2437,29 +2869,58 @@ export function SettingsModal({ onClose }) {
       h('option', { value: 'BRL' }, 'BRL · R$'),
       h('option', { value: 'JPY' }, 'JPY · ¥')
     )),
-    Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v))),
-    // Batch 819 — Sound-effects row now includes a "Test" button so
-    // users can hear the ding before deciding whether to enable it.
-    // Bypasses the mute flag via `{force:true}` so the button always
-    // plays regardless of the toggle state.
-    Row('Sound effects',      'Play sounds on actions',
+    me && Section('Notifications & sound'),
+    me && Row('Sale notifications', 'Toast when someone buys', Toggle(notifs, () => setNotifs(v => !v))),
+    // Batch 819 — Sound-effects row now includes a "Send test
+    // notification" button so users can hear the ding before deciding
+    // whether to enable it. Bypasses the mute flag via `{force:true}`
+    // so the button always plays regardless of the toggle state.
+    // Boss QA G7 — relabelled the bare "Test" pill so it explicitly
+    // names the action (was indistinguishable from a dev artifact).
+    me && Row('Sound effects',      'Play sounds on actions',
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)', padding: '3px 10px', fontSize: 11 },
           title: 'Play the notification ding once (bypasses the mute toggle).',
+          'aria-label': 'Send a test notification ding',
           onClick: async () => {
             try {
               const { playNotifyDing } = await import('./nav-widgets.js');
-              playNotifyDing({ force: true });
-            } catch (_) { /* silent — bundling issue is benign */ }
+              const res = playNotifyDing({ force: true });
+              if (res && res.ok) {
+                setSoundTestStatus({ kind: 'ok', text: 'Test ding played.' });
+              } else if (res && res.reason === 'audio-blocked') {
+                setSoundTestStatus({ kind: 'warn', text: 'Sound preview unavailable in this browser — interact with the page first.' });
+              } else if (res && res.reason === 'no-audio-api') {
+                setSoundTestStatus({ kind: 'err', text: 'Sound preview unavailable in this browser.' });
+              } else {
+                setSoundTestStatus({ kind: 'err', text: 'Sound preview unavailable in this browser.' });
+              }
+            } catch (_) {
+              setSoundTestStatus({ kind: 'err', text: 'Sound preview unavailable in this browser.' });
+            }
           }
-        }, 'Test'),
+        }, 'Send test notification'),
+        // aria-live=polite so screen readers announce the result without
+        // interrupting whatever they were reading. Visually hidden when
+        // empty so the row doesn't expand-collapse on every test press.
+        h('span', {
+          'aria-live': 'polite', role: 'status',
+          style: {
+            fontSize: 11, lineHeight: 1.2, minHeight: 14,
+            color: soundTestStatus?.kind === 'ok'   ? 'var(--green, #22c55e)'
+                 : soundTestStatus?.kind === 'warn' ? '#fbbf24'
+                 : soundTestStatus?.kind === 'err'  ? 'var(--red, #f87171)'
+                 : 'transparent',
+            transition: 'color 200ms ease'
+          }
+        }, soundTestStatus?.text || ' '),
         Toggle(sounds, () => setSounds(v => !v))
       )),
     // Mute per-category — hide alerts you don't care about from the bell
     // and the Notifications page without silencing everything else.
-    Row('Mute notification types',
+    me && Row('Mute notification types',
       'Hide these categories from the bell + /notifications. Applied client-side; the server still records the event.',
       h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: 320 } },
         [
@@ -2482,6 +2943,7 @@ export function SettingsModal({ onClose }) {
         }, muted.has(opt.id) ? `Muted · ${opt.label}` : opt.label))
       )
     ),
+    Section('Accessibility & appearance'),
     Row('Reduce motion',      'Disable animations for card hover + ticker scroll',
       Toggle(reduceMotion, () => setRM(v => !v))),
     Row('High contrast',      'Boost text / border contrast for readability',
@@ -2490,6 +2952,7 @@ export function SettingsModal({ onClose }) {
       h('span', { style: { color: 'var(--text-muted)', fontSize: 12 } }, 'Dark · mono')
     ),
     h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' } },
+      Section('Local data'),
       h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 } },
         'These preferences live in your browser. Your account data (wallet, listings, trades) is stored server-side and is not affected by these buttons.'),
       h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
@@ -2622,15 +3085,68 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   }, [me?.id]);
 
   // ── GUARD CLAUSE (all hooks are above, safe to early-return) ──
-  if (!me) return h(InfoModal, { title: 'Profile', onClose },
-    h(SignInNeededEmptyState, { what: 'your profile' }));
+  // When the modal is opened via a tab-specific route (e.g. /support)
+  // the header title mirrors that tab so anonymous viewers don't see
+  // "Profile · Sign in required" on a page they asked to be Support.
+  const TAB_TITLES = {
+    personal:     'Profile',
+    transactions: 'Transactions',
+    buyorders:    'Buy Orders',
+    autobids:     'Active Bids',
+    trades:       'Trades',
+    offers:       'Offers',
+    reviews:      'Reviews',
+    support:      'Support',
+    developers:   'Developers',
+  };
+  const modalTitle = TAB_TITLES[initialTab] || 'Profile';
+  const signInWhat = initialTab === 'support' ? 'your support tickets'
+                   : initialTab === 'trades' ? 'your trades'
+                   : initialTab === 'transactions' ? 'your transactions'
+                   : initialTab === 'buyorders' ? 'your buy orders'
+                   : initialTab === 'autobids' ? 'your active bids'
+                   : initialTab === 'offers' ? 'your offers'
+                   : initialTab === 'reviews' ? 'your reviews'
+                   : initialTab === 'developers' ? 'your API keys'
+                   : 'your profile';
+  // Footer chips and in-app help links route anon users to /support
+  // (and /support?topic=bug). Hitting a pure "Sign in required" wall
+  // there is a UX dead-end: they wanted to *contact* the team, not
+  // read their own ticket history. Surface a no-login mailto fallback
+  // with the topic pre-filled in the subject so the email lands tagged.
+  let signInMailto = null;
+  if (initialTab === 'support') {
+    let topic = '';
+    try { topic = (new URLSearchParams(window.location.search).get('topic') || '').slice(0, 40); } catch (_) {}
+    const subject = topic === 'bug' ? '[Bug report] '
+                  : topic === 'cap-raise' ? '[Cap raise request] '
+                  : topic ? `[${topic}] `
+                  : '[Support] ';
+    signInMailto = { to: 'support@skinbox.market', subject, label: 'Email support@skinbox.market' };
+  }
+  if (!me) return h(InfoModal, { title: modalTitle, onClose },
+    h(SignInNeededEmptyState, { what: signInWhat, mailto: signInMailto }));
 
   const maskAmount = (val) => privacy ? '$•••••' : fmt(val);
 
   const runSync = async () => {
     setSyncing(true);
-    try { await syncSteam(); const fresh = await fetchProfile(); setProfile(fresh); }
-    finally { setSyncing(false); }
+    try {
+      // Pre-fix: silent both ways — successful sync left the user to
+      // detect that profile fields had updated, and a network / Steam-side
+      // failure (rate-limited, OpenID expired, Steam down) looked
+      // indistinguishable from a successful no-op sync. syncSteam() returns
+      // `{ok:false}` on non-2xx and the response JSON on success; surface a
+      // toast either way so the "Re-sync from Steam" button feels live.
+      const res = await syncSteam();
+      if (res && res.ok === false) {
+        toast('Steam sync failed — try again in a minute.', 'err');
+        return;
+      }
+      const fresh = await fetchProfile();
+      setProfile(fresh);
+      toast('Profile re-synced from Steam.', 'ok');
+    } finally { setSyncing(false); }
   };
 
   const TABS = [
@@ -2645,7 +3161,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     { id: 'developers',   label: 'Developers' },
   ];
 
-  return h(InfoModal, { title: 'Profile', onClose },
+  return h(InfoModal, { title: modalTitle, onClose },
     /* Hero: avatar + name + earnings privacy toggle + account standing bar */
     h('div', { className: 'profile-hero-split' },
     h('div', { className: 'profile-hero' },
@@ -2878,7 +3394,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
             style: {
               position: 'absolute',
               top: 22, left: `calc(${100 / (2 * NODES.length)}%)`,
-              width: `calc(${(idx / Math.max(1, NODES.length - 1)) * 100}% - ${100 / (2 * NODES.length)}%)`,
+              width: `calc(${idx * (100 / NODES.length)}%)`,
               height: 2, background: active.color, zIndex: 0,
               transition: 'width 0.3s ease'
             }
@@ -2934,7 +3450,16 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
         role: 'tab',
         'aria-selected': tab === t.id,
         tabIndex: tab === t.id ? 0 : -1,
-        onClick: () => setTab(t.id),
+        onClick: () => {
+          setTab(t.id);
+          // CSFloat-1:1: keep the URL in sync with the active tab so it's
+          // shareable + browser back/forward steps tab-by-tab.
+          // Use navigate() (not raw pushState) so the SPA router state
+          // updates → routeName/route.params.tab change → title-effect
+          // re-fires → document.title reflects the new tab. Pre-fix,
+          // the URL changed but the title stayed stale on tab click.
+          navigate('/profile/' + t.id);
+        },
         onKeyDown: (e) => {
           // Batch 936 — arrow-key navigation between tabs. Standard
           // WAI-ARIA tablist pattern: Left/Right move the active tab,
@@ -4454,7 +4979,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
     // the actual paths to a first ledger entry (deposit → buy, list
     // → sell, or set up a standing buy order).
     return h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '—'),
+      h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
       h('div', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
         'No transactions yet'),
       h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px', lineHeight: 1.5 } },
@@ -4465,7 +4990,7 @@ function ProfileTransactionsTab({ transactions, privacy }) {
         h('a', { className: 'btn btn-ghost', href: '/sell',
           style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 } },
           'Sell an item'),
-        h('a', { className: 'btn btn-ghost', href: '/',
+        h('a', { className: 'btn btn-ghost', href: '/market',
           style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 } },
           'Browse marketplace')
       ));
@@ -4706,7 +5231,7 @@ function ProfileBuyOrdersTab() {
   };
   if (orders === null) return h('div', { className: 'spinner' });
   if (orders.length === 0) return h('div', { className: 'empty-inline' },
-    h('div', { className: 'empty-icon' }, '—'),
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'No buy orders yet'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
@@ -4984,6 +5509,11 @@ function ProfileAutoBidsTab() {
   const [bids, setBids] = useState(null);
   const [past, setPast] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Date-range filter for bids CSV export — passes through to
+  // /api/profile/bids.csv as ?from=&to= so a quarterly slice can be
+  // downloaded for accounting reconciliation.
+  const [bidsDateFrom, setBidsDateFrom] = useState(null);
+  const [bidsDateTo,   setBidsDateTo]   = useState(null);
   const load = useCallback(() => { fetchActiveBids().then(setBids); }, []);
   const loadPast = useCallback(async () => {
     try {
@@ -5025,23 +5555,43 @@ function ProfileAutoBidsTab() {
       toast(`${count} auto-bid${count === 1 ? '' : 's'} cancelled. Your current bids stay live.`, 'ok');
     } finally { setBusy(false); }
   };
-  const subTabPicker = h('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
-    h('button', {
-      className: `offer-tab ${subtab === 'active' ? 'active' : ''}`,
-      onClick: () => setSubtab('active')
-    }, 'Active', bids && bids.length > 0 ? h('span', { className: 'filter-count', style: { marginLeft: 6 } }, bids.length) : null),
-    h('button', {
-      className: `offer-tab ${subtab === 'past' ? 'active' : ''}`,
-      onClick: () => setSubtab('past')
-    }, 'Past', past && past.length > 0 ? h('span', { className: 'filter-count', style: { marginLeft: 6 } }, past.length) : null)
-  );
+  const subTabPicker = (() => {
+    const TABS = ['active', 'past'];
+    const onKey = (e) => {
+      if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+      e.preventDefault();
+      const idx = TABS.indexOf(subtab);
+      let n = idx;
+      if (e.key === 'ArrowRight' || e.key === 'End') n = TABS.length - 1;
+      else if (e.key === 'ArrowLeft' || e.key === 'Home') n = 0;
+      setSubtab(TABS[n]);
+    };
+    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 12 }, role: 'tablist', 'aria-label': 'Bids filter' },
+      h('button', {
+        className: `offer-tab ${subtab === 'active' ? 'active' : ''}`,
+        role: 'tab',
+        'aria-selected': subtab === 'active',
+        tabIndex: subtab === 'active' ? 0 : -1,
+        onKeyDown: onKey,
+        onClick: () => setSubtab('active')
+      }, 'Active', bids && bids.length > 0 ? h('span', { className: 'filter-count', style: { marginLeft: 6 } }, bids.length) : null),
+      h('button', {
+        className: `offer-tab ${subtab === 'past' ? 'active' : ''}`,
+        role: 'tab',
+        'aria-selected': subtab === 'past',
+        tabIndex: subtab === 'past' ? 0 : -1,
+        onKeyDown: onKey,
+        onClick: () => setSubtab('past')
+      }, 'Past', past && past.length > 0 ? h('span', { className: 'filter-count', style: { marginLeft: 6 } }, past.length) : null)
+    );
+  })();
 
   // ── Past sub-tab (batch 361) ───────────────────────────────────
   if (subtab === 'past') {
     if (past === null) return h('div', null, subTabPicker, h('div', { className: 'spinner' }));
     if (past.length === 0) return h('div', null, subTabPicker,
       h('div', { className: 'empty-inline' },
-        h('div', { className: 'empty-icon' }, '—'),
+        h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
         h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
           'No past bids yet'),
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
@@ -5052,7 +5602,7 @@ function ProfileAutoBidsTab() {
         h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
           h('a', {
             className: 'btn btn-accent',
-            href: '/?type=AUCTION',
+            href: '/market?type=AUCTION',
             style: { padding: '10px 18px', fontWeight: 700 }
           }, 'Browse live auctions →')
         )
@@ -5144,14 +5694,14 @@ function ProfileAutoBidsTab() {
   // ── Active sub-tab (existing behaviour) ────────────────────────
   if (bids === null) return h('div', null, subTabPicker, h('div', { className: 'spinner' }));
   if (bids.length === 0) return h('div', null, subTabPicker, h('div', { className: 'empty-inline' },
-    h('div', { className: 'empty-icon' }, '—'),
+    h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'No active bids'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
-      'Place a bid on any auction to see it here. Optionally set an auto-bid cap so the bot raises your bid by the minimum increment whenever you\'re outbid — up to your ceiling.'),
+      'Place a bid on any auction to see it here. Optionally set an auto-bid cap so the proxy-bidder raises your bid by the minimum increment whenever you\'re outbid — up to your ceiling.'),
     // Batch 837 — URL param is `type`, not `listingType` (batch 812
     // mirroring). Old link landed on an unfiltered grid.
-    h('a', { className: 'btn btn-accent', href: '/?type=AUCTION' }, 'Browse auctions →')
+    h('a', { className: 'btn btn-accent', href: '/market?type=AUCTION' }, 'Browse auctions →')
   ));
   // Batch 854 — Active Bids capital-exposure summary, parallel to the
   // Buy Orders strip (batch 853). Auctions don't pre-lock wallet
@@ -5214,11 +5764,16 @@ function ProfileAutoBidsTab() {
         `${bids.length} active bid${bids.length === 1 ? '' : 's'} across auctions` +
         (autoBidsCount > 0 ? ` · ${autoBidsCount} auto-raising` : '')),
       h('div', { style: { flex: 1 } }),
+      h(DateRangeFilter, {
+        from: bidsDateFrom,
+        to:   bidsDateTo,
+        onChange: ({ from, to }) => { setBidsDateFrom(from); setBidsDateTo(to); }
+      }),
       h('a', {
         className: 'btn btn-ghost',
-        style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11, marginRight: 8 },
-        href: '/api/profile/bids.csv',
-        title: 'Download every bid you have ever placed (WINNING + OUTBID + WON + LOST + CANCELLED) as CSV'
+        style: { border: '1px solid var(--border)', padding: '6px 10px', fontSize: 11, margin: '0 8px' },
+        href: appendDateRange('/api/profile/bids.csv', bidsDateFrom, bidsDateTo),
+        title: 'Download every bid you have ever placed (WINNING + OUTBID + WON + LOST + CANCELLED) as CSV. Honours the date filter when set.'
       }, '⇣ CSV'),
       autoBidsCount > 0 && h('button', {
         className: 'btn btn-ghost',
@@ -5298,7 +5853,7 @@ function ProfileAutoBidsTab() {
             style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
             disabled: busy,
             onClick: () => cancelOne(b),
-            title: "Stop the auto-raise bot — your current bid stays live"
+            title: "Stop the auto-raise proxy-bidder — your current bid stays live"
           }, 'Stop auto')
         )
       )))
@@ -5348,6 +5903,13 @@ function ProfileTradesTab({ me, privacy }) {
   // against item name + counterparty display. Helpful when a user with
   // 100+ historical trades needs to find "that hat I sold last month."
   const [tradeSearch, setTradeSearch] = useState('');
+  // Date-range filter — drives both the client-side row filter and the
+  // CSV-export href (?from=&to= passed through to the controller). Lets
+  // a user pull a quarterly slice for tax / accounting without piping a
+  // full-year file through a spreadsheet filter. `to` is inclusive
+  // end-of-day local time so picking Mar 31 covers "all of Mar 31."
+  const [tradeDateFrom, setTradeDateFrom] = useState(null);
+  const [tradeDateTo,   setTradeDateTo]   = useState(null);
   // Per-trade chat panel state: which trade's chat is open, the loaded
   // messages keyed by trade id, the draft input per trade, and the
   // send-in-flight flag. Closed by default — a user with dozens of
@@ -5577,6 +6139,34 @@ function ProfileTradesTab({ me, privacy }) {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
+  // React rules-of-hooks: every hook must run on every render in the same
+  // order. Previously `markSentTrade`, `confirmTrade`, and `disputeTrade`
+  // were declared below the (!me)/(trades===null) early returns, so the
+  // first render (trades===null → spinner) called 10 hooks and the second
+  // (trades loaded → real UI) called 13 — React error #310 nuked the whole
+  // Trades tab. Hoisted them to before the early return so the count is
+  // stable across renders.
+  const [markSentTrade, setMarkSentTrade] = useState(null);
+  const [confirmTrade, setConfirmTrade] = useState(null);
+  const [disputeTrade, setDisputeTrade] = useState(null);
+
+  // Confirm-receipt Escape handler — also has to live above the early
+  // returns or its useEffect runs only when `me && trades` is true,
+  // which makes the hook count vary across renders and trips React #310.
+  // No-ops when confirmTrade is null. Busy-guarded so a user can't cancel
+  // mid-flight while tradeOp is already in progress.
+  useEffect(() => {
+    if (!confirmTrade) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (busy) return;
+      e.stopPropagation();
+      setConfirmTrade(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [confirmTrade, busy]);
+
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
   if (trades === null) return h('div', { className: 'spinner' });
 
@@ -5604,16 +6194,23 @@ function ProfileTradesTab({ me, privacy }) {
     if (roleFilter === 'selling') return stateFiltered.filter(t => t.sellerUserId === me.id);
     return stateFiltered;
   })();
-  // Client-side search box (batch 374) — item name + counterparty
-  // display + trade id. Small dataset (user's own trades, capped at
-  // 200-ish) so a full-scan filter is fine.
+  // Client-side search + date-range filter (batch 374). Item name +
+  // counterparty display + trade id; small dataset (user's own trades,
+  // capped at 200-ish) so a full-scan filter is fine. Date bounds use
+  // `createdAt` so a user sees the same slice on screen as in the CSV
+  // export they'd pull with the same window.
   const filtered = (() => {
+    let rows = roleFiltered;
     const q = (tradeSearch || '').trim().toLowerCase();
-    if (!q) return roleFiltered;
-    return roleFiltered.filter(t =>
-      (t.itemName || '').toLowerCase().includes(q) ||
-      (t.counterpartyName || '').toLowerCase().includes(q) ||
-      String(t.id).includes(q));
+    if (q) {
+      rows = rows.filter(t =>
+        (t.itemName || '').toLowerCase().includes(q) ||
+        (t.counterpartyName || '').toLowerCase().includes(q) ||
+        String(t.id).includes(q));
+    }
+    if (tradeDateFrom != null) rows = rows.filter(t => (t.createdAt || 0) >= tradeDateFrom);
+    if (tradeDateTo   != null) rows = rows.filter(t => (t.createdAt || 0) <= tradeDateTo);
+    return rows;
   })();
 
   const tradeOp = async (fn, ...args) => {
@@ -5645,7 +6242,7 @@ function ProfileTradesTab({ me, privacy }) {
   // doesn't accidentally dismiss with the X. Previous prompt-based
   // flow had no live feedback so a typo-ed URL silently dropped at
   // the server's regex check.
-  const [markSentTrade, setMarkSentTrade] = useState(null);
+  // (markSentTrade state is now declared above the early returns.)
   const onSent = (id) => {
     // Find the full trade record so the drawer can render the
     // buyer name + item + price as context — otherwise "paste a
@@ -5676,7 +6273,7 @@ function ProfileTradesTab({ me, privacy }) {
   // seller. Gate it behind a summary modal so buyers review (item, price,
   // fee, seller) before committing. Without this, a mis-click on "Confirm"
   // on the wrong trade row could release funds early.
-  const [confirmTrade, setConfirmTrade] = useState(null);
+  // (confirmTrade state is now declared above the early returns.)
   const onConfirm = (trade) => setConfirmTrade(trade);
   const runConfirm = async () => {
     if (!confirmTrade) return;
@@ -5703,26 +6300,15 @@ function ProfileTradesTab({ me, privacy }) {
       toast(`Receipt confirmed for ${label}${priceBit}.`, 'ok');
     } finally { setBusy(false); }
   };
-  // Batch 826 — Escape closes the confirm-receipt modal. Hook lives
-  // here so useEffect can run unconditionally; it no-ops when
-  // confirmTrade is null. Busy-guarded so a user can't cancel mid-
-  // flight (the tradeOp is already in progress).
-  useEffect(() => {
-    if (!confirmTrade) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (busy) return;
-      e.stopPropagation();
-      setConfirmTrade(null);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [confirmTrade, busy]);
+  // (Confirm-receipt Escape handler moved above the early returns to keep
+  // the useEffect hook order stable — see hoisted block before
+  // `if (!me) return …`. Hook order has to match across renders or React
+  // throws #310.)
   // Dispute opens a structured drawer (batch 275) — replaces the legacy
   // free-text prompt. The drawer takes the trade row so it can show
   // item / price context + decide whether to render the buyer-side or
   // seller-side reason list.
-  const [disputeTrade, setDisputeTrade] = useState(null);
+  // (disputeTrade state is now declared above the early returns.)
   const onDispute = (id) => {
     const t = (trades || []).find(x => x.id === id);
     if (!t) return;
@@ -5867,15 +6453,25 @@ function ProfileTradesTab({ me, privacy }) {
         value: tradeSearch,
         onChange: e => setTradeSearch(e.target.value)
       }),
+      // Date-range filter — drives both the client-side filter and the
+      // CSV from/to params. Surfaced alongside the export button so the
+      // user sees on screen the same slice they'd get in the download.
+      trades.length > 0 && h(DateRangeFilter, {
+        from: tradeDateFrom,
+        to:   tradeDateTo,
+        onChange: ({ from, to }) => { setTradeDateFrom(from); setTradeDateTo(to); }
+      }),
       // CSV export — opens /api/profile/trades.csv in a new tab. The
       // browser handles the download via the Content-Disposition header
       // the endpoint sets. Only surfaced once the user has at least one
-      // trade to avoid a dead-end download on fresh accounts.
+      // trade to avoid a dead-end download on fresh accounts. When the
+      // date-range filter is set, the bounds are passed through so the
+      // server-side slice matches the on-screen view.
       trades.length > 0 && h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: '/api/profile/trades.csv',
-        title: 'Download every trade you participated in as a CSV (tax / accounting)'
+        href: appendDateRange('/api/profile/trades.csv', tradeDateFrom, tradeDateTo),
+        title: 'Download every trade you participated in as a CSV (tax / accounting). Honours the date filter when set.'
       }, '⇣ CSV')
     ),
     // Batch 1007 — overflow banner when the server's 200-row trade-list
@@ -5902,7 +6498,7 @@ function ProfileTradesTab({ me, privacy }) {
     ),
     filtered.length === 0
       ? h('div', { className: 'empty-inline' },
-          h('div', { className: 'empty-icon' }, '—'),
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
           // Batch 822 — empty-state distinguishes "never traded" from
           // "filtered to nothing". A brand-new account should get a
           // CTA to the marketplace; a filtered view should offer to
@@ -5914,17 +6510,23 @@ function ProfileTradesTab({ me, privacy }) {
                 h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', maxWidth: 340, margin: '0 auto 14px', lineHeight: 1.5 } },
                   "Every Buy Now purchase and every auction you win or lose lands here. Browse the marketplace to get started."),
                 h('div', { style: { display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' } },
-                  h('a', { className: 'btn btn-accent', href: '/', style: { padding: '6px 14px', fontSize: 12 } }, 'Browse marketplace'),
+                  h('a', { className: 'btn btn-accent', href: '/market', style: { padding: '6px 14px', fontSize: 12 } }, 'Browse marketplace'),
                   h('a', { className: 'btn btn-ghost', href: '/sell', style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 } }, 'Sell an item')
                 ))
             : h('div', null,
                 h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                   'No trades match this filter.'),
-                (filter !== 'ALL' || roleFilter !== 'all' || tradeSearch)
+                (filter !== 'ALL' || roleFilter !== 'all' || tradeSearch || tradeDateFrom != null || tradeDateTo != null)
                   && h('button', {
                     className: 'btn btn-ghost',
                     style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 },
-                    onClick: () => { setFilter('ALL'); setRoleFilter('all'); setTradeSearch(''); }
+                    onClick: () => {
+                      setFilter('ALL');
+                      setRoleFilter('all');
+                      setTradeSearch('');
+                      setTradeDateFrom(null);
+                      setTradeDateTo(null);
+                    }
                   }, 'Clear filter')
               ))
       : h('div', { className: 'trade-list' },
@@ -6830,6 +7432,13 @@ function ProfileOffersTab() {
     setSortBy(v);
     try { localStorage.setItem('sb_offers_sort', v); } catch (_) {}
   };
+  // Date-range filter for the offers CSV export — bounds pass through
+  // to /api/profile/offers.csv as ?from=&to= so a quarterly slice can
+  // be downloaded for accounting reconciliation. Not applied to the
+  // on-screen list because power-users sort by status and amount, not
+  // date — but the bounds DO show on the CSV link tooltip.
+  const [offersDateFrom, setOffersDateFrom] = useState(null);
+  const [offersDateTo,   setOffersDateTo]   = useState(null);
 
   const load = useCallback(async () => {
     setData(null);
@@ -7201,13 +7810,21 @@ function ProfileOffersTab() {
         onClick: cancelAllOutgoing,
         title: `Cancel all ${outgoingPending} pending outgoing offers in one click`
       }, '✕ Cancel all pending'),
+      // Date-range filter — pass-through to the CSV `from` / `to`
+      // params so a quarterly export matches the user's accounting
+      // window without spreadsheet post-processing.
+      (data.incoming.length + data.outgoing.length) > 0 && h(DateRangeFilter, {
+        from: offersDateFrom,
+        to:   offersDateTo,
+        onChange: ({ from, to }) => { setOffersDateFrom(from); setOffersDateTo(to); }
+      }),
       // Batch 694 — CSV export. Only shown when there's actual history
       // worth exporting (otherwise the chip is noise on a fresh account).
       (data.incoming.length + data.outgoing.length) > 0 && h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: '/api/profile/offers.csv',
-        title: 'Download incoming + outgoing offer history as CSV — combined with the wallet export for offer-side reconciliation'
+        href: appendDateRange('/api/profile/offers.csv', offersDateFrom, offersDateTo),
+        title: 'Download incoming + outgoing offer history as CSV — combined with the wallet export for offer-side reconciliation. Honours the date filter when set.'
       }, '⇣ CSV')
     ),
     // Batch 855 — pending-offer capital summary, parallel to Buy Orders
@@ -7251,7 +7868,7 @@ function ProfileOffersTab() {
     })(),
     list.length === 0
       ? h('div', { className: 'empty-inline' },
-          h('div', { className: 'empty-icon' }, '—'),
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             tab === 'incoming' ? 'No incoming offers yet' : 'No offers out'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
@@ -7261,7 +7878,7 @@ function ProfileOffersTab() {
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             tab === 'incoming'
               ? h('a', { className: 'btn btn-accent', href: '/me/stall' }, 'Open My Stall →')
-              : h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
+              : h('a', { className: 'btn btn-accent', href: '/market' }, 'Browse marketplace →')
           ))
       : h('div', { className: 'offer-list' }, list.map(o => row(o, tab === 'incoming')))
   );
@@ -7342,7 +7959,7 @@ function ProfileReviewsTab({ me }) {
       ),
       pending.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '—'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
               "You're all caught up — no trades waiting on a review."))
         : h('div', { className: 'profile-reviews-list' },
@@ -7464,25 +8081,47 @@ function ProfileReviewsTab({ me }) {
     // their feedback-given history. Pending is only offered when the user
     // has trades waiting for a review (batch 337) so users without
     // pending reviews don't see an extra dead tab.
-    h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' } },
-      h('button', {
-        className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
-        onClick: () => setMode('received')
-      }, 'Received', received && received.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, received.length)),
-      h('button', {
-        className: `offer-tab ${mode === 'given' ? 'active' : ''}`,
-        onClick: () => setMode('given')
-      }, 'Given', given && given.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, given.length)),
-      pending && pending.length > 0 && h('button', {
-        className: `offer-tab ${mode === 'pending' ? 'active' : ''}`,
-        onClick: () => setMode('pending'),
-        title: 'Trades you settled but never reviewed',
-        style: { position: 'relative' }
-      }, 'Pending ', h('span', {
-        className: 'filter-count',
-        style: { marginLeft: 6, background: 'rgba(30,165,255,0.15)', color: 'var(--accent)', fontWeight: 700 }
-      }, pending.length))
-    ),
+    // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring
+    // /wallet, /loadout, /me/stall, /watchlist.
+    (() => {
+      const TABS = pending && pending.length > 0 ? ['received', 'given', 'pending'] : ['received', 'given'];
+      const onKey = (e) => {
+        if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+        e.preventDefault();
+        const idx = TABS.indexOf(mode);
+        let n = idx;
+        if (e.key === 'ArrowRight') n = (idx + 1) % TABS.length;
+        else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
+        else if (e.key === 'Home') n = 0;
+        else if (e.key === 'End') n = TABS.length - 1;
+        setMode(TABS[n]);
+      };
+      const sharedProps = (id) => ({
+        role: 'tab',
+        'aria-selected': mode === id,
+        tabIndex: mode === id ? 0 : -1,
+        onKeyDown: onKey
+      });
+      return h('div', { style: { display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Reviews filter' },
+        h('button', Object.assign({
+          className: `offer-tab ${mode === 'received' ? 'active' : ''}`,
+          onClick: () => setMode('received')
+        }, sharedProps('received')), 'Received', received && received.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, received.length)),
+        h('button', Object.assign({
+          className: `offer-tab ${mode === 'given' ? 'active' : ''}`,
+          onClick: () => setMode('given')
+        }, sharedProps('given')), 'Given', given && given.length > 0 && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, given.length)),
+        pending && pending.length > 0 && h('button', Object.assign({
+          className: `offer-tab ${mode === 'pending' ? 'active' : ''}`,
+          onClick: () => setMode('pending'),
+          title: 'Trades you settled but never reviewed',
+          style: { position: 'relative' }
+        }, sharedProps('pending')), 'Pending ', h('span', {
+          className: 'filter-count',
+          style: { marginLeft: 6, background: 'rgba(30,165,255,0.15)', color: 'var(--accent)', fontWeight: 700 }
+        }, pending.length))
+      );
+    })(),
     mode === 'received' && h('div', { className: 'profile-reviews-head' },
       h('div', { className: 'profile-reviews-avg' }, avgLabel)
     ),
@@ -7509,7 +8148,7 @@ function ProfileReviewsTab({ me }) {
     ),
     filtered.length === 0
       ? h('div', { className: 'empty-inline' },
-          h('div', { className: 'empty-icon' }, '—'),
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
           rows.length === 0 && mode === 'received' && h('div', null,
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'No reviews yet'),
@@ -7900,7 +8539,7 @@ function ProfileSupportTab() {
     (() => {
       if (tickets === null) return h('div', { className: 'spinner' });
       if (tickets.length === 0) return h('div', { className: 'empty-inline' },
-          h('div', { className: 'empty-icon' }, '—'),
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No tickets yet. Open one above if you need help.'));
       const filtered = statusFilter === 'ALL'
         ? tickets
@@ -8068,7 +8707,7 @@ function ProfileDevelopersTab() {
       ? h('div', { className: 'spinner' })
       : keys.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '—'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
             h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No API keys yet.'))
         : h('div', null,
             // Batch 705 — security panic button. Only rendered when
@@ -8834,20 +9473,50 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   return h(InfoModal, { title: 'Sell Items', onClose },
     h('div', { className: 'sell-source-tabs' },
       h('button', { className: `offer-tab ${source === 'steam' ? 'active' : ''}`, onClick: () => setSource('steam') },
-        'Steam Inventory', steamData && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, steamList.length)),
+        'Steam Inventory',
+        // When Steam rate-limits us we don't actually know the inventory
+        // count, so showing "0" misleadingly suggests the user is broke
+        // or has a private inventory. Show an em-dash placeholder until
+        // a real fetch lands. Tooltip explains why.
+        steamData && h('span', {
+          className: 'filter-count',
+          style: { marginLeft: 6 },
+          title: steamData.blocked ? 'Count unavailable — Steam rate-limited our request' : null
+        }, steamData.blocked && steamList.length === 0 ? '—' : steamList.length)),
       h('button', { className: `offer-tab ${source === 'internal' ? 'active' : ''}`, onClick: () => setSource('internal') },
         'Platform Inventory', internal && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, internalList.length)),
       h('div', { style: { flex: 1 } }),
-      source === 'steam' && h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 }, disabled: syncing, onClick: resync }, syncing ? 'Syncing…' : 'Sync Steam')
+      source === 'steam' && h('button', {
+        className: 'btn btn-ghost',
+        style: {
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 32, padding: '0 12px', fontSize: 11, lineHeight: 1,
+          border: '1px solid var(--border)', boxSizing: 'border-box'
+        },
+        disabled: syncing,
+        onClick: resync
+      },
+        h(MaterialIcon, { name: syncing ? 'hourglass_top' : 'refresh', size: 14 }),
+        syncing ? 'Syncing…' : 'Sync Steam'
+      )
     ),
 
     source === 'steam' && steamData === null && h('div', { className: 'spinner' }),
     source === 'steam' && steamData && steamList.length === 0 && h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '—'),
-      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'No s&box items in your Steam inventory'),
-      h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 14px', lineHeight: 1.55 } },
-        "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. ",
-        'If the inventory is public and you still see this, the sync cache may be stale — try again.'),
+      h('div', { className: 'empty-icon' },
+        h(MaterialIcon, { name: steamData?.blocked ? 'hourglass_top' : 'inbox', size: 26 })),
+      h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+        steamData?.blocked
+          ? 'Steam is rate-limiting our requests'
+          : 'No s&box items in your Steam inventory'),
+      h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
+        steamData?.blocked
+          ? (() => {
+              const sec = Number(steamData.retryInSec || 300);
+              const min = Math.max(1, Math.ceil(sec / 60));
+              return `Steam's inventory endpoint hit a rate-limit. Try again in ~${min} minute${min === 1 ? '' : 's'}. Your previously-synced inventory still works for listing.`;
+            })()
+          : "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. If the inventory is public and you still see this, the sync cache may be stale — try again."),
       // Batch 831 — actionable empty-state. Two real CTAs instead of
       // one "Sync Steam" hint buried at the bottom of the page:
       // 1) Direct link to Steam's privacy settings so a user who
@@ -8856,8 +9525,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       //    up to the toolbar's Sync Steam affordance.
       h('div', {
         style: {
-          display: 'flex', gap: 8, justifyContent: 'center',
-          flexWrap: 'wrap', marginBottom: 18
+          display: 'inline-flex', gap: 8, justifyContent: 'center',
+          alignItems: 'center', flexWrap: 'wrap', marginBottom: 18
         }
       },
         h('a', {
@@ -8865,15 +9534,29 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           href: 'https://steamcommunity.com/my/edit/settings',
           target: '_blank',
           rel: 'noopener noreferrer',
-          style: { border: '1px solid var(--border)', padding: '6px 14px', fontSize: 12 },
+          style: {
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 32, padding: '0 14px', fontSize: 12, lineHeight: 1,
+            border: '1px solid var(--border)', boxSizing: 'border-box'
+          },
           title: "Opens Steam's privacy settings. Set Inventory → Public, then click Re-sync."
-        }, 'Open Steam privacy settings ↗'),
+        },
+          'Open Steam privacy settings',
+          h(MaterialIcon, { name: 'open_in_new', size: 14 })
+        ),
         h('button', {
           className: 'btn btn-accent',
           disabled: syncing,
           onClick: resync,
-          style: { padding: '6px 14px', fontSize: 12 }
-        }, syncing ? 'Syncing…' : '↻ Re-sync now')
+          style: {
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 32, padding: '0 14px', fontSize: 12, lineHeight: 1,
+            boxSizing: 'border-box'
+          }
+        },
+          h(MaterialIcon, { name: syncing ? 'hourglass_top' : 'refresh', size: 14 }),
+          syncing ? 'Syncing…' : 'Re-sync now'
+        )
       )
     ),
     source === 'steam' && steamData && steamList.length > 0 && (() => {
@@ -9132,7 +9815,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
 
     source === 'internal' && internal === null && h('div', { className: 'spinner' }),
     source === 'internal' && internal && internalList.length === 0 && h('div', { className: 'empty-inline' },
-      h('div', { className: 'empty-icon' }, '—'),
+      h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Platform inventory empty'),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 18px' } },
         'Items you buy on sboxmarket appear here. You can relist any of them at a new price.')
@@ -9320,7 +10003,7 @@ export function MyStallModal(props) {
   return h(MyStallModalInner, props);
 }
 
-function MyStallModalInner({ onClose, me, onRefresh }) {
+function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [stall, setStall] = useState(null);
   // True active-listing count on the server — feeds the MyStall Active
   // tab's "Showing most recent 500 of N" overflow banner when a
@@ -9333,7 +10016,15 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
   // Named `soldRowCount` (not `soldTotal`) because `soldTotal` downstream
   // is the dollar-sum of the page's rows.
   const [soldRowCount, setSoldRowCount] = useState(null);
-  const [tab, setTab] = useState('active'); // 'active' | 'sold'
+  // Per-listing analytics (view counts, item supply, 30-day item demand,
+  // price-vs-floor delta) — backs the third "Analytics" tab. Fetched lazily
+  // when the seller opens the tab so the default Active view stays fast.
+  const [analytics, setAnalytics] = useState(null);
+  const [tab, setTab] = useState(
+    initialTab === 'sold' ? 'sold'
+      : initialTab === 'analytics' ? 'analytics'
+        : 'active'
+  ); // 'active' | 'sold' | 'analytics'
   // Batch 772 — active-tab sub-filter chips (ALL / BUY_NOW / AUCTION /
   // HIDDEN). Heavy sellers often want to audit just their auctions or
   // just their hidden listings without scrolling past 50 rows of the
@@ -9349,6 +10040,11 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
   const [editing, setEditing] = useState(null); // listing id being edited inline
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc]   = useState('');
+  // Date-range filter for the my-stall Sold CSV export — bounds pass
+  // through to /api/listings/my-stall/sold.csv as ?from=&to= so a
+  // seller can pull a quarterly sales slice straight into Excel for tax.
+  const [soldDateFrom, setSoldDateFrom] = useState(null);
+  const [soldDateTo,   setSoldDateTo]   = useState(null);
   // Auto-accept offer discount (0..50 stored as integer percent in the
   // UI, converted to 0..1 fraction on save). Empty string = no auto-
   // accept (listing.maxDiscount stays null).
@@ -9490,6 +10186,16 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
       setSoldRowCount(total);
     });
   }, [me, tab, sold]);
+  // Same lazy-load for analytics. The endpoint computes per-item demand
+  // (30-day item sales count) + view counts so opening this tab does ONE
+  // round-trip and the per-row cells are filled from cached numbers.
+  useEffect(() => {
+    if (!me || tab !== 'analytics' || analytics !== null) return;
+    fetch('/api/listings/my-stall/analytics', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => setAnalytics(Array.isArray(rows) ? rows : []))
+      .catch(() => setAnalytics([]));
+  }, [me, tab, analytics]);
 
   // Hoisted above the early-return for anon viewers so hook order stays
   // stable across the null→authed transition (React rules of hooks).
@@ -9740,7 +10446,11 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
     return true;
   });
 
-  return h(InfoModal, { title: `My Stall · ${stall.length} active`, onClose },
+  return h(InfoModal, { title: (
+    tab === 'sold'      ? `Sold · My Stall` :
+    tab === 'analytics' ? `Analytics · My Stall` :
+                          `My Stall · ${stall.length} active`
+  ), onClose },
     // Batch 818 — bulk-adjust drawer. Replaces the window.prompt flow
     // triggered by the "⚖ Bulk price adjust" button. Quick-chip picker
     // + typed fallback + live preview of how many listings will be
@@ -10185,24 +10895,100 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
           ' button on each row to drop to the top bid.')
       );
     })(),
-    // Active vs Sold tabs. Sold tab reveals a seller's own sale history
-    // with gross revenue (pre-fee). Matches CSFloat's "My Sales" list.
-    h('div', { className: 'mystall-tabs' },
-      h('button', {
-        className: `offer-tab ${tab === 'active' ? 'active' : ''}`,
-        onClick: () => setTab('active')
-      }, 'Active ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, stall.length)),
-      h('button', {
-        className: `offer-tab ${tab === 'sold' ? 'active' : ''}`,
-        onClick: () => setTab('sold')
-      }, 'Sold ', sold ? h('span', { className: 'filter-count', style: { marginLeft: 6 } }, sold.length) : null)
+    // Active vs Sold vs Analytics tabs. Sold tab reveals seller's own sale
+    // history with gross revenue (pre-fee). Matches CSFloat's "My Sales".
+    // WAI-ARIA tabs pattern + Arrow/Home/End keyboard nav, mirroring
+    // WalletModal (modals.js:12906) and LoadoutModal so /me/stall feels
+    // identical to /wallet and /loadout for keyboard / screen-reader users.
+    (() => {
+      const TABS = ['active', 'sold', 'analytics'];
+      const labels = { active: 'Active', sold: 'Sold', analytics: 'Analytics' };
+      const counts = { active: stall.length, sold: sold ? sold.length : null, analytics: analytics ? analytics.length : null };
+      const pickTab = (id) => { setTab(id); navigate('/me/stall/' + id); };
+      const onKey = (e) => {
+        if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+        e.preventDefault();
+        const idx = TABS.indexOf(tab);
+        let n = idx;
+        if (e.key === 'ArrowRight') n = (idx + 1) % TABS.length;
+        else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
+        else if (e.key === 'Home') n = 0;
+        else if (e.key === 'End') n = TABS.length - 1;
+        pickTab(TABS[n]);
+      };
+      return h('div', { className: 'mystall-tabs', role: 'tablist', 'aria-label': 'My stall sections' },
+        TABS.map(id => h('button', {
+          key: id,
+          className: `offer-tab ${tab === id ? 'active' : ''}`,
+          role: 'tab',
+          'aria-selected': tab === id,
+          tabIndex: tab === id ? 0 : -1,
+          onClick: () => pickTab(id),
+          onKeyDown: onKey
+        }, labels[id], counts[id] != null && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, counts[id])))
+      );
+    })(),
+    tab === 'analytics' && (
+      analytics === null
+        ? h('div', { className: 'spinner' })
+        : analytics.length === 0
+          ? h('div', { className: 'empty-inline' },
+              h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'analytics', size: 26 })),
+              h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'No analytics yet'),
+              h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 16px', lineHeight: 1.55 } },
+                'List an item from your inventory and stats land here — view counts, item supply, 30-day demand for the same SKU across the whole marketplace, and how your price compares to the floor.'),
+              h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+                h('a', {
+                  className: 'btn btn-accent',
+                  href: '/sell',
+                  style: { padding: '10px 18px', fontWeight: 700 }
+                }, '＋ List an item →')))
+          : h('div', { className: 'analytics-grid', style: { display: 'grid', gap: 8, marginTop: 8 } },
+              // Toolbar — same CSV-export affordance the sold tab carries
+              // so a seller running >50 listings can rank-sort offline in
+              // Excel / build a re-pricing pivot on category-level demand.
+              // Mirror the .mystall-sold-summary visual to keep the two
+              // tabs consistent.
+              h('div', { className: 'mystall-sold-summary' },
+                h('span', { className: 'mystall-sold-label' }, 'Per-listing analytics · ' + analytics.length + ' active'),
+                h('span', { className: 'mystall-sold-hint' },
+                  '· View counts + 30-day demand + price-vs-floor delta'),
+                h('a', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, marginLeft: 'auto' },
+                  href: '/api/listings/my-stall/analytics.csv',
+                  title: 'Download the per-listing analytics for every active listing in your stall (capped at 500 rows) as CSV — useful for offline rank-sorting / pivot-table work in Excel.'
+                }, '⇣ CSV')
+              ),
+              h('div', { style: { display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' } },
+                h('div', null, 'Item'),
+                h('div', { style: { textAlign: 'right' } }, 'My Price'),
+                h('div', { style: { textAlign: 'right' } }, 'vs Floor'),
+                h('div', { style: { textAlign: 'right' } }, 'Views'),
+                h('div', { style: { textAlign: 'right' } }, '30d Sold')),
+              analytics.map(row => h('div', {
+                key: row.listingId,
+                style: { display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 12, padding: '8px 12px', fontSize: 13, alignItems: 'center', borderBottom: '1px solid var(--border)' }
+              },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
+                  row.imageUrl && h('img', { src: row.imageUrl, alt: '', style: { width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' } }),
+                  h('div', { style: { minWidth: 0, overflow: 'hidden' } },
+                    h('div', { style: { fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, row.itemName || `#${row.itemId}`),
+                    h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, `${row.itemRarity || '—'} · ${row.category || '—'}`))),
+                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 } }, fmt(row.price)),
+                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: row.floorDelta == null ? 'var(--text-muted)' : (parseFloat(row.floorDelta) > 0 ? 'var(--down)' : (parseFloat(row.floorDelta) < 0 ? 'var(--up)' : 'var(--text-muted)')) } },
+                  row.floorDelta == null ? '—' : (parseFloat(row.floorDelta) >= 0 ? '+' : '') + fmt(row.floorDelta)),
+                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-secondary)' } }, Number(row.viewCount || 0).toLocaleString()),
+                h('div', { style: { textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: row.itemSales30d > 0 ? 'var(--text-primary)' : 'var(--text-muted)' } }, row.itemSales30d > 0 ? row.itemSales30d : '—')
+              ))
+            )
     ),
     tab === 'sold' && (
       sold === null
         ? h('div', { className: 'spinner' })
         : sold.length === 0
           ? h('div', { className: 'empty-inline' },
-              h('div', { className: 'empty-icon' }, '—'),
+              h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
               h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                 "No sales yet"),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
@@ -10279,11 +11065,18 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
                   '· Net after 2% fee ',
                   h('span', { style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, fmt(soldNet))
                 ),
+                h('span', { style: { marginLeft: 'auto' } },
+                  h(DateRangeFilter, {
+                    from: soldDateFrom,
+                    to:   soldDateTo,
+                    onChange: ({ from, to }) => { setSoldDateFrom(from); setSoldDateTo(to); }
+                  })
+                ),
                 h('a', {
                   className: 'btn btn-ghost',
-                  style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, marginLeft: 'auto' },
-                  href: '/api/listings/my-stall/sold.csv',
-                  title: 'Download the last 1,000 of your settled sales as CSV — pairs with the wallet transactions export for accounting'
+                  style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11, marginLeft: 8 },
+                  href: appendDateRange('/api/listings/my-stall/sold.csv', soldDateFrom, soldDateTo),
+                  title: 'Download the last 1,000 of your settled sales as CSV — pairs with the wallet transactions export for accounting. Honours the date filter when set.'
                 }, '⇣ CSV')
               ),
               h('div', { className: 'recent-sales-list' },
@@ -10391,7 +11184,7 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
     })(),
     tab === 'active' && (stall.length === 0
       ? h('div', { className: 'empty-inline' },
-          h('div', { className: 'empty-icon' }, '—'),
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'Your stall is empty'),
           h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.55 } },
@@ -10740,8 +11533,8 @@ function MyStallModalInner({ onClose, me, onRefresh }) {
 }
 
 // ── Offers (incoming/outgoing) ───────────────────────────────────
-export function OffersModal({ onClose, me, onRefresh }) {
-  const [tab, setTab]       = useState('incoming');
+export function OffersModal({ onClose, me, onRefresh, initialTab }) {
+  const [tab, setTab]       = useState(initialTab || 'incoming');
   const [incoming, setIn]   = useState(null);
   const [outgoing, setOut]  = useState(null);
   const [busy, setBusy]     = useState(false);
@@ -10817,8 +11610,21 @@ export function OffersModal({ onClose, me, onRefresh }) {
   const handleCancel = async (id) => {
     if (busy) return;
     setBusy(true);
-    try { await cancelOffer(id); await load(); }
-    finally { setBusy(false); }
+    try {
+      // Pre-fix: silent both ways — successful cancel got no toast (the user
+      // had to read the row's status pill change to confirm) and a backend
+      // rejection (race with seller-acceptance, already-cancelled, network
+      // blip) just left the row alone with no feedback. Mirror handleAccept
+      // / confirmReject so every offer state-transition gets a visible
+      // confirmation or error.
+      const res = await cancelOffer(id);
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not cancel offer', 'err');
+        return;
+      }
+      await load();
+      toast('Offer cancelled.', 'ok');
+    } finally { setBusy(false); }
   };
   const handleCounter = async (id, mode) => {
     if (busy) return;
@@ -10858,7 +11664,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
             href: itemHref,
             className: 'item-thumb',
             style: { width: 56, height: 56, display: 'block' },
-            onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
+            onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
             title: 'Open ' + (offer.itemName || 'item')
           }, thumbInner)
         : h('div', { className: 'item-thumb', style: { width: 56, height: 56 } }, thumbInner),
@@ -10868,7 +11674,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
               href: itemHref,
               className: 'item-name',
               style: { color: 'inherit', textDecoration: 'none' },
-              onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
+              onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
               title: 'Open ' + (offer.itemName || 'item')
             }, offer.itemName || ('Listing #' + offer.listingId))
           : h('div', { className: 'item-name' }, offer.itemName || ('Listing #' + offer.listingId)),
@@ -11143,7 +11949,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
           ].join(' ').toLowerCase();
           return hay.includes(q);
         });
-  return h(InfoModal, { title: 'Offers', onClose },
+  return h(InfoModal, { title: tab === 'outgoing' ? 'Outgoing · Offers' : 'Incoming · Offers', onClose },
     // Batch 937 — tablist semantics on the full Offers modal too.
     h('div', { className: 'offer-tabs', role: 'tablist', 'aria-label': 'Offer direction', style: { display: 'flex', alignItems: 'center', gap: 4 } },
       (() => {
@@ -11159,6 +11965,10 @@ export function OffersModal({ onClose, me, onRefresh }) {
           else if (e.key === 'End') n = MODAL_OFFER_TABS.length - 1;
           setTab(MODAL_OFFER_TABS[n]);
         };
+        const pickTab = (id) => {
+          setTab(id);
+          navigate('/offers/' + id);
+        };
         return [
           h('button', {
             key: 'incoming',
@@ -11166,7 +11976,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
             role: 'tab',
             'aria-selected': tab === 'incoming',
             tabIndex: tab === 'incoming' ? 0 : -1,
-            onClick: () => setTab('incoming'),
+            onClick: () => pickTab('incoming'),
             onKeyDown: onKey
           }, 'Incoming', incoming && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, incoming.filter(o => o.status === 'PENDING').length)),
           h('button', {
@@ -11175,7 +11985,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
             role: 'tab',
             'aria-selected': tab === 'outgoing',
             tabIndex: tab === 'outgoing' ? 0 : -1,
-            onClick: () => setTab('outgoing'),
+            onClick: () => pickTab('outgoing'),
             onKeyDown: onKey
           }, 'Outgoing', outgoing && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, outgoing.filter(o => o.status === 'PENDING').length))
         ];
@@ -11221,7 +12031,7 @@ export function OffersModal({ onClose, me, onRefresh }) {
       ? h('div', { className: 'spinner' })
       : list.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '—'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               q
                 ? `No offers match “${offerSearch}”`
@@ -11249,14 +12059,14 @@ export function OffersModal({ onClose, me, onRefresh }) {
                     }, 'Show all offers')
                   : tab === 'incoming'
                     ? h('a', { className: 'btn btn-accent', href: '/me/stall' }, 'Open My Stall →')
-                    : h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
+                    : h('a', { className: 'btn btn-accent', href: '/market' }, 'Browse marketplace →')
             ))
         : h('div', { className: 'offer-list' }, list.map(o => renderOffer(o, tab === 'incoming')))
   );
 }
 
 // ── Watchlist ───────────────────────────────────────────────────
-export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onToggleStar, onAddToCart, cartHas }) {
+export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, onToggleStar, onAddToCart, cartHas, initialTab }) {
   // Dedupe by item id (one card per item) and compute price drop since the
   // item was first starred. We store a { itemId → price } snapshot in
   // localStorage so each card can show "−$X since you watchlisted" even
@@ -11265,6 +12075,9 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
   // opted into the view doesn't have to re-toggle it on every watchlist
   // open. Matches the state + sort persistence already in place.
   const [showDropsOnly, setShowDropsOnlyRaw] = useState(() => {
+    // Route param wins over localStorage so /watchlist/drops is authoritative.
+    if (initialTab === 'drops') return true;
+    if (initialTab === 'all')   return false;
     try { return localStorage.getItem('sb_watchlist_drops_only') === '1'; }
     catch { return false; }
   });
@@ -11318,12 +12131,15 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
   // user sees how many alerts are pending + can cancel any of them.
   const [serverAlerts, setServerAlerts] = useState(null);
   const loadServerAlerts = useCallback(async () => {
+    // Anon callers always 401 here — skip the round-trip so the network
+    // panel + console error stream stay clean for sign-out browsing.
+    if (!me?.id) { setServerAlerts([]); return; }
     try {
       const { fetchWatchlistAlerts } = await import('./api.js');
       const data = await fetchWatchlistAlerts();
       setServerAlerts(Array.isArray(data) ? data : []);
     } catch (_) { setServerAlerts([]); }
-  }, []);
+  }, [me?.id]);
   useEffect(() => { loadServerAlerts(); }, [loadServerAlerts]);
   const cancelServerAlert = async (id) => {
     // Batch 913 — snapshot the alert row before cancel so the toast
@@ -11338,7 +12154,12 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     }
     loadServerAlerts();
     const who = a?.itemName ? `"${a.itemName}"` : 'item';
-    const target = a?.targetPrice != null ? ` at ${fmt(parseFloat(a.targetPrice))}` : '';
+    // Restock-style alerts encode targetPrice ≥ 99999 as "any future
+    // listing" — don't read out the magic number in the toast.
+    const isRestock = a?.targetPrice != null && parseFloat(a.targetPrice) >= 99999;
+    const target = isRestock ? ' (restock)'
+                : a?.targetPrice != null ? ` at ${fmt(parseFloat(a.targetPrice))}`
+                : '';
     toast(`Alert on ${who}${target} cancelled.`, 'ok');
   };
   const [editingAlert, setEditingAlert] = useState(null);
@@ -11384,11 +12205,22 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
   const saveAlert = (itemId, value) => {
     const n = parseFloat(value);
     const next = { ...alerts };
-    if (!isFinite(n) || n <= 0) delete next[itemId];
+    const cleared = !isFinite(n) || n <= 0;
+    if (cleared) delete next[itemId];
     else next[itemId] = n;
     setAlerts(next);
     localStorage.setItem('sb_watchlist_alerts', JSON.stringify(next));
     setEditingAlert(null);
+    // Pre-fix this was a silent click — the user typed a price, hit Set,
+    // and got no confirmation that anything happened. Toast surfaces
+    // the result so the action reads as real. The alert itself is
+    // device-local; signed-in users get push notifications via the
+    // server-side bell + email path which is wired separately.
+    try {
+      toast(cleared
+        ? 'Price alert cleared.'
+        : `Price alert set — we'll notify you when this drops to ${fmt(n)}.`, 'ok');
+    } catch (_) { /* toast helper missing — non-fatal */ }
   };
 
   // The parent passes in the currently-filtered marketplace view, which
@@ -11534,7 +12366,7 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     return order;
   })();
 
-  return h(InfoModal, { title: `Watchlist · ${starred.length} item${starred.length === 1 ? '' : 's'}`, onClose },
+  return h(InfoModal, { title: `Watchlist · ${starred.length} item${starred.length === 1 ? '' : 's'}`, onClose, wide: true },
     // Batch 695 — CSV export pill. Only rendered once the user has
     // actually starred something — otherwise it's noise on the empty
     // state. Placed at the top-right via margin-left: auto so it sits
@@ -11550,12 +12382,33 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
     ),
     starred.length === 0
       ? h('div', null,
+          // Boss QA G10 — empty-state icon bumped to 48px inside a 72px
+          // accent-tinted chip so the illustration carries weight rather
+          // than swimming in a tiny 26px-glyph dead space. Same chip
+          // treatment as the SignInNeededEmptyState lock for visual
+          // consistency across anon-empty surfaces.
           h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '—'),
+            h('div', {
+              className: 'empty-icon empty-icon-lg',
+              style: {
+                width: 72, height: 72, borderRadius: 18,
+                margin: '0 auto 14px',
+                background: 'color-mix(in oklab, var(--accent) 8%, var(--bg-1))',
+                border: '1px solid color-mix(in oklab, var(--accent) 18%, var(--line))',
+                color: 'color-mix(in oklab, var(--accent) 85%, var(--ink-2))'
+              }
+            }, h(MaterialIcon, { name: 'inbox', size: 48 })),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Nothing on your watchlist'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
-              'Click the ♡ on any item card and it will show up here with a live price-drop alert.'),
-            h('a', { className: 'btn btn-accent', href: '/' }, 'Browse marketplace →')
+              !me
+                ? 'Sign in with Steam, then tap the ♡ on any item card to track price drops here.'
+                : 'Click the ♡ on any item card and it will show up here with a live price-drop alert.'),
+            !me
+              ? h('button', {
+                  className: 'btn btn-accent',
+                  onClick: () => signInWithSteam()
+                }, 'Sign in with Steam')
+              : h('a', { className: 'btn btn-accent', href: '/market' }, 'Browse marketplace →')
           ),
           // Recently-viewed jumpstart (batch 428). Mirrors the empty-cart
           // pattern from batch 427 — offers one-click deep-links back to
@@ -11672,11 +12525,23 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
                     }
                   }
                   const target = parseFloat(a.targetPrice);
-                  const gap = (Number.isFinite(target) && floor != null) ? floor - target : null;
+                  // Restock-mode alerts encode targetPrice ≥ 99999 as
+                  // "any future listing." For those the price gap is
+                  // meaningless — surface a "watching" state instead.
+                  const isRestock = Number.isFinite(target) && target >= 99999;
+                  const gap = (!isRestock && Number.isFinite(target) && floor != null) ? floor - target : null;
                   const gapPct = (gap != null && target > 0) ? (gap / target) * 100 : null;
                   let gapLabel = null;
                   let gapColor = 'var(--text-muted)';
-                  if (gap != null) {
+                  if (isRestock) {
+                    if (floor == null) {
+                      gapLabel = 'awaiting restock';
+                      gapColor = 'var(--text-muted)';
+                    } else {
+                      gapLabel = 'restock fires next sweep';
+                      gapColor = 'var(--green)';
+                    }
+                  } else if (gap != null) {
                     if (gap <= 0) { gapLabel = 'match ready'; gapColor = 'var(--green)'; }
                     else if (gapPct < 10) { gapLabel = `${gapPct.toFixed(0)}% above`; gapColor = '#fbbf24'; }
                     else { gapLabel = `${gapPct.toFixed(0)}% above`; gapColor = 'var(--text-muted)'; }
@@ -11693,8 +12558,13 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
                       style: { color: 'var(--accent)', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
                       title: itemName || ('Item #' + a.itemId)
                     }, itemName || ('Item #' + a.itemId)),
-                    h('span', { className: 'db-mono', style: { color: 'var(--text-primary)', fontWeight: 700 } },
-                      '≤ $' + a.targetPrice),
+                    h('span', {
+                      className: 'db-mono',
+                      style: { color: 'var(--text-primary)', fontWeight: 700 },
+                      title: isRestock
+                        ? 'Restock-style alert — fires on any future listing regardless of price.'
+                        : `Fires when the floor drops to or below $${a.targetPrice}.`
+                    }, isRestock ? '↻ restock' : ('≤ $' + a.targetPrice)),
                     gapLabel && h('span', {
                       style: { fontSize: 10, color: gapColor, fontWeight: 700 },
                       title: gap != null
@@ -11819,15 +12689,49 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
               }, `${opt.label} · ${opt.n}`))
             );
           })(),
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
-            h('button', {
-              className: `offer-tab ${!showDropsOnly ? 'active' : ''}`,
-              onClick: () => setShowDropsOnly(false)
-            }, 'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.length)),
-            h('button', {
-              className: `offer-tab ${showDropsOnly ? 'active' : ''}`,
-              onClick: () => setShowDropsOnly(true)
-            }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length)),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }, role: 'tablist', 'aria-label': 'Watchlist filter' },
+            // WAI-ARIA tabs pattern + keyboard nav, mirroring WalletModal /
+            // LoadoutModal / MyStallModal. Use navigate() (not raw pushState)
+            // so the SPA router fires popstate → title-effect → updates
+            // document.title to "All Items · Watchlist" / "Price drops · Watchlist".
+            (() => {
+              const TABS = [false, true]; // showDropsOnly values
+              const onKey = (e) => {
+                if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+                e.preventDefault();
+                const idx = TABS.indexOf(showDropsOnly);
+                let n = idx;
+                if (e.key === 'ArrowRight' || e.key === 'End') n = TABS.length - 1;
+                else if (e.key === 'ArrowLeft' || e.key === 'Home') n = 0;
+                const next = TABS[n];
+                setShowDropsOnly(next);
+                navigate('/watchlist/' + (next ? 'drops' : 'all'));
+              };
+              return [
+                h('button', {
+                  key: 'all',
+                  className: `offer-tab ${!showDropsOnly ? 'active' : ''}`,
+                  role: 'tab',
+                  'aria-selected': !showDropsOnly,
+                  // WCAG 4.1.2 — aria-controls points at the result region
+                  // both tabs filter (same panel, different filter state).
+                  'aria-controls': 'watchlist-results',
+                  tabIndex: !showDropsOnly ? 0 : -1,
+                  onKeyDown: onKey,
+                  onClick: () => { setShowDropsOnly(false); navigate('/watchlist/all'); }
+                }, 'All ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.length)),
+                h('button', {
+                  key: 'drops',
+                  className: `offer-tab ${showDropsOnly ? 'active' : ''}`,
+                  role: 'tab',
+                  'aria-selected': showDropsOnly,
+                  'aria-controls': 'watchlist-results',
+                  tabIndex: showDropsOnly ? 0 : -1,
+                  onKeyDown: onKey,
+                  onClick: () => { setShowDropsOnly(true); navigate('/watchlist/drops'); }
+                }, 'Price drops ', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, rows.filter(r => r.delta < 0).length))
+              ];
+            })(),
             // Sort select — defaults to "Added" (newest-first) so the
             // user sees their most recent stars on top, matching the
             // mental model of a shopping queue. Persisted to
@@ -11890,8 +12794,8 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
             }, '✕ Clear all')
           ),
           filtered.length === 0
-            ? h('div', { className: 'empty-inline' },
-                h('div', { className: 'empty-icon' }, '—'),
+            ? h('div', { id: 'watchlist-results', className: 'empty-inline' },
+                h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'inbox', size: 26 })),
                 h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } },
                   stateFilter === 'LISTED'
                     ? 'None of your watched items are actively listed right now.'
@@ -11907,7 +12811,7 @@ export function WatchlistModal({ onClose, watchlist, allListings, onOpen, onTogg
                   style: { marginTop: 10, border: '1px solid var(--border)', padding: '6px 12px', fontSize: 11 },
                   onClick: () => { setCatFilter('All'); setShowDropsOnly(false); setState('ALL'); }
                 }, 'Clear filters'))
-            : h('div', { className: 'listing-grid', style: { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' } },
+            : h('div', { id: 'watchlist-results', className: 'listing-grid', style: { gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' } },
                 filtered.map(r => h('div', { key: r.listing.id, style: { position: 'relative' } },
                   h(GridCard, {
                     listing: r.listing,
@@ -12031,6 +12935,11 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       setTab('deposit');
     }
   }, [prefillAmount]);
+  useEffect(() => {
+    if (initialTab && (initialTab === 'deposit' || initialTab === 'withdraw' || initialTab === 'history')) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
   // Batch 829 — Escape closes the wallet modal. Busy state lives per
   // submit call so the keyboard dismiss is safe at rest; in-flight
   // Stripe checkout redirects away from the page before Esc could fire.
@@ -12114,7 +13023,23 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
 
   const presets = tab === 'deposit' ? [25, 50, 100, 250, 500] : [25, 50, 100, 250];
 
-  return h('div', { className: 'modal-backdrop', onClick: onClose },
+  /* In full-page mode (.site-root.full-page-mode) the backdrop is a normal
+     in-flow div — clicking outside the .modal would otherwise bounce back
+     to /. Skip onClose then so /wallet behaves like a real page. */
+  const handleBackdropClick = (e) => {
+    if (document.querySelector('.site-root.full-page-mode')) return;
+    onClose && onClose();
+  };
+  // Boss QA G8 — /wallet was rendering "$0.00" + Deposit / Withdraw /
+  // History tabs even for anonymous viewers, which read like a real
+  // empty wallet a returning user might mistakenly try to top up. Now
+  // anon visitors get the same Sign-in gate as /profile and /sell so
+  // the deposit form never appears until the account exists.
+  if (!me) {
+    return h(InfoModal, { title: 'Wallet', onClose },
+      h(SignInNeededEmptyState, { what: 'your wallet, deposits, and withdrawal history' }));
+  }
+  return h('div', { className: 'modal-backdrop', onClick: handleBackdropClick },
     h('div', {
       className: 'modal wallet-modal',
       onClick: e => e.stopPropagation(),
@@ -12127,12 +13052,26 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       'aria-label': 'Wallet'
     },
       h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close wallet' }, '✕'),
+      // Visually-hidden H1 so /wallet has a real page heading for screen
+      // readers + SEO crawlers. The wallet hero shows Balance / @username
+      // but no actual <h1> — without this every /wallet page render had
+      // zero headings and crawlers indexed it as a content-less surface.
+      h('h1', { className: 'visually-hidden' },
+        tab === 'deposit'  ? 'Deposit · Wallet' :
+        tab === 'withdraw' ? 'Withdraw · Wallet' :
+        tab === 'history'  ? 'Transaction History · Wallet' : 'Wallet'),
       h('div', { className: 'wallet-hero' },
-        h('div', { className: `wallet-mode-pill ${wallet.stripeLive ? 'live' : 'dev'}` },
+        // STRIPE LIVE / DEV MODE pill is a debug surface — meaningful to
+        // staff (and the operator while wiring keys), confusing to end
+        // users who just want to see their balance. Hide for non-staff.
+        // The deposit modal already labels its own CTA "Deposit (dev mode)"
+        // when stripeLive is false, so payers still see the warning where
+        // it actually matters.
+        me?.staff && h('div', { className: `wallet-mode-pill ${wallet.stripeLive ? 'live' : 'dev'}` },
           wallet.stripeLive ? '● STRIPE LIVE' : '● DEV MODE'),
         h('div', { className: 'wallet-hero-label' }, 'Wallet Balance'),
         h('div', { className: 'wallet-hero-balance' }, maskMoney(wallet.balance)),
-        h('div', { className: 'wallet-hero-user' }, '@' + wallet.username),
+        wallet.username && h('div', { className: 'wallet-hero-user' }, '@' + wallet.username),
         // Pending in-flight chips. Renders only when there's an actual
         // pending row so the wallet hero stays clean for users without
         // any outstanding deposits/withdrawals. Numbers come straight
@@ -12258,7 +13197,12 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       h('div', { className: 'wallet-tabs', role: 'tablist', 'aria-label': 'Wallet sections' },
         (() => {
           const WALLET_TABS = ['deposit', 'withdraw', 'history'];
-          const pickTab = (next) => { setTab(next); setError(''); };
+          const pickTab = (next) => {
+            setTab(next); setError('');
+            // CSFloat-1:1: tab changes also update the URL so /wallet/withdraw
+            // is shareable + back-button works between tabs.
+            navigate('/wallet/' + next);
+          };
           const onKey = (e) => {
             if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
             e.preventDefault();
@@ -12738,8 +13682,16 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                   ),
                   h('div', { className: 'wallet-step-body' },
                     h('div', { className: 'wallet-step-head' },
-                      h('div', { className: 'wallet-step-title' }, 'Enter an amount of funds'),
-                      h('div', { className: 'wallet-step-subtitle' }, 'Or select a suggested amount')
+                      // Boss QA G9 — was the placeholder pair "Enter an
+                      // amount of funds" / "Or select a suggested
+                      // amount", which read like an unrevised brief. The
+                      // single, decisive line lets the form do the
+                      // explaining.
+                      h('div', { className: 'wallet-step-title' }, 'Select an amount or enter a custom value'),
+                      h('div', { className: 'wallet-step-subtitle' },
+                        tab === 'deposit'
+                          ? 'Pick a preset to top up, or type a precise amount.'
+                          : 'Pick a preset to withdraw, or type a precise amount.')
                     ),
                     h('div', { className: 'wallet-amount-row' },
                       h('div', { className: 'wallet-amount-wrap' },
@@ -12923,7 +13875,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     }, busy ? 'Processing…' :
                        tab === 'deposit'
                          ? (wallet.stripeLive ? 'Continue to Stripe →' : 'Deposit (dev mode)')
-                         : `Withdraw ${amt > 0 ? fmt(withdrawNet) : ''}`)
+                         : `Withdraw ${amt > 0 ? fmt(amt) : ''}`)
                   )
                 )
               ),
@@ -12972,4 +13924,3 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     )
   );
 }
-

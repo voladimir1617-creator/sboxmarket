@@ -358,11 +358,13 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
           },
           'aria-haspopup': 'dialog',
           'aria-expanded': reportDraft !== null,
+          'aria-controls': `review-report-drawer-${review.id}`,
           title: 'Report this review — staff will review and remove if it violates the community guidelines',
           onClick: () => setReportDraft(reportDraft === null ? '' : null)
         }, 'Report')
       ),
-      reportDraft !== null && h(ReasonDrawer, {
+      reportDraft !== null && h('div', { id: `review-report-drawer-${review.id}` },
+       h(ReasonDrawer, {
         title: 'Report this review',
         hint: 'What\'s wrong with this review? (harassment, off-topic, PII, etc.) Staff will triage.',
         initial: reportDraft,
@@ -389,6 +391,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
           } finally { setBusy(false); }
         }
       })
+      )
     ),
     isAuthor && err && h('div', { className: 'wallet-error', style: { marginTop: 6 } }, err),
     isOwner && editing && h('div', { className: 'stall-review-reply-edit' },
@@ -597,6 +600,11 @@ function NavOffersBadge() {
 function NavPicker({ label, ariaLabel, options, onSelect }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef(null);
+  // Stable id so the trigger's aria-controls points at the panel —
+  // WCAG 4.1.2 requires aria-expanded to pair with aria-controls so a
+  // screen reader can resolve "what does opening this control reveal".
+  // useState + useId fallback (older React-via-CDN may not have useId).
+  const [panelId] = useState(() => 'nav-picker-panel-' + Math.random().toString(36).slice(2, 9));
   useEffect(() => {
     if (!open) return;
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -614,12 +622,13 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
       className: 'nav-picker-chip',
       onClick: () => setOpen(o => !o),
       'aria-haspopup': 'listbox',
-      'aria-expanded': open
+      'aria-expanded': open,
+      'aria-controls': panelId
     },
       h('span', { className: 'nav-picker-label' }, label),
       h('span', { className: 'nav-picker-caret', 'aria-hidden': true }, '▾')
     ),
-    open && h('div', { className: 'nav-picker-panel', role: 'listbox' },
+    open && h('div', { className: 'nav-picker-panel', id: panelId, role: 'listbox' },
       options.map(opt => h('button', {
         key: opt.code,
         type: 'button',
@@ -649,6 +658,9 @@ function NavPicker({ label, ariaLabel, options, onSelect }) {
 function SortPicker({ value, options, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef(null);
+  // aria-expanded must pair with aria-controls — same WCAG 4.1.2
+  // requirement as NavPicker (see comment there).
+  const [panelId] = useState(() => 'sort-picker-panel-' + Math.random().toString(36).slice(2, 9));
   useEffect(() => {
     if (!open) return;
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -668,13 +680,14 @@ function SortPicker({ value, options, onChange }) {
       onClick: () => setOpen(o => !o),
       'aria-haspopup': 'listbox',
       'aria-expanded': open,
+      'aria-controls': panelId,
       'aria-label': 'Sort listings'
     },
       active && h(MaterialIcon, { name: active.icon || 'sort', size: 14 }),
       h('span', { className: 'sort-picker-label' }, active ? active.label : 'Sort'),
       h('span', { className: 'sort-picker-caret', 'aria-hidden': true }, '▾')
     ),
-    open && h('div', { className: 'sort-picker-panel', role: 'listbox' },
+    open && h('div', { className: 'sort-picker-panel', id: panelId, role: 'listbox' },
       options.map(opt => h('button', {
         key: opt.value,
         type: 'button',
@@ -2066,11 +2079,13 @@ function ContactSellerButton({ seller }) {
       onClick: () => setOpen(v => !v),
       'aria-haspopup': 'dialog',
       'aria-expanded': open,
+      'aria-controls': 'contact-seller-drawer',
       title: 'Contact this seller through support'
     },
       h('span', { className: 'stall-share-icon' }, '✉'),
       'Contact'),
     open && h('div', {
+      id: 'contact-seller-drawer',
       role: 'dialog',
       'aria-modal': 'false',
       'aria-labelledby': 'contact-seller-drawer-title',
@@ -2652,18 +2667,10 @@ export function SiteFooter() {
         '© ', new Date().getFullYear(), ' SkinBox · Not affiliated with Facepunch Studios. s&box is a trademark of Facepunch Ltd.',
         version && h('span', { style: { opacity: 0.6, marginLeft: 10 } }, '· v', version)),
       h('div', { className: 'site-footer-socials', 'aria-label': 'Community' },
-        // No real Discord/X/GitHub presence yet - these used to deep-link to
-        // each provider's bare homepage which dead-ends the user. Disabled
-        // buttons (no href) with a "Coming soon" tooltip preserve the visual
-        // anchor without sending anyone to a 404-shaped destination.
-        h('button', {
-          type: 'button', className: 'site-footer-social', disabled: true,
-          'aria-label': 'Discord (coming soon)', title: 'Discord — coming soon'
-        }, h(MaterialIcon, { name: 'forum', size: 20 })),
-        h('button', {
-          type: 'button', className: 'site-footer-social', disabled: true,
-          'aria-label': 'X / Twitter (coming soon)', title: 'X / Twitter — coming soon'
-        }, h(MaterialIcon, { name: 'alternate_email', size: 20 })),
+        // Boss QA cycle 2 N1 — "coming soon" Discord/X buttons removed.
+        // A live marketplace doesn't ship disabled-with-tooltip social
+        // icons; they read as beta-shaped UI. Until real channels exist
+        // we render just the email link, which is a real working endpoint.
         h('a', {
           className: 'site-footer-social', href: 'mailto:support@skinbox.market',
           'aria-label': 'Email support', title: 'support@skinbox.market'
@@ -5340,6 +5347,10 @@ export function App() {
               tabIndex: 0,
               'aria-haspopup': 'menu',
               'aria-expanded': menuOpen,
+              // WCAG 4.1.2 — pair aria-expanded with aria-controls. The
+              // menu panel rendered below gets a stable id so SRs can
+              // resolve which popup the chip activates.
+              'aria-controls': 'user-menu-panel',
               'aria-label': `User menu · @${me.displayName || 'Player'}${
                 pendingActions && pendingActions.total > 0 ? ` · ${pendingActions.total} action${pendingActions.total === 1 ? '' : 's'} need attention` : ''
               }`,
@@ -5403,7 +5414,7 @@ export function App() {
                 className: 'user-menu-backdrop',
                 onClick: (e) => { e.stopPropagation(); setMenuOpen(false); }
               }),
-              menuOpen && h('div', { className: 'user-menu', onClick: e => e.stopPropagation() },
+              menuOpen && h('div', { id: 'user-menu-panel', className: 'user-menu', role: 'menu', onClick: e => e.stopPropagation() },
                 h('a', { className: 'user-menu-item', href: paths.profile(),       onClick: () => setMenuOpen(false) }, h(MaterialIcon, { name: 'person', size: 18, fill: true, color: 'var(--ink-2)' }), 'Profile'),
                 h('div', { className: 'user-menu-divider' }),
                 h('button', { className: 'user-menu-item', onClick: () => { setWalletInitialTab('deposit');  navigate(paths.wallet()); setMenuOpen(false); } }, h(MaterialIcon, { name: 'upload', size: 18, fill: true, color: 'var(--ink-2)' }), 'Deposit'),
@@ -5736,11 +5747,13 @@ export function App() {
                legacy/never-existed field, so disc was always 0 and the
                green delta chip never rendered. Fall back through both. */
             const ref = parseFloat(it.steamRefPrice || it.steamPrice) || 0;
-            /* H4 (Boss QA): gate discount chip — only when ≥5% real
-               savings vs steam reference. Avoid every card showing a
-               trivially-different chip that makes the indicator noise. */
+            /* Boss QA cycle 2 N4 — bumped from ≥5% to ≥10%. With seed
+               data hovering at 7-8% under Steam, every card kept showing
+               the same chip and it stopped reading as a real deal. 10%
+               matches the marketplace's "Top Deals" filter threshold so
+               what's chipped here matches what's surfaced there. */
             const discRaw = ref > price && ref > 0 ? Math.round(((ref - price) / ref) * 100) : 0;
-            const disc = discRaw >= 5 ? discRaw : 0;
+            const disc = discRaw >= 10 ? discRaw : 0;
             const views = parseInt(it.viewCount, 10) || 0;
             return h('a', {
               key: l.id || i,
@@ -5968,9 +5981,13 @@ export function App() {
             { key: 'deals',   label: 'Top Deals',    href: '/market?sort=discount&discount=10' },
             { key: 'newest',  label: 'Newest Items', href: '/market?sort=newest' },
             { key: 'rare',    label: 'Unique Items', href: '/market?rarity=Off-Market' }
-          ].map(tab => h('a', {
+          ].map((tab, i) => h('a', {
             key: tab.key,
-            className: 'csfloat-home-rail-tab',
+            // Boss QA cycle 2 N2 — first tab marked active so the
+            // segmented control reads as a real selectable group rather
+            // than three plain anchors. Without an active state the row
+            // looked like generic underline-on-hover text.
+            className: 'csfloat-home-rail-tab' + (i === 0 ? ' active' : ''),
             href: tab.href,
             onClick: (e) => { e.preventDefault(); navigate(tab.href); }
           }, tab.label))
@@ -6035,12 +6052,12 @@ export function App() {
                 h('span', { className: 'csfloat-home-preview-card-price' }, '$', price.toFixed(2),
                   h('span', { className: 'csfloat-home-preview-card-usd', 'aria-hidden': 'true' }, '$')
                 ),
-                /* H4 (Boss QA): gate the discount chip — only render when
-                   the listing is genuinely below the recent floor by at
-                   least 5%. Previously every card showed a chip (often
-                   the same green) which made the deal indicator
-                   meaningless. Always shows a truthful, comparative chip. */
-                (pct != null && pct <= -5) && h('span', {
+                /* Boss QA cycle 2 N4 — bumped threshold from -5 to -10
+                   so the green deal chip only fires on a real bargain.
+                   Seed data has 7-8% deltas across the board, which
+                   meant every card was stamped with a chip and the
+                   indicator stopped meaning anything. */
+                (pct != null && pct <= -10) && h('span', {
                   className: 'csfloat-home-preview-card-pct down'
                 }, '−' + Math.abs(pct) + '%')
               ),
@@ -6614,17 +6631,20 @@ export function App() {
               onClick: openSaveSearchDrawer,
               'aria-haspopup': 'dialog',
               'aria-expanded': saveSearchDraft !== null,
+              'aria-controls': 'save-search-drawer',
               title: 'Save the current filter combination as a named preset'
             }, h(MaterialIcon, { name: 'bookmark_border', size: 14 }), 'Save search')
           ),
           // Inline save-search drawer — replaces the native `window.prompt`
           // that used to gate naming. Renders directly under the toolbar
           // with a live-updating draft name, Enter-to-save, and Esc-to-cancel.
-          saveSearchDraft !== null && h(SaveSearchDrawer, {
-            initial: saveSearchDraft,
-            onCancel: () => setSaveSearchDraft(null),
-            onSave: (name) => commitSaveSearch(name)
-          }),
+          saveSearchDraft !== null && h('div', { id: 'save-search-drawer' },
+            h(SaveSearchDrawer, {
+              initial: saveSearchDraft,
+              onCancel: () => setSaveSearchDraft(null),
+              onSave: (name) => commitSaveSearch(name)
+            })
+          ),
           // Listing-type toggle — three buttons, single active. Since
           // batch 137 the filter rides into SQL via ?listingType=… so
           // flipping a chip re-fetches only the matching type. The
@@ -7251,56 +7271,11 @@ export function App() {
                     h('div', { className: 'stall-stat-val' },
                       Number(stallData.seller.followerCount).toLocaleString())
                   ),
-                  // Typical-response chip — median seller reply time across
-                  // the most recent resolved offers. Null (hidden) until the
-                  // seller has answered at least 3 offers so the stat isn't
-                  // noisy. Helps bargain-oriented buyers decide whether
-                  // offering is worth the wait vs. hitting Buy Now.
-                  stallData.seller.typicalResponseMs != null && (() => {
-                    const ms = stallData.seller.typicalResponseMs;
-                    let label;
-                    if (ms < 3_600_000)           label = Math.max(1, Math.round(ms / 60_000)) + 'm';
-                    else if (ms < 24 * 3_600_000) label = Math.max(1, Math.round(ms / 3_600_000)) + 'h';
-                    else                          label = Math.max(1, Math.round(ms / (24 * 3_600_000))) + 'd';
-                    return h('span', {
-                      style: { marginLeft: 10, fontSize: 11, color: 'var(--accent)', fontWeight: 700 },
-                      title: `Median time from offer to seller response across the last ${50} offers`
-                    }, '· Typically responds in ', label);
-                  })(),
-                  // Response-rate chip — companion to the response-time chip.
-                  // Green if ≥80%, amber if 50-79%, red otherwise. Hidden
-                  // until the seller has 5+ resolvable offers (denominator
-                  // noise floor). Reads "· 92% response rate" and tells a
-                  // buyer whether this seller engages with offers at all.
-                  stallData.seller.responseRatePct != null && (() => {
-                    const pct = stallData.seller.responseRatePct;
-                    const cls = pct >= 80 ? 'var(--green)' : pct >= 50 ? '#fbbf24' : 'var(--red)';
-                    return h('span', {
-                      style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
-                      title: 'Fraction of offers the seller has resolved (accepted / rejected / countered) vs. let auto-expire'
-                    }, '· ', Math.round(pct), '% response rate');
-                  })(),
-                  // Typical-ship chip (batch 550) — median wall time from
-                  // "Buy Now" click to the seller pressing "Mark sent" on
-                  // the Steam trade offer, across VERIFIED trades in the
-                  // last 90 days. Null (hidden) until the seller has 3+
-                  // samples so a single fast trade doesn't mislead. This
-                  // is the buyer's "will I actually get the item?" signal
-                  // — complements the offer-response stat above which
-                  // only measures how fast the seller READS offers.
-                  stallData.seller.typicalShipMs != null && (() => {
-                    const ms = stallData.seller.typicalShipMs;
-                    let label;
-                    if (ms < 3_600_000)           label = Math.max(1, Math.round(ms / 60_000)) + 'm';
-                    else if (ms < 24 * 3_600_000) label = Math.max(1, Math.round(ms / 3_600_000)) + 'h';
-                    else                          label = Math.max(1, Math.round(ms / (24 * 3_600_000))) + 'd';
-                    const samples = stallData.seller.typicalShipSamples || 0;
-                    const cls = ms < 4 * 3_600_000 ? 'var(--green)' : ms < 24 * 3_600_000 ? '#fbbf24' : 'var(--text-muted)';
-                    return h('span', {
-                      style: { marginLeft: 10, fontSize: 11, color: cls, fontWeight: 700 },
-                      title: `Median time from purchase to the seller marking the Steam trade sent, across the last ${samples} verified trades (90d window)`
-                    }, '· Typically ships in ~', label);
-                  })()
+                  // Boss QA cycle 2 S2 — typical-response, response-rate,
+                  // and typical-ship moved out of the stat grid into the
+                  // trust-badges row below. Stats they replace (Joined /
+                  // Last seen / Lifetime sales / Last sale / Active
+                  // listings) stay above as proper stat cards.
                 ),
                 // Rating chip — only shows if the seller has at least one
                 // review. Uses a simple star-count visual with the average
@@ -7375,95 +7350,6 @@ export function App() {
               },
                 'Report')
             ),
-            // Boss QA cycle 2 S2 — labeled stat-card grid replacing the
-            // concatenated chip mush in stall-meta. Four boxes: Joined /
-            // Last seen / Lifetime sales / Last sale. Tooltips carry the
-            // absolute timestamps so the dense info isn't lost. Renders
-            // even when individual stats are unknown ("—") so the grid
-            // shape is consistent across stalls.
-            (() => {
-              const seller = stallData.seller || {};
-              const fmtAge = (ts) => {
-                if (!ts) return '—';
-                const ageMs = Date.now() - ts;
-                if (ageMs < 365 * 24 * 3600_000) return timeAgo(ts);
-                return new Date(ts).getFullYear().toString();
-              };
-              const lastSeenLabel = (ts) => {
-                if (!ts) return '—';
-                const age = Date.now() - ts;
-                if (age < 24 * 3600_000) return 'Active today';
-                if (age < 7 * 24 * 3600_000) return 'This week';
-                return timeAgo(ts);
-              };
-              const cards = [
-                {
-                  label: 'Joined',
-                  value: fmtAge(seller.joinedAt),
-                  title: seller.joinedAt ? new Date(seller.joinedAt).toLocaleString() : 'Account creation date unknown'
-                },
-                {
-                  label: 'Last seen',
-                  value: lastSeenLabel(seller.lastSyncedAt),
-                  title: seller.lastSyncedAt ? 'Last observed on Steam ' + new Date(seller.lastSyncedAt).toLocaleString() : 'No recent activity recorded'
-                },
-                {
-                  label: 'Lifetime sales',
-                  value: (seller.soldCount != null && seller.soldCount > 0) ? Number(seller.soldCount).toLocaleString() : '—',
-                  title: seller.soldCount > 0 ? `${seller.soldCount} completed sale${seller.soldCount === 1 ? '' : 's'} since joining` : 'No completed sales yet'
-                },
-                {
-                  label: 'Last sale',
-                  value: seller.lastSoldAt ? timeAgo(seller.lastSoldAt) : '—',
-                  title: seller.lastSoldAt ? 'Most recent sale closed ' + new Date(seller.lastSoldAt).toLocaleString() : 'No sales recorded'
-                }
-              ];
-              return h('div', { className: 'stall-stat-grid' },
-                cards.map(c => h('div', { key: c.label, className: 'stall-stat-card', title: c.title },
-                  h('div', { className: 'stall-stat-card-label' }, c.label),
-                  h('div', { className: 'stall-stat-card-value' }, c.value)
-                ))
-              );
-            })(),
-            // Trust-badges row — Verified / Active / Response rate /
-            // Typical ship — surfaced as a horizontal pill row for
-            // immediate scannability. Hidden if none of the chips have
-            // data (e.g. brand-new account with no resolved trades).
-            (() => {
-              const seller = stallData.seller || {};
-              const badges = [];
-              if (seller.verified) {
-                badges.push({ key: 'verified', label: 'Verified seller', tone: 'good',
-                  title: 'Verified seller — ' + (seller.soldCount || 10) + '+ completed sales with no negative reviews' });
-              }
-              if (seller.responseRatePct != null) {
-                const tone = seller.responseRatePct >= 80 ? 'good' : seller.responseRatePct >= 50 ? 'warn' : 'bad';
-                badges.push({ key: 'response', label: Math.round(seller.responseRatePct) + '% response',
-                  tone, title: 'Fraction of offers the seller has resolved (accept / reject / counter) vs. let auto-expire' });
-              }
-              if (seller.typicalShipMs != null) {
-                const ms = seller.typicalShipMs;
-                let label;
-                if (ms < 3_600_000)           label = Math.max(1, Math.round(ms / 60_000)) + 'm';
-                else if (ms < 24 * 3_600_000) label = Math.max(1, Math.round(ms / 3_600_000)) + 'h';
-                else                          label = Math.max(1, Math.round(ms / (24 * 3_600_000))) + 'd';
-                const tone = ms < 4 * 3_600_000 ? 'good' : ms < 24 * 3_600_000 ? 'warn' : 'mute';
-                badges.push({ key: 'ship', label: 'Ships in ~' + label, tone,
-                  title: `Median time from purchase to seller marking the Steam trade sent across the last ${seller.typicalShipSamples || 0} verified trades (90d)` });
-              }
-              if (seller.followerCount > 0) {
-                badges.push({ key: 'followers', label: seller.followerCount + ' follower' + (seller.followerCount === 1 ? '' : 's'),
-                  tone: 'mute', title: 'Buyers who have subscribed to NEW_LISTING notifications from this seller' });
-              }
-              if (badges.length === 0) return null;
-              return h('div', { className: 'stall-trust-badges' },
-                badges.map(b => h('span', {
-                  key: b.key,
-                  className: 'stall-trust-badge stall-trust-badge-' + b.tone,
-                  title: b.title
-                }, b.label))
-              );
-            })(),
             stallData.away && h('div', { className: 'stall-away-banner' },
               h('span', { className: 'stall-away-dot' }),
               h('div', null,
@@ -7667,8 +7553,22 @@ export function App() {
                   .map(s => h('div', { key: s.listingId, className: 'recent-sales-row' },
                     h('span', { className: 'recent-sales-type' },
                       s.listingType === 'AUCTION' ? 'Auction' : 'Buy now'),
-                    h('span', { style: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                      s.item?.name || 'Item'),
+                    // CSFloat-1:1: each sold-row item name is a real link to
+                    // the item detail page so a buyer who likes what the
+                    // seller has been moving can pivot directly to the item.
+                    // Falls back to plain text when the row has no item id.
+                    s.item?.id
+                      ? h('a', {
+                          href: '/item/' + s.item.id,
+                          style: {
+                            fontSize: 12, color: 'var(--text-secondary)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            textDecoration: 'none'
+                          },
+                          title: 'View ' + (s.item?.name || 'item') + ' detail'
+                        }, s.item?.name || 'Item')
+                      : h('span', { style: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                          s.item?.name || 'Item'),
                     h('span', { className: 'recent-sales-price' }, fmt(s.price)),
                     h('span', { className: 'recent-sales-time' }, timeAgo(s.soldAt))
                   ))

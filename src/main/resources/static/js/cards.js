@@ -242,10 +242,14 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             // csfloat's "$675.00 [$]" badge pairing.
             h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Listed in USD' }, '$'),
             h(SteamMarketLink, { item, compact: true }),
-            // H4 Boss QA — gate the discount chip at >=5% so every card
-            // doesn't carry a green chip when the saving is a rounding
-            // error. Real marketplaces only flash a chip on actual deals.
-            disc >= 5 && h('span', { className: 'grid-discount' }, `−${disc}%`)
+            // Boss QA cycle 2 N4 — bumped the discount-chip threshold
+            // from 5% to 10%. With seed data sitting at 7-8% under
+            // Steam, EVERY card was carrying the same green chip and
+            // the chip stopped reading as a real deal signal. 10% is
+            // the same threshold the marketplace's "Top Deals" filter
+            // uses, so what's chipped here matches what's surfaced
+            // there — visual credibility restored.
+            disc >= 10 && h('span', { className: 'grid-discount' }, `−${disc}%`)
           ),
           isAuction && listing.bidCount > 0
             ? h('div', { className: 'grid-bid-count' }, `${listing.bidCount} bid${listing.bidCount === 1 ? '' : 's'}`)
