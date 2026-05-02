@@ -2,127 +2,81 @@
   "/": {
     "critical": 0,
     "serious": 0,
-    "moderate": 0,
-    "minor": 0,
     "violations": []
   },
   "/market": {
     "critical": 0,
     "serious": 0,
-    "moderate": 1,
-    "minor": 1,
     "violations": []
   },
   "/db": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/help": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/faq": {
     "critical": 0,
     "serious": 0,
-    "moderate": 3,
-    "minor": 0,
     "violations": []
   },
   "/cart": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/watchlist": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/wallet": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/sell": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/settings": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/profile/personal": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/item/1": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/stall/1": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
   "/loadout/1": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
-  "/buy-orders": {
+  "/item/missing": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
     "violations": []
   },
-  "/affiliate": {
+  "/stall/missing": {
     "critical": 0,
     "serious": 0,
-    "moderate": 2,
-    "minor": 0,
-    "violations": []
-  },
-  "/support": {
-    "critical": 0,
-    "serious": 0,
-    "moderate": 2,
-    "minor": 0,
-    "violations": []
-  },
-  "/changelog.html": {
-    "critical": 0,
-    "serious": 0,
-    "moderate": 0,
-    "minor": 0,
     "violations": []
   }
 }

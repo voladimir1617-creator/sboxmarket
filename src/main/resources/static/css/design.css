@@ -5236,7 +5236,12 @@ body:has(.shortcuts-backdrop) {
 .chart-range button {
   padding: 5px 10px; background: transparent; border: 0;
   border-right: 1px solid var(--line);
-  color: var(--ink-3); font-family: var(--mono); font-size: 10px;
+  /* Boss QA cycle 11/14 — bumped ink-3 → ink-2 so the inactive 7D / 30D /
+     etc. range labels clear WCAG AA. ink-3 against bg-1 was ~4.4:1 in
+     axe — borderline; ink-2 (oklch 0.80) hits ~6.0:1 with comfortable
+     headroom while staying visually subordinate to the active label. */
+  color: var(--ink-2); font-family: var(--mono); font-size: 10px;
+  font-weight: 500;
   letter-spacing: 0.08em; text-transform: uppercase;
   cursor: pointer;
 }

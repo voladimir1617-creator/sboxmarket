@@ -225,7 +225,20 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
             className: 'empty-state',
             style: { padding: '32px 16px', textAlign: 'center' }
           },
-            h('div', { className: 'empty-state-icon' }, '—'),
+            /* Boss QA cycle 11 micro-polish — replaced bare "—" glyph with
+               a branded line-art illustration of a magnifying glass over
+               three database rows. Tied to the database topic (rows + a
+               search lens) and feels intentional vs the placeholder dash.
+               Sized 26 inside the existing 56×56 .empty-state-icon chip. */
+            h('div', { className: 'empty-state-icon', 'aria-hidden': 'true' },
+              h('svg', { width: 26, height: 26, viewBox: '0 0 26 26', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' },
+                h('rect', { x: 3, y: 4, width: 14, height: 2, rx: 1 }),
+                h('rect', { x: 3, y: 9, width: 10, height: 2, rx: 1 }),
+                h('rect', { x: 3, y: 14, width: 12, height: 2, rx: 1 }),
+                h('circle', { cx: 18, cy: 18, r: 4 }),
+                h('line', { x1: 21, y1: 21, x2: 24, y2: 24 })
+              )
+            ),
             h('div', { className: 'empty-state-title' },
               hasFilters ? 'No items match your filters' : 'Catalogue is empty'),
             h('div', { className: 'empty-state-sub' },

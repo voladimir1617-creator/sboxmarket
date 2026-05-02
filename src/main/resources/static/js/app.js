@@ -45,15 +45,17 @@ function LazyStaffPanel({ which, me, onClose }) {
       .catch(e => alive && setErr(e));
     return () => { alive = false; };
   }, [which]);
-  if (err) return h('div', { className: 'modal-shell' },
-    h('div', { className: 'modal-card', style: { padding: 24 } },
-      h('div', { style: { fontWeight: 700, marginBottom: 8 } }, 'Staff panel failed to load'),
-      h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 } },
-        'Refresh the page to retry. If it keeps failing, check your network or sign out and back in.'),
-      h('button', { className: 'btn btn-ghost', onClick: onClose }, 'Close')));
-  if (!Mod) return h('div', { className: 'modal-shell' },
-    h('div', { className: 'modal-card', style: { padding: 24, textAlign: 'center' } },
-      h('div', { style: { fontSize: 12, color: 'var(--text-muted)' } }, 'Loading staff panel…')));
+  if (err) return h('div', { className: 'modal-backdrop', onClick: onClose },
+    h('div', { className: 'modal sm', onClick: e => e.stopPropagation() },
+      h('div', { className: 'modal-header' },
+        h('h3', null, 'Staff panel failed to load'),
+        h('button', { className: 'modal-close', onClick: onClose, 'aria-label': 'Close' }, '✕')),
+      h('div', { style: { padding: 22 } },
+        h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 } },
+          'Refresh the page to retry. If it keeps failing, check your network or sign out and back in.'))));
+  if (!Mod) return h('div', { className: 'modal-backdrop' },
+    h('div', { className: 'modal sm', style: { padding: 28, textAlign: 'center' } },
+      h('div', { style: { fontSize: 12, color: 'var(--text-secondary)' } }, 'Loading staff panel…')));
   return h(Mod, { onClose, me });
 }
 import { HelpModal } from './help-modal.js';

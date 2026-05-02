@@ -1,79 +1,20 @@
 {
   "/": {
-    "domNodes": 443,
-    "paint": {
-      "first-paint": 432
-    },
-    "navTiming": {
-      "domLoaded": 253,
-      "loadEnd": 253,
-      "tti": 206
-    },
-    "totalBytes": 5757671
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/?_qa=1"
   },
   "/market": {
-    "domNodes": 1340,
-    "paint": {
-      "first-paint": 92,
-      "first-contentful-paint": 432
-    },
-    "navTiming": {
-      "domLoaded": 175,
-      "loadEnd": 176,
-      "tti": 121
-    },
-    "totalBytes": 9062229
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/market?_qa=1"
   },
   "/db": {
-    "domNodes": 772,
-    "paint": {
-      "first-paint": 72,
-      "first-contentful-paint": 352
-    },
-    "navTiming": {
-      "domLoaded": 146,
-      "loadEnd": 147,
-      "tti": 97
-    },
-    "totalBytes": 10561195
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/db?_qa=1"
   },
   "/item/1": {
-    "domNodes": 328,
-    "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 236
-    },
-    "navTiming": {
-      "domLoaded": 169,
-      "loadEnd": 170,
-      "tti": 107
-    },
-    "totalBytes": 6876126
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/item/1?_qa=1"
   },
   "/stall/1": {
-    "domNodes": 286,
-    "paint": {
-      "first-paint": 84,
-      "first-contentful-paint": 228
-    },
-    "navTiming": {
-      "domLoaded": 158,
-      "loadEnd": 158,
-      "tti": 105
-    },
-    "totalBytes": 5201800
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/stall/1?_qa=1"
   },
   "/loadout/1": {
-    "domNodes": 241,
-    "paint": {
-      "first-paint": 76,
-      "first-contentful-paint": 228
-    },
-    "navTiming": {
-      "domLoaded": 150,
-      "loadEnd": 150,
-      "tti": 99
-    },
-    "totalBytes": 5169347
+    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/loadout/1?_qa=1"
   }
 }
