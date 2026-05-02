@@ -3497,6 +3497,10 @@ nav.nav {
   white-space: nowrap;
 }
 .hero-tab:hover { color: var(--ink); }
+/* Boss QA cycle 23 — :active feedback so home hero tab clicks (Top Deals
+   / Newest Items / Unique Items) read as acknowledged taps before the
+   underline animates. Translate-Y(1px) matches the chip family pattern. */
+.hero-tab:active { transform: translateY(1px); transition: transform 80ms ease-out, color 140ms ease; }
 .hero-tab.active { color: var(--ink); }
 .hero-tab.active::after {
   content: ""; position: absolute;
