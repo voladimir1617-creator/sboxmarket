@@ -2971,7 +2971,12 @@ body.modal-open, html.modal-open { overflow: hidden; }
   padding: 8px 14px; font-size: 13px; font-weight: 500;
   z-index: 9999; transition: top 140ms ease;
 }
-.skip-link:focus { top: 12px; outline: 2px solid var(--ink-4); outline-offset: 2px; }
+/* Boss QA cycle 18 — skip-link focus ring upgraded from muted --ink-4 to
+   --accent so the FIRST control a keyboard user reaches on Tab gets a
+   strong, on-brand outline. Pre-fix the focus outline matched the
+   border colour and was nearly invisible. */
+.skip-link:focus,
+.skip-link:focus-visible { top: 12px; outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 22%, transparent); }
 
 /* ─────────────────────────────────────────────────────────────
    1. NAV — flex-row over the template's grid
