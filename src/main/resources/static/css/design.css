@@ -3521,6 +3521,9 @@ nav.nav {
   text-decoration: none;
 }
 .hero-tab-cta:hover { color: var(--ink); border-color: var(--ink-4); background: var(--bg-2); }
+/* Boss QA cycle 24 — :active press echo so the "Visit Marketplace →" CTA
+   gives a tap acknowledgement instead of an instant navigation. */
+.hero-tab-cta:active { transform: translateY(1px); transition: transform 80ms ease-out, color 140ms ease, border-color 140ms ease, background 140ms ease; }
 /* Grid of cards for the active rail. Matches the main listing-grid
    density so a rail card lines up with a market-page card. */
 .hero-tab-grid {
