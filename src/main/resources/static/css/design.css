@@ -118679,7 +118679,14 @@ h1.modal-h1,
   cursor: pointer;
   list-style: none;
   user-select: none;
+  /* Boss QA cycle 27 — subtle tap-feedback on FAQ summary rows.
+     Pre-fix the row toggled on click but no visual ack. Now the bg
+     softens for 80ms on :active so the click reads as captured. */
+  transition: background 140ms ease;
 }
+.csfloat-home-faq-q:hover { background: color-mix(in oklab, var(--ink) 3%, transparent); }
+.csfloat-home-faq-q:active { background: color-mix(in oklab, var(--ink) 6%, transparent); transition: background 80ms ease-out; }
+.csfloat-home-faq-q:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .csfloat-home-faq-q::-webkit-details-marker { display: none; }
 .csfloat-home-faq-q-arrow {
   display: inline-grid;
