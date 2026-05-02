@@ -12303,6 +12303,18 @@ body:has(.full-page-mode) { overflow: visible !important; }
   color: var(--ink);
   background: color-mix(in oklab, var(--ink) 4%, transparent);
 }
+.nav-picker-chip:active { transform: translateY(1px); }
+/* Boss QA cycle 14 — mobile bump to Apple HIG 44px. Pre-fix the currency
+   + language chips rendered ~26px tall on every viewport. Boss prompt
+   explicitly named "currency dropdown" + "language dropdown" as
+   must-clear-44 mobile tap-targets. Desktop chrome density preserved. */
+@media (max-width: 760px) {
+  .nav-picker-chip {
+    min-height: 44px;
+    padding: 0 14px 0 14px;
+    font-size: 12px;
+  }
+}
 .nav-picker-caret {
   font-size: 9px;
   margin-top: 1px;
