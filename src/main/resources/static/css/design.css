@@ -6316,6 +6316,10 @@ body:has(.shortcuts-backdrop) {
   transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
 }
 .wallet-tx-filter-chip:hover { color: var(--ink); border-color: var(--line-2); }
+/* Boss QA cycle 28 — :active translateY press feedback so wallet-tx
+   filter taps respond before the active state flips. Closes the chip-
+   family press-state matrix on the wallet page. */
+.wallet-tx-filter-chip:active { transform: translateY(1px); transition: transform 80ms ease-out, color 140ms ease, border-color 140ms ease, background 140ms ease; }
 .wallet-tx-filter-chip.active {
   color: var(--ink); background: var(--bg-2); border-color: var(--ink-4);
 }
