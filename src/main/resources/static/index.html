@@ -96,6 +96,31 @@
   <!-- Single unified CSS — editorial design system + app adapter in one file.
        Legacy styles.css was deleted after the full redesign (see docs/). -->
   <link rel="stylesheet" href="/css/design.css">
+  <!-- Boss QA cycle 12 — inline critical CSS so the first paint on slow 3G
+       isn't a UA-default WHITE flash. design.css is ~2MB and on slow
+       networks paints 1-3s after first byte; before this block, the
+       browser drew the body in default white until the stylesheet
+       arrived. Now: dark editorial bg + skeleton chrome paint at first
+       byte, design.css then takes over without a visible repaint. */ -->
+  <style>
+    :root { color-scheme: dark; }
+    html, body { background: #1f2228; color: #f3f4f6; margin: 0; min-height: 100%; }
+    body { font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    #root { min-height: 100vh; }
+    .boot-skel { display: flex; flex-direction: column; min-height: 100vh; }
+    .boot-skel-nav { height: 56px; border-bottom: 1px solid #2a2d34; display: flex; align-items: center; padding: 0 24px; gap: 14px; }
+    .boot-skel-logo { width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); }
+    .boot-skel-brand { width: 70px; height: 14px; border-radius: 3px; background: #2a2d34; }
+    .boot-skel-link { width: 60px; height: 12px; border-radius: 3px; background: #2a2d34; margin-left: 18px; }
+    .boot-skel-cta { width: 140px; height: 28px; border-radius: 999px; background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%); margin-left: auto; }
+    .boot-skel-main { flex: 1; padding: 40px 24px; display: grid; gap: 14px; max-width: 1200px; margin: 0 auto; width: 100%; }
+    .boot-skel-line { height: 14px; border-radius: 4px; background: linear-gradient(90deg, #1f2228 0%, #2a2d34 50%, #1f2228 100%); background-size: 200% 100%; animation: bootShimmer 1.4s ease-in-out infinite; }
+    .boot-skel-line.lg { height: 32px; max-width: 360px; }
+    .boot-skel-line.md { height: 18px; max-width: 540px; }
+    @keyframes bootShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    /* React hydration removes #root's children — once content is real, the
+       skeleton is gone. No JS toggle needed. */
+  </style>
 </head>
 <body>
   <!-- Batch 723 — Skip-to-content link for screen-reader + keyboard-only
@@ -109,7 +134,29 @@
        actually moves there (browsers default to "scroll-only" on anchor
        navigation). CSP-safe: no inline handler. -->
   <a href="#main" class="skip-link">Skip to main content</a>
-  <div id="root"></div>
+  <!-- Boss QA cycle 12 — boot skeleton inside #root. React removes these
+       children when it mounts, so on a fast cache hit the skeleton flashes
+       for one frame; on slow 3G it gives the eye something to land on
+       (logo, nav skeleton, header line) instead of a black void. -->
+  <div id="root">
+    <div class="boot-skel" aria-hidden="true">
+      <div class="boot-skel-nav">
+        <div class="boot-skel-logo"></div>
+        <div class="boot-skel-brand"></div>
+        <div class="boot-skel-link"></div>
+        <div class="boot-skel-link"></div>
+        <div class="boot-skel-link"></div>
+        <div class="boot-skel-cta"></div>
+      </div>
+      <div class="boot-skel-main">
+        <div class="boot-skel-line lg"></div>
+        <div class="boot-skel-line md"></div>
+        <div class="boot-skel-line md"></div>
+        <div class="boot-skel-line"></div>
+        <div class="boot-skel-line"></div>
+      </div>
+    </div>
+  </div>
   <noscript>
     <div style="max-width:560px;margin:80px auto;padding:28px 32px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#e2e7f5;background:#0d1320;border:1px solid #1e2840;border-radius:10px;text-align:center;">
       <h1 style="margin:0 0 10px;font-size:20px;color:#1ea5ff;">JavaScript required</h1>

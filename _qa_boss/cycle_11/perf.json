@@ -2,77 +2,77 @@
   "/": {
     "domNodes": 443,
     "paint": {
-      "first-paint": 440
+      "first-paint": 516
     },
     "navTiming": {
-      "domLoaded": 255,
-      "loadEnd": 256,
-      "tti": 209
+      "domLoaded": 367,
+      "loadEnd": 368,
+      "tti": 293
     },
     "totalBytes": 5775067
   },
   "/market": {
     "domNodes": 1340,
     "paint": {
-      "first-paint": 76,
-      "first-contentful-paint": 472
+      "first-paint": 108,
+      "first-contentful-paint": 408
     },
     "navTiming": {
-      "domLoaded": 160,
-      "loadEnd": 160,
-      "tti": 105
+      "domLoaded": 217,
+      "loadEnd": 218,
+      "tti": 145
     },
-    "totalBytes": 10420883
+    "totalBytes": 9079625
   },
   "/db": {
     "domNodes": 772,
     "paint": {
       "first-paint": 76,
-      "first-contentful-paint": 324
+      "first-contentful-paint": 388
     },
     "navTiming": {
-      "domLoaded": 161,
-      "loadEnd": 162,
-      "tti": 102
+      "domLoaded": 150,
+      "loadEnd": 151,
+      "tti": 100
     },
     "totalBytes": 10578591
   },
   "/item/1": {
     "domNodes": 332,
     "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 320
+      "first-paint": 88,
+      "first-contentful-paint": 332
     },
     "navTiming": {
-      "domLoaded": 173,
-      "loadEnd": 174,
-      "tti": 105
+      "domLoaded": 176,
+      "loadEnd": 176,
+      "tti": 120
     },
     "totalBytes": 6893523
   },
   "/stall/1": {
     "domNodes": 286,
     "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 232
+      "first-paint": 96,
+      "first-contentful-paint": 248
     },
     "navTiming": {
-      "domLoaded": 162,
-      "loadEnd": 163,
-      "tti": 106
+      "domLoaded": 180,
+      "loadEnd": 181,
+      "tti": 125
     },
     "totalBytes": 5219196
   },
   "/loadout/1": {
     "domNodes": 241,
     "paint": {
-      "first-paint": 76,
-      "first-contentful-paint": 220
+      "first-paint": 84,
+      "first-contentful-paint": 260
     },
     "navTiming": {
-      "domLoaded": 154,
-      "loadEnd": 155,
-      "tti": 100
+      "domLoaded": 163,
+      "loadEnd": 164,
+      "tti": 112
     },
     "totalBytes": 5186743
   }

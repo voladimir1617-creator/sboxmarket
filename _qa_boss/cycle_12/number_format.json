@@ -1,0 +1,63 @@
+{
+  "/": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [
+      {
+        "text": "2%",
+        "cls": "csfloat-home-metric-num"
+      }
+    ],
+    "percentsCount": 1
+  },
+  "/market": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [],
+    "percentsCount": 0
+  },
+  "/db": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [],
+    "percentsCount": 0
+  },
+  "/item/1": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [],
+    "percentsCount": 0
+  },
+  "/stall/1": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [],
+    "percentsCount": 0
+  },
+  "/wallet": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [],
+    "percentsCount": 0
+  },
+  "/profile/personal": {
+    "prices": [],
+    "pricesCount": 0,
+    "counts": [],
+    "countsCount": 0,
+    "percents": [],
+    "percentsCount": 0
+  }
+}

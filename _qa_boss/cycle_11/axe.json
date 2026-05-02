@@ -70,9 +70,13 @@
     "violations": []
   },
   "/item/missing": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/item/missing?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   },
   "/stall/missing": {
-    "error": "net::ERR_EMPTY_RESPONSE at http://localhost:8082/stall/missing?_qa=1"
+    "critical": 0,
+    "serious": 0,
+    "violations": []
   }
 }
