@@ -118434,6 +118434,17 @@ h1.modal-h1,
     0 0 0 1px color-mix(in oklab, var(--cta) 18%, transparent);
 }
 .csfloat-home-tile:hover::before { opacity: 1; }
+/* Boss QA cycle 26 — :active depress on home service tiles ("Live
+   Auctions", "Buy Now Bargains", "Steam-Trade Escrow") so the click
+   gets a tap echo before navigation. Matches the .grid-card +
+   preview-card press-state pattern. */
+.csfloat-home-tile:active {
+  transform: translateY(0px);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.45),
+    0 0 0 1px color-mix(in oklab, var(--cta) 28%, transparent);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
 .csfloat-home-tile-icon {
   display: inline-grid;
   place-items: center;
