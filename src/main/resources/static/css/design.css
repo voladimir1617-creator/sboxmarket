@@ -5247,6 +5247,10 @@ body:has(.shortcuts-backdrop) {
   transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
 }
 .price-suggest-chip:hover { color: var(--ink); border-color: var(--line-2); background: var(--bg-1); }
+/* Boss QA cycle 21 — :active press feedback so the chip responds to the
+   tap, not just the toggle. Matches every other chip family that already
+   ships this. */
+.price-suggest-chip:active { transform: translateY(1px); transition: transform 80ms ease-out; }
 .price-suggest-chip.sel { color: var(--ink); border-color: var(--ink-4); background: var(--bg-1); }
 .price-suggest-chip-amt { font-weight: 600; color: var(--ink); }
 
