@@ -4064,6 +4064,17 @@ nav.nav {
 .sort-select:active, .discount-select:active, .toolbar-select:active {
   transform: translateY(1px);
 }
+/* Boss QA cycle 12 — bump <select> chrome to Apple HIG 44px on mobile.
+   Boss prompt explicitly named "currency dropdown", "language dropdown",
+   "sort-toggle". Pre-fix every site-wide select rendered at 36px on
+   touch — borderline for finger-precision dropdowns. */
+@media (max-width: 760px) {
+  .sort-select, .discount-select, .toolbar-select {
+    height: 44px;
+    padding-right: 38px;
+    background-position: right 14px center;
+  }
+}
 /* Option list (rendered by the browser) — the :root color-scheme token
    is already set to dark so Chrome/Safari picks up a near-black menu by
    default; here we just tighten the individual option padding & font. */
@@ -8914,6 +8925,17 @@ td > .price-cell {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25),
               inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
+/* Boss QA cycle 12 — toolbar / view-btns / type-toggle / deals-chip /
+   refresh group bumped to ≥44px on mobile. Pre-fix the All / Buy Now /
+   Auction pills, Grid/Table view toggle, % Deals + New chips, and
+   refresh icon-button rendered at 33-36px high on touch — boss prompt
+   explicitly named "sort-toggle" + view chips as must-clear targets. */
+@media (max-width: 760px) {
+  .type-toggle-btn { padding: 11px 16px; }
+  .deals-chip { min-height: 44px; }
+  .view-btns button { min-height: 44px; min-width: 44px; }
+  .toolbar-refresh { min-height: 44px; min-width: 44px; }
+}
 
 /* ─── Horizontal scroll rails (top-sellers / recently-viewed / top-deals
    etc.) — add a soft scroll-fade mask so the trailing card fades into
@@ -10641,6 +10663,12 @@ input[type="radio"] {
   transition: opacity 160ms ease, color 160ms ease,
               background 160ms ease, border-color 160ms ease,
               transform 160ms ease;
+}
+/* Boss QA cycle 11 — mobile widens the grid-card overlay buttons to 44×44
+   per Apple HIG. Desktop keeps the editorial 30×30 because the overlay
+   reads as chrome at the larger size. */
+@media (max-width: 760px) {
+  .grid-cart-btn, .grid-star { width: 44px; height: 44px; font-size: 18px; }
 }
 .grid-star { top: 8px; }
 .grid-cart-btn { top: 44px; line-height: 1; }
