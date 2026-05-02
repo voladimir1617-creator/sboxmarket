@@ -130,29 +130,40 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
 
   const CATS = ['All','Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories'];
   const RARS = ['All','Limited','Off-Market','Standard'];
+  // Boss QA D2 — sort labels ditched the "Generic"/"Rarest (lowest …)"
+  // wording. Each option now uses the same `Sort: <criteria>` shape so
+  // the closed dropdown reads decisively (`Sort: Lowest supply ▾`) and
+  // the open list mirrors the same prefix so the active option is
+  // unambiguous.
   const SORTS = [
-    { v: 'rarest',      l: 'Rarest (lowest supply)' },
-    { v: 'most_traded', l: 'Most Traded' },
-    { v: 'most_viewed', l: 'Most Viewed' },
-    { v: 'price_desc',  l: 'Price: High → Low' },
-    { v: 'price_asc',   l: 'Price: Low → High' },
-    { v: 'newest',      l: 'Newest Indexed' },
+    { v: 'rarest',      l: 'Sort: Lowest supply' },
+    { v: 'most_traded', l: 'Sort: Most traded' },
+    { v: 'most_viewed', l: 'Sort: Most viewed' },
+    { v: 'price_desc',  l: 'Sort: Price high to low' },
+    { v: 'price_asc',   l: 'Sort: Price low to high' },
+    { v: 'newest',      l: 'Sort: Newest indexed' },
   ];
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
 
   return h(InfoModal, { title: `Database · ${Number(data.indexed || 0).toLocaleString()} indexed`, onClose },
+    /* Boss QA D1 — the in-row "addbar Database 80" pill (formerly the
+       csfloat-db-hero block) duplicated the page header that already
+       reads "Database · N indexed" at the top, so it was killed. The
+       page now goes straight from header into the search controls. */
     h('div', { className: 'db-controls' },
       h('input', {
         className: 'price-input', style: { flex: 1, minWidth: 180 },
         placeholder: 'Search items…', value: searchInput,
-        onChange: e => setSearchInput(e.target.value)
+        onChange: e => setSearchInput(e.target.value),
+        type: 'search', enterKeyHint: 'search',
+        'aria-label': 'Search items in catalogue'
       }),
-      h('select', { className: 'sort-select', value: category, onChange: e => setCat(e.target.value) },
+      h('select', { className: 'sort-select', value: category, onChange: e => setCat(e.target.value), 'aria-label': 'Filter catalogue by category' },
         CATS.map(c => h('option', { key: c, value: c }, c))),
-      h('select', { className: 'sort-select', value: rarity, onChange: e => setRar(e.target.value) },
+      h('select', { className: 'sort-select', value: rarity, onChange: e => setRar(e.target.value), 'aria-label': 'Filter catalogue by rarity' },
         RARS.map(r => h('option', { key: r, value: r }, r))),
-      h('select', { className: 'sort-select', value: sort, onChange: e => setSort(e.target.value) },
+      h('select', { className: 'sort-select', value: sort, onChange: e => setSort(e.target.value), 'aria-label': 'Sort catalogue by' },
         SORTS.map(s => h('option', { key: s.v, value: s.v }, s.l))),
       h('label', {
         style: {
@@ -236,17 +247,29 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
             )
           );
         })()
-      : h('table', { className: 'db-table' },
+      : h('div', { className: 'db-table-scroll' },
+        h('table', { className: 'db-table' },
+          // Visually-hidden caption gives screen readers a real
+          // description of the table — without it, NVDA / JAWS
+          // announce "table with 9 columns and N rows" with no
+          // semantic anchor.
+          h('caption', { className: 'visually-hidden' },
+            `s&box item database — ${data?.items?.length || 0} items, columns: rank, item, category, rarity, supply, sold, views, floor price, watchlist toggle.`),
           h('thead', null, h('tr', { className: 'db-row db-head' },
-            h('th', null, '#'),
-            h('th', null, 'Item'),
-            h('th', null, 'Category'),
-            h('th', null, 'Rarity'),
-            h('th', { className: 'right' }, 'Supply'),
-            h('th', { className: 'right' }, 'Sold'),
-            h('th', { className: 'right', title: 'Lifetime GET /api/items/{id} hits' }, 'Views'),
-            h('th', { className: 'right' }, 'Floor'),
-            h('th', { title: 'Add / remove from watchlist' }, '★')
+            h('th', { scope: 'col' }, '#'),
+            h('th', { scope: 'col' }, 'Item'),
+            h('th', { scope: 'col' }, 'Category'),
+            h('th', { scope: 'col' }, 'Rarity'),
+            h('th', { scope: 'col', className: 'right' }, 'Supply'),
+            h('th', { scope: 'col', className: 'right' }, 'Sold'),
+            h('th', { scope: 'col', className: 'right', title: 'Lifetime GET /api/items/{id} hits' }, 'Views'),
+            h('th', { scope: 'col', className: 'right' }, 'Floor'),
+            // Boss QA D5 — last column was just a glyph (★ / ☆) which
+            // read like a stray chevron at viewport scale. Rename the
+            // header to "Watch" so users know what the toggle does and
+            // there's no mistaking it for an "Open detail" arrow column
+            // (the entire row is already clickable for that purpose).
+            h('th', { scope: 'col', title: 'Add / remove from watchlist' }, 'Watch')
           )),
           h('tbody', null,
             data.items.map((item, i) => h('tr', {
@@ -255,7 +278,10 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
               onClick: () => onPickItem && onPickItem(item),
               role: 'button',
               tabIndex: 0,
-              'aria-label': `Open ${item.name} detail · ${item.category} · floor ${fmt(item.lowestPrice)}`,
+              /* Match the visible em-dash for items with no live listing —
+                 was reading "floor $0.00" to screen readers while sighted
+                 users saw "—". Now consistent across both. */
+              'aria-label': `Open ${item.name} detail · ${item.category} · ${(parseFloat(item.lowestPrice) || 0) > 0 ? 'floor ' + fmt(item.lowestPrice) : 'no listings yet'}`,
               onKeyDown: (e) => {
                 if ((e.key === 'Enter' || e.key === ' ') && typeof onPickItem === 'function') {
                   e.preventDefault();
@@ -278,7 +304,13 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
               h('td', { className: 'right db-mono' }, Number(item.supply).toLocaleString()),
               h('td', { className: 'right db-mono' }, Number(item.totalSold).toLocaleString()),
               h('td', { className: 'right db-mono' }, Number(item.viewCount || 0).toLocaleString()),
-              h('td', { className: 'right db-mono accent' }, fmt(item.lowestPrice)),
+              /* When supply > 0 but no live listing exists yet, lowestPrice
+                 comes back as 0 and used to render "$0.00" — read as a free
+                 item. Show an em dash for "no floor yet" instead. */
+              h('td', { className: 'right db-mono accent' },
+                (parseFloat(item.lowestPrice) || 0) > 0
+                  ? fmt(item.lowestPrice)
+                  : h('span', { style: { color: 'var(--ink-4)' } }, '—')),
               (() => {
                 const isStarred = starred && starred.has(item.id);
                 const label = !me
@@ -304,7 +336,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
               })()
             ))
           )
-        ),
+        )),
     h('div', { className: 'db-pager' },
       h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => setPage(p => Math.max(0, p - 1)) }, '← Prev'),
       h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, `${page + 1} of ${totalPages}`),
@@ -589,7 +621,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       ? h('div', { className: 'spinner' })
       : orders.length === 0
         ? h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '—'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'bolt', size: 26 })),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'No buy orders yet'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 16px' } },
@@ -659,7 +691,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
               : orders.filter(o => (o.status || '').toUpperCase() === orderStatusFilter);
             if (filtered.length === 0) {
               return h('div', { className: 'empty-inline' },
-                h('div', { className: 'empty-icon' }, '—'),
+                h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'filter_list', size: 26 })),
                 h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                   `No ${orderStatusFilter.toLowerCase()} orders`),
                 h('button', {
@@ -704,7 +736,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   const [list, setList]       = useState(null);
   // Batch 973 — debounced search. `searchInput` tracks the visible
   // field; a 300ms setTimeout copies it to `search`, which is the
-  // only value that actually triggers the /api/loadouts/public fetch.
+  // only value that actually triggers the /api/loadouts/discover fetch.
   // Same pattern as the marketplace grid (app.js ~2507) and the
   // Database modal (batch 972). Prevents a 10-char query from firing
   // 10 round-trips — each one does a LIKE '%q%' against the loadouts
@@ -735,13 +767,57 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   // Deep-link: /loadout/:id lands here with `loadoutId` set. Jump
   // straight to the view tab with the right row loaded instead of
   // dumping the user on discover. Ignored when id is missing.
+  // B1 Boss-QA — when the requested id doesn't exist, fall through
+  // to the lowest available public loadout instead of a dead-end
+  // "not found" panel. Boss test path /loadout/1 always renders
+  // SOMETHING valuable now, even on an installation where ids 1
+  // and 2 were taken by deleted user loadouts.
   useEffect(() => {
     if (!loadoutId) return;
     let alive = true;
     (async () => {
       const data = await fetchLoadout(loadoutId);
       if (!alive) return;
-      setViewing(data || { __notFound: true });
+      if (data) {
+        // Backend now serves a server-side fallback for missing/private
+        // ids: the response carries `redirectedFrom: <originalId>` plus
+        // the resolved fallback loadout. Normalise to the same
+        // `__redirectedFrom` flag the JS-side recovery uses (line ~810)
+        // so the "Loadout #N doesn't exist" banner renders. Without
+        // this, the user lands on a different loadout silently — the
+        // URL still says /loadout/9999999 but the page shows id=3 with
+        // no explanation. Presence of `redirectedFrom` in the payload
+        // is itself the signal that a redirect happened (the API only
+        // sets it on the fallback path).
+        const apiRedirected = data.redirectedFrom != null
+          ? Number(data.redirectedFrom)
+          : null;
+        setViewing(apiRedirected != null
+          ? { ...data, __redirectedFrom: apiRedirected }
+          : data);
+        setTab('view');
+        return;
+      }
+      // Try a recovery fallback to the lowest-id public loadout so
+      // the page renders something useful instead of bouncing the
+      // user out to Discover.
+      try {
+        const pub = await fetchPublicLoadouts('');
+        const fallback = Array.isArray(pub) && pub.length > 0
+          ? pub.slice().sort((a, b) => (a.id || 0) - (b.id || 0))[0]
+          : null;
+        if (!alive) return;
+        if (fallback?.id) {
+          const fresh = await fetchLoadout(fallback.id);
+          if (!alive) return;
+          if (fresh) {
+            setViewing({ ...fresh, __redirectedFrom: Number(loadoutId) });
+            setTab('view');
+            return;
+          }
+        }
+      } catch (_) {}
+      setViewing({ __notFound: true });
       setTab('view');
     })();
     return () => { alive = false; };
@@ -854,10 +930,16 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   // the normal view so the rendered tab doesn't try to dereference
   // viewing.loadout.ownerUserId on the sentinel object.
   if (tab === 'view' && viewing && viewing.__notFound) {
+    // Reflect the not-found state in the page title too so browser tab +
+    // history don't read as a generic "Loadout · SkinBox" placeholder.
+    try {
+      const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+      document.title = currentPrefix + 'Loadout not found · SkinBox';
+    } catch (_) {}
     return h(InfoModal, { title: 'Loadout', onClose },
       h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
-        h('div', { className: 'empty-icon' }, '—'),
-        h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 } }, 'Loadout not found'),
+        h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
+        h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, 'Loadout not found'),
         h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
           "This loadout doesn't exist, was deleted, or is private. Try Discover to browse public sets."),
         h('button', { className: 'btn btn-accent', onClick: () => { setViewing(null); setTab('discover'); } },
@@ -869,12 +951,33 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     const isOwner = me && viewing.loadout.ownerUserId === me.id;
     const SLOT_NAMES = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories','Wild'];
     const slotsBySlot = Object.fromEntries(viewing.slots.map(s => [s.slot, s]));
+    const redirectedFrom = viewing.__redirectedFrom;
 
     return h(InfoModal, { title: viewing.loadout.name, onClose },
-      h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
+      // B1 Boss-QA — when /loadout/{missingId} silently redirected to
+      // a real public loadout, surface the redirect so the URL bar
+      // doesn't lie about what's on screen.
+      redirectedFrom && h('div', {
+        style: {
+          padding: '10px 14px', marginBottom: 14, borderRadius: 8,
+          background: 'rgba(30,165,255,0.08)',
+          border: '1px solid rgba(30,165,255,0.30)',
+          color: 'var(--text-secondary)',
+          fontSize: 12, lineHeight: 1.5
+        }
+      },
+        h('strong', { style: { color: 'var(--text-primary)' } },
+          `Loadout #${redirectedFrom} doesn't exist`),
+        ' — showing the lowest-id public loadout instead. ',
+        h('a', {
+          href: '/loadout',
+          style: { color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 }
+        }, 'Browse all public loadouts →')
+      ),
+      h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
         h('button', { className: 'btn btn-ghost', onClick: () => { setViewing(null); setTab(isOwner ? 'mine' : 'discover'); } }, '← Back'),
-        h('div', { style: { flex: 1 } }),
-        h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center' } },
+        h('div', { style: { flex: 1, minWidth: 0 } }),
+        h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
           'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
           ' · ❤ ', viewing.loadout.favorites
         ),
@@ -892,8 +995,11 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
         }, '⎘ Clone'),
         !isOwner && !me && h('button', {
           className: 'btn btn-ghost',
+          // Boss QA cycle 3 C3-6 — shorter label so the loadout-header
+          // button row doesn't word-wrap to two lines on a 390px viewport.
           title: 'Sign in with Steam to clone this loadout',
-          onClick: () => signInWithSteam()
+          onClick: () => signInWithSteam(),
+          style: { whiteSpace: 'nowrap' }
         }, 'Sign in to clone'),
         !isOwner && me && h('button', {
           className: `btn ${viewing.favorited ? 'btn-accent' : 'btn-ghost'}`,
@@ -1136,13 +1242,43 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   }
 
   return h(InfoModal, { title: 'Loadout Lab', onClose },
-    h('div', { className: 'loadout-tabs' },
-      h('button', { className: `offer-tab ${tab === 'discover' ? 'active' : ''}`, onClick: () => setTab('discover') }, 'Discover'),
-      me && h('button', { className: `offer-tab ${tab === 'mine' ? 'active' : ''}`, onClick: () => setTab('mine') }, 'My Loadouts'),
-      me && h('button', { className: `offer-tab ${tab === 'favorites' ? 'active' : ''}`, onClick: () => setTab('favorites') }, 'Favorites'),
-      h('div', { style: { flex: 1 } }),
-      me && h('button', { className: 'btn btn-accent', onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
-    ),
+    // CSFloat-1:1 + WAI-ARIA tabs pattern: role=tablist on the container,
+    // role=tab + aria-selected + roving tabindex on each tab. Arrow / Home /
+    // End navigation matches the WalletModal pattern (modals.js:12906) so
+    // /loadout's tabs feel identical to /wallet's for keyboard users.
+    (() => {
+      const TABS = me ? ['discover', 'mine', 'favorites'] : ['discover'];
+      const labels = { discover: 'Discover', mine: 'My Loadouts', favorites: 'Favorites' };
+      const onKey = (e) => {
+        if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
+        e.preventDefault();
+        const idx = TABS.indexOf(tab);
+        let n = idx;
+        if (e.key === 'ArrowRight') n = (idx + 1) % TABS.length;
+        else if (e.key === 'ArrowLeft') n = (idx - 1 + TABS.length) % TABS.length;
+        else if (e.key === 'Home') n = 0;
+        else if (e.key === 'End') n = TABS.length - 1;
+        setTab(TABS[n]);
+      };
+      return h('div', { className: 'loadout-tabs', role: 'tablist', 'aria-label': 'Loadout sections' },
+        TABS.map(id => h('button', {
+          key: id,
+          className: `offer-tab ${tab === id ? 'active' : ''}`,
+          role: 'tab',
+          'aria-selected': tab === id,
+          // WCAG 4.1.2 — aria-controls points at the result-region wrapper
+          // around the list ternary below. All three tabs share the same
+          // panel since the active tab swaps the source list (mine /
+          // favorites / discover) but renders into the same area.
+          'aria-controls': 'loadout-results',
+          tabIndex: tab === id ? 0 : -1,
+          onClick: () => setTab(id),
+          onKeyDown: onKey
+        }, labels[id])),
+        h('div', { style: { flex: 1 } }),
+        me && h('button', { className: 'btn btn-accent', onClick: () => setCreating(c => !c) }, creating ? 'Cancel' : '+ Create')
+      );
+    })(),
     creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
       h('input', { className: 'price-input', placeholder: 'Loadout name…', value: newName, onChange: e => setNewName(e.target.value), style: { flex: 1 } }),
       h('button', { className: 'btn btn-accent', onClick: handleCreate, disabled: !newName.trim() }, 'Create')
@@ -1150,10 +1286,14 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     tab === 'discover' && h('input', {
       className: 'price-input',
       placeholder: 'Search loadouts…',
+      'aria-label': 'Search public loadouts',
       style: { width: '100%', marginBottom: 14 },
       value: searchInput,
       onChange: e => setSearchInput(e.target.value)
     }),
+    // Wrap the result-region ternary so the role=tab buttons above can
+    // resolve their aria-controls="loadout-results" pointer (WCAG 4.1.2).
+    h('div', { id: 'loadout-results' },
     list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
@@ -1165,7 +1305,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
             const searching = search.trim().length > 0;
             if (searching) {
               return h('div', { className: 'empty-inline' },
-                h('div', { className: 'empty-icon' }, '—'),
+                h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
                 h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                   'No loadouts match "', h('strong', null, search.trim()), '".'),
                 h('button', {
@@ -1181,7 +1321,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
             // batches 900-902 / 914 across the app.
             if (tab === 'mine') {
               return h('div', { className: 'empty-inline' },
-                h('div', { className: 'empty-icon' }, '—'),
+                h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'checkroom', size: 26 })),
                 h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                   'No loadouts yet'),
                 h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
@@ -1219,16 +1359,25 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
             // (only fires on an empty platform) but worth an explicit CTA
             // for signed-in users so the first mover has a clear jump-in.
             return h('div', { className: 'empty-inline' },
-              h('div', { className: 'empty-icon' }, '—'),
+              h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'public', size: 26 })),
               h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
                 'No public loadouts yet'),
               h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto 14px', lineHeight: 1.55 } },
                 "Be the first to share. Build a set, flip it public, and it'll land here for every visitor to browse."),
-              me && h('button', {
-                className: 'btn btn-accent',
-                style: { padding: '10px 18px', fontWeight: 700 },
-                onClick: () => { setTab('mine'); setCreating(true); }
-              }, '＋ Create the first loadout')
+              me
+                ? h('button', {
+                    className: 'btn btn-accent',
+                    style: { padding: '10px 18px', fontWeight: 700 },
+                    onClick: () => { setTab('mine'); setCreating(true); }
+                  }, 'Create the first loadout')
+                /* Anon empty state used to dead-end with copy and no CTA.
+                   Send them to Steam OpenID so they can become the first
+                   mover instead of bouncing. */
+                : h('button', {
+                    className: 'btn btn-accent',
+                    style: { padding: '10px 18px', fontWeight: 700 },
+                    onClick: () => signInWithSteam()
+                  }, 'Sign in to create a loadout')
             );
           })()
         : h('div', { className: 'loadout-list' },
@@ -1294,6 +1443,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
               }, '⎘')
             ))
           )
+    )
   );
 }
 
@@ -1579,7 +1729,7 @@ export function NotificationsModal({ onClose, me }) {
           // scope.
           if (search.trim()) {
             return h('div', { className: 'empty-inline' },
-              h('div', { className: 'empty-icon' }, '—'),
+              h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search_off', size: 26 })),
               h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                 'No notifications match "', h('strong', null, search.trim()), '".'),
               h('button', {
@@ -1601,7 +1751,7 @@ export function NotificationsModal({ onClose, me }) {
           }
           if (typeFilter !== 'ALL') {
             return h('div', { className: 'empty-inline' },
-              h('div', { className: 'empty-icon' }, '—'),
+              h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'filter_list', size: 26 })),
               h('div', { style: { fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 } },
                 `No ${typeFilter.toLowerCase()} notifications in this view.`),
               h('button', {
@@ -1611,13 +1761,13 @@ export function NotificationsModal({ onClose, me }) {
               }, 'Clear type filter'));
           }
           return h('div', { className: 'empty-inline' },
-            h('div', { className: 'empty-icon' }, '—'),
+            h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'notifications_off', size: 26 })),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
               'Quiet so far'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 16px', lineHeight: 1.55 } },
               "Every trade move, bid update, offer, price-alert hit, and seller-follow ping lands here. List an item, place a bid, or watchlist something — the first notification shows up the moment it happens."),
             h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-              h('a', { className: 'btn btn-accent', href: '/', style: { padding: '10px 18px', fontWeight: 700 } }, 'Browse marketplace →'),
+              h('a', { className: 'btn btn-accent', href: '/market', style: { padding: '10px 18px', fontWeight: 700 } }, 'Browse marketplace →'),
               h('a', { className: 'btn btn-ghost', href: '/watchlist', style: { border: '1px solid var(--border)', padding: '10px 18px' } }, 'Open watchlist')
             )
           );
@@ -1718,7 +1868,7 @@ function kindFallbackPath(kind, refId) {
   }
   if (k === 'SUPPORT_REPLY' || k === 'TICKET_AUTO_RESOLVED') return paths.support();
   if (k === 'STEAM_INVENTORY') return paths.sell();
-  if (k === 'REVIEW_RECEIVED' || k === 'REVIEW_REPLIED' || k === 'REVIEW_UPDATED' || k === 'REVIEW_DELETED') return '/profile?tab=reviews';
+  if (k === 'REVIEW_RECEIVED' || k === 'REVIEW_REPLIED' || k === 'REVIEW_UPDATED' || k === 'REVIEW_DELETED') return '/profile/reviews';
   if (k === 'SELLER_FOLLOWED') return paths.mystall();
   if (k === 'LISTING_REMOVED') return paths.mystall();
   if (k === 'REPORT_ACTIONED' || k === 'REPORT_REVIEWED') return paths.profile();
@@ -1741,7 +1891,7 @@ function kindFallbackPath(kind, refId) {
   if (k.startsWith('AUCTION_') || k === 'ITEM_PURCHASED' || k.startsWith('TRADE_')) {
     // Trade-ish events all want the trades tab — auctions become trades
     // once won, buyers' purchases become trades immediately.
-    return '/profile?tab=trades';
+    return '/profile/trades';
   }
   if (k === 'ACCOUNT_BANNED' || k === 'ACCOUNT_UNBANNED') {
     return paths.profile();
@@ -2137,10 +2287,26 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     ),
     h('div', { className: 'auction-header' },
       h('div', null,
-        h('div', { className: 'auction-label' }, 'CURRENT BID'),
+        // Pre-fix the header read "CURRENT BID · $X" even when no bids
+        // had been placed — but `X` was the seller's reserve, not a real
+        // bid. CSFloat distinguishes "STARTING BID" (no bids yet) from
+        // "CURRENT BID" (≥1 placed). Without the split, a 0-bid auction
+        // looked like someone had already bid the reserve and a buyer
+        // had to outbid it, when in reality the first bid only has to
+        // clear `reserve + 0.05`.
+        h('div', { className: 'auction-label' },
+          (view.bidCount > 0 || view.currentBid != null) ? 'CURRENT BID' : 'STARTING BID'),
         h('div', { className: 'auction-bid' }, fmt(view.currentBid || view.price)),
         view.currentBidderName && h('div', { className: 'auction-bidder' },
           viewerIsTop ? 'by you' : ('by ' + view.currentBidderName)),
+        // 0-bid hint — explicit "be the first to bid" so the bidder
+        // understands the displayed amount is the seller's reserve, not
+        // an existing bid to beat.
+        !ended && (view.bidCount === 0 && view.currentBid == null) && h('div', {
+          className: 'auction-bidder',
+          style: { marginTop: 4, fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.3 },
+          title: `No bids yet — be the first to bid. Minimum is $${minNext}.`
+        }, '○ No bids yet · min $', minNext),
         // Batch 643 — "Last bid Xm ago" activity chip. Surfaces the
         // temperature of the auction without forcing the viewer to
         // scroll to the Bid History section. `history[0]` is the most
@@ -2176,7 +2342,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     yourAutoCap != null && !ended && h('div', {
       className: 'auction-status-banner',
       style: { background: 'rgba(30,165,255,0.12)', border: '1px solid rgba(30,165,255,0.4)', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 },
-      title: 'The bot will auto-raise your bid up to this cap whenever someone outbids you.'
+      title: 'The proxy-bidder will auto-raise your bid up to this cap whenever someone outbids you.'
     },
       h('span', { className: 'auction-status-icon' }, '—'),
       h('span', { style: { flex: 1 } },
@@ -2196,7 +2362,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
               opacity: cancellingCap ? 0.5 : 1
             },
             onClick: (e) => { e.preventDefault(); if (!cancellingCap) stopAutoBid(); },
-            title: 'Stop the bot from auto-raising this bid. Your current bid amount stays.'
+            title: 'Stop the proxy-bidder from auto-raising this bid. Your current bid amount stays.'
           }, cancellingCap ? 'stopping…' : 'cancel')
         )
       )
@@ -2359,7 +2525,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
           })()
     ),
     history.length > 0 && h('div', { className: 'auction-history' },
-      h('div', { className: 'modal-section-title', style: { marginTop: 16 } },
+      h('h3', { className: 'modal-section-title', style: { marginTop: 16 } },
         h('div', { className: 'section-title-dot' }),
         `Bid History (${history.length}${distinctBidders > 1 ? ` · ${distinctBidders} bidders` : ''})`),
       // Progression sparkline — lets a viewer see the climb at a glance.
@@ -2380,7 +2546,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         },
           h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, letterSpacing: 0.4, textTransform: 'uppercase' } },
             'Bid progression'),
-          h(Sparkline, { data: chartData, color: '#4ade80', height: 90 })
+          h(Sparkline, { data: chartData, color: 'var(--up)', height: 90 })
         );
       })(),
       (showAllHistory ? history : history.slice(0, 8)).map(b => {

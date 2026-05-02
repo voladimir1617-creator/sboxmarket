@@ -117114,18 +117114,19 @@ tr:hover .csfloat-row-hover-actions,
     font-size: 22px !important;
     line-height: 1.2 !important;
   }
-  /* M2m: /stall/<n> InfoModal h1 ("<displayName>'s Stall") was touching
-     the right edge on phones because info-modal-header has fixed
-     padding + a flex layout that didn't allow wrapping. Long usernames
-     ("skinbox.market" + apostrophe-s + "Stall") overran the viewport.
-     Apply a clamp + word-break so it wraps inside the page width. */
+  /* M2m (cycle-7 tighten): /stall/<n> InfoModal h1 was still touching the
+     390px viewport's right edge on real-world long names like
+     "Chib skinbox.market's Stall" or "StoneColdKillerXX-2026's Stall".
+     Boss spec: clamp(20px, 5.5vw, 28px) + word-break + hyphens auto +
+     a 14px padding-right gutter so the glyphs never kiss the edge. */
   .site-root.full-page-mode .info-modal-header {
-    font-size: clamp(20px, 6.4vw, 26px) !important;
+    font-size: clamp(20px, 5.5vw, 28px) !important;
     line-height: 1.2 !important;
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
+    hyphens: auto !important;
     max-width: 100% !important;
-    padding-right: 0 !important;
+    padding-right: 14px !important;
     padding-left: 0 !important;
     flex-wrap: wrap !important;
   }

@@ -2460,7 +2460,11 @@ function CookieBanner() {
       onFocus: () => setHovered(true),
       onClick: () => { setCollapsed(false); setHovered(false); },
       style: {
-        position: 'fixed', left: 16, bottom: 16,
+        // Boss QA cycle 3 C3-5 — moved to bottom-right so the pill
+        // doesn't sit on top of the sticky modal-actions bar (item /
+        // wallet / settings) or the High Contrast toggle in /settings
+        // on mobile. Right edge is consistently free of fixed UI.
+        position: 'fixed', right: 16, bottom: 16,
         width: 36, height: 36,
         padding: 0, margin: 0,
         background: 'var(--bg-1)',
@@ -2486,10 +2490,11 @@ function CookieBanner() {
     style: {
       /* Tighter, less intrusive cookie banner — was 14px padding + 13px
          text + 720px wide which dominated the bottom of every page. Now
-         compact: 10/14 padding, 12px text, 480px max. Pinned to the
-         bottom-LEFT corner instead of bottom-center so it doesn't fight
-         the sticky modal-actions on /item full-page mode. */
-      position: 'fixed', left: 16, bottom: 16,
+         compact: 10/14 padding, 12px text, 480px max. Boss QA cycle 3
+         C3-5 — moved to bottom-RIGHT so it doesn't cover the sticky
+         modal-actions or settings toggles in the bottom-left of mobile
+         viewports. */
+      position: 'fixed', right: 16, bottom: 16,
       maxWidth: 480,
       padding: '10px 14px',
       background: 'var(--bg-1)',
@@ -5484,7 +5489,14 @@ export function App() {
           : h('button', {
               className: 'steam-btn',
               onClick: () => { signInWithSteam(); },
-              type: 'button'
+              type: 'button',
+              // Boss QA cycle 3 C3-1 — text reads "Sign in through Steam"
+              // on desktop but only the icon ships on <=600px viewports
+              // so the nav row fits 390px without horizontal overflow.
+              // CSS hides .steam-btn-text + tightens padding at the
+              // breakpoint; aria-label keeps screen-reader semantics
+              // intact even when the visible text is gone.
+              'aria-label': 'Sign in through Steam'
             },
               h('div', { className: 'steam-btn-icon' },
                 /* Steam logomark — two concentric circles with a smaller
@@ -5503,7 +5515,7 @@ export function App() {
                   })
                 )
               ),
-              'Sign in through Steam'
+              h('span', { className: 'steam-btn-text' }, 'Sign in through Steam')
             )
       )
       )
@@ -5832,7 +5844,7 @@ export function App() {
       h('div', { className: 'csfloat-home-hero-inner' },
         h('div', { className: 'csfloat-home-hero-copy' },
           h('h1', { className: 'csfloat-home-hero-title' }, 'Buy & Sell s&box Skins on the Most Trusted Marketplace'),
-          h('p', { className: 'csfloat-home-hero-sub' }, 'SkinBox is the home for s&box skin trading — a fast, secure marketplace built on non-custodial Steam trades, with stalls, auctions, watchlists, and instant cash-out.'),
+          h('p', { className: 'csfloat-home-hero-sub' }, 'The non-custodial s&box marketplace — verified sellers, escrowed trades, instant cash-out.'),
           h('div', { className: 'csfloat-home-hero-actions' },
             h('a', {
               className: 'csfloat-home-hero-cta primary',
@@ -8034,7 +8046,12 @@ export function App() {
                Mirrors csfloat's empty-cart "Top Deals" surfacing so a
                returning buyer never lands on a blank page. Uses the
                already-fetched listings; renders six cheapest-first.
-               Hides when listings haven't loaded yet to avoid flash. */
+               Hides when listings haven't loaded yet to avoid flash.
+               Boss QA cycle 4 P1.3 — reuse the canonical /market GridCard
+               component so cart cards inherit every grid-card affordance
+               (rarity stripe, watchlist star, "Add to cart" hover, view
+               count, price-trend chevron) instead of a bespoke card class
+               that drifted from the marketplace look. */
             listings && listings.length > 0 && h('section', {
               className: 'csfloat-empty-cart-rail',
               'aria-label': 'Browse trending listings'
@@ -8048,21 +8065,16 @@ export function App() {
                 }, 'Browse all →')
               ),
               h('div', { className: 'csfloat-empty-cart-rail-grid' },
-                listings.slice(0, 6).map(l => l && l.item && h('a', {
+                listings.slice(0, 6).map(l => l && l.item && h(GridCard, {
                   key: 'ec-' + l.id,
-                  className: 'csfloat-empty-cart-rail-card rarity-' + (l.item.rarity || 'Standard').replace(/[^A-Za-z]/g, ''),
-                  href: '/item/' + l.item.id,
-                  onClick: (e) => { e.preventDefault(); navigate('/item/' + l.item.id); }
-                },
-                  h('div', { className: 'csfloat-empty-cart-rail-card-img' },
-                    h(ItemImage, { item: l.item, variant: 'card' })
-                  ),
-                  h('div', { className: 'csfloat-empty-cart-rail-card-name' }, l.item.name),
-                  h('div', { className: 'csfloat-empty-cart-rail-card-price' },
-                    '$', Number(l.price || 0).toFixed(2),
-                    h('span', { className: 'csfloat-empty-cart-rail-card-usd', 'aria-hidden': 'true' }, '$')
-                  )
-                ))
+                  listing: l,
+                  starred: Array.isArray(watchlist) ? watchlist.includes(l.item.id) : false,
+                  onToggleStar: toggleStar,
+                  onClick: () => navigate('/item/' + l.item.id),
+                  onAddToCart: addToCart,
+                  cartHas: (id) => cart.some(c => c.id === id),
+                  meId: me?.id
+                }))
               )
             )
           )
