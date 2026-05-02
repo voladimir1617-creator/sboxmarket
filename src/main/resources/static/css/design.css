@@ -10723,6 +10723,12 @@ input[type="radio"] {
 }
 .grid-star { top: 8px; }
 .grid-cart-btn { top: 44px; line-height: 1; }
+/* Boss QA cycle 29 — :active scale-down on per-card overlay buttons so
+   star + cart tap-add gestures get a tactile echo before the .on / .in
+   class flips. Same scale(0.94) the worker shipped on .star-btn /
+   .btn-wishlist — applied here on the rendered .grid-* class names. */
+.grid-star:active,
+.grid-cart-btn:active { transform: scale(0.94); transition: transform 80ms ease-out, opacity 160ms ease, color 160ms ease, background 160ms ease, border-color 160ms ease; }
 /* Boss QA cycle 12 — bump per-card overlay buttons to Apple HIG 44×44 on
    mobile. Pre-fix the watchlist + cart buttons rendered at 30×30 (32×32
    incl. border) on every grid card — boss prompt explicitly named
