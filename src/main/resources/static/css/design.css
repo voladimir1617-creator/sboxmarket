@@ -6353,6 +6353,13 @@ body:has(.shortcuts-backdrop) {
   transition: background 140ms ease;
 }
 .cart-row:hover { background: var(--bg-2); }
+/* Boss QA cycle 19 — :active press feedback so the row gives a tap echo
+   on touch + click. Pre-fix the row :hover was a soft tint with no
+   pressed state, so a click felt instant rather than acknowledged. */
+.cart-row:active {
+  background: color-mix(in oklab, var(--bg-2) 80%, var(--bg-3));
+  transition: background 80ms ease-out;
+}
 .cart-row:last-child { border-bottom: 0; }
 .cart-thumb {
   width: 64px; height: 64px; border-radius: var(--r-sm);
