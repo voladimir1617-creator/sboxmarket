@@ -59,6 +59,17 @@
     .changelog-tag.polish   { border-left-color: var(--line-2, rgba(255,255,255,0.16)); color: var(--ink-4, #5b6280); }
     .changelog-list li     { color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; font-size: 14px; }
     .changelog-back        { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
+    /* N4 cycle 10 — at 390px the "Back to app" button truncated to "Bac…"
+       inside the right-side flex slot of the top nav (5-link nav + brand +
+       button can't fit). Hide the label below 600px and keep only the ←
+       arrow, matching the rest of the mobile nav icon language. Breakpoint
+       at 600px (not 480) so it also fires on landscape phones and small
+       tablets where the same crowding shows up. */
+    .back-to-app-arrow { margin-right: 4px; display: inline-block; }
+    @media (max-width: 600px) {
+      .back-to-app-text { display: none; }
+      .back-to-app-arrow { margin-right: 0; }
+    }
   </style>
 </head>
 <body>
@@ -80,7 +91,7 @@
         <a class="nav-link active" href="/changelog.html" role="menuitem" aria-current="page">Changelog</a>
       </div>
       <div class="nav-right" aria-label="Account">
-        <a class="btn btn-ghost" href="/" style="font-size:12px;padding:6px 12px;">Back to app</a>
+        <a class="btn btn-ghost" href="/" aria-label="Back to app" style="font-size:12px;padding:6px 12px;"><span class="back-to-app-arrow" aria-hidden="true">←</span><span class="back-to-app-text">Back to app</span></a>
       </div>
     </div>
   </nav>
