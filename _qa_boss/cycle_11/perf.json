@@ -1,79 +1,218 @@
 {
   "/": {
     "domNodes": 444,
-    "paint": {
-      "first-paint": 492
-    },
-    "navTiming": {
-      "domLoaded": 277,
-      "loadEnd": 277,
-      "tti": 223
-    },
-    "totalBytes": 5683704
+    "fcpMs": 1004,
+    "fpMs": 484,
+    "domContentLoadedMs": 284,
+    "loadEventMs": 284.7999999821186,
+    "transferSize": 5655,
+    "encodedBodySize": 5355,
+    "pageBytesAprox": 5655,
+    "bytesObserved": 571412,
+    "wallClockMs": 1176
   },
   "/market": {
     "domNodes": 1341,
-    "paint": {
-      "first-paint": 92,
-      "first-contentful-paint": 536
-    },
-    "navTiming": {
-      "domLoaded": 185,
-      "loadEnd": 186,
-      "tti": 124
-    },
-    "totalBytes": 8026520
+    "fcpMs": 272,
+    "fpMs": 84,
+    "domContentLoadedMs": 132.09999999403954,
+    "loadEventMs": 132.80000001192093,
+    "transferSize": 5650,
+    "encodedBodySize": 5350,
+    "pageBytesAprox": 5650,
+    "bytesObserved": 1989446,
+    "wallClockMs": 969
   },
   "/db": {
     "domNodes": 773,
-    "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 316
-    },
-    "navTiming": {
-      "domLoaded": 162,
-      "loadEnd": 163,
-      "tti": 98
-    },
-    "totalBytes": 5510994
+    "fcpMs": 180,
+    "fpMs": 72,
+    "domContentLoadedMs": 113.59999999403954,
+    "loadEventMs": 114.2999999821186,
+    "transferSize": 5670,
+    "encodedBodySize": 5370,
+    "pageBytesAprox": 5670,
+    "bytesObserved": 360345,
+    "wallClockMs": 920
+  },
+  "/help": {
+    "domNodes": 383,
+    "fcpMs": 208,
+    "fpMs": 80,
+    "domContentLoadedMs": 121.10000002384186,
+    "loadEventMs": 122.10000002384186,
+    "transferSize": 5665,
+    "encodedBodySize": 5365,
+    "pageBytesAprox": 5665,
+    "bytesObserved": 36084,
+    "wallClockMs": 771
+  },
+  "/faq": {
+    "domNodes": 245,
+    "fcpMs": 192,
+    "fpMs": 88,
+    "domContentLoadedMs": 131.59999999403954,
+    "loadEventMs": 132.19999998807907,
+    "transferSize": 7320,
+    "encodedBodySize": 7020,
+    "pageBytesAprox": 7320,
+    "bytesObserved": 36084,
+    "wallClockMs": 737
+  },
+  "/cart": {
+    "domNodes": 347,
+    "fcpMs": 216,
+    "fpMs": 76,
+    "domContentLoadedMs": 113,
+    "loadEventMs": 113.5,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 561334,
+    "wallClockMs": 767
+  },
+  "/watchlist": {
+    "domNodes": 194,
+    "fcpMs": 156,
+    "fpMs": 72,
+    "domContentLoadedMs": 110.7000000178814,
+    "loadEventMs": 111.5,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 697
+  },
+  "/wallet": {
+    "domNodes": 191,
+    "fcpMs": 156,
+    "fpMs": 72,
+    "domContentLoadedMs": 110,
+    "loadEventMs": 110.59999999403954,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 695
+  },
+  "/sell": {
+    "domNodes": 191,
+    "fcpMs": 156,
+    "fpMs": 72,
+    "domContentLoadedMs": 109,
+    "loadEventMs": 109.60000002384186,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 696
+  },
+  "/settings": {
+    "domNodes": 222,
+    "fcpMs": 168,
+    "fpMs": 68,
+    "domContentLoadedMs": 112.30000001192093,
+    "loadEventMs": 112.80000001192093,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 712
+  },
+  "/profile/personal": {
+    "domNodes": 191,
+    "fcpMs": 156,
+    "fpMs": 68,
+    "domContentLoadedMs": 105.09999999403954,
+    "loadEventMs": 105.59999999403954,
+    "transferSize": 5655,
+    "encodedBodySize": 5355,
+    "pageBytesAprox": 5655,
+    "bytesObserved": 36084,
+    "wallClockMs": 700
   },
   "/item/1": {
     "domNodes": 333,
-    "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 292
-    },
-    "navTiming": {
-      "domLoaded": 160,
-      "loadEnd": 160,
-      "tti": 105
-    },
-    "totalBytes": 5793452
+    "fcpMs": 164,
+    "fpMs": 84,
+    "domContentLoadedMs": 119.59999999403954,
+    "loadEventMs": 120.30000001192093,
+    "transferSize": 5916,
+    "encodedBodySize": 5616,
+    "pageBytesAprox": 5916,
+    "bytesObserved": 673163,
+    "wallClockMs": 862
   },
   "/stall/1": {
     "domNodes": 287,
-    "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 228
-    },
-    "navTiming": {
-      "domLoaded": 157,
-      "loadEnd": 157,
-      "tti": 107
-    },
-    "totalBytes": 5226672
+    "fcpMs": 168,
+    "fpMs": 84,
+    "domContentLoadedMs": 123.40000000596046,
+    "loadEventMs": 123.90000000596046,
+    "transferSize": 5756,
+    "encodedBodySize": 5456,
+    "pageBytesAprox": 5756,
+    "bytesObserved": 111847,
+    "wallClockMs": 818
   },
   "/loadout/1": {
     "domNodes": 242,
-    "paint": {
-      "first-paint": 80,
-      "first-contentful-paint": 224
-    },
-    "navTiming": {
-      "domLoaded": 157,
-      "loadEnd": 158,
-      "tti": 101
-    },
-    "totalBytes": 5191320
+    "fcpMs": 160,
+    "fpMs": 68,
+    "domContentLoadedMs": 111.09999999403954,
+    "loadEventMs": 111.80000001192093,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 742
+  },
+  "/buy-orders": {
+    "domNodes": 191,
+    "fcpMs": 152,
+    "fpMs": 68,
+    "domContentLoadedMs": 103.2999999821186,
+    "loadEventMs": 103.90000000596046,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 692
+  },
+  "/affiliate": {
+    "domNodes": 237,
+    "fcpMs": 156,
+    "fpMs": 68,
+    "domContentLoadedMs": 103.30000001192093,
+    "loadEventMs": 103.90000000596046,
+    "transferSize": 5675,
+    "encodedBodySize": 5375,
+    "pageBytesAprox": 5675,
+    "bytesObserved": 103388,
+    "wallClockMs": 709
+  },
+  "/support": {
+    "domNodes": 194,
+    "fcpMs": 152,
+    "fpMs": 68,
+    "domContentLoadedMs": 107.40000000596046,
+    "loadEventMs": 108,
+    "transferSize": 5658,
+    "encodedBodySize": 5358,
+    "pageBytesAprox": 5658,
+    "bytesObserved": 36084,
+    "wallClockMs": 692
+  },
+  "/changelog.html": {
+    "domNodes": 669,
+    "fcpMs": 148,
+    "fpMs": 148,
+    "domContentLoadedMs": 30.099999994039536,
+    "loadEventMs": 503.09999999403954,
+    "transferSize": 18878,
+    "encodedBodySize": 18578,
+    "pageBytesAprox": 18878,
+    "bytesObserved": 5332844,
+    "wallClockMs": 1034
   }
 }
