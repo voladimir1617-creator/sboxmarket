@@ -974,9 +974,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
           style: { color: 'var(--accent)', textDecoration: 'none', fontWeight: 700 }
         }, 'Browse all public loadouts →')
       ),
-      h('div', { style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
+      h('div', { className: 'loadout-action-row', style: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' } },
         h('button', { className: 'btn btn-ghost', onClick: () => { setViewing(null); setTab(isOwner ? 'mine' : 'discover'); } }, '← Back'),
-        h('div', { style: { flex: 1, minWidth: 0 } }),
+        h('div', { className: 'loadout-action-spacer', style: { flex: 1, minWidth: 0 } }),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, alignSelf: 'center', whiteSpace: 'nowrap' } },
           'By ', h('strong', { style: { color: 'var(--text-secondary)' } }, viewing.loadout.ownerName || 'anon'),
           ' · ❤ ', viewing.loadout.favorites
@@ -1513,7 +1513,14 @@ export function NotificationsModal({ onClose, me }) {
       const n = (res && typeof res.flipped === 'number') ? res.flipped : ids.length;
       if (n > 0) toast(`Marked ${n} notification${n === 1 ? '' : 's'} read.`, 'ok');
     } else {
-      await markAllNotificationsRead();
+      // Mirror the filtered branch — full-view "Mark all read" was silent,
+      // leaving the user to scan the list to verify the click landed.
+      // Snapshot the visible unread count BEFORE the call so we can
+      // print a concrete number; backend `markAllRead` is `void`.
+      const visibleUnread = groups.flatMap(g => g.items).filter(n => !n.read).length;
+      const res = await markAllNotificationsRead();
+      if (res && res.ok === false) { toast('Could not mark notifications read — try again.', 'err'); load(); return; }
+      if (visibleUnread > 0) toast(`Marked ${visibleUnread} notification${visibleUnread === 1 ? '' : 's'} read.`, 'ok');
     }
     load();
   };
@@ -1535,7 +1542,16 @@ export function NotificationsModal({ onClose, me }) {
       return;
     }
     if (!confirm('Delete every read notification? Unread rows stay.')) return;
-    await clearReadNotifications();
+    // Pre-fix: full-view "Clear read" was silent. The endpoint already
+    // returns `{deleted: N}`; surface it like the filtered branch does.
+    const res = await clearReadNotifications();
+    const n = (res && typeof res.deleted === 'number')
+      ? res.deleted
+      : (res && (res.error || res.code))
+          ? -1
+          : 0;
+    if (n < 0) { toast(res.message || res.error || 'Could not clear read notifications.', 'err'); load(); return; }
+    if (n > 0) toast(`Deleted ${n} read notification${n === 1 ? '' : 's'}.`, 'ok');
     load();
   };
   // Click → mark read, then navigate. Server-supplied `path` wins; otherwise
@@ -1803,10 +1819,14 @@ export function NotificationsModal({ onClose, me }) {
                 'aria-label': 'Mark as unread',
                 onClick: async (e) => {
                   e.stopPropagation();
+                  // Pre-fix: errors here were swallowed and `load()` re-fetched
+                  // the same data, so a server reject silently looked like a
+                  // dead button. Now we surface non-2xx as a toast.
                   try {
                     const { markNotificationUnread } = await import('./api.js');
-                    await markNotificationUnread(n.id);
-                  } catch (_) {}
+                    const r = await markNotificationUnread(n.id);
+                    if (r && r.ok === false) toast('Could not mark unread — try again.', 'err');
+                  } catch (_) { toast('Could not mark unread — try again.', 'err'); }
                   await load();
                 }
               }, '—'),
@@ -1820,14 +1840,17 @@ export function NotificationsModal({ onClose, me }) {
                   border: '1px solid transparent', marginLeft: 4
                 },
                 title: 'Delete this notification',
-                'aria-label': 'Delete notification',
+                'aria-label': 'Delete this notification',
                 onClick: async (e) => {
                   e.stopPropagation();
-                  try { await deleteNotification(n.id); } catch (_) {}
+                  // Pre-fix: errors swallowed; failed deletes silently no-oped
+                  // because `load()` re-fetched the same row.
+                  try {
+                    const r = await deleteNotification(n.id);
+                    if (r && r.ok === false) toast('Could not delete notification — try again.', 'err');
+                  } catch (_) { toast('Could not delete notification — try again.', 'err'); }
                   await load();
-                },
-                'aria-label': 'Delete this notification',
-                title: 'Delete this notification'
+                }
               }, '✕')
             ))
           ))

@@ -8117,6 +8117,14 @@ body:has(.shortcuts-backdrop) {
   .loadout-grid { grid-template-columns: 1fr; }
   .help-cards { grid-template-columns: 1fr; }
 
+  /* W4 cycle 9 — /loadout/<id> action row was a flex line with a
+     `flex: 1` spacer pushing the right-side buttons (Sign in to clone,
+     ♡ Favorite) past the 390px viewport. The "Sign in to clone" button
+     ended up clipped to "Sign in to". Collapse the spacer on phones so
+     items pack from the left and wrap naturally. */
+  .loadout-action-row .loadout-action-spacer { display: none; }
+  .loadout-action-row { row-gap: 8px; }
+
   /* Sidebar — at phone widths the filter rail steals the entire viewport
      height before the grid renders, so a mobile visitor sees only filters
      until they scroll past the whole sidebar. CSFloat hides the sidebar
@@ -119928,7 +119936,18 @@ h2.auctions-ending-soon-head {
 }
 .faq-support-banner a:hover { text-decoration: underline; }
 @media (max-width: 600px) {
-  .faq-support-banner { white-space: normal; height: auto; padding: 10px 12px; }
+  /* W5 cycle 9 — at 393px the banner kept `white-space: nowrap` on
+     its anchor + `overflow: hidden` on the wrapper, so the right-side
+     "Open a support ticket →" link was clipped to "Open a support t".
+     Let the banner wrap to a 2nd row on phones so the CTA stays
+     readable. */
+  .faq-support-banner {
+    white-space: normal; height: auto; padding: 10px 12px;
+    flex-wrap: wrap;
+    overflow: visible;
+    row-gap: 4px;
+  }
+  .faq-support-banner a { white-space: normal; }
 }
 
 /* Boss QA F2 — the /help "Frequently Asked Questions" section header
