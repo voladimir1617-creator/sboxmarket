@@ -2576,7 +2576,12 @@ export function AffiliateModal({ onClose }) {
     h('div', { style: { color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: 14, marginBottom: 24 } },
       'The SkinBox Affiliate Program pays you a share of the platform fees from every user you refer. Earnings are credited to your SkinBox wallet and can be cashed out to Stripe like any other sale proceeds.'),
 
-    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 22 } },
+    /* W1 cycle 9 — fixed 1fr 1fr on mobile pushed Requirements card off
+       the viewport (393px / 2 = 187px is too narrow once the 140px-min
+       stat-tile grid kicks in). Switch to auto-fit with a 360px floor
+       so the two cards stack on phones and sit side-by-side from
+       tablet up. */
+    h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 14, marginBottom: 22 } },
       h('div', { style: { padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10 } },
         h('div', { style: { fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, fontSize: 14 } }, 'About Us'),
         h('div', { style: { fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 } },

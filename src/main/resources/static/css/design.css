@@ -7463,8 +7463,15 @@ body:has(.shortcuts-backdrop) {
    ───────────────────────────────────────────────────────────── */
 .help-intro {
   font-size: 15px; color: var(--ink-2); line-height: 1.6;
-  max-width: 60ch; margin: 0 auto 22px;
+  /* W3 cycle 9 — the prior `max-width: 60ch` (~510px) ignored mobile
+     viewport width whenever a parent overflowed, leaving the intro
+     paragraph cut off past the right edge on phones. Cap at viewport
+     width minus a 32px gutter so it never exceeds the visible canvas
+     regardless of upstream overflow. */
+  width: min(60ch, calc(100vw - 32px));
+  margin: 0 auto 22px;
   text-align: center;
+  box-sizing: border-box;
 }
 .help-section-title {
   font-family: var(--serif);
@@ -8069,8 +8076,12 @@ body:has(.shortcuts-backdrop) {
   .profile-avatar { width: 72px; height: 72px; font-size: 32px; }
   .profile-stats { grid-template-columns: 1fr 1fr; }
 
-  /* Stall */
-  .stall-hero { grid-template-columns: 72px 1fr; gap: 14px; padding: 18px; }
+  /* Stall — W2 cycle 9: avatar was vertically-centered against the
+     full-height right column (h2 + 6-tile single-column stat-grid),
+     leaving it floating mid-card next to the LIFETIME SALES tile. Pin
+     it to the top instead so the eye reads avatar → name → stats in
+     the natural top-down order. */
+  .stall-hero { grid-template-columns: 72px 1fr; gap: 14px; padding: 18px; align-items: start; }
   .stall-hero > *:nth-child(3) { grid-column: 1 / -1; }
   .stall-avatar { width: 72px; height: 72px; font-size: 30px; }
 
