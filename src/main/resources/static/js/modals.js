@@ -5145,8 +5145,17 @@ function ProfileTransactionsTab({ transactions, privacy }) {
       h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: '/api/wallet/transactions.csv',
-        title: 'Download every transaction as a CSV'
+        // Honour the active month filter so a user who narrowed the
+        // visible list to "Jan 2026" doesn't get a 5,000-row dump
+        // covering every month. Backend already accepts ?month=YYYY-MM
+        // and the WalletController falls back to full-history for an
+        // empty/malformed value, so the URL stays valid either way.
+        href: txMonth
+          ? `/api/wallet/transactions.csv?month=${encodeURIComponent(txMonth)}`
+          : '/api/wallet/transactions.csv',
+        title: txMonth
+          ? `Download transactions for ${formatMonthLabel(txMonth)} as a CSV`
+          : 'Download every transaction as a CSV'
       }, '⇣ CSV')
     ),
   visibleTx.length === 0
@@ -5332,8 +5341,16 @@ function ProfileBuyOrdersTab() {
       orders.length > 0 && h('a', {
         className: 'btn btn-ghost',
         style: { border: '1px solid var(--border)', padding: '4px 10px', fontSize: 11 },
-        href: '/api/buy-orders/export.csv',
-        title: 'Download every buy order (ACTIVE + FILLED + CANCELLED) as CSV'
+        // Honour the active filter chip — same parity as the wallet
+        // CSV ?month= filter. ALL bypasses the param so the URL stays
+        // a valid bookmark for "give me everything." The backend tolerates
+        // unknown / blank values, so this never 400s.
+        href: filter && filter !== 'ALL'
+          ? `/api/buy-orders/export.csv?status=${encodeURIComponent(filter)}`
+          : '/api/buy-orders/export.csv',
+        title: filter && filter !== 'ALL'
+          ? `Download buy orders with status ${filter} as CSV`
+          : 'Download every buy order (ACTIVE + FILLED + CANCELLED) as CSV'
       }, '⇣ CSV')
     ),
     filtered.length === 0
@@ -12382,11 +12399,10 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     ),
     starred.length === 0
       ? h('div', null,
-          // Boss QA G10 — empty-state icon bumped to 48px inside a 72px
-          // accent-tinted chip so the illustration carries weight rather
-          // than swimming in a tiny 26px-glyph dead space. Same chip
-          // treatment as the SignInNeededEmptyState lock for visual
-          // consistency across anon-empty surfaces.
+          // Boss QA G10 — empty-state icon bumped to 48px in a 72px
+          // accent-tinted chip; inline SVG inbox so the glyph survives
+          // even when Material Symbols font hasn't finished loading
+          // (headless screenshots, slow Google Fonts CDN).
           h('div', { className: 'empty-inline' },
             h('div', {
               className: 'empty-icon empty-icon-lg',
@@ -12395,9 +12411,17 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                 margin: '0 auto 14px',
                 background: 'color-mix(in oklab, var(--accent) 8%, var(--bg-1))',
                 border: '1px solid color-mix(in oklab, var(--accent) 18%, var(--line))',
-                color: 'color-mix(in oklab, var(--accent) 85%, var(--ink-2))'
+                color: 'color-mix(in oklab, var(--accent) 85%, var(--ink-2))',
+                display: 'grid', placeItems: 'center'
               }
-            }, h(MaterialIcon, { name: 'inbox', size: 48 })),
+            }, h('svg', {
+                width: 40, height: 40, viewBox: '0 0 24 24', fill: 'none',
+                stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round',
+                strokeLinejoin: 'round', 'aria-hidden': true
+              },
+                h('path', { d: 'M22 12h-6l-2 3h-4l-2-3H2' }),
+                h('path', { d: 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z' })
+              )),
             h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } }, 'Nothing on your watchlist'),
             h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
               !me

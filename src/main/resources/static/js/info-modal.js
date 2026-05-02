@@ -107,9 +107,11 @@ export function SignInNeededEmptyState({ what, mailto }) {
     h('div', {
       className: 'empty-icon',
       // G10 Boss QA — sign-in lock icon was 26px and read as a tiny
-      // afterthought on /watchlist anon. Bumped to 64px and given a
-      // rounded chip background so the empty state has visual weight
-      // instead of feeling like a runtime fallback.
+      // afterthought on /watchlist anon. Bumped to 64px in an accent-
+      // tinted chip so the empty state has visual weight. Inline SVG
+      // (not MaterialIcon) so the glyph is reliable even when the
+      // Material Symbols font hasn't finished loading — e.g. during
+      // headless screenshots where fonts.googleapis.com may time out.
       style: {
         width: 72, height: 72, borderRadius: 18,
         margin: '0 auto 14px',
@@ -119,7 +121,14 @@ export function SignInNeededEmptyState({ what, mailto }) {
         display: 'grid', placeItems: 'center'
       }
     },
-      h(MaterialIcon, { name: 'lock', size: 36 })),
+      h('svg', {
+        width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none',
+        stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round',
+        strokeLinejoin: 'round', 'aria-hidden': true
+      },
+        h('rect', { x: 3, y: 11, width: 18, height: 11, rx: 2 }),
+        h('path', { d: 'M7 11V7a5 5 0 0 1 10 0v4' })
+      )),
     h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
       'Sign in required'),
     h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
