@@ -118589,8 +118589,14 @@ h1.modal-h1,
 }
 .csfloat-home-faq-title {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  font-size: 28px;
+  /* Boss QA cycle 17 — bumped from 28px to 32px to match
+     .csfloat-home-journey-title and other section-headline H2s. Pre-fix
+     the home page had two visible H2 sizes (28 + 32) which broke the
+     typographic hierarchy ladder boss-prompt called out. Single H2 size
+     across page sections + same letter-spacing + line-height. */
+  font-size: 32px;
   font-weight: 700;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--ink);
   margin: 0 0 28px;
