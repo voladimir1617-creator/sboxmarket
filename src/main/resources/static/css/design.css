@@ -2440,7 +2440,7 @@ footer {
   display: inline-flex; align-items: center; gap: 4px;
   color: var(--accent); font-weight: 600;
 }
-.hero-card:hover .hero-cta { color: var(--accent); text-decoration: underline; }
+.hero-card:hover .hero-cta { opacity: 0.78; }
 
 /* ─── Main layout: sidebar + feed ─── */
 .cf-main {
@@ -15356,9 +15356,11 @@ button[disabled], button:disabled, .btn[disabled] {
    (so footer links stay muted gray, body links stay neutral). The previous
    rule painted every anchor `var(--cta)` blue, violating the design memory
    "blue is a spice, not the wallpaper". Specific surfaces opt into blue
-   via their own rules (breadcrumbs, "View on Steam", etc). Underline
-   on hover stays universal. */
-a:not(.btn):not(.nav-link):not(.modal-cat):hover {
+   via their own rules (breadcrumbs, "View on Steam", etc). Body-text
+   anchors keep underline-on-hover; button-shaped anchors (anything with
+   a -btn / -cta / -chip class) opt out — they fade via the universal
+   button-fade block at end of file (operator directive 2026-05-02). */
+a:not(.btn):not(.nav-link):not(.modal-cat):not([class*="-btn"]):not([class*="-cta"]):not([class*="-chip"]):not(.steam-btn):hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -67216,7 +67218,7 @@ hr.csfloat {
   align-self: flex-start;
   letter-spacing: 0.005em;
 }
-.csfloat-filter-clear:hover { text-decoration: underline; }
+.csfloat-filter-clear:hover { opacity: 0.78; }
 @media (max-width: 1100px) {
   .csfloat-filter-rail {
     position: static;
@@ -83440,7 +83442,7 @@ tr:hover .csfloat-row-hover-actions,
   color: var(--cta);
   text-decoration: none;
 }
-.csfloat-hsearch-dropdown-foot-action:hover { text-decoration: underline; }
+.csfloat-hsearch-dropdown-foot-action:hover { opacity: 0.78; }
 /* END row hover actions + filter chip + hsearch dropdown */
 
 /* CSFloat-1:1: settings switch row with description block (alternative layout) */
@@ -86970,7 +86972,7 @@ tr:hover .csfloat-row-hover-actions,
   text-decoration: none;
   letter-spacing: -0.005em;
 }
-.csfloat-rail-spec-action:hover { text-decoration: underline; }
+.csfloat-rail-spec-action:hover { opacity: 0.78; }
 .csfloat-rail-spec-body {
   display: flex;
   flex-direction: column;
@@ -95352,7 +95354,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 3px;
   letter-spacing: -0.005em;
 }
-.csfloat-rowtitle-action:hover { text-decoration: underline; text-underline-offset: 2px; }
+.csfloat-rowtitle-action:hover { opacity: 0.78; }
 .csfloat-rowtitle-action::after {
   content: '';
   width: 5px;
@@ -100978,7 +100980,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 3px;
 }
-.csfloat-insight-chart-foot-action:hover { text-decoration: underline; }
+.csfloat-insight-chart-foot-action:hover { opacity: 0.78; }
 /* END shortcut card + insight chart */
 
 /* CSFloat-1:1: bullet-step list (compact list of numbered steps) */
@@ -101643,7 +101645,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 3px;
   letter-spacing: -0.005em;
 }
-.csfloat-order-tile-action:hover { text-decoration: underline; text-underline-offset: 2px; }
+.csfloat-order-tile-action:hover { opacity: 0.78; }
 .csfloat-order-tile-action::after {
   content: '';
   width: 5px;
@@ -108720,7 +108722,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 3px;
 }
-.csfloat-graph-block-foot-action:hover { text-decoration: underline; }
+.csfloat-graph-block-foot-action:hover { opacity: 0.78; }
 
 /* CSFloat-1:1: search keyword pill list */
 .csfloat-keyword-pills {
@@ -120436,3 +120438,122 @@ h2.auctions-ending-soon-head {
 }
 /* END Boss QA cycle 12 mobile tap-target sweep */
 
+/* Operator directive 2026-05-02 evening: buttons FADE on hover, no
+   underline. Strips text-decoration:underline from every button-ish
+   :hover surface and replaces it with a soft opacity transition.
+   Body-text anchors (.legal-doc a, .profile-link, .stall-trust-list a,
+   .announce-banner-text a, cookie/banner copy, .csfloat-text-anchor,
+   .csfloat-anchor-inline, .inline-link, .csfloat-page-intro-subtitle a,
+   .csfloat-upload-msg-link, .modal-name-rarity, .csfloat-trader-name,
+   .db-name etc.) keep their underline. */
+.hero-cta,
+.csfloat-btn-link,
+.csfloat-filter-clear,
+.csfloat-help-pop-link,
+.csfloat-section-head-link,
+.csfloat-section-divide-meta-link,
+.csfloat-hsearch-dropdown-foot-action,
+.csfloat-feature-hl-link,
+.csfloat-rail-spec-action,
+.csfloat-top-trades-link,
+.csfloat-section-group-head-link,
+.csfloat-dropnav-foot-link,
+.csfloat-rowtitle-action,
+.csfloat-spot-stat-foot-link,
+.csfloat-dash-widget-foot-link,
+.csfloat-insight-chart-foot-action,
+.csfloat-recommend-foot,
+.csfloat-order-tile-action,
+.csfloat-bell-pop-foot-link,
+.csfloat-min-heading-link,
+.csfloat-graph-block-foot-action,
+.csfloat-pulse-strip-link,
+.csfloat-notif-ribbon-link,
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.btn-link,
+.cta,
+.buy-btn,
+.sell-btn,
+.nav-link,
+.modal-cat {
+  transition: opacity 140ms ease-out;
+}
+
+.hero-cta:hover,
+.hero-card:hover .hero-cta,
+.csfloat-btn-link:hover,
+.csfloat-filter-clear:hover,
+.csfloat-help-pop-link:hover,
+.csfloat-section-head-link:hover,
+.csfloat-section-divide-meta-link:hover,
+.csfloat-hsearch-dropdown-foot-action:hover,
+.csfloat-feature-hl-link:hover,
+.csfloat-rail-spec-action:hover,
+.csfloat-top-trades-link:hover,
+.csfloat-section-group-head-link:hover,
+.csfloat-dropnav-foot-link:hover,
+.csfloat-rowtitle-action:hover,
+.csfloat-spot-stat-foot-link:hover,
+.csfloat-dash-widget-foot-link:hover,
+.csfloat-insight-chart-foot-action:hover,
+.csfloat-recommend-foot:hover,
+.csfloat-order-tile-action:hover,
+.csfloat-bell-pop-foot-link:hover,
+.csfloat-min-heading-link:hover,
+.csfloat-graph-block-foot-action:hover,
+.csfloat-pulse-strip-link:hover,
+.csfloat-notif-ribbon-link:hover,
+.btn:hover,
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-ghost:hover,
+.btn-link:hover,
+.cta:hover,
+.buy-btn:hover,
+.sell-btn:hover,
+.nav-link:hover,
+.modal-cat:hover {
+  opacity: 0.78;
+  text-decoration: none;
+  text-underline-offset: 0;
+}
+/* END button hover fade */
+
+/* Universal button hover fade — catches every <button> + every class
+   ending in -btn. Operator: "no underline at buttons just fade". This
+   appears LAST so it overrides any earlier hover style with equal
+   specificity. Anchors are EXCLUDED unless they're explicitly
+   button-shaped via a -btn class (text-anchors keep their underline). */
+button,
+[class*="-btn"],
+[class*="-cta"],
+.nav-picker-chip,
+.nav-icon-btn,
+.deals-chip,
+.toolbar-refresh,
+.sort-picker-chip,
+.search-btn,
+.steam-btn,
+.market-cta,
+.hero-cta-row > a {
+  transition: opacity 140ms ease-out;
+}
+button:hover,
+[class*="-btn"]:hover,
+[class*="-cta"]:hover,
+.nav-picker-chip:hover,
+.nav-icon-btn:hover,
+.deals-chip:hover,
+.toolbar-refresh:hover,
+.sort-picker-chip:hover,
+.search-btn:hover,
+.steam-btn:hover,
+.market-cta:hover,
+.hero-cta-row > a:hover {
+  opacity: 0.78;
+  text-decoration: none;
+}
+/* END universal button fade */
