@@ -118707,6 +118707,16 @@ h1.modal-h1,
   color: var(--ink);
   box-shadow: 0 12px 28px -12px color-mix(in oklab, var(--cta) 30%, transparent);
 }
+/* Boss QA cycle 25 — preview-tail :active depress matches the .grid-card
+   + .csfloat-home-preview-card pressed-state pattern, so the trailing
+   "View all 41 listings" tile gives the same tap echo as the cards
+   beside it. */
+.csfloat-home-preview-tail:active {
+  transform: translateY(0px);
+  box-shadow: 0 2px 6px -2px rgba(0,0,0,0.45),
+              0 0 0 1px color-mix(in oklab, var(--cta) 28%, transparent);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
 .csfloat-home-preview-tail-arrow {
   display: inline-grid;
   place-items: center;
