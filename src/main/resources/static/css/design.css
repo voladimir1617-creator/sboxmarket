@@ -121442,3 +121442,20 @@ textarea {
   letter-spacing: 0.06em !important;
 }
 /* END wallet-pending polish */
+
+/* =====================================================================
+   filter-chip focus border de-blue — boss-QA cycle 31, ship #51
+   ---------------------------------------------------------------------
+   Ship #1's focus-ring sweep covered .filter-chip outline + box-shadow
+   but missed the `border-color: color-mix(--cta 60%)` set by the
+   cycle-12 A4 rule at line 3945. Override the focused chip's border to
+   neutral --line-2 so the only blue on the focused chip is — well,
+   nothing now (the outline is already --ink-2 from ship #1).
+   ===================================================================== */
+.filter-chip:focus-visible,
+.wallet-tx-filter-chip:focus-visible,
+.price-chip:focus-visible,
+.stall-filter-chips .filter-chip:focus-visible {
+  border-color: var(--line-2) !important;
+}
+/* END filter-chip focus border polish */
