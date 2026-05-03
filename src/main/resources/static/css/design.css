@@ -120664,3 +120664,45 @@ textarea:focus-visible {
   font-weight: 600 !important;
 }
 /* END active-tab underline pattern */
+
+/* =====================================================================
+   Touch-device hover neutralizer — boss-QA cycle 31, ship #4
+   ---------------------------------------------------------------------
+   iOS/Android render `:hover` styles on the first tap and don't clear
+   them until the user taps somewhere else — leaving a sticky lifted
+   card or faded button after every tap. `@media (hover: none) and
+   (pointer: coarse)` only matches devices where the primary input has
+   no hover (phones, tablets), so Surface-style hybrids with a precise
+   stylus still get the desktop hover treatment.
+   We undo the three destructive properties hover toggles (transform,
+   box-shadow lift, opacity fade) and let bg/border/color hovers stand
+   since those are short-lived and read fine after a tap.
+   ===================================================================== */
+@media (hover: none) and (pointer: coarse) {
+  .grid-card:hover,
+  .csfloat-grid-card:hover,
+  .csfloat-band-card:hover,
+  .csfloat-hero-stack-card:hover,
+  .modal-header button.btn-ghost:hover,
+  [role="region"][aria-label="Cookie consent"] .btn-accent:hover {
+    transform: none !important;
+  }
+  button:hover,
+  [class*="-btn"]:hover,
+  [class*="-cta"]:hover,
+  .nav-picker-chip:hover,
+  .nav-icon-btn:hover,
+  .deals-chip:hover,
+  .toolbar-refresh:hover,
+  .sort-picker-chip:hover,
+  .search-btn:hover,
+  .steam-btn:hover,
+  .market-cta:hover,
+  .hero-cta-row > a:hover {
+    opacity: 1 !important;
+  }
+  .grid-star:hover {
+    transform: none !important;
+  }
+}
+/* END touch hover neutralizer */
