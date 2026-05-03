@@ -128,11 +128,36 @@ class SessionCookieSanitizerFilter implements Filter {
             return
         }
         // Re-present the request with the cleaned cookie set so anything
-        // downstream sees only valid cookies.
+        // downstream sees only valid cookies. ALSO wrap the raw Cookie
+        // header — Spring Session's DefaultCookieSerializer can read the
+        // header directly via getHeader('Cookie') / getHeaders('Cookie')
+        // instead of getCookies(), so wrapping ONLY getCookies() lets a
+        // raw-NUL byte sail through into the JDBC bind parameter.
+        // Reconstruct the header from the cleaned Cookie[] so both
+        // pathways see identical, sanitized data.
         Cookie[] cleaned = kept.toArray(new Cookie[0])
+        String cleanedHeader = cleaned.collect { c -> "${c.name}=${c.value}" }.join('; ')
         HttpServletRequestWrapper wrapped = new HttpServletRequestWrapper(httpReq) {
             @Override
             Cookie[] getCookies() { cleaned }
+
+            @Override
+            String getHeader(String name) {
+                if (name != null && name.equalsIgnoreCase('Cookie')) {
+                    return cleanedHeader.isEmpty() ? null : cleanedHeader
+                }
+                return super.getHeader(name)
+            }
+
+            @Override
+            java.util.Enumeration<String> getHeaders(String name) {
+                if (name != null && name.equalsIgnoreCase('Cookie')) {
+                    return cleanedHeader.isEmpty()
+                        ? java.util.Collections.emptyEnumeration()
+                        : java.util.Collections.enumeration([cleanedHeader])
+                }
+                return super.getHeaders(name)
+            }
         }
         chain.doFilter(wrapped, httpRes)
     }
