@@ -123502,3 +123502,222 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
   border: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #60 */
+
+/* CSFLOAT-1:1 PARITY ship #61 — /db page header tone match */
+/* csfloat measured: visible "Database" lives in nav, body has only a
+   visually-hidden h1; the page jumps straight into the controls.
+   sboxmarket was: oversized 28px / 700 .info-modal-header above /db
+   eats vertical space csfloat doesn't spend.
+   Match by trimming the /db full-page header to the smaller body
+   weight csfloat sets when it does render a section title (h2 20/700). */
+.full-page-mode .info-modal:has(.db-table) .info-modal-header,
+.full-page-mode .info-modal:has(.db-controls) .info-modal-header {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  padding: 0 0 12px !important;
+  margin: 0 0 16px !important;
+  line-height: 1.2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #61 */
+
+/* CSFLOAT-1:1 PARITY ship #62 — /db table header row match csfloat */
+/* csfloat measured: .mat-mdc-header-row h=48, font-size 14px, font-weight 500,
+   transparent background, no uppercase, no letter-spacing. */
+/* sboxmarket was: thead th 10px uppercase mono with 0.14em letter-spacing,
+   bg var(--bg-2). Read like a spreadsheet header — csfloat reads like
+   a real catalogue header. */
+.db-table thead th {
+  font-family: Geist, Inter, -apple-system, system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid rgb(35, 38, 47) !important;
+  height: 48px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #62 */
+
+/* CSFLOAT-1:1 PARITY ship #63 — /db table body row match csfloat */
+/* csfloat measured: .mat-mdc-row h=62, font-size 14px / weight 400,
+   bg rgb(27, 29, 36), color white, padding ~12px vertical. Cell color
+   rgb(158, 167, 177) for muted (rank), white for primary. */
+/* sboxmarket was: 64px height (close), 13px font, var(--ink) color,
+   transparent bg with hover. Bump font to 14px and add the subtle
+   per-row tone csfloat uses. */
+.db-table tbody td {
+  font-size: 14px !important;
+  padding: 14px 16px !important;
+  color: rgb(255, 255, 255) !important;
+  vertical-align: middle !important;
+}
+.db-table tbody tr {
+  height: 62px !important;
+  background-color: rgb(27, 29, 36) !important;
+  border-bottom: 1px solid rgb(35, 38, 47) !important;
+}
+.db-table tbody tr:hover {
+  background-color: rgb(33, 36, 44) !important;
+}
+.db-table .db-rank {
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-family: Geist, Inter, -apple-system, system-ui, sans-serif !important;
+}
+.db-table .db-name,
+.db-item-cell .db-name {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #63 */
+
+/* CSFLOAT-1:1 PARITY ship #64 — /loadout page title size match csfloat */
+/* csfloat measured: "Loadout Lab" h2 — font-size 20px, font-weight 700,
+   color #fff, line-height ~24px, margin-bottom ~17px. */
+/* sboxmarket was: 28px / 700 .info-modal-header — visually heavier
+   than csfloat's section-title vibe. Tighten to 20/700 for parity.
+   Selector keys off the .loadout-tabs marker that only the LoadoutLab
+   modal renders inside its body, so the override is /loadout-scoped. */
+.info-modal:has(> .info-modal-body > .loadout-tabs) .info-modal-header,
+.info-modal[aria-labelledby="info-modal-h-loadout-lab"] .info-modal-header,
+#info-modal-h-loadout-lab {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  padding: 0 0 12px !important;
+  margin: 0 0 17px !important;
+  line-height: 1.2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #64 */
+
+/* CSFLOAT-1:1 PARITY ship #65 — /loadout tab toggle group match csfloat */
+/* csfloat measured: mat-button-toggle-group — w 345, h 40,
+   bg rgba(193, 206, 255, 0.04), border-radius 7px, padding ~3px.
+   Each mat-button-toggle: h=34, border-radius 4px, font-size 14-15px,
+   active toggle uses a brighter inner bg, inactive transparent. */
+/* sboxmarket was: .loadout-tabs > .offer-tab — 13px / 500, h=42,
+   bottom-border underline style. Replace with csfloat segmented pill. */
+.loadout-tabs {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  padding: 3px !important;
+  display: inline-flex !important;
+  height: 40px !important;
+  gap: 0 !important;
+  border-bottom: 0 !important;
+  align-items: center !important;
+  width: auto !important;
+}
+.loadout-tabs .offer-tab,
+.loadout-tabs button {
+  height: 34px !important;
+  padding: 0 14px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  background-color: transparent !important;
+  color: rgb(193, 206, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border: 0 !important;
+  margin: 0 !important;
+}
+.loadout-tabs .offer-tab.active,
+.loadout-tabs button.active,
+.loadout-tabs button[aria-selected="true"] {
+  background-color: rgba(193, 206, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #65 */
+
+/* CSFLOAT-1:1 PARITY ship #66 — legal pages container width matches csfloat 800px */
+/* csfloat measured: .container max-width 800px, margin 20px auto, no padding, transparent bg */
+/* sboxmarket: .legal-doc was max-width 820px, margin 40px top, 0 24px padding */
+.legal-doc {
+  max-width: 800px !important;
+  margin: 20px auto 80px !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #66 */
+
+/* CSFLOAT-1:1 PARITY ship #67 — legal pages h1 size match csfloat heading scale */
+/* csfloat legal: top heading is from raw doc (no h1) but page-shell title context is 30px Geist */
+/* sboxmarket: legal-doc h1 was 32px — bring to 30px to match marketplace title scale */
+.legal-doc h1 {
+  font-size: 30px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin-bottom: 8px !important;
+  letter-spacing: -0.02em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #67 */
+
+/* CSFLOAT-1:1 PARITY ship #68 — legal pages h2 size and weight match csfloat */
+/* csfloat legal: section headings render in raw doc HTML, default p with bold; visual scale ~18-20px */
+/* sboxmarket: legal-doc h2 was 20px 700 — keep size, tighten margins to csfloat-tight rhythm */
+.legal-doc h2 {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  margin: 28px 0 10px !important;
+  color: rgb(243, 244, 246) !important;
+  letter-spacing: -0.01em !important;
+}
+.legal-doc h3 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  margin: 20px 0 8px !important;
+  color: rgb(193, 206, 255) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #68 */
+
+/* CSFLOAT-1:1 PARITY ship #69 — legal page body text + list spacing match csfloat */
+/* csfloat measured: paragraphs and list items 16px text in container; spacing tight per Google-Doc rendering */
+/* sboxmarket: was 15px text, line-height 1.7 (25.5px) — tighten lh and align list padding */
+.legal-doc p,
+.legal-doc li {
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+  color: rgb(212, 212, 216) !important;
+}
+.legal-doc ul,
+.legal-doc ol {
+  padding-left: 22px !important;
+  margin: 0 0 14px !important;
+}
+.legal-doc li {
+  margin-bottom: 4px !important;
+}
+.legal-doc .legal-meta {
+  font-size: 13px !important;
+  color: rgb(156, 163, 175) !important;
+  margin-bottom: 28px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #69 */
+
+/* CSFLOAT-1:1 PARITY ship #70 — 404 page copy alignment + body text scale match csfloat */
+/* csfloat 404: body padding 0 60px, copy is centered-ish in main container, body color white */
+/* sboxmarket: h1 28px, body p 18px/27px — tighten paragraph line-height to match csfloat-density */
+body[data-page="404"] main p,
+.error-404 p,
+.not-found p,
+[class*="error-page"] p:not(.legal-doc *) {
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  color: rgb(212, 212, 216) !important;
+}
+body[data-page="404"] main h1,
+.error-404 h1,
+.not-found h1,
+[class*="error-page"] h1:not(.legal-doc *) {
+  font-size: 30px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  margin-bottom: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #70 */
