@@ -121826,3 +121826,55 @@ textarea {
   font-size: 10px !important;
 }
 /* END sort indicator polish */
+
+/* =====================================================================
+   2026-05-03 — KILL THE UNDERLINES.
+   Operator pushback (verbatim): "I HATE THIS FUCKING UNDERLINES".
+   The underlines they hate are three separate things, all here at once:
+   1. Top-nav active link blue underline (.nav-link.active::after).
+   2. Page-subnav active link blue underline (.subnav-link.active::after,
+      .csfloat-page-subnav-link.active::after).
+   3. Account dropdown menu active/hover state underline on the label
+      (no global rule sets this — the underline is paint from the
+      browser default <a>; rule 136 already says text-decoration:none on
+      anchors but specificity bleeds through some children's hover
+      state. Force text-decoration:none on every descendant).
+   4. Page-title accent rule line below ".csfloat-page-header" — any
+      ::after on the header element or descendants.
+   These overrides land at the end of the file so cascade wins over
+   every prior rule. Use !important sparingly but here it's warranted —
+   the underlines are spread across 9+ definitions throughout the file.
+   ===================================================================== */
+.nav-link.active::after,
+.nav-link:hover::after,
+.subnav-link.active::after,
+.subnav-link:hover::after,
+.csfloat-page-subnav-link.active::after,
+.csfloat-page-subnav-link:hover::after {
+  display: none !important;
+  content: none !important;
+  transform: none !important;
+  background: transparent !important;
+  height: 0 !important;
+}
+.csfloat-usermenu-item,
+.csfloat-usermenu-item *,
+.csfloat-usermenu-item:hover,
+.csfloat-usermenu-item:hover *,
+.csfloat-usermenu-item.active,
+.csfloat-usermenu-item.active *,
+.csfloat-usermenu-item[aria-current],
+.csfloat-usermenu-item[aria-current] * {
+  text-decoration: none !important;
+}
+.csfloat-page-header::after,
+.csfloat-page-header-title::after,
+.csfloat-page-header-with-tabs::after,
+.csfloat-page-header-with-tabs-top::after {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  height: 0 !important;
+  border: 0 !important;
+}
+/* END kill the underlines */
