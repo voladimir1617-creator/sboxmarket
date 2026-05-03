@@ -121897,3 +121897,127 @@ textarea {
   border: 0 !important;
 }
 /* END underlines → fade */
+
+/* =====================================================================
+   2026-05-03 — MOBILE-RESPONSIVE AUDIT FIXES.
+   Targeted gaps the prior @media blocks didn't cover. Appended at END
+   so cascade beats every prior rule. Phone breakpoint: 640px / 480px.
+   ===================================================================== */
+
+/* (1) Horizontal-scroll safety net. Several inline-styled flex rows on
+   /market and /db can poke a few px past 100vw and trigger a stray
+   scrollbar on phones. Lock x-scroll at the document level. */
+@media (max-width: 640px) {
+  html, body { overflow-x: hidden !important; }
+}
+
+/* (2) .csfloat-page-header-with-tabs-top — h1 + tab-strip + action
+   buttons currently share one space-between row. flex-wrap is on, but
+   at 393px the tab strip ends up beside actions and clips. Stack them
+   vertically and let each row own the full width. */
+@media (max-width: 640px) {
+  .csfloat-page-header-with-tabs {
+    gap: 10px !important;
+    padding: 14px 0 !important;
+    margin-bottom: 12px !important;
+  }
+  .csfloat-page-header-with-tabs-top {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .csfloat-page-header-with-tabs-title {
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+  }
+  .csfloat-page-header-with-tabs-actions {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .csfloat-page-header-with-tabs-actions > * {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  /* Tabs row scrolls horizontally with no scrollbar. */
+  .csfloat-page-header-with-tabs-tabs {
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* (3) .sell-summary / .trade-summary-chips — chip strip at 393px wraps
+   to 3+ rows. Tighten chip padding + font so 4 chips fit in 2 rows. */
+@media (max-width: 640px) {
+  .sell-summary, .trade-summary-chips {
+    gap: 6px !important;
+    margin-bottom: 10px !important;
+  }
+  .sell-summary-chip, .trade-summary-chip {
+    padding: 4px 8px !important;
+    font-size: 10.5px !important;
+    gap: 6px !important;
+  }
+}
+
+/* (4) Generic page-header block (single-row title + actions, used on
+   /watchlist, /loadouts, /help). The desktop layout assumes a wide
+   row; on phone the actions wrap below the h1 but inherit no spacing
+   adjustments. Tighten title size + give the action cluster a top
+   margin so it doesn't kiss the border. */
+@media (max-width: 640px) {
+  .csfloat-page-header,
+  .csfloat-page-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 14px 0 !important;
+  }
+  .csfloat-page-header-title {
+    font-size: 22px !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.01em !important;
+  }
+}
+
+/* (5) Long item names in grid cards — at 393px viewport the 2-up grid
+   leaves ~180px per card, and 1-line clamp still pushes ellipsis past
+   the card edge for ANY name with no spaces ("StatTrak™…"). Hard-cap
+   the card name width at 100% and force ellipsis. */
+@media (max-width: 640px) {
+  .csfloat-grid-card-name,
+  .grid-name {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* (6) Modal floor — `.modal { width: 100% }` is set on phone, but on a
+   393px viewport the inner `.modal-body` padding (18px) plus content
+   that uses fixed pixel widths (e.g. method picker) can still overflow.
+   Force every direct child of a modal-body to obey the box. */
+@media (max-width: 480px) {
+  .modal-body > *, .info-modal-body > *, .wallet-modal-body > * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .modal, .info-modal, .presignin-modal, .wallet-modal {
+    max-width: calc(100vw - 20px) !important;
+  }
+}
+
+/* (7) Footer — at <= 480px ensure single column even when a parent
+   inline grid-template-columns slipped through. The 700px breakpoint
+   already covers .csfloat-footer-grid; this is the smaller-viewport
+   reinforcement for .site-footer-grid + .csfloat-footer-grid. */
+@media (max-width: 480px) {
+  .site-footer-grid,
+  .csfloat-footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+}
+
+/* END mobile-responsive audit fixes 2026-05-03 */
