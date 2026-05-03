@@ -124094,3 +124094,538 @@ body { font-size: 16px !important; }
   font-variant-numeric: tabular-nums !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #86 */
+
+/* CSFLOAT-1:1 PARITY ship #87 — MOBILE nav side padding match csfloat (.toolbar 15px) */
+/* csfloat measured at 375x812: .toolbar padding 15px L/R, height 70px */
+/* sboxmarket: nav padding 60px L/R at mobile — far too much */
+@media (max-width: 480px) {
+  nav.nav,
+  nav,
+  .nav,
+  .toolbar,
+  .header,
+  .app-header,
+  .site-header {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #87 */
+
+/* CSFLOAT-1:1 PARITY ship #88 — MOBILE main/container side padding match csfloat (16px) */
+/* csfloat measured: main padding 16px L/R, max-width 360px at 375 viewport */
+@media (max-width: 480px) {
+  main,
+  .main,
+  .main-content,
+  .page-content,
+  .layout-container,
+  .container,
+  .wrapper {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #88 */
+
+/* CSFLOAT-1:1 PARITY ship #89 — MOBILE primary CTA size match csfloat sign-in (40px tall, 30px L/R, 8px br, 15px font) */
+/* csfloat measured: Sign-in btn height 40px, padding 30px L/R, br 8px, bg rgb(35,123,255), 15px */
+@media (max-width: 480px) {
+  button.cta,
+  .btn-accent,
+  .btn-primary,
+  .btn-buy,
+  button.signin,
+  .signin-btn,
+  a.btn-accent,
+  .empty-inline .btn-accent {
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 30px !important;
+    font-size: 15px !important;
+    border-radius: 8px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #89 */
+
+/* CSFLOAT-1:1 PARITY ship #90 — MOBILE tab strip / pill nav match csfloat (46px tall, 18px L/R, 13px font) */
+/* csfloat measured: All/Hats/Jackets tab btns height 46px, 18px padding L/R, 13px font */
+@media (max-width: 480px) {
+  .tab-btn,
+  .toggle-btn,
+  .pill-tab,
+  .home-tab,
+  .rail-tab,
+  .nav-tab,
+  [class*="tab-button"]:not(.tab-btn-icon),
+  .home-rail-tab {
+    height: 46px !important;
+    min-height: 46px !important;
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+    font-size: 13px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #90 */
+
+/* CSFLOAT-1:1 PARITY ship #91 — MOBILE H1 hero title size match csfloat (30px / 700 / 36px lh) */
+/* csfloat measured: h1 'Marketplace' fs 30px, fw 700, line-height 36px at 375 viewport */
+/* sboxmarket: H1 'Buy & Sell s&box' was 40px / 500 — too large for mobile */
+@media (max-width: 480px) {
+  h1,
+  .hero-title,
+  .page-title,
+  .home-hero-title,
+  .info-modal-header h1 {
+    font-size: 30px !important;
+    font-weight: 700 !important;
+    line-height: 36px !important;
+    letter-spacing: -0.02em !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #91 */
+
+/* CSFLOAT-1:1 PARITY ship #92 — MOBILE icon-only nav buttons touch-target 44px (csfloat USD chip 44px tall on mobile) */
+/* csfloat measured at 375: USD selector h=44 (was 25 at desktop) — mobile bumps touch targets */
+@media (max-width: 480px) {
+  nav button.picker-chip,
+  nav .nav-icon-btn,
+  nav button[aria-label*="cart"],
+  nav button[aria-label*="bell"],
+  nav button[aria-label*="notif"],
+  nav .icon-btn {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #92 */
+
+/* CSFLOAT-1:1 PARITY ship #93 — TABLET (768x1024) nav padding match csfloat (32px L/R) */
+/* csfloat at 768: .toolbar typically uses 32px padding L/R for tablet breakpoint */
+@media (min-width: 481px) and (max-width: 1023px) {
+  nav.nav,
+  nav,
+  .nav,
+  .toolbar,
+  .header,
+  .app-header,
+  .site-header {
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #93 */
+
+/* CSFLOAT-1:1 PARITY ship #94 — TABLET main container width csfloat-style (full-bleed minus 32px padding) */
+@media (min-width: 481px) and (max-width: 1023px) {
+  main,
+  .main,
+  .main-content,
+  .page-content,
+  .layout-container {
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #94 */
+
+/* CSFLOAT-1:1 PARITY ship #95 — MOBILE grid 1-col + tighter gap match csfloat (375 = 1 column) */
+/* csfloat at 375: items grid collapses to 1 column with 12px gap; sboxmarket grids may use 4-col fallback */
+@media (max-width: 480px) {
+  .items-grid,
+  .grid-results,
+  .results-grid,
+  .market-grid,
+  .listings-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+@media (min-width: 481px) and (max-width: 1023px) {
+  .items-grid,
+  .grid-results,
+  .results-grid,
+  .market-grid,
+  .listings-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #95 */
+
+/* CSFLOAT-1:1 PARITY ship #87 (status dot — online green dot) */
+/* csfloat measured: SVG dot 10x10 viewBox rendered ~13px square,
+   filled with the brand green. Use exact #00d680 (csfloat brand green)
+   on .online and .status-dot.ok. No box-shadow pulse on csfloat — the dot
+   is solid, no animation. */
+.status-dot,
+.online-dot,
+.user-status-dot,
+.seller-online-dot,
+.online {
+  width: 13px !important;
+  height: 13px !important;
+  border-radius: 50% !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+.status-dot.ok,
+.online-dot,
+.online {
+  background-color: rgb(0, 214, 128) !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+.status-dot.down { background-color: rgb(245, 86, 99) !important; box-shadow: none !important; }
+.status-dot.warn { background-color: rgb(255, 184, 0) !important; box-shadow: none !important; }
+/* END CSFLOAT-1:1 PARITY ship #87 */
+
+/* CSFLOAT-1:1 PARITY ship #88 (linear progress bar — top loading indicator) */
+/* csfloat measured: 4px tall mdc-linear-progress, transparent track,
+   inner bar borderColor rgb(35,123,255) (csfloat brand blue), 4px
+   border-top thickness. The page-top progress strip on sboxmarket should
+   match those colors and height. */
+.linear-progress,
+.page-progress,
+.top-loading-bar,
+.mdc-linear-progress {
+  height: 4px !important;
+  background-color: transparent !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.linear-progress > *,
+.page-progress > *,
+.top-loading-bar > *,
+.mdc-linear-progress__bar-inner,
+.mdc-linear-progress__primary-bar {
+  background-color: rgb(35, 123, 255) !important;
+  border-top-color: rgb(35, 123, 255) !important;
+  height: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #88 */
+
+/* CSFLOAT-1:1 PARITY ship #89 (skeleton shimmer — surface + animation) */
+/* csfloat measured: skeleton placeholders use a subtle on-surface tint
+   rgba(255,255,255,0.06) base with a horizontal sweep around
+   rgba(255,255,255,0.10). 1.4s linear infinite. Border-radius matches the
+   parent (4px on lines, 8px on cards). Replace the existing local shimmer
+   palette to land exactly on csfloat's tones. */
+.skeleton-card,
+.skeleton-thumb,
+.skeleton-line,
+.skeleton-body,
+.skeleton,
+[class*="skeleton-"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: -100% 0 !important;
+  animation: csfloat-skeleton-shimmer 1400ms linear infinite !important;
+}
+@keyframes csfloat-skeleton-shimmer {
+  0%   { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-card { border-radius: 8px !important; }
+.skeleton-thumb { border-radius: 6px !important; }
+.skeleton-line { border-radius: 4px !important; height: 12px !important; }
+/* END CSFLOAT-1:1 PARITY ship #89 */
+
+/* CSFLOAT-1:1 PARITY ship #90 (empty result state — typography + tone) */
+/* csfloat measured: empty result row uses centered text, font-size 14px,
+   color rgba(255,255,255,0.6) — Material on-surface medium-emphasis. The
+   icon (when present) is 48px monochrome at the same medium-emphasis tone.
+   No background card, no border — just the text centered in the grid
+   space. Pad ~48px vertically to match csfloat. */
+.empty-state,
+.empty-results,
+.no-results,
+.search-empty,
+.market-empty {
+  text-align: center !important;
+  padding: 48px 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.empty-state-icon,
+.empty-icon,
+.empty-state .icon {
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 48px !important;
+  line-height: 48px !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  background: transparent !important;
+  margin: 0 auto 12px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.empty-state-title,
+.empty-results-title {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  margin: 0 0 4px !important;
+  letter-spacing: 0 !important;
+}
+.empty-state-sub,
+.empty-results-sub,
+.empty-state p {
+  font-size: 14px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  margin: 0 !important;
+  line-height: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #90 */
+
+/* CSFLOAT-1:1 PARITY ship #91 (toast / snackbar — bg, color, padding, position) */
+/* csfloat measured: toasts use Material mat-mdc-snack-bar styling.
+   Container bg: rgb(54, 56, 60) (Material elevation 6 on dark theme),
+   color rgba(255,255,255,0.87), border-radius 4px, padding 14px 16px,
+   min-height 48px, font-size 14px line-height 20px, box-shadow
+   the standard MD elevation-6 stack. Position bottom-center, ~24px from
+   bottom, max-width 672px. Open/close transition 195ms cubic-bezier
+   (0.4, 0, 0.2, 1). The action button on the toast uses csfloat brand
+   blue. */
+.toast,
+.snackbar,
+.snack-bar,
+.sale-toast,
+.sale-toasts > *,
+.toasts-container > *,
+.toast-stack > *,
+.mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  background-color: rgb(54, 56, 60) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  border-radius: 4px !important;
+  padding: 14px 16px !important;
+  min-height: 48px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  box-shadow:
+    0 3px 5px -1px rgba(0, 0, 0, 0.2),
+    0 6px 10px 0 rgba(0, 0, 0, 0.14),
+    0 1px 18px 0 rgba(0, 0, 0, 0.12) !important;
+  border: 0 !important;
+  letter-spacing: 0.0178571em !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  transition:
+    opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 195ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.sale-toasts,
+.toasts-container,
+.toast-stack {
+  position: fixed !important;
+  bottom: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  right: auto !important;
+  top: auto !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  align-items: center !important;
+  pointer-events: none !important;
+  max-width: 672px !important;
+  width: max-content !important;
+}
+.sale-toasts > *,
+.toasts-container > *,
+.toast-stack > * {
+  pointer-events: auto !important;
+}
+.toast .toast-action,
+.snackbar .snack-action,
+.sale-toast .toast-cta,
+.mat-mdc-snack-bar-container .mat-mdc-button {
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-transform: uppercase !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857em !important;
+  font-size: 14px !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #91 */
+/* CSFLOAT-1:1 PARITY ship #92 — primary CTA / sign-in button (admin/settings gates)
+   Measured on csfloat: padding 13px 30px, height 40px, bg rgb(35,123,255),
+   color #fff, border-radius 8px, font-size 15px, font-weight 700, Roboto. */
+.btn-primary,
+.btn.btn-primary,
+.signin-cta,
+button.signin-cta,
+a.signin-cta,
+.steam-signin,
+.btn-steam-signin,
+.gate-signin-btn,
+.csfloat-signin-btn {
+  padding: 13px 30px !important;
+  min-height: 40px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #92 */
+/* CSFLOAT-1:1 PARITY ship #93 — toggle-switch tracks csfloat mat-slide-toggle.
+   csfloat material: 36x20 track, 16px knob, fully-rounded, on bg rgb(35,123,255).
+   sboxmarket toggle was 40x24 with 18px knob — match csfloat sizing. */
+.toggle-switch {
+  width: 36px !important;
+  height: 20px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  position: relative !important;
+  cursor: pointer !important;
+  transition: background 200ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  box-shadow: none !important;
+}
+.toggle-switch::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 1px !important;
+  left: 1px !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 999px !important;
+  background: rgb(255, 255, 255) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.toggle-switch.on {
+  background: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+.toggle-switch.on::after {
+  transform: translateX(16px) !important;
+  background: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #93 */
+/* CSFLOAT-1:1 PARITY ship #94 — changelog page container parity
+   csfloat FAQ page: max-width 940px, container padding 0, 24px gutter.
+   sboxmarket changelog was 820px max-width — bring to 940 for csfloat-style width. */
+.changelog {
+  max-width: 940px !important;
+  margin: 40px auto 80px !important;
+  padding: 0 24px !important;
+}
+.changelog-entry {
+  margin-bottom: 40px !important;
+  padding-bottom: 24px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.changelog-entry:last-child {
+  border-bottom: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #94 */
+/* CSFLOAT-1:1 PARITY ship #95 — changelog typography parity
+   csfloat FAQ p: 12px Arial, color rgb(233,233,233).
+   sboxmarket .changelog-list li was 14px Geist — align body to csfloat 12px Arial.
+   Headings stay larger for hierarchy but tighten to csfloat scale (h1 28, title 18). */
+.changelog-list li,
+.changelog p {
+  font-size: 12px !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  color: rgb(233, 233, 233) !important;
+  line-height: 1.5 !important;
+  margin-bottom: 8px !important;
+}
+.changelog-intro {
+  font-size: 12px !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  color: rgb(233, 233, 233) !important;
+  margin-bottom: 32px !important;
+}
+.changelog h1 {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.changelog-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin: 6px 0 14px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.changelog-date {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #95 */
+/* CSFLOAT-1:1 PARITY ship #96 — settings input row parity
+   csfloat material inputs: 40px tall, subtle border, 14px Roboto, radius 4.
+   sboxmarket settings-row inputs were 13px Geist — bring to csfloat scale. */
+.settings-row input,
+.settings-row textarea,
+.settings-row select {
+  min-height: 40px !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  transition: border-color 140ms ease, background 140ms ease !important;
+}
+.settings-row input:focus,
+.settings-row textarea:focus,
+.settings-row select:focus {
+  border-color: rgb(35, 123, 255) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  outline: none !important;
+}
+.settings-row {
+  padding: 14px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.settings-label,
+.settings-row label {
+  font-size: 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+  margin-bottom: 4px !important;
+}
+.settings-sublabel {
+  font-size: 12px !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  margin-top: 4px !important;
+  line-height: 1.5 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #96 */
