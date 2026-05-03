@@ -45,6 +45,13 @@ class EmailService {
     @Value('${app.email.from-name:SkinBox}')
     String fromName
 
+    /** Reply-to address for every transactional email — keeps the
+     *  no-reply From: address (better deliverability, fewer auto-replies
+     *  to the relay) while still letting users hit Reply and reach
+     *  a real human. Set on every outbound mail in send(). */
+    @Value('${app.email.reply-to:support@skinbox.market}')
+    String replyToAddress
+
     @Value('${app.public-url:http://localhost:8080}')
     String publicUrl
 
@@ -146,6 +153,19 @@ class EmailService {
         return Boolean.TRUE.equals(user.emailVerified)
     }
 
+    /** Format an amount as "$X.XX (USD)" for in-body currency display.
+     *  Per the email-audit policy: emails are async + may render hours
+     *  later in any timezone, but the currency itself is always USD —
+     *  surface that explicitly in money-mention bodies so a user
+     *  reading two notifications back-to-back doesn't have to wonder
+     *  whether one of them switched units. Always shows two decimals
+     *  for visual consistency across rounded + fractional amounts.
+     *  Subject lines keep the bare $X.XX form to stay under 45 chars. */
+    static String usd(BigDecimal amount) {
+        def b = amount ?: BigDecimal.ZERO
+        return '$' + b.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + ' (USD)'
+    }
+
     /** Send the verification email for a new/changed address. */
     void sendVerification(String toEmail, String token) {
         if (!toEmail) return
@@ -213,7 +233,8 @@ If it was you, no action needed.
      *  need to rotate Steam passwords, kill sessions, and re-enrol. */
     void send2faDisabled(String toEmail, String displayName) {
         if (!toEmail) return
-        def subject = "Security alert: 2FA was disabled on your SkinBox account"
+        // ≤45 chars; was "Security alert: 2FA was disabled on your SkinBox account" (56).
+        def subject = "⚠ Security alert · 2FA disabled"
         def body = """\
 Hi ${displayName ?: 'there'},
 
@@ -281,9 +302,9 @@ is exactly the one we need to reach if your account is being taken over.
         def body = """\
 Hi ${displayName ?: 'there'},
 
-A \$${amount.toPlainString()} deposit on your SkinBox wallet has been refunded
+A ${usd(amount)} deposit on your SkinBox wallet has been refunded
 back to your original payment method. Your new SkinBox balance is
-\$${(newBalance ?: BigDecimal.ZERO).toPlainString()}.
+${usd(newBalance)}.
 
 Stripe typically settles the refund to your card in 5-10 business days.
 
@@ -389,7 +410,7 @@ email${appealUrl ? ' or by visiting ' + appealUrl : ''}. Appeals are reviewed wi
         def body = """\
 Hi ${displayName ?: 'there'},
 
-Your \$${amount.toPlainString()} withdrawal has been approved and released.
+Your ${usd(amount)} withdrawal has been approved and released.
 
 Payout reference: ${payoutRef ?: '(none)'}
 
@@ -410,7 +431,7 @@ Transactions at any time.
         def body = """\
 Hi ${displayName ?: 'there'},
 
-Your \$${amount.toPlainString()} withdrawal request was rejected and the
+Your ${usd(amount)} withdrawal request was rejected and the
 full amount has been credited back to your SkinBox wallet.
 
 Reason: ${reason ?: 'See the Transactions tab for details.'}
@@ -535,7 +556,8 @@ listing for the live state.
      *  finding out their wallet just got blocked. */
     void sendWalletFrozen(String toEmail, String displayName, String reason) {
         if (!toEmail) return
-        def subject = "⚠ Security alert · Your wallet has been frozen"
+        // ≤45 chars; was 47.
+        def subject = "⚠ Security alert · Wallet frozen"
         def cleanReason = (reason ?: '').trim()
         def body = """\
 Hi ${displayName ?: 'there'},
@@ -560,8 +582,10 @@ If you think this was a mistake, open a ticket at ${publicUrl}/support and staff
      *  wasn't them. */
     void sendApiKeyMinted(String toEmail, String displayName, String label, String scope, String prefix) {
         if (!toEmail) return
+        // Subject stays ≤45 chars; longer scope description moved into the body.
         def scopeSuffix = (scope == 'RO') ? ' (read-only)' : ' (full access · can buy, sell, move funds)'
-        def subject = "⚠ Security alert · New API key minted${scopeSuffix}"
+        def subjectScope = (scope == 'RO') ? ' (read-only)' : ' (full access)'
+        def subject = "⚠ Security alert · API key minted${subjectScope}"
         def body = """\
 Hi ${displayName ?: 'there'},
 
@@ -641,7 +665,8 @@ If this was NOT you:
      *  smells off, open a ticket if it wasn't them). */
     void sendForceLogout(String toEmail, String displayName, String adminNote) {
         if (!toEmail) return
-        def subject = "⚠ Security alert · Your sessions were revoked"
+        // ≤45 chars; was 46.
+        def subject = "⚠ Security alert · Sessions revoked"
         def cleanNote = (adminNote ?: '').trim()
         def body = """\
 Hi ${displayName ?: 'there'},
@@ -736,7 +761,8 @@ these.
      */
     void sendNewSignIn(String toEmail, String displayName, String ip, String userAgent) {
         if (!toEmail) return
-        def subject = '⚠ Security alert · New sign-in to your SkinBox account'
+        // ≤45 chars; was 55.
+        def subject = '⚠ Security alert · New sign-in detected'
         def uaSnippet = (userAgent ?: '(unknown device)').take(120)
         def ipLabel = ip ?: '(unknown IP)'
         def body = """\
@@ -1345,6 +1371,13 @@ Thanks for your patience.
                     helper.setTo(to)
                     helper.setSubject(subject)
                     helper.setText(finalBody, false)
+                    // Reply-to so users replying to a no-reply From: still
+                    // route to the support inbox. Guarded against an
+                    // empty/blank config so a misconfigured deploy
+                    // doesn't 500 the send.
+                    if (replyToAddress && !replyToAddress.isBlank()) {
+                        try { helper.setReplyTo(replyToAddress) } catch (ignore) { /* fall through */ }
+                    }
                     // List-Unsubscribe header per RFC 8058. The mailto
                     // half lets clients without webhook support fall
                     // back to a no-op inbound address (ignored since we
@@ -1454,10 +1487,15 @@ Thanks for your patience.
                                 "/api/unsubscribe?email=" + enc + "&t=" + tok
                 }
             }
+            // Footer surfaces the unsubscribe (CAN-SPAM), preferences,
+            // support path, and the trademark/affiliation disclaimer.
+            // The disclaimer is required because s&box is a Facepunch
+            // game — every email mentions skin trading and Facepunch
+            // hasn't endorsed this marketplace, so we say so explicitly.
             return body + "\n\n—\nManage your email preferences: " + base + "/settings" +
                    unsubLine +
-                   "\nNeed help? " + base + "/support" +
-                   "\n© SkinBox\n"
+                   "\nNeed help? Reply to this email or visit " + base + "/support" +
+                   "\n\n© 2026 SkinBox · Not affiliated with Facepunch\n"
         } catch (Exception ignore) {
             return body
         }
