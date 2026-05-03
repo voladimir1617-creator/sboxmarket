@@ -121336,3 +121336,27 @@ textarea:focus-visible {
   }
 }
 /* END scroll-fab reduce-motion */
+
+/* =====================================================================
+   caret-color polish — boss-QA cycle 31, ship #39
+   ---------------------------------------------------------------------
+   No `caret-color` declaration anywhere in design.css — browsers paint
+   the text-cursor with the user-agent default (which defaults to the
+   computed `color` of the element, often --ink-1 / white). Dark inputs
+   work but the cursor reads as the same intensity as the text, making
+   it hard to spot at a glance. Set caret-color to --cta on the inputs
+   the user actively types into (search bar, price, chat, settings) so
+   the text-cursor glows brand-blue — operator-allowed since this is a
+   "live action" indicator and singular per page.
+   ===================================================================== */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="number"],
+input[type="password"],
+input[type="tel"],
+input[type="url"],
+textarea {
+  caret-color: var(--cta);
+}
+/* END caret-color polish */
