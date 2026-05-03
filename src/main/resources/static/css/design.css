@@ -124074,3 +124074,23 @@ input[type="search"]:focus::placeholder {
   transition: background-color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #81 */
+/* CSFLOAT-1:1 PARITY ship #82 (global body bg color) */
+:root, html, body { background-color: rgb(21, 23, 28) !important; }
+/* END CSFLOAT-1:1 PARITY ship #82 */
+/* CSFLOAT-1:1 PARITY ship #83 (global body text color) */
+html, body { color: rgb(255, 255, 255) !important; }
+/* END CSFLOAT-1:1 PARITY ship #83 */
+/* CSFLOAT-1:1 PARITY ship #84 (global body font-family — Roboto) */
+html, body { font-family: Roboto, "Helvetica Neue", sans-serif !important; }
+/* END CSFLOAT-1:1 PARITY ship #84 */
+/* CSFLOAT-1:1 PARITY ship #85 (global body font-size — 16px) */
+html { font-size: 16px !important; }
+body { font-size: 16px !important; }
+/* END CSFLOAT-1:1 PARITY ship #85 */
+/* CSFLOAT-1:1 PARITY ship #86 (mono font for prices — Roboto Mono) */
+.price, .price-value, [class*="price"] code, code.price, .mono, .num-mono,
+.tabular, [class*="tabular"], .price-display, .listing-price, .item-price {
+  font-family: "Roboto Mono", Roboto, "Helvetica Neue", monospace !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #86 */
