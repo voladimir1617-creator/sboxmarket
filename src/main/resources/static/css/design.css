@@ -120706,3 +120706,32 @@ textarea:focus-visible {
   }
 }
 /* END touch hover neutralizer */
+
+/* =====================================================================
+   prefers-reduced-motion guard for transform hovers — cycle 31 ship #5
+   ---------------------------------------------------------------------
+   The cycle-30 `@media (prefers-reduced-motion: reduce)` block at
+   line 8429 already collapses transition + animation durations to
+   0.01ms, but hover transforms still snap to their lifted/scaled
+   position — just instantly instead of eased. WCAG 2.3.3 ("Animation
+   from Interactions") asks that motion be removable, not just
+   accelerated. Force `transform: none` on the known hover targets so
+   reduced-motion users get a static surface that doesn't pop on hover.
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .grid-card:hover,
+  .grid-card:active,
+  .csfloat-grid-card:hover,
+  .csfloat-band-card:hover,
+  .csfloat-hero-stack-card:hover,
+  .csfloat-hero-stack-card.pos-0:hover,
+  .modal-header button.btn-ghost:hover,
+  [role="region"][aria-label="Cookie consent"] .btn-accent:hover,
+  .grid-star:hover,
+  .filter-pill:hover,
+  .px-pill:hover,
+  .px-chip:hover {
+    transform: none !important;
+  }
+}
+/* END prefers-reduced-motion transform guard */
