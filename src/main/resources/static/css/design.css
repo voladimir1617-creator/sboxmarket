@@ -127039,3 +127039,49 @@ body .list-divider {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #225 */
+/* CSFLOAT-1:1 PARITY ship #205 — 404 / not-found surface typography
+   csfloat measure: 404 page is sparse, content typography uses pure white
+   primary + rgb(158,167,177) secondary on rgb(21,23,28). sboxmarket
+   404 panel currently uses inline styles (fontSize 15px / 13px / Geist).
+   Match: target the not-found InfoModal body — heading Roboto 16px / 500
+   pure white, body Roboto 14px / 400 secondary ink rgb(158,167,177),
+   buttons keep accent. The .empty-inline wrapper inside the 404 InfoModal
+   gets these tightened typography rules. */
+.full-page-mode .info-modal .empty-inline > div[style*="font-size: 15px"],
+.full-page-mode .info-modal .empty-inline > div[style*="fontSize: 15"],
+.info-modal .empty-inline > div[style*="font-weight: 600"] {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 24px !important;
+  margin-bottom: 8px !important;
+}
+.full-page-mode .info-modal .empty-inline > div[style*="font-size: 13px"],
+.full-page-mode .info-modal .empty-inline > div[style*="fontSize: 13"],
+.info-modal .empty-inline > div[style*="max-width: 420px"] {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 20px !important;
+  max-width: 460px !important;
+  margin: 0 auto 20px !important;
+}
+.full-page-mode .info-modal .empty-inline .empty-icon {
+  width: 64px !important;
+  height: 64px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto 16px !important;
+}
+.full-page-mode .info-modal .empty-inline .empty-icon svg,
+.full-page-mode .info-modal .empty-inline .empty-icon .material-symbols-rounded {
+  color: rgb(158, 167, 177) !important;
+  fill: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #205 */
