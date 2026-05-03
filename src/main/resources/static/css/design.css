@@ -121828,22 +121828,17 @@ textarea {
 /* END sort indicator polish */
 
 /* =====================================================================
-   2026-05-03 — KILL THE UNDERLINES.
-   Operator pushback (verbatim): "I HATE THIS FUCKING UNDERLINES".
-   The underlines they hate are three separate things, all here at once:
-   1. Top-nav active link blue underline (.nav-link.active::after).
-   2. Page-subnav active link blue underline (.subnav-link.active::after,
-      .csfloat-page-subnav-link.active::after).
-   3. Account dropdown menu active/hover state underline on the label
-      (no global rule sets this — the underline is paint from the
-      browser default <a>; rule 136 already says text-decoration:none on
-      anchors but specificity bleeds through some children's hover
-      state. Force text-decoration:none on every descendant).
-   4. Page-title accent rule line below ".csfloat-page-header" — any
-      ::after on the header element or descendants.
+   2026-05-03 — UNDERLINES → FADE.
+   Operator: "I HATE THIS FUCKING UNDERLINES" → "it should only fade".
+   Active / hover state is signalled ONLY by a soft color+opacity fade
+   on the label itself. No more sliding underline on top-nav, no more
+   subnav rule, no more account-menu text-decoration, no more rule line
+   below page-header. Every decorative ::after that drew a line on
+   active/hover is wiped.
    These overrides land at the end of the file so cascade wins over
-   every prior rule. Use !important sparingly but here it's warranted —
-   the underlines are spread across 9+ definitions throughout the file.
+   every prior rule. !important is warranted here — the underlines were
+   spread across 9+ definitions throughout the file (multiple boss-QA
+   cycles each piling on their own .nav-link.active::after).
    ===================================================================== */
 .nav-link.active::after,
 .nav-link:hover::after,
@@ -121856,6 +121851,30 @@ textarea {
   transform: none !important;
   background: transparent !important;
   height: 0 !important;
+}
+/* Active state = label color/opacity FADE (no line). Smooth transition
+   on color + opacity so the active item looks "lit up" rather than
+   underlined. */
+.nav-link,
+.subnav-link,
+.csfloat-page-subnav-link {
+  transition: color 200ms ease, opacity 200ms ease, font-weight 200ms ease !important;
+}
+.nav-link:not(.active),
+.subnav-link:not(.active),
+.csfloat-page-subnav-link:not(.active) {
+  opacity: 0.78;
+}
+.nav-link:not(.active):hover,
+.subnav-link:not(.active):hover,
+.csfloat-page-subnav-link:not(.active):hover {
+  opacity: 1;
+}
+.nav-link.active,
+.subnav-link.active,
+.csfloat-page-subnav-link.active {
+  opacity: 1;
+  color: var(--ink-1) !important;
 }
 .csfloat-usermenu-item,
 .csfloat-usermenu-item *,
@@ -121877,4 +121896,4 @@ textarea {
   height: 0 !important;
   border: 0 !important;
 }
-/* END kill the underlines */
+/* END underlines → fade */
