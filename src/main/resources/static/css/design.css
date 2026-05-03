@@ -611,7 +611,7 @@ a { color: inherit; text-decoration: none; }
 .feat-quote {
   font-family: var(--serif);
   font-style: italic;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.45;
   color: var(--ink-2);
   padding-top: 18px;
@@ -643,7 +643,7 @@ a { color: inherit; text-decoration: none; }
 }
 .sect-head h2 {
   font-family: var(--serif); font-style: normal;
-  font-weight: 360; font-size: 30px; letter-spacing: -0.025em;
+  font-weight: 360; font-size: 28px; letter-spacing: -0.025em;
   color: var(--ink);
   font-variation-settings: "opsz" 144, "SOFT" 20;
 }
@@ -799,7 +799,7 @@ html[data-density="editorial"] .grid { grid-template-columns: repeat(4, minmax(0
 }
 .card-price {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -1092,7 +1092,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
 .sell-panel { padding: 22px; }
 .sell-panel h3 {
   font-family: var(--serif); font-style: normal;
-  font-size: 24px; font-weight: 360; letter-spacing: -0.02em; margin-bottom: 4px;
+  font-size: 22px; font-weight: 360; letter-spacing: -0.02em; margin-bottom: 4px;
   font-variation-settings: "opsz" 144;
 }
 .field { margin-top: 16px; }
@@ -1265,7 +1265,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
   background: var(--bg-1);
   position: sticky; top: calc(var(--nav-h) + var(--sub-h) + 12px);
 }
-.summary h3 { font-family: var(--serif); font-style: normal; font-weight: 360; font-size: 24px; letter-spacing: -0.02em; margin-bottom: 12px; font-variation-settings: "opsz" 144; }
+.summary h3 { font-family: var(--serif); font-style: normal; font-weight: 360; font-size: 22px; letter-spacing: -0.02em; margin-bottom: 12px; font-variation-settings: "opsz" 144; }
 .summary .row { display: flex; justify-content: space-between; padding: 6px 0; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .summary .row.total { font-size: 18px; color: var(--ink); border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; font-weight: 500; }
 
@@ -1324,7 +1324,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
   width: 100%;
   padding: 16px 20px;
   background: transparent; border: 0; outline: 0;
-  font-size: 16px; color: var(--ink);
+  font-size: 15px; color: var(--ink);
   border-bottom: 1px solid var(--line);
   font-family: inherit;
 }
@@ -1448,7 +1448,7 @@ footer {
   /* Grid — 2 up on phone, bigger cards */
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
   .card-media { aspect-ratio: 1/1; }
-  .card-media .glyph { font-size: 36px; }
+  .card-media .glyph { font-size: 40px; }
   .card-body { padding: 8px 10px 10px; }
   .card-title { font-size: 12px; }
   .card-sub { font-size: 9.5px; }
@@ -1463,7 +1463,7 @@ footer {
   }
 
   /* Item page */
-  .item-title { font-size: 26px; }
+  .item-title { font-size: 28px; }
   .item-stats .v { font-size: 15px; }
   .item-media { aspect-ratio: 5/4; }
   .item-media .glyph { font-size: 72px; }
@@ -1500,8 +1500,8 @@ footer {
   .profile-head { grid-template-columns: 72px 1fr; gap: 16px; padding: 18px; }
   .profile-head > div:last-child { grid-column: 1 / span 2; display: flex; gap: 8px; }
   .profile-head > div:last-child button { flex: 1; }
-  .profile-avatar { width: 72px; height: 72px; font-size: 32px; }
-  .profile-name { font-size: 26px; }
+  .profile-avatar { width: 72px; height: 72px; font-size: 28px; }
+  .profile-name { font-size: 28px; }
   .profile-stats { grid-template-columns: 1fr; }
   .profile-stats > div { border-right: 0; border-bottom: 1px solid var(--line); }
   .profile-stats > div:last-child { border-bottom: 0; }
@@ -1555,10 +1555,10 @@ footer {
   .brand-name { font-size: 14px; }
   .wallet-pill span:not(.plus) { font-size: 10px; }
   .nav-right .iconbtn[title="Watchlist"] { display: none; }
-  .mkt-hero .title-cell .value { font-size: 24px; }
-  .mkt-hero .value { font-size: 20px; }
+  .mkt-hero .title-cell .value { font-size: 22px; }
+  .mkt-hero .value { font-size: 18px; }
   .item-title { font-size: 22px; }
-  .wallet-bal { font-size: 32px; }
+  .wallet-bal { font-size: 28px; }
 }
 
 
@@ -1723,7 +1723,7 @@ footer {
   font-weight: 200;
   letter-spacing: -0.02em;
 }
-.item-poster[data-variant="thumb"] { font-size: 24px; }
+.item-poster[data-variant="thumb"] { font-size: 22px; }
 .item-poster[data-variant="hero"]  { font-size: 144px; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4)); }
 .db-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 2px; }
@@ -1762,7 +1762,7 @@ footer {
 .offer-thumb {
   width: 56px; height: 56px; display: grid; place-items: center;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm);
-  font-size: 24px;
+  font-size: 22px;
 }
 .offer-name { font-weight: 500; font-size: 15px; margin-bottom: 3px; }
 .offer-meta { font-size: 12px; color: var(--ink-3); }
@@ -2077,7 +2077,7 @@ footer {
 }
 .admin-stats > div { padding: 14px 16px; background: var(--bg-1); }
 .admin-stats .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); }
-.admin-stats .v { font-size: 20px; margin-top: 4px; letter-spacing: -0.01em; }
+.admin-stats .v { font-size: 18px; margin-top: 4px; letter-spacing: -0.01em; }
 .admin-stats .s { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
 .admin-stats .s.up { color: #7fd896; }
 
@@ -2173,7 +2173,7 @@ footer {
 }
 .release:last-child { border-bottom: 0; }
 .release-side { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.release-side .rv { font-size: 16px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+.release-side .rv { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
 .release-side .rd { font-family: var(--mono); font-size: 11px; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.1em; }
 .release-body ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .release-body li {
@@ -2206,7 +2206,7 @@ footer {
   .db-title { font-size: 44px; }
   .db-stats { grid-template-columns: repeat(4, 1fr); }
   .db-stats > div { padding: 10px 12px; }
-  .db-stats .v { font-size: 16px; }
+  .db-stats .v { font-size: 15px; }
   .db-row { grid-template-columns: 32px minmax(180px, 2fr) 70px 100px 80px 60px 60px 90px 32px; }
   .offer-row { grid-template-columns: 48px 1fr; gap: 14px; }
   .offer-prices, .offer-actions { grid-column: 1 / -1; }
@@ -2335,7 +2335,7 @@ footer {
   box-shadow: inset 0 -2px 0 var(--cta);
 }
 .cf-tab-label {
-  font-family: var(--serif); font-size: 19px; font-weight: 400;
+  font-family: var(--serif); font-size: 18px; font-weight: 400;
   letter-spacing: -0.01em;
   display: block; width: 100%;
 }
@@ -2403,7 +2403,7 @@ footer {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.4);
 }
 .hero-thumb .glyph {
-  font-family: var(--serif); font-weight: 380; font-size: 32px;
+  font-family: var(--serif); font-weight: 380; font-size: 28px;
   color: var(--ink-2); font-variation-settings: "opsz" 144;
 }
 .hero-info { flex: 1; min-width: 0; }
@@ -2412,7 +2412,7 @@ footer {
   text-transform: uppercase; color: var(--ink-4); margin-bottom: 3px;
 }
 .hero-name {
-  font-family: var(--serif); font-size: 17px; line-height: 1.15;
+  font-family: var(--serif); font-size: 18px; line-height: 1.15;
   font-weight: 400; color: var(--ink); letter-spacing: -0.01em;
   overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -2702,7 +2702,7 @@ footer {
   gap: 8px; margin-top: 2px;
 }
 .cf-price {
-  font-family: var(--mono); font-weight: 600; font-size: 16px;
+  font-family: var(--mono); font-weight: 600; font-size: 15px;
   color: var(--ink); letter-spacing: -0.01em;
 }
 .cf-steam { display: flex; align-items: center; gap: 4px; }
@@ -2813,7 +2813,7 @@ footer {
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
   .cf-hero { padding: 22px 20px; }
-  .cf-h1 { font-size: 36px; }
+  .cf-h1 { font-size: 40px; }
 }
 @media (max-width: 820px) {
   .cf-hero-cards { grid-template-columns: 1fr; gap: 8px; }
@@ -3648,7 +3648,7 @@ nav.nav {
   color: var(--ink-4); font-weight: 500;
 }
 .market-stats-strip .v {
-  font-family: var(--mono); font-size: 24px;
+  font-family: var(--mono); font-size: 22px;
   font-weight: 500; color: var(--ink);
   letter-spacing: -0.02em;
 }
@@ -4268,7 +4268,7 @@ nav.nav {
 }
 .grid-footer > * { min-width: 0; }
 .grid-price {
-  font-family: var(--mono); font-size: 16px;
+  font-family: var(--mono); font-size: 15px;
   font-weight: 600; color: var(--ink);
   letter-spacing: -0.01em;
 }
@@ -5747,7 +5747,7 @@ body:has(.shortcuts-backdrop) {
   display: flex; justify-content: space-between;
   padding: 14px 22px;
   border-top: 1px solid var(--line);
-  font-family: var(--mono); font-size: 16px;
+  font-family: var(--mono); font-size: 15px;
   color: var(--ink); font-weight: 600;
 }
 .cart-confirm-low-balance {
@@ -5809,7 +5809,7 @@ body:has(.shortcuts-backdrop) {
 .trade-confirm-title {
   padding: 20px 22px 8px;
   font-family: var(--serif);
-  font-size: 24px; font-weight: 360; letter-spacing: -0.02em;
+  font-size: 22px; font-weight: 360; letter-spacing: -0.02em;
   color: var(--ink);
   font-variation-settings: "opsz" 144;
 }
@@ -6056,7 +6056,7 @@ body:has(.shortcuts-backdrop) {
   color: var(--ink-4); font-weight: 500;
 }
 .wallet-7d-val {
-  font-family: var(--mono); font-size: 20px;
+  font-family: var(--mono); font-size: 18px;
   font-weight: 500; color: var(--ink);
   letter-spacing: -0.01em;
 }
@@ -6173,13 +6173,13 @@ body:has(.shortcuts-backdrop) {
 .wallet-amount-prefix {
   padding: 0 4px 0 14px;
   color: var(--ink-3);
-  font-family: var(--mono); font-size: 20px;
+  font-family: var(--mono); font-size: 18px;
 }
 .wallet-amount-input, .wallet-amount-input-v2 {
   flex: 1;
   padding: 14px 14px 14px 0;
   background: transparent; border: 0; outline: 0;
-  font-family: var(--mono); font-size: 20px; font-weight: 500;
+  font-family: var(--mono); font-size: 18px; font-weight: 500;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
@@ -6529,7 +6529,7 @@ body:has(.shortcuts-backdrop) {
   border-bottom: 1px solid var(--line);
 }
 .profile-earnings-title {
-  font-family: var(--serif); font-size: 20px;
+  font-family: var(--serif); font-size: 18px;
   font-weight: 360; letter-spacing: -0.02em; color: var(--ink);
   font-variation-settings: "opsz" 144;
 }
@@ -6917,7 +6917,7 @@ body:has(.shortcuts-backdrop) {
   color: var(--ink-4); font-weight: 500;
 }
 .mystall-sold-total {
-  font-family: var(--mono); font-size: 20px; font-weight: 500;
+  font-family: var(--mono); font-size: 18px; font-weight: 500;
   color: var(--ink); letter-spacing: -0.01em;
 }
 .mystall-sold-hint {
@@ -7398,7 +7398,7 @@ body:has(.shortcuts-backdrop) {
   font-size: 13px; font-weight: 500; color: var(--ink);
   letter-spacing: -0.005em;
 }
-.loadout-slot-emoji { font-size: 20px; line-height: 1; }
+.loadout-slot-emoji { font-size: 18px; line-height: 1; }
 .loadout-slot-price {
   font-family: var(--mono); font-size: 11px; font-weight: 600;
   color: var(--ink); margin-top: auto;
@@ -7451,7 +7451,7 @@ body:has(.shortcuts-backdrop) {
   color: var(--ink-4); font-weight: 500;
 }
 .admin-stat-val {
-  font-family: var(--mono); font-size: 20px; font-weight: 500;
+  font-family: var(--mono); font-size: 18px; font-weight: 500;
   color: var(--ink); letter-spacing: -0.01em;
 }
 .admin-card {
@@ -7579,7 +7579,7 @@ body:has(.shortcuts-backdrop) {
 }
 .help-section-title {
   font-family: var(--serif);
-  font-size: 24px; font-weight: 360; letter-spacing: -0.02em;
+  font-size: 22px; font-weight: 360; letter-spacing: -0.02em;
   color: var(--ink);
   font-variation-settings: "opsz" 144;
   margin: 32px 0 14px;
@@ -7614,7 +7614,7 @@ body:has(.shortcuts-backdrop) {
   grid-column: 2; grid-row: 1 / span 2;
   align-self: center; justify-self: center;
   color: var(--ink-2);
-  font-size: 24px !important;
+  font-size: 22px !important;
 }
 .help-step-title {
   grid-column: 3; grid-row: 1;
@@ -8182,7 +8182,7 @@ body:has(.shortcuts-backdrop) {
   /* Profile */
   .profile-hero { grid-template-columns: 72px 1fr; gap: 14px; padding: 18px; }
   .profile-hero > *:nth-child(3) { grid-column: 1 / -1; }
-  .profile-avatar { width: 72px; height: 72px; font-size: 32px; }
+  .profile-avatar { width: 72px; height: 72px; font-size: 28px; }
   .profile-stats { grid-template-columns: 1fr 1fr; }
 
   /* Stall — W2 cycle 9: avatar was vertically-centered against the
@@ -8192,7 +8192,7 @@ body:has(.shortcuts-backdrop) {
      the natural top-down order. */
   .stall-hero { grid-template-columns: 72px 1fr; gap: 14px; padding: 18px; align-items: start; }
   .stall-hero > *:nth-child(3) { grid-column: 1 / -1; }
-  .stall-avatar { width: 72px; height: 72px; font-size: 30px; }
+  .stall-avatar { width: 72px; height: 72px; font-size: 28px; }
 
   /* Cart — mobile stacks thumb | name+price on row 1, action buttons on row 2.
      Row 1: thumb (col 1, rowspan 2) | info (col 2) | price (col 3)
@@ -8324,7 +8324,7 @@ body:has(.shortcuts-backdrop) {
   /* Legal */
   .legal-doc { padding: 20px 16px; font-size: 14.5px; }
   .legal-doc h1 { font-size: 28px; }
-  .legal-doc h2 { font-size: 19px; margin-top: 28px; }
+  .legal-doc h2 { font-size: 18px; margin-top: 28px; }
 
   /* Changelog */
   .changelog-entry { grid-template-columns: 1fr; gap: 10px; padding: 20px 0; }
@@ -8383,8 +8383,8 @@ body:has(.shortcuts-backdrop) {
     hyphens: auto;
     max-width: 100%;
   }
-  .wallet-hero-balance { font-size: 32px; }
-  .cart-total-val { font-size: 24px; }
+  .wallet-hero-balance { font-size: 28px; }
+  .cart-total-val { font-size: 22px; }
   .modal-name, .modal-header h2, .modal-header h3 { font-size: 18px; }
 
   /* Hero actions stack */
@@ -8609,7 +8609,7 @@ td > .price-cell {
 .px-feature-strip > * h3,
 .homepage-trust > * h3,
 .px-card-interactive h3 {
-  font-size: 17px; font-weight: 600; letter-spacing: -0.015em;
+  font-size: 18px; font-weight: 600; letter-spacing: -0.015em;
   color: var(--ink); margin: 0 0 6px;
 }
 .px-feature-strip > * p,
@@ -8667,7 +8667,7 @@ td > .price-cell {
     transparent 100%);
 }
 .step-card .step-title {
-  font-size: 16px; font-weight: 600;
+  font-size: 15px; font-weight: 600;
   letter-spacing: -0.015em;
   color: var(--ink);
   margin: 0 0 6px;
@@ -9199,7 +9199,7 @@ input[type="radio"] {
   transform: scale(1.06);
 }
 .nav-logo-text {
-  font-size: 16px;
+  font-size: 15px;
 }
 .nav-logo-badge {
   color: color-mix(in oklab, var(--cta) 70%, var(--ink-3));
@@ -9481,7 +9481,7 @@ input[type="radio"] {
   background: linear-gradient(180deg,
     color-mix(in oklab, var(--cta) 6%, var(--bg-1)) 0%,
     var(--bg-1) 100%);
-  font-size: 19px;
+  font-size: 18px;
   padding: 16px 20px;
 }
 .notif-header::after {
@@ -9571,7 +9571,7 @@ input[type="radio"] {
   border-color: color-mix(in oklab, var(--cta) 14%, var(--line-2));
 }
 .trade-confirm-title {
-  font-size: 26px;
+  font-size: 28px;
   padding: 24px 26px 8px;
 }
 .trade-confirm-sub {
@@ -9594,7 +9594,7 @@ input[type="radio"] {
   border-color: color-mix(in oklab, var(--cta) 14%, var(--line-2));
 }
 .cart-confirm-title {
-  font-size: 24px;
+  font-size: 22px;
 }
 .cart-confirm-head {
   padding: 22px 24px;
@@ -9679,7 +9679,7 @@ input[type="radio"] {
 }
 .market-stats-strip > div:hover::after { opacity: 1; }
 .market-stats-strip .v {
-  font-size: 26px;
+  font-size: 28px;
 }
 
 /* ─── Item-modal price tiles (FLOOR PRICE / STEAM PRICE / 30D CHANGE / SUPPLY)
@@ -9707,7 +9707,7 @@ input[type="radio"] {
   color: var(--ink);
   font-size: 22px;
 }
-.modal-stat-val { font-size: 19px; }
+.modal-stat-val { font-size: 18px; }
 
 /* ─── Item-stats inline row (alt small variant) — unify with modal-stat. */
 .item-stats > div {
@@ -9717,7 +9717,7 @@ input[type="radio"] {
 .item-stats > div:hover {
   background: color-mix(in oklab, var(--cta) 5%, var(--bg-1));
 }
-.item-stats .v { font-size: 19px; }
+.item-stats .v { font-size: 18px; }
 
 /* ─── Fee-calc bottom bar (cf-feebar) — was bare backdrop. Lift the input
    field, blue accent on the receive value, scale up the CTA. */
@@ -9875,7 +9875,7 @@ input[type="radio"] {
               0 0 0 1px color-mix(in oklab, var(--cta) 8%, transparent);
 }
 .cmdk-input {
-  font-size: 17px;
+  font-size: 18px;
   padding: 18px 22px;
 }
 .cmdk-input::placeholder { color: var(--ink-3); }
@@ -10136,7 +10136,7 @@ input[type="radio"] {
    geometric glyph that read as an accident. Bump to a larger glyph in an
    accent-tinted ring so the empty card looks intentional. */
 .item-poster {
-  font-size: 36px;
+  font-size: 40px;
   color: color-mix(in oklab, var(--cta) 25%, var(--ink-3));
   filter: drop-shadow(0 4px 12px color-mix(in oklab, var(--cta) 18%, transparent));
 }
@@ -10300,7 +10300,7 @@ input[type="radio"] {
               box-shadow 160ms ease;
 }
 @media (max-width: 760px) {
-  .modal-close { width: 44px; height: 44px; font-size: 16px; }
+  .modal-close { width: 44px; height: 44px; font-size: 15px; }
 }
 .modal-close:hover {
   color: var(--ink);
@@ -10321,7 +10321,7 @@ input[type="radio"] {
    hierarchy. The middot-separated pair reads much better with mono numerals. */
 .info-modal-header {
   padding: 22px 28px;
-  font-size: 26px;
+  font-size: 28px;
   position: relative;
 }
 .info-modal-header::after {
@@ -10433,7 +10433,7 @@ input[type="radio"] {
   padding: 22px 26px 18px;
 }
 .wallet-hero-balance {
-  font-size: 36px;
+  font-size: 40px;
   letter-spacing: -0.02em;
 }
 .wallet-hero-label {
@@ -10529,7 +10529,7 @@ input[type="radio"] {
 }
 .cart-summary-title {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  font-size: 16px; font-weight: 700;
+  font-size: 15px; font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
   margin-bottom: 16px;
@@ -10702,7 +10702,7 @@ input[type="radio"] {
   border-radius: 8px;
   color: var(--ink-2);
   cursor: pointer;
-  font-size: 16px; font-weight: 600;
+  font-size: 15px; font-weight: 600;
   font-family: inherit;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -11098,7 +11098,7 @@ input[type="radio"] {
 /* Price on cards: bold sans mono for numerics. */
 .grid-price {
   font-weight: 700 !important;
-  font-size: 17px !important;
+  font-size: 18px !important;
   letter-spacing: -0.01em !important;
   color: var(--ink) !important;
 }
@@ -11141,7 +11141,7 @@ input[type="radio"] {
 
 /* Modal title: sans bold. */
 .info-modal-header {
-  font-size: 20px !important;
+  font-size: 18px !important;
 }
 
 /* Cart summary title: sans bold (matches rest). */
@@ -11151,7 +11151,7 @@ input[type="radio"] {
 
 /* Wallet hero balance: sans bold. */
 .wallet-hero-balance {
-  font-size: 32px !important;
+  font-size: 28px !important;
 }
 
 /* Drop italic on stall review stars text. */
@@ -11534,7 +11534,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .csfloat-hero-stack-price {
   font-family: var(--mono);
-  font-size: 20px; font-weight: 700;
+  font-size: 18px; font-weight: 700;
   color: var(--ink);
   font-feature-settings: 'tnum' 1;
 }
@@ -12589,7 +12589,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   border: 1px solid var(--line-2);
   border-radius: 999px;
   color: var(--ink);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: background 140ms ease, transform 140ms ease, border-color 140ms ease;
@@ -13138,7 +13138,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .grid-zoom {
   width: 28px !important;
   height: 28px !important;
-  font-size: 16px !important;
+  font-size: 15px !important;
   opacity: 0.85;
   transition: opacity 140ms ease, color 140ms ease, background 140ms ease;
 }
@@ -14662,7 +14662,7 @@ button:disabled {
 /* CSFloat-1:1: /database page header polish to match csfloat's big hero. */
 .full-page-mode h1.px-h1,
 .full-page-mode .page-title h1 {
-  font-size: 32px !important;
+  font-size: 28px !important;
   font-weight: 700 !important;
   letter-spacing: -0.025em !important;
   font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
@@ -14872,7 +14872,7 @@ input[type="checkbox"], input[type="radio"] {
 
 /* CSFloat-1:1: cart-summary title bigger. */
 .cart-summary-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   margin-bottom: 14px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
@@ -14945,14 +14945,14 @@ input[type="checkbox"], input[type="radio"] {
   color: var(--ink) !important;
   font-weight: 700;
   letter-spacing: -0.01em;
-  font-size: 16px;
+  font-size: 15px;
 }
 /* END brand text */
 
 /* CSFloat-1:1: tweaks to grid card price line spacing. */
 .grid-price {
   display: flex; align-items: center; gap: 6px;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.015em;
 }
@@ -15279,7 +15279,7 @@ button[disabled], button:disabled, .btn[disabled] {
 
 /* CSFloat-1:1: improve cart-row prices alignment. */
 .cart-price {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
 }
 /* END cart price size */
@@ -16563,7 +16563,7 @@ details summary:hover {
 /* CSFloat-1:1: improve wallet hero balance text. */
 .wallet-hero-balance {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--ink);
@@ -16819,7 +16819,7 @@ input::placeholder, textarea::placeholder {
 
 /* CSFloat-1:1: improve icon sizing in nav. */
 .nav-icon-btn .material-symbols-rounded {
-  font-size: 20px !important;
+  font-size: 18px !important;
   font-variation-settings: "opsz" 24, "wght" 400 !important;
 }
 /* END nav icon size */
@@ -18207,7 +18207,7 @@ a[target="_blank"]::after {
 .text-xs { font-size: 11px; }
 .text-sm { font-size: 12px; }
 .text-md { font-size: 13px; }
-.text-lg { font-size: 16px; }
+.text-lg { font-size: 15px; }
 .text-xl { font-size: 22px; }
 .text-2xl { font-size: 28px; }
 /* END text size utilities */
@@ -19251,7 +19251,7 @@ a[target="_blank"]::after {
 }
 .site-root.full-page-mode .item-modal-priceblock .price {
   font-family: var(--mono);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -19424,7 +19424,7 @@ a[target="_blank"]::after {
   flex: 0 0 auto;
 }
 .csfloat-cart-drawer-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -19568,7 +19568,7 @@ a[target="_blank"]::after {
   color: var(--ink-1);
 }
 .csfloat-cart-totals-row.total .value {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
 }
@@ -19595,7 +19595,7 @@ a[target="_blank"]::after {
   color: var(--ink-3);
 }
 .csfloat-cart-empty-icon {
-  font-size: 36px;
+  font-size: 40px;
   color: var(--ink-4);
   margin-bottom: 12px;
 }
@@ -19773,7 +19773,7 @@ a[target="_blank"]::after {
   border-bottom: 1px solid var(--line);
   padding: 16px 18px;
   color: var(--ink-1);
-  font-size: 16px;
+  font-size: 15px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   outline: none;
 }
@@ -19896,7 +19896,7 @@ a[target="_blank"]::after {
 }
 .csfloat-profile-info { flex: 1 1 auto; }
 .csfloat-profile-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0 0 4px;
@@ -20028,7 +20028,7 @@ a[target="_blank"]::after {
   align-items: center;
   justify-content: center;
   color: var(--ink-4);
-  font-size: 24px;
+  font-size: 22px;
   margin-bottom: 4px;
 }
 .csfloat-empty-state-title {
@@ -20999,7 +20999,7 @@ a[target="_blank"]::after {
   gap: 8px;
 }
 .csfloat-footer-brand-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.01em;
@@ -21549,7 +21549,7 @@ a[target="_blank"]::after {
   position: relative;
 }
 .csfloat-bargain-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0 0 4px;
@@ -21740,7 +21740,7 @@ a[target="_blank"]::after {
   color: var(--cta);
 }
 .csfloat-confirm-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -21820,7 +21820,7 @@ a[target="_blank"]::after {
   align-items: center;
   justify-content: center;
   color: var(--cta);
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 .csfloat-stat-callout-text { flex: 1 1 auto; min-width: 0; }
@@ -22196,7 +22196,7 @@ a[target="_blank"]::after {
   border: 1px solid var(--line-2);
   border-radius: 50%;
   color: var(--ink-1);
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -22468,7 +22468,7 @@ a[target="_blank"]::after {
   flex-wrap: wrap;
 }
 .csfloat-page-section-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -22521,7 +22521,7 @@ a[target="_blank"]::after {
 }
 .csfloat-summary-tile-value {
   font-family: var(--mono);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -22914,7 +22914,7 @@ a[target="_blank"]::after {
   border-right: 1px solid var(--line);
   color: var(--ink-3);
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   display: inline-flex;
   align-items: center;
 }
@@ -23080,7 +23080,7 @@ a[target="_blank"]::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-contact-card-title {
@@ -23212,7 +23212,7 @@ a[target="_blank"]::after {
   align-items: center;
   gap: 8px;
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0 0 4px;
@@ -23497,7 +23497,7 @@ a[target="_blank"]::after {
   border: 1px solid var(--cta);
   border-radius: 50%;
   color: oklch(0.98 0 0);
-  font-size: 20px;
+  font-size: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -24295,7 +24295,7 @@ html { scroll-behavior: smooth; }
 }
 .csfloat-floor-callout-price {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -24510,7 +24510,7 @@ html { scroll-behavior: smooth; }
   align-items: center;
   justify-content: center;
   color: var(--ink-4);
-  font-size: 24px;
+  font-size: 22px;
 }
 .csfloat-grid-empty-title {
   font-size: 18px;
@@ -24672,7 +24672,7 @@ html { scroll-behavior: smooth; }
   background: oklch(0.30 0.05 80 / 0.18);
   border: 2px solid oklch(0.42 0.10 80 / 0.36);
   color: oklch(0.84 0.16 80);
-  font-size: 32px;
+  font-size: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -24836,13 +24836,13 @@ html { scroll-behavior: smooth; }
 .csfloat-text-13 { font-size: 13px; }
 .csfloat-text-14 { font-size: 14px; }
 .csfloat-text-15 { font-size: 15px; }
-.csfloat-text-16 { font-size: 16px; }
+.csfloat-text-16 { font-size: 15px; }
 .csfloat-text-18 { font-size: 18px; }
-.csfloat-text-20 { font-size: 20px; }
+.csfloat-text-20 { font-size: 18px; }
 .csfloat-text-22 { font-size: 22px; }
-.csfloat-text-24 { font-size: 24px; }
+.csfloat-text-24 { font-size: 22px; }
 .csfloat-text-28 { font-size: 28px; }
-.csfloat-text-32 { font-size: 32px; }
+.csfloat-text-32 { font-size: 28px; }
 .csfloat-text-40 { font-size: 40px; }
 .csfloat-text-48 { font-size: 48px; }
 .csfloat-text-64 { font-size: 64px; }
@@ -25427,7 +25427,7 @@ html { scroll-behavior: smooth; }
   left: -2px;
   top: -8px;
   font-family: var(--serif, 'Fraunces', 'Times New Roman', serif);
-  font-size: 32px;
+  font-size: 28px;
   color: var(--cta);
   font-style: italic;
   line-height: 1;
@@ -26052,7 +26052,7 @@ html { scroll-behavior: smooth; }
   filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
 }
 .csfloat-split-preview-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -26066,7 +26066,7 @@ html { scroll-behavior: smooth; }
 }
 .csfloat-split-preview-price {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -26866,7 +26866,7 @@ html { scroll-behavior: smooth; }
 .csfloat-btn-pill { border-radius: 999px; }
 .csfloat-btn-sm { height: 28px; padding: 0 12px; font-size: 11px; }
 .csfloat-btn-lg { height: 38px; padding: 0 18px; font-size: 13px; border-radius: 6px; }
-.csfloat-btn-xl { height: 52px; padding: 0 28px; font-size: 16px; border-radius: 12px; }
+.csfloat-btn-xl { height: 52px; padding: 0 28px; font-size: 15px; border-radius: 12px; }
 .csfloat-btn-icon {
   width: 36px;
   padding: 0;
@@ -27194,7 +27194,7 @@ html { scroll-behavior: smooth; }
   background: oklch(0.20 0.02 250 / 0.4);
 }
 .csfloat-compare-card-add-icon {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 300;
   line-height: 1;
 }
@@ -27431,7 +27431,7 @@ body::after {
 }
 .csfloat-img-error::before {
   content: "?";
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   width: 36px;
   height: 36px;
@@ -28598,7 +28598,7 @@ body::after {
   top: 50%;
   transform: translateY(-50%);
   color: var(--ink-3);
-  font-size: 16px;
+  font-size: 15px;
   pointer-events: none;
 }
 .csfloat-help-categories {
@@ -28633,7 +28633,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-help-category-title {
@@ -28907,7 +28907,7 @@ body::after {
   margin-bottom: 4px;
 }
 .csfloat-bento-tile-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -29275,7 +29275,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   color: var(--cta);
   background: oklch(0.30 0.05 250 / 0.18);
   border: 1px solid oklch(0.42 0.10 250 / 0.36);
@@ -29775,7 +29775,7 @@ body::after {
 .csfloat-avatar.xs { width: 18px; height: 18px; font-size: 9px; }
 .csfloat-avatar.sm { width: 24px; height: 24px; font-size: 11px; }
 .csfloat-avatar.md { width: 32px; height: 32px; font-size: 13px; }
-.csfloat-avatar.lg { width: 48px; height: 48px; font-size: 16px; }
+.csfloat-avatar.lg { width: 48px; height: 48px; font-size: 15px; }
 .csfloat-avatar.xl { width: 72px; height: 72px; font-size: 22px; }
 .csfloat-avatar img {
   width: 100%;
@@ -30608,7 +30608,7 @@ body::after {
 }
 .csfloat-collection-hero-stat-value {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.01em;
@@ -30740,7 +30740,7 @@ body::after {
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-.csfloat-leaderboard-rank.top1 { color: oklch(0.84 0.16 80); font-size: 16px; }
+.csfloat-leaderboard-rank.top1 { color: oklch(0.84 0.16 80); font-size: 15px; }
 .csfloat-leaderboard-rank.top2 { color: oklch(0.85 0.04 260); font-size: 15px; }
 .csfloat-leaderboard-rank.top3 { color: oklch(0.78 0.16 50); font-size: 15px; }
 .csfloat-leaderboard-user {
@@ -31293,7 +31293,7 @@ body::after {
 }
 .csfloat-review-summary-num {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -31569,7 +31569,7 @@ body::after {
   margin-bottom: 8px;
 }
 .csfloat-split-modal-left-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   margin: 0 0 12px;
@@ -31650,7 +31650,7 @@ body::after {
 }
 .csfloat-tier-price-amount {
   font-family: var(--mono);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -32275,7 +32275,7 @@ h3.csfloat, .csfloat-h3 {
   margin: 0 0 8px;
 }
 h4.csfloat, .csfloat-h4 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.3;
@@ -32523,7 +32523,7 @@ h6.csfloat, .csfloat-h6 {
   color: var(--ink-1);
 }
 .csfloat-collection-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   margin: 0;
   letter-spacing: -0.01em;
@@ -33309,7 +33309,7 @@ hr.csfloat {
   color: var(--ink-1);
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: -0.01em;
 }
 .csfloat-brand-icon {
@@ -33455,7 +33455,7 @@ hr.csfloat {
   justify-content: center;
   padding: 0 16px 0 20px;
   color: var(--ink-3);
-  font-size: 16px;
+  font-size: 15px;
   pointer-events: none;
 }
 .csfloat-hero-search:focus-within .csfloat-hero-search-icon {
@@ -33850,7 +33850,7 @@ hr.csfloat {
   background: oklch(0.30 0.04 30 / 0.18);
   border: 1px solid oklch(0.42 0.07 30 / 0.36);
   color: oklch(0.84 0.18 30);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -34137,7 +34137,7 @@ hr.csfloat {
   border: 1px solid oklch(0.42 0.07 152 / 0.36);
   border-radius: 50%;
   color: oklch(0.84 0.18 152);
-  font-size: 24px;
+  font-size: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -34842,7 +34842,7 @@ hr.csfloat {
   overflow-y: auto;
 }
 .csfloat-kbd-overlay-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0 0 16px;
@@ -34897,7 +34897,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 22px;
 }
 .csfloat-error-state-title {
   font-size: 22px;
@@ -35215,7 +35215,7 @@ hr.csfloat {
 .csfloat-details summary::after {
   content: "+";
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-left: 12px;
   transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -35850,7 +35850,7 @@ hr.csfloat {
   input[type="tel"],
   input[type="url"],
   input[type="password"] {
-    font-size: 16px;
+    font-size: 15px;
   }
 }
 
@@ -36137,7 +36137,7 @@ hr.csfloat {
 }
 .csfloat-stat-with-spark-value {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -36261,7 +36261,7 @@ hr.csfloat {
   width: fit-content;
 }
 .csfloat-feed-entry-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -37036,7 +37036,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   color: var(--ink-3);
-  font-size: 24px;
+  font-size: 22px;
 }
 .csfloat-inbox-empty-title {
   font-size: 14px;
@@ -37459,7 +37459,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   color: var(--cta);
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-icon-stat-value {
   font-family: var(--mono);
@@ -37580,7 +37580,7 @@ hr.csfloat {
   filter: drop-shadow(0 12px 32px rgba(0,0,0,0.5));
 }
 .csfloat-sell-preview-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -39391,7 +39391,7 @@ hr.csfloat {
 }
 .csfloat-year-sep-num {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.015em;
@@ -41729,7 +41729,7 @@ hr.csfloat {
 }
 .csfloat-auction-countdown-time {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -42294,7 +42294,7 @@ hr.csfloat {
   background: oklch(0.30 0.04 152 / 0.32);
   border: 2px solid oklch(0.62 0.18 152);
   color: oklch(0.84 0.18 152);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -42493,7 +42493,7 @@ hr.csfloat {
   background: var(--bg-1);
   border: 2px solid var(--line);
   color: var(--ink-3);
-  font-size: 32px;
+  font-size: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -42651,7 +42651,7 @@ hr.csfloat {
 }
 .csfloat-page-id-header-info { flex: 1 1 auto; min-width: 0; }
 .csfloat-page-id-header-name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0 0 4px;
@@ -42812,7 +42812,7 @@ hr.csfloat {
 }
 .csfloat-stat-fan-value {
   font-family: var(--mono);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -44228,7 +44228,7 @@ hr.csfloat {
 }
 .csfloat-stat-header-value {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -44364,7 +44364,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 .csfloat-icon-tile-icon.success {
@@ -44529,7 +44529,7 @@ hr.csfloat {
 }
 .csfloat-admin-stat-value {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -44538,7 +44538,7 @@ hr.csfloat {
   word-break: break-all;
 }
 .csfloat-admin-stat-value.large {
-  font-size: 32px;
+  font-size: 28px;
 }
 .csfloat-admin-stat-meta {
   font-family: var(--mono);
@@ -44615,7 +44615,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 .csfloat-shortcut-tile-text {
@@ -44849,7 +44849,7 @@ hr.csfloat {
   color: var(--ink-3);
 }
 .csfloat-search-empty-icon {
-  font-size: 32px;
+  font-size: 28px;
   color: var(--ink-4);
   margin-bottom: 8px;
 }
@@ -45879,7 +45879,7 @@ hr.csfloat {
   filter: drop-shadow(0 0 8px oklch(0.55 0.18 250 / 0.4));
 }
 .csfloat-footer-brand-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.01em;
@@ -47167,7 +47167,7 @@ hr.csfloat {
   font-size: 18px;
 }
 .csfloat-formatted-price.huge .csfloat-formatted-price-amount {
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   letter-spacing: -0.025em;
 }
@@ -47387,7 +47387,7 @@ hr.csfloat {
 }
 .csfloat-stat-with-icon-band-value {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.015em;
@@ -47833,7 +47833,7 @@ hr.csfloat {
 }
 .csfloat-trade-hold-timer-unit-num {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: oklch(0.92 0.10 80);
   font-variant-numeric: tabular-nums;
@@ -48173,7 +48173,7 @@ hr.csfloat {
   margin-bottom: 4px;
 }
 .csfloat-featured-tile-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -48354,7 +48354,7 @@ hr.csfloat {
 }
 .csfloat-stat-large-value {
   font-family: var(--mono);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -48583,7 +48583,7 @@ hr.csfloat {
 }
 .csfloat-app-icon.sm { width: 32px; height: 32px; font-size: 14px; border-radius: 8px; }
 .csfloat-app-icon.lg { width: 64px; height: 64px; font-size: 28px; border-radius: 14px; }
-.csfloat-app-icon.xl { width: 96px; height: 96px; font-size: 36px; border-radius: 18px; }
+.csfloat-app-icon.xl { width: 96px; height: 96px; font-size: 40px; border-radius: 18px; }
 
 /* CSFloat-1:1: button row alignment helpers. */
 .csfloat-button-row {
@@ -49088,7 +49088,7 @@ hr.csfloat {
 /* CSFloat-1:1: brand identity — main wordmark for hero/footer. */
 .csfloat-wordmark {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.025em;
   color: var(--ink-1);
@@ -49105,7 +49105,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   color: oklch(0.98 0 0);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   filter: drop-shadow(0 8px 16px oklch(0.55 0.18 250 / 0.32));
   flex-shrink: 0;
@@ -49715,7 +49715,7 @@ hr.csfloat {
 }
 .csfloat-status-timeline-row.pending .csfloat-status-timeline-icon::before {
   content: "•";
-  font-size: 16px;
+  font-size: 15px;
   animation: csfloat-status-pulse 1800ms ease-in-out infinite;
   color: var(--cta);
 }
@@ -49770,7 +49770,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-feature-col-title {
@@ -50284,7 +50284,7 @@ hr.csfloat {
   letter-spacing: -0.005em;
 }
 .csfloat-stat-with-sub-value {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -50640,7 +50640,7 @@ hr.csfloat {
   margin-bottom: 6px;
 }
 .csfloat-overlay-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: oklch(0.98 0 0);
   margin: 0 0 4px;
@@ -51487,7 +51487,7 @@ hr.csfloat {
   border-color: var(--line-2);
 }
 .csfloat-icon-square.sm { width: 24px; height: 24px; font-size: 12px; }
-.csfloat-icon-square.lg { width: 36px; height: 36px; font-size: 16px; }
+.csfloat-icon-square.lg { width: 36px; height: 36px; font-size: 15px; }
 .csfloat-icon-square.danger:hover {
   color: oklch(0.84 0.18 30);
   border-color: oklch(0.42 0.07 30 / 0.5);
@@ -51779,7 +51779,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-icon-callout-text {
   display: flex;
@@ -51863,7 +51863,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
   transition: color 200ms ease, background 200ms ease, border-color 200ms ease;
 }
@@ -51919,7 +51919,7 @@ hr.csfloat {
 }
 .csfloat-large-stat-value {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -52276,7 +52276,7 @@ hr.csfloat {
   filter: drop-shadow(0 0 8px oklch(0.55 0.18 250 / 0.35));
 }
 .csfloat-footer-wordmark-text {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   letter-spacing: -0.01em;
@@ -52375,7 +52375,7 @@ hr.csfloat {
   justify-content: center;
   padding: 0 12px 0 18px;
   color: var(--ink-3);
-  font-size: 16px;
+  font-size: 15px;
   pointer-events: none;
 }
 .csfloat-prominent-search-input {
@@ -52485,7 +52485,7 @@ hr.csfloat {
 }
 .csfloat-hero-stat-value {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -52570,7 +52570,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-featured-with-chip-title {
@@ -53315,7 +53315,7 @@ hr.csfloat {
   border: 1px solid var(--line-2);
   border-radius: 50%;
   color: var(--ink-1);
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -53495,7 +53495,7 @@ hr.csfloat {
   z-index: 1;
 }
 .csfloat-profile-banner-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   margin: 0 0 6px;
@@ -54005,7 +54005,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 .csfloat-stat-tile-inline-text {
@@ -54134,7 +54134,7 @@ hr.csfloat {
 }
 .csfloat-data-cell-value {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -54420,7 +54420,7 @@ hr.csfloat {
 }
 .csfloat-stat-with-growth-value {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.01em;
@@ -54596,7 +54596,7 @@ hr.csfloat {
   flex-wrap: wrap;
 }
 .csfloat-section-head-with-action-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -55493,12 +55493,12 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-icon-value-card-value {
   font-family: var(--mono);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -55532,7 +55532,7 @@ hr.csfloat {
   background: oklch(0.30 0.05 250 / 0.10);
   border: 2px solid var(--line-2);
   color: var(--ink-3);
-  font-size: 36px;
+  font-size: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -55891,7 +55891,7 @@ hr.csfloat {
   left: 50%;
   transform: translate(-50%, -50%);
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -56767,7 +56767,7 @@ hr.csfloat {
   -webkit-text-fill-color: transparent;
 }
 .csfloat-hero-with-badge-desc {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin: 0;
   line-height: 1.65;
@@ -57171,7 +57171,7 @@ hr.csfloat {
   border-bottom: 1px solid var(--line);
 }
 .csfloat-section-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -57305,7 +57305,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-card-with-tucked-cta-title {
@@ -57896,7 +57896,7 @@ hr.csfloat {
   color: var(--ink-1);
 }
 .csfloat-cart-summary-footer-row.total .value {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
 }
@@ -58524,7 +58524,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 22px;
   flex-shrink: 0;
 }
 .csfloat-feature-split-text {
@@ -58534,7 +58534,7 @@ hr.csfloat {
   min-width: 0;
 }
 .csfloat-feature-split-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -58873,7 +58873,7 @@ hr.csfloat {
   letter-spacing: -0.005em;
 }
 .csfloat-release-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -59241,7 +59241,7 @@ hr.csfloat {
 }
 .csfloat-pricing-card-amount {
   font-family: var(--mono);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -60051,7 +60051,7 @@ hr.csfloat {
   border: 1px solid var(--cta);
   border-radius: 50%;
   color: oklch(0.98 0 0);
-  font-size: 16px;
+  font-size: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -60100,7 +60100,7 @@ hr.csfloat {
   flex: 1 1 auto;
 }
 .csfloat-page-with-avatar-nav-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -60668,11 +60668,11 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-bento-asym-tile-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -61691,7 +61691,7 @@ hr.csfloat {
   gap: 4px;
 }
 .csfloat-secondary-cta-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -62991,7 +62991,7 @@ hr.csfloat {
 }
 .csfloat-stat-with-growth-bar-value {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -63056,7 +63056,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 .csfloat-action-row-icon-text {
@@ -63354,7 +63354,7 @@ hr.csfloat {
   gap: 4px;
 }
 .csfloat-highlight-banner-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   margin: 0;
@@ -63543,7 +63543,7 @@ hr.csfloat {
   min-width: 0;
 }
 .csfloat-entry-card-title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -63562,7 +63562,7 @@ hr.csfloat {
   border: 1px solid var(--line);
   border-radius: 50%;
   color: var(--ink-3);
-  font-size: 16px;
+  font-size: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -63810,7 +63810,7 @@ hr.csfloat {
 }
 .csfloat-stat-3up-divided-value {
   font-family: var(--mono);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -63848,7 +63848,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 .csfloat-page-brand-bar-text {
@@ -63884,7 +63884,7 @@ hr.csfloat {
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
 }
 .csfloat-ribbon-cut-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   margin: 0 0 6px;
@@ -64047,7 +64047,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   flex-shrink: 0;
 }
 .csfloat-section-card-icon-content {
@@ -64057,7 +64057,7 @@ hr.csfloat {
   min-width: 0;
 }
 .csfloat-section-card-icon-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -64336,7 +64336,7 @@ hr.csfloat {
   .csfloat-2up-split-card-text { padding: 0 18px 18px; }
 }
 .csfloat-2up-split-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-1);
   margin: 0;
@@ -64676,7 +64676,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   z-index: 8700;
@@ -64924,7 +64924,7 @@ hr.csfloat {
 }
 .csfloat-stat-with-ring-value {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-1);
   font-variant-numeric: tabular-nums;
@@ -65501,7 +65501,7 @@ hr.csfloat {
 }
 .csfloat-hero-with-side-stats-stat-value {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.02em;
@@ -66213,7 +66213,7 @@ hr.csfloat {
 }
 .csfloat-stat-callout-big-value {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -66746,7 +66746,7 @@ hr.csfloat {
 }
 .csfloat-page-stat-banner-value {
   font-family: var(--mono);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink-1);
   letter-spacing: -0.025em;
@@ -67579,7 +67579,7 @@ hr.csfloat {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
 }
 .csfloat-pagination-btn.is-arrow {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 400;
 }
 .csfloat-pagination-ellipsis {
@@ -69463,7 +69463,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   color: var(--ink-4);
-  font-size: 20px;
+  font-size: 18px;
 }
 .csfloat-cart-empty-msg {
   font: 500 14px/1.4 var(--ui);
@@ -69645,7 +69645,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   color: var(--ink-3);
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 4px;
 }
 .csfloat-upload:hover .csfloat-upload-icon {
@@ -69784,7 +69784,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   color: var(--ink-4);
-  font-size: 36px;
+  font-size: 40px;
   position: relative;
 }
 .csfloat-empty-art::before {
@@ -70141,7 +70141,7 @@ hr.csfloat {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   align-self: flex-start;
 }
 .csfloat-dialog.is-danger .csfloat-dialog-icon {
@@ -70353,7 +70353,7 @@ hr.csfloat {
 .csfloat-input-group.is-sm > input,
 .csfloat-input-group.is-sm > textarea { height: 30px; font-size: 13px; }
 .csfloat-input-group.is-lg > input,
-.csfloat-input-group.is-lg > textarea { height: 44px; font-size: 16px; }
+.csfloat-input-group.is-lg > textarea { height: 44px; font-size: 15px; }
 .csfloat-input-group-mono > input { font-family: var(--mono); font-feature-settings: "tnum"; }
 
 /* CSFloat-1:1: form field group — label + input + helper text + error */
@@ -74223,7 +74223,7 @@ hr.csfloat {
   letter-spacing: -0.02em;
 }
 .csfloat-bento-tile.is-feature .csfloat-bento-tile-stat {
-  font-size: 36px;
+  font-size: 40px;
   letter-spacing: -0.03em;
 }
 .csfloat-bento-tile-stat-label {
@@ -75125,7 +75125,7 @@ hr.csfloat {
 .csfloat-price-tag.is-large {
   padding: 14px 18px;
 }
-.csfloat-price-tag.is-large .csfloat-price-tag-amt { font-size: 24px; }
+.csfloat-price-tag.is-large .csfloat-price-tag-amt { font-size: 22px; }
 .csfloat-price-tag.is-cta {
   background: rgba(59, 130, 246, 0.06);
   border-color: rgba(59, 130, 246, 0.3);
@@ -75369,7 +75369,7 @@ hr.csfloat {
 }
 @media (max-width: 540px) {
   .csfloat-amount-input { padding: 12px 14px; }
-  .csfloat-amount-input > input { font-size: 24px; }
+  .csfloat-amount-input > input { font-size: 22px; }
   .csfloat-amount-prefix { font-size: 18px; }
 }
 /* END confirmation card + amount input */
@@ -76967,7 +76967,7 @@ hr.csfloat {
 }
 .csfloat-identicon.is-sm { width: 24px; height: 24px; flex: 0 0 24px; font-size: 10px; }
 .csfloat-identicon.is-lg { width: 56px; height: 56px; flex: 0 0 56px; font-size: 18px; }
-.csfloat-identicon.is-xl { width: 80px; height: 80px; flex: 0 0 80px; font-size: 26px; }
+.csfloat-identicon.is-xl { width: 80px; height: 80px; flex: 0 0 80px; font-size: 28px; }
 .csfloat-identicon.is-square { border-radius: 6px; }
 .csfloat-identicon.is-color-1 { background: linear-gradient(135deg, oklch(0.42 0.14 240), oklch(0.52 0.18 240)); color: oklch(0.92 0.08 240); }
 .csfloat-identicon.is-color-2 { background: linear-gradient(135deg, oklch(0.42 0.18 290), oklch(0.52 0.18 290)); color: oklch(0.92 0.08 290); }
@@ -77689,7 +77689,7 @@ hr.csfloat {
 .csfloat-stepper.is-sm { font-size: 11px; }
 .csfloat-stepper.is-sm .csfloat-stepper-btn { width: 22px; height: 26px; font-size: 12px; }
 .csfloat-stepper.is-sm .csfloat-stepper-input { width: 36px; font-size: 12px; }
-.csfloat-stepper.is-lg .csfloat-stepper-btn { width: 36px; height: 40px; font-size: 16px; }
+.csfloat-stepper.is-lg .csfloat-stepper-btn { width: 36px; height: 40px; font-size: 15px; }
 .csfloat-stepper.is-lg .csfloat-stepper-input { width: 56px; font-size: 15px; }
 
 /* CSFloat-1:1: quantity row — stepper + price */
@@ -78514,7 +78514,7 @@ hr.csfloat {
 }
 .csfloat-trust-gauge.is-lg .csfloat-trust-gauge-track,
 .csfloat-trust-gauge.is-lg .csfloat-trust-gauge-fill { stroke-width: 10; }
-.csfloat-trust-gauge.is-lg .csfloat-trust-gauge-value { font-size: 32px; }
+.csfloat-trust-gauge.is-lg .csfloat-trust-gauge-value { font-size: 28px; }
 
 /* CSFloat-1:1: kbd help block — list of keyboard shortcuts */
 .csfloat-kbd-list {
@@ -81678,7 +81678,7 @@ hr.csfloat {
   align-items: center;
   justify-content: center;
   flex: 0 0 36px;
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-announce-body {
   display: flex;
@@ -87190,7 +87190,7 @@ tr:hover .csfloat-row-hover-actions,
   margin-right: 1px;
   font-weight: 500;
 }
-.csfloat-podium-tile.is-1 .csfloat-podium-tile-amt { font-size: 16px; }
+.csfloat-podium-tile.is-1 .csfloat-podium-tile-amt { font-size: 15px; }
 /* END top trades + podium leaderboard */
 
 /* CSFloat-1:1: status update card — for staff announcements feed */
@@ -90028,7 +90028,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-kpi-chart-val.is-currency::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 1px;
   font-weight: 500;
@@ -91695,7 +91695,7 @@ tr:hover .csfloat-row-hover-actions,
   border-color: var(--line-2);
 }
 .csfloat-input.is-sm { height: 30px; padding: 0 10px; font-size: 13px; }
-.csfloat-input.is-lg { height: 44px; padding: 0 14px; font-size: 16px; }
+.csfloat-input.is-lg { height: 44px; padding: 0 14px; font-size: 15px; }
 .csfloat-input.is-error {
   border-color: oklch(0.66 0.18 30);
   background: rgba(248, 113, 113, 0.04);
@@ -92419,7 +92419,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-price-cmp-head-cell-price-val::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 1px;
   font-weight: 500;
@@ -92598,7 +92598,7 @@ tr:hover .csfloat-row-hover-actions,
   font: 400 11px/1 var(--ui);
   color: var(--ink-4);
 }
-.csfloat-tier-price.is-large .csfloat-tier-price-amt-val { font-size: 32px; }
+.csfloat-tier-price.is-large .csfloat-tier-price-amt-val { font-size: 28px; }
 .csfloat-tier-price.is-large .csfloat-tier-price-amt-val::before { font-size: 18px; }
 .csfloat-tier-price.is-cta .csfloat-tier-price-amt-val { color: var(--cta); }
 .csfloat-tier-price.is-cta .csfloat-tier-price-amt-val::before { color: rgba(125, 184, 248, 0.6); }
@@ -93310,7 +93310,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-vault-val::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 2px;
   font-weight: 500;
@@ -93738,7 +93738,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-data-callout-val.is-currency::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 1px;
   font-weight: 500;
@@ -94365,7 +94365,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-mobile-nav-link-badge {
   position: absolute;
@@ -99749,7 +99749,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-contact-card-title {
   font: 600 14px/1.3 var(--ui);
@@ -100314,7 +100314,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   flex: 0 0 56px;
 }
 .csfloat-announce-card-info {
@@ -100365,7 +100365,7 @@ tr:hover .csfloat-row-hover-actions,
     grid-template-columns: 40px 1fr;
     gap: 12px;
   }
-  .csfloat-announce-card-icon { width: 40px; height: 40px; flex: 0 0 40px; font-size: 16px; }
+  .csfloat-announce-card-icon { width: 40px; height: 40px; flex: 0 0 40px; font-size: 15px; }
   .csfloat-announce-card-stamp { display: none; }
 }
 /* END shimmer text 2 + stat group + announce card */
@@ -100655,7 +100655,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-pricing-rich-amt-val::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 2px;
   font-weight: 500;
@@ -100917,7 +100917,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-insight-chart-stat-val.is-currency::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 1px;
   font-weight: 500;
@@ -103191,7 +103191,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   justify-content: center;
   flex: 0 0 40px;
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-hl-stat.is-success .csfloat-hl-stat-icon {
   background: rgba(52, 211, 153, 0.12);
@@ -103756,7 +103756,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 28px;
 }
 .csfloat-no-results-title {
   font: 600 18px/1.3 var(--ui);
@@ -104486,7 +104486,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-progress-arc.is-lg .csfloat-progress-arc-track,
 .csfloat-progress-arc.is-lg .csfloat-progress-arc-fill { stroke-width: 12; }
-.csfloat-progress-arc.is-lg .csfloat-progress-arc-val { font-size: 32px; }
+.csfloat-progress-arc.is-lg .csfloat-progress-arc-val { font-size: 28px; }
 
 /* CSFloat-1:1: data summary dot row — for inline mini-stats */
 .csfloat-summary-dot {
@@ -107672,7 +107672,7 @@ tr:hover .csfloat-row-hover-actions,
 }
 .csfloat-hero-cmp-side-val.is-currency::before {
   content: '$';
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-right: 1px;
   font-weight: 500;
@@ -107799,7 +107799,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   justify-content: center;
   color: var(--ink-4);
-  font-size: 24px;
+  font-size: 22px;
 }
 .csfloat-cart-drawer-empty-msg {
   font: 600 14px/1.3 var(--ui);
@@ -108223,7 +108223,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   justify-content: center;
   flex: 0 0 40px;
-  font-size: 16px;
+  font-size: 15px;
 }
 .csfloat-panel-notif.is-info .csfloat-panel-notif-icon {
   background: rgba(59, 130, 246, 0.12);
@@ -109677,7 +109677,7 @@ tr:hover .csfloat-row-hover-actions,
 .csfloat-stat-comp-comp-mono.is-up { color: oklch(0.78 0.16 152); }
 .csfloat-stat-comp-comp-mono.is-down { color: oklch(0.72 0.18 30); }
 .csfloat-stat-comp.is-large .csfloat-stat-comp-val { font-size: 28px; letter-spacing: -0.025em; }
-.csfloat-stat-comp.is-large .csfloat-stat-comp-val.is-currency::before { font-size: 16px; }
+.csfloat-stat-comp.is-large .csfloat-stat-comp-val.is-currency::before { font-size: 15px; }
 
 /* CSFloat-1:1: tags inline display */
 .csfloat-tags-inline {
@@ -111718,7 +111718,7 @@ tr:hover .csfloat-row-hover-actions,
 .csfloat-money.is-large::before { font-size: 14px; }
 .csfloat-money.is-large .csfloat-money-decimal { font-size: 14px; }
 .csfloat-money.is-xl {
-  font-size: 32px;
+  font-size: 28px;
   letter-spacing: -0.025em;
 }
 .csfloat-money.is-xl::before { font-size: 18px; }
@@ -113724,7 +113724,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
 }
 .csfloat-notif-empty-title {
   font: 600 14px/1.3 var(--ui);
@@ -114675,7 +114675,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   flex: 0 0 40px;
 }
 .csfloat-feat-snap-card.is-success .csfloat-feat-snap-card-icon {
@@ -114762,12 +114762,12 @@ tr:hover .csfloat-row-hover-actions,
   font-weight: 500;
 }
 .csfloat-price-label.is-large {
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: -0.015em;
 }
 .csfloat-price-label.is-large::before { font-size: 12px; }
 .csfloat-price-label.is-xl {
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: -0.025em;
 }
 .csfloat-price-label.is-xl::before { font-size: 14px; }
@@ -115583,7 +115583,7 @@ tr:hover .csfloat-row-hover-actions,
   font-feature-settings: "tnum";
 }
 .csfloat-av-placeholder.is-sm { width: 24px; height: 24px; font-size: 10px; }
-.csfloat-av-placeholder.is-lg { width: 56px; height: 56px; font-size: 20px; }
+.csfloat-av-placeholder.is-lg { width: 56px; height: 56px; font-size: 18px; }
 .csfloat-av-placeholder.is-xl { width: 80px; height: 80px; font-size: 28px; }
 .csfloat-av-placeholder.is-square { border-radius: 6px; }
 .csfloat-av-placeholder.is-cta {
@@ -116890,7 +116890,7 @@ tr:hover .csfloat-row-hover-actions,
 .db-table tbody td .btn-ghost {
   border: 0 !important;
   width: 30px; height: 30px;
-  font-size: 16px;
+  font-size: 15px;
   background: transparent !important;
 }
 .db-table tbody td .btn-ghost:hover {
@@ -116966,7 +116966,7 @@ tr:hover .csfloat-row-hover-actions,
   line-height: 1.1 !important;
 }
 .site-root.full-page-mode .modal-stat-box:first-child .modal-stat-val {
-  font-size: 26px !important;
+  font-size: 28px !important;
 }
 
 /* The "Standard" rarity chip floating in the middle of the image
@@ -117259,7 +117259,7 @@ tr:hover .csfloat-row-hover-actions,
 .empty-state-title {
   color: var(--ink) !important;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 6px;
 }
 .empty-state-sub {
@@ -117757,7 +117757,7 @@ h1.modal-h1,
 .csfloat-home-hero-sub {
   margin: 0 0 32px;
   max-width: 560px;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.55;
   color: var(--ink-2);
   text-wrap: pretty;
@@ -118563,7 +118563,7 @@ h1.modal-h1,
 }
 .csfloat-home-journey-title {
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -118650,7 +118650,7 @@ h1.modal-h1,
      the home page had two visible H2 sizes (28 + 32) which broke the
      typographic hierarchy ladder boss-prompt called out. Single H2 size
      across page sections + same letter-spacing + line-height. */
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -118750,7 +118750,7 @@ h1.modal-h1,
   width: 44px; height: 44px;
   background: var(--bg-1);
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--cta);
   border: 1px solid var(--line-2);
@@ -120283,7 +120283,7 @@ h2.auctions-ending-soon-head {
    The arrow was at --text-muted (=ink-4), too dim against bg-2. Bump to
    ink-2 so the row reads as one cohesive unit. */
 .help-faq-preview .help-faq-preview-row .help-faq-preview-arrow {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-2);
   flex-shrink: 0;
 }
