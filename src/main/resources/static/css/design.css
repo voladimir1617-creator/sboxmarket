@@ -121215,3 +121215,26 @@ textarea:focus-visible {
   outline-offset: 2px !important;
 }
 /* END scroll-up FAB polish */
+
+/* =====================================================================
+   Filter chip / pill hover neutralizer — boss-QA cycle 31, ship #30
+   ---------------------------------------------------------------------
+   .filter-chip and .filter-pill / .px-pill / .px-chip hovers all tint
+   with --cta blue (10/16/28/40% mixes). The chips line a row at the
+   top of /market — hovering across them paints a wave of brand-blue
+   borders. Switch hovers to --line-2 / --bg-3 so the chip group
+   responds visibly but neutrally.
+   ===================================================================== */
+.filter-chip:hover {
+  background: var(--bg-3) !important;
+  border-color: var(--line-2) !important;
+  color: var(--ink) !important;
+}
+.filter-pill:hover,
+.px-pill:hover,
+.px-chip:hover {
+  border-color: var(--line-2) !important;
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+}
+/* END filter chip/pill polish */
