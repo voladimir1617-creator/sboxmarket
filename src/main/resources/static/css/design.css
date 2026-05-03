@@ -120930,3 +120930,38 @@ textarea:focus-visible {
   color: var(--ink) !important;
 }
 /* END breadcrumb spacing */
+
+/* =====================================================================
+   Empty-state typography pass — boss-QA cycle 31, ship #15
+   ---------------------------------------------------------------------
+   The default empty-state at line 4585 had two blue-as-spice violations
+   (radial wash tinted with --cta, icon ring tinted with --cta) and an
+   off-scale icon size that read as decorative. Switch the wash + icon
+   tint to neutral --ink-3/--line so the empty card stays sober,
+   keep the Fraunces serif for the title (editorial moment is on-brand
+   in empty states per the design memory), and give the sub-copy a
+   tighter, more "calm" tone via 14px size and ink-3 color.
+   ===================================================================== */
+.empty-state {
+  background: var(--bg-1) !important;
+  border-color: var(--line) !important;
+}
+.empty-state-icon,
+.empty-icon {
+  background: var(--bg-2) !important;
+  box-shadow:
+    0 0 0 1px var(--line-2),
+    inset 0 0 0 1px var(--line) !important;
+  color: var(--ink-3) !important;
+}
+.empty-state-sub {
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: var(--ink-3) !important;
+  max-width: 44ch !important;
+}
+.empty-state-actions {
+  margin-top: 16px !important;
+  gap: 12px !important;
+}
+/* END empty-state polish */
