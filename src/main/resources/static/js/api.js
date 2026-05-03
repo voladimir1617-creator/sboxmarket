@@ -51,8 +51,9 @@ async function safeJson(url, opts, meta) {
       // DB probe is failing over or the admin flipped maintenance
       // mode. Flip the SPA into a "SkinBox is temporarily unavailable"
       // banner instead of flashing empty-state cards across the UI.
-      // Debounced inside the App listener.
-      if (r.status === 503) {
+      // Debounced inside the App listener. 502/504 from the edge nginx
+      // mean the upstream pod is crashing/timing out — same UX intent.
+      if (r.status === 503 || r.status === 502 || r.status === 504) {
         try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
       }
       // Suppress the warn for callers that have explicitly opted into
@@ -70,6 +71,16 @@ async function safeJson(url, opts, meta) {
     try { window.dispatchEvent(new CustomEvent('sb:service-restored')); } catch (_) {}
     return await r.json();
   } catch (e) {
+    // Network-level failure (offline, DNS, TLS, timeout, CORS abort).
+    // Pre-fix this swallowed silently — every dependent fetch returned
+    // null, every consumer rendered "no listings / no items / no orders"
+    // empty states, and the user had no signal that the network was
+    // actually down. Now we fire the same service-unavailable event the
+    // 503/502/504 branches use so the existing top-of-app banner says
+    // "SkinBox is temporarily unavailable. Refreshed data will appear
+    // once service is restored." The banner self-clears on the next 2xx
+    // (sb:service-restored) so the UI auto-recovers without a refresh.
+    try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
     console.error(`[${url}] fetch failed:`, e);
     return null;
   }
@@ -119,8 +130,9 @@ async function writeJson(url, opts) {
       }
       // Batch 711 — 503 on write mirrors the 503-on-read broadcast.
       // Lets the service-unavailable banner fire regardless of which
-      // op triggered the degraded state.
-      if (r.status === 503) {
+      // op triggered the degraded state. 502/504 from the edge nginx
+      // get the same banner — same root cause, same recovery.
+      if (r.status === 503 || r.status === 502 || r.status === 504) {
         try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
       }
       // Batch 989 — VALIDATION_FAILED responses carry `details.fields`
@@ -170,6 +182,12 @@ async function writeJson(url, opts) {
     try { window.dispatchEvent(new CustomEvent('sb:service-restored')); } catch (_) {}
     return body;
   } catch (e) {
+    // Network-level failure on a write op (offline, DNS, TLS, timeout).
+    // Mirror the read-side fix — fire the service-unavailable event so
+    // the banner appears even when the action that surfaced the failure
+    // was a POST/PUT/DELETE, not a GET. Caller still receives the
+    // structured { error, code: 'NETWORK_ERROR' } so the toast renders.
+    try { window.dispatchEvent(new CustomEvent('sb:service-unavailable')); } catch (_) {}
     console.error(`[${url}] write failed:`, e);
     return { error: 'Network error — please try again', code: 'NETWORK_ERROR' };
   }

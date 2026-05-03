@@ -112,7 +112,15 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       viewTransitionName: 'card-' + (listing.id || 'x')
     }
   },
-    h('div', { className: 'grid-thumb' },
+    h('div', {
+      className: 'grid-thumb',
+      // Operator audit (batch 1149): the colored hairline at the top of
+      // the thumbnail is a rarity stripe (yellow=Off-Market, pink=Limited,
+      // blue=Standard). It's a CSS pseudo-element so it can't carry its
+      // own tooltip; surface the meaning here on the parent so anyone
+      // hovering anywhere on the image sees what the bar is for.
+      title: item.rarity ? `Color stripe at top = ${item.rarity} rarity` : undefined
+    },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),
       // CSFloat-1:1 — decorative magnifier-zoom cue at the bottom-right
@@ -221,7 +229,18 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
         const isOnline = (seed % 5) < 2;
         const isVerified = (listing.sellerReviewCount || 0) >= 5;
-        return h('div', { className: 'grid-status' },
+        // Operator audit (batch 1149): clarify the Online/Offline pill —
+        // it tracks SELLER PRESENCE (whether the lister is currently
+        // active on the site), not item availability. Without a tooltip
+        // shoppers were guessing whether "Offline" meant the item was
+        // unavailable; it just means the seller may be slower to respond
+        // to messages/offers.
+        return h('div', {
+          className: 'grid-status',
+          title: isOnline
+            ? 'Seller is online — likely to respond to offers/messages quickly'
+            : 'Seller is offline — purchases still go through instantly; offers may take longer to answer'
+        },
           h('span', { className: `grid-status-dot${isOnline ? ' online' : ''}` }),
           isOnline ? 'Online' : 'Offline',
           isVerified && h('span', { className: 'grid-status-verified', title: 'Verified seller (5+ reviews)' },
@@ -240,7 +259,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             // CSFloat-1:1 — small green USD chip after every price. Pure
             // visual signal that the listed price is in USD; mirrors
             // csfloat's "$675.00 [$]" badge pairing.
-            h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Listed in USD' }, '$'),
+            h('span', { className: 'grid-price-usd', 'aria-hidden': 'true', title: 'Price is in US dollars (USD) — every listing on SkinBox uses one currency' }, '$'),
             h(SteamMarketLink, { item, compact: true }),
             // Boss QA cycle 2 N4 — bumped the discount-chip threshold
             // from 5% to 10%. With seed data sitting at 7-8% under
@@ -249,7 +268,14 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
             // the same threshold the marketplace's "Top Deals" filter
             // uses, so what's chipped here matches what's surfaced
             // there — visual credibility restored.
-            disc >= 10 && h('span', { className: 'grid-discount' }, `−${disc}%`)
+            disc >= 10 && h('span', {
+              className: 'grid-discount',
+              // Operator audit (batch 1149): make the −N% chip self-explanatory.
+              // It compares this listing's price against the Steam Community
+              // Market reference price for the same item; "−14%" means this
+              // listing is 14% cheaper than Steam.
+              title: `${disc}% cheaper than the Steam Community Market reference price for this item`
+            }, `−${disc}%`)
           ),
           isAuction && listing.bidCount > 0
             ? h('div', { className: 'grid-bid-count' }, `${listing.bidCount} bid${listing.bidCount === 1 ? '' : 's'}`)

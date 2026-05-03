@@ -2831,6 +2831,11 @@ export function SettingsModal({ onClose, me }) {
   };
   const [reduceMotion, setRM]   = useState(localStorage.getItem('sb_reduce_motion') === '1');
   const [highContrast, setHC]   = useState(localStorage.getItem('sb_contrast') === '1');
+  // Privacy toggle — masks $ amounts (wallet hero, profile earnings,
+  // MyStall earnings strip, the under-balance chip). Stored in
+  // localStorage and read by every consumer that already honours
+  // sb_privacy, so toggling here propagates without any extra wiring.
+  const [privacy, setPrivacy]   = useState(localStorage.getItem('sb_privacy') === '1');
   // Codex 17:28Z polish — Sound effects "Test" button was audio-only and
   // appeared dead if the audio context was blocked by the browser (autoplay
   // policy, muted tab, or no Web Audio API at all). Surface a short status
@@ -2860,6 +2865,19 @@ export function SettingsModal({ onClose, me }) {
     localStorage.setItem('sb_contrast', highContrast ? '1' : '0');
     document.documentElement.classList.toggle('high-contrast', highContrast);
   }, [highContrast]);
+  // Cross-tab sync: a write to localStorage doesn't fire a 'storage'
+  // event in the SAME tab, so other consumers (wallet hero, profile,
+  // mystall) won't repaint until the next render. Dispatch a synthetic
+  // event so the existing 'storage' listeners pick up the new value
+  // immediately. Same pattern used by the profile-side privacy toggle.
+  useEffect(() => {
+    localStorage.setItem('sb_privacy', privacy ? '1' : '0');
+    try {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sb_privacy', newValue: privacy ? '1' : '0'
+      }));
+    } catch (_) {}
+  }, [privacy]);
 
   const Row = (label, sublabel, control) => h('div', { className: 'settings-row' },
     h('div', null,
@@ -3015,6 +3033,10 @@ export function SettingsModal({ onClose, me }) {
         }, muted.has(opt.id) ? `Muted · ${opt.label}` : opt.label))
       )
     ),
+    Section('Privacy'),
+    Row('Hide $ amounts',
+      'Mask wallet balance, earnings, profile and stall totals as "$•••••" — useful for streaming or screenshotting. Item prices stay visible.',
+      Toggle(privacy, () => setPrivacy(v => !v))),
     Section('Accessibility & appearance'),
     Row('Reduce motion',      'Disable animations for card hover + ticker scroll',
       Toggle(reduceMotion, () => setRM(v => !v))),
@@ -3022,6 +3044,25 @@ export function SettingsModal({ onClose, me }) {
       Toggle(highContrast, () => setHC(v => !v))),
     Row('Accent colour',      'Editorial mono-primary palette — near-white chrome with blue reserved for CTAs and live indicators. No theme picker.',
       h('span', { style: { color: 'var(--text-muted)', fontSize: 12 } }, 'Dark · mono')
+    ),
+    me && h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' } },
+      Section('Account & data'),
+      h('div', { style: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 } },
+        'Display name and avatar come from your Steam profile and update on every sign-in. Email + 2FA + trade URL live on the Personal Info tab.'),
+      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, textDecoration: 'none' },
+          href: '/profile/personal',
+          onClick: () => onClose && onClose()
+        }, 'Manage account →'),
+        h('a', {
+          className: 'btn btn-ghost',
+          style: { border: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, textDecoration: 'none' },
+          href: '/api/profile/export',
+          title: 'Download every piece of your data we store as a JSON file'
+        }, '⇣ Export my data (JSON)')
+      )
     ),
     h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' } },
       Section('Local data'),
