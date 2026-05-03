@@ -1566,7 +1566,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                     }
                   } catch (_) { window.prompt('Copy this loadout link:', url); }
                 }
-              }, '⎘')
+              }, h(MaterialIcon, { name: 'content_copy', size: 16 }))
             ))
           )
     )
