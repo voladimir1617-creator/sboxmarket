@@ -121769,3 +121769,17 @@ textarea {
 }
 .sale-toast.toast-out { animation: toast-out 180ms ease-in forwards; }
 /* END boss QA cycle 31 ship #21 final UI polish */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #1 — home hero title
+   Measured: csfloat .header is 40px / 500 / normal lh / normal letter-spacing
+   sboxmarket .csfloat-home-hero-title was 60px / 700 / 63px lh / -1.32px ls
+   Match csfloat exact pixel values.
+   ===================================================================== */
+.csfloat-home-hero-title {
+  font-size: 40px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1 */
