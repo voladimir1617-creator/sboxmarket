@@ -2449,19 +2449,37 @@ function CookieBanner() {
   // banner must NEVER reappear for this browser without a manual reset.
   // Also suppress when the QA screenshot rig appends `?_qa=1` so every
   // boss screenshot lands clean (no banner, no cookie pill).
-  const [visible, setVisible] = useState(() => {
+  //
+  // Persistence read helper. Checks localStorage AND sessionStorage so a
+  // user whose browser blocks localStorage (Safari ITP private mode,
+  // strict tracking-protection) still gets a session-scoped dismissal.
+  // Re-run on every render and on `pageshow` so a bfcache restore that
+  // skips the useState initialiser can't bring the banner back.
+  const readConsent = () => {
     try {
-      if (typeof location !== 'undefined' && /[?&]_qa=1\b/.test(location.search)) return false;
-      // Boss QA cycle 2 G1 — suppress for any headless browser. Fresh
-      // chrome instances have no localStorage, so the banner kept showing
-      // up on every QA dump even though real users dismiss it once and
-      // never see it again. Real browsers (Chrome, Firefox, Safari, Edge)
-      // never advertise "HeadlessChrome" or "PhantomJS" in their UA.
-      if (typeof navigator !== 'undefined' && /HeadlessChrome|PhantomJS|puppeteer|playwright/i.test(navigator.userAgent || '')) return false;
-      return !localStorage.getItem('sb_cookie_consent');
-    }
-    catch { return false; }
-  });
+      if (typeof location !== 'undefined' && /[?&]_qa=1\b/.test(location.search)) return 'qa';
+      if (typeof navigator !== 'undefined' && /HeadlessChrome|PhantomJS|puppeteer|playwright/i.test(navigator.userAgent || '')) return 'headless';
+      let v = null;
+      try { v = localStorage.getItem('sb_cookie_consent'); } catch (_) {}
+      if (!v) { try { v = sessionStorage.getItem('sb_cookie_consent'); } catch (_) {} }
+      return v;
+    } catch (_) { return null; }
+  };
+  const [visible, setVisible] = useState(() => !readConsent());
+  // Re-check on bfcache restore + storage events from other tabs. Without
+  // this, dismissing in tab A leaves tab B's banner alive until a hard
+  // reload, and Safari's bfcache can restore a pre-dismiss CookieBanner
+  // instance that re-shows even though localStorage already persisted
+  // the choice.
+  useEffect(() => {
+    const recheck = () => { if (readConsent()) setVisible(false); };
+    window.addEventListener('pageshow', recheck);
+    window.addEventListener('storage', recheck);
+    return () => {
+      window.removeEventListener('pageshow', recheck);
+      window.removeEventListener('storage', recheck);
+    };
+  }, []);
   // Auto-collapse to a tiny pill after 5s of no interaction. The user
   // can still expand by hovering. This stops the banner from squatting
   // on the bottom-left of every screenshot the boss takes.
@@ -2479,10 +2497,21 @@ function CookieBanner() {
     return () => { clearTimeout(t); window.removeEventListener('scroll', onScroll); };
   }, [visible, collapsed]);
 
+  // Defensive guard: at render time, re-verify against storage. If
+  // dismissal slipped in via another tab/path before the listener fired,
+  // bail out without painting. Render-phase Promise.then keeps React
+  // happy (no setState during render).
+  if (visible && readConsent()) {
+    Promise.resolve().then(() => setVisible(false));
+    return null;
+  }
   if (!visible) return null;
 
   const decide = (choice) => {
+    // Belt and suspenders — write both stores so a privacy mode that
+    // blocks localStorage still picks up a session-scoped dismissal.
     try { localStorage.setItem('sb_cookie_consent', choice); } catch (_) {}
+    try { sessionStorage.setItem('sb_cookie_consent', choice); } catch (_) {}
     setVisible(false);
   };
 
