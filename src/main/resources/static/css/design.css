@@ -125853,3 +125853,272 @@ header button[aria-label*="notif" i]:hover {
   padding: 12px 16px 6px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #104 */
+
+/* CSFLOAT-1:1 PARITY ship #401 — Material Symbols Rounded baseline icon sizing.
+   csfloat baseline: mat-icon { font-size: 24px; width: 24px; height: 24px; line-height: 24px; }
+   Default color rgb(255,255,255) on actionable icons. */
+mat-icon,
+.material-symbols-rounded,
+.material-icons {
+  font-size: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  -webkit-font-smoothing: antialiased !important;
+  font-feature-settings: 'liga' !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  word-wrap: normal !important;
+  direction: ltr !important;
+}
+button.icon-button mat-icon,
+.mat-icon-button mat-icon,
+.icon-button mat-icon,
+.compact-icon mat-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #401 */
+
+/* CSFLOAT-1:1 PARITY ship #402 — Tiny inline mat-icon (12px) used in chips/percentage rows.
+   csfloat: mat-icon at fontSize:12px; width:12px; height:12px; for sticker counts. */
+mat-icon.tiny,
+mat-icon.mat-icon-12,
+.chip mat-icon,
+.percentage mat-icon,
+.inline-icon mat-icon,
+.mini-icon mat-icon,
+.sticker-count mat-icon,
+.mat-mdc-chip mat-icon {
+  font-size: 12px !important;
+  width: 12px !important;
+  height: 12px !important;
+  line-height: 12px !important;
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #402 */
+
+/* CSFLOAT-1:1 PARITY ship #403 — Balance/price chip ($X.XX capsule).
+   csfloat: span.balance-text — fontSize:15px; weight:700; color:#fff;
+   parent .normal: bg rgba(193,206,255,0.04); padding 0 10px; border-radius 6px. */
+.balance-text,
+.balance-chip,
+.price-chip,
+.nav-balance,
+.user-balance,
+.wallet-chip,
+.balance-display,
+.price-pill {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+}
+.balance-container,
+.balance-wrapper,
+.price-chip-wrapper,
+.balance-pill,
+.wallet-pill,
+.nav-balance-pill {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  min-height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #403 */
+
+/* CSFLOAT-1:1 PARITY ship #404 — Discount/percentage chip text style.
+   csfloat: span.percentage — fontSize:14px; weight:700; color:rgb(158,167,177); padding:0;
+   bg transparent. Plain text, no badge bg. */
+.percentage,
+.discount-text,
+.percent-off,
+.delta-percent,
+.price-percentage,
+.discount-pct,
+.profit-pct,
+.loss-pct {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  background: none !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  letter-spacing: 0 !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  line-height: 1.21 !important;
+  display: inline-block !important;
+}
+.percentage.loss,
+.percentage.negative,
+.discount-pct.negative,
+.delta-percent.negative {
+  color: rgb(235, 75, 76) !important;
+}
+.percentage.profit,
+.percentage.positive,
+.discount-pct.positive {
+  color: rgb(118, 220, 119) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #404 */
+
+/* CSFLOAT-1:1 PARITY ship #405 — Cart count / notification badge bubble.
+   csfloat: small red circle, white text 10px weight 600, 16x16. */
+.mat-badge-content,
+.cart-badge,
+.notification-badge,
+.bell-badge,
+.count-badge,
+.icon-badge,
+.nav-badge {
+  background-color: rgb(235, 75, 76) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 16px !important;
+  padding: 0 !important;
+  border: 1.5px solid rgb(20, 22, 28) !important;
+  letter-spacing: 0 !important;
+  position: absolute !important;
+  text-align: center !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+.mat-badge.hide-mat-badge .mat-badge-content,
+.badge-zero,
+.cart-badge[data-count="0"],
+.notification-badge[data-count="0"] {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #405 */
+
+/* CSFLOAT-1:1 PARITY ship #406 — Status / item-card tag chips (STANDARD, OFF-MARKET, LIVE, etc.).
+   csfloat: small uppercase pill, ~10-11px Arial bold, dark capsule, 4px radius. */
+.csfloat-stall-tag,
+.standard-tag,
+.off-market-tag,
+.live-tag,
+.online-tag,
+.verified-tag,
+.trade-lock-tag,
+.status-chip,
+.item-tag,
+.tag-pill,
+.card-tag,
+.rarity-chip {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  line-height: 1.2 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+  border: 0 !important;
+  height: auto !important;
+  white-space: nowrap !important;
+}
+.live-tag,
+.online-tag,
+.status-chip.live,
+.status-chip.online {
+  background-color: rgba(118, 220, 119, 0.12) !important;
+  color: rgb(118, 220, 119) !important;
+}
+.verified-tag,
+.status-chip.verified {
+  background-color: rgba(91, 150, 255, 0.12) !important;
+  color: rgb(91, 150, 255) !important;
+}
+.trade-lock-tag,
+.status-chip.locked,
+.status-chip.trade-lock {
+  background-color: rgba(235, 75, 76, 0.12) !important;
+  color: rgb(235, 75, 76) !important;
+}
+.off-market-tag,
+.status-chip.off-market {
+  background-color: rgba(255, 173, 91, 0.12) !important;
+  color: rgb(255, 173, 91) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #406 */
+/* CSFLOAT-1:1 PARITY ship #202 — legal page body paragraphs + list items
+   csfloat measure: body text Roboto 14px / 400 / rgb(158,167,177) (secondary
+   ink). sboxmarket had 15px / line-height 1.7 / var(--text-secondary).
+   Match: 14px / 1.6 / rgb(158,167,177) for legal body, max-width 720px
+   (csfloat content column width). Also normalize .legal-meta + .legal-back
+   + inline links to csfloat blue (rgb(35,123,255)). */
+.legal-doc,
+body .legal-doc {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: rgb(158, 167, 177) !important;
+  max-width: 720px !important;
+  padding: 0 24px !important;
+  margin: 40px auto 80px !important;
+}
+.legal-doc p,
+.legal-doc li,
+body .legal-doc p,
+body .legal-doc li {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: rgb(158, 167, 177) !important;
+}
+.legal-doc strong,
+body .legal-doc strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+.legal-doc .legal-meta,
+body .legal-doc .legal-meta {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 24px !important;
+}
+.legal-doc a,
+body .legal-doc a,
+.legal-back,
+body .legal-back {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+.legal-doc a:hover,
+body .legal-doc a:hover,
+.legal-back:hover,
+body .legal-back:hover {
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #202 */
