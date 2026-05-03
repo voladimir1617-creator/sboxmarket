@@ -19655,7 +19655,7 @@ a[target="_blank"]::after {
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   font-size: 13px;
   color: var(--ink-1);
-  animation: toast-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: csfloat-toast-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
   min-width: 240px;
 }
 .csfloat-toast.success { border-left-color: oklch(0.72 0.18 152); }
@@ -19709,7 +19709,7 @@ a[target="_blank"]::after {
   transition: color 120ms ease;
 }
 .csfloat-toast-close:hover { color: var(--ink-1); }
-@keyframes toast-in {
+@keyframes csfloat-toast-in {
   from {
     opacity: 0;
     transform: translateX(20px) scale(0.96);
@@ -19719,14 +19719,14 @@ a[target="_blank"]::after {
     transform: translateX(0) scale(1);
   }
 }
-@keyframes toast-out {
+@keyframes csfloat-toast-out {
   to {
     opacity: 0;
     transform: translateX(20px) scale(0.96);
   }
 }
 .csfloat-toast.dismissing {
-  animation: toast-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: csfloat-toast-out 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 /* CSFloat-1:1: command palette (Cmd+K) — centered overlay with search. */
@@ -121033,3 +121033,24 @@ textarea:focus-visible {
   gap: 8px !important;
 }
 /* END chip-group spacing */
+
+/* =====================================================================
+   Toast typography pass — boss-QA cycle 31, ship #19
+   ---------------------------------------------------------------------
+   Two issues fixed: (1) two `@keyframes toast-in` declarations (lines
+   9942 and 19712) — the second silently overrode the first, so the
+   .sale-toast that called `toast-in` got the csfloat slide-in-from-
+   right animation instead of its intended drop-from-top. Renamed the
+   csfloat keyframes to csfloat-toast-in/-out so each toast family
+   keeps its own entry. (2) the .sale-toast default `border-left: 3px
+   solid var(--cta)` violates the "blue is spice" rule — every
+   informational toast painted with the brand-blue strip. Drop the
+   default accent so only state-tagged toasts (warn/err) carry color.
+   ===================================================================== */
+.sale-toast {
+  border-left: 1px solid var(--line-2) !important;
+}
+.sale-toast.warn { border-left: 3px solid #e8b960 !important; }
+.sale-toast.err  { border-left: 3px solid var(--down) !important; }
+.sale-toast.success { border-left: 3px solid oklch(0.72 0.18 152) !important; }
+/* END toast polish */
