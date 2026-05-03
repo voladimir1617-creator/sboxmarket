@@ -122154,3 +122154,405 @@ footer.site-footer .site-footer-bottom a:hover {
   text-decoration: underline !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #14 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #15 — item detail image panel (.modal-preview)
+   csfloat preview area: bg transparent, no card/border treatment around
+     the image (image lives directly inside .grid-item with no wrapper
+     decoration). Image fills 494x378 at default modal size.
+   sboxmarket .modal-preview was: bg oklch(0.2 0.009 260) (dark slate),
+     border 1px solid oklch(0.3 0.012 260), border-radius 10px, padding 32px.
+   Strip the panel chrome to match csfloat's flat preview.
+   ===================================================================== */
+.modal.item-page .modal-preview,
+.modal-preview {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #16 — right-rail stat cards (.modal-stat-box)
+   csfloat .card.item-schema-details / .card.item-actions:
+     background: rgba(193, 206, 255, 0.04)
+     border-radius: 6px
+     padding: 15px (item-schema-details) / 10px (item-actions)
+     border: none
+   sboxmarket .modal-stat-box was:
+     background: transparent, border 1px solid oklab(0.418 ...),
+     border-radius: 8px, padding: 12px 16px.
+   Match csfloat's translucent-blue tint + 6px radius + clean borderless look.
+   ===================================================================== */
+.modal-stat-box,
+.modal.item-page .modal-stat-box {
+  background: rgba(193, 206, 255, 0.04) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  padding: 15px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #17 — primary "Buy now" CTA
+   csfloat primary button (mat-mdc-button on item detail):
+     background: rgba(255,255,255,0.12)  [color(srgb 1 1 1 / 0.12)]
+     color: rgba(255,255,255,0.38)      [disabled state token in dialog]
+     border-radius: 8px
+     height: 36px, padding: 0 16px
+     font-size: 14px, font-weight: 500
+   sboxmarket primary buy buttons differ in size/color/radius. Apply csfloat
+     surface treatment to .item-rail-actions-buy and .buy-btn (the two
+     primary purchase CTAs on the item page).
+   ===================================================================== */
+.item-rail-actions-buy,
+.modal.item-page .item-rail-actions-buy,
+.modal.item-page .buy-btn,
+.modal-listing-row .buy-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #18 — secondary actions (cart / bargain pill)
+   csfloat .action.large (image-actions over preview, also used by inline
+     small action pills next to listings):
+     background: rgba(30, 32, 38, 0.55)
+     border: 1px solid rgba(255, 255, 255, 0.1)
+     border-radius: 20px (pill)
+     padding: 4px 8px
+     color: rgb(158, 167, 177) (muted text)
+   sboxmarket cart/bargain were: transparent bg, 8px radius, hard 1px
+     muted-blue border. Match the dark-translucent + pill border.
+   ===================================================================== */
+.item-rail-actions-cart,
+.item-rail-actions-bargain,
+.modal.item-page .item-rail-actions-cart,
+.modal.item-page .item-rail-actions-bargain {
+  background: rgba(30, 32, 38, 0.55) !important;
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 20px !important;
+  padding: 4px 12px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #19 — section title chip (Price History / Active Listings)
+   csfloat .buy-orders .title:
+     font-size: 14px, font-weight: 500
+     border-radius: 6px
+     border: 2px solid rgba(193, 206, 255, 0.04)
+     padding: 0, margin: 0
+   sboxmarket .modal-section-title was:
+     font-size: 18px, font-weight: 600, margin 32px 0 14px, no border.
+   Match csfloat's compact 14px/500 title with subtle border-radius and
+     reduced top margin so sections sit closer together.
+   ===================================================================== */
+.modal-section-title,
+.modal.item-page .modal-section-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 6px !important;
+  margin: 18px 0 10px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 1.2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20 — market grid card .item-name typography
+   csfloat measured on /: font-size 16px, font-weight 500, line-height
+     normal, letter-spacing normal, font-family
+     Roboto, "Helvetica Neue", sans-serif. The card title element on
+     every grid card.
+   sboxmarket measured on /market: font-size 13px (3px smaller).
+     Other props matched. Title looked visibly cramped vs csfloat.
+   Pin to 16px exactly.
+   ===================================================================== */
+mat-card.item-card .item-name {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+mat-card.item-card .item-name span {
+  font-size: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #21 — market grid card .subtext typography
+   csfloat measured: font-size 14px, font-weight 500, color
+     rgb(158,167,177), line-height normal, letter-spacing normal,
+     margin-top 6px. Sub-line under the item name (e.g. "Factory New").
+   sboxmarket measured: font-size 11px (3px smaller). Margin already 6px.
+   Pin to 14px exactly.
+   ===================================================================== */
+mat-card.item-card .subtext {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  margin-top: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #22 — market grid card .price typography
+   csfloat measured: font-size 22px, font-weight 500, color white,
+     line-height normal, letter-spacing normal, font-family
+     Roboto, "Helvetica Neue", sans-serif. The headline price is the
+     most prominent element on the card.
+   sboxmarket measured: font-size 18px (4px smaller). Color/weight/lh
+     already matched.
+   Pin to 22px exactly.
+   ===================================================================== */
+mat-card.item-card .price {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #23 — market grid card wear/rank/seed/percentage
+   csfloat measured the small stat row beneath the price:
+     .wear        — 14px / 400 / rgb(255,255,255)
+     .rank        — 14px / 400 / rgb(158,167,177)
+     .paint-seed  — 14px / 400 / rgb(255,255,255)
+     .percentage  — 14px / 700 / rgb(158,167,177)
+   sboxmarket measured: .wear at 14px already, but other elements vary
+     and font-weight on percentage drifts. Lock all four to csfloat
+     baseline so the secondary info row is pixel-identical.
+   ===================================================================== */
+mat-card.item-card .wear {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+mat-card.item-card .rank {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+mat-card.item-card .paint-seed {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+mat-card.item-card .percentage {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #24 — market grid card action button block
+   csfloat measured the actions row at bottom of each card:
+     - row container: padding 12px, height 64px
+     - .cart-btn: 44x40, bg rgb(35,123,255), color white, radius 8px
+     - .bargain (unelevated): 40h, bg rgba(193,206,255,0.04), radius 8px
+     - .buy-now-btn (outlined): 40h, transparent bg, border 1px solid
+        rgba(255,255,255,0.12), radius 8px
+     - all buttons: font-size 14px / weight 500 / Roboto / padding 0 10px
+   sboxmarket: action row height/padding matched (64h, 12 padding) but
+     button heights and radii drift due to material theme overrides.
+     Lock to csfloat baseline.
+   ===================================================================== */
+mat-card.item-card .actions {
+  padding: 12px !important;
+}
+mat-card.item-card .actions .mdc-button,
+mat-card.item-card .actions button {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 8px !important;
+  padding: 0 10px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+mat-card.item-card .actions .cart-btn {
+  width: 44px !important;
+  min-width: 44px !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 8px !important;
+  border: 0 none !important;
+}
+mat-card.item-card .actions .buy-now-btn {
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #24 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #25 — home rail tab strip container
+   csfloat (.mat-button-toggle-group.sort): bg rgba(193,206,255,0.04),
+   border-radius 7px, padding 0, no border, height 38px
+   sbox was: bg oklch(0.23 0.01 260), radius 10px, pad 4px, 1px border,
+   height 48px — mismatch.
+   ===================================================================== */
+.csfloat-home-rail-tabs {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 7px !important;
+  padding: 0 !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  gap: 0 !important;
+  display: inline-flex !important;
+  align-items: stretch !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #25 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #26 — home rail ACTIVE tab
+   csfloat: text rgb(255,255,255), bg rgba(193,206,255,0.04),
+   border-radius 4px, height 32px (visual; sits inside 38px strip)
+   sbox was: bright white bg oklch(0.97 0.006 90) + dark text — mismatch.
+   ===================================================================== */
+.csfloat-home-rail-tab.active {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 4px !important;
+  border: 0 none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 0 12px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 3px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #26 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #27 — home rail INACTIVE tab
+   csfloat: text rgb(158,167,177), bg transparent, font 14px/500,
+   padding 0 12px, height 32px
+   sbox was: text oklch(0.74 0.01 260), 13px/600, padding 8px 16px,
+   height 38px — mismatch.
+   ===================================================================== */
+.csfloat-home-rail-tab:not(.active) {
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border-radius: 4px !important;
+  border: 0 none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 0 12px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 3px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.csfloat-home-rail-tab:not(.active):hover {
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #27 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #28 — "Visit Marketplace ->" CTA
+   csfloat: plain text-button label rgb(35,123,255) 14px/500,
+   no border, no background, no radius, padding 0
+   sbox was: 1px solid blue border, padding 10px 18px, radius 8px,
+   font 13px/700 — mismatch.
+   ===================================================================== */
+.csfloat-home-rail-cta {
+  color: rgb(35, 123, 255) !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  height: auto !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  gap: 4px !important;
+}
+.csfloat-home-rail-cta:hover {
+  text-decoration: underline !important;
+  background-color: transparent !important;
+}
+.csfloat-home-rail-arrow {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #28 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #29 — home rail outer container surface
+   csfloat (.selectors): bg transparent, no border, padding 0,
+   the strip sits flush on the page surface (just a flex row).
+   sbox was: oklab(0.17 ...) bg with 1px top+bottom border + 14px-24px
+   padding — mismatch.
+   ===================================================================== */
+.csfloat-home-rail {
+  background-color: transparent !important;
+  border-top: 0 none !important;
+  border-bottom: 0 none !important;
+  padding: 0 !important;
+}
+.csfloat-home-rail-inner {
+  padding: 30px 65px 0 !important;
+  gap: 24px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  display: flex !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #29 */
