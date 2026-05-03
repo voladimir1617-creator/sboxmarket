@@ -121378,3 +121378,16 @@ textarea {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
 }
 /* END announce-close polish */
+
+/* =====================================================================
+   db-row hover de-blue — boss-QA cycle 31, ship #45
+   ---------------------------------------------------------------------
+   .db-row:hover and .listing-table tbody tr:hover paint with --cta 6%
+   blue tint — every row hover on /database flashes a tiny brand-blue
+   wash. Switch to neutral --bg-2 hover so the row scan stays calm.
+   ===================================================================== */
+.db-row:hover,
+.listing-table tbody tr:hover {
+  background: var(--bg-2) !important;
+}
+/* END db-row hover polish */
