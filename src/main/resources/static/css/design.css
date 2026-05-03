@@ -121833,3 +121833,31 @@ nav.nav {
   padding: 0 60px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #4 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #5 — nav links typography (Market/Database/etc)
+   csfloat .route-button label: fontSize 15px, fontWeight 500,
+     color rgb(158, 167, 177), textTransform none, letterSpacing normal,
+     lineHeight normal, fontFamily Roboto, height 36px, padding 0 (button has
+     internal label), no border-radius on the link.
+   sboxmarket .nav-link was: fontSize 13px, fontWeight 500,
+     color oklch(0.74 0.01 260), letterSpacing -0.065px, lineHeight 20.15px,
+     fontFamily Geist, padding 8px 14px, borderRadius 6px.
+   ===================================================================== */
+nav.nav .nav-link {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  height: 36px !important;
+  border-radius: 0 !important;
+  padding: 0 16px !important;
+}
+nav.nav .nav-link:hover {
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5 */
