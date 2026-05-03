@@ -120603,3 +120603,67 @@ textarea:focus-visible {
   outline-offset: 2px !important;
 }
 /* END :focus-visible sweep */
+
+/* =====================================================================
+   Active-tab indicator polish — boss-QA cycle 31, ship #2
+   ---------------------------------------------------------------------
+   Every segmented control should signal "active" through ONE clear
+   affordance: a 2px var(--cta) underline (the operator-approved blue
+   exception). No filled background, no boldened weight, no inset ring —
+   the underline IS the indicator. Cleans up the cycle-12 rules that
+   were giving type-toggle-btn a filled --bg pill and the
+   csfloat-subnav-tab a duplicated `font-weight: 700`. White underlines
+   from batch 1075 are upgraded to the spec blue here.
+   ===================================================================== */
+.profile-tabs button.active,
+.mystall-tabs button.active,
+.wallet-tabs button.active,
+.offer-tab.active,
+.csfloat-profile-tab.active {
+  color: var(--ink) !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  border-bottom-color: var(--cta) !important;
+}
+.csfloat-profile-tab.active::after {
+  background: var(--cta) !important;
+  height: 2px !important;
+}
+.profile-tabs button.active .profile-tab-badge,
+.mystall-tabs button.active .tab-badge,
+.offer-tab.active .tab-badge {
+  background: var(--cta) !important;
+  color: white !important;
+}
+/* type-toggle (All / Buy Now / Auction): drop the filled-bg active
+   pill and use the same blue underline pattern. */
+.type-toggle-btn {
+  position: relative;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-bottom: 8px !important;
+}
+.type-toggle-btn.active {
+  color: var(--ink) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+}
+.type-toggle-btn.active::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  background: var(--cta);
+  border-radius: 1px;
+}
+/* csfloat-subnav-tab (category strip on /market): collapse the duplicate
+   `font-weight: 700` shipped at line 13507 so the only delta between
+   active/inactive is color + underline. */
+.csfloat-subnav-tab.active {
+  font-weight: 600 !important;
+}
+/* END active-tab underline pattern */
