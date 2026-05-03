@@ -120805,3 +120805,39 @@ textarea:focus-visible {
   }
 }
 /* END :empty skeleton placeholders */
+
+/* =====================================================================
+   LIVE / AUCTION pulse calm-down — boss-QA cycle 31, ship #10
+   ---------------------------------------------------------------------
+   Operator design rule: "live/pulsing indicators — 1 per page max."
+   The .live-dot / .auction-countdown-dot / .pulse-led animation gets
+   reused inside grid cards, so a /market view with 40 cards renders
+   40 simultaneously-pulsing dots — visual noise that drowns the one
+   indicator you actually want users to notice (the nav LIVE pill).
+   Solution: kill the pulse on dots that live inside a card or list
+   row. They stay visually present (steady glow) but don't animate.
+   The standalone nav `.pulse-led`, the auction modal countdown dot,
+   and the home-page hero LED are unaffected.
+   ===================================================================== */
+.grid-card .live-dot,
+.grid-card .pulse-led,
+.grid-card .auction-countdown-dot,
+.csfloat-grid-card .live-dot,
+.csfloat-grid-card .pulse-led,
+.csfloat-grid-card .auction-countdown-dot,
+.csfloat-band-card .live-dot,
+.csfloat-band-card .pulse-led,
+.csfloat-band-card .auction-countdown-dot,
+.market-grid .live-dot,
+.market-grid .pulse-led,
+.market-grid .auction-countdown-dot,
+.wallet-tx-list .live-dot,
+.wallet-tx-list .pulse-led,
+.offer-list-row .live-dot,
+.offer-list-row .pulse-led,
+.db-row .live-dot,
+.db-row .pulse-led {
+  animation: none !important;
+  opacity: 0.85 !important;
+}
+/* END LIVE/AUCTION pulse calm-down */
