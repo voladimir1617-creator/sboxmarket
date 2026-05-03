@@ -157,6 +157,31 @@ git revert <bad-SHA> --no-edit
 
 ---
 
+## Reference: edge gzip + static-asset caching (added 2026-05-03)
+
+`deploy/edge-nginx.conf` enables gzip and static-asset cache headers at the edge. Behaviour:
+
+- `gzip on; gzip_comp_level 5; gzip_min_length 1024;` over text/css, text/javascript, application/javascript, application/json, image/svg+xml, fonts (no `text/html` — that's gzipped by default and explicit listing trips a duplicate-MIME warning at config-test).
+- `location ~* ^/(css|js|img|font)/` block strips Spring Boot's `Cache-Control: no-cache, must-revalidate` (default for static resources) and replaces with `public, max-age=300, must-revalidate`.
+
+**Why 5 minutes, not 1 year immutable.** The app does NOT fingerprint static URLs — `index.html` references `/css/design.css` directly, and the operator iterates aggressively. A 1-year `immutable` would force a hard reload to see CSS changes; a 5-minute cache + revalidate trades a ~5min staleness window for instant deploy visibility. Conditional revalidations return 304 via Spring's Last-Modified handling — they're cheap.
+
+If you want longer caching, change the `add_header Cache-Control` value in `edge-nginx.conf`. If you want true zero-staleness rollouts, the right move is to add a fingerprint query (`?v=<git-sha>`) to the script tags in `index.html` (out of scope for this audit — would require touching app code).
+
+**Headline win (2026-05-03 baseline -> after):**
+```
+                       BEFORE        AFTER (gzip)   reduction
+/css/design.css        3,376,350 B   507,397 B      85.0%
+/js/app.js               461,747 B   124,819 B      73.0%
+/js/modals.js            770,016 B   196,748 B      74.4%
+```
+
+Cloudflare in front already gzipped public responses, so end-users saw the compressed size before this change. The win is on the **nginx → Cloudflare** hop and on **direct probes** (monitoring, localhost, future workers that bypass CF).
+
+**Known dead-CSS:** `design.css` defines ~10,585 unique class selectors; only ~1,176 (~11%) appear as whole-word tokens in any `.html` or `.js` source under `src/main/resources/static/`. ~9,409 candidate-dead classes. **DO NOT mass-delete without sign-off** — the heuristic doesn't account for dynamic class assembly (`'btn-' + variant`) and would false-positive on those.
+
+---
+
 ## Reference: the cookie-state deploy gate
 
 `deploy/run-local.sh` runs a probe sequence against the BLUE container (the deploy target, before the upstream swap) with the cookie shapes that historically detonated `JdbcIndexedSessionRepository.findById`'s SELECT on `SPRING_SESSION`. Every probe must return < 500 or the script exits non-zero — meaning the deploy fails in the operator's terminal and traffic NEVER sees the broken image (the old container keeps serving).
