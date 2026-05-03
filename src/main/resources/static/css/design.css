@@ -124938,92 +124938,6 @@ body .legal-doc h3 {
   margin: 24px 0 8px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #201 */
-/* CSFLOAT-1:1 PARITY ship #210 — chip/control border token alignment
-   csfloat uses rgba(193,206,255,0.12) border + rgba(193,206,255,0.04) bg
-   on every chip-style control (.deals-chip, .price-chip, .sort-picker-chip,
-   .search-input). sboxmarket .btn-ghost and .toolbar-refresh used
-   oklch(0.3 0.012 260) which is visually warmer/grayer.
-   Bring them onto the canonical csfloat token. */
-.btn.btn-ghost,
-button.btn.btn-ghost,
-.toolbar-refresh,
-button.toolbar-refresh {
-  border: 1px solid rgba(193, 206, 255, 0.12) !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #210 */
-/* CSFLOAT-1:1 PARITY ship #211 — toolbar container parity
-   csfloat .toolbar measures: bg rgba(27,29,36,0.8), no border,
-   border-radius 0 0 12px 12px, no box-shadow. sboxmarket .toolbar
-   currently has 1px solid oklch border, 10px full radius,
-   bg oklch(0.2 0.009 260). Match csfloat exactly. */
-.toolbar,
-div.toolbar {
-  background-color: rgba(27, 29, 36, 0.8) !important;
-  border: 0 !important;
-  border-radius: 0 0 12px 12px !important;
-  box-shadow: none !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #211 */
-/* CSFLOAT-1:1 PARITY ship #212 — Material elevation 2 on primary buttons
-   csfloat .steam-btn (its primary CTA reference) uses Material's MDC
-   elevation 2 shadow:
-     rgba(0,0,0,.2) 0 3px 1px -2px,
-     rgba(0,0,0,.14) 0 2px 2px 0,
-     rgba(0,0,0,.12) 0 1px 5px 0
-   Apply to .btn-primary, .steam-btn so primary CTAs lift the same way. */
-.btn.btn-primary,
-button.btn.btn-primary,
-.steam-btn,
-button.steam-btn {
-  box-shadow:
-    rgba(0, 0, 0, 0.2) 0 3px 1px -2px,
-    rgba(0, 0, 0, 0.14) 0 2px 2px 0,
-    rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #212 */
-/* CSFLOAT-1:1 PARITY ship #213 — chip top inset highlight
-   csfloat .deals-chip and similar chip surfaces have a subtle
-   inset top highlight: oklab(0.97 0 0.006 / 0.03) 0 1px 0 0 inset
-   that gives the chip a soft "lit edge" against dark bg.
-   sboxmarket .price-chip and .sort-picker-chip lacked it.
-   Add identical inset to all chip-class controls. */
-.price-chip,
-button.price-chip,
-.sort-picker-chip,
-button.sort-picker-chip {
-  box-shadow: oklab(0.97 0 0.006 / 0.03) 0 1px 0 0 inset !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #213 */
-/* CSFLOAT-1:1 PARITY ship #214 — floating dark button shadow
-   csfloat dark floating buttons (e.g. its scroll-up FAB on the home
-   page) use bg oklch(0.2 0.009 260) with shadow
-     rgba(0,0,0,.32) 0 4px 12px 0
-   to lift them off backdrops. sboxmarket has same bg on .btn-ghost,
-   .toolbar-refresh, etc. — but no lift when used as floating action.
-   Apply the float shadow to .scroll-top-button and .floating-cta. */
-.scroll-top-button,
-button.scroll-top-button,
-.floating-cta,
-button.floating-cta {
-  box-shadow: rgba(0, 0, 0, 0.32) 0 4px 12px 0 !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #214 */
-/* CSFLOAT-1:1 PARITY ship #215 — section divider parity
-   csfloat uses rgba(193,206,255,0.12) for every 1px subtle divider
-   (table rows, list separators, sidebar dividers, search-input border).
-   sboxmarket has hr/divider classes drifting to oklch grays.
-   Pin all dividers to the canonical token. */
-hr,
-.divider,
-.section-divider,
-.list-divider {
-  border: 0 !important;
-  border-top: 1px solid rgba(193, 206, 255, 0.12) !important;
-  background-color: transparent !important;
-  height: 0 !important;
-  margin: 0 !important;
-}
-/* END CSFLOAT-1:1 PARITY ship #215 */
 
 /* CSFLOAT-1:1 PARITY ship #500 — Mat tooltip surface (csfloat exact)
    csfloat: bg rgba(21,23,28,.8) + blur(10px), border 2px rgba(193,206,255,.07),
@@ -126691,3 +126605,437 @@ body .cart-summary-actions {
   gap: 8px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #204 */
+
+/* CSFLOAT-1:1 PARITY ship #600 — chip/control border token alignment
+   csfloat ships every chip-style control (.deals-chip, .price-chip,
+   .sort-picker-chip, .search-input) with border 1px solid
+   rgba(193,206,255,0.12) over bg rgba(193,206,255,0.04).
+   sboxmarket .btn-ghost and .toolbar-refresh used the warmer
+   oklch(0.3 0.012 260) gray. Pin them to the canonical csfloat token. */
+.btn.btn-ghost,
+button.btn.btn-ghost,
+.toolbar-refresh,
+button.toolbar-refresh {
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #600 */
+/* CSFLOAT-1:1 PARITY ship #601 — toolbar container parity
+   csfloat .toolbar measures: bg rgba(27,29,36,0.8), no border,
+   border-radius 0 0 12px 12px, no box-shadow. sboxmarket .toolbar
+   carried 1px solid oklch border, 10px full radius, bg
+   oklch(0.2 0.009 260). Bring it onto csfloat exact tokens. */
+body .toolbar,
+body div.toolbar {
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  border: 0 !important;
+  border-radius: 0 0 12px 12px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #601 */
+/* CSFLOAT-1:1 PARITY ship #602 — Material elevation 2 on primary buttons
+   csfloat .steam-btn (its primary-CTA reference) uses Material's
+   MDC elevation 2 stack:
+     rgba(0,0,0,.2) 0 3px 1px -2px,
+     rgba(0,0,0,.14) 0 2px 2px 0,
+     rgba(0,0,0,.12) 0 1px 5px 0
+   Mirror it on .btn-primary and .steam-btn so primary CTAs lift
+   identically to csfloat. */
+body .btn.btn-primary,
+body button.btn.btn-primary,
+body .steam-btn,
+body button.steam-btn {
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0 2px 2px 0,
+    rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #602 */
+/* CSFLOAT-1:1 PARITY ship #603 — chip top inset highlight
+   csfloat .deals-chip carries a subtle inset top highlight:
+     oklab(0.97 0 0.006 / 0.03) 0 1px 0 0 inset
+   to give the chip a soft "lit edge" against dark bg. sboxmarket
+   .price-chip and .sort-picker-chip lacked this. Apply identical
+   inset to all chip-class controls so chips read consistently. */
+body .price-chip,
+body button.price-chip,
+body .sort-picker-chip,
+body button.sort-picker-chip {
+  box-shadow: oklab(0.97 0 0.006 / 0.03) 0 1px 0 0 inset !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #603 */
+/* CSFLOAT-1:1 PARITY ship #604 — floating dark button shadow
+   csfloat dark floating buttons (e.g. its scroll-up FAB on the home
+   page) use bg oklch(0.2 0.009 260) with a single layer
+     rgba(0,0,0,.32) 0 4px 12px 0
+   to lift them off backdrops. sboxmarket has the same surface but
+   no lift. Apply the float shadow to .scroll-top-button and
+   .floating-cta. */
+body .scroll-top-button,
+body button.scroll-top-button,
+body .floating-cta,
+body button.floating-cta {
+  box-shadow: rgba(0, 0, 0, 0.32) 0 4px 12px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #604 */
+/* CSFLOAT-1:1 PARITY ship #605 — section divider parity
+   csfloat uses rgba(193,206,255,0.12) for every 1px subtle divider
+   (table rows, list separators, sidebar dividers, search-input
+   border). sboxmarket has hr/divider classes drifting to oklch
+   grays. Pin all dividers to the canonical token. */
+body hr,
+body .divider,
+body .section-divider,
+body .list-divider {
+  border: 0 !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.12) !important;
+  background-color: transparent !important;
+  height: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #605 */
+
+/* CSFLOAT-1:1 PARITY ship #220 — wallet-tab specificity bump for underline strip
+   The earlier .wallet-tabs+button.active rule (line 125603) was overriding our
+   underline style with a pill-style highlight. csfloat ships an underline-only
+   tab on the wallet specifically (segmented-pill is for /me/stall + /profile).
+   This bumps specificity so the underline wins inside .wallet-modal scope. */
+.wallet-modal .wallet-tabs,
+.wallet-modal[role="dialog"] .wallet-tabs {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+  margin-bottom: 20px !important;
+  gap: 0 !important;
+}
+.wallet-modal .wallet-tabs button.wallet-tab,
+.wallet-modal .wallet-tabs button[role="tab"] {
+  height: 40px !important;
+  padding: 0 18px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -1px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, border-color 120ms ease !important;
+}
+.wallet-modal .wallet-tabs button.wallet-tab:hover,
+.wallet-modal .wallet-tabs button[role="tab"]:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-tabs button.wallet-tab.active,
+.wallet-modal .wallet-tabs button[role="tab"][aria-selected="true"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  border-bottom: 2px solid rgb(35, 123, 255) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #220 */
+
+/* CSFLOAT-1:1 PARITY ship #221 — wallet pending chips + step rail polish
+   Pending chips are inline status badges next to the hero balance; csfloat
+   ships them at 12/600 Roboto with 6px x 10px padding and a 999px radius,
+   colour-coded green for inbound deposit and amber for outbound withdraw.
+   The step-line vertical connector also reads 1px solid rgba(.,.,.,.07). */
+.wallet-modal .wallet-pending-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+  justify-content: center !important;
+}
+.wallet-modal .wallet-pending-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+}
+.wallet-modal .wallet-pending-chip.deposit {
+  background: rgba(34, 197, 94, 0.10) !important;
+  border-color: rgba(34, 197, 94, 0.30) !important;
+  color: rgb(34, 197, 94) !important;
+}
+.wallet-modal .wallet-pending-chip.withdraw {
+  background: rgba(251, 191, 36, 0.10) !important;
+  border-color: rgba(251, 191, 36, 0.30) !important;
+  color: rgb(251, 191, 36) !important;
+}
+.wallet-modal .wallet-pending-dot {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: currentColor !important;
+}
+.wallet-modal .wallet-pending-label {
+  font-weight: 600 !important;
+  text-transform: none !important;
+}
+.wallet-modal .wallet-pending-amt {
+  font-weight: 700 !important;
+  margin-left: 2px !important;
+}
+.wallet-modal .wallet-step-line {
+  width: 1px !important;
+  background: rgba(193, 206, 255, 0.07) !important;
+  flex: 1 1 auto !important;
+}
+.wallet-modal .wallet-step-rail {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  margin-right: 14px !important;
+}
+.wallet-modal .wallet-step {
+  display: flex !important;
+  margin-bottom: 18px !important;
+}
+.wallet-modal .wallet-step.last {
+  margin-bottom: 0 !important;
+}
+.wallet-modal .wallet-step-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #221 */
+
+/* CSFLOAT-1:1 PARITY ship #222 — wallet method-grid + method-badges + method-icon
+   The method grid was inheriting the generic grid; csfloat ships a single-card
+   layout on the deposit & withdraw flows (one method each), 18px gap above and
+   below. Badges are 10/700 uppercase pills, icon 42px tinted accent. */
+.wallet-modal .wallet-method-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+  margin: 18px 0 !important;
+}
+.wallet-modal .wallet-method-badges {
+  display: flex !important;
+  gap: 6px !important;
+  margin-bottom: 8px !important;
+}
+.wallet-modal .wallet-method-badge {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  background: rgba(193, 206, 255, 0.07) !important;
+  color: rgba(193, 206, 255, 0.85) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+.wallet-modal .wallet-method-badge.instant {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: rgb(34, 197, 94) !important;
+}
+.wallet-modal .wallet-method-badge.standard {
+  background: rgba(251, 191, 36, 0.12) !important;
+  color: rgb(251, 191, 36) !important;
+}
+.wallet-modal .wallet-method-badge.ccy {
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.wallet-modal .wallet-method-icon {
+  margin: 6px 0 10px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.wallet-modal .wallet-method-fields {
+  margin-top: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #222 */
+
+/* CSFLOAT-1:1 PARITY ship #223 — wallet error message + inline hint to csfloat
+   Error rows were generic; csfloat displays inline form errors as a 12/600
+   Roboto red strip with a tinted background. Inline hints are 12/500 muted
+   ink with an info dot. */
+.wallet-modal .wallet-error {
+  background: rgba(248, 113, 113, 0.08) !important;
+  border: 1px solid rgba(248, 113, 113, 0.30) !important;
+  border-radius: 6px !important;
+  color: rgb(248, 113, 113) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  padding: 8px 12px !important;
+  margin-bottom: 10px !important;
+  line-height: 1.45 !important;
+}
+.wallet-modal .wallet-inline-hint {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  background: rgba(35, 123, 255, 0.06) !important;
+  border: 1px solid rgba(35, 123, 255, 0.20) !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  margin-top: 10px !important;
+  line-height: 1.5 !important;
+}
+.wallet-modal .wallet-inline-hint-icon {
+  display: inline-flex !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: rgba(35, 123, 255, 0.20) !important;
+  color: rgb(35, 123, 255) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  flex: 0 0 auto !important;
+  margin-top: 1px !important;
+}
+.wallet-modal .wallet-inline-hint strong {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #223 */
+
+/* CSFLOAT-1:1 PARITY ship #224 — wallet note + stripe row to csfloat sub-footer
+   Wallet note + stripe attribution row sits below the deposit form; csfloat
+   uses 11/500 Roboto with a hairline divider above it, the stripe badge text
+   is rendered in its own monospace-ish chrome but sized to 13/600. */
+.wallet-modal .wallet-note {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  text-align: center !important;
+  margin-top: 14px !important;
+  padding-top: 14px !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.07) !important;
+  line-height: 1.5 !important;
+}
+.wallet-modal .wallet-stripe-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 14px !important;
+  margin-top: 10px !important;
+  padding: 10px 0 !important;
+}
+.wallet-modal .stripe-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  text-decoration: none !important;
+}
+.wallet-modal .stripe-badge-mark {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: rgb(99, 91, 255) !important;
+  letter-spacing: -0.005em !important;
+}
+.wallet-modal .wallet-stripe-info {
+  display: flex !important;
+  flex-direction: column !important;
+}
+.wallet-modal .wallet-stripe-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.wallet-modal .wallet-stripe-sub {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.45) !important;
+  letter-spacing: 0.3px !important;
+  margin-top: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #224 */
+
+/* CSFLOAT-1:1 PARITY ship #225 — wallet panel + modal width parity
+   The wallet-modal opened at the global modal default width which can vary;
+   csfloat pins its wallet card at 520px desktop / 100% mobile with the
+   panel padded 24px and an explicit border-radius matching modal canon. */
+.wallet-modal {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 10px !important;
+  max-width: 520px !important;
+  width: 100% !important;
+  padding: 0 !important;
+}
+.wallet-modal .wallet-hero {
+  margin: 24px 24px 18px !important;
+}
+.wallet-modal .wallet-tabs {
+  margin: 0 24px 20px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+}
+.wallet-modal .wallet-panel {
+  padding: 0 24px 24px !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+.wallet-modal .wallet-tx-list {
+  margin: 14px 0 0 !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.07) !important;
+  padding-top: 4px !important;
+}
+.wallet-modal .wallet-tx-empty {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.45) !important;
+  text-align: center !important;
+  padding: 36px 16px !important;
+}
+@media (max-width: 600px) {
+  .wallet-modal {
+    max-width: 100% !important;
+    border-radius: 0 !important;
+  }
+  .wallet-modal .wallet-hero,
+  .wallet-modal .wallet-tabs,
+  .wallet-modal .wallet-panel {
+    margin-left: 16px !important;
+    margin-right: 16px !important;
+  }
+  .wallet-modal .wallet-panel {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #225 */
