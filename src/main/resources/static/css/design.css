@@ -122113,3 +122113,44 @@ footer.site-footer .site-footer-bottom a:hover {
   background: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #13 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #14 — inline link color (#1E90FF + hover)
+   csfloat .link / general inline anchors: rgb(30,144,255) (#1E90FF),
+     no underline by default, on hover underline appears. The blue is
+     the same dodger-blue used everywhere on csfloat.
+   sboxmarket inline links inside content (not nav/buttons) had no
+     consistent blue color — bare <a> defaulted to a gold-ish tone.
+   Match csfloat: paint inline content links with #1E90FF, underline on hover.
+   Limit scope to article-style content so we don't repaint nav/btns/cards.
+   ===================================================================== */
+.prose a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.markdown a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.about-page a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.terms-page a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.privacy-page a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.faq a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.help a:not(.btn):not([class*="btn-"]):not(.nav-link),
+.text-link {
+  color: rgb(30, 144, 255) !important;
+  text-decoration: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  padding: 0 !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+.prose a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.markdown a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.about-page a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.terms-page a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.privacy-page a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.faq a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.help a:not(.btn):not([class*="btn-"]):not(.nav-link):hover,
+.text-link:hover {
+  color: rgb(30, 144, 255) !important;
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14 */
