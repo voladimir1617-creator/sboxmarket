@@ -122765,3 +122765,32 @@ mat-card.item-card .actions .buy-now-btn {
 }
 /* END CSFLOAT-1:1 PARITY ship #37 */
 
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #38 — grid card price (.grid-price) typography
+   csfloat measured: .price element —
+     font-size 22px,
+     font-weight 500,
+     line-height normal,
+     letter-spacing normal,
+     color rgb(255, 255, 255),
+     font-family Roboto, "Helvetica Neue", sans-serif (NOT mono).
+   sboxmarket measured /baseline (line 4270): .grid-price is —
+     font-size 15px (7px smaller),
+     font-weight 600,
+     letter-spacing -0.01em,
+     color var(--ink),
+     font-family var(--mono) (JetBrains Mono).
+   Match csfloat exactly: pin to 22px / 500 / Roboto, drop mono and
+   negative tracking. The price is the loudest element on the card and
+   was visibly dwarfed vs csfloat.
+   ===================================================================== */
+.grid-card .grid-price {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #38 */
+
