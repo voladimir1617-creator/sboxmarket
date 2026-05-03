@@ -121722,3 +121722,15 @@ textarea {
   color: var(--ink) !important;
 }
 /* END FAQ chevron polish */
+
+/* =====================================================================
+   filter-rarity-row hover de-blue — boss-QA cycle 31, ship #72
+   ---------------------------------------------------------------------
+   .filter-rarity-row:hover paints with --cta 8% wash — every Rarity
+   filter row hover in the sidebar flashes a tiny blue tint. Switch to
+   neutral --bg-2 hover for consistency with cart-row, db-row etc.
+   ===================================================================== */
+.filter-rarity-row:hover {
+  background: var(--bg-2) !important;
+}
+/* END filter-rarity-row hover polish */
