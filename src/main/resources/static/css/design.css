@@ -121691,3 +121691,21 @@ textarea {
   font-size: 10px !important;
 }
 /* END cf-feebar polish */
+
+/* =====================================================================
+   Market-stats-strip de-blue gradient — boss-QA cycle 31, ship #70
+   ---------------------------------------------------------------------
+   .market-stats-strip background gradient mixes --cta 4% at the edges
+   — a brand-blue wash on the marketplace's top stat ribbon. Switch
+   to an --ink-tinted gradient (4% at the edges) so the strip retains
+   its subtle horizontal sheen but stays neutral.
+   ===================================================================== */
+.market-stats-strip {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--ink) 4%, var(--line)) 0%,
+    var(--line) 50%,
+    color-mix(in oklab, var(--ink) 4%, var(--line)) 100%
+  ) !important;
+}
+/* END market-stats-strip polish */
