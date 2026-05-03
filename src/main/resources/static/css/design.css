@@ -124253,7 +124253,7 @@ body { font-size: 16px !important; }
 }
 /* END CSFLOAT-1:1 PARITY ship #95 */
 
-/* CSFLOAT-1:1 PARITY ship #87 (status dot — online green dot) */
+/* CSFLOAT-1:1 PARITY ship #97 (status dot — online green dot) */
 /* csfloat measured: SVG dot 10x10 viewBox rendered ~13px square,
    filled with the brand green. Use exact #00d680 (csfloat brand green)
    on .online and .status-dot.ok. No box-shadow pulse on csfloat — the dot
@@ -124278,9 +124278,9 @@ body { font-size: 16px !important; }
 }
 .status-dot.down { background-color: rgb(245, 86, 99) !important; box-shadow: none !important; }
 .status-dot.warn { background-color: rgb(255, 184, 0) !important; box-shadow: none !important; }
-/* END CSFLOAT-1:1 PARITY ship #87 */
+/* END CSFLOAT-1:1 PARITY ship #97 */
 
-/* CSFLOAT-1:1 PARITY ship #88 (linear progress bar — top loading indicator) */
+/* CSFLOAT-1:1 PARITY ship #98 (linear progress bar — top loading indicator) */
 /* csfloat measured: 4px tall mdc-linear-progress, transparent track,
    inner bar borderColor rgb(35,123,255) (csfloat brand blue), 4px
    border-top thickness. The page-top progress strip on sboxmarket should
@@ -124303,9 +124303,9 @@ body { font-size: 16px !important; }
   border-top-color: rgb(35, 123, 255) !important;
   height: 4px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #88 */
+/* END CSFLOAT-1:1 PARITY ship #98 */
 
-/* CSFLOAT-1:1 PARITY ship #89 (skeleton shimmer — surface + animation) */
+/* CSFLOAT-1:1 PARITY ship #99 (skeleton shimmer — surface + animation) */
 /* csfloat measured: skeleton placeholders use a subtle on-surface tint
    rgba(255,255,255,0.06) base with a horizontal sweep around
    rgba(255,255,255,0.10). 1.4s linear infinite. Border-radius matches the
@@ -124336,9 +124336,9 @@ body { font-size: 16px !important; }
 .skeleton-card { border-radius: 8px !important; }
 .skeleton-thumb { border-radius: 6px !important; }
 .skeleton-line { border-radius: 4px !important; height: 12px !important; }
-/* END CSFLOAT-1:1 PARITY ship #89 */
+/* END CSFLOAT-1:1 PARITY ship #99 */
 
-/* CSFLOAT-1:1 PARITY ship #90 (empty result state — typography + tone) */
+/* CSFLOAT-1:1 PARITY ship #100 (empty result state — typography + tone) */
 /* csfloat measured: empty result row uses centered text, font-size 14px,
    color rgba(255,255,255,0.6) — Material on-surface medium-emphasis. The
    icon (when present) is 48px monochrome at the same medium-emphasis tone.
@@ -124385,9 +124385,9 @@ body { font-size: 16px !important; }
   margin: 0 !important;
   line-height: 20px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #90 */
+/* END CSFLOAT-1:1 PARITY ship #100 */
 
-/* CSFLOAT-1:1 PARITY ship #91 (toast / snackbar — bg, color, padding, position) */
+/* CSFLOAT-1:1 PARITY ship #101 (toast / snackbar — bg, color, padding, position) */
 /* csfloat measured: toasts use Material mat-mdc-snack-bar styling.
    Container bg: rgb(54, 56, 60) (Material elevation 6 on dark theme),
    color rgba(255,255,255,0.87), border-radius 4px, padding 14px 16px,
@@ -124460,7 +124460,7 @@ body { font-size: 16px !important; }
   padding: 4px 8px !important;
   border-radius: 4px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #91 */
+/* END CSFLOAT-1:1 PARITY ship #101 */
 /* CSFLOAT-1:1 PARITY ship #92 — primary CTA / sign-in button (admin/settings gates)
    Measured on csfloat: padding 13px 30px, height 40px, bg rgb(35,123,255),
    color #fff, border-radius 8px, font-size 15px, font-weight 700, Roboto. */
