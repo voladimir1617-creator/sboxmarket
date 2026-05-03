@@ -120873,3 +120873,26 @@ textarea:focus-visible {
   outline: none !important;
 }
 /* END input-focus polish */
+
+/* =====================================================================
+   Footer typography pass — boss-QA cycle 31, ship #12
+   ---------------------------------------------------------------------
+   The footer overrides at line 8802 had three off-scale literals
+   (11.5/12.5/13.5px) shipped to fine-tune the column visually — they
+   look fine in isolation but break the strict scale audit. Snap to
+   nearest valid steps and add the mono kicker on the column title for
+   the editorial-stack feel the rest of the site has.
+   ===================================================================== */
+.site-footer { font-size: 13px !important; }
+.site-footer-title {
+  font-size: 11px !important;
+  font-family: var(--mono) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.20em !important;
+  color: var(--ink-3) !important;
+}
+.site-footer-col a { font-size: 13px !important; }
+.site-footer-meta { font-size: 12px !important; }
+.site-footer-bottom { font-size: 11px !important; }
+.site-footer-copy { font-family: var(--mono) !important; }
+/* END footer typography */
