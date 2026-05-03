@@ -120896,3 +120896,37 @@ textarea:focus-visible {
 .site-footer-bottom { font-size: 11px !important; }
 .site-footer-copy { font-family: var(--mono) !important; }
 /* END footer typography */
+
+/* =====================================================================
+   Breadcrumb spacing — boss-QA cycle 31, ship #13
+   ---------------------------------------------------------------------
+   The /item modal-header breadcrumb ("Market › Category › Item") had:
+   – off-scale 11.5px font-size,
+   – CTA-blue hover color (violates "blue is spice"),
+   – Geist sans body font for what reads as an editorial chrome line.
+   Snap font-size to 11px, swap the hover to neutral --ink, and convert
+   the breadcrumb to the mono kicker (it's chrome, not body copy).
+   Also bump the separator gap from 6px → 8px for a clearer ›-rhythm.
+   ===================================================================== */
+.modal-breadcrumb {
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  gap: 8px !important;
+  letter-spacing: 0.04em !important;
+  color: var(--ink-3) !important;
+}
+.modal-breadcrumb-link:hover {
+  color: var(--ink) !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.modal-breadcrumb-sep {
+  font-size: 12px !important;
+  color: var(--ink-4) !important;
+  margin: 0 !important;
+}
+.modal-breadcrumb-cur {
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
+/* END breadcrumb spacing */
