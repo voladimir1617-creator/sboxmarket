@@ -123721,3 +123721,356 @@ body[data-page="404"] main h1,
   margin-bottom: 12px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #70 */
+
+/* CSFLOAT-1:1 PARITY ship #71 — /sell + /notifications + /buyorders page-mode header.
+   csfloat headings on full-page routes use H1 20px / 700 / oklch(0.97 0.006 90)
+   (sampled from /db: "Database · 0 indexed"), Roboto stack, no italic serif.
+   Override the modal-as-page H1 so /sell, /notifications, /buyorders match
+   the canonical csfloat page heading typography 1:1. */
+.full-page-mode .info-modal-header {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.2 !important;
+  color: oklch(0.97 0.006 90) !important;
+  font-variation-settings: normal !important;
+  padding: 16px 24px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.full-page-mode .info-modal-header > h1,
+.full-page-mode .info-modal-header > h2,
+.full-page-mode .info-modal-header > h3,
+.full-page-mode .info-modal-header > div:not(.modal-close):not(button) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+  color: inherit !important;
+  line-height: inherit !important;
+  font-variation-settings: normal !important;
+}
+@media (max-width: 480px) {
+  .full-page-mode .info-modal-header {
+    font-size: 18px !important;
+    padding: 14px 16px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #71 */
+
+/* CSFLOAT-1:1 PARITY ship #72 — page-mode body padding & surface.
+   csfloat body bg = rgb(21,23,28); .content max-width 2440px / padding 0.
+   The modal-as-page surface should match: no card chrome, csfloat body bg,
+   16/24px gutter on the body slot rather than the 22px modal default. */
+.full-page-mode .info-modal {
+  background: rgb(21, 23, 28) !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.full-page-mode .info-modal-body {
+  padding: 16px 24px 24px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: rgb(255, 255, 255) !important;
+}
+@media (max-width: 480px) {
+  .full-page-mode .info-modal-body { padding: 12px 14px 18px !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #72 */
+
+/* CSFLOAT-1:1 PARITY ship #73 — /sell sub-tab strip (Steam | Platform).
+   csfloat tab strip uses underline-style mat-mdc-tab tabs: 14px / 500
+   uppercase labels, 48px height, 16px horizontal padding, transparent bg,
+   2px accent underline on the active tab (rgb(35,123,255)). Replace the
+   pill-tab look on .sell-source-tabs with a flat csfloat underline strip. */
+.full-page-mode .sell-source-tabs {
+  display: flex !important;
+  gap: 0 !important;
+  margin-bottom: 16px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+}
+.full-page-mode .sell-source-tabs button {
+  position: relative !important;
+  padding: 0 16px !important;
+  height: 48px !important;
+  min-width: 90px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: uppercase !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  cursor: pointer !important;
+  transition: color 140ms ease, background 140ms ease !important;
+}
+.full-page-mode .sell-source-tabs button:hover {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.full-page-mode .sell-source-tabs button.active {
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+}
+.full-page-mode .sell-source-tabs button.active::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0; right: 0; bottom: 0 !important;
+  height: 2px !important;
+  background: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #73 */
+
+/* CSFLOAT-1:1 PARITY ship #74 — empty-state container on /sell, /notifications,
+   /buyorders. csfloat empty-states center an icon + 16px / 600 white headline
+   + 13px / 400 dim subtitle + primary CTA at 40px height / 8px radius. The
+   localhost .empty-inline default (36px 24px 28px, gap 8px) compresses too
+   tightly on a full-page route — bump to csfloat's airier 64px vertical
+   padding and align typography. */
+.full-page-mode .empty-inline {
+  padding: 64px 24px !important;
+  gap: 12px !important;
+  text-align: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 13px !important;
+}
+.full-page-mode .empty-inline strong,
+.full-page-mode .empty-inline > div:first-of-type,
+.full-page-mode .empty-inline h2,
+.full-page-mode .empty-inline h3 {
+  color: rgb(255, 255, 255) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin-bottom: 4px !important;
+}
+.full-page-mode .empty-inline svg {
+  width: 32px !important;
+  height: 32px !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin-bottom: 4px !important;
+}
+.full-page-mode .empty-inline .btn-accent,
+.full-page-mode .empty-inline .btn-primary {
+  margin-top: 12px !important;
+  padding: 0 30px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857143em !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #74 */
+
+/* CSFLOAT-1:1 PARITY ship #75 — notification rows + buy-order rows.
+   csfloat list-row pattern: ~64px tall, 12px gap, 16-24px horizontal padding,
+   hairline 1px border-bottom rgba(255,255,255,0.08), no per-row radius. Hover
+   lightens bg by ~4%. Apply to notification & buy-order rows so /notifications
+   and /buyorders read as flat csfloat-style stacked rows, not pill cards. */
+.full-page-mode .notif-row,
+.full-page-mode .notification-row,
+.full-page-mode .notifications-list > * + *,
+.full-page-mode .buyorder-row,
+.full-page-mode .buy-order-row,
+.full-page-mode .bo-row,
+.full-page-mode [class*="notif-item"],
+.full-page-mode [class*="buyorder-item"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px 24px !important;
+  min-height: 64px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  color: rgb(255, 255, 255) !important;
+  transition: background 120ms ease !important;
+}
+.full-page-mode .notif-row:hover,
+.full-page-mode .notification-row:hover,
+.full-page-mode .buyorder-row:hover,
+.full-page-mode .buy-order-row:hover,
+.full-page-mode .bo-row:hover,
+.full-page-mode [class*="notif-item"]:hover,
+.full-page-mode [class*="buyorder-item"]:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.full-page-mode .notif-row:last-child,
+.full-page-mode .notification-row:last-child,
+.full-page-mode .buyorder-row:last-child,
+.full-page-mode .buy-order-row:last-child {
+  border-bottom: 0 !important;
+}
+@media (max-width: 480px) {
+  .full-page-mode .notif-row,
+  .full-page-mode .notification-row,
+  .full-page-mode .buyorder-row,
+  .full-page-mode .buy-order-row,
+  .full-page-mode .bo-row {
+    padding: 12px 16px !important;
+    min-height: 56px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #75 */
+
+/* CSFLOAT-1:1 PARITY ship #76 — mobile nav side padding match csfloat (.toolbar 15px) */
+/* csfloat measured at 375x812: .toolbar padding 15px L/R, 70px tall */
+/* sboxmarket: nav padding 60px L/R at mobile — far too much, content cramped */
+@media (max-width: 480px) {
+  nav.nav,
+  nav,
+  .nav,
+  .toolbar,
+  .header,
+  .app-header,
+  .site-header {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #76 */
+
+/* CSFLOAT-1:1 PARITY ship #77 (hover) — primary CTA :hover Material elevation bump */
+/* csfloat measured: .mat-mdc-raised-button.mat-primary base shadow is the
+   Material level1 stack: rgba(0,0,0,0.2) 0 3px 1px -2px,
+   rgba(0,0,0,0.14) 0 2px 2px 0, rgba(0,0,0,0.12) 0 1px 5px 0. On :hover
+   it lifts to level2: rgba(0,0,0,0.2) 0 2px 4px -1px,
+   rgba(0,0,0,0.14) 0 4px 5px 0, rgba(0,0,0,0.12) 0 1px 10px 0. The bg
+   color stays rgb(35,123,255) — Material adds an 8% state-layer overlay
+   on the ::before ripple, but visually only the shadow lift reads.
+   Transition is box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1). NO transform. */
+/* sboxmarket .btn-primary :hover currently nudges color/background — replace
+   with the elevation lift to match csfloat's restraint. */
+.btn-primary:hover,
+.btn-accent:hover,
+.px-btn-primary:hover,
+button.btn-primary:not(:disabled):hover,
+a.btn-primary:not(:disabled):hover {
+  background-color: rgb(35, 123, 255) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+    rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+  transform: none !important;
+  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #77 */
+
+/* CSFLOAT-1:1 PARITY ship #78 (active) — primary CTA :active Material level1 settle */
+/* csfloat measured: on :active, .mat-mdc-raised-button drops back toward
+   the base elevation (level1) and Material adds a 12% pressed state-layer.
+   Net visual: shadow returns to the 3-layer base stack, bg darkens slightly
+   from the overlay. csfloat does NOT scale the button. */
+/* sboxmarket .btn-primary :active currently does transform: scale(0.96) —
+   csfloat does NOT scale. Remove the scale, keep the shadow settle. */
+.btn-primary:active,
+.btn-accent:active,
+.px-btn-primary:active,
+button.btn-primary:not(:disabled):active,
+a.btn-primary:not(:disabled):active {
+  background-color: rgb(31, 110, 229) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transform: none !important;
+  transition: box-shadow 80ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #78 */
+
+/* CSFLOAT-1:1 PARITY ship #79 (hover) — top-nav link :hover MD3 state-layer */
+/* csfloat measured: nav links are .mat-mdc-button.mat-unthemed (no bg, white).
+   On :hover the ::before persistent ripple shows at 8% opacity using the
+   on-surface color (white). Net visual: a translucent rgba(255,255,255,0.08)
+   pill behind the link text. NO color change on the text itself, NO underline. */
+/* sboxmarket .nav-link :hover currently changes color to --ink and bg to --bg-1
+   (a solid grey panel). Replace with the translucent white state-layer to
+   match csfloat's softer overlay. */
+.nav-link:hover,
+.subnav a:hover,
+header nav a:not(.btn-primary):not(.btn-secondary):hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  text-decoration: none !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* csfloat does NOT keep the bottom underline bar on hover for inactive items —
+   only the .active link gets the persistent underline. */
+.nav-link:not(.active):hover::after {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #79 */
+
+/* CSFLOAT-1:1 PARITY ship #80 (focus) — search input :focus csfloat MD3 outlined */
+/* csfloat measured: the header search uses a Material outlined text-field.
+   Base border is rgba(193, 206, 255, 0.12) (subtle), and on :focus the
+   border becomes rgb(35, 123, 255) (the primary blue) at 1px and the box
+   gains NO additional shadow — just the color shift. Background stays the
+   same (transparent over surface bg rgb(27, 29, 36)). Transition ~120ms. */
+/* sboxmarket .search-input :focus currently pumps border to --line-2 and bg
+   to --bg-2 (a grey shift). Replace with the csfloat blue accent border. */
+.search-input:focus,
+.search-input:focus-visible,
+input.search-input:focus,
+input[type="search"]:focus,
+.searchbar input:focus,
+.search-field input:focus {
+  border-color: rgb(35, 123, 255) !important;
+  border-width: 1px !important;
+  background-color: rgb(27, 29, 36) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: border-color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* csfloat keeps placeholder color stable when focused (no color jump). */
+.search-input:focus::placeholder,
+input[type="search"]:focus::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #80 */
+
+/* CSFLOAT-1:1 PARITY ship #81 (hover/active) — filter chip :hover/:active parity */
+/* csfloat measured: filter chips are mat-chip with bg rgba(193,206,255,0.04)
+   in rest. On :hover the bg shifts to rgba(193,206,255,0.08) — exact +0.04
+   step using the same blueish on-surface tint, no color/border change on
+   the chip itself. On :active it goes to rgba(193,206,255,0.12) (pressed
+   state-layer 0.12). Transition ~120ms. NO transform — csfloat doesn't
+   scale chips on press. */
+/* sboxmarket .filter-chip :hover currently morphs color/border-color
+   (color: --ink, border-color: --line-2) — replace with the bg overlay. */
+.filter-chip:hover,
+.wallet-tx-filter-chip:hover,
+.stall-filter-chips .filter-chip:hover,
+.active-filters .filter-chip:hover {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  border-color: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.filter-chip:active,
+.wallet-tx-filter-chip:active,
+.stall-filter-chips .filter-chip:active {
+  background-color: rgba(193, 206, 255, 0.12) !important;
+  transform: none !important;
+  transition: background-color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #81 */
