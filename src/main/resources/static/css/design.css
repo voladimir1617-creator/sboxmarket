@@ -121071,3 +121071,24 @@ textarea:focus-visible {
   text-shadow: none !important;
 }
 /* END selection cleanup */
+
+/* =====================================================================
+   Modal close-btn polish — boss-QA cycle 31, ship #22
+   ---------------------------------------------------------------------
+   The .modal-close hover paints with --cta blue (border tint + 3px
+   accent shadow ring) — yet another chrome control broadcasting brand
+   color. Swap the hover and focus to neutral --ink-2 / --line-2 so the
+   close button reads as quiet chrome (consistent with the cycle 31
+   focus-ring + input-focus polish).
+   ===================================================================== */
+.modal-close:hover {
+  border-color: var(--line-2) !important;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 3px color-mix(in oklab, var(--ink-2) 14%, transparent) !important;
+}
+.modal-close:focus-visible {
+  border-color: var(--ink-2) !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
+}
+/* END modal close polish */
