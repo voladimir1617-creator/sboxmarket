@@ -121428,3 +121428,17 @@ textarea {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
 }
 /* END nav-link active polish */
+
+/* =====================================================================
+   wallet-pending-chip on-scale font — boss-QA cycle 31, ship #50
+   ---------------------------------------------------------------------
+   The .wallet-pending-chip ships with font-size: 10.5px — a fractional
+   value that doesn't snap to the strict 10/11/12/13/14/15 scale.
+   Snap to 10px (closer than 11) and tighten letter-spacing slightly so
+   the kicker stays compact at the smaller size.
+   ===================================================================== */
+.wallet-pending-chip {
+  font-size: 10px !important;
+  letter-spacing: 0.06em !important;
+}
+/* END wallet-pending polish */
