@@ -8350,7 +8350,20 @@ export function App() {
                   ? parseFloat(fresh.price) : null;
                 const priceMoved = newPrice != null &&
                   Math.abs(newPrice - parseFloat(it.price)) > 0.005;
-                return h('div', { key: it.id, className: 'cart-row', style: stale ? { opacity: 0.55 } : {} },
+                return h('div', {
+                    key: it.id,
+                    className: 'cart-row',
+                    role: 'link',
+                    tabIndex: 0,
+                    title: `Open ${it.name}`,
+                    'aria-label': `Open ${it.name} item page`,
+                    style: { cursor: 'pointer', ...(stale ? { opacity: 0.55 } : {}) },
+                    // Click anywhere on the row navigates to the item
+                    // detail page. Seller-name link + X-remove button
+                    // stop propagation so they keep their own behavior.
+                    onClick: (e) => { if (e.target.closest('a, button')) return; if (it.itemId) navigate(paths.item(it.itemId)); },
+                    onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && it.itemId) { e.preventDefault(); navigate(paths.item(it.itemId)); } }
+                  },
                   h('div', { className: 'cart-thumb' }, it.thumb
                     ? h('img', { src: it.thumb, alt: it.name, loading: 'lazy', decoding: 'async' })
                     : h('span', null, '—')),
