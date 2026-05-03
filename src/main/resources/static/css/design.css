@@ -122735,3 +122735,33 @@ mat-card.item-card .actions .buy-now-btn {
 }
 /* END CSFLOAT-1:1 PARITY ship #36 */
 
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #37 — grid card subtitle (.grid-cat) typography
+   csfloat measured: .subtext beneath the title —
+     font-size 14px,
+     font-weight 500,
+     line-height normal,
+     letter-spacing normal (NOT uppercased, NOT mono),
+     color rgb(158, 167, 177),
+     margin-top 6px between title and subtitle.
+   sboxmarket measured /baseline (line 4252): .grid-cat is styled like a
+     mono uppercase tag — font-size 10px, letter-spacing 0.16em,
+     text-transform uppercase, color var(--ink-4), font-family var(--mono).
+     This reads completely different from csfloat's plain "Factory New"
+     subtitle.
+   Match csfloat exactly: drop mono+uppercase styling, set 14px / 500 /
+   color rgb(158,167,177), no letter-spacing, no text-transform, 6px
+   top margin from the title.
+   ===================================================================== */
+.grid-card .grid-cat {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #37 */
+
