@@ -122830,33 +122830,21 @@ mat-card.item-card .actions .buy-now-btn {
    Tighten the page H1 on those routes to csfloat-style 24/500 white,
      drop the underline padding, keep modest 16px below.
    ===================================================================== */
-.page-watchlist h1.info-modal-header,
-.page-profile h1.info-modal-header,
-.page-wallet h1.info-modal-header,
-body[data-page="watchlist"] h1.info-modal-header,
-body[data-page="profile"] h1.info-modal-header,
-body[data-page="wallet"] h1.info-modal-header {
+/* The h1 carries a stable id like "info-modal-h-watchlist---0-items",
+   "info-modal-h-profile", "info-modal-h-wallet" derived from its text.
+   Match by id-prefix so only the three account pages are affected. */
+h1.info-modal-header[id^="info-modal-h-watchlist"],
+h1.info-modal-header[id^="info-modal-h-profile"],
+h1.info-modal-header[id^="info-modal-h-wallet"] {
   font-size: 24px !important;
   font-weight: 500 !important;
   color: rgb(255, 255, 255) !important;
   line-height: 32px !important;
   letter-spacing: normal !important;
-  padding: 0 0 0 0 !important;
-  margin: 0 0 16px 0 !important;
-  border-bottom: 0 none !important;
-  gap: 0 !important;
-}
-/* fallback when route data attrs are missing — match by url path via :is on body classes the app already exposes */
-body.route-watchlist h1.info-modal-header,
-body.route-profile h1.info-modal-header,
-body.route-wallet h1.info-modal-header {
-  font-size: 24px !important;
-  font-weight: 500 !important;
-  color: rgb(255, 255, 255) !important;
-  line-height: 32px !important;
   padding: 0 !important;
   margin: 0 0 16px 0 !important;
   border-bottom: 0 none !important;
+  gap: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #40 */
 
@@ -123300,3 +123288,63 @@ body.route-wallet h1.info-modal-header {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #45 */
+
+/* CSFLOAT-1:1 PARITY ship #45 — layout grid sidebar track */
+/* csfloat measured: sidebar 350px wide → grid track must match */
+/* sboxmarket was: 240px in .layout:has(> .sidebar) grid-template-columns */
+.layout:has(> .sidebar),
+.layout:has(> aside.sidebar) {
+  grid-template-columns: 350px minmax(0, 1fr) !important;
+}
+@media (max-width: 1024px) {
+  .layout:has(> .sidebar),
+  .layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #45 */
+
+/* CSFLOAT-1:1 PARITY ship #46 — sidebar gap to feed (csfloat measured 20px gap between sidebar and grid container) */
+/* csfloat measured: card grid begins at left:296 - sidebar ends at 410 = ~24px gap; */
+/*   actual measured gap visible: sidebar (60-410) -> grid container (296). but csfloat layout has different structure. */
+/* sboxmarket was: gap 24px on layout grid */
+/* Match: csfloat actual measured = 20px between sidebar end and grid container left */
+.layout:has(> .sidebar),
+.layout:has(> aside.sidebar) {
+  gap: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #46 */
+
+/* CSFLOAT-1:1 PARITY ship #47 — filter section padding (rows 6px 0) */
+/* csfloat measured: .row.expanded padding 6px 0 (section row) */
+/* sboxmarket was: .filter-section padding 16px 0 */
+.filter-section {
+  padding: 6px 0 !important;
+}
+.filter-section:first-child { padding-top: 0 !important; }
+.filter-section:last-child { padding-bottom: 0 !important; }
+/* END CSFLOAT-1:1 PARITY ship #47 */
+
+/* CSFLOAT-1:1 PARITY ship #48 — filter title weight + size */
+/* csfloat measured: section header text fontSize 12px, fontWeight 700, color rgb(255,255,255), no transform */
+/* sboxmarket was: 10px / 500 / var(--ink-4) / uppercase via .filter-title */
+.filter-title {
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  margin-bottom: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #48 */
+
+/* CSFLOAT-1:1 PARITY ship #49 — gap between sections in sidebar (15px csfloat) */
+/* csfloat measured: .advanced-search has gap 15px between section rows */
+/* sboxmarket: relied on .filter-section padding+border, no flex gap */
+.sidebar {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #49 */
