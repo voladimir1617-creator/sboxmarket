@@ -121579,3 +121579,23 @@ textarea {
   border-color: var(--line-2) !important;
 }
 /* END modal-listing polish */
+
+/* =====================================================================
+   nav-link hover + active bg de-blue — boss-QA cycle 31, ship #62
+   ---------------------------------------------------------------------
+   .nav-link:hover paints with --cta 8% wash, .nav-link.active with
+   --cta 5% wash — every nav link hover & every active-route link
+   broadcasts brand-blue. The active state already gets the 2px --cta
+   underline (allowed exception, calmed in ship #49). Drop the hover
+   wash + active wash to neutral so the only blue on the active link
+   is its underline.
+   ===================================================================== */
+.nav-link:hover {
+  color: var(--ink) !important;
+  background: var(--bg-2) !important;
+}
+.nav-link.active {
+  color: var(--ink) !important;
+  background: transparent !important;
+}
+/* END nav-link hover polish */
