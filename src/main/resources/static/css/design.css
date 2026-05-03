@@ -162,8 +162,8 @@ a { color: inherit; text-decoration: none; }
   padding: 0 18px;
   gap: 18px;
   background: color-mix(in oklab, var(--bg) 72%, transparent);
-  backdrop-filter: saturate(140%) blur(24px);
-  -webkit-backdrop-filter: saturate(140%) blur(24px);
+  backdrop-filter: saturate(140%) blur(18px);
+  -webkit-backdrop-filter: saturate(140%) blur(18px);
   border-bottom: 1px solid var(--line);
 }
 .brand {
@@ -1274,7 +1274,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
   position: fixed; bottom: 18px; right: 18px; z-index: 200;
   width: 288px;
   background: color-mix(in oklab, var(--bg-1) 94%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--line-2);
   border-radius: var(--r-md);
   padding: 14px;
@@ -1306,7 +1306,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
 .cmdk-backdrop {
   position: fixed; inset: 0; z-index: 300;
   background: color-mix(in oklab, var(--bg) 60%, transparent);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   display: grid; place-items: start center;
   padding-top: 12vh;
   animation: fade 160ms ease;
@@ -2303,7 +2303,7 @@ footer {
   display: inline-flex; align-items: center; gap: 10px;
   padding: 8px 14px; border: 1px solid var(--line);
   border-radius: 999px; background: rgba(10,12,16,0.6);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   font-size: 11px; color: var(--ink-2);
   font-family: var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
 }
@@ -2316,7 +2316,7 @@ footer {
   gap: 0; border: 1px solid var(--line);
   border-radius: var(--r-md); overflow: hidden;
   background: rgba(10,12,16,0.45);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   margin-bottom: 22px;
 }
 .cf-tab {
@@ -4901,8 +4901,8 @@ nav.nav {
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 200;
   background: color-mix(in oklab, var(--bg) 84%, transparent);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
   display: grid; place-items: center;
   padding: 4vh 16px;
   overflow-y: auto;              /* tall modals scroll inside the backdrop */
@@ -5706,7 +5706,7 @@ body:has(.shortcuts-backdrop) {
 .cart-confirm-backdrop {
   position: fixed; inset: 0; z-index: 200;
   background: color-mix(in oklab, var(--bg) 62%, transparent);
-  backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(12px) saturate(1.1);
   display: grid; place-items: center;
   padding: 4vh 16px;
 }
@@ -5768,7 +5768,7 @@ body:has(.shortcuts-backdrop) {
 .shortcuts-backdrop {
   position: fixed; inset: 0; z-index: 200;
   background: color-mix(in oklab, var(--bg) 62%, transparent);
-  backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(12px) saturate(1.1);
   display: grid; place-items: center;
   padding: 4vh 16px;
 }
@@ -10704,8 +10704,8 @@ input[type="radio"] {
   cursor: pointer;
   font-size: 15px; font-weight: 600;
   font-family: inherit;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 4;
   opacity: 0.6;
   transition: opacity 160ms ease, color 160ms ease,
@@ -12247,8 +12247,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
   width: 32px; height: 32px;
   display: grid; place-items: center;
   background: color-mix(in oklab, var(--bg) 65%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-radius: 50%;
   color: color-mix(in oklab, var(--ink) 70%, transparent);
   pointer-events: none;
@@ -12376,8 +12376,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
   min-width: 220px;
   padding: 6px;
   background: color-mix(in oklab, var(--bg-1) 95%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   border: 1px solid var(--line-2);
   border-radius: 10px;
   box-shadow:
@@ -12504,8 +12504,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
   min-width: 240px;
   padding: 6px;
   background: color-mix(in oklab, var(--bg-1) 95%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   border: 1px solid var(--line-2);
   border-radius: 10px;
   box-shadow:
@@ -12553,8 +12553,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
   inset: 0;
   z-index: 100;
   background: color-mix(in oklab, var(--bg) 92%, black);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   padding: 64px 32px 80px;
@@ -12593,7 +12593,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   font-weight: 600;
   cursor: pointer;
   transition: background 140ms ease, transform 140ms ease, border-color 140ms ease;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
 }
 .item-lightbox-close:hover {
   background: color-mix(in oklab, var(--cta) 15%, var(--bg-1));
@@ -12612,7 +12612,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   background: color-mix(in oklab, var(--bg-1) 75%, transparent);
   border: 1px solid var(--line);
   border-radius: 999px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
 }
 
 /* Hover: when not active, preview shows zoom-in cursor + faint scale */
@@ -12967,8 +12967,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
   position: sticky !important;
   bottom: 0 !important;
   background: color-mix(in oklab, var(--bg) 92%, transparent) !important;
-  backdrop-filter: blur(8px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+  backdrop-filter: blur(6px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(140%) !important;
   z-index: 5;
   margin-top: 32px;
   border-top: 1px solid var(--line) !important;
@@ -13442,8 +13442,8 @@ body:has(.full-page-mode) { overflow: visible !important; }
    page content underneath is faintly visible. Was solid bg. */
 .full-page-mode .modal-actions {
   background: color-mix(in oklab, var(--bg) 88%, transparent) !important;
-  backdrop-filter: blur(10px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+  backdrop-filter: blur(12px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
 }
 /* END action-bar transparency */
 
@@ -15587,7 +15587,7 @@ a:not(.btn):not(.nav-link):not(.modal-cat):not([class*="-btn"]):not([class*="-ct
 /* CSFloat-1:1: improve csfloat-band-card-views eye-icon styling. */
 .csfloat-band-card-views, .grid-views {
   background: color-mix(in oklab, var(--bg) 75%, transparent);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--line);
 }
 /* END view chip bg */
@@ -16118,7 +16118,7 @@ details summary:hover {
   position: sticky;
   bottom: 0;
   background: color-mix(in oklab, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   padding: 16px;
   border-top: 1px solid var(--line);
   display: flex; align-items: center; justify-content: flex-end; gap: 8px;
@@ -16158,8 +16158,8 @@ details summary:hover {
 /* CSFloat-1:1: improve nav bg blur intensity. */
 .nav {
   background: color-mix(in oklab, var(--bg) 88%, transparent);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
 }
 /* END nav bg */
 
@@ -17225,8 +17225,8 @@ ul, ol { list-style: none; padding: 0; margin: 0; }
 
 /* CSFloat-1:1: improve nav backdrop blur smoother on scroll. */
 .nav {
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
 }
 /* END nav blur stronger */
 
@@ -22163,8 +22163,8 @@ a[target="_blank"]::after {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 9800;
   display: flex;
   align-items: center;
@@ -24005,8 +24005,8 @@ html { scroll-behavior: smooth; }
   top: 56px;
   z-index: 800;
   background: oklch(0.18 0.008 260 / 0.85);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-bottom: 1px solid var(--line);
 }
 
@@ -24020,8 +24020,8 @@ html { scroll-behavior: smooth; }
   bottom: 0;
   z-index: 800;
   background: oklch(0.18 0.008 260 / 0.92);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
   border-top: 1px solid var(--line);
   padding: 10px 18px;
   display: flex;
@@ -24098,8 +24098,8 @@ html { scroll-behavior: smooth; }
   top: 56px;
   z-index: 700;
   background: oklch(0.16 0.008 260 / 0.85);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-bottom: 1px solid var(--line);
   padding: 12px 24px;
   display: flex;
@@ -25160,8 +25160,8 @@ html { scroll-behavior: smooth; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease;
 }
@@ -26373,8 +26373,8 @@ html { scroll-behavior: smooth; }
   top: 0;
   z-index: 1000;
   background: oklch(0.16 0.008 260 / 0.85);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-bottom: 1px solid var(--line);
 }
 .nav-inner {
@@ -26540,8 +26540,8 @@ html { scroll-behavior: smooth; }
   -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 .csfloat-blur-lg {
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
 
 /* CSFloat-1:1: aspect ratio helpers. */
@@ -28031,8 +28031,8 @@ body::after {
   left: 16px;
   width: min(480px, calc(100vw - 32px));
   background: oklch(0.18 0.008 260 / 0.96);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--line-2);
   border-radius: 12px;
   padding: 14px 16px;
@@ -33663,8 +33663,8 @@ hr.csfloat {
   -webkit-backdrop-filter: blur(4px) saturate(140%);
 }
 .csfloat-backdrop-blur-lg {
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
 
 /* CSFloat-1:1: filter chains for product images. */
@@ -33750,8 +33750,8 @@ hr.csfloat {
   top: 64px;
   z-index: 700;
   background: oklch(0.18 0.008 260 / 0.92);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-bottom: 1px solid var(--line);
   padding: 10px 18px;
   display: flex;
@@ -38820,8 +38820,8 @@ hr.csfloat {
   background: oklch(0.18 0.008 260 / 0.92);
   border: 1px solid var(--line-2);
   border-radius: 999px;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow: 0 12px 32px rgba(0,0,0,0.55);
   z-index: 8800;
   animation: csfloat-pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -45196,8 +45196,8 @@ hr.csfloat {
   background: oklch(0.18 0.008 260 / 0.92);
   border: 1px solid var(--line-2);
   border-radius: 999px;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow: 0 12px 32px rgba(0,0,0,0.55);
   z-index: 8800;
   animation: csfloat-pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -46042,8 +46042,8 @@ hr.csfloat {
     border: 1px solid var(--line-2);
     border-radius: 12px;
     padding: 10px;
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     box-shadow: 0 12px 32px rgba(0,0,0,0.55);
     z-index: 8800;
   }
@@ -47855,8 +47855,8 @@ hr.csfloat {
   height: 40px;
   padding: 0 18px;
   background: oklch(0.18 0.008 260 / 0.85);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 56px;
@@ -50925,8 +50925,8 @@ hr.csfloat {
   left: 0;
   right: 0;
   background: oklch(0.18 0.008 260 / 0.95);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-top: 1px solid var(--line);
   padding: 12px 18px;
   display: grid;
@@ -52197,8 +52197,8 @@ hr.csfloat {
   border: 1px solid var(--line-2);
   border-radius: 12px;
   padding: 16px 18px;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 /* CSFloat-1:1: simple plain row (used in lists). */
@@ -55596,8 +55596,8 @@ hr.csfloat {
   background: oklch(0.20 0.008 260 / 0.6);
   color: var(--ink-1);
   border-color: var(--line-2);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   box-shadow: none;
 }
 .csfloat-hero-pill.ghost:hover {
@@ -56912,8 +56912,8 @@ hr.csfloat {
   justify-content: space-between;
   padding: 10px 14px;
   background: oklch(0.18 0.008 260 / 0.92);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-bottom: 1px solid var(--line);
   margin-bottom: 12px;
   gap: 10px;
@@ -57859,8 +57859,8 @@ hr.csfloat {
   padding: 14px 18px;
   background: oklch(0.18 0.008 260 / 0.95);
   border-top: 1px solid var(--line);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -60860,8 +60860,8 @@ hr.csfloat {
   position: sticky;
   top: 56px;
   background: oklch(0.18 0.008 260 / 0.92);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   z-index: 10;
 }
 .csfloat-section-title-floating-mark {
@@ -61577,8 +61577,8 @@ hr.csfloat {
   justify-content: space-between;
   padding: 14px 18px;
   background: oklch(0.18 0.008 260 / 0.92);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-top: 1px solid var(--line);
   position: sticky;
   bottom: 0;
@@ -62035,9 +62035,9 @@ hr.csfloat {
 /* backdrop helpers. */
 .csfloat-bd-blur-2 { backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
 .csfloat-bd-blur-4 { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-.csfloat-bd-blur-8 { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.csfloat-bd-blur-16 { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-.csfloat-bd-blur-24 { backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.csfloat-bd-blur-8 { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.csfloat-bd-blur-16 { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.csfloat-bd-blur-24 { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 
 /* END utility helpers batch — width, height, z, radius, shadow, border-style, backdrop */
 
@@ -68079,7 +68079,7 @@ hr.csfloat {
   position: fixed;
   inset: 0;
   background: rgba(7, 11, 24, 0.65);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -70648,7 +70648,7 @@ hr.csfloat {
   height: 32px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
   cursor: pointer;
@@ -70746,7 +70746,7 @@ hr.csfloat {
   height: 36px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #fff;
   cursor: pointer;
@@ -79632,7 +79632,7 @@ hr.csfloat {
   gap: 0;
   padding: 0 16px;
   background: rgba(7, 11, 24, 0.8);
-  backdrop-filter: blur(16px) saturate(120%);
+  backdrop-filter: blur(18px) saturate(120%);
   border-bottom: 1px solid var(--line);
   height: 44px;
   overflow-x: auto;
@@ -83832,7 +83832,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 6px;
   align-items: stretch;
   background: rgba(7, 11, 24, 0.55);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 6px;
@@ -85840,7 +85840,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 6px;
   padding: 10px 8px;
   background: rgba(7, 11, 24, 0.7);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--line);
   border-radius: 999px;
   z-index: 90;
@@ -94321,7 +94321,7 @@ tr:hover .csfloat-row-hover-actions,
   right: 0;
   display: none;
   background: rgba(7, 11, 24, 0.85);
-  backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
   border-top: 1px solid var(--line);
   padding: 6px 8px;
   z-index: 80;
@@ -100087,7 +100087,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 8px;
   padding: 12px 16px;
   background: rgba(7, 11, 24, 0.85);
-  backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
   border-top: 1px solid var(--line);
   z-index: 10;
 }
@@ -103051,7 +103051,7 @@ tr:hover .csfloat-row-hover-actions,
   z-index: 50;
   padding: 8px 6px;
   background: rgba(7, 11, 24, 0.7);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--line);
   border-radius: 999px;
 }
@@ -104592,7 +104592,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 5px;
   padding: 6px 12px;
   background: rgba(7, 11, 24, 0.6);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.9);
@@ -109334,7 +109334,7 @@ tr:hover .csfloat-row-hover-actions,
   height: 28px;
   border-radius: 999px;
   background: rgba(7, 11, 24, 0.65);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
@@ -111443,7 +111443,7 @@ tr:hover .csfloat-row-hover-actions,
   height: 48px;
   border-radius: 999px;
   background: rgba(7, 11, 24, 0.65);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
   display: inline-flex;
@@ -117688,8 +117688,8 @@ h1.modal-h1,
   width: 26px; height: 26px;
   display: grid; place-items: center;
   background: color-mix(in oklab, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink-3);
@@ -117977,8 +117977,8 @@ h1.modal-h1,
   width: 26px; height: 26px;
   display: grid; place-items: center;
   background: color-mix(in oklab, var(--bg) 70%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink-2);
@@ -119095,8 +119095,8 @@ h1.modal-h1,
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background: color-mix(in oklab, var(--bg) 92%, var(--bg-2));
-  backdrop-filter: blur(8px) saturate(1.05);
-  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
 }
 .csfloat-home-trust-inner {
   max-width: 2100px;
