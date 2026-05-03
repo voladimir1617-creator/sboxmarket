@@ -121519,3 +121519,27 @@ textarea {
   font-size: clamp(22px, 3vw, 40px) !important;
 }
 /* END stat-ribbon polish */
+
+/* =====================================================================
+   search-suggest dropdown polish — boss-QA cycle 31, ship #58
+   ---------------------------------------------------------------------
+   The search-suggest dropdown was painted with --cta blue throughout:
+   border tint (14%), shadow ring (6%), hover/sel bg (10%), and the
+   keyboard-cursor edge strip (solid --cta). Switch to the same neutral
+   pattern used by the cmdK palette in ship #25 (line 120974): --line-2
+   border, neutral hover/sel bg, --ink left-strip on .sel as the
+   keyboard cursor indicator.
+   ===================================================================== */
+.search-suggest {
+  border-color: var(--line-2) !important;
+  box-shadow: var(--shadow-2) !important;
+}
+.search-suggest-row:hover,
+.search-suggest-row.sel {
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+}
+.search-suggest-row.sel::before {
+  background: var(--ink) !important;
+}
+/* END search-suggest polish */
