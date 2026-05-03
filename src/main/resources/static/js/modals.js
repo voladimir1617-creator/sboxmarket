@@ -6740,22 +6740,50 @@ function ProfileTradesTab({ me, privacy }) {
             const isSeller = me && t.sellerUserId === me.id;
             const isBuyer  = me && t.buyerUserId === me.id;
             const meta = STATE_LABEL[t.state] || { label: t.state, color: '#8590b3', step: 0 };
+            // Item thumbnail (decorative — the item name beside it is the
+            // actionable text, so aria-hidden). 44px square, object-fit
+            // contain, rounded, accentColor at ~10% as backdrop. Falls
+            // back to a generic gift-box icon for legacy trades whose
+            // itemId no longer resolves (itemImageUrl will be null).
+            // Wrapped INSIDE the same link as the item name below so
+            // clicking thumb or text both navigate to /item/:id.
+            const accent = t.itemAccentColor || 'var(--accent)';
+            const thumbBg = t.itemAccentColor
+              ? (t.itemAccentColor + '1A')        // 10% alpha hex suffix
+              : 'rgba(30,165,255,0.08)';
+            const thumb = h('span', {
+              'aria-hidden': true,
+              style: {
+                width: 44, height: 44, flex: '0 0 44px',
+                borderRadius: 6, background: thumbBg,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                marginRight: 10, overflow: 'hidden'
+              }
+            }, t.itemImageUrl
+              ? h('img', {
+                  src: t.itemImageUrl, alt: '', loading: 'lazy',
+                  style: { width: '100%', height: '100%', objectFit: 'contain' }
+                })
+              : h(MaterialIcon, { name: 'inventory_2', size: 24, color: accent }));
             return h('div', { key: t.id, id: 'trade-' + t.id, className: `trade-row ${(t.state || '').toLowerCase()}` },
               h('div', { className: 'trade-main' },
-                h('div', { className: 'trade-title' },
+                h('div', { className: 'trade-title', style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap' } },
                   (isSeller ? '→ ' : '← '),
                   // Link the item name to the item detail page when the
-                  // trade carries an itemId. Opens in the same tab so a
-                  // buyer reviewing a pending trade can quickly check
-                  // the catalogue history / current floor.
+                  // trade carries an itemId. The thumbnail rides INSIDE
+                  // the same anchor so click anywhere on thumb+name
+                  // navigates. Opens in the same tab so a buyer reviewing
+                  // a pending trade can quickly check the catalogue
+                  // history / current floor.
                   t.itemId
                     ? h('a', {
                         href: '/item/' + t.itemId,
-                        style: { color: 'inherit', textDecoration: 'none' },
+                        style: { color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
                         title: 'Open item detail',
                         onClick: (e) => e.stopPropagation()
-                      }, t.itemName || ('Trade #' + t.id))
-                    : (t.itemName || ('Trade #' + t.id)),
+                      }, thumb, t.itemName || ('Trade #' + t.id))
+                    : h('span', { style: { display: 'inline-flex', alignItems: 'center' } },
+                        thumb, t.itemName || ('Trade #' + t.id)),
                   h('span', { className: 'trade-role' }, isSeller ? 'You are selling' : 'You are buying'),
                   // Counterparty identity chip (batch 400) — avatar + name
                   // next to the role so a long trade list is scannable by
@@ -12281,22 +12309,36 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     title: 'Decline this offer — optional note goes to the buyer'
                   }, 'Reject')
                 )
-              : h('div', { style: { display: 'flex', gap: 6 } },
-                  h('button', {
-                    className: 'btn btn-ghost',
-                    style: { border: '1px solid var(--border)', color: 'var(--accent)', padding: '7px 11px', fontSize: 11 },
-                    onClick: () => {
-                      setCounterFor(offer.id);
-                      setCounterAmt((parseFloat(offer.amount) + 1).toFixed(2));
-                    }, disabled: busy,
-                    title: 'Raise your own offer'
-                  }, 'Raise'),
-                  h('button', {
-                    className: 'btn btn-ghost',
-                    style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12 },
-                    onClick: () => handleCancel(offer.id), disabled: busy
-                  }, 'Cancel')
-                ))
+              : (offer.author === 'SELLER'
+                  ? h('div', { style: { display: 'flex', gap: 6 } },
+                      h('button', {
+                        className: 'buy-btn',
+                        onClick: () => handleAccept(offer.id), disabled: busy,
+                        title: `Accept ${fmt(offer.amount)} counter`
+                      }, '✓ Accept'),
+                      h('button', {
+                        className: 'btn btn-ghost',
+                        style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '7px 11px', fontSize: 11 },
+                        onClick: () => handleCancel(offer.id), disabled: busy,
+                        title: 'Walk away from the seller counter'
+                      }, 'Decline')
+                    )
+                  : h('div', { style: { display: 'flex', gap: 6 } },
+                      h('button', {
+                        className: 'btn btn-ghost',
+                        style: { border: '1px solid var(--border)', color: 'var(--accent)', padding: '7px 11px', fontSize: 11 },
+                        onClick: () => {
+                          setCounterFor(offer.id);
+                          setCounterAmt((parseFloat(offer.amount) + 1).toFixed(2));
+                        }, disabled: busy,
+                        title: 'Raise your own offer'
+                      }, 'Raise'),
+                      h('button', {
+                        className: 'btn btn-ghost',
+                        style: { border: '1px solid var(--border)', padding: '7px 14px', fontSize: 12 },
+                        onClick: () => handleCancel(offer.id), disabled: busy
+                      }, 'Cancel')
+                    )))
         : h('div', { className: `wallet-tx-status ${offer.status}`, style: { padding: '4px 10px', borderRadius: 5, fontSize: 10 } },
             offer.status === 'PENDING'   ? 'Pending'
             : offer.status === 'ACCEPTED'  ? 'Accepted'
