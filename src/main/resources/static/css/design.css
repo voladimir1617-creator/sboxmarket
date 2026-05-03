@@ -121788,3 +121788,16 @@ textarea {
   color: var(--cta) !important;
 }
 /* END nav-link-badge polish */
+
+/* =====================================================================
+   csfloat-home-hero-title clamp on-scale — boss-QA cycle 31, ship #77
+   ---------------------------------------------------------------------
+   The home-hero title clamp endpoints are clamp(28px, 4.2vw, 56px).
+   28 is on-scale; 56 is off (10/11/12/13/14/15/18/22/28/40/60).
+   Snap upper to 60 (closer than 40) so the hero scales fluidly between
+   two valid steps.
+   ===================================================================== */
+.csfloat-home-hero-title {
+  font-size: clamp(28px, 4.2vw, 60px) !important;
+}
+/* END home-hero-title polish */
