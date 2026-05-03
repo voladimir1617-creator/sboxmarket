@@ -2718,7 +2718,19 @@ export function SiteFooter() {
         }, h(MaterialIcon, { name: 'mail', size: 20 }))
       ),
       h('div', { className: 'site-footer-meta' },
-        h('span', null, 'All prices in USD'),
+        // Currency-aware footer copy. The DB stores every amount in USD;
+        // fmt() converts at display time using the user's `sb_currency`
+        // localStorage key. When that's USD we say so plainly; otherwise
+        // we explicitly disclose the conversion + storage currency so a
+        // CAD/EUR/etc. viewer doesn't think the displayed FX value is the
+        // canonical price.
+        (() => {
+          const code = (() => { try { return localStorage.getItem('sb_currency') || 'USD'; } catch { return 'USD'; } })();
+          return code === 'USD'
+            ? h('span', null, 'All prices in USD')
+            : h('span', { title: 'Display values converted from USD using a static FX table; the underlying transaction currency is USD.' },
+                `Prices shown in ${code} · stored as USD`);
+        })(),
         h('span', { className: 'dot' }, '·'),
         h('span', null, 'Stripe-secured payments'),
         h('span', { className: 'dot' }, '·'),
@@ -5277,24 +5289,35 @@ export function App() {
         }, 'Help'),
       ),
       h('div', { className: 'nav-right' },
-        /* 2026-05-02 csfloat-parity: real picker dropdowns. The chip
-           opens a lightweight popover. Currency picker writes the
-           selected code to localStorage + window.SBOX_CURRENCY; an FX
-           layer can read it later. Today the picker UI matches
-           csfloat's; only USD is fully wired (others marked "soon"). */
+        /* 2026-05-03 — every option here is now FULLY WIRED. The "soon"
+           gate was stale (utils.js's FX_RATES/FX_SYMBOL has covered EUR/
+           GBP/CAD/AUD/BRL/JPY for weeks; fmt() multiplies + symbol-
+           prefixes correctly). Operator was on CAD via manually-set
+           localStorage AND the dropdown said "SOON" next to CAD —
+           contradictory UX. Bumping all five currencies to active so
+           the picker actually does what it promises. Selection writes
+           localStorage + window.SBOX_CURRENCY; the storage event in
+           the bumpCurrency effect re-renders every fmt() call site. */
         h(NavPicker, {
           label: (typeof window !== 'undefined' && window.SBOX_CURRENCY) || 'USD',
           ariaLabel: 'Currency selector',
           options: [
-            { code: 'USD', flag: '$',  name: 'US Dollar',     active: true },
-            { code: 'EUR', flag: '€',  name: 'Euro',          soon: true },
-            { code: 'GBP', flag: '£',  name: 'British Pound', soon: true },
-            { code: 'CAD', flag: 'C$', name: 'Canadian Dollar', soon: true },
-            { code: 'AUD', flag: 'A$', name: 'Australian Dollar', soon: true }
+            { code: 'USD', flag: '$',  name: 'US Dollar',         active: true },
+            { code: 'EUR', flag: '€',  name: 'Euro',              active: true },
+            { code: 'GBP', flag: '£',  name: 'British Pound',     active: true },
+            { code: 'CAD', flag: 'C$', name: 'Canadian Dollar',   active: true },
+            { code: 'AUD', flag: 'A$', name: 'Australian Dollar', active: true },
+            { code: 'BRL', flag: 'R$', name: 'Brazilian Real',    active: true },
+            { code: 'JPY', flag: '¥',  name: 'Japanese Yen',      active: true }
           ],
           onSelect: (code) => {
             try { localStorage.setItem('sb_currency', code); } catch (_) {}
             if (typeof window !== 'undefined') window.SBOX_CURRENCY = code;
+            // Storage event only fires on OTHER tabs; same-tab listeners
+            // need an explicit dispatch so the active page re-renders
+            // immediately after the dropdown click instead of needing a
+            // refresh.
+            try { window.dispatchEvent(new StorageEvent('storage', { key: 'sb_currency', newValue: code })); } catch (_) {}
           }
         }),
         h(NavPicker, {
