@@ -123418,3 +123418,87 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
   font-size: 14px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #54 */
+
+/* CSFLOAT-1:1 PARITY ship #55 — Min/Max input wrappers match csfloat dollar-input style */
+/* csfloat measured: dollar inputs sit in a row with $ prefix, height ~36-40px, dark translucent bg */
+/* sboxmarket: stacked Min/Max vertical, full-width oklch bg */
+.sidebar input[placeholder="Min"],
+.sidebar input[placeholder="Max"] {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  height: 36px !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 13px !important;
+  padding: 0 8px 0 24px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #55 */
+
+/* CSFLOAT-1:1 PARITY ship #56 — Min/Max row layout: side-by-side like csfloat From/To */
+/* csfloat measured: From and To inputs are in a horizontal row with gap ~10px */
+/* sboxmarket: inputs were stacked in vertical column */
+.sidebar .price-range-inputs,
+.sidebar .price-inputs,
+.sidebar [class*="price"]:has(input[placeholder="Min"]):has(input[placeholder="Max"]) {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 10px !important;
+}
+.sidebar input[placeholder="Min"],
+.sidebar input[placeholder="Max"] {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #56 */
+
+/* CSFLOAT-1:1 PARITY ship #57 — sidebar availability rows match csfloat dot+label rows */
+/* csfloat measured: dot 10px + label 13px on the right, consistent vertical rhythm */
+/* sboxmarket: rows had old style; tightening padding/font to match csfloat */
+.sidebar [class*="availability"] label,
+.sidebar [class*="avail"] li,
+.sidebar .filter-section .row {
+  padding: 4px 0 !important;
+  font-size: 13px !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #57 */
+
+/* CSFLOAT-1:1 PARITY ship #58 — sidebar Clear Filters link match csfloat */
+/* csfloat measured: small clear link at bottom, font 12px, color rgba(255,255,255,0.6) */
+/* sboxmarket: had similar but inconsistent sizing */
+.sidebar .clear-filters,
+.sidebar a[class*="clear"],
+.sidebar button[class*="clear"] {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 4px 0 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #58 */
+
+/* CSFLOAT-1:1 PARITY ship #59 — toolbar gap to match csfloat (12px between elements) */
+/* csfloat measured: toolbar items have ~12px gap between filter pills/dropdowns */
+/* sboxmarket: had tighter gap */
+.market-toolbar,
+.market-controls,
+[class*="toolbar"]:has(.search-input),
+.csfloat-toolbar {
+  gap: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #59 */
+
+/* CSFLOAT-1:1 PARITY ship #60 — empty-state container match csfloat dark surface */
+/* csfloat measured: empty result panels use the same translucent bg + dashed border, not full opaque */
+/* sboxmarket: had dark grey opaque panel */
+.empty-state,
+.market-empty,
+[class*="empty"]:not(input):not(select) {
+  background-color: rgb(20, 22, 28) !important;
+  border-radius: 12px !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #60 */
