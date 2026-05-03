@@ -120735,3 +120735,21 @@ textarea:focus-visible {
   }
 }
 /* END prefers-reduced-motion transform guard */
+
+/* =====================================================================
+   Hairline border audit — boss-QA cycle 31, ship #6
+   ---------------------------------------------------------------------
+   Operator design memory: "Borders are always 1px hairline; elevation
+   comes from --shadow-1/2." Snap the obvious decorative 2px container
+   borders down to 1px and lend them shadow-1 instead. Spinners,
+   buttons, and avatars-in-front-of-bordered-parents (where the 2px is
+   really a punch-out of the parent edge using --bg) intentionally
+   stay 2px — those aren't decorative.
+   ===================================================================== */
+.csfloat-empty-illustration,
+.csfloat-progress-timeline-step-num,
+.csfloat-vprog-step-bullet {
+  border-width: 1px !important;
+  box-shadow: var(--shadow-1) !important;
+}
+/* END hairline audit */
