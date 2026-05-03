@@ -121919,3 +121919,39 @@ nav.nav .nav-icon-btn .mi {
   color: rgb(255, 255, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #7 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8 — sign-in button (login CTA)
+   csfloat .login: bg rgb(35,123,255), color white, fontSize 15px,
+     fontWeight 700, padding 13px 30px, borderRadius 8px, height 40px,
+     boxShadow material elevation, fontFamily Roboto.
+   sboxmarket .steam-btn was: bg rgb(29,78,216), fontSize 13px,
+     fontWeight 600, padding 0 14px, borderRadius 6px, height 36px,
+     fontFamily Geist.
+   ===================================================================== */
+nav.nav .steam-btn {
+  background-color: rgb(35, 123, 255) !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  padding: 13px 30px !important;
+  border-radius: 8px !important;
+  height: 40px !important;
+  border: 0 none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: normal !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+              rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+              rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+nav.nav .steam-btn .steam-btn-text {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8 */
