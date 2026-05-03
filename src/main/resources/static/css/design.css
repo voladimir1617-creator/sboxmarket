@@ -4224,12 +4224,9 @@ nav.nav {
               border-color 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
               box-shadow 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.grid-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in oklab, var(--cta) 35%, var(--line-2));
-  box-shadow: 0 14px 38px rgba(0,0,0,0.55),
-              0 0 0 1px color-mix(in oklab, var(--cta) 18%, transparent);
-}
+/* .grid-card:hover lives at line 8710 (stronger 40% accent border + inset
+   ring shipped in batch §11). The earlier 35% version was a duplicate
+   that lost the cascade anyway — removed in cycle 31 ship #3. */
 .grid-card:focus-visible {
   outline: none;
   border-color: var(--cta);
