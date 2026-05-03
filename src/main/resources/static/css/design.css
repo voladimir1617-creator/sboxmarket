@@ -121315,3 +121315,24 @@ textarea:focus-visible {
   background: var(--bg-2) !important;
 }
 /* END nav-icon hover polish */
+
+/* =====================================================================
+   scroll-fab + ranger pill prefers-reduced-motion — ship #38
+   ---------------------------------------------------------------------
+   The .scroll-up-fab hover lift `translateY(-2px)` and the .filter-pill
+   hover transform aren't covered by the cycle-30 reduce-motion guard.
+   Extend the reduced-motion block to include them so users with the
+   OS toggle on don't see hover transforms snap-jump on the FAB or pill
+   group.
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-up-fab:hover,
+  .filter-pill:hover,
+  .px-pill:hover,
+  .px-chip:hover,
+  .nav-icon-btn:hover,
+  .top-seller-avatar:hover {
+    transform: none !important;
+  }
+}
+/* END scroll-fab reduce-motion */
