@@ -58,6 +58,12 @@ class TradeService {
     @Autowired TransactionRepository transactionRepository
     @Autowired(required = false) com.sboxmarket.repository.ListingRepository listingRepository
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+    // Optional — decorates trade rows with itemImageUrl + itemAccentColor
+    // so the Profile → Trades tab can render an item thumbnail next to the
+    // name (parity with LoadoutService.getWithSlots / Cart row pattern).
+    // `required = false` so older test contexts still wire without the
+    // catalogue tier.
+    @Autowired(required = false) com.sboxmarket.repository.ItemRepository itemRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) AuditService auditService
     @Autowired(required = false) EmailService emailService
@@ -279,6 +285,26 @@ class TradeService {
                 }
             }
         }
+        // Item-thumb decoration — bulk findAllById over the unique item
+        // ids referenced in this user's trades, then index by id. One
+        // round-trip vs N (or zero, if itemRepository isn't wired in
+        // legacy test contexts). Mirrors the LoadoutService.getWithSlots
+        // pattern (commit 9fab32f). Legacy trades whose itemId no longer
+        // resolves fall through to null and the frontend renders the
+        // generic gift-box icon.
+        Map<Long, Map> itemDecorById = [:]
+        if (itemRepository != null) {
+            def itemIds = trades*.itemId.findAll { it != null }.unique()
+            if (!itemIds.isEmpty()) {
+                try {
+                    itemRepository.findAllById(itemIds).each { it ->
+                        itemDecorById[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor]
+                    }
+                } catch (Exception e) {
+                    log.warn("Trade item-thumb lookup failed for user ${userId}: ${e.message}")
+                }
+            }
+        }
         // Counterparty review summaries (batch 402). Looks up each unique
         // cp id once and caches the summary for every trade row that
         // shares that counterparty. Loop over ids is fine for a typical
@@ -298,9 +324,10 @@ class TradeService {
             def cpId = t.buyerUserId == userId ? t.sellerUserId : t.buyerUserId
             def cp = cpId == null ? null : byId[cpId]
             def cpRating = cpId == null ? null : ratingByUser[cpId]
+            def itemDecor = t.itemId == null ? null : itemDecorById[t.itemId]
             tradeToMap(t, cp?.tradeUrl, cp?.displayName, cp?.steamId64, cp?.avatarUrl,
                 cpRating,
-                unreadCounts[t.id] ?: 0L, lastMessages[t.id])
+                unreadCounts[t.id] ?: 0L, lastMessages[t.id], itemDecor)
         }
     }
 
@@ -309,7 +336,8 @@ class TradeService {
                            String counterpartyAvatarUrl = null,
                            Map counterpartyRatingSummary = null,
                            long unreadCount = 0L,
-                           com.sboxmarket.model.TradeMessage lastMessage = null) {
+                           com.sboxmarket.model.TradeMessage lastMessage = null,
+                           Map itemDecor = null) {
         // Truncated last-message preview — collapsed-row inline preview
         // (batch 283). 80-char cap matches the TRADE_MESSAGE notification
         // body so a notification + the inline preview read identically.
@@ -374,6 +402,14 @@ class TradeService {
             // buyers + sellers instantly recognise who they're dealing
             // with in a list of multiple trades. Null for system trades.
             counterpartyAvatarUrl: counterpartyAvatarUrl,
+            // Item thumbnail + accent — bulk-decorated above. Frontend
+            // renders a 44px contain-fit thumbnail next to the item
+            // name on each trade row; null falls back to the generic
+            // gift-box MaterialIcon ('inventory_2'). Both fields are
+            // null on legacy trades whose itemId no longer resolves
+            // in the catalogue.
+            itemImageUrl:    itemDecor?.imageUrl,
+            itemAccentColor: itemDecor?.accentColor,
             // Counterparty review stats (batch 402). Trust signal shown
             // inline next to the identity chip — a seller about to send
             // a $500 skin to a 2★ / 1-review buyer can choose to dispute
