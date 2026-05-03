@@ -121498,3 +121498,24 @@ textarea {
   text-decoration-color: var(--ink-3) !important;
 }
 /* END csfloat-text-anchor unify */
+
+/* =====================================================================
+   csfloat-stat-ribbon polish — boss-QA cycle 31, ship #56
+   ---------------------------------------------------------------------
+   Two issues: (1) the ::before radial gradient was a blue (rgba 59,
+   130, 246, 0.04) wash, painting brand color across an entire stat-
+   ribbon row. Switch to a neutral white wash. (2) the ribbon-item-val
+   clamp uses 24px and 36px endpoints — both off-scale (10/11/12/13/
+   14/15/18/22/28/40/60). Snap to 22 / 40.
+   ===================================================================== */
+.csfloat-stat-ribbon::before {
+  background: radial-gradient(
+    800px 200px at 50% 50%,
+    color-mix(in oklab, var(--ink) 4%, transparent),
+    transparent 60%
+  ) !important;
+}
+.csfloat-stat-ribbon-item-val {
+  font-size: clamp(22px, 3vw, 40px) !important;
+}
+/* END stat-ribbon polish */
