@@ -122021,3 +122021,126 @@ textarea {
 }
 
 /* END mobile-responsive audit fixes 2026-05-03 */
+
+/* =====================================================================
+   2026-05-03 — PROFILE PAGE AUDIT (trades / buyorders / offers / personal).
+   Two surfaces missed by prior cycles:
+     1. Sub-tab strips inside the Profile / MyStall / Wallet / Offer
+        modals still drew a hard 2px underline on the active button
+        (line 4865 + 120615). The 2026-05-03 fade override wiped only
+        nav-link / subnav-link / csfloat-page-subnav-link — these
+        modal sub-tabs slipped through. Same treatment applied:
+        active = label opacity/color fade, no underline.
+     2. .buyorder-status and .wallet-tx-status (used as offer chips)
+        had ZERO style rules — the status div rendered as raw,
+        unstyled text ("ACTIVE", "PENDING", "REJECTED"…). Shipped a
+        chip baseline + per-state colour map so each row's status
+        is scannable without squinting.
+   Appended after every prior rule so cascade wins.
+   ===================================================================== */
+
+/* (1) Modal sub-tab strips → fade pattern (same as nav-link). */
+.profile-tabs button.active,
+.mystall-tabs button.active,
+.wallet-tabs button.active,
+.offer-tab.active,
+.csfloat-profile-tab.active {
+  border-bottom-color: transparent !important;
+  background: transparent !important;
+}
+.profile-tabs button.active::after,
+.mystall-tabs button.active::after,
+.wallet-tabs button.active::after,
+.offer-tab.active::after,
+.csfloat-profile-tab.active::after {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  height: 0 !important;
+}
+.profile-tabs button,
+.mystall-tabs button,
+.wallet-tabs button,
+.offer-tab,
+.csfloat-profile-tab {
+  transition: color 200ms ease, opacity 200ms ease, font-weight 200ms ease !important;
+}
+.profile-tabs button:not(.active),
+.mystall-tabs button:not(.active),
+.wallet-tabs button:not(.active),
+.offer-tab:not(.active),
+.csfloat-profile-tab:not(.active) {
+  opacity: 0.78;
+}
+.profile-tabs button:not(.active):hover,
+.mystall-tabs button:not(.active):hover,
+.wallet-tabs button:not(.active):hover,
+.offer-tab:not(.active):hover,
+.csfloat-profile-tab:not(.active):hover {
+  opacity: 1;
+}
+.profile-tabs button.active,
+.mystall-tabs button.active,
+.wallet-tabs button.active,
+.offer-tab.active,
+.csfloat-profile-tab.active {
+  opacity: 1 !important;
+  color: var(--ink-1, var(--ink)) !important;
+}
+
+/* (2) Status chip baseline + per-state colour map. Used by the
+       buy-orders list (.buyorder-status) and the offers list
+       (.wallet-tx-status — historical class name, lives on offer rows
+       now). Trade rows already render their own coloured pill via the
+       STATE_LABEL map in JS, so this only catches the two surfaces
+       that were unstyled. */
+.buyorder-status,
+.wallet-tx-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-family: var(--mono, JetBrains Mono, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-3, #8590b3);
+  text-transform: uppercase;
+}
+/* Active / Pending — accent blue. Live work, awaiting next step. */
+.buyorder-status.ACTIVE,
+.wallet-tx-status.PENDING {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #60a5fa;
+}
+/* Filled / Accepted — green. Settled successfully. */
+.buyorder-status.FILLED,
+.wallet-tx-status.ACCEPTED {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.35);
+  color: #4ade80;
+}
+/* Cancelled / Rejected — red. Closed by user / counterparty. */
+.buyorder-status.CANCELLED,
+.wallet-tx-status.REJECTED,
+.wallet-tx-status.CANCELLED {
+  background: rgba(248, 113, 113, 0.10);
+  border-color: rgba(248, 113, 113, 0.30);
+  color: #f87171;
+}
+/* Expired — amber. Auto-closed by sweep. */
+.wallet-tx-status.EXPIRED {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fbbf24;
+}
+/* Countered — violet, in-flight negotiation. */
+.wallet-tx-status.COUNTERED {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: #a78bfa;
+}
+/* END profile-page audit fixes 2026-05-03 */

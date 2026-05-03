@@ -5518,7 +5518,11 @@ function ProfileBuyOrdersTab() {
                     : `${q - 1} other buyer${q - 1 === 1 ? ' is' : 's are'} ahead of you for this item. Raise your max price or wait for them to fill.`
                 }, '#' + q + ' in queue');
               })(),
-              h('div', { className: `buyorder-status ${o.status}` }, o.status),
+              h('div', { className: `buyorder-status ${o.status}` },
+                o.status === 'ACTIVE'    ? 'Active'
+                : o.status === 'FILLED'    ? 'Filled'
+                : o.status === 'CANCELLED' ? 'Cancelled'
+                : o.status),
               // Edit panel — visible when the user clicked ✎. Two
               // compact inputs for maxPrice + quantity, save/cancel
               // buttons. Live-reloads the row on save so the queue
@@ -6149,7 +6153,7 @@ function ProfileTradesTab({ me, privacy }) {
         subject:  `Refund request · Trade #${trade.id} · ${trade.itemName || 'item'}`,
         body:     `Trade ID: ${trade.id}\n` +
                   `Item: ${trade.itemName || '—'}\n` +
-                  `Price: $${(trade.price ?? 0).toString()}\n` +
+                  `Price: ${trade.price != null ? fmt(trade.price) : '—'}\n` +
                   `Settled: ${isNaN(dt.getTime()) ? '—' : dt.toISOString()}\n` +
                   `Counterparty: ${trade.counterpartyName || ('user #' + (trade.sellerUserId || trade.buyerUserId))}\n\n` +
                   `Reason from buyer:\n${trimmed}`
@@ -7787,7 +7791,14 @@ function ProfileOffersTab() {
         })()
       ),
       h('div', { className: 'offer-status-col' },
-        h('div', { className: `wallet-tx-status ${o.status}` }, o.status),
+        h('div', { className: `wallet-tx-status ${o.status}` },
+          o.status === 'PENDING'   ? 'Pending'
+          : o.status === 'ACCEPTED'  ? 'Accepted'
+          : o.status === 'REJECTED'  ? 'Rejected'
+          : o.status === 'CANCELLED' ? 'Cancelled'
+          : o.status === 'EXPIRED'   ? 'Expired'
+          : o.status === 'COUNTERED' ? 'Countered'
+          : o.status),
         isPending && isIncoming && !isCountering && h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
           h('button', { className: 'buy-btn', disabled: busy, onClick: () => doAccept(o.id), 'aria-label': 'Accept offer', title: 'Accept' }, '✓'),
           h('button', {
@@ -12215,7 +12226,14 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     onClick: () => handleCancel(offer.id), disabled: busy
                   }, 'Cancel')
                 ))
-        : h('div', { className: `wallet-tx-status ${offer.status}`, style: { padding: '4px 10px', borderRadius: 5, background: 'var(--bg-elevated)', fontSize: 10 } }, offer.status)
+        : h('div', { className: `wallet-tx-status ${offer.status}`, style: { padding: '4px 10px', borderRadius: 5, fontSize: 10 } },
+            offer.status === 'PENDING'   ? 'Pending'
+            : offer.status === 'ACCEPTED'  ? 'Accepted'
+            : offer.status === 'REJECTED'  ? 'Rejected'
+            : offer.status === 'CANCELLED' ? 'Cancelled'
+            : offer.status === 'EXPIRED'   ? 'Expired'
+            : offer.status === 'COUNTERED' ? 'Countered'
+            : offer.status)
     );
   };
 
