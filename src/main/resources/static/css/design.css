@@ -121391,3 +121391,18 @@ textarea {
   background: var(--bg-2) !important;
 }
 /* END db-row hover polish */
+
+/* =====================================================================
+   csfloat-home-rail-tab focus de-blue — boss-QA cycle 31, ship #48
+   ---------------------------------------------------------------------
+   Home rail tab focus-visible at line 119025 paints `outline: 2px
+   solid color-mix(--cta 60%)` — blue ring on a chrome control. The
+   active state (charcoal pill) was already corrected away from blue
+   in cycle-5 P1.1 per the comment. Bring focus into the same neutral
+   regime: --ink-2 outline.
+   ===================================================================== */
+.csfloat-home-rail-tab:focus-visible {
+  outline: 2px solid var(--ink-2) !important;
+  outline-offset: 2px !important;
+}
+/* END home-rail-tab focus polish */
