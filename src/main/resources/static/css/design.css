@@ -121999,3 +121999,22 @@ footer.site-footer .site-footer-inner {
   background: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #10 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #11 — footer column header (.site-footer-title)
+   csfloat .header: rgb(158,167,177), 14px / 700, 0.56px letter-spacing,
+     no text-transform, margin 0 0 25px.
+   sboxmarket was: oklch(0.74 0.01 260) ~similar, but 11px / 600,
+     2.2px letter-spacing, uppercase, margin 0 0 24px.
+   Match csfloat: bigger 14px/700, lighter spacing, drop uppercase.
+   ===================================================================== */
+footer.site-footer .site-footer-title {
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.56px !important;
+  text-transform: none !important;
+  margin: 0 0 25px !important;
+  line-height: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11 */
