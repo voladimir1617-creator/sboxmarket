@@ -123348,3 +123348,73 @@ h1.info-modal-header[id^="info-modal-h-wallet"] {
   gap: 15px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #49 */
+
+/* CSFLOAT-1:1 PARITY ship #50 — sidebar price-chip auto width (csfloat chips are ~50-65px each, in a tight 4-col row) */
+/* csfloat measured: <$10 chip ~52px wide, $10-$50 ~70px, padding ~6px 10px, height ~26-28px, font 11.5-12px */
+/* sboxmarket was: .price-chip width 152px (full sidebar width), padding 6px 8px, height 32px */
+.sidebar .price-chip {
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 4px 10px !important;
+  height: 26px !important;
+  font-size: 11px !important;
+  border-radius: 999px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #50 */
+
+/* CSFLOAT-1:1 PARITY ship #51 — sidebar price-chip row layout: tight wrap */
+/* csfloat measured: 4 chips fit in one row, gap 8px between */
+/* sboxmarket: chips were stacked 2x2 */
+.sidebar .price-chips,
+.sidebar .price-chip-row,
+.sidebar [class*="chips"]:has(.price-chip) {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  justify-content: flex-start !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #51 */
+
+/* CSFLOAT-1:1 PARITY ship #52 — toolbar deals-chip & new-chip pill style match csfloat */
+/* csfloat measured: small pill chips, padding ~4px 10px, font 12px, bg rgba(193,206,255,0.04), border 1px rgba(193,206,255,0.12) */
+/* sboxmarket: had bg oklch(0.2 0.009 260), border oklch(0.3 0.012 260) — too dark */
+.deals-chip,
+.new-chip {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  height: 36px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #52 */
+
+/* CSFLOAT-1:1 PARITY ship #53 — sort-picker-chip (dropdown) match csfloat dropdown style */
+/* csfloat measured: dropdown bg rgba(193,206,255,0.04), border 1px rgba(193,206,255,0.12), height 36px, radius 4px (Material) */
+/* sboxmarket: bg oklch(0.2 0.009 260), border oklch(0.3 0.012 260), radius 8px */
+.sort-picker-chip {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  height: 36px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #53 */
+
+/* CSFLOAT-1:1 PARITY ship #54 — search-input style match csfloat exactly */
+/* csfloat measured: bg rgba(193,206,255,0.04), border 1px rgba(193,206,255,0.12), height 36px, font-size 14px, color white, radius 4px */
+/* sboxmarket: bg oklch(0.2 0.009 260), border oklch(0.3 0.012 260), radius 6px */
+.search-input {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+  height: 36px !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #54 */
