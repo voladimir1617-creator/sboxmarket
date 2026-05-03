@@ -2,6 +2,7 @@ package com.sboxmarket
 
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
 import org.springframework.boot.CommandLineRunner
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -12,16 +13,18 @@ import com.sboxmarket.service.SeedService
 import groovy.util.logging.Slf4j
 
 /**
- * Spring Session JDBC is back on (2026-05-01) now that the cookie
- * sanitizer correctly matches the SBOX_SESSION cookie name and runs
- * before Spring Session's filter (HIGHEST_PRECEDENCE FilterRegistrationBean
- * in SessionCookieSanitizerConfig). Sessions persist across container
- * restarts and effectively never expire — see SessionConfig for the
- * 365-day max-inactive-interval. Operator's standing demand:
- * "MAKE IT SO SESSION IS NOT GETTING EXPIRED EVERY 2 MINUTES IT SHOULD
- * NEVER EXPIRE ACTUALLY".
+ * 2026-05-03 — Spring Session autoconfig HARD-EXCLUDED at the
+ * @SpringBootApplication level. Repeated outages (FOUR) have come from
+ * NUL-byte poisoned cookies reaching the JdbcIndexedSessionRepository
+ * SELECT; even with `spring.session.store-type=none` Spring Boot's
+ * SessionAutoConfiguration would still wire JdbcOperationsSessionRepository
+ * if spring-session-jdbc remained on the classpath under any property
+ * combination. Belt-and-suspenders exclude here makes it impossible for
+ * the JDBC store to come back without removing this annotation.
+ * Sessions fall back to the in-memory Tomcat session manager — they
+ * are lost on container restart, which is the documented trade-off.
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = [SessionAutoConfiguration])
 @EnableScheduling
 @EnableAsync
 @Slf4j
