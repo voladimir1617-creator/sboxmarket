@@ -121238,3 +121238,24 @@ textarea:focus-visible {
   color: var(--ink) !important;
 }
 /* END filter chip/pill polish */
+
+/* =====================================================================
+   Subnav category hover + footer-social hover de-blue — ship #31
+   ---------------------------------------------------------------------
+   Two more chrome elements broadcasting brand-blue on hover:
+   .csfloat-subnav-tab:hover (background CTA 6%) and
+   .site-footer-social:hover (color/bg/border all CTA-tinted). Switch
+   both to neutral hovers — subnav uses bg-2 + ink, footer-social uses
+   ink + bg-2 + line-2. Active-state underline on subnav still gets
+   the blue (per cycle-31 ship #2 ruling).
+   ===================================================================== */
+.csfloat-subnav-tab:hover {
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+}
+.site-footer-social:hover {
+  color: var(--ink) !important;
+  background: var(--bg-2) !important;
+  border-color: var(--line-2) !important;
+}
+/* END subnav + footer-social polish */
