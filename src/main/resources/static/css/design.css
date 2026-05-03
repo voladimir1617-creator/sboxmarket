@@ -121770,3 +121770,21 @@ textarea {
   background: var(--bg-3) !important;
 }
 /* END modal-listing left-strip polish */
+
+/* =====================================================================
+   nav-link-badge calm — boss-QA cycle 31, ship #76
+   ---------------------------------------------------------------------
+   The .nav-link-badge (count chip on a nav link, eg "Cart 3") paints
+   with --cta blue throughout: bg 20%, border 30%, color 80%-mix.
+   Counter-argument from earlier audit was "non-zero count is a status
+   indicator", but rendering 3-5 chips on the right nav each in brand
+   blue ends up loud. Calm to a single 1px --cta border + transparent
+   bg + --cta color so the count reads "this nav has unread/active"
+   without the filled-pill broadcast.
+   ===================================================================== */
+.nav-link-badge {
+  background: transparent !important;
+  border: 1px solid color-mix(in oklab, var(--cta) 50%, var(--line-2)) !important;
+  color: var(--cta) !important;
+}
+/* END nav-link-badge polish */
