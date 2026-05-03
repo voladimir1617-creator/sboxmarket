@@ -124629,3 +124629,154 @@ a.signin-cta,
   line-height: 1.5 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #96 */
+/* CSFLOAT-1:1 PARITY ship #200 — cart page H1 (.info-modal-header on /cart)
+   csfloat measure (root selectors): header sections use Roboto family
+   weight 500 rgb(255,255,255) on rgb(21,23,28) bg. sboxmarket had
+   Roboto 700 oklch(0.97 0.006 90) — too heavy + non-pure white.
+   Match: Roboto 20px / 500 / pure white for cart panel header,
+   tighter pad (12px 24px), mb 16 to align with csfloat Material Design
+   denser pattern. Also covers all .info-modal-header instances which
+   appear on /cart, /trade, /notifications panes. */
+body .info-modal-header,
+body h1.info-modal-header,
+.cart-page .info-modal-header,
+.full-page-mode h1.info-modal-header {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 28px !important;
+  padding: 12px 24px !important;
+  margin: 0 0 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #200 */
+/* CSFLOAT-1:1 PARITY ship #97 — type-toggle (segmented tabs) match csfloat mat-button-toggle-group
+   Measured csfloat: group h 38px, bg rgba(193,206,255,0.04), br 7px; toggles h 32px br 4px, fs 16px Roboto fw 400.
+   Localhost type-toggle was h 42px br 6px with darker bg + 12px Geist; align dimensions, font, and colors. */
+.type-toggle {
+  height: 38px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  padding: 3px !important;
+  gap: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.type-toggle-btn {
+  height: 32px !important;
+  border-radius: 4px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: transparent !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  letter-spacing: 0 !important;
+  transition: background 140ms ease, color 140ms ease !important;
+}
+.type-toggle-btn:hover {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.type-toggle-btn.active {
+  background: rgba(193, 206, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #97 */
+/* CSFLOAT-1:1 PARITY ship #98 — subnav tab strip parity (csfloat-subnav-tab)
+   Measured csfloat tab links: 14px Roboto fw 500 letter-spacing 0, 12px x 16px padding,
+   inactive color rgba(255,255,255,0.72), active color #fff with bottom-rail accent. */
+.csfloat-subnav-inner {
+  gap: 4px !important;
+  padding: 0 !important;
+  height: auto !important;
+}
+.csfloat-subnav-tab {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+  height: 44px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  position: relative !important;
+  transition: color 140ms ease, border-color 140ms ease !important;
+  text-transform: none !important;
+}
+.csfloat-subnav-tab:hover {
+  color: rgb(255, 255, 255) !important;
+}
+.csfloat-subnav-tab.active {
+  color: rgb(255, 255, 255) !important;
+  border-bottom-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #98 */
+/* CSFLOAT-1:1 PARITY ship #99 — FAQ accordion item parity to csfloat surface
+   csfloat surfaces use rgba(193,206,255,0.04) bg with 1px rgba(255,255,255,0.06) hairline,
+   8px br for cards. Localhost was oklch + 12px br + thicker border — soften to match. */
+.csfloat-home-faq-item {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  margin: 0 0 12px 0 !important;
+  overflow: hidden !important;
+  transition: border-color 160ms ease, background 160ms ease !important;
+}
+.csfloat-home-faq-item:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(193, 206, 255, 0.06) !important;
+}
+.csfloat-home-faq-item[open] {
+  border-color: rgba(35, 123, 255, 0.35) !important;
+  background: rgba(193, 206, 255, 0.05) !important;
+}
+.csfloat-home-faq-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #99 */
+/* CSFLOAT-1:1 PARITY ship #100 — FAQ question/answer typography to csfloat scale
+   csfloat panel headers: Roboto 14px fw 500 light grey, body Roboto 14px lh 1.5 grey.
+   Localhost was Geist 14px 600 + 13px Geist body — bring to Roboto and softer weights. */
+.csfloat-home-faq-q {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  padding: 18px 22px !important;
+  cursor: pointer !important;
+  list-style: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+.csfloat-home-faq-q::-webkit-details-marker { display: none !important; }
+.csfloat-home-faq-a {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: rgba(255, 255, 255, 0.66) !important;
+  padding: 0 22px 20px !important;
+}
+.csfloat-home-faq-q-arrow {
+  font-family: "Material Icons", "Material Symbols Outlined", Geist, system-ui, sans-serif !important;
+  color: rgba(255, 255, 255, 0.54) !important;
+  font-size: 20px !important;
+  transition: transform 200ms ease, color 160ms ease !important;
+}
+.csfloat-home-faq-item[open] .csfloat-home-faq-q-arrow {
+  transform: rotate(180deg) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #100 */
