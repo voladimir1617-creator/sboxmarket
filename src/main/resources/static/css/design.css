@@ -122707,3 +122707,31 @@ mat-card.item-card .actions .buy-now-btn {
 }
 /* END CSFLOAT-1:1 PARITY ship #35 */
 
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #36 — grid card title (.grid-name) typography
+   csfloat measured: .item-name —
+     font-size 16px,
+     font-weight 500,
+     line-height normal,
+     letter-spacing normal,
+     color rgb(255, 255, 255) (StatTrak items override to orange via own class),
+     font-family Roboto, "Helvetica Neue", sans-serif.
+   sboxmarket measured /baseline (line 4257):
+     font-size 13px (3px smaller),
+     font-weight 500 (matches),
+     line-height 1.25,
+     letter-spacing -0.005em,
+     color var(--ink) [white-ish but oklch],
+     font-family inherited (Geist not Roboto).
+   Match csfloat exactly on the title.
+   ===================================================================== */
+.grid-card .grid-name {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #36 */
+
