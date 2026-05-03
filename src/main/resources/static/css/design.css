@@ -124780,3 +124780,1076 @@ body h1.info-modal-header,
   color: rgb(35, 123, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #100 */
+/* CSFLOAT-1:1 PARITY ship #101 — price chart container parity
+   csfloat charts: 16px br container, hairline border rgba(255,255,255,0.06),
+   bg rgba(193,206,255,0.02), 16px padding, axis labels Roboto 11px rgba(255,255,255,0.54). */
+.csfloat-price-chart,
+.price-chart-container,
+.chart-container,
+.csfloat-chart {
+  background: rgba(193, 206, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  position: relative !important;
+}
+.csfloat-price-chart svg .axis text,
+.csfloat-price-chart svg text.axis-label,
+.csfloat-price-chart .recharts-cartesian-axis-tick text,
+.price-chart-container .recharts-cartesian-axis-tick text,
+.chart-container .recharts-cartesian-axis-tick text {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  fill: rgba(255, 255, 255, 0.54) !important;
+}
+.csfloat-price-chart .recharts-cartesian-grid line,
+.price-chart-container .recharts-cartesian-grid line,
+.chart-container .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.06) !important;
+  stroke-dasharray: 3 4 !important;
+}
+.csfloat-price-chart .recharts-line .recharts-line-curve,
+.price-chart-container .recharts-line .recharts-line-curve,
+.chart-container .recharts-line .recharts-line-curve {
+  stroke: rgb(35, 123, 255) !important;
+  stroke-width: 2 !important;
+}
+.csfloat-price-chart .recharts-tooltip-wrapper .recharts-default-tooltip,
+.price-chart-container .recharts-tooltip-wrapper .recharts-default-tooltip,
+.chart-container .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: rgba(20, 24, 32, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 8px 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #101 */
+/* CSFLOAT-1:1 PARITY ship #102 — home rail tab strip indicator parity
+   csfloat tab strips show inactive Roboto 14px rgba(255,255,255,0.72) and active gets a 2px
+   bottom rail in the brand blue. Localhost rail tabs were 14px Geist 500 with a tinted bg pill
+   for active — switch to underline accent. */
+.csfloat-home-rail-tabs {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  gap: 4px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.csfloat-home-rail-tab {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: transparent !important;
+  height: 40px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -1px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  transition: color 140ms ease, border-color 140ms ease !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+}
+.csfloat-home-rail-tab:hover {
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+}
+.csfloat-home-rail-tab.active {
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border-bottom-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #102 */
+
+/* CSFLOAT-1:1 PARITY ship #103 — Material Symbols Rounded baseline icon sizing.
+   csfloat baseline: mat-icon { font-size: 24px; width: 24px; height: 24px; line-height: 24px; }
+   Default color rgb(255,255,255) on actionable icons. */
+mat-icon,
+.material-symbols-rounded,
+.material-icons {
+  font-size: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  -webkit-font-smoothing: antialiased !important;
+  font-feature-settings: 'liga' !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  word-wrap: normal !important;
+  direction: ltr !important;
+}
+button.icon-button mat-icon,
+.mat-icon-button mat-icon,
+.icon-button mat-icon,
+.compact-icon mat-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #103 */
+/* CSFLOAT-1:1 PARITY ship #201 — legal page H1/H2/H3 typography
+   Match csfloat Roboto family / pure white + Material weight ladder.
+   sboxmarket .legal-doc had H1 32px serif-ish, H2 20px, H3 16px accent.
+   csfloat std: H1 24px / 500 / white, H2 20px / 500 / white, H3 16px / 500.
+   Targets /legal/terms.html, /legal/privacy.html, /legal/refunds.html
+   etc. — all share the .legal-doc wrapper. */
+.legal-doc h1,
+body .legal-doc h1 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 32px !important;
+  margin: 0 0 8px !important;
+}
+.legal-doc h2,
+body .legal-doc h2 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 28px !important;
+  margin: 32px 0 12px !important;
+}
+.legal-doc h3,
+body .legal-doc h3 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 24px !important;
+  margin: 24px 0 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #201 */
+/* CSFLOAT-1:1 PARITY ship #210 — chip/control border token alignment
+   csfloat uses rgba(193,206,255,0.12) border + rgba(193,206,255,0.04) bg
+   on every chip-style control (.deals-chip, .price-chip, .sort-picker-chip,
+   .search-input). sboxmarket .btn-ghost and .toolbar-refresh used
+   oklch(0.3 0.012 260) which is visually warmer/grayer.
+   Bring them onto the canonical csfloat token. */
+.btn.btn-ghost,
+button.btn.btn-ghost,
+.toolbar-refresh,
+button.toolbar-refresh {
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #210 */
+/* CSFLOAT-1:1 PARITY ship #211 — toolbar container parity
+   csfloat .toolbar measures: bg rgba(27,29,36,0.8), no border,
+   border-radius 0 0 12px 12px, no box-shadow. sboxmarket .toolbar
+   currently has 1px solid oklch border, 10px full radius,
+   bg oklch(0.2 0.009 260). Match csfloat exactly. */
+.toolbar,
+div.toolbar {
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  border: 0 !important;
+  border-radius: 0 0 12px 12px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #211 */
+/* CSFLOAT-1:1 PARITY ship #212 — Material elevation 2 on primary buttons
+   csfloat .steam-btn (its primary CTA reference) uses Material's MDC
+   elevation 2 shadow:
+     rgba(0,0,0,.2) 0 3px 1px -2px,
+     rgba(0,0,0,.14) 0 2px 2px 0,
+     rgba(0,0,0,.12) 0 1px 5px 0
+   Apply to .btn-primary, .steam-btn so primary CTAs lift the same way. */
+.btn.btn-primary,
+button.btn.btn-primary,
+.steam-btn,
+button.steam-btn {
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0 2px 2px 0,
+    rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #212 */
+/* CSFLOAT-1:1 PARITY ship #213 — chip top inset highlight
+   csfloat .deals-chip and similar chip surfaces have a subtle
+   inset top highlight: oklab(0.97 0 0.006 / 0.03) 0 1px 0 0 inset
+   that gives the chip a soft "lit edge" against dark bg.
+   sboxmarket .price-chip and .sort-picker-chip lacked it.
+   Add identical inset to all chip-class controls. */
+.price-chip,
+button.price-chip,
+.sort-picker-chip,
+button.sort-picker-chip {
+  box-shadow: oklab(0.97 0 0.006 / 0.03) 0 1px 0 0 inset !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #213 */
+/* CSFLOAT-1:1 PARITY ship #214 — floating dark button shadow
+   csfloat dark floating buttons (e.g. its scroll-up FAB on the home
+   page) use bg oklch(0.2 0.009 260) with shadow
+     rgba(0,0,0,.32) 0 4px 12px 0
+   to lift them off backdrops. sboxmarket has same bg on .btn-ghost,
+   .toolbar-refresh, etc. — but no lift when used as floating action.
+   Apply the float shadow to .scroll-top-button and .floating-cta. */
+.scroll-top-button,
+button.scroll-top-button,
+.floating-cta,
+button.floating-cta {
+  box-shadow: rgba(0, 0, 0, 0.32) 0 4px 12px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #214 */
+/* CSFLOAT-1:1 PARITY ship #215 — section divider parity
+   csfloat uses rgba(193,206,255,0.12) for every 1px subtle divider
+   (table rows, list separators, sidebar dividers, search-input border).
+   sboxmarket has hr/divider classes drifting to oklch grays.
+   Pin all dividers to the canonical token. */
+hr,
+.divider,
+.section-divider,
+.list-divider {
+  border: 0 !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.12) !important;
+  background-color: transparent !important;
+  height: 0 !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #215 */
+
+/* CSFLOAT-1:1 PARITY ship #97 — Mat tooltip surface (csfloat exact)
+   csfloat: bg rgba(21,23,28,.8) + blur(10px), border 2px rgba(193,206,255,.07),
+   color #fff, font-size 12px, padding 8px 16px, radius 4px, max-width 200px,
+   text-align center. */
+:root .mat-mdc-tooltip-panel .mdc-tooltip,
+.mat-mdc-tooltip-panel .mdc-tooltip,
+.mat-mdc-tooltip,
+.mdc-tooltip {
+  font-size: 12px !important;
+  white-space: pre-line !important;
+  --mat-tooltip-supporting-text-color: #ffffff !important;
+}
+:root .mat-mdc-tooltip-panel .mdc-tooltip.mat-mdc-tooltip-show,
+.mat-mdc-tooltip-panel .mdc-tooltip.mat-mdc-tooltip-show {
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+:root .mat-mdc-tooltip-panel .mdc-tooltip .mdc-tooltip__surface,
+.mat-mdc-tooltip-panel .mdc-tooltip .mdc-tooltip__surface,
+.mdc-tooltip__surface {
+  background-color: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  color: #ffffff !important;
+  text-align: center !important;
+  padding: 8px 16px !important;
+  border-radius: 4px !important;
+  max-width: 200px !important;
+  font-size: 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.0333em !important;
+}
+.mat-mdc-tooltip-trigger { touch-action: auto !important; }
+/* END CSFLOAT-1:1 PARITY ship #97 */
+
+/* CSFLOAT-1:1 PARITY ship #98 — currency / lang select-panel popover (csfloat exact)
+   csfloat measured: bg rgba(21,23,28,.8), border 2px rgba(193,206,255,.07),
+   border-radius 0 0 15px 15px, box-shadow material-z2, padding 8px 0,
+   options 48px tall, padding 0 16px, font-size 16px Roboto, color #fff. */
+.mat-mdc-select-panel,
+.mdc-menu-surface.mat-mdc-select-panel,
+.currency-selector-panel,
+.language-selector-panel {
+  background-color: rgba(21, 23, 28, 0.8) !important;
+  color: #ffffff !important;
+  padding: 8px 0 !important;
+  border-radius: 0 0 15px 15px !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  overflow: auto !important;
+  margin: 0 !important;
+}
+.mat-mdc-select-panel .mat-mdc-option,
+.mat-mdc-select-panel mat-option,
+.currency-selector-panel .mat-mdc-option,
+.language-selector-panel .mat-mdc-option {
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: #ffffff !important;
+  line-height: 24px !important;
+  background-color: transparent !important;
+}
+.mat-mdc-select-panel .mat-mdc-option:hover,
+.mat-mdc-select-panel mat-option:hover,
+.currency-selector-panel .mat-mdc-option:hover,
+.language-selector-panel .mat-mdc-option:hover,
+.mat-mdc-select-panel .mat-mdc-option.mat-mdc-option-active,
+.mat-mdc-select-panel .mdc-list-item--selected {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+.mat-mdc-select-panel .mdc-list-item__primary-text {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #98 */
+
+/* CSFLOAT-1:1 PARITY ship #99 — mat-menu panel (Tools dropdown, user menu via Material)
+   csfloat applies same dropdown styling to mat-mdc-menu-panel:
+   bg rgba(21,23,28,.8) blur, border 2px highlight, radius 15px,
+   z2 shadow, items 48px Roboto 16px white. */
+.mat-mdc-menu-panel,
+.mdc-menu-surface.mat-mdc-menu-panel,
+:root .mdc-menu-surface,
+:root .mat-mdc-menu-panel {
+  background-color: rgba(21, 23, 28, 0.8) !important;
+  color: #ffffff !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+  padding: 8px 0 !important;
+  min-width: 180px !important;
+}
+.mat-mdc-menu-panel .mat-mdc-menu-item,
+.mat-mdc-menu-panel button.mat-mdc-menu-item,
+.mat-mdc-menu-panel a.mat-mdc-menu-item {
+  min-height: 48px !important;
+  height: 48px !important;
+  padding: 0 16px !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: #ffffff !important;
+  line-height: 24px !important;
+  background-color: transparent !important;
+}
+.mat-mdc-menu-panel .mat-mdc-menu-item:hover,
+.mat-mdc-menu-panel .mat-mdc-menu-item.cdk-program-focused,
+.mat-mdc-menu-panel .mat-mdc-menu-item.cdk-keyboard-focused,
+.mat-mdc-menu-panel .mat-mdc-menu-item:focus {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+.mat-mdc-menu-panel .mat-mdc-menu-item .mat-mdc-menu-item-text {
+  font-size: 16px !important;
+  color: #ffffff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.mat-mdc-menu-panel .mat-mdc-menu-item mat-icon,
+.mat-mdc-menu-panel .mat-mdc-menu-item .mat-icon {
+  color: rgba(255, 255, 255, 0.7) !important;
+  margin-right: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #99 */
+
+/* CSFLOAT-1:1 PARITY ship #100 — cart drawer / side drawer (csfloat panel exact)
+   csfloat side drawer: 380px width, dark bg, header padding 14px 18px,
+   body padding 18px, footer padding 14px 18px, single border-line. */
+.csfloat-side-drawer,
+.csfloat-side-drawer-panel,
+.cart-drawer,
+.side-drawer,
+mat-drawer.mat-drawer-end,
+.mat-drawer.mat-drawer-end {
+  width: 380px !important;
+  max-width: 92vw !important;
+  background-color: rgba(21, 23, 28, 0.95) !important;
+  color: #ffffff !important;
+  border-left: 1px solid rgba(193, 206, 255, 0.07) !important;
+  box-shadow: rgba(0, 0, 0, 0.55) -8px 0 32px !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+.csfloat-side-drawer-header,
+.cart-drawer-header,
+.side-drawer-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+  flex: 0 0 auto !important;
+  background: transparent !important;
+}
+.csfloat-side-drawer-title,
+.cart-drawer-title,
+.side-drawer-title {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: -0.005em !important;
+}
+.csfloat-side-drawer-close,
+.cart-drawer-close,
+.side-drawer-close {
+  width: 28px !important;
+  height: 28px !important;
+  background: transparent !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 6px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.csfloat-side-drawer-close:hover,
+.cart-drawer-close:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+  border-color: rgba(193, 206, 255, 0.14) !important;
+}
+.csfloat-side-drawer-body,
+.cart-drawer-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding: 18px !important;
+}
+.csfloat-side-drawer-body::-webkit-scrollbar,
+.cart-drawer-body::-webkit-scrollbar { width: 6px !important; }
+.csfloat-side-drawer-body::-webkit-scrollbar-thumb,
+.cart-drawer-body::-webkit-scrollbar-thumb {
+  background: rgba(193, 206, 255, 0.14) !important;
+  border-radius: 3px !important;
+}
+.csfloat-side-drawer-footer,
+.cart-drawer-footer {
+  flex: 0 0 auto !important;
+  padding: 14px 18px !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.07) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+.csfloat-drawer-overlay,
+.cart-drawer-overlay,
+.side-drawer-overlay,
+.cdk-overlay-dark-backdrop.cart-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(7, 11, 24, 0.55) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 900 !important;
+  transition: opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #100 */
+
+/* CSFLOAT-1:1 PARITY ship #101 — notification dropdown panel (bell icon)
+   csfloat: 360px width, bg dark, border 1px subtle, radius 10px,
+   z2 shadow, max-height 480px scroll, rows 32px icon + content + age,
+   unread state with cta dot, hover bg ink-2. */
+.csfloat-notif-panel,
+.notif-dropdown,
+.notification-panel {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  width: 360px !important;
+  max-width: 92vw !important;
+  background-color: rgba(21, 23, 28, 0.95) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 10px !important;
+  box-shadow: rgba(0, 0, 0, 0.55) 0px 12px 32px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  z-index: 9100 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 480px !important;
+  overflow: hidden !important;
+}
+.csfloat-notif-panel-header,
+.notif-dropdown-header,
+.notification-header {
+  padding: 14px 18px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  flex: 0 0 auto !important;
+}
+.csfloat-notif-panel-body,
+.notif-dropdown-body,
+.notification-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding: 0 !important;
+}
+.csfloat-notif-panel-body::-webkit-scrollbar,
+.notif-dropdown-body::-webkit-scrollbar { width: 6px !important; }
+.csfloat-notif-panel-body::-webkit-scrollbar-thumb,
+.notif-dropdown-body::-webkit-scrollbar-thumb {
+  background: rgba(193, 206, 255, 0.14) !important;
+  border-radius: 3px !important;
+}
+.csfloat-notif-row,
+.notif-dropdown-row,
+.notification-row {
+  display: grid !important;
+  grid-template-columns: 32px 1fr auto !important;
+  gap: 10px !important;
+  padding: 10px 14px !important;
+  cursor: pointer !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+  transition: background 100ms !important;
+  align-items: start !important;
+  position: relative !important;
+}
+.csfloat-notif-row:last-child,
+.notif-dropdown-row:last-child { border-bottom: none !important; }
+.csfloat-notif-row:hover,
+.notif-dropdown-row:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.csfloat-notif-row.unread,
+.notif-dropdown-row.unread {
+  background: rgba(35, 123, 255, 0.08) !important;
+}
+.csfloat-notif-row.unread::before,
+.notif-dropdown-row.unread::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 4px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 6px !important;
+  height: 6px !important;
+  background: rgb(35, 123, 255) !important;
+  border-radius: 50% !important;
+}
+.csfloat-notif-icon,
+.notif-dropdown-icon {
+  width: 32px !important;
+  height: 32px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 14px !important;
+}
+.csfloat-notif-panel-footer,
+.notif-dropdown-footer {
+  padding: 10px 14px !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.07) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+}
+.csfloat-notif-panel-footer a,
+.notif-dropdown-footer a {
+  font-size: 12px !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: color 120ms !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #101 */
+
+/* CSFLOAT-1:1 PARITY ship #100 — signed-in nav wallet chip + user chip
+   csfloat measured: nav-right pill chips share the same chrome as anonymous
+   chrome — height 36px, gap 4px between chips, white text rgba(255,255,255,
+   0.87), background rgba(255,255,255,0.04) (csfloat surface-tint),
+   border rgba(255,255,255,0.06) hairline (NOT a heavy stroke), border-radius
+   999px (full pill), font 13px/600 with tabular-nums on numeric values.
+   Hover lifts to rgba(255,255,255,0.08) on bg, no border color change. */
+.wallet-btn,
+.wallet-pill,
+header .wallet-btn,
+.nav-right .wallet-btn {
+  height: 36px !important;
+  padding: 0 12px !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 999px !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-decoration: none !important;
+  transition: background-color 140ms ease !important;
+}
+.wallet-btn:hover,
+.wallet-pill:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+.wallet-btn-amt {
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+.wallet-btn-label {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+.wallet-btn .wallet-plus,
+.wallet-btn .wallet-btn-icon {
+  width: 18px !important;
+  height: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 12px !important;
+  background: transparent !important;
+}
+.wallet-btn:hover .wallet-plus,
+.wallet-btn:hover .wallet-btn-icon {
+  border-color: rgb(35, 123, 255) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.user-chip {
+  height: 36px !important;
+  padding: 0 10px 0 4px !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 999px !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  text-decoration: none !important;
+  transition: background-color 140ms ease !important;
+}
+.user-chip:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+.user-chip-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+.user-chip-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.user-chip-name {
+  white-space: nowrap !important;
+  max-width: 120px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #100 */
+
+/* CSFLOAT-1:1 PARITY ship #101 — notification bell button + badge counter
+   csfloat measured: the bell icon button is 40x40 with no fill, icon at
+   20px, color rgba(255,255,255,0.7) idle and 1.0 on hover/open. The unread
+   badge is a small pill anchored to the top-right of the bell, min-width
+   16px height 16px, csfloat brand red rgb(244, 67, 54) bg, white 11px/700
+   text, padding 0 4px, border-radius 8px. The bell glyph fills (FILL=1)
+   when unread > 0 and tints to amber rgb(251, 191, 36). */
+.notif-bell-btn,
+.nav-icon-btn[aria-controls="notif-dropdown-panel"],
+header button[aria-label*="notif" i] {
+  width: 40px !important;
+  height: 40px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: background-color 140ms ease, color 140ms ease !important;
+}
+.notif-bell-btn:hover,
+.nav-icon-btn[aria-controls="notif-dropdown-panel"]:hover,
+header button[aria-label*="notif" i]:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 1) !important;
+}
+.notif-badge,
+.notif-count,
+.notif-unread-badge {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  padding: 0 4px !important;
+  border-radius: 8px !important;
+  background-color: rgb(244, 67, 54) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #101 */
+
+/* CSFLOAT-1:1 PARITY ship #102 — profile/wallet/offer tab strip parity
+   csfloat measured: the horizontal tab strip uses the surface-tint pill
+   chrome — bg rgba(193,206,255,0.04), 7px radius, 38px tall, padding 4px,
+   gap 0 between buttons (active state has its own pill inside). Each tab
+   button: 38px h - 8px (padding) = 30px inner, padding 0 14px, font
+   13px/500, color rgba(255,255,255,0.6) idle, white on hover, white on
+   active. Active tab gets background rgba(255,255,255,0.08) and 5px radius
+   pill so the inner pill nests cleanly inside the 7px outer. */
+.profile-tabs,
+.mystall-tabs,
+.wallet-tabs,
+.offer-tabs,
+.admin-tab-content,
+.tab-strip,
+[role="tablist"] {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  height: 38px !important;
+  padding: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.profile-tabs button,
+.mystall-tabs button,
+.wallet-tabs button,
+.offer-tabs button,
+.tab-strip button,
+[role="tablist"] button {
+  height: 30px !important;
+  padding: 0 14px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, color 140ms ease !important;
+  text-transform: none !important;
+}
+.profile-tabs button:hover,
+.mystall-tabs button:hover,
+.wallet-tabs button:hover,
+.offer-tabs button:hover,
+.tab-strip button:hover,
+[role="tablist"] button:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+.profile-tabs button.active,
+.mystall-tabs button.active,
+.wallet-tabs button.active,
+.offer-tabs button.active,
+.tab-strip button.active,
+[role="tablist"] button[aria-selected="true"] {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.profile-tab-badge,
+.tab-badge {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 1px 6px !important;
+  border-radius: 999px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  letter-spacing: 0 !important;
+}
+.profile-tabs button.active .profile-tab-badge,
+.profile-tabs button.active .tab-badge {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #102 */
+
+/* CSFLOAT-1:1 PARITY ship #103 — wallet hero panel + balance typography
+   csfloat measured: the wallet balance hero is a panel rgb(27,29,36)
+   12px radius, padding 24px. Label "Wallet Balance" 12px/600 uppercase
+   letter-spacing 0.08em color rgba(255,255,255,0.6). Balance number is
+   the headline: font 36px/700 white, line-height 1.2, tabular-nums,
+   no letter-spacing. Wallet username (when present) sits below at
+   13px/500 rgba(255,255,255,0.6). Method picker cards (deposit method
+   tiles) use rgb(35,37,44) bg, 10px radius, 1px hairline
+   rgba(255,255,255,0.06), 16px padding; selected state lifts to
+   rgb(35,123,255) border with no fill change. */
+.wallet-hero {
+  background-color: rgb(27, 29, 36) !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.wallet-hero-label {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  margin: 0 0 8px !important;
+  line-height: 1.4 !important;
+}
+.wallet-hero-balance {
+  font-size: 36px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  margin: 0 !important;
+}
+.wallet-hero-user {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  margin-top: 8px !important;
+  line-height: 1.4 !important;
+}
+.wallet-method-grid {
+  display: grid !important;
+  gap: 12px !important;
+}
+.wallet-method-card {
+  background-color: rgb(35, 37, 44) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 10px !important;
+  padding: 16px !important;
+  transition: border-color 140ms ease, background-color 140ms ease !important;
+  cursor: pointer !important;
+}
+.wallet-method-card:hover {
+  background-color: rgb(40, 42, 50) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.wallet-method-card.selected {
+  border-color: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 37, 44) !important;
+}
+.wallet-method-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  letter-spacing: 0 !important;
+}
+.wallet-method-sub {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-weight: 400 !important;
+}
+.wallet-method-badge {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.wallet-method-badge.instant {
+  background-color: rgba(0, 214, 128, 0.12) !important;
+  color: rgb(0, 214, 128) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #103 */
+
+/* CSFLOAT-1:1 PARITY ship #104 — notif dropdown panel + items parity
+   csfloat measured: the notif dropdown anchored under the bell uses panel
+   chrome rgb(27,29,36) bg, 12px radius, no visible border (a 1px
+   rgba(255,255,255,0.04) hairline at most), elevation-8 box-shadow stack.
+   Header row: 16px padding, 14px/600 white title (NOT serif), 12px
+   uppercase 0.08em "Mark all read" link in muted on-surface. Each notif
+   row: 12px 16px padding, 12px gap grid, hover bg rgba(255,255,255,0.04),
+   no underline borders between rows. Title 13px/500 rgba(255,255,255,0.87),
+   time 11px rgba(255,255,255,0.5). Empty state centered, 14px
+   rgba(255,255,255,0.6) padding ~32px. */
+.notif-dropdown {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+  overflow: hidden !important;
+}
+.notif-header {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 1.4 !important;
+}
+.notif-header h3 {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+}
+.notif-clear {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  transition: background-color 140ms ease, color 140ms ease !important;
+}
+.notif-clear:hover {
+  color: rgb(35, 123, 255) !important;
+  background-color: transparent !important;
+}
+.notif-feed,
+.notif-feed-body {
+  max-height: 480px !important;
+  overflow-y: auto !important;
+  padding: 4px 0 !important;
+}
+.notif-empty {
+  padding: 32px 20px !important;
+  text-align: center !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+}
+.notif-item,
+.notif {
+  display: grid !important;
+  grid-template-columns: 32px 1fr auto !important;
+  gap: 12px !important;
+  align-items: flex-start !important;
+  padding: 12px 16px !important;
+  border-bottom: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease !important;
+  background-color: transparent !important;
+}
+.notif-item:hover,
+.notif:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+.notif-item.unread {
+  background-color: rgba(35, 123, 255, 0.04) !important;
+}
+.notif-feed-icon,
+.notif-ic,
+.notif-icon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  display: grid !important;
+  place-items: center !important;
+}
+.notif-feed-title,
+.notif-text,
+.notif-t {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+}
+.notif-feed-time,
+.notif-time,
+.notif-age {
+  font-family: inherit !important;
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  letter-spacing: 0 !important;
+  font-weight: 400 !important;
+}
+.notif-feed-day {
+  font-family: inherit !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-weight: 600 !important;
+  padding: 12px 16px 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #104 */
