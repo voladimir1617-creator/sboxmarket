@@ -121013,3 +121013,23 @@ textarea:focus-visible {
   animation-fill-mode: both !important;
 }
 /* END dropdown animation polish */
+
+/* =====================================================================
+   Chip-group spacing audit — boss-QA cycle 31, ship #18
+   ---------------------------------------------------------------------
+   Operator-strict spacing scale is 8/10/12/14/16/18/20/22/24/28/32.
+   Several chip groups (filter chips, csfloat chips, header chip-group,
+   stall filter chips) ship with gap: 6px — off the scale and visually
+   crammed at scale (4+ chips on one row). Bump to 8px for chip families
+   so the wrap-line gives the chips room to breathe.
+   ===================================================================== */
+.stall-filter-chips,
+.csfloat-filter-chips,
+.csfloat-header-chip-group,
+.deals-chip-row,
+.filter-pill-row,
+.px-pill-row,
+.toolbar-chips {
+  gap: 8px !important;
+}
+/* END chip-group spacing */
