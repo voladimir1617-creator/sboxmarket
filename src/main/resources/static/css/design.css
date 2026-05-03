@@ -18704,9 +18704,6 @@ a[target="_blank"]::after {
 .csfloat-band-card-price {
   font-size: 14px;
 }
-.csfloat-grid-card-price {
-  font-size: 13px;
-}
 
 /* CSFloat-1:1: rarity chip pill — top-right corner of card image. Mirror
    the reference site's "Limited"/"Standard"/"Offering" pill. */
@@ -18878,20 +18875,6 @@ a[target="_blank"]::after {
   border-bottom: 1px solid var(--line);
 }
 .csfloat-filter-section:last-child { border-bottom: none; padding-bottom: 0; }
-.csfloat-filter-section-title {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
-  margin: 0 0 4px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  user-select: none;
-}
 .csfloat-filter-section-title::after {
   content: "▾";
   font-size: 10px;
@@ -18903,11 +18886,6 @@ a[target="_blank"]::after {
 }
 .csfloat-filter-section.collapsed .csfloat-filter-section-body {
   display: none;
-}
-.csfloat-filter-section-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 .csfloat-filter-checkbox {
   display: flex;
@@ -18929,13 +18907,6 @@ a[target="_blank"]::after {
   width: 13px;
   height: 13px;
 }
-.csfloat-filter-checkbox-count {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-4);
-  font-variant-numeric: tabular-nums;
-}
 
 /* CSFloat-1:1: range slider in filter rail — for price, float, etc. */
 .csfloat-filter-range {
@@ -18943,35 +18914,6 @@ a[target="_blank"]::after {
   flex-direction: column;
   gap: 6px;
   padding: 4px 2px;
-}
-.csfloat-filter-range-track {
-  position: relative;
-  height: 4px;
-  background: var(--bg-3);
-  border-radius: 2px;
-}
-.csfloat-filter-range-fill {
-  position: absolute;
-  height: 100%;
-  background: var(--cta);
-  border-radius: 2px;
-}
-.csfloat-filter-range-handle {
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  background: var(--ink-1);
-  border: 2px solid var(--cta);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  cursor: ew-resize;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-}
-.csfloat-filter-range-input {
-  display: flex;
-  gap: 6px;
-  align-items: center;
 }
 .csfloat-filter-range-input input {
   flex: 1;
@@ -19401,66 +19343,14 @@ a[target="_blank"]::after {
 .csfloat-cart-drawer.open {
   transform: translateX(0);
 }
-.csfloat-cart-drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(2px);
-  z-index: 8999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 240ms ease;
-}
 .csfloat-cart-drawer-backdrop.open {
   opacity: 1;
   pointer-events: auto;
-}
-.csfloat-cart-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--line);
-  flex: 0 0 auto;
-}
-.csfloat-cart-drawer-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink-1);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.csfloat-cart-drawer-count {
-  margin-left: 8px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.csfloat-cart-drawer-close {
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--ink-2);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 .csfloat-cart-drawer-close:hover {
   background: var(--bg-2);
   color: var(--ink-1);
   border-color: var(--line-2);
-}
-.csfloat-cart-drawer-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 12px 18px;
 }
 .csfloat-cart-drawer-body::-webkit-scrollbar { width: 6px; }
 .csfloat-cart-drawer-body::-webkit-scrollbar-thumb {
@@ -19476,80 +19366,17 @@ a[target="_blank"]::after {
   align-items: center;
 }
 .csfloat-cart-row:last-child { border-bottom: none; }
-.csfloat-cart-row-img {
-  width: 56px;
-  height: 56px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
 .csfloat-cart-row-img img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   padding: 4px;
 }
-.csfloat-cart-row-info {
-  min-width: 0;
-}
-.csfloat-cart-row-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-1);
-  margin: 0 0 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.csfloat-cart-row-meta {
-  font-size: 11px;
-  color: var(--ink-3);
-  font-family: var(--mono);
-  letter-spacing: -0.005em;
-}
-.csfloat-cart-row-price {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-1);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.csfloat-cart-row-remove {
-  background: transparent;
-  border: none;
-  color: var(--ink-4);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 2px 4px;
-  margin-top: 4px;
-  transition: color 120ms ease;
-}
 .csfloat-cart-row-remove:hover { color: oklch(0.78 0.18 30); }
-.csfloat-cart-drawer-footer {
-  flex: 0 0 auto;
-  padding: 14px 18px;
-  border-top: 1px solid var(--line);
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 .csfloat-cart-totals {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-.csfloat-cart-totals-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--ink-3);
 }
 .csfloat-cart-totals-row .label { color: var(--ink-3); }
 .csfloat-cart-totals-row .value {
@@ -19572,17 +19399,6 @@ a[target="_blank"]::after {
   font-weight: 600;
   color: var(--ink-1);
 }
-.csfloat-cart-checkout-btn {
-  background: var(--cta);
-  color: oklch(0.98 0 0);
-  border: 1px solid var(--cta);
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 120ms ease, transform 80ms ease;
-}
 .csfloat-cart-checkout-btn:hover {
   background: oklch(0.65 0.18 250);
 }
@@ -19593,35 +19409,6 @@ a[target="_blank"]::after {
   text-align: center;
   padding: 60px 20px;
   color: var(--ink-3);
-}
-.csfloat-cart-empty-icon {
-  font-size: 40px;
-  color: var(--ink-4);
-  margin-bottom: 12px;
-}
-.csfloat-cart-empty-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink-2);
-  margin: 0 0 4px;
-}
-.csfloat-cart-empty-desc {
-  font-size: 12px;
-  color: var(--ink-3);
-  margin: 0 0 16px;
-}
-.csfloat-cart-empty-cta {
-  display: inline-block;
-  padding: 8px 14px;
-  background: var(--bg-2);
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink-1);
-  cursor: pointer;
-  text-decoration: none;
-  transition: background 120ms ease, border-color 120ms ease;
 }
 .csfloat-cart-empty-cta:hover {
   background: var(--bg-3);
@@ -19791,15 +19578,6 @@ a[target="_blank"]::after {
 .csfloat-cmdk-group {
   padding: 4px 0;
 }
-.csfloat-cmdk-group-title {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-  padding: 6px 18px;
-}
 .csfloat-cmdk-item {
   display: flex;
   align-items: center;
@@ -19814,18 +19592,6 @@ a[target="_blank"]::after {
 .csfloat-cmdk-item.active {
   background: var(--bg-2);
   color: var(--ink-1);
-}
-.csfloat-cmdk-item-icon {
-  flex: 0 0 18px;
-  color: var(--ink-3);
-  font-size: 14px;
-}
-.csfloat-cmdk-item-label { flex: 1 1 auto; }
-.csfloat-cmdk-item-shortcut {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-4);
-  letter-spacing: 0.04em;
 }
 .csfloat-cmdk-empty {
   text-align: center;
@@ -19883,17 +19649,6 @@ a[target="_blank"]::after {
   height: 100%;
   object-fit: cover;
 }
-.csfloat-profile-avatar-online {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 14px;
-  height: 14px;
-  background: oklch(0.72 0.18 152);
-  border: 2px solid var(--bg);
-  border-radius: 50%;
-  box-shadow: 0 0 8px oklch(0.72 0.18 152 / 0.6);
-}
 .csfloat-profile-info { flex: 1 1 auto; }
 .csfloat-profile-name {
   font-size: 22px;
@@ -19929,11 +19684,6 @@ a[target="_blank"]::after {
   font-size: 12px;
   color: var(--ink-3);
 }
-.csfloat-profile-meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
 .csfloat-profile-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -19948,27 +19698,6 @@ a[target="_blank"]::after {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-.csfloat-profile-stat-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-}
-.csfloat-profile-stat-value {
-  font-family: var(--mono);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--ink-1);
-  letter-spacing: -0.015em;
-  font-variant-numeric: tabular-nums;
-}
-.csfloat-profile-stat-delta {
-  font-size: 11px;
-  color: oklch(0.78 0.18 152);
-  font-family: var(--mono);
 }
 .csfloat-profile-stat-delta.down { color: oklch(0.78 0.18 30); }
 
@@ -20418,27 +20147,12 @@ a[target="_blank"]::after {
     var(--line) 0 4px,
     transparent 4px 8px);
 }
-.csfloat-divider-with-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 20px 0;
-}
 .csfloat-divider-with-label::before,
 .csfloat-divider-with-label::after {
   content: "";
   flex: 1;
   height: 1px;
   background: var(--line);
-}
-.csfloat-divider-with-label-text {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-  white-space: nowrap;
 }
 
 /* END badge + status + progress + avatar + divider */
@@ -20483,15 +20197,6 @@ a[target="_blank"]::after {
   position: relative;
   display: inline-block;
   width: 100%;
-}
-.csfloat-input-group-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ink-4);
-  font-size: 13px;
-  pointer-events: none;
 }
 .csfloat-input-group:focus-within .csfloat-input-group-icon {
   color: var(--ink-2);
@@ -20846,18 +20551,6 @@ a[target="_blank"]::after {
   padding: 2px;
   gap: 0;
 }
-.csfloat-chart-range-btn {
-  background: transparent;
-  border: none;
-  padding: 4px 10px;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--ink-3);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
 .csfloat-chart-range-btn:hover { color: var(--ink-1); }
 .csfloat-chart-range-btn.active {
   background: var(--bg);
@@ -20904,30 +20597,6 @@ a[target="_blank"]::after {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
-}
-.csfloat-chart-summary-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.csfloat-chart-summary-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-}
-.csfloat-chart-summary-value {
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink-1);
-  font-variant-numeric: tabular-nums;
-}
-.csfloat-chart-summary-delta {
-  font-size: 10px;
-  color: oklch(0.78 0.18 152);
-  font-family: var(--mono);
 }
 .csfloat-chart-summary-delta.down { color: oklch(0.78 0.18 30); }
 
@@ -20993,17 +20662,6 @@ a[target="_blank"]::after {
   flex-direction: column;
   gap: 12px;
 }
-.csfloat-footer-brand-mark {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.csfloat-footer-brand-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink-1);
-  letter-spacing: -0.01em;
-}
 .csfloat-footer-tagline {
   font-size: 12px;
   color: var(--ink-3);
@@ -21014,15 +20672,6 @@ a[target="_blank"]::after {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.csfloat-footer-col-title {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-  margin: 0 0 4px;
 }
 .csfloat-footer-link {
   font-size: 13px;
@@ -21094,19 +20743,6 @@ a[target="_blank"]::after {
   color: var(--ink-3);
   letter-spacing: -0.005em;
 }
-.csfloat-trust-chip-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 700;
-}
 
 /* END footer + trust row */
 
@@ -21132,35 +20768,7 @@ a[target="_blank"]::after {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.csfloat-notif-panel-header {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-}
-.csfloat-notif-panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-1);
-  margin: 0;
-}
-.csfloat-notif-panel-action {
-  font-size: 11px;
-  color: var(--ink-3);
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  padding: 0;
-  transition: color 120ms ease;
-}
 .csfloat-notif-panel-action:hover { color: var(--ink-1); }
-.csfloat-notif-panel-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 4px 0;
-}
 .csfloat-notif-panel-body::-webkit-scrollbar { width: 6px; }
 .csfloat-notif-panel-body::-webkit-scrollbar-thumb {
   background: var(--line-2);
@@ -21223,23 +20831,6 @@ a[target="_blank"]::after {
 .csfloat-notif-content {
   min-width: 0;
 }
-.csfloat-notif-content-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink-1);
-  margin: 0 0 2px;
-  line-height: 1.4;
-}
-.csfloat-notif-content-desc {
-  font-size: 11px;
-  color: var(--ink-3);
-  margin: 0;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 .csfloat-notif-time {
   font-family: var(--mono);
   font-size: 10px;
@@ -21247,12 +20838,6 @@ a[target="_blank"]::after {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   margin-top: 1px;
-}
-.csfloat-notif-panel-footer {
-  flex: 0 0 auto;
-  padding: 10px 14px;
-  border-top: 1px solid var(--line);
-  text-align: center;
 }
 .csfloat-notif-panel-footer a {
   font-size: 12px;
@@ -21268,11 +20853,6 @@ a[target="_blank"]::after {
   text-align: center;
   color: var(--ink-3);
   font-size: 12px;
-}
-.csfloat-notif-empty-icon {
-  font-size: 28px;
-  color: var(--ink-4);
-  margin-bottom: 8px;
 }
 
 /* END notification panel chrome */
@@ -21338,20 +20918,6 @@ a[target="_blank"]::after {
   justify-content: space-between;
   background: oklch(0.18 0.008 260 / 0.4);
 }
-.csfloat-usermenu-balance-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-}
-.csfloat-usermenu-balance-value {
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink-1);
-  font-variant-numeric: tabular-nums;
-}
 .csfloat-usermenu-section {
   padding: 4px 0;
   border-bottom: 1px solid var(--line);
@@ -21371,15 +20937,6 @@ a[target="_blank"]::after {
 .csfloat-usermenu-item:hover {
   background: var(--bg-2);
   color: var(--ink-1);
-}
-.csfloat-usermenu-item-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-3);
-  font-size: 13px;
 }
 .csfloat-usermenu-item:hover .csfloat-usermenu-item-icon {
   color: var(--ink-1);
@@ -21427,15 +20984,6 @@ a[target="_blank"]::after {
   border-bottom: 1px solid var(--line);
 }
 .csfloat-searchmenu-section:last-child { border-bottom: none; }
-.csfloat-searchmenu-section-title {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-  padding: 6px 14px;
-}
 .csfloat-searchmenu-row {
   display: grid;
   grid-template-columns: 36px 1fr auto;
@@ -21450,33 +20998,11 @@ a[target="_blank"]::after {
 .csfloat-searchmenu-row.active {
   background: var(--bg-2);
 }
-.csfloat-searchmenu-row-img {
-  width: 36px;
-  height: 36px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 .csfloat-searchmenu-row-img img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   padding: 2px;
-}
-.csfloat-searchmenu-row-info {
-  min-width: 0;
-}
-.csfloat-searchmenu-row-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-1);
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .csfloat-searchmenu-row-name mark {
   background: oklch(0.55 0.18 250 / 0.32);
@@ -21530,10 +21056,6 @@ a[target="_blank"]::after {
   background: var(--bg-3);
   color: var(--ink-1);
   border-color: var(--line-2);
-}
-.csfloat-searchmenu-chip-icon {
-  font-size: 10px;
-  color: var(--ink-4);
 }
 
 /* END search dropdown chrome */
@@ -21823,7 +21345,6 @@ a[target="_blank"]::after {
   font-size: 15px;
   flex-shrink: 0;
 }
-.csfloat-stat-callout-text { flex: 1 1 auto; min-width: 0; }
 .csfloat-stat-callout-title {
   font-size: 13px;
   font-weight: 600;
@@ -22432,7 +21953,6 @@ a[target="_blank"]::after {
   margin: 16px 0 24px;
   flex-wrap: wrap;
 }
-.csfloat-page-header-text { min-width: 0; }
 .csfloat-page-header-title {
   font-size: clamp(24px, 3vw, 32px);
   font-weight: 700;
