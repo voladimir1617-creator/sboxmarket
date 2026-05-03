@@ -120841,3 +120841,35 @@ textarea:focus-visible {
   opacity: 0.85 !important;
 }
 /* END LIVE/AUCTION pulse calm-down */
+
+/* =====================================================================
+   Input-focus polish — boss-QA cycle 31, ship #11
+   ---------------------------------------------------------------------
+   Many text-input focus styles set `border-color: var(--accent)`,
+   making every focused field bloom blue. Blue is reserved for the
+   approved short-list (buy-btn / LEDs / countdown / active-tab /
+   Stripe). Swap the input focus border to the neutral `--ink-2` so
+   the focus ring stays visible without painting fields with the
+   primary brand color, plus a subtle 1px shadow ring for elevation.
+   ===================================================================== */
+.field input:focus,
+.field textarea:focus,
+.mini-input:focus,
+.thread-compose textarea:focus,
+.st-row input:focus,
+.st-row textarea:focus,
+.cf-range-inputs input:focus,
+.settings-row input:focus,
+.settings-row textarea:focus,
+.settings-row select:focus,
+.price-input:focus,
+.fee-calc-input:focus,
+.chat-input:focus,
+.presignin-input:focus,
+.auction-bid-form input:focus,
+.search-input:focus {
+  border-color: var(--ink-2) !important;
+  box-shadow: 0 0 0 1px var(--ink-2) !important;
+  outline: none !important;
+}
+/* END input-focus polish */
