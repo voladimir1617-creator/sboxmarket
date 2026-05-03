@@ -121734,3 +121734,16 @@ textarea {
   background: var(--bg-2) !important;
 }
 /* END filter-rarity-row hover polish */
+
+/* =====================================================================
+   tabs button.active .tab-badge polish — boss-QA cycle 31, ship #73
+   ---------------------------------------------------------------------
+   The active tab's count badge gets `box-shadow: 0 0 8px color-mix(
+   --cta 50%)` — an 8px blue glow halo on what's already a small chip.
+   Drop the glow; the cta-blue bg + white text already broadcasts
+   the active state plenty.
+   ===================================================================== */
+.tabs button.active .tab-badge {
+  box-shadow: none !important;
+}
+/* END tabs badge polish */
