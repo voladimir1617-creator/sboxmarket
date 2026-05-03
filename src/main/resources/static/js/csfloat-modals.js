@@ -805,7 +805,11 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
               ),
               h('div', { style: { textAlign: 'right', marginRight: 14 } },
                 h('div', { className: 'buyorder-cap' }, '≤ ' + fmt(o.maxPrice)),
-                h('div', { className: `buyorder-status ${o.status}` }, o.status)
+                h('div', { className: `buyorder-status ${o.status}` },
+                  o.status === 'ACTIVE'    ? 'Active'
+                  : o.status === 'FILLED'    ? 'Filled'
+                  : o.status === 'CANCELLED' ? 'Cancelled'
+                  : o.status)
               ),
               o.status === 'ACTIVE' && h('button', {
                 className: 'btn btn-ghost',
@@ -1339,9 +1343,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                         className: 'loadout-slot-img',
                         loading: 'lazy',
                         style: {
-                          width: 56, height: 56, objectFit: 'contain',
-                          background: s.itemAccentColor ? `${s.itemAccentColor}1a` : 'transparent',
-                          borderRadius: 6
+                          width: 96, height: 96, objectFit: 'contain',
+                          background: s.itemAccentColor ? `${s.itemAccentColor}33` : 'rgba(255,255,255,0.04)',
+                          borderRadius: 8,
+                          padding: 6,
+                          margin: '0 auto 6px',
+                          display: 'block'
                         }
                       })
                     : h('div', { className: 'loadout-slot-emoji' }, s.itemEmoji || '—'),
