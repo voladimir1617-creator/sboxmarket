@@ -126632,3 +126632,62 @@ body .cart-thumb img {
   object-fit: contain !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #203 */
+/* CSFLOAT-1:1 PARITY ship #204 — cart summary panel (.cart-summary)
+   csfloat-style summary card on dark bg with Roboto 14px body and Roboto
+   16px / 500 totals. Uses rgb(21,23,28) bg, 1px border rgba(255,255,255,
+   0.08), 8px border-radius, 20px padding. Summary rows use 14px font with
+   tabular numerics for the amounts. */
+body .cart-summary {
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 20px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .cart-summary-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin: 0 0 16px !important;
+  line-height: 24px !important;
+}
+body .cart-summary-row {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 20px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  padding: 6px 0 !important;
+}
+body .cart-summary-row .mono,
+body .cart-summary-row span:last-child {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-variant-numeric: tabular-nums !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 400 !important;
+}
+body .cart-summary-total {
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  margin-top: 12px !important;
+  padding-top: 14px !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .cart-summary-total .mono,
+body .cart-summary-total span:last-child {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .cart-summary-actions {
+  margin-top: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #204 */
