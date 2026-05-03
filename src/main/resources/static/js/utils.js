@@ -105,7 +105,15 @@ export function linkifyText(text, keyPrefix = 'lnk') {
 }
 
 export const timeAgo = (ms) => {
-  const diff = Date.now() - ms;
+  // Guard: null / undefined / NaN / unparseable string → ''. Without
+  // this the function returned "NaN d ago" on rows whose timestamp
+  // never landed (legacy DB rows with createdAt=null, in-flight
+  // optimistic placeholders, mocked test data). 65+ call sites across
+  // the SPA — every cart row, trade row, offer row, notification
+  // entry — risked the broken label.
+  const t = Number(ms);
+  if (!Number.isFinite(t) || t <= 0) return '';
+  const diff = Date.now() - t;
   if (diff < 60000) return 'Just now';
   if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
   if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
