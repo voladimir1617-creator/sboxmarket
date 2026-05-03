@@ -572,6 +572,7 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
         h('div', { className: 'wallet-input-label' }, 'Item'),
         h('input', {
           className: 'price-input', style: { width: '100%' }, autoFocus: true,
+          'aria-label': 'Search catalogue for buy order target',
           placeholder: 'Search catalogue…',
           value: search,
           onChange: e => setSearch(e.target.value)
@@ -1288,6 +1289,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
         h('span', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'Rename:'),
         h('input', {
           className: 'price-input',
+          'aria-label': 'New loadout name',
           value: renameDraft,
           maxLength: 100,
           onChange: e => setRenameDraft(e.target.value),
@@ -1455,7 +1457,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       );
     })(),
     creating && h('div', { style: { marginBottom: 14, display: 'flex', gap: 10 } },
-      h('input', { className: 'price-input', placeholder: 'Loadout name…', value: newName, onChange: e => setNewName(e.target.value), style: { flex: 1 } }),
+      h('input', { className: 'price-input', 'aria-label': 'New loadout name', placeholder: 'Loadout name…', value: newName, onChange: e => setNewName(e.target.value), style: { flex: 1 } }),
       h('button', { className: 'btn btn-accent', onClick: handleCreate, disabled: !newName.trim() }, 'Create')
     ),
     tab === 'discover' && h('input', {
@@ -1636,7 +1638,7 @@ function SlotPicker({ slot, allItems, onPick }) {
     return h('button', { className: 'loadout-add-btn', onClick: () => setOpen(true) }, '+ Add');
   }
   return h('div', { className: 'loadout-picker' },
-    h('input', { className: 'price-input', autoFocus: true, placeholder: 'Filter…', value: q, onChange: e => setQ(e.target.value), style: { width: '100%', marginBottom: 6 } }),
+    h('input', { className: 'price-input', autoFocus: true, 'aria-label': 'Filter loadouts', placeholder: 'Filter…', value: q, onChange: e => setQ(e.target.value), style: { width: '100%', marginBottom: 6 } }),
     h('div', { className: 'loadout-picker-list' },
       filtered.map(it => h('div', {
         key: it.id, className: 'loadout-picker-item',
@@ -1885,6 +1887,7 @@ export function NotificationsModal({ onClose, me }) {
       h('input', {
         className: 'price-input',
         style: { width: '100%', fontSize: 12 },
+        'aria-label': 'Search notifications',
         placeholder: 'Search notifications…',
         value: search,
         onChange: e => setSearch(e.target.value)

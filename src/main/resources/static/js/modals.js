@@ -1801,6 +1801,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 type: 'number', step: '0.01', min: '0.01', max: '100000',
                 inputMode: 'decimal',
                 enterKeyHint: 'done',
+                'aria-label': 'Price alert target (USD)',
                 value: alertTarget,
                 onChange: e => setAlertTarget(e.target.value),
                 autoFocus: true
@@ -1922,6 +1923,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
           // price-entry fields.
           inputMode: 'decimal',
           enterKeyHint: 'send',
+          'aria-label': 'Offer amount in USD',
           placeholder: (parseFloat(item.lowestPrice) * 0.85).toFixed(2),
           value: offerAmt,
           onChange: e => setOfferAmt(e.target.value),
@@ -2053,6 +2055,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               border: '1px solid var(--border)',
               borderRadius: 6, color: 'var(--text-primary)'
             },
+            'aria-label': 'Optional note to seller (max 280 characters)',
             placeholder: 'Optional note to the seller (e.g. "brand new account, fast pay")',
             maxLength: 280,
             value: offerMsg,
@@ -2230,6 +2233,7 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
             h('textarea', {
               className: 'price-input',
               style: { width: '100%', minHeight: 70, marginBottom: 6, resize: 'vertical' },
+              'aria-label': 'Optional moderator note',
               placeholder: 'Add any extra context that would help moderators. Ctrl+Enter submits.',
               value: note,
               maxLength: MAX_NOTE,
@@ -2314,6 +2318,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
         autoComplete: 'off',
         autoCapitalize: 'off',
         spellCheck: false,
+        'aria-label': 'Steam offer URL',
         placeholder: 'https://steamcommunity.com/tradeoffer/1234567/',
         value: url,
         onChange: e => { setUrl(e.target.value); setErr(''); },
@@ -2438,6 +2443,7 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
         className: 'price-input',
         style: { width: '100%', minHeight: 90, marginBottom: 4, resize: 'vertical',
                  fontFamily: 'inherit', fontSize: 13 },
+        'aria-label': 'Report context (what happened)',
         placeholder: 'Include timestamps, chat snippets, screenshots links — anything that helps staff triage.',
         value: note,
         maxLength: 1000,
@@ -2551,6 +2557,7 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       h('textarea', {
         className: 'price-input',
         style: { width: '100%', minHeight: 90, marginBottom: 4, resize: 'vertical' },
+        'aria-label': 'Report details (optional)',
         placeholder: 'Paste the Steam offer link, a transcript, or a timeline. The more context, the faster staff can resolve.',
         value: note,
         maxLength: 1500,
@@ -4595,6 +4602,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('input', {
             type: 'url',
             className: 'wallet-amount-input',
+            'aria-label': 'Steam trade URL',
             placeholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
             value: tradeUrlDraft,
             style: { flex: 1, minWidth: 240, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 },
@@ -4674,6 +4682,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               autoCapitalize: 'off',
               spellCheck: false,
               maxLength: 32,
+              'aria-label': '6-digit authenticator code or backup code',
               placeholder: '000000 or backup code',
               value: disableCode,
               onChange: (e) => {
@@ -4724,6 +4733,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
               autoCapitalize: 'off',
               spellCheck: false,
               maxLength: 6,
+              'aria-label': '6-digit authenticator code',
               placeholder: '000000',
               value: regenCode,
               onChange: (e) => {
@@ -7359,6 +7369,7 @@ function ProfileTradesTab({ me, privacy }) {
 
           h('textarea', {
             className: 'price-input',
+            'aria-label': 'Optional review text (max 500 characters)',
             placeholder: "Optional — what went well or didn't? (max 500 chars)",
             value: reviewText,
             maxLength: 500,
@@ -7598,6 +7609,7 @@ function ProfileTradesTab({ me, privacy }) {
             border: '1px solid var(--border)', borderRadius: 6,
             color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13
           },
+          'aria-label': 'Refund / dispute reason',
           placeholder: "What went wrong? (item not received, item doesn't match, seller unresponsive…)",
           maxLength: 1000,
           value: refundReason,
@@ -8487,6 +8499,7 @@ function ProfileReviewsTab({ me }) {
                     value: editGivenComment,
                     onChange: e => setEditGivenComment(e.target.value),
                     maxLength: 500,
+                    'aria-label': 'Edit your review comment',
                     placeholder: 'Share context so future buyers can judge this seller (optional, 500 chars).',
                     style: { width: '100%', marginTop: 8, minHeight: 80, fontSize: 12 }
                   }),
@@ -8519,6 +8532,7 @@ function ProfileReviewsTab({ me }) {
                     value: draft,
                     onChange: e => setDraft(e.target.value),
                     maxLength: 300,
+                    'aria-label': 'Seller reply to review',
                     placeholder: 'Public response (300 chars)',
                     autoFocus: true
                   }),
@@ -8785,13 +8799,16 @@ function ProfileSupportTab() {
             : 'Staff typically responds within 24 hours on business days. Trade, payment, and refund tickets jump the queue automatically. Include any relevant IDs, screenshots, or Steam offer URLs.')
       ),
       h('div', { className: 'wallet-input-label' }, 'Subject'),
-      h('input', { className: 'wallet-amount-input', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), placeholder: 'Short subject line…' }),
+      // a11y audit — visible label exists but wasn't programmatically tied
+      // to the input. Screen-reader users heard "edit, blank" instead of
+      // "Ticket subject, edit". Same fix for the Message textarea below.
+      h('input', { className: 'wallet-amount-input', 'aria-label': 'Ticket subject', value: form.subject, onChange: e => setForm({ ...form, subject: e.target.value }), placeholder: 'Short subject line…' }),
       h('div', { className: 'wallet-input-label' }, 'Category'),
       h('select', { className: 'sort-select', 'aria-label': 'Ticket category', value: form.category, onChange: e => setForm({ ...form, category: e.target.value }) },
         ['TRADE','PAYMENT','REFUND','ACCOUNT','BUG','OTHER'].map(c => h('option', { key: c, value: c }, c))
       ),
       h('div', { className: 'wallet-input-label' }, 'Message'),
-      h('textarea', { className: 'wallet-amount-input', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), placeholder: 'Describe your issue…' }),
+      h('textarea', { className: 'wallet-amount-input', 'aria-label': 'Ticket message body', style: { minHeight: 100, fontFamily: 'inherit' }, value: form.body, onChange: e => setForm({ ...form, body: e.target.value }), placeholder: 'Describe your issue…' }),
       h('button', { className: 'btn btn-accent wallet-submit', disabled: busy, onClick: submitCreate }, busy ? 'Submitting…' : 'Submit Ticket')
     ),
     (() => {

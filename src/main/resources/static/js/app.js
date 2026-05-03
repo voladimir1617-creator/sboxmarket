@@ -435,6 +435,7 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
         value: draft,
         onChange: e => setDraft(e.target.value),
         maxLength: 300,
+        'aria-label': 'Public reply to this review',
         placeholder: 'Public response to this review (300 chars max)',
         autoFocus: true
       }),
@@ -1434,6 +1435,7 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
         value: draft,
         maxLength: CAP,
         onChange: e => setDraft(e.target.value),
+        'aria-label': 'Stall bio',
         // Batch 923 — Ctrl+Enter saves so a seller typing a multi-line
         // bio doesn't need to mouse over to Save. Matches the drawer
         // submit pattern from the shared ReasonDrawer.
