@@ -121801,3 +121801,16 @@ textarea {
   font-size: clamp(28px, 4.2vw, 60px) !important;
 }
 /* END home-hero-title polish */
+
+/* =====================================================================
+   tab-strip-tab.active weight harmonize — boss-QA cycle 31, ship #78
+   ---------------------------------------------------------------------
+   .tab-strip-tab.active uses font-weight: 700, heavier than the cycle-
+   31 ship #2 standard (active tab keeps regular weight; the underline
+   is the indicator). Drop to 500 to match profile-tabs / mystall-tabs
+   / wallet-tabs / offer-tab active treatment.
+   ===================================================================== */
+.tab-strip-tab.active {
+  font-weight: 500 !important;
+}
+/* END tab-strip-tab weight polish */
