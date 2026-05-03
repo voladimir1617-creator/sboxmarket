@@ -121814,3 +121814,15 @@ textarea {
   font-weight: 500 !important;
 }
 /* END tab-strip-tab weight polish */
+
+/* =====================================================================
+   csfloat-table sort indicator on-scale — boss-QA cycle 31, ship #79
+   ---------------------------------------------------------------------
+   The .csfloat-table th.sortable::after sort-direction caret uses
+   font-size: 9px — below the 10/11/12/.../60 scale floor. Bump to
+   10px so the sort indicator stays legible at retina densities.
+   ===================================================================== */
+.csfloat-table th.sortable::after {
+  font-size: 10px !important;
+}
+/* END sort indicator polish */
