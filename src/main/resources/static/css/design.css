@@ -121861,3 +121861,34 @@ nav.nav .nav-link:hover {
   background: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #6 — right-cluster USD/EN selector (picker chip)
+   csfloat: span only, fontSize 16px, fontWeight 400, color rgb(255,255,255),
+     bg transparent, no border, no border-radius, no padding, height auto.
+   sboxmarket .nav-picker-chip was: 11px / 600 / oklch grey / border 1px solid /
+     padding 4px 8px 4px 10px / borderRadius 6px.
+   ===================================================================== */
+nav.nav .nav-picker-chip {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 0 8px !important;
+  height: 25px !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  gap: 4px !important;
+}
+nav.nav .nav-picker-label {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6 */
