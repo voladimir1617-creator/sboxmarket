@@ -1,6 +1,6 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
-import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch, currencySymbol, fxConvertUsd } from './utils.js';
 import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
 import { GridCard } from './cards.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
@@ -13783,6 +13783,27 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
               );
             })()
           : h('div', null,
+              // Prefill source banner — when the cart low-balance handler
+              // sent the user here with a precomputed shortfall amount,
+              // show what triggered the prefill so the typed number isn't
+              // mysterious. Display amount in the user's currency via
+              // fmt() (it's a label, not the input) while the input itself
+              // stays USD raw.
+              tab === 'deposit' && prefillAmount != null && parseFloat(prefillAmount) > 0 && h('div', {
+                className: 'wallet-prefill-source',
+                style: {
+                  padding: '10px 14px', marginBottom: 12, borderRadius: 8,
+                  background: 'rgba(250,204,21,0.08)',
+                  border: '1px solid rgba(250,204,21,0.3)',
+                  fontSize: 12, color: '#fde68a', lineHeight: 1.5,
+                  display: 'flex', gap: 10, alignItems: 'center'
+                }
+              },
+                h('span', { style: { fontSize: 14 } }, '→'),
+                h('div', { style: { flex: 1 } },
+                  'Topping up to cover your cart shortfall · ',
+                  h('strong', null, fmt(parseFloat(prefillAmount))))
+              ),
               // Email-verification gate for withdrawals. Must mirror
               // the server guard (WalletController.withdraw checks
               // emailVerified before calling Stripe). Rendered at the
@@ -14046,7 +14067,24 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                           value: amount,
                           onChange: e => setAmount(e.target.value),
                           'aria-label': tab === 'deposit' ? 'Deposit amount' : 'Withdrawal amount'
-                        })
+                        }),
+                        // FX equivalent hint — when the user has selected a
+                        // non-USD display currency, show what the typed USD
+                        // amount maps to in their currency. The input itself
+                        // stays USD because Stripe + the WalletController
+                        // both round-trip USD raw; the hint is purely a
+                        // sanity check so a CAD user typing "50" sees "≈
+                        // CA$68.50" before clicking Continue. Hidden when
+                        // the user is on USD (no conversion to show) or
+                        // when the field is empty / non-numeric.
+                        amt > 0 && currencySymbol() !== '$' && h('div', {
+                          className: 'wallet-amount-fx-hint',
+                          style: {
+                            fontSize: 11, color: 'var(--text-muted)',
+                            marginTop: 4, fontWeight: 500
+                          },
+                          title: 'Wallet ledger is denominated in USD. This is the approximate equivalent in your selected display currency.'
+                        }, '≈ ', fmt(amt), ' in your currency')
                       ),
                       h('div', { className: 'wallet-preset-row' },
                         presets.map(a =>

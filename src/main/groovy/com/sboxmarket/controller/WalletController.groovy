@@ -302,7 +302,15 @@ class WalletController {
             }
         }
         def sb = new StringBuilder()
-        sb.append("id,date,type,status,amount,currency,description,listingId,reference\n")
+        // Leading metadata row makes it explicit that every numeric value
+        // in this CSV is denominated in USD raw, regardless of the user's
+        // selected display currency in the SPA. An accountant importing
+        // the file into a multi-currency spreadsheet can see the source
+        // currency at a glance and apply their own FX conversion if their
+        // ledger is in another currency. The amount column header also
+        // carries "(USD)" so a row-level scan still surfaces the unit.
+        sb.append("# currency: USD\n")
+        sb.append("id,date,type,status,amount (USD),currency,description,listingId,reference\n")
         def df = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
         df.timeZone = java.util.TimeZone.getTimeZone("UTC")
         // Batch 978 — shared csv-safe escape lives in com.sboxmarket.util.CsvUtil.
