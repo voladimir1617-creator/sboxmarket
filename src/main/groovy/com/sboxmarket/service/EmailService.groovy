@@ -705,8 +705,8 @@ Hi ${displayName ?: 'there'},
 
 Your standing buy order for ${itemName ?: 'an item'} just auto-filled.
 
-Paid: \$${(fillPrice ?: BigDecimal.ZERO).toPlainString()}
-Your cap was: \$${(maxCap ?: BigDecimal.ZERO).toPlainString()}
+Paid:         ${usd(fillPrice)}
+Your cap was: ${usd(maxCap)}
 
 The seller has been notified to send the Steam trade offer. Track the trade from Profile → Trades, or open the item${itemUrl ? ': ' + itemUrl : '.'}
 
@@ -916,7 +916,7 @@ Anti-snipe rules: a bid in the final 30 seconds extends the close by another 30 
         def body = """\
 Hi ${displayName ?: 'there'},
 
-You won the auction for ${itemName ?: 'an item'} at \$${(finalPrice ?: BigDecimal.ZERO).toPlainString()}.
+You won the auction for ${itemName ?: 'an item'} at ${usd(finalPrice)}.
 
 The seller has been notified and will send the Steam trade offer within
 the escrow window (typically 8 days). You can track the trade from
@@ -942,7 +942,7 @@ Profile → Trades${itemUrl ? ' or open the item: ' + itemUrl : '.'}
 Hi ${displayName ?: 'there'},
 
 The buyer confirmed receipt of ${itemName ?: 'your item'} and funds have
-been released from escrow. Your wallet was credited \$${(netCredit ?: BigDecimal.ZERO).toPlainString()}
+been released from escrow. Your wallet was credited ${usd(netCredit)}
 (sale price minus the 2% platform fee).
 
 You can cash out to Stripe from your wallet at any time${walletUrl ? ': ' + walletUrl : '.'}
@@ -1029,7 +1029,7 @@ If the item doesn't match the listing or something feels off, open a dispute fro
         def body = """\
 Hi ${displayName ?: 'there'},
 
-You purchased ${itemName ?: 'an item'}${sellerLine} for \$${(price ?: BigDecimal.ZERO).toPlainString()}.
+You purchased ${itemName ?: 'an item'}${sellerLine} for ${usd(price)}.
 
 The funds are held in escrow until the seller sends the Steam trade offer and you confirm receipt. Expect an email or bell notification when the seller marks it sent — then head to steamcommunity.com to accept the offer.
 
@@ -1057,7 +1057,7 @@ If the seller doesn't respond within 3 days, the trade auto-cancels and you'll b
         def body = """\
 Hi ${displayName ?: 'there'},
 
-${buyerName ?: 'A buyer'} just bought ${itemName ?: 'your item'} for \$${(price ?: BigDecimal.ZERO).toPlainString()}.
+${buyerName ?: 'A buyer'} just bought ${itemName ?: 'your item'} for ${usd(price)}.
 
 The funds are held in escrow until you:
   1. Accept the trade
@@ -1158,8 +1158,8 @@ notifications to stop these.
         def body = """\
 Hi ${displayName ?: 'there'},
 
-Your \$${amount.toPlainString()} offer on ${itemName ?: 'the listing'} was accepted.
-A trade has been opened${tradeId ? " — #${tradeId}" : ''} and ${amount != null ? '$' + amount.toPlainString() : 'the offer amount'} is now in escrow.
+Your ${usd(amount)} offer on ${itemName ?: 'the listing'} was accepted.
+A trade has been opened${tradeId ? " — #${tradeId}" : ''} and ${usd(amount)} is now in escrow.
 
 What happens next:
   · The seller has 3 days to send you the Steam trade offer.
@@ -1193,7 +1193,7 @@ stop these.
         def body = """\
 Hi ${displayName ?: 'there'},
 
-The seller declined your \$${amount.toPlainString()} offer on ${itemName ?: 'their listing'}.
+The seller declined your ${usd(amount)} offer on ${itemName ?: 'their listing'}.
 ${replyBlock}
 If you still want the item, head back to the listing and try a higher
 offer or use Buy Now:
