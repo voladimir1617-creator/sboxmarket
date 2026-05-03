@@ -8979,12 +8979,16 @@ export function App() {
           ),
           h('div', { className: 'fee-calc-sub' }, "See what you'll actually take home on a sale."),
           h('div', { className: 'fee-calc-row' },
-            h('label', null, 'Sale Amount ($)'),
+            // The input is USD-anchored even when the operator's display
+            // currency is CAD/EUR/etc. — backend stores listings in USD
+            // and fees are computed against that. Label shows the active
+            // currencySymbol so it's not confusing.
+            h('label', { title: 'Type a USD-anchored sale amount; outputs convert to your selected currency.' }, `Sale Amount (${currencySymbol()})`),
             h('input', {
               className: 'price-input fee-calc-input',
               type: 'number', min: '1', step: '0.01',
               inputMode: 'decimal',
-              'aria-label': 'Sale amount for fee calculator',
+              'aria-label': `Sale amount for fee calculator (${currencySymbol()})`,
               value: feeInput,
               onChange: e => setFeeInput(e.target.value),
               onFocus: e => e.target.select()
