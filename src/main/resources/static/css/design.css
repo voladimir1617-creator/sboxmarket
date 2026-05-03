@@ -121160,3 +121160,23 @@ textarea:focus-visible {
   background: color-mix(in oklab, var(--bg-2) 60%, transparent) !important;
 }
 /* END cmd-K palette polish */
+
+/* =====================================================================
+   Pulse ticker font + neutral chrome — boss-QA cycle 31, ship #26
+   ---------------------------------------------------------------------
+   The under-nav .pulse ticker had off-scale 11.5px font and two more
+   --cta blue tints (4% bg gradient at top, 14% border-bottom). The
+   pulsing LIVE LED at the start of the bar is the *one* allowed-blue
+   moment per page — the rest of the bar should stay neutral. Snap
+   font to 11px and switch the gradient + border to --line so blue
+   stays focused on the LED itself.
+   ===================================================================== */
+.pulse {
+  font-size: 11px !important;
+  background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg) 100%) !important;
+  border-bottom-color: var(--line) !important;
+}
+.pulse-item .dot {
+  background: var(--ink-4) !important;
+}
+/* END pulse ticker polish */
