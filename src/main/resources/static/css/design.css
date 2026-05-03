@@ -127085,3 +127085,90 @@ body .list-divider {
   fill: rgb(158, 167, 177) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #205 */
+/* CSFLOAT-1:1 PARITY ship #206 — help center page typography baseline
+   csfloat /support measure: empty for non-logged users, but the chrome
+   uses Roboto 16px body / pure white / rgb(21,23,28) bg. sboxmarket
+   /help has its own React-rendered body. Apply csfloat baseline to all
+   .help-page descendants: font-family Roboto, body 14px / rgb(255,255,255),
+   secondary text rgb(158,167,177). Section titles get Roboto 18px / 500
+   pure white instead of any Geist drift. */
+.help-page,
+.help-page * {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+.help-page,
+body .help-page {
+  color: rgb(255, 255, 255) !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+.help-page h1,
+body .help-page h1 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 32px !important;
+  margin: 0 0 8px !important;
+}
+.help-page h2,
+.help-page .help-section-title,
+body .help-page h2 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 26px !important;
+  margin: 24px 0 12px !important;
+  text-transform: none !important;
+}
+.help-page h3,
+.help-page .help-faq-q,
+.help-page .faq-q,
+body .help-page h3 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  line-height: 22px !important;
+  margin: 16px 0 6px !important;
+}
+.help-page p,
+.help-page li,
+.help-page .help-text,
+body .help-page p {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 20px !important;
+}
+.help-page strong,
+body .help-page strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+.help-page a,
+body .help-page a {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+.help-page a:hover,
+body .help-page a:hover {
+  text-decoration: underline !important;
+}
+.help-page kbd,
+body .help-page kbd {
+  font-family: "Roboto Mono", "JetBrains Mono", "Courier New", monospace !important;
+  font-size: 12px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 3px !important;
+  padding: 2px 6px !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #206 */
