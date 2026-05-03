@@ -120965,3 +120965,28 @@ textarea:focus-visible {
   gap: 12px !important;
 }
 /* END empty-state polish */
+
+/* =====================================================================
+   Error-banner urgency tiering — boss-QA cycle 31, ship #16
+   ---------------------------------------------------------------------
+   sev-warn vs sev-error differed only by a slightly tinted bg and icon
+   color — visual weight read identical at a glance. Add a 3px left-
+   border accent strip and a heavier font-weight on sev-error, plus an
+   inset ring shadow that matches the urgency. Warn keeps a softer
+   treatment so the two sit on different rungs visually.
+   ===================================================================== */
+.announce-banner.sev-warn {
+  border-left: 3px solid #e8b960 !important;
+  padding-left: 21px;
+  font-weight: 500 !important;
+}
+.announce-banner.sev-error {
+  border-left: 3px solid var(--down) !important;
+  padding-left: 21px;
+  font-weight: 600 !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--down) 18%, transparent);
+}
+.announce-banner.sev-error .announce-banner-text {
+  color: var(--ink) !important;
+}
+/* END error-banner tiering */
