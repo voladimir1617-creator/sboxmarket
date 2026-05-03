@@ -121796,3 +121796,21 @@ textarea {
   color: rgb(158, 167, 177) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #3 — home hero primary CTA
+   csfloat primary button: rgb(35,123,255) / pad 13px 30px / fw 700 / r 8px
+   sboxmarket .csfloat-home-hero-cta.primary was:
+     rgb(29,78,216) / pad 14px 28px / fw 600 / r 999px (pill!)
+   Match csfloat's lighter blue, slightly tighter padding, bolder weight,
+   rounded-rect (NOT pill) shape.
+   ===================================================================== */
+.csfloat-home-hero-cta.primary {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 13px 30px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3 */
