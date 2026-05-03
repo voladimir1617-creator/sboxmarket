@@ -2,9 +2,30 @@
 
 One page. Paste-ready commands. If you are reading this during an outage, scroll to the matching section, run the bullets in order, then come back and update the runbook with what worked.
 
-The deploy script (`deploy/run-local.sh`) ships a **cookie-state gate** that replays poisoned-cookie shapes after each deploy and aborts on any 5xx (added after the four NUL-byte outages on 2026-05-03). **Do not bypass this gate.** If it fails, the build is broken — revert, do not push past it.
+The deploy script (`deploy/run-local.sh`) ships a **cookie-state gate** that replays poisoned-cookie shapes after each deploy and aborts on any 5xx (added after the four NUL-byte outages on 2026-05-03). **Do not bypass this gate.** If it fails, the build is broken — revert, do not push past it. The gate now runs against the staging container BEFORE the upstream swap (added 2026-05-03 zero-downtime work) — a failed gate never reaches public traffic.
 
 Cloudflare uptime monitor should target `GET /api/health/cookie-aware` on the public hostname — that endpoint runs synthetic SELECTs on `SPRING_SESSION` with both a known-good UUID and a known-poisoned UUID and returns 503 the moment either throws.
+
+## Topology (zero-downtime, post-2026-05-03)
+
+```
+Cloudflare tunnel (cloudflared on host)
+      |
+      v
+  localhost:8082  --->  sbox-edge   (nginx, never restarted across deploys)
+                            |
+                            v   (Docker DNS over the sbox-net network)
+                       sbox_upstream
+                            |
+                            +--> sbox-app          (canonical, currently active)
+                            and during a deploy:
+                            +--> sbox-app-blue     (the staging target)
+```
+
+- **sbox-edge** is an `nginx:alpine` container that owns host port 8082 and forwards to whichever app container is currently in its upstream block. It survives every deploy — only its `edge-upstream.conf` (volume-mounted from `deploy/edge-upstream.conf`) is rewritten and `nginx -s reload`'d.
+- **sbox-app** is the always-canonical name of the active app container. Deploys boot a parallel `sbox-app-blue` container, validate it (cookie-state gate against the blue container, before any traffic reaches it), then swap the upstream and rename blue to sbox-app.
+- During the swap window the upstream block lists BOTH containers (`sbox-app-blue` primary, `sbox-app` backup) so requests in flight have a fallback. Verified zero non-200 responses across two consecutive deploys (2026-05-03 instrumentation: `while true; do curl -w "%{http_code}\n"; sleep 1; done`).
+- `deploy/nginx.conf` (the OLD reference config, port 8080) is now historical — it documents how the app fronted directly with nginx on a single host. It is NOT in the live tunnel path. The live edge config is `deploy/edge-nginx.conf` mounted into the `sbox-edge` container.
 
 ---
 
@@ -35,24 +56,30 @@ docker stop sbox-app && docker start sbox-app
 
 ## Site is 502
 
-Symptom: Cloudflare returns 502 Bad Gateway. The container is down or not responding to the tunnel.
+Symptom: Cloudflare returns 502 Bad Gateway. The container is down, the edge can't reach it, or the edge itself is down.
 
 ```bash
-# 1. Is the container running?
-docker ps --filter name=sbox-app --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+# 1. Is the edge running? (nginx that owns host :8082)
+docker ps --filter name=sbox-edge --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 
-# 2. Did it crash? Tail the last 200 lines, looking for OOM / startup failure / port bind errors.
+# 2. Is the app container running on sbox-net?
+docker ps --filter name=sbox-app --format 'table {{.Names}}\t{{.Status}}\t{{.Networks}}'
+
+# 3. Probe the edge directly — bypasses Cloudflare so you can isolate edge vs app.
+curl -sS -o /dev/null -w "edge=%{http_code}\n" http://localhost:8082/__edge_health   # 200 if edge up
+curl -sS -o /dev/null -w "app=%{http_code}\n"  http://localhost:8082/api/health      # 200 if edge -> app works
+
+# 4. Did the app crash? Tail the last 200 lines, looking for OOM / startup failure / port bind errors.
 docker logs sbox-app --tail 200
 
-# 3. Bring it back up (graceful shutdown takes up to 25s on prod profile).
-docker stop sbox-app && docker start sbox-app
-
-# 4. If `docker start` immediately exits, the image itself is broken — rebuild from last known good.
-git log --oneline -10
-git checkout <last-known-good-SHA>
+# 5. If only the app is down: re-run the deploy script to bring it back up zero-downtime.
 docker build -t sbox-app:latest . && bash deploy/run-local.sh
 
-# 5. Verify the cookie-state gate at the end of run-local.sh passed before reopening traffic.
+# 6. If the edge itself is down: just restart it. Edge state is config-only (no app data).
+docker start sbox-edge   # if it exists but is stopped
+# OR — if it's gone — re-run run-local.sh; the script idempotently recreates the edge.
+
+# 7. Verify the cookie-state gate at the end of run-local.sh passed before reopening traffic.
 ```
 
 ---
@@ -132,7 +159,7 @@ git revert <bad-SHA> --no-edit
 
 ## Reference: the cookie-state deploy gate
 
-`deploy/run-local.sh` runs a post-boot probe sequence that hits the live container with the cookie shapes that historically detonated `JdbcIndexedSessionRepository.findById`'s SELECT on `SPRING_SESSION`. Every probe must return < 500 or the script exits non-zero — meaning the deploy fails in the operator's terminal and traffic never sees the broken image.
+`deploy/run-local.sh` runs a probe sequence against the BLUE container (the deploy target, before the upstream swap) with the cookie shapes that historically detonated `JdbcIndexedSessionRepository.findById`'s SELECT on `SPRING_SESSION`. Every probe must return < 500 or the script exits non-zero — meaning the deploy fails in the operator's terminal and traffic NEVER sees the broken image (the old container keeps serving).
 
 The probes:
 - `SBOX_SESSION=garbage` (random non-UUID)

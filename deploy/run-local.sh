@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# MSYS_NO_PATHCONV stops Git Bash on Windows from mangling Linux-style
+# container paths (e.g. /etc/nginx/nginx.conf becoming
+# C:\Program Files\Git\etc\nginx\nginx.conf) when they're passed to docker.
+# Without this the volume mounts silently land in the wrong place inside
+# the nginx container and nginx falls back to its default config.
+export MSYS_NO_PATHCONV=1
+
 # Local-dev replacement for a full /etc/skinbox/skinbox.env file. Runs the
 # Docker image against the local `sbox-pg` Postgres container. Every env var
 # the prod profile requires has a safe default so the boot doesn't NPE on a
@@ -175,18 +182,8 @@ if docker ps --format '{{.Names}}' | grep -q '^sbox-pg$'; then
   fi
 fi
 
-# Spin up sbox-edge nginx container if it isn't already running.
-if ! docker ps --format '{{.Names}}' | grep -q "^${EDGE_NAME}$"; then
-  echo "Bringing up edge proxy (${EDGE_NAME}) on host :${EDGE_PORT}..."
-  docker rm -f "$EDGE_NAME" 2>/dev/null || true
-  docker run -d --name "$EDGE_NAME" \
-    --network "$NETWORK" \
-    -p "${EDGE_PORT}:8082" \
-    --restart unless-stopped \
-    -v "${DEPLOY_DIR}/edge-nginx.conf:/etc/nginx/nginx.conf:ro" \
-    -v "${DEPLOY_DIR}/edge-upstream.conf:/etc/nginx/conf.d/edge-upstream.conf:ro" \
-    nginx:alpine > /dev/null
-fi
+# Edge startup happens AFTER legacy detection (below) so we don't try to
+# bind :8082 before tearing down a legacy sbox-app that's still on it.
 
 # ----------------------------------------------------------------------------
 # Step 1: figure out current state.
@@ -208,6 +205,17 @@ fi
 EDGE_RUNNING=0
 if docker ps --format '{{.Names}}' | grep -q "^${EDGE_NAME}$"; then
   EDGE_RUNNING=1
+  # If edge-nginx.conf has drifted from what's mounted in the container,
+  # the operator changed it but nginx -s reload won't pick up a different
+  # main config (only the included upstream). Force a recreate in that
+  # case. We compare a hash; cheap.
+  ON_DISK_HASH=$(sha256sum "${DEPLOY_DIR}/edge-nginx.conf" 2>/dev/null | awk '{print $1}')
+  IN_CONTAINER_HASH=$(docker exec "$EDGE_NAME" sha256sum /etc/nginx/nginx.conf 2>/dev/null | awk '{print $1}')
+  if [ -n "$ON_DISK_HASH" ] && [ "$ON_DISK_HASH" != "$IN_CONTAINER_HASH" ]; then
+    echo "edge-nginx.conf drifted from running container — recreating ${EDGE_NAME}."
+    docker rm -f "$EDGE_NAME" >/dev/null 2>&1 || true
+    EDGE_RUNNING=0
+  fi
 fi
 
 if [ "$LEGACY_HOLDING_EDGE_PORT" -eq 1 ]; then
@@ -344,8 +352,18 @@ fi
 
 # ----------------------------------------------------------------------------
 # Step 5: swap the edge upstream to point at the new container, reload nginx.
-# This is the moment of truth — but nginx -s reload is graceful, so even
-# requests in flight against the old upstream complete cleanly.
+#
+# Zero-downtime invariants:
+#   - During the swap window the upstream block lists BOTH containers, with
+#     the OLD as `backup` and the NEW as primary. nginx routes new requests
+#     to NEW; if NEW isn't ready (it is — we passed the gate above), nginx
+#     falls back to OLD. proxy_next_upstream in edge-nginx.conf retries
+#     on connection errors, so a request that lands on a pid-killed
+#     container is automatically retried against the other upstream.
+#   - We stop OLD with --time=10 so in-flight requests drain.
+#   - The rename step happens AFTER OLD is gone. The upstream rewrite
+#     between rename and reload uses the canonical NAME — by which point
+#     Docker DNS resolves NAME to the renamed container.
 # ----------------------------------------------------------------------------
 
 if [ "$IS_INITIAL_DEPLOY" -eq 1 ]; then
@@ -354,42 +372,63 @@ if [ "$IS_INITIAL_DEPLOY" -eq 1 ]; then
   echo "Initial deploy — edge already targets ${NAME}. Reloading nginx..."
   cat > "${DEPLOY_DIR}/edge-upstream.conf" <<EOF
 upstream sbox_upstream {
-    server ${NAME}:${APP_PORT} max_fails=1 fail_timeout=2s;
+    server ${NAME}:${APP_PORT} max_fails=0 fail_timeout=2s;
 }
 EOF
   docker exec "$EDGE_NAME" nginx -s reload
 else
-  echo "Pivoting edge upstream from ${NAME} to ${TARGET_CONTAINER}, then nginx -s reload..."
+  # Phase A: dual-upstream — NEW primary + OLD backup. nginx prefers
+  # primary, but proxy_next_upstream falls back to OLD on connection
+  # error. This is the period during which the OLD container is still
+  # accepting connections; the swap is gradual, not a cliff.
+  echo "Phase A: dual upstream (${TARGET_CONTAINER} primary, ${NAME} backup), reload..."
   cat > "${DEPLOY_DIR}/edge-upstream.conf" <<EOF
 upstream sbox_upstream {
-    server ${TARGET_CONTAINER}:${APP_PORT} max_fails=1 fail_timeout=2s;
+    server ${TARGET_CONTAINER}:${APP_PORT} max_fails=0;
+    server ${NAME}:${APP_PORT} backup max_fails=0;
 }
 EOF
   docker exec "$EDGE_NAME" nginx -s reload
-  # nginx workers process pending requests on the old config before they
-  # exit. Give them a moment to drain before we kill the old container.
-  sleep 2
+  # Let the old worker finish in-flight requests against OLD; new requests
+  # are already heading to NEW.
+  sleep 3
 
-  echo "Stopping old container ${NAME} (graceful 10s drain)..."
+  # Phase B: drain + remove OLD. With graceful stop the old JVM completes
+  # in-flight requests before exiting. Nginx routes new traffic to NEW.
+  echo "Phase B: graceful stop of old ${NAME} (--time=10)..."
   docker stop --time=10 "$NAME" >/dev/null 2>&1 || true
   docker rm "$NAME" >/dev/null 2>&1 || true
 
-  echo "Renaming ${TARGET_CONTAINER} -> ${NAME} so the next deploy is symmetric..."
+  # Phase C: rename NEW -> canonical name. Between rename and the reload
+  # below, the upstream block STILL references ${TARGET_CONTAINER} — which
+  # has just been renamed to ${NAME}. Docker network DNS removes the old
+  # name immediately on rename. We immediately overwrite the upstream
+  # config to use ${NAME} and reload nginx so nginx re-resolves.
+  echo "Phase C: rename ${TARGET_CONTAINER} -> ${NAME} for symmetric next deploy..."
   docker rename "$TARGET_CONTAINER" "$NAME"
-  # Final upstream pin to the canonical name.
   cat > "${DEPLOY_DIR}/edge-upstream.conf" <<EOF
 upstream sbox_upstream {
-    server ${NAME}:${APP_PORT} max_fails=1 fail_timeout=2s;
+    server ${NAME}:${APP_PORT} max_fails=0 fail_timeout=2s;
 }
 EOF
+  # Use `nginx -s reload` not -t-then-reload; nginx validates internally.
+  # Two reloads in a deploy is fine — they're cheap.
   docker exec "$EDGE_NAME" nginx -s reload
 fi
 
 # ----------------------------------------------------------------------------
-# Step 6: sanity verify via the edge.
+# Step 6: sanity verify via the edge. Use --max-time so a hung connection
+# can't stall the deploy script. We capture only the first non-zero status
+# code so any stray header bytes from curl-on-Windows don't poison the
+# warning string.
 # ----------------------------------------------------------------------------
 
-edge_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${EDGE_PORT}/api/health" 2>/dev/null || echo 000)
+edge_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://localhost:${EDGE_PORT}/api/health" 2>/dev/null || true)
+# Strip any non-numeric characters that occasionally sneak in via curl's
+# stderr-to-stdout interleaving on Windows. The numeric code is always
+# the first 3 chars when curl does emit cleanly.
+edge_code=$(echo -n "$edge_code" | tr -cd '0-9' | head -c 3)
+edge_code="${edge_code:-000}"
 if [ "$edge_code" != "200" ]; then
   echo "WARNING: edge probe of /api/health returned ${edge_code} (expected 200)." >&2
   echo "  Container is healthy on the inside; investigate edge config." >&2
