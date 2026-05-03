@@ -126122,3 +126122,453 @@ body .legal-back:hover {
   text-decoration: underline !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #202 */
+
+/* CSFLOAT-1:1 PARITY ship #210 — wallet hero typography to canonical Roboto stack
+   Hero label was Geist 10px uppercase 1.8px tracking; balance was Geist 28/700;
+   user line Roboto 12. csfloat ships its wallet hero in Roboto across the
+   board with explicit 11px uppercase eyebrow, 32px balance, 13px @user. */
+.wallet-modal .wallet-hero-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  line-height: 1.4 !important;
+}
+.wallet-modal .wallet-hero-balance {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.1 !important;
+  color: #ffffff !important;
+  margin: 10px 0 4px !important;
+}
+.wallet-modal .wallet-hero-user {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0 !important;
+}
+.wallet-modal .wallet-hero {
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+  padding: 22px 28px 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #210 */
+
+/* CSFLOAT-1:1 PARITY ship #211 — wallet step rail typography & numbering
+   step-num was monospace; step-title was Geist 18/700. csfloat uses Roboto
+   throughout with 20/700 section titles per the canon and 13/500 metadata. */
+.wallet-modal .wallet-step-num {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  width: 28px !important;
+  height: 28px !important;
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(193, 206, 255, 0.10) !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.wallet-modal .wallet-step.active .wallet-step-num {
+  background: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-step-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1.3 !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-step-subtitle {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #211 */
+
+/* CSFLOAT-1:1 PARITY ship #212 — wallet amount input + currency prefix to csfloat input chrome
+   csfloat inputs are panel rgb(27,29,36) with 1px hairline rgba(193,206,255,.07),
+   8px radius, 40px tall by default — but the wallet amount is a hero input so
+   csfloat ships it at 56px tall with the larger 22/700 numeral and Roboto. */
+.wallet-modal .wallet-amount-wrap {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: border-color 120ms ease !important;
+}
+.wallet-modal .wallet-amount-wrap:focus-within {
+  border-color: rgb(35, 123, 255) !important;
+}
+.wallet-modal .wallet-amount-prefix {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  padding: 0 4px 0 16px !important;
+}
+.wallet-modal .wallet-amount-input-v2 {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.005em !important;
+  color: #ffffff !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 16px 0 4px !important;
+  height: 100% !important;
+  outline: none !important;
+}
+.wallet-modal .wallet-method-fields .wallet-amount-input {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  width: 100% !important;
+  outline: none !important;
+}
+.wallet-modal .wallet-method-fields .wallet-amount-input:focus {
+  border-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #212 */
+
+/* CSFLOAT-1:1 PARITY ship #213 — wallet preset chip row to csfloat pill exact
+   chips were Geist Mono 13/400 with oklch backgrounds. csfloat uses 13/600
+   Roboto, panel rgb(27,29,36), 999px radius, 16px x-padding, 32px tall,
+   and the active state uses accent rgb(35,123,255) fill plus white text. */
+.wallet-modal .wallet-preset-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+.wallet-modal .wallet-preset-btn {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgba(193, 206, 255, 0.85) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 999px !important;
+  padding: 0 16px !important;
+  height: 32px !important;
+  line-height: 30px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.wallet-modal .wallet-preset-btn:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.30) !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-preset-btn.active {
+  background: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #213 */
+
+/* CSFLOAT-1:1 PARITY ship #214 — wallet fee breakdown panel to csfloat surface
+   breakdown was Geist Mono 12.5; csfloat uses Roboto 13/500 with the panel
+   background rgb(21,23,28) and the total row reads 14/700 in white plus
+   accent value. Hairline divider above the total row matches csfloat. */
+.wallet-modal .wallet-fee-breakdown {
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+}
+.wallet-modal .wallet-fee-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.65) !important;
+  padding: 5px 0 !important;
+  letter-spacing: 0 !important;
+}
+.wallet-modal .wallet-fee-row strong {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-fee-row.total {
+  border-top: 1px solid rgba(193, 206, 255, 0.07) !important;
+  margin-top: 8px !important;
+  padding-top: 10px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-fee-row.total strong {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #214 */
+
+/* CSFLOAT-1:1 PARITY ship #215 — wallet payment-method card to csfloat selected-tile
+   card border was rgb(59,130,246) (wrong blue) — csfloat selected-tile uses
+   the canonical accent rgb(35,123,255) at 1px with a tinted accent fill at
+   8% alpha. Title 15/600, sub 13/500 in muted ink. */
+.wallet-modal .wallet-method-card {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+  padding: 16px 18px !important;
+  cursor: pointer !important;
+  transition: border-color 120ms ease, background 120ms ease !important;
+}
+.wallet-modal .wallet-method-card:hover {
+  border-color: rgba(35, 123, 255, 0.30) !important;
+}
+.wallet-modal .wallet-method-card.selected {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+}
+.wallet-modal .wallet-method-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+}
+.wallet-modal .wallet-method-sub {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  margin-top: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #215 */
+
+/* CSFLOAT-1:1 PARITY ship #216 — wallet primary CTA to csfloat 40px button canon
+   submit was 47px tall, 6px radius, font 15/600, bg rgb(29,78,216) (wrong blue).
+   csfloat's primary action button is 40px tall, 13px x 30px padding, 8px radius,
+   15/700 Roboto, accent rgb(35,123,255) bg with darker hover. */
+.wallet-modal .wallet-submit.btn.btn-accent,
+.wallet-modal button.wallet-submit {
+  height: 40px !important;
+  padding: 0 30px !important;
+  border-radius: 8px !important;
+  background: rgb(35, 123, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  color: #ffffff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  line-height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease !important;
+}
+.wallet-modal .wallet-submit.btn.btn-accent:hover:not(:disabled),
+.wallet-modal button.wallet-submit:hover:not(:disabled) {
+  background: rgb(28, 100, 220) !important;
+  border-color: rgb(28, 100, 220) !important;
+}
+.wallet-modal .wallet-submit:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #216 */
+
+/* CSFLOAT-1:1 PARITY ship #217 — wallet tab strip to csfloat segmented-tab parity
+   tabs were 41px tall, 13/500 Roboto with a 1px bottom border feel. csfloat's
+   tab row uses 40px tall, 13/700 Roboto, transparent rest, accent underline 2px
+   on the active tab and the active tab text in white. */
+.wallet-modal .wallet-tabs {
+  display: flex !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+  margin-bottom: 20px !important;
+  gap: 0 !important;
+}
+.wallet-modal .wallet-tab {
+  height: 40px !important;
+  padding: 0 18px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -1px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, border-color 120ms ease !important;
+}
+.wallet-modal .wallet-tab:hover {
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-tab.active {
+  color: #ffffff !important;
+  border-bottom-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #217 */
+
+/* CSFLOAT-1:1 PARITY ship #218 — wallet transaction row to csfloat list-row exact
+   tx row had 14/16 padding, no separator, ~31px circular icon. csfloat list rows
+   use 14px x 16px padding, a 1px hairline divider between rows, the leading icon
+   sits at 36px circle with a 13/700 type label and the type label in white. */
+.wallet-modal .wallet-tx-list {
+  display: flex !important;
+  flex-direction: column !important;
+  margin-top: 14px !important;
+}
+.wallet-modal .wallet-tx {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.07) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.wallet-modal .wallet-tx:last-child {
+  border-bottom: 0 !important;
+}
+.wallet-modal .wallet-tx-icon {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  flex: 0 0 auto !important;
+}
+.wallet-modal .wallet-tx-icon.in {
+  background: rgba(34, 197, 94, 0.10) !important;
+  color: rgb(34, 197, 94) !important;
+  border: 1px solid rgba(34, 197, 94, 0.30) !important;
+}
+.wallet-modal .wallet-tx-icon.out {
+  background: rgba(248, 113, 113, 0.10) !important;
+  color: rgb(248, 113, 113) !important;
+  border: 1px solid rgba(248, 113, 113, 0.30) !important;
+}
+.wallet-modal .wallet-tx-type {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: 0 !important;
+}
+.wallet-modal .wallet-tx-main {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #218 */
+
+/* CSFLOAT-1:1 PARITY ship #219 — wallet history filter chip row + 7d summary to canon
+   filter chips matched preset-btn dimensions but without the new pill polish.
+   summary row used Geist headings. Roboto-ize, 13/600 chip text, 32px tall,
+   and the 7d summary header reads 11px uppercase 1.4px tracking like the hero. */
+.wallet-modal .wallet-tx-filter-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-bottom: 12px !important;
+}
+.wallet-modal .wallet-tx-filter-chip {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgba(193, 206, 255, 0.85) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 999px !important;
+  padding: 0 16px !important;
+  height: 32px !important;
+  line-height: 30px !important;
+  cursor: pointer !important;
+}
+.wallet-modal .wallet-tx-filter-chip:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.30) !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-tx-filter-chip.active {
+  background: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: #ffffff !important;
+}
+.wallet-modal .wallet-7d-summary {
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  margin-bottom: 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.wallet-modal .wallet-7d-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  margin-bottom: 8px !important;
+}
+.wallet-modal .wallet-7d-row {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 12px !important;
+}
+.wallet-modal .wallet-7d-subtitle {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+}
+.wallet-modal .wallet-7d-val {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.005em !important;
+  margin-top: 2px !important;
+}
+.wallet-modal .wallet-7d-val.in {
+  color: rgb(34, 197, 94) !important;
+}
+.wallet-modal .wallet-7d-val.out {
+  color: rgb(248, 113, 113) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #219 */
