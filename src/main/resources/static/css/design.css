@@ -122436,6 +122436,7 @@ mat-card.item-card .actions .buy-now-btn {
    sbox was: bg oklch(0.23 0.01 260), radius 10px, pad 4px, 1px border,
    height 48px — mismatch.
    ===================================================================== */
+.csfloat-home-rail .csfloat-home-rail-tabs,
 .csfloat-home-rail-tabs {
   background-color: rgba(193, 206, 255, 0.04) !important;
   border: 0 none !important;
@@ -122455,6 +122456,8 @@ mat-card.item-card .actions .buy-now-btn {
    border-radius 4px, height 32px (visual; sits inside 38px strip)
    sbox was: bright white bg oklch(0.97 0.006 90) + dark text — mismatch.
    ===================================================================== */
+.csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+.csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
 .csfloat-home-rail-tab.active {
   background-color: rgba(193, 206, 255, 0.04) !important;
   color: rgb(255, 255, 255) !important;
@@ -122556,3 +122559,120 @@ mat-card.item-card .actions .buy-now-btn {
   background-color: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #29 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #30 — item detail chart container (.chart-wrap)
+   csfloat measured: chart panel uses flat surface, no card/border around
+     the SVG chart itself. Container is just a layout wrapper.
+   sboxmarket .chart-wrap had: padding 18px 16px 10px (decent), no bg.
+   Pin spacing exact (csfloat uses 8px breathing room, not 18) and ensure
+     no inherited card chrome leaks through.
+   ===================================================================== */
+.modal.item-page .chart-wrap,
+.chart-wrap {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 8px 0 0 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #30 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #31 — listing row layout (.modal-listing-row)
+   csfloat order-table row (mat-mdc-row): row height ~48px, cells at
+     14px font / 500 weight, divider via mdc-data-table border-bottom
+     color rgba(255, 255, 255, 0.06).
+   sboxmarket .modal-listing-row had: padding 12px 8px, gap 12px, radius
+     6px, no divider line.
+   Tighten padding to match csfloat's compact rows and add the subtle
+     bottom-border divider for separation.
+   ===================================================================== */
+.modal-listings .modal-listing-row,
+.modal-listing-row {
+  padding: 8px 8px !important;
+  gap: 12px !important;
+  border-radius: 4px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  min-height: 48px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+.modal-listings .modal-listing-row:last-child {
+  border-bottom: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #31 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #32 — chart range button (.chart-range-btn)
+   csfloat range tabs (1d/7d/30d/1y/All) live inside an mdc button-toggle
+     with: font-size 14px (same as table cells), font-weight 500, color
+     rgb(158, 167, 177) for inactive, rgb(255, 255, 255) for active,
+     border-radius 6px on the active pill.
+   sboxmarket .chart-range-btn was: font 11px/500, color oklch(0.8 0.01 260),
+     padding 6px 12px, no active treatment.
+   Pin to 14px / 500 / proper colors.
+   ===================================================================== */
+.modal.item-page .chart-range-btn,
+.chart-range-btn {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  border: 0 none !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 1 !important;
+}
+.modal.item-page .chart-range-btn.active,
+.chart-range-btn.active {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #32 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #33 — listing condition chip (.modal-listing-condition)
+   csfloat condition chip (subtext under item-name in seller row):
+     font-size: 14px, font-weight: 500, color: rgb(158, 167, 177)
+     no background, no border, no border-radius (plain inline text).
+   sboxmarket .modal-listing-condition had: bg oklch(0.23 0.01 260),
+     border-radius 4px, padding 2px 8px, font 10px/400, color oklch muted.
+   Strip the chip pill — csfloat shows it as plain muted text.
+   ===================================================================== */
+.modal.item-page .modal-listing-condition,
+.modal-listing-condition {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #33 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #34 — bottom action bar (.modal-actions)
+   csfloat does NOT render a fixed bottom action bar inside the item
+     dialog — primary CTAs live inline in the right-rail card. The dark
+     bottom strip was a sboxmarket addition that doesn't exist on csfloat.
+   sboxmarket .modal-actions was: bg oklab(0.17 ... / 0.92), padding
+     10px 24px, height 169px (fixed bar at bottom). The btn-accent inside
+     was 320x44, rgb(29, 78, 216).
+   Hide the bar entirely on the item page since csfloat has no equivalent.
+   Keep the inline CTAs (handled by ship #17) as the sole purchase path.
+   ===================================================================== */
+.modal.item-page .modal-actions,
+.modal.item-page > .modal-actions {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #34 */
+
