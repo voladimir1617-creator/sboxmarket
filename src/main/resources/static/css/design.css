@@ -628,7 +628,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 12px;
   color: var(--accent);
   letter-spacing: 0.14em;
-  padding: 3px 7px;
+  padding: 3px 8px;
   border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
   border-radius: 3px;
   margin-right: 14px;
@@ -668,7 +668,7 @@ a { color: inherit; text-decoration: none; }
 }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 11px;
+  padding: 6px 10px;
   border-radius: 999px;
   font-size: 12px; font-weight: 500;
   color: var(--ink-2);
@@ -754,7 +754,7 @@ html[data-density="editorial"] .grid { grid-template-columns: repeat(4, minmax(0
 }
 .rarity {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 7px 3px 5px;
+  padding: 3px 8px 3px 5px;
   border-radius: 3px;
   font-size: 10px; font-weight: 600;
   letter-spacing: 0.04em;
@@ -1289,7 +1289,7 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
 .tw-label { font-size: 11px; color: var(--ink-3); margin-bottom: 6px; display: flex; justify-content: space-between; }
 .tw-row { display: flex; gap: 4px; }
 .tw-row button {
-  flex: 1; padding: 7px 8px;
+  flex: 1; padding: 8px 8px;
   font-size: 11px; font-weight: 500;
   border: 1px solid var(--line);
   border-radius: var(--r-xs);
@@ -2168,7 +2168,7 @@ footer {
 .changelog { margin-top: 20px; }
 .release {
   display: grid; grid-template-columns: 200px 1fr;
-  gap: 40px; padding: 26px 0;
+  gap: 40px; padding: 28px 0;
   border-bottom: 1px solid var(--line);
 }
 .release:last-child { border-bottom: 0; }
@@ -2484,7 +2484,7 @@ footer {
 .fg-list { display: flex; flex-direction: column; gap: 1px; }
 .fg-list button {
   display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 7px 8px;
+  width: 100%; padding: 8px 8px;
   background: transparent; border: 0; border-radius: var(--r-xs);
   cursor: pointer; text-align: left;
   font-size: 12px; color: var(--ink-3);
@@ -2516,7 +2516,7 @@ footer {
 }
 .cf-seg button {
   flex: 1; background: transparent; border: 0; border-right: 1px solid var(--line);
-  padding: 7px 10px; cursor: pointer;
+  padding: 8px 10px; cursor: pointer;
   font-size: 11px; color: var(--ink-3); font-weight: 500;
 }
 .cf-seg button:last-child { border-right: 0; }
@@ -2533,7 +2533,7 @@ footer {
   align-items: center;
 }
 .cf-range-inputs input {
-  width: 100%; padding: 7px 9px;
+  width: 100%; padding: 8px 10px;
   background: var(--bg); border: 1px solid var(--line);
   border-radius: var(--r-xs); color: var(--ink);
   font-family: var(--mono); font-size: 12px;
@@ -2590,7 +2590,7 @@ footer {
 .cf-tb-right { display: flex; align-items: center; gap: 10px; }
 .cf-sort {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink-2);
   font-size: 12px;
@@ -2784,7 +2784,7 @@ footer {
 }
 .cf-feebar-field input {
   width: 90px; background: transparent; border: 0; outline: 0;
-  padding: 7px 0; font-family: var(--mono); font-size: 14px; font-weight: 600;
+  padding: 8px 0; font-family: var(--mono); font-size: 14px; font-weight: 600;
   color: var(--ink);
 }
 .cf-feebar-split {
@@ -2943,7 +2943,7 @@ body.modal-open, html.modal-open { overflow: hidden; }
 .filter-option {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   margin: 0 -8px;
   border-radius: var(--r-sm);
   color: var(--ink-3); font-size: 13px; font-weight: 500;
@@ -3216,7 +3216,7 @@ nav.nav {
 .user-menu-backdrop { position: fixed; inset: 0; z-index: 110; background: transparent; }
 .user-menu-item {
   display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 9px 12px;
+  width: 100%; padding: 10px 12px;
   background: transparent; border: 0;
   border-radius: var(--r-sm);
   color: var(--ink-2); font-size: 13px; font-weight: 500;
@@ -3717,7 +3717,7 @@ nav.nav {
 .cat-tile-body {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px 13px;
+  padding: 12px 16px 14px;
   border-top: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
   background: color-mix(in oklab, var(--bg-1) 88%, transparent);
   backdrop-filter: blur(12px) saturate(120%);
@@ -3752,7 +3752,7 @@ nav.nav {
 }
 /* Empty-state tile (no hero image available yet) — show the glyph or grid
    mark centered in the hero area. */
-.cat-tile:not(.has-hero) .cat-tile-hero { padding: 30px; }
+.cat-tile:not(.has-hero) .cat-tile-hero { padding: 28px; }
 .cat-tile:not(.has-hero) .cat-tile-hero::after {
   content: ""; position: relative; z-index: 1;
   width: 56px; height: 56px;
@@ -3911,7 +3911,7 @@ nav.nav {
 }
 .filter-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 11px;
+  padding: 6px 10px;
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -3967,7 +3967,7 @@ nav.nav {
   border-bottom: 1px solid var(--line);
 }
 .active-filters .filter-chip {
-  padding: 4px 8px 4px 11px;
+  padding: 4px 8px 4px 10px;
   background: var(--bg-2);
   border-color: var(--line-2);
   color: var(--ink);
@@ -4286,7 +4286,7 @@ nav.nav {
 .grid-rarity {
   position: absolute; top: 8px; left: 8px;
   font-family: var(--mono); font-size: 10px;
-  padding: 3px 7px;
+  padding: 3px 8px;
   background: color-mix(in oklab, var(--bg) 75%, transparent);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -4304,7 +4304,7 @@ nav.nav {
 }
 .grid-auction-badge {
   position: absolute; top: 8px; right: 8px;
-  padding: 3px 7px;
+  padding: 3px 8px;
   background: color-mix(in oklab, var(--bg) 75%, transparent);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -4702,7 +4702,7 @@ nav.nav {
 .settings-row + .settings-section-heading { margin-top: 28px; }
 .settings-row input, .settings-row textarea, .settings-row select {
   width: 100%;
-  padding: 9px 12px;
+  padding: 10px 12px;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
@@ -5649,7 +5649,7 @@ body:has(.shortcuts-backdrop) {
 }
 .presignin-input {
   width: 100%;
-  padding: 11px 14px;
+  padding: 10px 14px;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
@@ -5792,7 +5792,7 @@ body:has(.shortcuts-backdrop) {
 }
 .shortcuts-grid kbd {
   font-family: var(--mono); font-size: 10.5px;
-  padding: 3px 7px;
+  padding: 3px 8px;
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: 3px;
   color: var(--ink-2);
@@ -6106,7 +6106,7 @@ body:has(.shortcuts-backdrop) {
   margin-top: 4px;
 }
 .wallet-method-badge {
-  padding: 2px 7px;
+  padding: 2px 8px;
   font-family: var(--mono); font-size: 9.5px;
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-3); font-weight: 500;
@@ -6305,7 +6305,7 @@ body:has(.shortcuts-backdrop) {
   flex-wrap: wrap;
 }
 .wallet-tx-filter-chip {
-  padding: 5px 11px;
+  padding: 5px 10px;
   font-size: 12px; font-weight: 500;
   background: transparent; border: 1px solid var(--line);
   border-radius: 999px;
@@ -6534,7 +6534,7 @@ body:has(.shortcuts-backdrop) {
   font-variation-settings: "opsz" 144;
 }
 .profile-earnings-toggle {
-  padding: 5px 11px; background: var(--bg-2);
+  padding: 5px 10px; background: var(--bg-2);
   border: 1px solid var(--line); border-radius: var(--r-sm);
   font-family: var(--mono); font-size: 11px;
   letter-spacing: 0.06em; color: var(--ink-2); cursor: pointer;
@@ -6732,7 +6732,7 @@ body:has(.shortcuts-backdrop) {
 }
 .stall-rating {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 11px;
+  padding: 5px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -6819,7 +6819,7 @@ body:has(.shortcuts-backdrop) {
   font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-3);
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: 3px;
 }
@@ -6944,7 +6944,7 @@ body:has(.shortcuts-backdrop) {
   width: max-content;
 }
 .sell-source-tabs button {
-  padding: 7px 14px;
+  padding: 8px 14px;
   font-size: 12px; font-weight: 500;
   background: transparent; border: 0;
   border-radius: 3px; color: var(--ink-3);
@@ -6960,7 +6960,7 @@ body:has(.shortcuts-backdrop) {
 }
 .sell-summary-chip, .trade-summary-chip {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 11px;
+  padding: 6px 10px;
   background: var(--bg-1);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -6998,7 +6998,7 @@ body:has(.shortcuts-backdrop) {
   font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ink-3); font-weight: 500;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: 3px;
   display: inline-block;
@@ -7315,7 +7315,7 @@ body:has(.shortcuts-backdrop) {
 .loadout-tabs, .loadout-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .loadout-add-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 14px;
   background: var(--bg-1); border: 1px dashed var(--line-2);
   border-radius: var(--r-sm);
   color: var(--ink-2); font-size: 13px; font-weight: 500;
@@ -8308,7 +8308,7 @@ body:has(.shortcuts-backdrop) {
 
   /* Tabs scrollable */
   .profile-tabs, .mystall-tabs, .wallet-tabs, .offer-tabs, .hero-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .profile-tabs button, .mystall-tabs button, .wallet-tabs button, .offer-tab { padding: 9px 12px; font-size: 12.5px; white-space: nowrap; }
+  .profile-tabs button, .mystall-tabs button, .wallet-tabs button, .offer-tab { padding: 10px 12px; font-size: 12.5px; white-space: nowrap; }
   .hero-tab-cta { padding: 8px 12px; font-size: 12px; }
 
   /* Buttons.
@@ -8556,7 +8556,7 @@ td > .price-cell {
 .px-feature-strip > *,
 .homepage-trust > * {
   position: relative;
-  padding: 28px 26px;
+  padding: 28px 28px;
   transition: background 180ms ease, transform 180ms ease;
 }
 .px-feature-strip > *:hover,
@@ -8946,7 +8946,7 @@ td > .price-cell {
   border-color: var(--line-2);
 }
 .type-toggle-btn {
-  padding: 7px 14px;
+  padding: 8px 14px;
   font-weight: 600;
   letter-spacing: -0.005em;
   transition: color 160ms ease, background 160ms ease,
@@ -8968,7 +8968,7 @@ td > .price-cell {
    refresh icon-button rendered at 33-36px high on touch — boss prompt
    explicitly named "sort-toggle" + view chips as must-clear targets. */
 @media (max-width: 760px) {
-  .type-toggle-btn { padding: 11px 16px; }
+  .type-toggle-btn { padding: 10px 16px; }
   .deals-chip { min-height: 44px; }
   .view-btns button { min-height: 44px; min-width: 44px; }
   .toolbar-refresh { min-height: 44px; min-width: 44px; }
@@ -9070,7 +9070,7 @@ input[type="radio"] {
 /* ─── Staff banner — was a flat red wash. Add a left rail + "STAFF MODE"
    pill chrome so the warning reads as a status bar, not a notification. */
 .staff-banner {
-  padding: 8px 26px;
+  padding: 8px 28px;
   border-left: 3px solid var(--down);
   background: linear-gradient(90deg,
     color-mix(in oklab, var(--down) 18%, var(--bg-1)) 0%,
@@ -9212,7 +9212,7 @@ input[type="radio"] {
 /* ─── Announce banner — default variant was bg-1 ink-2, indistinguishable
    from chrome. Add a left rail accent so banners read as alerts. */
 .announce-banner {
-  padding: 12px 26px;
+  padding: 12px 28px;
   border-left: 3px solid var(--cta);
   background: linear-gradient(90deg,
     color-mix(in oklab, var(--cta) 8%, var(--bg-1)) 0%,
@@ -9572,18 +9572,18 @@ input[type="radio"] {
 }
 .trade-confirm-title {
   font-size: 28px;
-  padding: 24px 26px 8px;
+  padding: 24px 28px 8px;
 }
 .trade-confirm-sub {
-  padding: 0 26px 18px;
+  padding: 0 28px 18px;
   font-size: 13.5px;
 }
 .trade-confirm-row {
   padding: 10px 0;
 }
-.trade-confirm-detail { padding: 18px 26px; }
+.trade-confirm-detail { padding: 18px 28px; }
 .trade-confirm-actions {
-  padding: 18px 26px;
+  padding: 18px 28px;
   background: linear-gradient(180deg,
     transparent 0%,
     color-mix(in oklab, var(--cta) 4%, var(--bg)) 100%);
@@ -9603,7 +9603,7 @@ input[type="radio"] {
 /* ─── Review modal — chrome with hairline accent bottom on title rule. */
 .review-modal {
   border-color: color-mix(in oklab, var(--cta) 14%, var(--line-2));
-  padding: 32px 30px;
+  padding: 32px 28px;
   gap: 18px;
 }
 
@@ -9644,7 +9644,7 @@ input[type="radio"] {
   background: var(--bg-2);
   border: 1px solid var(--line-2);
   border-radius: 6px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
 }
 
@@ -9659,7 +9659,7 @@ input[type="radio"] {
 }
 .market-stats-strip > div {
   position: relative;
-  padding: 22px 26px;
+  padding: 22px 28px;
   transition: background 180ms ease;
 }
 .market-stats-strip > div:hover {
@@ -9855,7 +9855,7 @@ input[type="radio"] {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   pointer-events: none;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
   letter-spacing: 0;
@@ -10115,7 +10115,7 @@ input[type="radio"] {
 .px-hero-actions .btn-ghost,
 .px-hero-actions .btn-primary-outline {
   height: 46px;
-  padding: 0 26px;
+  padding: 0 28px;
   border-radius: 999px;
   font-size: 14px;
   background: color-mix(in oklab, var(--bg-1) 50%, transparent);
@@ -10430,7 +10430,7 @@ input[type="radio"] {
    so the deposit form lives above the fold. CSFloat's deposit modals are
    compact balance hero + tabs + active form. */
 .wallet-hero {
-  padding: 22px 26px 18px;
+  padding: 22px 28px 18px;
 }
 .wallet-hero-balance {
   font-size: 40px;
@@ -10473,7 +10473,7 @@ input[type="radio"] {
   width: min(96vw, 920px);
 }
 .info-modal:has(.cart-grid) .info-modal-body {
-  padding: 22px 26px 26px;
+  padding: 22px 28px 28px;
 }
 
 /* ─── Tighten cart-row for narrow 2-column cart layout. Drop the per-row
@@ -11568,7 +11568,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .csfloat-hero-stack-btn {
   flex: 1;
   text-align: center;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 6px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   font-size: 12px; font-weight: 600;
@@ -11921,7 +11921,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .csfloat-subnav-inner::-webkit-scrollbar { display: none; }
 .csfloat-subnav-tab {
   flex: 0 0 auto;
-  padding: 9px 16px;
+  padding: 10px 16px;
   background: transparent;
   border: 0;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
@@ -11988,7 +11988,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   position: absolute;
   right: 10px; top: 50%;
   transform: translateY(-50%);
-  padding: 2px 7px;
+  padding: 2px 8px;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-3);
@@ -12005,7 +12005,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 /* ─── Currency chip in nav right — static, matches csfloat's USD label. */
 .nav-currency {
   display: inline-flex; align-items: center;
-  padding: 4px 9px;
+  padding: 4px 10px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
   color: var(--ink-3);
@@ -12465,7 +12465,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 11px 8px 12px;
+  padding: 8px 10px 8px 12px;
   background: var(--bg-1);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -12522,7 +12522,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   grid-template-columns: 18px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 8px 11px;
+  padding: 8px 10px;
   background: transparent;
   border: 0;
   border-radius: 7px;
@@ -12993,7 +12993,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   }
   .full-page-mode .modal-actions > button,
   .full-page-mode .modal-actions > a {
-    padding: 9px 10px !important;
+    padding: 10px 10px !important;
     font-size: 12px !important;
     min-height: 36px !important;
   }
@@ -13261,7 +13261,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
   color: color-mix(in oklab, var(--cta) 90%, white);
   border: 1px solid color-mix(in oklab, var(--cta) 30%, var(--line-2));
   border-radius: 6px;
-  padding: 7px 14px;
+  padding: 8px 14px;
   margin-bottom: 10px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   font-size: 12px;
@@ -13673,7 +13673,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .rarity-badge {
   font-size: 9px !important;
   letter-spacing: 0.06em !important;
-  padding: 3px 7px !important;
+  padding: 3px 8px !important;
   border-radius: 3px !important;
 }
 /* END rarity-badge polish */
@@ -18725,7 +18725,7 @@ a[target="_blank"]::after {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 3px 7px;
+  padding: 3px 8px;
   border-radius: 999px;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -20477,7 +20477,7 @@ a[target="_blank"]::after {
   box-shadow: 0 0 0 2px oklch(0.55 0.18 30 / 0.18);
 }
 .csfloat-input.with-icon {
-  padding-left: 30px;
+  padding-left: 28px;
 }
 .csfloat-input-group {
   position: relative;
@@ -29005,7 +29005,7 @@ body::after {
 .csfloat-band-title-kicker {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.04 30 / 0.22);
   border: 1px solid oklch(0.42 0.07 30 / 0.36);
   border-radius: 999px;
@@ -29161,7 +29161,7 @@ body::after {
 .csfloat-announce-tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--cta);
   color: oklch(0.98 0 0);
   border-radius: 3px;
@@ -31613,7 +31613,7 @@ body::after {
   position: absolute;
   top: 14px;
   right: -28px;
-  padding: 3px 30px;
+  padding: 3px 28px;
   background: var(--cta);
   color: oklch(0.98 0 0);
   font-family: var(--mono);
@@ -31938,7 +31938,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.04 152 / 0.32);
   border: 1px solid oklch(0.42 0.07 152 / 0.45);
   border-radius: 4px;
@@ -31959,7 +31959,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.05 250 / 0.32);
   border: 1px solid oklch(0.42 0.10 250 / 0.45);
   border-radius: 4px;
@@ -31976,7 +31976,7 @@ body::after {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.05 80 / 0.32);
   border: 1px solid oklch(0.42 0.10 80 / 0.45);
   border-radius: 4px;
@@ -35979,7 +35979,7 @@ hr.csfloat {
 .csfloat-time-pill {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
+  padding: 1px 8px;
   font-family: var(--mono);
   font-size: 9px;
   font-weight: 600;
@@ -39184,7 +39184,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.05 30 / 0.32);
   border: 1px solid oklch(0.42 0.07 30 / 0.5);
   border-radius: 999px;
@@ -39805,8 +39805,8 @@ hr.csfloat {
 .csfloat-pad-3 { padding: 12px 14px; }
 .csfloat-pad-4 { padding: 14px 18px; }
 .csfloat-pad-5 { padding: 18px 22px; }
-.csfloat-pad-6 { padding: 22px 26px; }
-.csfloat-pad-7 { padding: 26px 32px; }
+.csfloat-pad-6 { padding: 22px 28px; }
+.csfloat-pad-7 { padding: 28px 32px; }
 
 /* CSFloat-1:1: card row with vertical separator. */
 .csfloat-row-with-sep {
@@ -44490,7 +44490,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.06 330 / 0.32);
   border: 1px solid oklch(0.42 0.10 330 / 0.5);
   border-radius: 4px;
@@ -46206,7 +46206,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -47982,7 +47982,7 @@ hr.csfloat {
 .csfloat-card-pad-sm { padding: 8px 10px; }
 .csfloat-card-pad-md { padding: 12px 14px; }
 .csfloat-card-pad-lg { padding: 16px 18px; }
-.csfloat-card-pad-xl { padding: 22px 26px; }
+.csfloat-card-pad-xl { padding: 22px 28px; }
 
 /* CSFloat-1:1: card subtle shimmer effect on hover (premium). */
 .csfloat-shimmer-card {
@@ -48649,7 +48649,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.30 0.05 80 / 0.18);
   border: 1px solid oklch(0.42 0.10 80 / 0.36);
   border-radius: 999px;
@@ -49208,7 +49208,7 @@ hr.csfloat {
   position: relative;
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
+  padding: 3px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -50627,7 +50627,7 @@ hr.csfloat {
 .csfloat-overlay-card-tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.55 0.18 250 / 0.55);
   border: 1px solid oklch(0.55 0.18 250 / 0.7);
   border-radius: 3px;
@@ -53282,7 +53282,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -53749,7 +53749,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -53964,7 +53964,7 @@ hr.csfloat {
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: oklch(0.10 0.008 260 / 0.7);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 3px;
@@ -54482,7 +54482,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -56938,7 +56938,7 @@ hr.csfloat {
   padding: 8px 0;
 }
 .csfloat-badge-group-item {
-  padding: 3px 9px;
+  padding: 3px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -58150,7 +58150,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px 3px 4px;
+  padding: 3px 10px 3px 4px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -59216,7 +59216,7 @@ hr.csfloat {
   position: absolute;
   top: 14px;
   right: -28px;
-  padding: 3px 30px;
+  padding: 3px 28px;
   background: var(--cta);
   color: oklch(0.98 0 0);
   font-family: var(--mono);
@@ -61738,7 +61738,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -63134,7 +63134,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px 2px 5px;
+  padding: 2px 8px 2px 5px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -64286,7 +64286,7 @@ hr.csfloat {
   position: absolute;
   top: -6px;
   right: 12px;
-  padding: 3px 9px;
+  padding: 3px 10px;
   background: var(--cta);
   color: oklch(0.98 0 0);
   border-radius: 999px;
@@ -65037,7 +65037,7 @@ hr.csfloat {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   font-size: 12px;
   color: var(--ink-2);
   cursor: pointer;
@@ -65572,7 +65572,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 9px;
+  padding: 2px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -66058,7 +66058,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px 3px 5px;
+  padding: 3px 10px 3px 5px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -66645,7 +66645,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -68761,7 +68761,7 @@ hr.csfloat {
   color: var(--bg);
   font: 500 11px/1.3 var(--ui);
   letter-spacing: -0.005em;
-  padding: 6px 9px;
+  padding: 6px 10px;
   border-radius: 5px;
   white-space: nowrap;
   opacity: 0;
@@ -69274,7 +69274,7 @@ hr.csfloat {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 0;
+  padding: 8px 0;
   font: 400 13px/1.3 var(--ui);
   color: var(--ink-2);
   letter-spacing: -0.005em;
@@ -70673,7 +70673,7 @@ hr.csfloat {
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 999px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   font: 500 10px/1 var(--mono);
   color: rgba(255, 255, 255, 0.86);
   font-feature-settings: "tnum";
@@ -71383,7 +71383,7 @@ hr.csfloat {
   color: var(--cta);
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.3);
-  padding: 5px 9px;
+  padding: 5px 10px;
   border-radius: 999px;
   align-self: flex-start;
 }
@@ -72319,7 +72319,7 @@ hr.csfloat {
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 4px 7px;
+  padding: 4px 8px;
   border-radius: 999px;
   z-index: 1;
 }
@@ -72391,7 +72391,7 @@ hr.csfloat {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -72422,7 +72422,7 @@ hr.csfloat {
 }
 .csfloat-tag-x:hover { background: rgba(255, 255, 255, 0.16); }
 .csfloat-tag.is-sm { font-size: 10px; padding: 1px 5px; }
-.csfloat-tag.is-lg { font-size: 12px; padding: 4px 9px; }
+.csfloat-tag.is-lg { font-size: 12px; padding: 4px 10px; }
 .csfloat-tag-row {
   display: flex;
   flex-wrap: wrap;
@@ -72755,7 +72755,7 @@ hr.csfloat {
   min-width: 24px;
   height: 24px;
   font-size: 11px;
-  padding: 0 7px;
+  padding: 0 8px;
 }
 .csfloat-kbd.is-pill > .csfloat-kbd-key { border-radius: 999px; }
 
@@ -73673,7 +73673,7 @@ hr.csfloat {
   width: 100%;
   background: linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2));
   border-bottom: 1px solid var(--line);
-  padding: 9px 16px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -74763,7 +74763,7 @@ hr.csfloat {
   align-items: center;
   gap: 5px;
   height: 24px;
-  padding: 0 5px 0 9px;
+  padding: 0 5px 0 10px;
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 4px;
@@ -77889,7 +77889,7 @@ hr.csfloat {
   background: var(--bg-3);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 5px 9px;
+  padding: 5px 10px;
   color: var(--ink-3);
 }
 @media (max-width: 540px) {
@@ -79227,7 +79227,7 @@ hr.csfloat {
   pointer-events: none;
 }
 .csfloat-coll-feature-info {
-  padding: 28px 30px;
+  padding: 28px 28px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -79245,7 +79245,7 @@ hr.csfloat {
   color: var(--cta);
   background: rgba(59, 130, 246, 0.12);
   border: 1px solid rgba(59, 130, 246, 0.3);
-  padding: 5px 9px;
+  padding: 5px 10px;
   border-radius: 999px;
   align-self: flex-start;
 }
@@ -79586,7 +79586,7 @@ hr.csfloat {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 5px;
   font: 400 12px/1 var(--ui);
   color: var(--ink-2);
@@ -81120,7 +81120,7 @@ hr.csfloat {
   overflow: hidden;
 }
 .csfloat-quote-row > .csfloat-quote-cell {
-  padding: 5px 9px;
+  padding: 5px 10px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -81247,7 +81247,7 @@ hr.csfloat {
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
-  padding: 5px 9px;
+  padding: 5px 10px;
   font: 500 11px/1 var(--mono);
   color: rgba(255, 255, 255, 0.85);
   font-feature-settings: "tnum";
@@ -81854,7 +81854,7 @@ hr.csfloat {
   grid-template-columns: 18px 1fr auto;
   gap: 8px;
   align-items: center;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 5px;
   font: 400 13px/1 var(--ui);
   color: var(--ink-2);
@@ -84415,7 +84415,7 @@ tr:hover .csfloat-row-hover-actions,
   background: linear-gradient(135deg, var(--bg-2) 0%, oklch(0.22 0.04 240) 100%);
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 14px;
-  padding: 22px 26px;
+  padding: 22px 28px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 20px;
@@ -84570,7 +84570,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 6px;
   height: 24px;
-  padding: 0 9px 0 6px;
+  padding: 0 10px 0 6px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -84602,7 +84602,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 4px;
   height: 22px;
-  padding: 0 9px 0 6px;
+  padding: 0 10px 0 6px;
   background: linear-gradient(135deg, rgba(244, 114, 182, 0.12), rgba(167, 139, 250, 0.12));
   border: 1px solid rgba(244, 114, 182, 0.35);
   border-radius: 999px;
@@ -85077,7 +85077,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 4px;
   height: 26px;
-  padding: 0 6px 0 9px;
+  padding: 0 6px 0 10px;
   background: var(--bg-3);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -85872,7 +85872,7 @@ tr:hover .csfloat-row-hover-actions,
   background: var(--bg-3);
   color: var(--ink-1);
   font: 500 11px/1 var(--ui);
-  padding: 5px 9px;
+  padding: 5px 10px;
   border-radius: 4px;
   border: 1px solid var(--line-2);
   white-space: nowrap;
@@ -87378,7 +87378,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 4px;
   height: 22px;
-  padding: 0 7px;
+  padding: 0 8px;
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 999px;
@@ -89965,7 +89965,7 @@ tr:hover .csfloat-row-hover-actions,
   background: var(--bg-3);
   border: 1px solid var(--line-2);
   color: var(--ink-1);
-  padding: 4px 7px;
+  padding: 4px 8px;
   border-radius: 4px;
   font: 600 10px/1 var(--mono);
   font-feature-settings: "tnum";
@@ -91633,7 +91633,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 8px;
   height: 32px;
-  padding: 0 30px 0 12px;
+  padding: 0 28px 0 12px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -91660,7 +91660,7 @@ tr:hover .csfloat-row-hover-actions,
   background-color: var(--bg-1);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
-.csfloat-select-trigger.is-sm { height: 26px; padding: 0 26px 0 10px; font-size: 11px; }
+.csfloat-select-trigger.is-sm { height: 26px; padding: 0 28px 0 10px; font-size: 11px; }
 .csfloat-select-trigger.is-lg { height: 40px; padding: 0 32px 0 14px; font-size: 13px; }
 .csfloat-select-trigger.is-block { display: flex; width: 100%; }
 .csfloat-select-trigger[disabled] {
@@ -91819,7 +91819,7 @@ tr:hover .csfloat-row-hover-actions,
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-4);
-  padding-right: 30px;
+  padding-right: 28px;
 }
 .csfloat-stat-cluster-tile-val {
   font: 700 18px/1 var(--mono);
@@ -92395,7 +92395,7 @@ tr:hover .csfloat-row-hover-actions,
   font: 700 9px/1 var(--ui);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
@@ -92915,7 +92915,7 @@ tr:hover .csfloat-row-hover-actions,
   grid-template-columns: 24px 1fr auto;
   gap: 8px;
   align-items: center;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 5px;
   cursor: pointer;
   font: 500 12px/1 var(--ui);
@@ -92991,7 +92991,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 7px 3px 6px;
+  padding: 3px 8px 3px 6px;
   background: rgba(251, 191, 36, 0.08);
   border: 1px solid rgba(251, 191, 36, 0.3);
   border-radius: 999px;
@@ -93204,7 +93204,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 7px;
+  padding: 3px 8px;
   background: rgba(248, 113, 113, 0.08);
   border: 1px solid rgba(248, 113, 113, 0.3);
   border-radius: 999px;
@@ -93941,7 +93941,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
   gap: 5px;
   height: 26px;
-  padding: 0 9px;
+  padding: 0 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -94775,7 +94775,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 1px;
 }
 .csfloat-hero-tabs > .csfloat-hero-tabs-opt {
-  padding: 7px 14px;
+  padding: 8px 14px;
   background: transparent;
   border: 0;
   border-radius: 999px;
@@ -95382,7 +95382,7 @@ tr:hover .csfloat-row-hover-actions,
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 10px 10px;
   border-radius: 6px;
   font: 500 13px/1 var(--ui);
   color: var(--ink-3);
@@ -95505,7 +95505,7 @@ tr:hover .csfloat-row-hover-actions,
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 5px;
   font: 400 12px/1 var(--ui);
   color: var(--ink-2);
@@ -95542,7 +95542,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px 4px 8px;
+  padding: 4px 10px 4px 8px;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(167, 139, 250, 0.18));
   border: 1px solid rgba(96, 165, 250, 0.4);
   border-radius: 999px;
@@ -96889,7 +96889,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -97417,7 +97417,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px 6px 9px;
+  padding: 6px 12px 6px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -97477,7 +97477,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -97584,7 +97584,7 @@ tr:hover .csfloat-row-hover-actions,
   font: 700 9px/1 var(--ui);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 0 4px 4px 0;
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.35);
 }
@@ -98008,7 +98008,7 @@ tr:hover .csfloat-row-hover-actions,
   text-transform: uppercase;
   color: var(--cta);
   background: rgba(59, 130, 246, 0.12);
-  padding: 3px 7px;
+  padding: 3px 8px;
   border-radius: 999px;
 }
 @media (max-width: 1100px) {
@@ -98342,7 +98342,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   background: rgba(59, 130, 246, 0.18);
   border: 1px solid var(--cta);
   border-radius: 999px;
@@ -101225,7 +101225,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -102231,7 +102231,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
   font: 700 10px/1 var(--ui);
   letter-spacing: 0.08em;
@@ -102588,7 +102588,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 9px 4px 7px;
+  padding: 4px 10px 4px 8px;
   background: rgba(59, 130, 246, 0.06);
   border: 1px solid rgba(59, 130, 246, 0.25);
   border-radius: 6px;
@@ -103081,7 +103081,7 @@ tr:hover .csfloat-row-hover-actions,
   transform: translateY(-50%);
   background: var(--bg-3);
   color: var(--ink-1);
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 4px;
   border: 1px solid var(--line-2);
   font: 500 11px/1 var(--ui);
@@ -104729,7 +104729,7 @@ tr:hover .csfloat-row-hover-actions,
   gap: 4px;
 }
 .csfloat-input-icon.is-with-trailing > input { padding-right: 80px; }
-.csfloat-input-icon.is-sm > input { height: 30px; font-size: 12px; padding-left: 30px; padding-right: 10px; }
+.csfloat-input-icon.is-sm > input { height: 30px; font-size: 12px; padding-left: 28px; padding-right: 10px; }
 .csfloat-input-icon.is-sm .csfloat-input-icon-leading { left: 10px; width: 12px; height: 12px; flex: 0 0 12px; }
 .csfloat-input-icon.is-lg > input { height: 44px; font-size: 14px; padding-left: 42px; padding-right: 14px; }
 .csfloat-input-icon.is-lg .csfloat-input-icon-leading { left: 14px; width: 16px; height: 16px; flex: 0 0 16px; }
@@ -105025,7 +105025,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px 3px 6px;
+  padding: 3px 10px 3px 6px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -105177,7 +105177,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 7px;
+  padding: 3px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -107238,7 +107238,7 @@ tr:hover .csfloat-row-hover-actions,
   grid-template-columns: 16px 1fr auto;
   gap: 8px;
   align-items: center;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 5px;
   font: 500 12px/1 var(--ui);
   color: var(--ink-3);
@@ -107753,7 +107753,7 @@ tr:hover .csfloat-row-hover-actions,
   color: var(--ink-4);
   font-feature-settings: "tnum";
   background: var(--bg-2);
-  padding: 3px 7px;
+  padding: 3px 8px;
   border-radius: 999px;
 }
 .csfloat-cart-drawer-head-close {
@@ -109697,7 +109697,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -110764,7 +110764,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px 3px 7px;
+  padding: 3px 8px 3px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -110912,7 +110912,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  padding: 3px 9px;
+  padding: 3px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -111020,7 +111020,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -111737,7 +111737,7 @@ tr:hover .csfloat-row-hover-actions,
   overflow: hidden;
 }
 .csfloat-split-inline-cell {
-  padding: 4px 9px;
+  padding: 4px 10px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -113504,7 +113504,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -113868,7 +113868,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   background: transparent;
   border: 0;
   border-radius: 5px;
@@ -115270,7 +115270,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -115825,7 +115825,7 @@ tr:hover .csfloat-row-hover-actions,
   align-items: center;
 }
 .csfloat-tag-pair > .csfloat-tag-pair-val {
-  padding: 3px 7px;
+  padding: 3px 8px;
   color: var(--ink-1);
   font-family: var(--mono);
   font-feature-settings: "tnum";
@@ -116000,7 +116000,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -116236,7 +116236,7 @@ tr:hover .csfloat-row-hover-actions,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px 3px 7px;
+  padding: 3px 8px 3px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -117771,7 +117771,7 @@ h1.modal-h1,
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 13px 26px;
+  padding: 14px 28px;
   border-radius: 999px;
   font-family: 'Geist', 'Inter', system-ui, sans-serif;
   font-size: 15px;
@@ -118174,7 +118174,7 @@ h1.modal-h1,
   top: 10px; right: 10px;
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
+  padding: 3px 10px;
   background: linear-gradient(135deg,
     color-mix(in oklab, var(--cta) 30%, var(--bg-2)) 0%,
     color-mix(in oklab, var(--cta) 18%, var(--bg-2)) 100%);
@@ -118321,7 +118321,7 @@ h1.modal-h1,
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-family: var(--mono), 'Geist Mono', ui-monospace, monospace;
   font-size: 10px;
@@ -119250,7 +119250,7 @@ h1.modal-h1,
 .csfloat-home-sales-inner {
   max-width: 2100px;
   margin: 0 auto;
-  padding: 26px 24px 30px;
+  padding: 28px 24px 28px;
 }
 .csfloat-home-sales-header {
   display: flex;
@@ -119400,7 +119400,7 @@ h1.modal-h1,
 .grid-discount {
   display: inline-flex !important;
   align-items: center;
-  padding: 2px 7px !important;
+  padding: 2px 8px !important;
   border-radius: 4px !important;
   background: color-mix(in oklab, oklch(0.78 0.18 145) 18%, transparent) !important;
   color: oklch(0.78 0.18 145) !important;
@@ -120427,7 +120427,7 @@ h2.auctions-ending-soon-head {
     background-position: right 14px center !important;
   }
 
-  .type-toggle-btn { padding: 11px 16px !important; min-height: 44px !important; }
+  .type-toggle-btn { padding: 10px 16px !important; min-height: 44px !important; }
   .deals-chip { min-height: 44px !important; }
   .view-btns button { min-height: 44px !important; min-width: 44px !important; }
   .toolbar-refresh { min-height: 44px !important; min-width: 44px !important; }
