@@ -129,7 +129,36 @@ class LoadoutService {
         if (viewerUserId != null && loadout.ownerUserId != viewerUserId) {
             favorited = loadoutFavoriteRepository.findByUserAndLoadout(viewerUserId, id) != null
         }
-        [loadout: loadout, slots: slots, favorited: favorited]
+
+        // Enrich each slot with itemImageUrl + accentColor from the Item
+        // table — the slot snapshot only carries name/emoji/price, so
+        // the loadout detail page was rendering as a grid of bare emoji
+        // glyphs (no real product thumbnail). One batched findAllById
+        // by itemId keeps it cheap; we fall back to the existing
+        // emoji-only render in the frontend when imageUrl is null.
+        Map<Long, Map> itemDecor = [:]
+        def itemIds = slots.findAll { it?.itemId != null }*.itemId
+        if (itemIds && !itemIds.isEmpty()) {
+            itemRepository.findAllById(itemIds).each { Item it ->
+                itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor]
+            }
+        }
+        def decoratedSlots = slots.collect { LoadoutSlot s ->
+            def deco = (s?.itemId != null) ? itemDecor[s.itemId] : null
+            [
+                id            : s.id,
+                loadoutId     : s.loadoutId,
+                slot          : s.slot,
+                itemId        : s.itemId,
+                itemName      : s.itemName,
+                itemEmoji     : s.itemEmoji,
+                itemImageUrl  : deco?.imageUrl,
+                itemAccentColor: deco?.accentColor,
+                snapshotPrice : s.snapshotPrice,
+                locked        : s.locked
+            ]
+        }
+        [loadout: loadout, slots: decoratedSlots, favorited: favorited]
     }
 
     @Transactional

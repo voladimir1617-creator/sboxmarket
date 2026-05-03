@@ -1328,7 +1328,23 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                     boxShadow: 'inset 0 0 0 1px rgba(30,165,255,0.35)'
                   } : undefined
                 },
-                  h('div', { className: 'loadout-slot-emoji' }, s.itemEmoji || '—'),
+                  // Real product thumbnail when the backend has one,
+                  // emoji glyph as fallback. Backend now decorates each
+                  // slot with itemImageUrl + itemAccentColor by joining
+                  // through to the Item table at read time.
+                  s.itemImageUrl
+                    ? h('img', {
+                        src: s.itemImageUrl,
+                        alt: s.itemName || '',
+                        className: 'loadout-slot-img',
+                        loading: 'lazy',
+                        style: {
+                          width: 56, height: 56, objectFit: 'contain',
+                          background: s.itemAccentColor ? `${s.itemAccentColor}1a` : 'transparent',
+                          borderRadius: 6
+                        }
+                      })
+                    : h('div', { className: 'loadout-slot-emoji' }, s.itemEmoji || '—'),
                   h('div', { className: 'loadout-slot-name' }, s.itemName),
                   h('div', { className: 'loadout-slot-price' }, fmt(s.snapshotPrice)),
                   // Lock toggle (owner-only). Locked slots survive the
