@@ -121302,3 +121302,16 @@ textarea:focus-visible {
     0 6px 14px rgba(0, 0, 0, 0.35) !important;
 }
 /* END avatar polish */
+
+/* =====================================================================
+   nav-icon-btn hover de-blue — boss-QA cycle 31, ship #36
+   ---------------------------------------------------------------------
+   The nav bell + cart hover at line 14172 paints `background:
+   color-mix(--cta 8%, transparent)` — every hover on the right-side
+   nav icons flashes a tiny blue ring. Switch to neutral --bg-2 hover
+   so the icons read as standard chrome, not branded controls.
+   ===================================================================== */
+.nav-icon-btn:hover {
+  background: var(--bg-2) !important;
+}
+/* END nav-icon hover polish */
