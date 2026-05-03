@@ -8440,13 +8440,19 @@ export function App() {
             // with a deliberate breakdown panel on the right.
             h('div', { className: 'cart-summary' },
               h('div', { className: 'cart-summary-title' }, 'Order summary'),
+              // Privacy mask — operator can flip "Hide $ amounts" in
+              // Settings to mask every dollar value across the UI. The
+              // cart summary was the last leak: subtotal/fee/total were
+              // raw `fmt(...)` while the nav cart-icon tooltip already
+              // honoured `privacy ? '$•••••' : fmt(total)`. Masking the
+              // panel matches.
               h('div', { className: 'cart-summary-row' },
                 h('span', null, 'Subtotal'),
-                h('span', { className: 'mono' }, fmt(cartTotal))
+                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal))
               ),
               h('div', { className: 'cart-summary-row' },
                 h('span', null, 'Buyer fee · 0.5%'),
-                h('span', { className: 'mono' }, fmt(cartTotal * 0.005))
+                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal * 0.005))
               ),
               h('div', { className: 'cart-summary-row' },
                 h('span', null, 'Trade escrow'),
@@ -8454,11 +8460,11 @@ export function App() {
               ),
               cartSavings > 0 && h('div', { className: 'cart-summary-row cart-summary-savings' },
                 h('span', null, 'Savings vs Steam'),
-                h('span', { className: 'mono' }, '↓ ' + fmt(cartSavings))
+                h('span', { className: 'mono' }, privacy ? '$•••••' : ('↓ ' + fmt(cartSavings)))
               ),
               h('div', { className: 'cart-summary-row cart-summary-total' },
                 h('span', null, 'Total'),
-                h('span', { className: 'mono' }, fmt(cartTotal + cartTotal * 0.005))
+                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal + cartTotal * 0.005))
               ),
               h('div', { className: 'cart-summary-actions' },
                 h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
