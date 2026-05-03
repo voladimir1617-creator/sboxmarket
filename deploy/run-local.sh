@@ -74,3 +74,70 @@ docker run -d --name "$NAME" \
   "$IMAGE"
 
 echo "Container started. Tail logs with: docker logs -f $NAME"
+
+# ----------------------------------------------------------------------------
+# COOKIE-STATE DEPLOY GATE — added 2026-05-03 after the FOURTH NUL-byte
+# session outage. Anonymous /api/health was returning 200 the whole time,
+# so the worker shipped 79 design tweaks while logged-in users 500'd.
+# This gate replays the cookie shapes that historically poisoned the
+# JdbcIndexedSessionRepository SELECT and aborts the deploy if any of
+# them produces a 5xx. The deploy script is what every worker cycle
+# calls — failing here = the worker's commit is automatically a no-go.
+# ----------------------------------------------------------------------------
+
+# Wait for /api/health (gives Spring 60s to boot before we probe).
+echo "Waiting for app readiness..."
+ready=0
+for i in {1..60}; do
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${PORT}/api/health" 2>/dev/null)" = "200" ]; then
+    ready=1; break
+  fi
+  sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  echo "DEPLOY GATE FAIL: /api/health never reached 200 within 60s." >&2
+  docker logs --tail=80 "$NAME" >&2
+  exit 1
+fi
+
+# Probe the cookie shapes that have historically broken the JDBC bind.
+# Each must return < 500. A single 5xx fails the gate.
+declare -a probes=(
+  "garbage:SBOX_SESSION=garbage"
+  "stale-uuid:SBOX_SESSION=11111111-2222-3333-4444-555555555555"
+  "empty:SBOX_SESSION="
+  "long:SBOX_SESSION=$(printf 'a%.0s' {1..512})"
+)
+fail=0
+for entry in "${probes[@]}"; do
+  label="${entry%%:*}"
+  cookie="${entry#*:}"
+  for path in / /market /wallet; do
+    code=$(curl -s -o /dev/null -w '%{http_code}' \
+      -H "Cookie: ${cookie}" \
+      "http://localhost:${PORT}${path}" 2>/dev/null || echo 000)
+    if [ "$code" -ge 500 ]; then
+      echo "DEPLOY GATE FAIL: ${label} cookie on ${path} returned ${code}" >&2
+      fail=1
+    fi
+  done
+done
+
+# NUL-byte cookie — the actual original killer. curl -H normalises some
+# control bytes in transit, so we use --data-urlencode style raw send via
+# printf piped into nc-equivalent: easier and equivalent in effect to
+# replay through curl with %00 in the URL-decoded header value.
+nul_code=$(printf 'GET / HTTP/1.1\r\nHost: localhost\r\nCookie: SBOX_SESSION=ab\x00cd\r\nConnection: close\r\n\r\n' \
+  | timeout 5 bash -c "exec 3<>/dev/tcp/localhost/${PORT} && cat >&3 && head -1 <&3" 2>/dev/null \
+  | awk '{print $2}')
+if [ -n "${nul_code:-}" ] && [ "${nul_code}" -ge 500 ] 2>/dev/null; then
+  echo "DEPLOY GATE FAIL: NUL-byte cookie returned ${nul_code} on /" >&2
+  fail=1
+fi
+
+if [ "$fail" -eq 1 ]; then
+  echo "DEPLOY GATE FAILED — site is broken for cookie-bearing users. See logs:" >&2
+  docker logs --tail=80 "$NAME" >&2
+  exit 1
+fi
+echo "DEPLOY GATE PASSED — anonymous + 5 cookie shapes all <500."
