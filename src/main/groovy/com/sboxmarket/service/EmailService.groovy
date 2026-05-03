@@ -1120,6 +1120,38 @@ notifications to stop these.
         send(toEmail, subject, body)
     }
 
+    /** Offer accepted — fires from OfferService.acceptOffer when the
+     *  seller accepts the buyer's offer (or the buyer accepts the
+     *  seller's counter). Confirms the trade ID and the 3-day escrow
+     *  timeline so the buyer knows when their wallet hold drops if
+     *  the seller goes silent. Gated on the TRADES bucket. */
+    void sendOfferAccepted(String toEmail, String displayName, String itemName,
+                           BigDecimal amount, Long tradeId) {
+        if (!toEmail || amount == null) return
+        def subject = "Offer accepted · ${itemName ?: 'your trade'} · trade #${tradeId ?: '—'}"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+Your \$${amount.toPlainString()} offer on ${itemName ?: 'the listing'} was accepted.
+A trade has been opened${tradeId ? " — #${tradeId}" : ''} and ${amount != null ? '$' + amount.toPlainString() : 'the offer amount'} is now in escrow.
+
+What happens next:
+  · The seller has 3 days to send you the Steam trade offer.
+  · Confirm receipt in Trades to release escrow to the seller.
+  · If the seller goes silent, your wallet is auto-refunded after 3 days.
+
+Open the trade${tradeId ? " (#${tradeId})" : ''} from:
+${publicUrl}/profile?tab=trades
+
+You're getting this because offers are part of your trade pipeline.
+Mute the "Trade activity" bucket in Profile → Email notifications to
+stop these.
+
+— The SkinBox team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Offer rejected — fires from OfferService.rejectOffer when a
      *  seller declines the buyer's offer. Surfaces the optional
      *  seller-supplied reason so the buyer knows whether to re-offer

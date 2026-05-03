@@ -20,7 +20,20 @@ const CHECKS = [
   { id: 'database',  name: 'Item catalogue',  endpoint: '/api/items?category=Hats',
     sub: 'Item lookups', ok: (r) => r.ok },
   { id: 'auctions',  name: 'Auction engine',  endpoint: '/api/listings/ending-soon',
-    sub: 'Bid placement + anti-snipe', ok: (r) => r.ok }
+    sub: 'Bid placement + anti-snipe', ok: (r) => r.ok },
+  // Added with the structural session-JDBC fix: this endpoint runs a
+  // synthetic poisoned-cookie probe against the session store to make
+  // sure the sanitiser is rejecting malformed UUIDs without taking the
+  // pool down. Two-probe response: good-uuid + poisoned-uuid.
+  { id: 'session-sanitiser', name: 'Session sanitiser', endpoint: '/api/health/cookie-aware',
+    sub: '/api/health/cookie-aware · poisoned-cookie probe', ok: (r) => r.ok },
+  // Surfaces ListingFloorRefreshService's 60s sweep + Steam Market price
+  // pull. Subtext is overridden in render() to show "data is Xs old"
+  // derived from response.floor.finishedAt; status downgrades to WARN
+  // past 5min and DOWN past 15min so a stuck refresher trips the page.
+  { id: 'price-refresh', name: 'Price refresh', endpoint: '/api/items/price-refresh-status',
+    sub: '/api/items/price-refresh-status · 60s sweep',
+    ok: (r) => r.ok, parseBody: true }
 ];
 
 async function runChecks() {
@@ -29,7 +42,25 @@ async function runChecks() {
     try {
       const r = await fetch(c.endpoint, { credentials: 'same-origin' });
       const ms = Math.round(performance.now() - t0);
-      return { ...c, status: c.ok(r) ? 'up' : (r.status >= 500 ? 'down' : 'warn'), httpStatus: r.status, ms };
+      let status = c.ok(r) ? 'up' : (r.status >= 500 ? 'down' : 'warn');
+      let subOverride = null;
+      // Price-refresh row: derive staleness from response.floor.finishedAt
+      // and downgrade the status itself if the sweep has stalled. Anything
+      // beyond 15min means the @Scheduled refresher isn't running.
+      if (c.parseBody && r.ok) {
+        try {
+          const body = await r.json();
+          const finishedAt = body && body.floor && body.floor.finishedAt;
+          if (finishedAt) {
+            const ageMs = Date.now() - finishedAt;
+            const ageS  = Math.max(0, Math.round(ageMs / 1000));
+            subOverride = 'data is ' + ageS + 's old';
+            if (ageMs > 15 * 60_000)      status = 'down';
+            else if (ageMs > 5 * 60_000)  status = 'warn';
+          }
+        } catch (_) { /* keep default sub + status if body parse fails */ }
+      }
+      return { ...c, status, httpStatus: r.status, ms, subOverride };
     } catch (e) {
       return { ...c, status: 'down', httpStatus: 0, ms: Math.round(performance.now() - t0) };
     }
@@ -58,10 +89,13 @@ function render(results) {
   results.forEach(r => {
     const row = document.createElement('div');
     row.className = 'status-row';
+    const subText = r.subOverride
+      ? (r.subOverride + ' · ' + r.endpoint + ' · ' + r.ms + 'ms')
+      : (r.sub + ' · ' + r.endpoint + ' · ' + r.ms + 'ms');
     row.innerHTML =
       '<div>' +
         '<div class="status-row-name">' + r.name + '</div>' +
-        '<div class="status-row-sub">' + r.sub + ' · ' + r.endpoint + ' · ' + r.ms + 'ms</div>' +
+        '<div class="status-row-sub">' + subText + '</div>' +
       '</div>' +
       '<div class="status-row-badge ' + r.status + '">' +
         (r.status === 'up' ? 'OPERATIONAL' : r.status === 'warn' ? 'DEGRADED' : 'DOWN') +

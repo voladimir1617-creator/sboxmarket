@@ -543,6 +543,11 @@ class OfferService {
     }
 
     /** Seller accepts an offer — runs the purchase at the offered price.
+     *  Also handles the buyer accepting a SELLER-authored counter — when
+     *  the caller is the buyerUserId on a `author='SELLER'` offer, treat
+     *  it as the buyer accepting the counter and run the same purchase
+     *  flow at the counter price.
+     *
      *  `noRollbackFor = InsufficientBalanceException` (batch 328) so the
      *  `offer.status = 'EXPIRED'` flip + the buyer-notification push
      *  actually persist when the buyer's wallet is short — otherwise
@@ -550,10 +555,17 @@ class OfferService {
      *  buyer never knows their offer couldn't close, and the seller
      *  sees the same row keep failing every time they retry accept. */
     @Transactional(noRollbackFor = InsufficientBalanceException)
-    Map acceptOffer(Long sellerUserId, Long offerId) {
+    Map acceptOffer(Long callerUserId, Long offerId) {
         def offer = offerRepository.findById(offerId)
                 .orElseThrow { new NotFoundException("Offer", offerId) }
-        if (offer.sellerUserId != null && offer.sellerUserId != sellerUserId) {
+        // Authorisation: seller-authored counters are accepted by the
+        // buyer; buyer-authored offers are accepted by the seller. Any
+        // other caller is forbidden.
+        boolean buyerAcceptingCounter =
+                offer.author == 'SELLER' && offer.buyerUserId == callerUserId
+        boolean sellerAcceptingOffer =
+                offer.sellerUserId != null && offer.sellerUserId == callerUserId
+        if (!buyerAcceptingCounter && !sellerAcceptingOffer) {
             throw new ForbiddenException("You can only accept offers on your own listings")
         }
         if (offer.status != 'PENDING') {
@@ -637,6 +649,32 @@ class OfferService {
                     '/profile?tab=trades')
             } catch (Exception e) {
                 log.warn("OFFER_ACCEPTED push failed for buyer ${offer.buyerUserId}: ${e.message}")
+            }
+        }
+        // Email confirmation to the buyer with the new trade id + the
+        // 3-day escrow timeline. Mirrors the bell push above so a
+        // sleeping buyer hears about acceptance promptly without needing
+        // to open the app — and so they have an off-platform record of
+        // the trade id for support tickets. Best-effort + null-safe.
+        Long tradeId = null
+        try {
+            if (tradeRepository != null) {
+                def trade = tradeRepository.findByListingId(offer.listingId)
+                tradeId = trade?.id as Long
+            }
+        } catch (Exception e) {
+            log.debug("Trade-id lookup for offer-accepted email failed: ${e.message}")
+        }
+        if (offer.buyerUserId != null && emailService != null && steamUserRepository != null) {
+            try {
+                def buyer = steamUserRepository.findById(offer.buyerUserId).orElse(null)
+                if (emailService.canSendTo(buyer, 'TRADES')) {
+                    emailService.sendOfferAccepted(
+                        buyer.email, buyer.displayName, offer.itemName,
+                        offer.amount, tradeId)
+                }
+            } catch (Exception e) {
+                log.warn("OFFER_ACCEPTED email failed for buyer ${offer.buyerUserId}: ${e.message}")
             }
         }
 

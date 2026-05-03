@@ -7867,24 +7867,37 @@ function ProfileOffersTab() {
             'aria-label': 'Reject offer', title: 'Reject'
           }, '✕')
         ),
-        // Outgoing pending offers — author is the buyer. Cancel is
-        // always available; Raise lets the buyer escalate without
-        // waiting for the seller to respond. Raise only makes sense on
-        // USER-authored rows (you can't raise a seller's counter —
-        // accept/reject/counter-again instead).
-        isPending && !isIncoming && !isCountering && h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
-          o.author === 'USER' && h('button', {
-            className: 'btn btn-ghost',
-            style: { border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '5px 10px', fontSize: 11 },
-            disabled: busy,
-            onClick: () => { setCounterFor(o.id); setCounterAmt((parseFloat(o.amount) + 1).toFixed(2)); },
-            title: 'Raise your offer without waiting for the seller'
-          }, '↑ Raise'),
-          h('button', {
-            className: 'btn btn-ghost',
-            style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
-            disabled: busy, onClick: () => doCancel(o.id)
-          }, 'Cancel')
+        // Outgoing pending offers — author is the buyer (USER) or the
+        // seller's counter waiting on the buyer (SELLER). USER rows get
+        // Raise + Cancel; SELLER counters get Accept + Decline so the
+        // buyer can settle the seller's reply without leaving the list.
+        // Counter-back is "decline + make a fresh offer" by design — the
+        // bargain thread always alternates author, so a buyer who wants
+        // to push back declines this counter and re-offers.
+        isPending && !isIncoming && !isCountering && (
+          o.author === 'SELLER'
+            ? h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
+                h('button', { className: 'buy-btn', disabled: busy, onClick: () => doAccept(o.id), 'aria-label': 'Accept seller counter', title: `Accept ${fmt(o.amount)} counter` }, '✓ Accept'),
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '5px 10px', fontSize: 11 },
+                  disabled: busy, onClick: () => doCancel(o.id), title: 'Walk away from the counter'
+                }, 'Decline')
+              )
+            : h('div', { style: { display: 'flex', gap: 4, marginTop: 6 } },
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '5px 10px', fontSize: 11 },
+                  disabled: busy,
+                  onClick: () => { setCounterFor(o.id); setCounterAmt((parseFloat(o.amount) + 1).toFixed(2)); },
+                  title: 'Raise your offer without waiting for the seller'
+                }, '↑ Raise'),
+                h('button', {
+                  className: 'btn btn-ghost',
+                  style: { border: '1px solid var(--border)', padding: '5px 10px', fontSize: 11 },
+                  disabled: busy, onClick: () => doCancel(o.id)
+                }, 'Cancel')
+              )
         )
       ),
       isCountering && h('div', { className: 'offer-counter-form' },
