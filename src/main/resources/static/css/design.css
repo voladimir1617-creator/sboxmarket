@@ -121543,3 +121543,22 @@ textarea {
   background: var(--ink) !important;
 }
 /* END search-suggest polish */
+
+/* =====================================================================
+   btn-accent / btn-primary hover lift reduce-motion — ship #60
+   ---------------------------------------------------------------------
+   The .btn-accent:hover and .btn-primary:hover both apply a
+   `translateY(-1px)` lift not yet covered by the cycle-31 reduce-motion
+   guards. Extend the prefers-reduced-motion override so primary CTAs
+   stay flat for users with the OS toggle on.
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .btn-accent:hover,
+  .btn-primary:hover,
+  .px-btn-primary:hover,
+  .hero-actions .btn-primary:hover,
+  .px-hero-actions .btn-primary:hover {
+    transform: none !important;
+  }
+}
+/* END btn-accent reduce-motion */
