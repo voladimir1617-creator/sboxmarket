@@ -121360,3 +121360,21 @@ textarea {
   caret-color: var(--cta);
 }
 /* END caret-color polish */
+
+/* =====================================================================
+   announce-banner-close polish — boss-QA cycle 31, ship #40
+   ---------------------------------------------------------------------
+   Two issues: (1) .announce-banner-close width 30px is off the scale
+   (8/10/12/14/16/18/20/22/24/28/32) — bump to 28. (2) focus-visible at
+   line 9232 paints with --cta 22% blue ring; per the cycle-31 ring
+   sweep this should be neutral --ink-2.
+   ===================================================================== */
+.announce-banner-close {
+  width: 28px !important;
+  height: 28px !important;
+}
+.announce-banner-close:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
+}
+/* END announce-close polish */
