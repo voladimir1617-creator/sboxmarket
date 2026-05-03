@@ -121783,3 +121783,16 @@ textarea {
   letter-spacing: normal !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #2 — home hero subtitle
+   csfloat .sub-text: 16px / 500 / 24px lh / rgb(158,167,177)
+   sboxmarket was 15px / 400 / 23.25px / oklch(0.8 0.01 260)
+   ===================================================================== */
+.csfloat-home-hero-sub {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2 */
