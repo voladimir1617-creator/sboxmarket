@@ -121709,3 +121709,16 @@ textarea {
   ) !important;
 }
 /* END market-stats-strip polish */
+
+/* =====================================================================
+   csfloat-home-faq-q open-arrow de-blue — boss-QA cycle 31, ship #71
+   ---------------------------------------------------------------------
+   The csfloat-home-faq-q-arrow when its parent <details> is `open`
+   paints with `color-mix(--cta 90%, white)` — a brand-blue chevron
+   tip. The open chevron is decoration, not status. Switch to neutral
+   --ink so it stays a quiet rotation instead of broadcasting brand.
+   ===================================================================== */
+.csfloat-home-faq-item[open] .csfloat-home-faq-q-arrow {
+  color: var(--ink) !important;
+}
+/* END FAQ chevron polish */
