@@ -2869,7 +2869,7 @@ function AdminUsersTab({ me }) {
                   h('div', { className: 'health-card-label' }, 'Wallet balance'),
                   h('div', { className: 'health-card-value' },
                     detailData.summary.walletBalance != null
-                      ? '$' + Number(detailData.summary.walletBalance).toFixed(2)
+                      ? fmt(detailData.summary.walletBalance)
                       : '—'),
                   h('div', { className: 'health-card-hint',
                     style: detailData.summary.walletFrozen ? { color: 'var(--err)', fontWeight: 600 } : null },
@@ -2889,8 +2889,8 @@ function AdminUsersTab({ me }) {
                   h('div', { className: 'health-card-label' }, 'Pending withdraw'),
                   h('div', { className: 'health-card-value' },
                     detailData.summary.pendingWithdrawAmt != null
-                      ? '$' + Number(detailData.summary.pendingWithdrawAmt).toFixed(2)
-                      : '$0.00'),
+                      ? fmt(detailData.summary.pendingWithdrawAmt)
+                      : fmt(0)),
                   h('div', { className: 'health-card-hint' },
                     `${detailData.summary.openTrades ?? 0} open trade${(detailData.summary.openTrades ?? 0) === 1 ? '' : 's'}`)
                 ),
@@ -3050,7 +3050,7 @@ function AdminUsersTab({ me }) {
                           new Date(tx.createdAt).toLocaleString()),
                         h('td', { style: { fontSize: 11 } }, tx.type),
                         h('td', { className: 'right db-mono', style: { color: inbound ? 'var(--green)' : 'var(--red)' } },
-                          (inbound ? '+' : '−') + '$' + (parseFloat(tx.amount) || 0).toFixed(2)),
+                          (inbound ? '+' : '−') + fmt(parseFloat(tx.amount) || 0)),
                         h('td', { className: `wallet-tx-status ${tx.status}`, style: { fontSize: 10 } }, tx.status),
                         h('td', { style: { fontSize: 10, color: 'var(--text-secondary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                           tx.stripeReference && tx.stripeReference !== 'admin'

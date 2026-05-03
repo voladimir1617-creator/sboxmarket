@@ -9,7 +9,7 @@ import {
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
-import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, FloatBar } from './primitives.js';
+import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, FloatBar, PriceFreshnessChip } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
@@ -1150,7 +1150,7 @@ function TopBuyOrdersRail({ me }) {
           color: 'var(--text-primary)', textDecoration: 'none',
           minWidth: 0
         },
-        title: `Up to $${parseFloat(b.maxPrice).toFixed(2)} — someone's paying this right now for ${b.itemName || 'this item'}`
+        title: `Up to ${fmt(b.maxPrice)} — someone's paying this right now for ${b.itemName || 'this item'}`
       },
         h('img', {
           src: b.itemImageUrl || '',
@@ -1791,7 +1791,7 @@ function MarketPulse() {
           /* The /api/listings/recent-sales endpoint returns the sale price
              in the `price` field (not `soldPrice`) — keep the legacy field
              as a fallback in case the API ever changes. */
-          h('span', { className: 'up' }, '$' + (parseFloat(r.price ?? r.soldPrice) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })),
+          h('span', { className: 'up' }, fmt(parseFloat(r.price ?? r.soldPrice) || 0)),
           h('span', { style: { color: 'var(--ink-4)' } }, ' · ' + (r.sellerName || r.sellerDisplayName || 'seller'))
         ))
       )
@@ -1799,7 +1799,7 @@ function MarketPulse() {
     /* Hide the 24h volume chip when there's no recorded volume — "$0 vol"
        reads like a broken stat instead of legitimate idle marketplace. */
     vol24 > 0 && h('span', { style: { color: 'var(--ink-4)' } }, '24H · ',
-      h('b', { style: { color: 'var(--ink-2)' } }, '$' + vol24.toLocaleString('en-US', { maximumFractionDigits: 0 })),
+      h('b', { style: { color: 'var(--ink-2)' } }, fmt(vol24)),
       ' vol'
     )
   );
@@ -4812,7 +4812,7 @@ export function App() {
         if (res.code === 'INSUFFICIENT_BALANCE' && res.details?.shortfall) {
           const short = parseFloat(res.details.shortfall);
           if (Number.isFinite(short) && short > 0) {
-            msg = `Top up $${short.toFixed(2)} to complete this purchase.`;
+            msg = `Top up ${fmt(short)} to complete this purchase.`;
           }
         }
         showToast(msg, 'err');
@@ -5687,7 +5687,7 @@ export function App() {
                     ),
                     h('div', { className: 'csfloat-hero-stack-foot' },
                       h('span', { className: 'csfloat-hero-stack-price' },
-                        '$' + price.toFixed(2)),
+                        fmt(price)),
                       /* CSFloat shows a small green `$` chip next to the price
                          to indicate USD-denominated. Our prices are always USD
                          but the visual cue helps anchor the column. */
@@ -5842,7 +5842,7 @@ export function App() {
                 )
               ),
               h('div', { className: 'csfloat-band-card-foot' },
-                h('span', { className: 'csfloat-band-card-price' }, '$' + price.toFixed(2)),
+                h('span', { className: 'csfloat-band-card-price' }, fmt(price)),
                 /* CSFloat-1:1: green `$` USD chip next to the price — same
                    visual cue as the hero card's currency marker. */
                 h('span', { className: 'csfloat-band-card-currency' }, '$'),
@@ -5987,7 +5987,7 @@ export function App() {
                     );
                   })(),
                   h('div', { className: 'csfloat-home-hero-feature-meta' },
-                    h('div', { className: 'csfloat-home-hero-feature-price' }, '$', Number(top.price || 0).toFixed(2),
+                    h('div', { className: 'csfloat-home-hero-feature-price' }, fmt(top.price || 0),
                       h('span', { className: 'csfloat-home-hero-feature-usd', 'aria-hidden': 'true' }, '$')
                     )
                   ),
@@ -6112,7 +6112,7 @@ export function App() {
                 )
               ),
               h('div', { className: 'csfloat-home-preview-card-price-row' },
-                h('span', { className: 'csfloat-home-preview-card-price' }, '$', price.toFixed(2),
+                h('span', { className: 'csfloat-home-preview-card-price' }, fmt(price),
                   h('span', { className: 'csfloat-home-preview-card-usd', 'aria-hidden': 'true' }, '$')
                 ),
                 /* Boss QA cycle 2 N4 — bumped threshold from -5 to -10
@@ -6856,6 +6856,19 @@ export function App() {
         // count. Component handles its own empty-state guard so a fresh
         // marketplace doesn't show "$0 traded".
         routeName === 'market' && h(MarketStatsStrip),
+        // Price freshness chip — quiet "Prices updated 23s ago" badge
+        // above the listings grid so a buyer can tell the floors aren't
+        // stale. Polls /api/items/price-refresh-status every 30s and
+        // the in-memory tick advances `timeAgo()` between fetches.
+        routeName === 'market' && h('div', {
+          style: {
+            margin: '12px auto 0', maxWidth: 1260,
+            padding: '0 20px',
+            display: 'flex', justifyContent: 'flex-start'
+          }
+        },
+          h(PriceFreshnessChip)
+        ),
         routeName === 'market' && h('h1', { className: 'visually-hidden' }, 'Marketplace'),
         h('div', {
           className: 'results-meta',
@@ -7676,7 +7689,7 @@ export function App() {
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { className: 'stall-review-cta-item' }, t.itemName || 'Trade'),
                     h('div', { className: 'stall-review-cta-sub' },
-                      '$' + Number(t.price || 0).toFixed(2),
+                      fmt(t.price || 0),
                       ' · ', new Date(t.settledAt || Date.now()).toLocaleDateString())
                   ),
                   t.reviewed

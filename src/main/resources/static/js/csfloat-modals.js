@@ -2510,7 +2510,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       h('span', { className: 'auction-status-icon' }, '—'),
       h('span', { style: { flex: 1 } },
         h('strong', null, 'Your auto-bid cap · '),
-        '$' + yourAutoCap.toFixed(2),
+        fmt(yourAutoCap),
         ' — we\'ll keep you on top up to this amount.',
         // Inline text link — CSFloat keeps auto-bid controls quiet and
         // inline, not a button. Only present when there's a live AUTO
@@ -2644,10 +2644,10 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
             type: 'button',
             className: 'price-suggest-chip',
             onClick: () => setAmount(c.v.toFixed(2)),
-            title: `Set bid to $${c.v.toFixed(2)}`
+            title: `Set bid to ${fmt(c.v)}`
           },
             h('span', { className: 'price-suggest-chip-label' }, c.label),
-            h('span', { className: 'price-suggest-chip-amt' }, '$' + c.v.toFixed(2))
+            h('span', { className: 'price-suggest-chip-amt' }, fmt(c.v))
           ));
         })()
       ),

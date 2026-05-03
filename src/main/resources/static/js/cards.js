@@ -92,7 +92,7 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     const segs = [item.name];
     if (isAuction) segs.push('auction');
     else if (listing.listingType === 'BUY_NOW') segs.push('buy now');
-    if (listing.price) segs.push('$' + Number(listing.price).toFixed(2));
+    if (listing.price) segs.push(fmt(listing.price));
     if (listing.sellerName) segs.push('by ' + listing.sellerName);
     if (disc > 0) segs.push(disc + '% off Steam');
     return segs.join(', ');

@@ -1,7 +1,7 @@
 // All modal dialogs. Each modal is a narrow component with a focused prop
 // surface — none of them receive the full App state.
 import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, discountPct, signInWithSteam, toast, linkifyText, highlightMatch } from './utils.js';
-import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange } from './primitives.js';
+import { ItemImage, RarityBadge, Sparkline, SteamMarketLink, MaterialIcon, Avatar, DateRangeFilter, appendDateRange, PriceFreshnessChip } from './primitives.js';
 import { GridCard } from './cards.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
@@ -192,7 +192,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   }, [me?.id, item?.id]);
   const cancelMyBuyOrder = async () => {
     if (!myBuyOrder) return;
-    if (!window.confirm(`Cancel your buy order at $${parseFloat(myBuyOrder.maxPrice).toFixed(2)}?`)) return;
+    if (!window.confirm(`Cancel your buy order at ${fmt(myBuyOrder.maxPrice)}?`)) return;
     try {
       const { deleteBuyOrder } = await import('./api.js');
       const res = await deleteBuyOrder(myBuyOrder.id);
@@ -662,7 +662,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 },
                   trendFlat ? '·' : (trendUp ? '▲' : '▼'),
                   ' ',
-                  `${trendUp ? '+' : ''}${change30d}`,
+                  `${trendUp ? '+' : ''}${fmt(change30d)}`,
                   h('span', { style: { opacity: 0.85, marginLeft: 4 } },
                     `(${trendUp ? '+' : ''}${changePct}%)`)
                 )
@@ -1349,8 +1349,8 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                       title: isCountered
                         ? 'The seller countered your offer. Check Profile → Offers to accept or raise.'
                         : 'Your offer is pending. Seller has not responded yet.'
-                    }, isCountered ? '↩ Countered $' : 'Offered $',
-                      parseFloat(mine.amount || 0).toFixed(2));
+                    }, isCountered ? '↩ Countered ' : 'Offered ',
+                      fmt(parseFloat(mine.amount || 0)));
                   })(),
                   // For an auction row, the displayed amount is either the
                   // current top bid (≥1 bid) or the seller's reserve (0 bids).
@@ -1833,7 +1833,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                     setAlertErr(res.message || res.error || 'Could not save alert');
                     return;
                   }
-                  toast(`Price alert set — you'll be notified when ${item.name} drops to $${typed.toFixed(2)}.`, 'ok');
+                  toast(`Price alert set — you'll be notified when ${item.name} drops to ${fmt(typed)}.`, 'ok');
                   // Sync the "Alert at $X" chip immediately — refetch would
                   // also work but we already know the target we just saved.
                   setMyAlert({ itemId: item.id, targetPrice: typed, status: 'ACTIVE' });
@@ -1979,7 +1979,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               onClick: () => setOfferAmt(c.v.toFixed(2))
             },
               h('span', { className: 'price-suggest-chip-label' }, c.label),
-              h('span', { className: 'price-suggest-chip-amt' }, '$' + c.v.toFixed(2))
+              h('span', { className: 'price-suggest-chip-amt' }, fmt(c.v))
             ))
           );
         })(),
@@ -2529,7 +2529,7 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
       h('div', { className: 'cart-confirm-title' }, 'Dispute this trade'),
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         `Trade #${trade.id} · ${trade.itemName || 'Item'}`,
-        trade.price != null && ` · $${parseFloat(trade.price).toFixed(2)}`),
+        trade.price != null && ` · ${fmt(trade.price)}`),
       h('div', {
         style: {
           background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)',
@@ -7846,9 +7846,9 @@ function ProfileOffersTab() {
           const plus10 = +((offer * 1.10).toFixed(2));
           const justUnderAsk = +(ask * 0.95).toFixed(2);
           const chips = [
-            { label: `$${midway} (midway)`,  v: midway },
-            { label: `+10% ($${plus10})`,    v: plus10 },
-            { label: `$${justUnderAsk} (−5% off ask)`, v: justUnderAsk }
+            { label: `${fmt(midway)} (midway)`,  v: midway },
+            { label: `+10% (${fmt(plus10)})`,    v: plus10 },
+            { label: `${fmt(justUnderAsk)} (−5% off ask)`, v: justUnderAsk }
           ];
           return h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginLeft: 4 } },
             chips.map(c => h('button', {
@@ -8164,7 +8164,7 @@ function ProfileReviewsTab({ me }) {
                     href: '/stall/' + t.sellerUserId,
                     style: { color: 'var(--accent)', textDecoration: 'none' }
                   }, t.sellerName || ('user #' + t.sellerUserId)),
-                  t.price ? (' · $' + Number(t.price).toFixed(2)) : '')
+                  t.price ? (' · ' + fmt(t.price)) : '')
               ),
               h('a', {
                 className: 'buy-btn',
@@ -9245,8 +9245,8 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       const itemName = row?.name || row?.item?.name;
       toast(
         itemName
-          ? `Listed "${itemName}" at $${price.toFixed(2)} — auto-match on next sweep.`
-          : `Listed at $${price.toFixed(2)} — auto-match on next sweep.`,
+          ? `Listed "${itemName}" at ${fmt(price)} — auto-match on next sweep.`
+          : `Listed at ${fmt(price)} — auto-match on next sweep.`,
         'ok'
       );
       // Refresh both inventory lists so the sold row drops off and the
@@ -9358,7 +9358,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           isSteam && !item.tradable && h('div', { style: { fontSize: 11, color: 'var(--red)', marginBottom: 8, fontWeight: 700 } }, 'Not tradable on Steam right now'),
           h(RarityBadge, { rarity: item.rarity || 'Standard' }),
           h('div', { style: { fontSize: 12, color: 'var(--text-muted)', marginTop: 12 } },
-            'Suggested price: ', h('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, '$' + suggested)),
+            'Suggested price: ', h('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, fmt(suggested))),
           // Competitive-landscape chip (batch 360). Only renders when
           // there's at least one competing active listing on this item
           // so a niche/new item's sell form stays uncluttered.
@@ -9370,7 +9370,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             ' other seller', pickedCompeting.count === 1 ? '' : 's', ' · floor ',
             h('span', {
               style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }
-            }, '$' + pickedCompeting.floor.toFixed(2))
+            }, fmt(pickedCompeting.floor))
           )
         )
       ),
@@ -9486,7 +9486,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             chips.push({
               label: `Top buy order (${d.count})`,
               v: +best.toFixed(2),
-              hint: `${d.count} active buy order${d.count === 1 ? '' : 's'} on this item — list at exactly $${best.toFixed(2)} and it auto-fills on the next matching sweep.`
+              hint: `${d.count} active buy order${d.count === 1 ? '' : 's'} on this item — list at exactly ${fmt(best)} and it auto-fills on the next matching sweep.`
             });
           })();
           return chips.map((c, i) => h('button', {
@@ -9497,7 +9497,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             onClick: () => setPrice(c.v.toFixed(2))
           },
             h('span', { className: 'price-suggest-chip-label' }, c.label),
-            h('span', { className: 'price-suggest-chip-amt' }, '$' + c.v.toFixed(2))
+            h('span', { className: 'price-suggest-chip-amt' }, fmt(c.v))
           ));
         })()
       ),
@@ -9595,7 +9595,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             style: {
               fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700
             }
-          }, `✓ Offers of $${threshold.toFixed(2)} or higher will auto-accept (${pct}% off ask).`);
+          }, `✓ Offers of ${fmt(threshold)} or higher will auto-accept (${pct}% off ask).`);
         })()
       ),
       // Optional seller note — helps move items faster by letting the
@@ -9652,7 +9652,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       }
       opts.maxDiscount = pct / 100;
     }
-    if (!confirm(`List ${ids.length} item${ids.length === 1 ? '' : 's'} at $${p.toFixed(2)} each (Buy Now)${opts.maxDiscount != null ? ` with ${(opts.maxDiscount*100)|0}% auto-accept` : ''}? This cannot be undone in one click — you'd have to cancel each listing individually.`)) return;
+    if (!confirm(`List ${ids.length} item${ids.length === 1 ? '' : 's'} at ${fmt(p)} each (Buy Now)${opts.maxDiscount != null ? ` with ${(opts.maxDiscount*100)|0}% auto-accept` : ''}? This cannot be undone in one click — you'd have to cancel each listing individually.`)) return;
     setBulkBusy(true);
     try {
       const { bulkListFromSteam } = await import('./api.js');
@@ -9670,7 +9670,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         await loadSteam();
       }
       if (failed === 0) {
-        toast(`Listed ${ok} item${ok === 1 ? '' : 's'} at $${p.toFixed(2)}.`, 'ok');
+        toast(`Listed ${ok} item${ok === 1 ? '' : 's'} at ${fmt(p)}.`, 'ok');
       } else {
         toast(`Listed ${ok} · ${failed} failed (${(res.failed || []).slice(0, 3).map(f => f.code).join(', ')}${failed > 3 ? '…' : ''})`,
           ok > 0 ? 'ok' : 'err');
@@ -9782,17 +9782,34 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         // + liquid-value (what the tradable subset would fetch right now
         // if every match-ready row were quick-sold at its top buy order).
         (() => {
+          // Stack-aware totals. Each row from the server may now
+          // represent N physical assets (`quantity` field, defaulting
+          // to 1 for rows from older payloads). All summary chips below
+          // multiply by `qty` so a stack of 50 Lunar Trousers counts
+          // as 50 toward "total"/"tradable" and 50 × suggestedPrice
+          // toward est. value — not 1×, which is what the pre-stack
+          // implementation reported.
+          const qty = (s) => Number(s.quantity) > 0 ? Number(s.quantity) : 1;
+          const totalAssets = steamList.reduce((a, s) => a + qty(s), 0);
+          const tradableAssets = steamList.filter(s => s.tradable).reduce((a, s) => a + qty(s), 0);
+          const lockedAssets = steamList.filter(s => !s.tradable).reduce((a, s) => a + qty(s), 0);
           // Floor-sum across catalogued items (uncatalogued rows have
           // no reference price so they don't contribute). Only counts
           // tradable items — a locked inventory row is unsellable so
-          // including it in the value would overpromise.
+          // including it in the value would overpromise. Multiplied by
+          // quantity now that one row can represent a stack.
           const estValue = steamList
             .filter(s => s.tradable && s.catalogueId)
-            .reduce((acc, s) => acc + (parseFloat(s.suggestedPrice) || 0), 0);
+            .reduce((acc, s) => acc + (parseFloat(s.suggestedPrice) || 0) * qty(s), 0);
           // Liquid-value — sum of bestBid across tradable items that
           // have a standing buy order. This is the exact wallet credit
           // the seller would realise if they hit Quick Sell on every
-          // liquid row right now.
+          // liquid row right now. Note we do NOT multiply by qty here:
+          // the standing buy order's bestBid only buys ONE copy at that
+          // price (the rest of the stack would have to fall through to
+          // the next price level), so the realisable liquid value of
+          // a stack of N is bounded by the buy-order book depth, not
+          // N × bestBid. Keep the conservative one-per-row sum.
           let liquidValue = 0;
           let liquidCount = 0;
           steamList.forEach(s => {
@@ -9806,23 +9823,23 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           });
           return h('div', { className: 'sell-summary' },
             h('div', { className: 'sell-summary-chip' },
-              h('span', { className: 'sell-summary-num' }, steamList.length), ' total'),
+              h('span', { className: 'sell-summary-num' }, totalAssets), ' total'),
             h('div', { className: 'sell-summary-chip ok' },
-              h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.tradable).length), ' tradable'),
+              h('span', { className: 'sell-summary-num' }, tradableAssets), ' tradable'),
             h('div', { className: 'sell-summary-chip warn' },
-              h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.tradable).length), ' locked'),
+              h('span', { className: 'sell-summary-num' }, lockedAssets), ' locked'),
             h('div', { className: 'sell-summary-chip accent' },
               h('span', { className: 'sell-summary-num' }, steamList.filter(s => s.catalogueId).length), ' already in catalogue'),
             h('div', { className: 'sell-summary-chip' },
               h('span', { className: 'sell-summary-num' }, steamList.filter(s => !s.catalogueId).length), ' new to sboxmarket'),
             estValue > 0 && h('div', {
               className: 'sell-summary-chip accent',
-              title: 'Sum of the floor price across every tradable, catalogued item. A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'
-            }, '—', h('span', { className: 'sell-summary-num' }, '$' + estValue.toFixed(2)), ' est. value'),
+              title: 'Sum of the floor price across every tradable, catalogued asset (stacks counted by quantity). A rough "what\'s this inventory worth?" number — actual sale prices can land above or below.'
+            }, '—', h('span', { className: 'sell-summary-num' }, fmt(estValue)), ' est. value'),
             liquidCount > 0 && h('div', {
               className: 'sell-summary-chip ok',
-              title: `${liquidCount} item${liquidCount === 1 ? '' : 's'} have a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
-            }, '⚡ ', h('span', { className: 'sell-summary-num' }, '$' + liquidValue.toFixed(2)), ' liquid now')
+              title: `${liquidCount} stack${liquidCount === 1 ? '' : 's'} have a standing buy order — the total is the wallet credit if one copy of each were Quick Sold right now (before the 2% platform fee). Stacks of multiple copies may go further if buy-order depth allows.`
+            }, '⚡ ', h('span', { className: 'sell-summary-num' }, fmt(liquidValue)), ' liquid now')
           );
         })(),
         // Bulk-list action bar (batch 370). Sticky at the top of the
@@ -9874,7 +9891,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             style: { padding: '6px 14px', fontSize: 12, fontWeight: 700 },
             disabled: bulkBusy || !bulkPrice,
             onClick: submitBulk
-          }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ $${parseFloat(bulkPrice || 0).toFixed(2)}`),
+          }, bulkBusy ? 'Listing…' : `List ${bulkSelected.size} @ ${fmt(parseFloat(bulkPrice || 0))}`),
           h('button', {
             className: 'btn btn-ghost',
             style: { padding: '6px 12px', fontSize: 11, border: '1px solid var(--border)' },
@@ -9962,6 +9979,24 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             }, '✓')
           ),
           !si.catalogueId && h('div', { className: 'inventory-new-badge' }, 'NEW'),
+          // Stack-quantity badge — surfaces when one Steam descriptor
+          // represents N physical copies (e.g. 50× Lunar Trousers). The
+          // ×N pill lives in the top-right corner so it doesn't clash
+          // with the bulk-select checkbox (top-left) or the NEW badge
+          // (which the existing CSS positions). Hidden for singletons
+          // so single-copy items look identical to the pre-stacking UI.
+          (Number(si.quantity) || 1) > 1 && h('div', {
+            style: {
+              position: 'absolute', top: 4, right: 4,
+              padding: '2px 8px', borderRadius: 999,
+              background: 'rgba(11,15,26,0.92)',
+              border: '1px solid var(--accent-border)',
+              color: 'var(--accent)', fontSize: 11, fontWeight: 800,
+              letterSpacing: '0.02em', lineHeight: 1, zIndex: 2,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.45)'
+            },
+            title: `You have ${si.quantity} copies of this item. Listing creates one listing per click — repeat to list more, or use the bulk-list checkbox to list multiple at once.`
+          }, '×', si.quantity),
           h('div', { className: 'inventory-thumb' },
             // Wrap the Steam-shape record into the shape ItemImage expects so it
             // gets the same lazy-load + poster-fallback treatment as every other
@@ -9983,7 +10018,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
             if (!Number.isFinite(best) || best <= 0) return null;
             return h('div', {
               style: { fontSize: 10, color: 'var(--accent)', fontWeight: 700, marginTop: 2 },
-              title: `${d.count} buyer${d.count === 1 ? '' : 's'} want this — list at $${best.toFixed(2)} or below to auto-fill`
+              title: `${d.count} buyer${d.count === 1 ? '' : 's'} want this — list at ${fmt(best)} or below to auto-fill`
             }, 'Top buy order · ', fmt(best));
           })(),
           // Quick-Sell button — only on rows where a standing buy order
@@ -10010,9 +10045,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                 cursor: quickSellBusy && !busyThis ? 'not-allowed' : 'pointer'
               },
               disabled: !!quickSellBusy,
-              title: `List at $${best.toFixed(2)} — auto-fills against the standing buy order on the next sweep`,
+              title: `List at ${fmt(best)} — auto-fills against the standing buy order on the next sweep`,
               onClick: e => { e.stopPropagation(); quickSell('steam', si, best); }
-            }, busyThis ? 'Listing…' : `⚡ Quick Sell · $${best.toFixed(2)}`);
+            }, busyThis ? 'Listing…' : `⚡ Quick Sell · ${fmt(best)}`);
           })(),
           !si.tradable && h('div', { style: { fontSize: 9, color: 'var(--red)', fontWeight: 700, marginTop: 2 } }, 'NOT TRADABLE')
         ))
@@ -10092,11 +10127,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           intEstValue > 0 && h('div', {
             className: 'sell-summary-chip accent',
             title: 'Sum of the floor price across every platform-inventory item. Actual sale prices can land above or below.'
-          }, '—', h('span', { className: 'sell-summary-num' }, '$' + intEstValue.toFixed(2)), ' est. value'),
+          }, '—', h('span', { className: 'sell-summary-num' }, fmt(intEstValue)), ' est. value'),
           intLiquidCount > 0 && h('div', {
             className: 'sell-summary-chip ok',
             title: `${intLiquidCount} item${intLiquidCount === 1 ? '' : 's'} have a standing buy order — the total is the exact wallet credit if every row were Quick Sold right now (before the 2% platform fee).`
-          }, '⚡ ', h('span', { className: 'sell-summary-num' }, '$' + intLiquidValue.toFixed(2)), ' liquid now')
+          }, '⚡ ', h('span', { className: 'sell-summary-num' }, fmt(intLiquidValue)), ' liquid now')
         ),
         (rarities.length > 1 || internalList.length > 6) && h('div', { className: 'sell-filter-bar', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 12 } },
           h('button', {
@@ -10160,7 +10195,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                   if (!Number.isFinite(best) || best <= 0) return null;
                   return h('div', {
                     style: { fontSize: 10, color: 'var(--accent)', fontWeight: 700, marginTop: 2 },
-                    title: `${d.count} buyer${d.count === 1 ? '' : 's'} want this — list at $${best.toFixed(2)} or below to auto-fill`
+                    title: `${d.count} buyer${d.count === 1 ? '' : 's'} want this — list at ${fmt(best)} or below to auto-fill`
                   }, 'Top buy order · ', fmt(best));
                 })(),
                 // Quick-Sell on the platform-inventory tab too. Mirrors the
@@ -10184,9 +10219,9 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
                       cursor: quickSellBusy && !busyThis ? 'not-allowed' : 'pointer'
                     },
                     disabled: !!quickSellBusy,
-                    title: `List at $${best.toFixed(2)} — auto-fills against the standing buy order on the next sweep`,
+                    title: `List at ${fmt(best)} — auto-fills against the standing buy order on the next sweep`,
                     onClick: e => { e.stopPropagation(); quickSell('internal', l, best); }
-                  }, busyThis ? 'Listing…' : `⚡ Quick Sell · $${best.toFixed(2)}`);
+                  }, busyThis ? 'Listing…' : `⚡ Quick Sell · ${fmt(best)}`);
                 })()
               ))
             )
@@ -11565,7 +11600,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                       const threshold = +(newP * (1 - pct / 100)).toFixed(2);
                       return h('div', {
                         style: { fontSize: 11, color: 'var(--green)', marginTop: 6, fontWeight: 700 }
-                      }, `✓ Offers of $${threshold.toFixed(2)} or higher will auto-accept (${pct}% off ${fmt(newP)}).`);
+                      }, `✓ Offers of ${fmt(threshold)} or higher will auto-accept (${pct}% off ${fmt(newP)}).`);
                     })(),
                     // Batch 894 — live "payout after fees" preview when
                     // the seller types a new price. Shows what lands in
@@ -12818,14 +12853,14 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                       style: { color: 'var(--text-primary)', fontWeight: 700 },
                       title: isRestock
                         ? 'Restock-style alert — fires on any future listing regardless of price.'
-                        : `Fires when the floor drops to or below $${a.targetPrice}.`
-                    }, isRestock ? '↻ restock' : ('≤ $' + a.targetPrice)),
+                        : `Fires when the floor drops to or below ${fmt(a.targetPrice)}.`
+                    }, isRestock ? '↻ restock' : ('≤ ' + fmt(a.targetPrice))),
                     gapLabel && h('span', {
                       style: { fontSize: 10, color: gapColor, fontWeight: 700 },
                       title: gap != null
                         ? (gap <= 0
-                            ? `Current floor $${floor.toFixed(2)} is at or below your target — the sweeper will fire this alert on its next pass.`
-                            : `Current floor $${floor.toFixed(2)} — $${gap.toFixed(2)} above your target.`)
+                            ? `Current floor ${fmt(floor)} is at or below your target — the sweeper will fire this alert on its next pass.`
+                            : `Current floor ${fmt(floor)} — ${fmt(gap)} above your target.`)
                         : 'No active listings on this item right now.'
                     }, gapLabel),
                   // Edit target — batch 832 replaces the window.prompt

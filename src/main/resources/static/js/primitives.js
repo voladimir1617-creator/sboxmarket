@@ -1,5 +1,5 @@
 // Low-level visual primitives used by cards, rows, and modals.
-import { h, useState, useEffect, useRef } from './utils.js';
+import { h, useState, useEffect, useRef, fmt, timeAgo } from './utils.js';
 
 /**
  * Renders a Google Material Symbols Rounded glyph. The font file is loaded
@@ -333,7 +333,7 @@ export function Sparkline({ data, color, height }) {
   const lastPrice  = prices[prices.length - 1];
   const deltaPct   = firstPrice > 0 ? Math.round(((lastPrice - firstPrice) / firstPrice) * 100) : 0;
   const chartDesc  = `Price history chart, ${prices.length} points. ` +
-    `Range $${min.toFixed(2)} to $${max.toFixed(2)}. ` +
+    `Range ${fmt(min)} to ${fmt(max)}. ` +
     (deltaPct > 0 ? `Up ${deltaPct}% overall.`
      : deltaPct < 0 ? `Down ${Math.abs(deltaPct)}% overall.`
      : 'Flat overall.');
@@ -379,7 +379,7 @@ export function Sparkline({ data, color, height }) {
       className: 'sparkline-tooltip',
       style: { left: `${(pts[hover].x / W) * 100}%` }
     },
-      h('div', { className: 'sparkline-tt-price' }, '$' + pts[hover].price.toFixed(2)),
+      h('div', { className: 'sparkline-tt-price' }, fmt(pts[hover].price)),
       h('div', { className: 'sparkline-tt-date' }, pts[hover].label || '')
     )
   );
@@ -562,4 +562,111 @@ export function appendDateRange(href, from, to) {
   if (from != null) parts.push('from=' + encodeURIComponent(String(from)));
   if (to   != null) parts.push('to='   + encodeURIComponent(String(to)));
   return href + sep + parts.join('&');
+}
+
+// ── Price freshness chip ─────────────────────────────────────────
+// Surfaces "Prices updated Xs ago" so a buyer can tell at a glance
+// the floor numbers haven't drifted from reality. Reads
+// /api/items/price-refresh-status which reports the more-recent of:
+//   • ListingFloorRefreshService (every 60s — covers cancels, sales,
+//     new listings — the dominant signal)
+//   • SteamMarketPriceService    (every 30 min — Steam Market floor
+//     for unlisted items, rate-limited)
+// Polls every 30s — same cadence as the marketplace grid's silent
+// refetch so the chip and the prices stay in lockstep. A separate
+// 15s in-place tick advances `timeAgo()` between server polls so
+// the chip doesn't freeze at "Just now". Visibility-gated so a
+// backgrounded tab doesn't tick.
+//
+// Variants:
+//   • default → full-card chip (used above the marketplace grid)
+//   • compact: true → slim inline variant (used in the Sell modal
+//     where vertical space is tight)
+export function PriceFreshnessChip({ compact = false }) {
+  const [status, setStatus] = useState(null);
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/items/price-refresh-status', { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (alive) setStatus(d);
+      } catch (_) { /* silent — chip just hides */ }
+    };
+    load();
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 30_000);
+    const tickId = setInterval(() => forceTick(n => n + 1), 15_000);
+    const onVis = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      clearInterval(tickId);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+  if (!status || !(status.lastUpdatedAt > 0)) return null;
+  const ageMs = Date.now() - status.lastUpdatedAt;
+  // Stale-after threshold — if the last sweep was more than 5 min
+  // ago, paint amber so the user (and ops) notice the scheduler is
+  // wedged. Healthy: green. Sweep cadence is 60s so anything past
+  // 300s is genuinely off the rails.
+  const stale = ageMs > 5 * 60_000;
+  const dotColor   = stale ? 'var(--amber, #d4a015)' : 'var(--green, #28a745)';
+  const text       = 'Prices updated ' + timeAgo(status.lastUpdatedAt);
+  const titleAttr  = 'Last sweep: ' + new Date(status.lastUpdatedAt).toLocaleString()
+                   + '\nFloor sweep every 60s · Steam Market every 30 min';
+  if (compact) {
+    return h('span', {
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        fontSize: 11, color: 'var(--text-muted)',
+        fontWeight: 600, letterSpacing: '0.02em'
+      },
+      title: titleAttr
+    },
+      h('span', {
+        style: {
+          width: 7, height: 7, borderRadius: '50%',
+          background: dotColor,
+          boxShadow: '0 0 6px ' + dotColor,
+          animation: stale ? 'none' : 'pulse 2.4s ease-in-out infinite',
+          flexShrink: 0
+        },
+        'aria-hidden': 'true'
+      }),
+      text
+    );
+  }
+  return h('div', {
+    className: 'price-freshness-chip',
+    style: {
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      padding: '6px 12px',
+      borderRadius: 999,
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      fontSize: 12, color: 'var(--text-secondary)',
+      fontWeight: 600, letterSpacing: '0.02em'
+    },
+    title: titleAttr,
+    role: 'status',
+    'aria-live': 'polite'
+  },
+    h('span', {
+      style: {
+        width: 8, height: 8, borderRadius: '50%',
+        background: dotColor,
+        boxShadow: '0 0 8px ' + dotColor,
+        animation: stale ? 'none' : 'pulse 2.4s ease-in-out infinite',
+        flexShrink: 0
+      },
+      'aria-hidden': 'true'
+    }),
+    text
+  );
 }
