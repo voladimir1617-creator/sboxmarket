@@ -121679,3 +121679,15 @@ textarea {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
 }
 /* END steam-btn polish */
+
+/* =====================================================================
+   cf-feebar micro-labels on-scale — boss-QA cycle 31, ship #69
+   ---------------------------------------------------------------------
+   .cf-feebar-split small uses font-size: 9px — below the 10/11/12/...
+   scale floor. Bump to 10px (the smallest valid step) so micro-labels
+   stay legible on retina screens and in line with the kicker scale.
+   ===================================================================== */
+.cf-feebar-split small {
+  font-size: 10px !important;
+}
+/* END cf-feebar polish */
