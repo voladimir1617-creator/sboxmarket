@@ -159,31 +159,33 @@ export function highlightMatch(text, query) {
 // same `.sale-toast` CSS, and auto-dismisses after 4.5s. Click to dismiss.
 // On any unexpected failure, falls back to window.alert so the user is
 // never silently left without feedback.
+//
+// Boss QA cycle 31 ship #21 — toast stack: toasts no longer wipe their
+// predecessors (multiple toasts stack vertically), kind-specific
+// auto-dismiss timers (ok 4500ms / warn 7000ms / err 9000ms — errors
+// need longer to read), and an explicit ✕ close button so the user
+// doesn't have to memorise that "click toast = dismiss". The host gets
+// the .toast-stack class so the existing positioning CSS picks it up.
 export function toast(text, kind = 'ok') {
   try {
     let host = document.getElementById('sb-toast-host');
     if (!host) {
       host = document.createElement('div');
       host.id = 'sb-toast-host';
-      // Batch 774 — a11y: screen readers announce changes inside a
-      // role=status / aria-live=polite region without stealing focus.
-      // Error toasts stay on the same region rather than getting their
-      // own assertive live-region — assertive is a heavier interrupt
-      // and the error copy is already self-explanatory on screen.
+      host.className = 'toast-stack';
+      // a11y: role=status + aria-live=polite announces the toast text
+      // without stealing focus. Errors stay on the same polite channel
+      // — the visual border + icon already convey severity, no need
+      // for an assertive interrupt.
       host.setAttribute('role', 'status');
       host.setAttribute('aria-live', 'polite');
-      host.setAttribute('aria-atomic', 'true');
+      host.setAttribute('aria-atomic', 'false');
       document.body.appendChild(host);
     }
-    while (host.firstChild) host.removeChild(host.firstChild);
 
-    const el = document.createElement('div');
-    // Batch 925 — support a third toast kind: `warn`. Same live-region
-    // semantics as ok/err but renders amber with ⚠, distinguishing
-    // "not-success-but-not-error" messages (Stripe cancel, session
-    // timeout) from genuine wins.
     const isErr  = kind === 'err';
     const isWarn = kind === 'warn';
+    const el = document.createElement('div');
     el.className = 'sale-toast' + (isErr ? ' err' : (isWarn ? ' warn' : ''));
 
     const thumb = document.createElement('div');
@@ -194,6 +196,7 @@ export function toast(text, kind = 'ok') {
 
     const textWrap = document.createElement('div');
     textWrap.className = 'sale-toast-text';
+    textWrap.style.flex = '1';
     const line = document.createElement('div');
     line.className = 'sale-toast-line2';
     line.textContent = text;
@@ -201,15 +204,26 @@ export function toast(text, kind = 'ok') {
     line.style.overflow = 'visible';
     textWrap.appendChild(line);
 
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'sale-toast-close';
+    closeBtn.setAttribute('aria-label', 'Dismiss notification');
+    closeBtn.textContent = '✕';
+
     el.appendChild(thumb);
     el.appendChild(textWrap);
+    el.appendChild(closeBtn);
     host.appendChild(el);
 
-    const timer = setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 4500);
-    el.addEventListener('click', () => {
-      clearTimeout(timer);
-      if (el.parentNode) el.parentNode.removeChild(el);
-    });
+    const lifetime = isErr ? 9000 : isWarn ? 7000 : 4500;
+    const dismiss = () => {
+      if (!el.parentNode) return;
+      el.classList.add('toast-out');
+      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 180);
+    };
+    const timer = setTimeout(dismiss, lifetime);
+    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); clearTimeout(timer); dismiss(); });
+    el.addEventListener('click', () => { clearTimeout(timer); dismiss(); });
   } catch (_) {
     try { window.alert(text); } catch (_) { /* nothing else to try */ }
   }
