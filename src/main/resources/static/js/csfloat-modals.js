@@ -1008,7 +1008,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   const [generatingLoadout, setGeneratingLoadout] = useState(false);
   const handleGenerate = async () => {
     if (!viewing || generatingLoadout) return;
-    const b = budget ? parseFloat(budget) : 10000;
+    // Tolerant parse — strip `$`, commas, currency code prefixes so a user
+    // who types `$50`, `1,200.00`, or `USD 75` doesn't get a silent NaN.
+    // The backend mirrors this sanitization, but parsing here lets us
+    // short-circuit a round-trip on truly empty input.
+    const cleaned = String(budget || '').replace(/[^0-9.\-]/g, '');
+    const parsed = cleaned ? parseFloat(cleaned) : NaN;
+    const b = Number.isFinite(parsed) && parsed > 0 ? parsed : 10000;
     setGeneratingLoadout(true);
     try {
       const res = await generateLoadout(viewing.loadout.id, b);
@@ -1024,12 +1030,19 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       // Count how many slots were actually filled for the success
       // toast — if everything was locked or the budget was impossibly
       // low, the user gets "Generated 0 slots — raise the budget" as
-      // a concrete nudge instead of a silent no-op.
-      const filled = Array.isArray(fresh?.slots)
-        ? fresh.slots.filter(s => s.itemId != null && !s.locked).length
-        : 0;
+      // a concrete nudge instead of a silent no-op. When some slots
+      // got filled but others didn't (budget ran out partway), surface
+      // the empty slot names explicitly so the user knows where the
+      // shortfall landed instead of squinting at an 8-tile grid.
+      const slotsAfter = Array.isArray(fresh?.slots) ? fresh.slots : [];
+      const filled = slotsAfter.filter(s => s.itemId != null && !s.locked).length;
+      const emptyNames = slotsAfter
+        .filter(s => s.itemId == null && !s.locked)
+        .map(s => s.slot);
       if (filled === 0) {
         toast('Generate ran but filled 0 slots — raise the budget or unlock a slot.', 'err');
+      } else if (emptyNames.length > 0) {
+        toast(`Generated ${filled} slot${filled === 1 ? '' : 's'} — not enough budget to fill ${emptyNames.join(', ')}. Raise the cap or relock to retry.`, 'ok');
       } else {
         toast(`Generated ${filled} slot${filled === 1 ? '' : 's'}.`, 'ok');
       }
@@ -1239,11 +1252,24 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
         })
       ),
       isOwner && h('div', { className: 'loadout-tools' },
-        h('input', { className: 'price-input', placeholder: 'Max budget', value: budget, onChange: e => setBudget(e.target.value), style: { width: 130 } }),
+        h('input', {
+          className: 'price-input',
+          placeholder: `Max budget · ${fmt(10000)}`,
+          value: budget,
+          onChange: e => setBudget(e.target.value),
+          style: { width: 170 },
+          // inputMode/title clarifies USD intent — typed `$` and commas are
+          // stripped before parse so the user can paste a price chip from
+          // /wallet without a NaN.
+          inputMode: 'decimal',
+          title: 'Cap on AI-generate. Defaults to $10,000 if blank. $-prefix and commas are accepted.',
+          'aria-label': 'Max budget for Generate'
+        }),
         h('button', {
           className: 'btn btn-accent',
           onClick: handleGenerate,
-          disabled: generatingLoadout
+          disabled: generatingLoadout,
+          title: 'Auto-fill unlocked slots with the cheapest active listing per category, capped at the budget. Locked slots are preserved.'
         }, generatingLoadout ? '…' : 'Generate'),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 12, marginLeft: 'auto' } },
           'Total Value · ',

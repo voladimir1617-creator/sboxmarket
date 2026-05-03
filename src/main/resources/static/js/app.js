@@ -6698,7 +6698,12 @@ export function App() {
                   )
                 ),
                 h('div', { className: 'search-suggest-price' },
-                  item.lowestPrice != null ? fmt(item.lowestPrice) : '—'
+                  // Items with no active listings have lowestPrice 0,
+                  // not null — render "Not listed" instead of CA$0.00
+                  // which read as a free item.
+                  (item.lowestPrice != null && parseFloat(item.lowestPrice) > 0)
+                    ? fmt(item.lowestPrice)
+                    : h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, 'Not listed')
                 )
               ))
             )
@@ -7435,6 +7440,23 @@ export function App() {
                     h('div', { className: 'stall-stat-val' },
                       Number(stallData.seller.followerCount).toLocaleString())
                   ),
+                  // Avg sale price — derived from the same `stallSold`
+                  // sample we already fetch for the 30-day sparkline.
+                  // Surfaces "is this a $5-flips seller or a $500-deals
+                  // seller?" without a buyer needing to scan the recent-
+                  // sales strip manually. Only renders when there's a
+                  // meaningful sample (≥3 sales) so a single anchor sale
+                  // doesn't fake-anchor the average.
+                  Array.isArray(stallSold) && stallSold.length >= 3 && (() => {
+                    const prices = stallSold.map(s => parseFloat(s.price)).filter(p => Number.isFinite(p) && p > 0);
+                    if (prices.length === 0) return null;
+                    const sum = prices.reduce((a, b) => a + b, 0);
+                    const avg = sum / prices.length;
+                    return h('div', { className: 'stall-stat', title: `Mean sale price across the most recent ${prices.length} closed sales` },
+                      h('div', { className: 'stall-stat-label' }, 'Avg sale price'),
+                      h('div', { className: 'stall-stat-val' }, fmt(avg))
+                    );
+                  })(),
                   // Boss QA cycle 2 S2 — typical-response, response-rate,
                   // and typical-ship moved out of the stat grid into the
                   // trust-badges row below. Stats they replace (Joined /
@@ -7442,15 +7464,27 @@ export function App() {
                   // listings) stay above as proper stat cards.
                 ),
                 // Rating chip — only shows if the seller has at least one
-                // review. Uses a simple star-count visual with the average
-                // and review count, mirrored on /api/reviews/user/{id}/summary.
-                stallData.rating && stallData.rating.count > 0 && h('div', { className: 'stall-rating' },
-                  h('span', { className: 'stall-rating-stars' }, '★'.repeat(Math.round(stallData.rating.average || 0))),
-                  h('span', { className: 'stall-rating-avg' }, (stallData.rating.average || 0).toFixed(1)),
-                  h('span', { className: 'stall-rating-count' },
-                    ` · ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}`
-                  )
-                ),
+                // review. Uses a simple star-count visual with the average,
+                // a humanized verdict label (Excellent/Good/Mixed/Poor),
+                // and the review count. The label gives a quick read for
+                // a buyer who doesn't want to mentally translate "4.5" into
+                // a meaningful trust signal — mirrors CSFloat's verdict
+                // chip beside the numeric average.
+                stallData.rating && stallData.rating.count > 0 && (() => {
+                  const avg = stallData.rating.average || 0;
+                  const verdict = avg >= 4.6 ? 'Excellent'
+                                : avg >= 4.0 ? 'Good'
+                                : avg >= 3.0 ? 'Mixed'
+                                :              'Poor';
+                  return h('div', { className: 'stall-rating', title: `Average rating across ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}` },
+                    h('span', { className: 'stall-rating-stars' }, '★'.repeat(Math.round(avg))),
+                    h('span', { className: 'stall-rating-avg' }, avg.toFixed(1)),
+                    h('span', { className: 'stall-rating-count', style: { fontWeight: 600, color: 'var(--text-secondary)', marginLeft: 6 } }, verdict),
+                    h('span', { className: 'stall-rating-count' },
+                      ` · ${stallData.rating.count} review${stallData.rating.count === 1 ? '' : 's'}`
+                    )
+                  );
+                })(),
                 // Breakdown histogram — only worth showing when the seller
                 // has ≥3 reviews so the bars aren't misleading.
                 stallData.rating && stallData.rating.count >= 3 &&

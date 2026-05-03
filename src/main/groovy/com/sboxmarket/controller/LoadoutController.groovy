@@ -115,11 +115,20 @@ class LoadoutController {
     }
 
     @PostMapping("/{id}/generate")
-    ResponseEntity<List> autoGenerate(@PathVariable Long id, @RequestBody(required = false) Map body, HttpServletRequest req) {
+    ResponseEntity<Map> autoGenerate(@PathVariable Long id, @RequestBody(required = false) Map body, HttpServletRequest req) {
         BigDecimal budget = null
         if (body?.budget != null) {
+            // Strip the user-typed currency adornments before parsing — `$50`,
+            // `1,200.00`, `USD 75` all become a clean BigDecimal. Mirrors the
+            // tolerant front-end input on the LoadoutLab budget field so a
+            // direct API client (or a paste from /wallet's USD chip) doesn't
+            // 400 on perfectly readable input.
+            def raw = body.budget.toString().replaceAll(/[^0-9.\-]/, '')
+            if (raw.isEmpty()) {
+                throw new com.sboxmarket.exception.BadRequestException("INVALID_BUDGET", "budget must be a valid number")
+            }
             try {
-                budget = new BigDecimal(body.budget.toString())
+                budget = new BigDecimal(raw)
             } catch (NumberFormatException ignored) {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_BUDGET", "budget must be a valid number")
             }
@@ -130,7 +139,13 @@ class LoadoutController {
                 throw new com.sboxmarket.exception.BadRequestException("BUDGET_TOO_HIGH", "budget must not exceed \$100,000")
             }
         }
-        ResponseEntity.ok(loadoutService.autoGenerate(requireUser(req), id, budget))
+        def uid = requireUser(req)
+        loadoutService.autoGenerate(uid, id, budget)
+        // Return the same decorated payload as GET /{id} so a direct API
+        // client gets the slots WITH itemImageUrl + accentColor in one round
+        // trip (the SPA was already re-fetching to get image fields the raw
+        // entity didn't carry; everyone else got bare slots).
+        ResponseEntity.ok(loadoutService.getWithSlots(id, uid))
     }
 
     /**
