@@ -121459,3 +121459,24 @@ textarea {
   border-color: var(--line-2) !important;
 }
 /* END filter-chip focus border polish */
+
+/* =====================================================================
+   inline-link body anchor unify — boss-QA cycle 31, ship #53
+   ---------------------------------------------------------------------
+   The body-text anchor family (legal-doc a / profile-link / csfloat-
+   text-anchor / db-name a) shares a neutral pattern: --ink color +
+   --line-2 underline + hover bumps the underline to --ink-3. The
+   .inline-link class breaks the family — it uses --cta blue text + 30%
+   blue underline. Snap to the family pattern so body links don't
+   bloom blue mid-paragraph.
+   ===================================================================== */
+.inline-link {
+  color: var(--ink) !important;
+  text-decoration-color: var(--line-2) !important;
+  text-underline-offset: 3px !important;
+}
+.inline-link:hover {
+  text-decoration-color: var(--ink-3) !important;
+  color: var(--ink) !important;
+}
+/* END inline-link unify */
