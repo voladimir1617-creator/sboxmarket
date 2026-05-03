@@ -122794,3 +122794,28 @@ mat-card.item-card .actions .buy-now-btn {
 }
 /* END CSFLOAT-1:1 PARITY ship #38 */
 
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #39 — grid card hover state
+   csfloat measured: on hover the card border shifts from
+     rgba(0,0,0,0) to a brighter accent (subtle Material lift). The
+     existing 2px border absorbs the change without layout shift.
+     The shadow remains the same Material elevation.
+   sboxmarket: existing :hover (line 8707) had a different transform
+     (scale/translate) and box-shadow override that fought the new
+     base shadow shipped in #35.
+   Match csfloat exactly: keep the card stationary on hover (no scale
+   / translate), only shift the border color to subtly tint the edge.
+   Also lock the box-shadow to the same 3-layer Material elevation so
+   hovering doesn't create a different lift than rest state.
+   ===================================================================== */
+.grid-card:hover {
+  transform: none !important;
+  border: 2px solid rgba(35, 123, 255, 0.5) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 1px -1px,
+    rgba(0, 0, 0, 0.14) 0px 1px 1px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 3px 0px !important;
+  background-color: rgb(27, 29, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #39 */
+
