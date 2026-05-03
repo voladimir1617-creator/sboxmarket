@@ -667,10 +667,14 @@ class OfferService {
         }
         if (offer.buyerUserId != null && emailService != null && steamUserRepository != null) {
             try {
-                def buyer = steamUserRepository.findById(offer.buyerUserId).orElse(null)
-                if (emailService.canSendTo(buyer, 'TRADES')) {
+                // Renamed from `buyer` to `buyerForEmail` to avoid the
+                // Groovy scope clash with the outer `def buyer` at line
+                // 585 (Groovy hoists def to method scope so nested
+                // try-blocks don't get a fresh binding).
+                def buyerForEmail = steamUserRepository.findById(offer.buyerUserId).orElse(null)
+                if (buyerForEmail != null && emailService.canSendTo(buyerForEmail, 'TRADES')) {
                     emailService.sendOfferAccepted(
-                        buyer.email, buyer.displayName, offer.itemName,
+                        buyerForEmail.email, buyerForEmail.displayName, offer.itemName,
                         offer.amount, tradeId)
                 }
             } catch (Exception e) {
