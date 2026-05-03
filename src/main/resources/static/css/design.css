@@ -121611,3 +121611,48 @@ textarea {
   background: var(--bg-2) !important;
 }
 /* END cart-row hover polish */
+
+/* =====================================================================
+   Bulk hover de-blue sweep — boss-QA cycle 31, ship #67
+   ---------------------------------------------------------------------
+   Several remaining hover rules paint with --cta blue:
+   – .filter-clear:hover (clear-all link)
+   – .tab-strip-tab:hover (segmented control)
+   – .copy-filter-url-btn:hover (toolbar utility)
+   – .site-footer-col a:hover (footer link list)
+   – .csfloat-faq-a a:hover (body-text anchor)
+   – .csfloat-legal a:hover (body-text anchor)
+   – .csfloat-acc-head:hover (accordion header)
+   – .csfloat-price-suggest-value:hover (suggested-price tile)
+   – .csfloat-anchor-link:hover (named anchor link)
+   – .csfloat-prose > ol a:hover (in-prose link border)
+   – .csfloat-cookie-text > a:hover (cookie banner link border)
+   – .csfloat-contract-foot > a:hover (contract foot link border)
+   – .csfloat-empty-cart-rail-link:hover (empty-cart rail link)
+   Switch all to neutral --ink color or --line-2 border so the entire
+   chrome + body-anchor surface stays calm; the buy-btn / LEDs / active
+   tab underlines / Stripe badge stay the only blue-broadcast surfaces.
+   ===================================================================== */
+.filter-clear:hover,
+.copy-filter-url-btn:hover,
+.csfloat-empty-cart-rail-link:hover,
+.csfloat-acc-head:hover,
+.csfloat-anchor-link:hover,
+.csfloat-price-suggest-value:hover,
+.site-footer-col a:hover {
+  color: var(--ink) !important;
+}
+.tab-strip-tab:hover {
+  color: var(--ink) !important;
+  background: var(--bg-2) !important;
+}
+.csfloat-faq-a a:hover,
+.csfloat-legal a:hover {
+  border-bottom-color: var(--ink-3) !important;
+}
+.csfloat-prose > ol a:hover,
+.csfloat-cookie-text > a:hover,
+.csfloat-contract-foot > a:hover {
+  border-color: var(--ink-3) !important;
+}
+/* END bulk hover de-blue sweep */
