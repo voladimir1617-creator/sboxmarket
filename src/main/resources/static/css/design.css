@@ -121562,3 +121562,20 @@ textarea {
   }
 }
 /* END btn-accent reduce-motion */
+
+/* =====================================================================
+   modal-listing-row hover de-blue — boss-QA cycle 31, ship #61
+   ---------------------------------------------------------------------
+   Item-detail modal listing-row hover at line 13531 paints with
+   color-mix(--cta 4%, transparent) — every row hover inside the modal
+   flashes a blue tint. Switch to neutral --bg-2 hover so the listing
+   row scan inside the modal stays calm.
+   ===================================================================== */
+.modal-listing-row:hover {
+  background: var(--bg-2) !important;
+}
+.modal-header button.btn-ghost:hover {
+  background: var(--bg-2) !important;
+  border-color: var(--line-2) !important;
+}
+/* END modal-listing polish */
