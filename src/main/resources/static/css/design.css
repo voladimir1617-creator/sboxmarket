@@ -121279,3 +121279,26 @@ textarea:focus-visible {
     0 4px 12px color-mix(in oklab, var(--cta) 25%, transparent) !important;
 }
 /* END toggle focus polish */
+
+/* =====================================================================
+   Avatar hover ring de-blue — boss-QA cycle 31, ship #34
+   ---------------------------------------------------------------------
+   Three avatar hovers paint with --cta blue:
+   .modal-seller-av:hover / .seller-avatar:hover (border tint),
+   .top-seller-avatar:hover (border + double-shadow halo).
+   Avatars are not in the allowed-blue list. Switch the rings to
+   neutral --line-2 / --ink-2 with subtle inset highlights.
+   ===================================================================== */
+.modal-seller-av:hover,
+.seller-avatar:hover {
+  border-color: var(--line-2) !important;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ink-2) 14%, transparent) !important;
+}
+.top-seller-avatar:hover {
+  border-color: var(--line-2) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 2px color-mix(in oklab, var(--ink-2) 14%, transparent),
+    0 6px 14px rgba(0, 0, 0, 0.35) !important;
+}
+/* END avatar polish */
