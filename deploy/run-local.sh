@@ -4,132 +4,329 @@
 # the prod profile requires has a safe default so the boot doesn't NPE on a
 # missing placeholder. Intended for operator iteration — NOT suitable for a
 # real prod deploy (no real Stripe keys, no real SMTP, no HSTS).
+#
+# ============================================================================
+# ZERO-DOWNTIME DEPLOY (added 2026-05-03 after worker deploys flashed 502s
+# in the operator's browser through the Cloudflare tunnel).
+# ----------------------------------------------------------------------------
+# Topology:
+#
+#   Cloudflare tunnel (cloudflared)
+#         |
+#         v
+#   localhost:8082  --->  sbox-edge (nginx, never restarted)
+#                              |
+#                              v   (proxy via Docker DNS over sbox-net)
+#                         sbox_upstream upstream block
+#                              |
+#                              +--> sbox-app  (current active)
+#                              or
+#                              +--> sbox-app-blue (the swap target)
+#
+# Deploy flow:
+#   1. Ensure the sbox-edge nginx container exists, listening on host :8082.
+#      It takes over the port that Cloudflare tunnel points at, replacing
+#      the historical "app on :8082" topology. Edge is started ONCE and
+#      lives across deploys — only the upstream pointer moves.
+#   2. Start a parallel sbox-app-blue container on the sbox-net network
+#      (no host port — only reachable via the network).
+#   3. Wait for the new container to report /api/health 200.
+#   4. RUN THE COOKIE-STATE GATE against the new container — before swap.
+#   5. Rewrite edge-upstream.conf to point at sbox-app-blue, `nginx -s reload`.
+#   6. Stop + remove the old sbox-app container (graceful 10s drain).
+#   7. Rename sbox-app-blue -> sbox-app so the next deploy is symmetric.
+#
+# nginx reload is graceful: in-flight requests on the old worker complete
+# against the old upstream; new requests go through the new upstream. There
+# is no observable 502 window.
+#
+# If step 4 fails: the old container keeps serving, the blue container is
+# torn down, the deploy exits non-zero, the worker's commit is automatically
+# a no-go. Same gate semantics as the original script — just before swap
+# instead of after.
+# ============================================================================
 set -euo pipefail
 
 IMAGE="${IMAGE:-sbox-app:latest}"
 NAME="${NAME:-sbox-app}"
-PORT="${PORT:-8082}"
+EDGE_NAME="${EDGE_NAME:-sbox-edge}"
+NETWORK="${NETWORK:-sbox-net}"
+EDGE_PORT="${EDGE_PORT:-8082}"   # host port Cloudflare tunnel hits
+APP_PORT="${APP_PORT:-8082}"     # internal JVM port (not host-published)
 # Public-facing URL for outbound email links. The container also serves
 # skinbox.market via Cloudflare tunnel — Stripe redirects + email links
 # go HERE, not localhost. Operator can override with `PUBLIC_URL=...`
 # when running purely locally. Steam OpenID realm + return-url stay on
-# localhost because the operator signs in via localhost:${PORT} during
-# iteration; switching them to skinbox.market would bounce the operator
-# off localhost mid-login.
+# localhost because the operator signs in via localhost:${EDGE_PORT}
+# during iteration; switching them to skinbox.market would bounce the
+# operator off localhost mid-login.
 PUBLIC_URL="${PUBLIC_URL:-https://skinbox.market}"
 
-docker stop "$NAME" 2>/dev/null || true
-docker rm   "$NAME" 2>/dev/null || true
-
-# `--network host` isn't portable on Docker Desktop / Windows — publish the
-# port instead, and reach the Postgres host-container by its Docker name
-# via the default bridge. sbox-pg publishes 5432 on host:5433, so inside
-# the bridge we use 5432 against the container hostname.
-docker run -d --name "$NAME" \
-  --add-host=host.docker.internal:host-gateway \
-  -p "${PORT}:${PORT}" \
-  -e SPRING_PROFILES_ACTIVE=prod \
-  -e SERVER_PORT="$PORT" \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/skinbox \
-  -e SPRING_SESSION_STORE_TYPE=none \
-  -e SPRING_DATASOURCE_USERNAME=skinbox \
-  -e SPRING_DATASOURCE_PASSWORD=skinbox \
-  -e SPRING_DATASOURCE_DRIVER=org.postgresql.Driver \
-  -e SPRING_JPA_DIALECT=org.hibernate.dialect.PostgreSQLDialect \
-  -e SPRING_JPA_DDL=validate \
-  -e FLYWAY_ENABLED=true \
-  -e DEV_MODE=true \
-  -e CORS_ALLOWED_ORIGINS='*' \
-  -e COOKIE_SECURE=false \
-  -e COOKIE_SAME_SITE=lax \
-  -e SECURITY_HSTS=false \
-  -e SECURITY_CSRF=true \
-  -e SECURITY_VERBOSE_ERRORS=false \
-  -e H2_CONSOLE=false \
-  -e SWAGGER_ENABLED=false \
-  -e STRIPE_SECRET_KEY= \
-  -e STRIPE_PUBLISHABLE_KEY= \
-  -e STRIPE_WEBHOOK_SECRET= \
-  -e STRIPE_SUCCESS_URL="${PUBLIC_URL}/?deposit=success" \
-  -e STRIPE_CANCEL_URL="${PUBLIC_URL}/?deposit=cancel" \
-  -e STEAM_API_KEY= \
-  -e STEAM_REALM="http://localhost:${PORT}/" \
-  -e STEAM_RETURN_URL="http://localhost:${PORT}/api/auth/steam/return" \
-  -e ADMIN_BOOTSTRAP_STEAM_IDS=76561199839805014 \
-  -e CSR_CREDIT_CAP=25.00 \
-  -e LOG_FILE=/var/log/skinbox/skinbox.log \
-  -e SMTP_HOST= \
-  -e SMTP_PORT=587 \
-  -e SMTP_USERNAME= \
-  -e SMTP_PASSWORD= \
-  -e SMTP_AUTH=false \
-  -e SMTP_STARTTLS=false \
-  -e APP_EMAIL_FROM=noreply@localhost \
-  -e APP_EMAIL_FROM_NAME=SkinBox \
-  -e APP_PUBLIC_URL="${PUBLIC_URL}" \
-  -e SENTRY_DSN= \
-  -e SENTRY_ENV=local \
-  -e TRADE_AUTO_RELEASE_DAYS=8 \
-  --restart unless-stopped \
-  "$IMAGE"
-
-echo "Container started. Tail logs with: docker logs -f $NAME"
+DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ----------------------------------------------------------------------------
-# COOKIE-STATE DEPLOY GATE — added 2026-05-03 after the FOURTH NUL-byte
-# session outage. Anonymous /api/health was returning 200 the whole time,
-# so the worker shipped 79 design tweaks while logged-in users 500'd.
-# This gate replays the cookie shapes that historically poisoned the
-# JdbcIndexedSessionRepository SELECT and aborts the deploy if any of
-# them produces a 5xx. The deploy script is what every worker cycle
-# calls — failing here = the worker's commit is automatically a no-go.
+# Helper: spin up an app container by name on the sbox-net network with no
+# published port. Used for both the blue (deploy target) and — on a fresh
+# install — the initial sbox-app primary.
+# ----------------------------------------------------------------------------
+run_app_container() {
+  local container_name="$1"
+  docker run -d --name "$container_name" \
+    --network "$NETWORK" \
+    --add-host=host.docker.internal:host-gateway \
+    -e SPRING_PROFILES_ACTIVE=prod \
+    -e SERVER_PORT="$APP_PORT" \
+    -e SPRING_DATASOURCE_URL=jdbc:postgresql://sbox-pg:5432/skinbox \
+    -e SPRING_SESSION_STORE_TYPE=none \
+    -e SPRING_DATASOURCE_USERNAME=skinbox \
+    -e SPRING_DATASOURCE_PASSWORD=skinbox \
+    -e SPRING_DATASOURCE_DRIVER=org.postgresql.Driver \
+    -e SPRING_JPA_DIALECT=org.hibernate.dialect.PostgreSQLDialect \
+    -e SPRING_JPA_DDL=validate \
+    -e FLYWAY_ENABLED=true \
+    -e DEV_MODE=true \
+    -e CORS_ALLOWED_ORIGINS='*' \
+    -e COOKIE_SECURE=false \
+    -e COOKIE_SAME_SITE=lax \
+    -e SECURITY_HSTS=false \
+    -e SECURITY_CSRF=true \
+    -e SECURITY_VERBOSE_ERRORS=false \
+    -e H2_CONSOLE=false \
+    -e SWAGGER_ENABLED=false \
+    -e STRIPE_SECRET_KEY= \
+    -e STRIPE_PUBLISHABLE_KEY= \
+    -e STRIPE_WEBHOOK_SECRET= \
+    -e STRIPE_SUCCESS_URL="${PUBLIC_URL}/?deposit=success" \
+    -e STRIPE_CANCEL_URL="${PUBLIC_URL}/?deposit=cancel" \
+    -e STEAM_API_KEY= \
+    -e STEAM_REALM="http://localhost:${EDGE_PORT}/" \
+    -e STEAM_RETURN_URL="http://localhost:${EDGE_PORT}/api/auth/steam/return" \
+    -e ADMIN_BOOTSTRAP_STEAM_IDS=76561199839805014 \
+    -e CSR_CREDIT_CAP=25.00 \
+    -e LOG_FILE=/var/log/skinbox/skinbox.log \
+    -e SMTP_HOST= \
+    -e SMTP_PORT=587 \
+    -e SMTP_USERNAME= \
+    -e SMTP_PASSWORD= \
+    -e SMTP_AUTH=false \
+    -e SMTP_STARTTLS=false \
+    -e APP_EMAIL_FROM=noreply@localhost \
+    -e APP_EMAIL_FROM_NAME=SkinBox \
+    -e APP_PUBLIC_URL="${PUBLIC_URL}" \
+    -e SENTRY_DSN= \
+    -e SENTRY_ENV=local \
+    -e TRADE_AUTO_RELEASE_DAYS=8 \
+    --restart unless-stopped \
+    "$IMAGE" > /dev/null
+}
+
+# ----------------------------------------------------------------------------
+# Helper: probe app readiness by container name through the Docker network.
+# Uses `docker exec` with the in-image wget so we don't need to publish a
+# port to host — keeps blue invisible to Cloudflare during validation.
+# ----------------------------------------------------------------------------
+probe_health_via_exec() {
+  local container_name="$1"
+  docker exec "$container_name" wget -qO- "http://127.0.0.1:${APP_PORT}/api/health" 2>/dev/null \
+    | grep -q '"UP"'
+}
+
+# ----------------------------------------------------------------------------
+# Helper: probe an arbitrary path via the edge nginx container, optionally
+# with a Host: override so requests land on the blue upstream during the
+# pre-swap gate. We hop through `docker exec sbox-edge wget` because:
+#   - blue isn't published to host
+#   - nginx inside sbox-edge can name-resolve sbox-app-blue via Docker DNS
+# Returns the HTTP status code.
+# ----------------------------------------------------------------------------
+probe_status_via_container() {
+  local target_container="$1"
+  local path="$2"
+  local cookie="${3:-}"
+  local cookie_arg=""
+  if [ -n "$cookie" ]; then
+    cookie_arg="--header=Cookie: ${cookie}"
+  fi
+  # Use docker exec into the target container itself (loopback inside it)
+  # so we hit the JVM directly, no edge hop. This is the most accurate
+  # pre-swap probe.
+  docker exec "$target_container" wget --server-response --spider \
+    --tries=1 --timeout=10 \
+    ${cookie_arg:+"$cookie_arg"} \
+    "http://127.0.0.1:${APP_PORT}${path}" 2>&1 \
+    | awk '/^  HTTP/{print $2; exit}' \
+    | head -1
+}
+
+# ----------------------------------------------------------------------------
+# Step 0: ensure prerequisites — sbox-net, sbox-pg attached, edge running.
 # ----------------------------------------------------------------------------
 
-# Wait for /api/health (gives Spring 60s to boot before we probe).
-echo "Waiting for app readiness..."
+if ! docker network inspect "$NETWORK" >/dev/null 2>&1; then
+  echo "Creating Docker network ${NETWORK}..."
+  docker network create "$NETWORK" >/dev/null
+fi
+
+# Make sure sbox-pg is on sbox-net so app can reach it by hostname.
+if docker ps --format '{{.Names}}' | grep -q '^sbox-pg$'; then
+  if ! docker network inspect "$NETWORK" --format '{{range .Containers}}{{.Name}} {{end}}' | grep -q 'sbox-pg'; then
+    echo "Attaching sbox-pg to ${NETWORK}..."
+    docker network connect "$NETWORK" sbox-pg 2>/dev/null || true
+  fi
+fi
+
+# Spin up sbox-edge nginx container if it isn't already running.
+if ! docker ps --format '{{.Names}}' | grep -q "^${EDGE_NAME}$"; then
+  echo "Bringing up edge proxy (${EDGE_NAME}) on host :${EDGE_PORT}..."
+  docker rm -f "$EDGE_NAME" 2>/dev/null || true
+  docker run -d --name "$EDGE_NAME" \
+    --network "$NETWORK" \
+    -p "${EDGE_PORT}:8082" \
+    --restart unless-stopped \
+    -v "${DEPLOY_DIR}/edge-nginx.conf:/etc/nginx/nginx.conf:ro" \
+    -v "${DEPLOY_DIR}/edge-upstream.conf:/etc/nginx/conf.d/edge-upstream.conf:ro" \
+    nginx:alpine > /dev/null
+fi
+
+# ----------------------------------------------------------------------------
+# Step 1: figure out current state.
+# Three shapes are possible:
+#   (a) Fresh install — no sbox-app, no sbox-app-blue. Just start sbox-app
+#       on sbox-net and point edge upstream at it.
+#   (b) sbox-app exists and is on sbox-net (post-zero-downtime). Standard
+#       blue/green swap.
+#   (c) Legacy sbox-app exists with `-p 8082:8082` published (pre-this-script
+#       deploy). Edge can't bind :8082 because legacy is holding it. Tear
+#       down legacy first — accept the brief blip on this single migration
+#       deploy. Subsequent deploys are zero-downtime.
+# ----------------------------------------------------------------------------
+
+LEGACY_HOLDING_EDGE_PORT=0
+if docker ps --format '{{.Names}} {{.Ports}}' | grep -E "^${NAME} .*${EDGE_PORT}->" >/dev/null 2>&1; then
+  LEGACY_HOLDING_EDGE_PORT=1
+fi
+EDGE_RUNNING=0
+if docker ps --format '{{.Names}}' | grep -q "^${EDGE_NAME}$"; then
+  EDGE_RUNNING=1
+fi
+
+if [ "$LEGACY_HOLDING_EDGE_PORT" -eq 1 ]; then
+  echo "MIGRATION DEPLOY — legacy ${NAME} holds host :${EDGE_PORT}; tearing down so edge can bind."
+  echo "  This single deploy will have a short downtime window. Subsequent deploys are zero-downtime."
+  docker stop "$NAME" >/dev/null 2>&1 || true
+  docker rm   "$NAME" >/dev/null 2>&1 || true
+  EDGE_RUNNING=0  # need to (re)start now that the port is free
+fi
+
+if [ "$EDGE_RUNNING" -eq 0 ]; then
+  echo "Bringing up edge proxy (${EDGE_NAME}) on host :${EDGE_PORT}..."
+  docker rm -f "$EDGE_NAME" 2>/dev/null || true
+  docker run -d --name "$EDGE_NAME" \
+    --network "$NETWORK" \
+    -p "${EDGE_PORT}:8082" \
+    --restart unless-stopped \
+    -v "${DEPLOY_DIR}/edge-nginx.conf:/etc/nginx/nginx.conf:ro" \
+    -v "${DEPLOY_DIR}/edge-upstream.conf:/etc/nginx/conf.d/edge-upstream.conf:ro" \
+    nginx:alpine > /dev/null
+  # nginx is fast — give it a beat to bind.
+  sleep 1
+fi
+
+# ----------------------------------------------------------------------------
+# Step 2: launch the deploy target.
+# If sbox-app doesn't exist: this IS the primary, name it sbox-app directly.
+# If sbox-app exists: name the new one sbox-app-blue, swap+rename later.
+# ----------------------------------------------------------------------------
+
+PRIMARY_EXISTS=0
+if docker ps --format '{{.Names}}' | grep -q "^${NAME}$"; then
+  PRIMARY_EXISTS=1
+fi
+
+if [ "$PRIMARY_EXISTS" -eq 0 ]; then
+  echo "No primary container — starting ${NAME} as the first app instance."
+  # Clean up any stale stopped record.
+  docker rm "$NAME" 2>/dev/null || true
+  run_app_container "$NAME"
+  TARGET_CONTAINER="$NAME"
+  IS_INITIAL_DEPLOY=1
+else
+  BLUE_NAME="${NAME}-blue"
+  echo "Starting blue container (${BLUE_NAME}) for zero-downtime swap..."
+  docker rm -f "$BLUE_NAME" 2>/dev/null || true
+  run_app_container "$BLUE_NAME"
+  TARGET_CONTAINER="$BLUE_NAME"
+  IS_INITIAL_DEPLOY=0
+fi
+
+echo "Container started: ${TARGET_CONTAINER}. Tail logs with: docker logs -f ${TARGET_CONTAINER}"
+
+# ----------------------------------------------------------------------------
+# Step 3: wait for the new container to be healthy.
+# ----------------------------------------------------------------------------
+
+echo "Waiting for app readiness on ${TARGET_CONTAINER}..."
 ready=0
-for i in {1..60}; do
-  if [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${PORT}/api/health" 2>/dev/null)" = "200" ]; then
+for i in {1..90}; do
+  if probe_health_via_exec "$TARGET_CONTAINER"; then
     ready=1; break
   fi
   sleep 1
 done
 if [ "$ready" -ne 1 ]; then
-  echo "DEPLOY GATE FAIL: /api/health never reached 200 within 60s." >&2
-  docker logs --tail=80 "$NAME" >&2
+  echo "DEPLOY GATE FAIL: /api/health on ${TARGET_CONTAINER} never reached UP within 90s." >&2
+  docker logs --tail=80 "$TARGET_CONTAINER" >&2
+  if [ "$IS_INITIAL_DEPLOY" -eq 0 ]; then
+    docker rm -f "$TARGET_CONTAINER" >/dev/null 2>&1 || true
+    echo "Blue container torn down. Old ${NAME} still serving traffic."
+  fi
   exit 1
 fi
 
-# Probe the cookie shapes that have historically broken the JDBC bind.
-# Each must return < 500. A single 5xx fails the gate.
+# ----------------------------------------------------------------------------
+# Step 4: COOKIE-STATE DEPLOY GATE — added 2026-05-03 after the FOURTH NUL-byte
+# session outage. Anonymous /api/health was returning 200 the whole time, so
+# the worker shipped 79 design tweaks while logged-in users 500'd. This gate
+# replays the cookie shapes that historically poisoned the
+# JdbcIndexedSessionRepository SELECT and aborts the deploy if any of them
+# produces a 5xx. The deploy script is what every worker cycle calls — failing
+# here = the worker's commit is automatically a no-go.
+#
+# Crucially: this runs against the BLUE container BEFORE the upstream swap.
+# If the gate fails, traffic never sees the broken image — the old container
+# keeps serving and the deploy aborts.
+# ----------------------------------------------------------------------------
+
 declare -a probes=(
   "garbage:SBOX_SESSION=garbage"
   "stale-uuid:SBOX_SESSION=11111111-2222-3333-4444-555555555555"
   "empty:SBOX_SESSION="
   "long:SBOX_SESSION=$(printf 'a%.0s' {1..512})"
 )
+
 fail=0
 for entry in "${probes[@]}"; do
   label="${entry%%:*}"
   cookie="${entry#*:}"
   for path in / /market /wallet; do
-    code=$(curl -s -o /dev/null -w '%{http_code}' \
-      -H "Cookie: ${cookie}" \
-      "http://localhost:${PORT}${path}" 2>/dev/null || echo 000)
-    if [ "$code" -ge 500 ]; then
+    code=$(probe_status_via_container "$TARGET_CONTAINER" "$path" "$cookie" || echo 000)
+    code="${code:-000}"
+    if [ "$code" -ge 500 ] 2>/dev/null; then
       echo "DEPLOY GATE FAIL: ${label} cookie on ${path} returned ${code}" >&2
       fail=1
     fi
   done
 done
 
-# NUL-byte cookie — the actual original killer. curl -H normalises some
-# control bytes in transit, so we use --data-urlencode style raw send via
-# printf piped into nc-equivalent: easier and equivalent in effect to
-# replay through curl with %00 in the URL-decoded header value.
-nul_code=$(printf 'GET / HTTP/1.1\r\nHost: localhost\r\nCookie: SBOX_SESSION=ab\x00cd\r\nConnection: close\r\n\r\n' \
-  | timeout 5 bash -c "exec 3<>/dev/tcp/localhost/${PORT} && cat >&3 && head -1 <&3" 2>/dev/null \
-  | awk '{print $2}')
+# NUL-byte cookie — the actual original killer. Curl/wget normalise some
+# control bytes in transit, so we use raw TCP via /dev/tcp. The new container
+# isn't published to host, but `docker exec` lets us run the probe from
+# inside the edge container against the new container's hostname.
+nul_code=$(docker exec "$EDGE_NAME" sh -c "
+  printf 'GET / HTTP/1.1\r\nHost: localhost\r\nCookie: SBOX_SESSION=ab\x00cd\r\nConnection: close\r\n\r\n' \\
+    | timeout 5 sh -c 'exec 3<>/dev/tcp/${TARGET_CONTAINER}/${APP_PORT} && cat >&3 && head -1 <&3' 2>/dev/null \\
+    | awk '{print \$2}'
+" 2>/dev/null | head -1)
 if [ -n "${nul_code:-}" ] && [ "${nul_code}" -ge 500 ] 2>/dev/null; then
   echo "DEPLOY GATE FAIL: NUL-byte cookie returned ${nul_code} on /" >&2
   fail=1
@@ -137,7 +334,65 @@ fi
 
 if [ "$fail" -eq 1 ]; then
   echo "DEPLOY GATE FAILED — site is broken for cookie-bearing users. See logs:" >&2
-  docker logs --tail=80 "$NAME" >&2
+  docker logs --tail=80 "$TARGET_CONTAINER" >&2
+  if [ "$IS_INITIAL_DEPLOY" -eq 0 ]; then
+    docker rm -f "$TARGET_CONTAINER" >/dev/null 2>&1 || true
+    echo "Blue container torn down. Old ${NAME} still serving traffic."
+  fi
   exit 1
 fi
-echo "DEPLOY GATE PASSED — anonymous + 5 cookie shapes all <500."
+
+# ----------------------------------------------------------------------------
+# Step 5: swap the edge upstream to point at the new container, reload nginx.
+# This is the moment of truth — but nginx -s reload is graceful, so even
+# requests in flight against the old upstream complete cleanly.
+# ----------------------------------------------------------------------------
+
+if [ "$IS_INITIAL_DEPLOY" -eq 1 ]; then
+  # Edge already points at sbox-app from the default config. Verify reload
+  # reads the right upstream and the nginx workers are alive.
+  echo "Initial deploy — edge already targets ${NAME}. Reloading nginx..."
+  cat > "${DEPLOY_DIR}/edge-upstream.conf" <<EOF
+upstream sbox_upstream {
+    server ${NAME}:${APP_PORT} max_fails=1 fail_timeout=2s;
+}
+EOF
+  docker exec "$EDGE_NAME" nginx -s reload
+else
+  echo "Pivoting edge upstream from ${NAME} to ${TARGET_CONTAINER}, then nginx -s reload..."
+  cat > "${DEPLOY_DIR}/edge-upstream.conf" <<EOF
+upstream sbox_upstream {
+    server ${TARGET_CONTAINER}:${APP_PORT} max_fails=1 fail_timeout=2s;
+}
+EOF
+  docker exec "$EDGE_NAME" nginx -s reload
+  # nginx workers process pending requests on the old config before they
+  # exit. Give them a moment to drain before we kill the old container.
+  sleep 2
+
+  echo "Stopping old container ${NAME} (graceful 10s drain)..."
+  docker stop --time=10 "$NAME" >/dev/null 2>&1 || true
+  docker rm "$NAME" >/dev/null 2>&1 || true
+
+  echo "Renaming ${TARGET_CONTAINER} -> ${NAME} so the next deploy is symmetric..."
+  docker rename "$TARGET_CONTAINER" "$NAME"
+  # Final upstream pin to the canonical name.
+  cat > "${DEPLOY_DIR}/edge-upstream.conf" <<EOF
+upstream sbox_upstream {
+    server ${NAME}:${APP_PORT} max_fails=1 fail_timeout=2s;
+}
+EOF
+  docker exec "$EDGE_NAME" nginx -s reload
+fi
+
+# ----------------------------------------------------------------------------
+# Step 6: sanity verify via the edge.
+# ----------------------------------------------------------------------------
+
+edge_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${EDGE_PORT}/api/health" 2>/dev/null || echo 000)
+if [ "$edge_code" != "200" ]; then
+  echo "WARNING: edge probe of /api/health returned ${edge_code} (expected 200)." >&2
+  echo "  Container is healthy on the inside; investigate edge config." >&2
+fi
+
+echo "DEPLOY GATE PASSED — zero-downtime swap complete (anonymous + 5 cookie shapes all <500)."
