@@ -121814,3 +121814,22 @@ textarea {
   border-radius: 8px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #4 — top nav header bar
+   csfloat .header-container: height 70px, bg transparent over rgb(21,23,28),
+     no border-bottom, no backdrop-filter, position sticky.
+   sboxmarket .nav was: height 56px, bg oklch(0.16 0.008 260 / 0.85),
+     backdrop-filter blur(18px) saturate(1.5), border-bottom 1px solid.
+   ===================================================================== */
+nav.nav {
+  height: 70px !important;
+  min-height: 70px !important;
+  background-color: rgb(21, 23, 28) !important;
+  background: rgb(21, 23, 28) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 0 none !important;
+  padding: 0 60px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4 */
