@@ -121480,3 +121480,21 @@ textarea {
   color: var(--ink) !important;
 }
 /* END inline-link unify */
+
+/* =====================================================================
+   csfloat-text-anchor body-link unify — boss-QA cycle 31, ship #54
+   ---------------------------------------------------------------------
+   .csfloat-text-anchor still uses --cta blue text — drop into the
+   neutral body-anchor family (--ink + --line-2 underline + --ink-3
+   hover) along with .inline-link from ship #53. The .muted variant
+   already lived in neutrals; nothing to change there.
+   ===================================================================== */
+.csfloat-text-anchor:not(.muted) {
+  color: var(--ink) !important;
+  text-decoration-color: var(--line-2) !important;
+}
+.csfloat-text-anchor:not(.muted):hover {
+  color: var(--ink) !important;
+  text-decoration-color: var(--ink-3) !important;
+}
+/* END csfloat-text-anchor unify */
