@@ -127172,3 +127172,96 @@ body .help-page kbd {
   font-weight: 500 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #206 */
+
+/* CSFLOAT-1:1 PARITY ship #1100 — global scrollbar thumb color
+   csfloat sets `* { scrollbar-color: oklch(0.36 0.014 260) transparent; }`
+   which is --line-2 not --bg-3. Ours used --bg-3 which is one shade darker
+   making the thumb fade into surface backgrounds. Lift to --line-2 verbatim. */
+* {
+  scrollbar-color: var(--line-2) transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1100 */
+/* CSFLOAT-1:1 PARITY ship #1101 — webkit scrollbar thumb hover canon
+   csfloat hover thumb stays in the neutral --line-2 lane.
+   Ours had `color-mix(in oklab, var(--cta) 30%, var(--line-2))` which
+   bled the brand blue into the bar on hover. Strip the mix; pure --line-2. */
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-2) !important;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-2) !important;
+  border-radius: 8px !important;
+  border: 2px solid var(--bg) !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1101 */
+/* CSFLOAT-1:1 PARITY ship #1102 — drop scroll-snap on horizontal rails
+   csfloat home rails (top-deals, just-listed, recently-viewed, similar-strip,
+   auctions-ending-soon, top-sells/top-sellers) use plain free-flow horizontal
+   scroll. They do NOT set scroll-snap-type. We added `scroll-snap-type: x`
+   plus `scroll-padding-left: 2px`, which made trackpad/wheel scrolling jump
+   to children. Match csfloat: clear snap and padding. */
+.top-sells-track,
+.top-sellers-track,
+.recently-viewed-rail,
+.top-deals-track,
+.just-listed-track,
+.auctions-ending-soon-rail,
+.similar-strip {
+  scroll-snap-type: none !important;
+  scroll-padding-left: 0 !important;
+  scroll-padding-right: 0 !important;
+}
+.top-sells-track > *,
+.top-sellers-track > *,
+.recently-viewed-rail > *,
+.top-deals-track > *,
+.just-listed-track > *,
+.auctions-ending-soon-rail > *,
+.similar-strip > * {
+  scroll-snap-align: none !important;
+  scroll-snap-stop: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1102 */
+/* CSFLOAT-1:1 PARITY ship #1103 — hide csfloat-band-row scrollbar
+   csfloat band-style strips (their card-rail equivalent) hide the scrollbar
+   entirely and rely on edge-fade + drag/wheel. Ours rendered a 6px thin
+   webkit bar on `.csfloat-band-row`. Hide via scrollbar-width: none + display:
+   none on webkit pseudo to bring parity. */
+.csfloat-band-row {
+  scrollbar-width: none !important;
+  scroll-snap-type: none !important;
+}
+.csfloat-band-row::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.csfloat-band-row::-webkit-scrollbar-thumb {
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1103 */
+/* CSFLOAT-1:1 PARITY ship #1104 — sticky nav z-index canon
+   csfloat .header-container uses `position: sticky; top: 0; z-index: 999;`.
+   Our .nav uses z-index: 50 which lets dropdowns / modal scrims slip above
+   the nav and creates click-through edge cases. Lift to 999 to match. */
+nav.nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 999 !important;
+}
+.nav {
+  z-index: 999 !important;
+}
+.subnav {
+  position: sticky !important;
+  top: var(--nav-h, 56px) !important;
+  z-index: 998 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1104 */
