@@ -3,7 +3,7 @@
 //
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
-import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, signInWithSteam, toast, highlightMatch } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths } from './router.js';
@@ -2319,7 +2319,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     setErr('');
     if (!me) { setErr('Sign in to bid'); return; }
     const a = parseFloat(amount);
-    if (!a || a < parseFloat(minNext)) { setErr(`Minimum bid is $${minNext}`); return; }
+    if (!a || a < parseFloat(minNext)) { setErr(`Minimum bid is ${fmt(minNext)}`); return; }
     setBusy(true);
     try {
       const res = await placeBid(listing.id, a, maxAmount ? parseFloat(maxAmount) : null);
@@ -2443,7 +2443,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       h('span', { className: 'auction-status-icon' }, '↑'),
       h('span', null,
         h('strong', null, 'You were outbid — '),
-        `min next bid is $${minNext}.`
+        `min next bid is ${fmt(minNext)}.`
       )
     ),
     // Soft-close extension banner — fires when we detect a positive
@@ -2675,7 +2675,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
       h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05', min: minNext,
         inputMode: 'decimal', enterKeyHint: 'send',
         'aria-label': 'Bid amount',
-        placeholder: `Min $${minNext}`, value: amount, onChange: e => setAmount(e.target.value) }),
+        placeholder: `Min ${fmt(minNext)}`, value: amount, onChange: e => setAmount(e.target.value) }),
       h('input', { className: 'wallet-amount-input', type: 'number', step: '0.05',
         inputMode: 'decimal', enterKeyHint: 'done',
         'aria-label': 'Auto-bid maximum cap',
@@ -2689,11 +2689,15 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         (() => {
           const base = parseFloat(minNext) || 0;
           if (!(base > 0)) return null;
+          // Chip labels echo the currency symbol so a CAD/EUR user
+          // sees "+CA$0.50" / "+€0.50" instead of a hardcoded "+$0.50"
+          // — the underlying bid still goes to the server as USD.
+          const sym = currencySymbol();
           const chips = [
-            { label: 'Min',    v: base },
-            { label: '+$0.50', v: +(base + 0.50).toFixed(2) },
-            { label: '+$5',    v: +(base + 5.00).toFixed(2) },
-            { label: '+10%',   v: +(base * 1.10).toFixed(2) }
+            { label: 'Min',           v: base },
+            { label: `+${sym}0.50`,   v: +(base + 0.50).toFixed(2) },
+            { label: `+${sym}5`,      v: +(base + 5.00).toFixed(2) },
+            { label: '+10%',          v: +(base * 1.10).toFixed(2) }
           ];
           return chips.map((c, i) => h('button', {
             key: i,
