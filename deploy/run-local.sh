@@ -31,6 +31,7 @@ docker run -d --name "$NAME" \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e SERVER_PORT="$PORT" \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/skinbox \
+  -e SPRING_SESSION_STORE_TYPE=none \
   -e SPRING_DATASOURCE_USERNAME=skinbox \
   -e SPRING_DATASOURCE_PASSWORD=skinbox \
   -e SPRING_DATASOURCE_DRIVER=org.postgresql.Driver \

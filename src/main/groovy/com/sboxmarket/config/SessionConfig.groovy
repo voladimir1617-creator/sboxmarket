@@ -34,8 +34,32 @@ import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHtt
  *   Still runs every 15 minutes (configured in application-prod.yml)
  *   so genuinely abandoned/expired sessions don't accumulate forever.
  */
-@Configuration
-@Profile('prod')
-@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 365 * 24 * 60 * 60)
-class SessionConfig {
-}
+// 2026-05-03 — DISABLED. Spring Session JDBC was the source of THREE site
+// outages in 24h: every poisoned cookie value carried a 0x00 NUL byte
+// straight into the JDBC bind parameter, Postgres rejected the SELECT
+// with SQLSTATE 22021, every visitor 500'd, and /error 500'd too because
+// it ran the same SessionRepositoryFilter — Tomcat fell through to its
+// stub error page. Cookie sanitizer + V60 CHECK constraints couldn't
+// fully close the gap (Tomcat strips NULs from getCookies() but leaves
+// them in the raw Cookie header that Spring Session also reads). Going
+// to in-memory Tomcat sessions until we can either (a) move the session
+// table to BYTEA columns where NUL is legal, or (b) rewrite the
+// sanitizer to ALWAYS rebuild the Cookie header (commit 3c12680
+// attempted this but only when 'dirty' was true — Tomcat-pre-stripped
+// NULs slip through that gate).
+//
+// In-memory cost: sessions don't survive `docker restart sbox-app`.
+// Acceptable until the bug is closed root-and-branch. Operator already
+// understands TRUNCATE = re-login; container restart now has the same
+// effect.
+//
+// To re-enable: uncomment + restore @EnableJdbcHttpSession AND remove
+// SPRING_SESSION_STORE_TYPE=none from deploy/run-local.sh. Verify the
+// sanitizer in SessionCookieSanitizerFilter.groovy ALWAYS installs the
+// HttpServletRequestWrapper (not gated on dirty) so the rebuilt Cookie
+// header is what Spring Session sees.
+//@Configuration
+//@Profile('prod')
+//@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 365 * 24 * 60 * 60)
+//class SessionConfig {
+//}

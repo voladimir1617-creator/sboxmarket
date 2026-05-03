@@ -123,10 +123,15 @@ class SessionCookieSanitizerFilter implements Filter {
             }
         }
 
-        if (!dirty) {
-            chain.doFilter(httpReq, httpRes)
-            return
-        }
+        // ALWAYS install the wrapper (don't gate on `dirty`). Tomcat strips
+        // NUL bytes from cookie VALUES during getCookies() parsing — so
+        // the loop above sees clean cookies and decides nothing needs
+        // cleaning — but the RAW Cookie header still carries the NUL,
+        // and Spring Session's DefaultCookieSerializer reads getHeader
+        // ('Cookie') instead of getCookies(). Always wrap so the raw
+        // header is replaced with one rebuilt from the parsed (and
+        // therefore Tomcat-cleaned) cookies. Cost: one extra string
+        // allocation per request.
         // Re-present the request with the cleaned cookie set so anything
         // downstream sees only valid cookies. ALSO wrap the raw Cookie
         // header — Spring Session's DefaultCookieSerializer can read the
