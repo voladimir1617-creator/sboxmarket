@@ -23,6 +23,7 @@ class ItemController {
     @Autowired com.sboxmarket.repository.ListingRepository listingRepository
     @Autowired(required = false) com.sboxmarket.service.SboxApiService sboxApiService
     @Autowired(required = false) com.sboxmarket.service.SteamMarketPriceService steamMarketPriceService
+    @Autowired(required = false) com.sboxmarket.service.ListingFloorRefreshService listingFloorRefreshService
 
     /** View-count dedupe cache (batch 413). Maps "ip|itemId" → last-bump
      *  epoch-ms. Prevents a single IP from inflating an item's view count
@@ -289,5 +290,37 @@ class ItemController {
         ResponseEntity.ok()
             .header('Cache-Control', 'public, max-age=60')
             .body(stats)
+    }
+
+    /** Public freshness probe — drives the "Prices updated Xs ago" chip
+     *  on the marketplace grid and the Sell modal. Combines the two
+     *  refresh sources:
+     *   1. ListingFloorRefreshService — recomputes lowestPrice from
+     *      active listings every 60s (the dominant signal — covers
+     *      cancels, sales, new listings, off-path drift).
+     *   2. SteamMarketPriceService — pulls Steam Community Market
+     *      prices every 30 min for unlisted items (rate-limited).
+     *  The chip shows the more recent of the two so a user can tell
+     *  the system is alive. Cheap (in-memory snapshot read), public,
+     *  short-cache so the chip stays accurate. */
+    @GetMapping("/price-refresh-status")
+    ResponseEntity<Map> priceRefreshStatus() {
+        Map floor = null
+        Map steam = null
+        try { floor = listingFloorRefreshService?.lastRunSummary } catch (Exception ignore) {}
+        try { steam = steamMarketPriceService?.lastRunSummary }    catch (Exception ignore) {}
+
+        long floorAt = (floor?.finishedAt ?: 0L) as long
+        long steamAt = (steam?.finishedAt ?: 0L) as long
+        long lastAt  = Math.max(floorAt, steamAt)
+
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=10')
+            .body([
+                lastUpdatedAt: lastAt,
+                floor:         floor,
+                steam:         steam,
+                serverNow:     System.currentTimeMillis()
+            ] as Map)
     }
 }

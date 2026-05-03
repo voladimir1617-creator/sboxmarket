@@ -201,6 +201,14 @@ app:
     from:      ${EMAIL_FROM:no-reply@skinbox.local}
     from-name: ${EMAIL_FROM_NAME:SkinBox}
   public-url:  ${APP_PUBLIC_URL:http://localhost:8080}
+  # Listing-floor refresh sweep — recomputes every catalogue item's
+  # `lowestPrice` from active listings every 60s. ON by default; ops
+  # can flip it off via APP_PRICE_REFRESH_ENABLED=false without a
+  # redeploy if the sweep ever misbehaves under load. The on-mutation
+  # path (ListingService.updateItemFloorPrice) keeps prices fresh in
+  # the happy case — this sweep covers off-path drift.
+  price-refresh:
+    enabled: ${APP_PRICE_REFRESH_ENABLED:true}
 
 # Sentry — error tracking + performance. Set SENTRY_DSN in the environment
 # to enable. When unset the SDK is a silent no-op.
