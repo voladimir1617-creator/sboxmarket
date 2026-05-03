@@ -5299,7 +5299,20 @@ export function App() {
            localStorage + window.SBOX_CURRENCY; the storage event in
            the bumpCurrency effect re-renders every fmt() call site. */
         h(NavPicker, {
-          label: (typeof window !== 'undefined' && window.SBOX_CURRENCY) || 'USD',
+          // Picker label sources THREE places in this priority order so
+          // it stays in sync with whatever fmt() reads from. Was: only
+          // window.SBOX_CURRENCY which is only set on click — after a
+          // page navigation the click-side write is lost and the chip
+          // showed "USD" while every price on the page was already CA$
+          // because fmt() reads localStorage.
+          label: (() => {
+            try {
+              if (typeof window !== 'undefined' && window.SBOX_CURRENCY) return window.SBOX_CURRENCY;
+              const ls = (typeof localStorage !== 'undefined') ? localStorage.getItem('sb_currency') : null;
+              if (ls) return ls;
+            } catch (_) {}
+            return 'USD';
+          })(),
           ariaLabel: 'Currency selector',
           options: [
             { code: 'USD', flag: '$',  name: 'US Dollar',         active: true },
@@ -5321,7 +5334,14 @@ export function App() {
           }
         }),
         h(NavPicker, {
-          label: (typeof window !== 'undefined' && window.SBOX_LANG) || 'EN',
+          label: (() => {
+            try {
+              if (typeof window !== 'undefined' && window.SBOX_LANG) return window.SBOX_LANG;
+              const ls = (typeof localStorage !== 'undefined') ? localStorage.getItem('sb_lang') : null;
+              if (ls) return ls;
+            } catch (_) {}
+            return 'EN';
+          })(),
           ariaLabel: 'Language selector',
           options: [
             { code: 'EN', flag: '🇺🇸', name: 'English',  active: true },
