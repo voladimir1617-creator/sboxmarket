@@ -136,6 +136,10 @@ export function navigate(path, replace = false) {
   if (!path) return;
   const current = window.location.pathname + window.location.search + window.location.hash;
   if (path === current) return;
+  // Boss QA cycle 31 ship #22 — top progress bar. Kick the bar before
+  // we touch history so the user sees feedback immediately on click,
+  // even on a route whose render is synchronous and finishes < 1 frame.
+  routeProgressKick();
   // Snapshot the OUTGOING url's scroll before we push the new entry, so
   // browser-back restores this exact position.
   if (!replace) snapshotScroll();
@@ -244,4 +248,32 @@ export function installAnchorInterceptor() {
     e.preventDefault();
     navigate(href);
   });
+}
+
+// ── Top route progress bar ─────────────────────────────────────────
+// Modern SPA pattern: thin coloured bar at the very top of the viewport
+// that flashes during navigation so users know their click registered.
+// Pure CSS animation, no library — kicked by navigate() and the browser
+// back/forward popstate listener. Single-flight: a second navigation
+// while the bar is still travelling restarts the keyframe.
+let _progressEl = null;
+function routeProgressKick() {
+  try {
+    if (!_progressEl) {
+      _progressEl = document.createElement('div');
+      _progressEl.id = 'sb-route-progress';
+      _progressEl.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(_progressEl);
+    }
+    // Restart animation by toggling the class — `void offsetWidth`
+    // forces a reflow so the keyframe re-plays from 0%.
+    _progressEl.classList.remove('on');
+    void _progressEl.offsetWidth;
+    _progressEl.classList.add('on');
+  } catch (_) { /* no-op — never let a UI affordance break navigation */ }
+}
+// Browser back/forward should also surface the bar so the same feedback
+// is consistent whether the user clicks an in-app link or hits ⌘[.
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => routeProgressKick());
 }

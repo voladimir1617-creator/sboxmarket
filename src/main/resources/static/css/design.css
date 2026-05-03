@@ -122144,3 +122144,108 @@ textarea {
   color: #a78bfa;
 }
 /* END profile-page audit fixes 2026-05-03 */
+
+/* =====================================================================
+   Boss QA cycle 31, ship #21 — final UI polish pass (2026-05-03)
+   ---------------------------------------------------------------------
+   Five operator-facing affordances any premium marketplace expects:
+   (a) Top route-progress bar — thin accent strip at the viewport top
+       flashes during SPA navigation. Driven by router.routeProgressKick().
+   (b) Grid-card thumbnail micro-zoom on hover — the card already lifts
+       (translateY -3px) and accents its border; pair it with a 1.04×
+       image scale so the picture itself reacts to the cursor too.
+   (c) Skeleton → real-card fade-in. The grid swap was a snap; soft
+       fade-in on the .listing-grid > .grid-card so the reveal feels
+       calm, not abrupt.
+   (d) Toast stack: vertical gap, slide-out animation, dedicated ✕
+       close button styled as a quiet ghost glyph.
+   (e) Empty-state icon micro-pulse on first paint so the operator's
+       eye is drawn to "Clear filters" instead of glossing past the card.
+   ===================================================================== */
+#sb-route-progress {
+  position: fixed; top: 0; left: 0;
+  height: 2px; width: 100%;
+  background: transparent;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+}
+#sb-route-progress::before {
+  content: ''; display: block;
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--cta) 70%, transparent) 0%,
+    var(--cta) 50%,
+    color-mix(in oklab, var(--cta) 70%, transparent) 100%);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--cta) 60%, transparent);
+}
+#sb-route-progress.on { opacity: 1; animation: route-progress-fade 720ms ease-out forwards; }
+#sb-route-progress.on::before { animation: route-progress-bar 720ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+@keyframes route-progress-bar {
+  0%   { width: 0%;   }
+  35%  { width: 55%;  }
+  70%  { width: 85%;  }
+  100% { width: 100%; }
+}
+@keyframes route-progress-fade {
+  0%, 70% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+
+/* Grid-card thumbnail micro-zoom on hover. The cascade has many
+   .grid-card:hover .grid-thumb img rules earlier (transforms, filters);
+   use !important on transform here so this final pass wins regardless
+   of which prior rule fires first in the cascade. */
+.grid-card .grid-thumb img,
+.grid-card .grid-thumb .item-image {
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              filter 320ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.grid-card:hover .grid-thumb img,
+.grid-card:hover .grid-thumb .item-image {
+  transform: scale(1.04) !important;
+}
+
+/* Skeleton → real-grid fade-in. Animation runs once per mount; the
+   `forwards` fill-mode pins the final state so re-renders past the
+   first don't re-animate. Keyed off `.listing-grid > .grid-card`
+   only — auction/stall card variants in other contexts unaffected. */
+@keyframes grid-card-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.listing-grid > .grid-card {
+  animation: grid-card-fade-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Respect reduced-motion preferences — operator with vestibular
+   sensitivity gets the content without the slide-up. */
+@media (prefers-reduced-motion: reduce) {
+  .listing-grid > .grid-card,
+  #sb-route-progress.on,
+  #sb-route-progress.on::before { animation-duration: 0.001ms !important; }
+  .grid-card:hover .grid-thumb img,
+  .grid-card:hover .grid-thumb .item-image { transform: none !important; }
+}
+
+/* Toast: stacked, with explicit close button + slide-out animation. */
+.toast-stack { gap: 10px; }
+.sale-toast { position: relative; }
+.sale-toast-close {
+  background: transparent; border: 0;
+  color: var(--ink-3);
+  font-size: 14px; line-height: 1;
+  padding: 4px 6px; margin-left: 4px;
+  cursor: pointer; border-radius: 4px;
+  align-self: flex-start;
+  transition: color 120ms ease, background 120ms ease;
+}
+.sale-toast-close:hover  { color: var(--ink); background: var(--bg-2); }
+.sale-toast-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cta) 40%, transparent);
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(12px); }
+}
+.sale-toast.toast-out { animation: toast-out 180ms ease-in forwards; }
+/* END boss QA cycle 31 ship #21 final UI polish */
