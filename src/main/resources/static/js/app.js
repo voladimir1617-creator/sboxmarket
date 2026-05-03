@@ -3047,7 +3047,7 @@ export function App() {
       else if (p.startsWith('/item/'))    base = 'Item Not Found · SkinBox';
     }
     // Preserve any (N) unread-notifications prefix set by NotificationBell.
-    const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+    const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
     document.title = currentPrefix + base;
   }, [routeName, route.params && route.params.tab, route.path]);
 
@@ -3653,7 +3653,7 @@ export function App() {
       // empty-state instead of spinning forever on a bad id.
       setStallData(stall || { __notFound: true });
       try {
-        const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+        const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
         if (stall?.seller?.displayName) {
           document.title = currentPrefix + stall.seller.displayName + "'s Stall · SkinBox";
         } else if (!stall) {
@@ -4761,7 +4761,7 @@ export function App() {
           setSelected({ item, listings: itemListings, history });
           // Refine the route-driven title with the real item name — e.g.
           // "Black Modern Watch · SkinBox". Preserves the unread prefix.
-          const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+          const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
           document.title = currentPrefix + (item.name || 'Item') + ' · SkinBox';
           // Track recently viewed for the homepage rail — keep the last 12,
           // newest first, deduped by item id. Pure localStorage, no backend.
@@ -4782,7 +4782,7 @@ export function App() {
           // Pre-fix bug: the recently-viewed writeback was misnested in
           // this branch and dereferenced `item.id`/`.name` on a null
           // item, throwing TypeError on every dead /item/:id link.
-          const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+          const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
           document.title = currentPrefix + 'Item not found · SkinBox';
         }
       } catch (e) { console.error(e); }

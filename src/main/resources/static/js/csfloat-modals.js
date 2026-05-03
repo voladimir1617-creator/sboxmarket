@@ -1077,7 +1077,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     // Reflect the not-found state in the page title too so browser tab +
     // history don't read as a generic "Loadout · SkinBox" placeholder.
     try {
-      const currentPrefix = (document.title.match(/^(\(\d+\)\s+)/) || [, ''])[1];
+      const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
       document.title = currentPrefix + 'Loadout not found · SkinBox';
     } catch (_) {}
     return h(InfoModal, { title: 'Loadout', onClose },

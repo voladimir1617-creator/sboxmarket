@@ -286,10 +286,13 @@ export function NotificationBell({ me }) {
   // CSFloat does the same; Slack, GitHub, Gmail all use this convention.
   // Restored on unmount so the base title isn't leaked to downstream pages.
   useEffect(() => {
-    const base = document.title.replace(/^\(\d+\)\s+/, '');
+    // Strip any prior `(…) ` prefix — `\d+` alone fails on the `99+`
+    // overflow label, leaving "(99+) (99+) Title" accumulating after
+    // every state change once the user crosses 100 unread.
+    const base = document.title.replace(/^\([^)]+\)\s+/, '');
     document.title = unread > 0 ? `(${unread > 99 ? '99+' : unread}) ${base}` : base;
     return () => {
-      document.title = document.title.replace(/^\(\d+\)\s+/, '');
+      document.title = document.title.replace(/^\([^)]+\)\s+/, '');
     };
   }, [unread]);
 
