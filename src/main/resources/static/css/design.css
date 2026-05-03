@@ -121054,3 +121054,20 @@ textarea:focus-visible {
 .sale-toast.err  { border-left: 3px solid var(--down) !important; }
 .sale-toast.success { border-left: 3px solid oklch(0.72 0.18 152) !important; }
 /* END toast polish */
+
+/* =====================================================================
+   ::selection color cleanup — boss-QA cycle 31, ship #20
+   ---------------------------------------------------------------------
+   Three ::selection declarations all tint the highlight with --cta
+   blue (35% / 35% / 32% opacity, plus an oklch hard-coded variant).
+   Per the design rule "blue is spice", text selection should not
+   broadcast brand color — replace with a neutral --ink tint at ~22%
+   so the highlight is visible but tonally calm.
+   ===================================================================== */
+::selection,
+::-moz-selection {
+  background: color-mix(in oklab, var(--ink) 22%, transparent) !important;
+  color: var(--ink) !important;
+  text-shadow: none !important;
+}
+/* END selection cleanup */
