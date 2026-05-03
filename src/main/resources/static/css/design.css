@@ -121180,3 +121180,19 @@ textarea:focus-visible {
   background: var(--ink-4) !important;
 }
 /* END pulse ticker polish */
+
+/* =====================================================================
+   Scrollbar thumb hover neutralizer — boss-QA cycle 31, ship #27
+   ---------------------------------------------------------------------
+   ::-webkit-scrollbar-thumb:hover at line 14296 paints with --cta blue
+   at 60% mix — yet another chrome control broadcasting brand color
+   when the thumb is dragged. Override to neutral --ink-2 at 50% mix
+   so the scrollbar stays visually quiet.
+   ===================================================================== */
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--ink-2) 50%, var(--ink-4)) !important;
+}
+::-webkit-scrollbar-thumb:active {
+  background: color-mix(in oklab, var(--ink) 38%, var(--ink-4)) !important;
+}
+/* END scrollbar polish */
