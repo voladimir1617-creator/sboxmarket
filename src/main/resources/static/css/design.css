@@ -121092,3 +121092,42 @@ textarea:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
 }
 /* END modal close polish */
+
+/* =====================================================================
+   Tabular-nums numeric alignment — boss-QA cycle 31, ship #24
+   ---------------------------------------------------------------------
+   Prices, balances, transaction amounts, and pulse-ticker numerals all
+   render in Geist Mono — but Geist Mono ships with proportional
+   numerals by default, so a column of prices like "$12.50 / $9.99 /
+   $124.00" doesn't actually align decimal points or thousands
+   separators. Force `font-variant-numeric: tabular-nums` on numeric
+   surfaces so columns of currency align cleanly.
+   ===================================================================== */
+.grid-price,
+.grid-steam-price,
+.wallet-bal,
+.tx-amount,
+.csfloat-price,
+.csfloat-floats-num,
+.csfloat-podium-tile-rank,
+.modal-bid-row,
+.csfloat-stat-num,
+.cf-feebar-amount,
+.auction-countdown,
+.summary .v,
+.admin-stats .v,
+.db-stats .v,
+.release-side .rv,
+.pulse-item .price,
+.modal-listing-price {
+  font-variant-numeric: tabular-nums !important;
+}
+/* Apply globally to anything using the mono token so future numeric
+   surfaces inherit the alignment without rule churn. */
+[class*="-price"],
+[class*="-amount"],
+[class*="-bal"],
+[class*="-num"] {
+  font-variant-numeric: tabular-nums;
+}
+/* END tabular-nums */
