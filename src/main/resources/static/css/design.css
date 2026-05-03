@@ -121979,3 +121979,23 @@ nav.nav .nav-logo-live {
   display: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10 — footer container background
+   csfloat: footer body is transparent; visible card is rgb(27,29,36)
+     (#1B1D24) with 30px padding, no border-top.
+   sboxmarket was: footer.site-footer with bg oklch(0.17 0.008 260)
+     (lighter, blue-tinted) and 60px 24px 28px padding.
+   Match csfloat: paint footer with rgb(27,29,36) and use 30px padding.
+   ===================================================================== */
+footer.site-footer {
+  background-color: rgb(27, 29, 36) !important;
+  background: rgb(27, 29, 36) !important;
+  padding: 30px !important;
+  border-top: 0 none !important;
+}
+footer.site-footer .site-footer-inner {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10 */
