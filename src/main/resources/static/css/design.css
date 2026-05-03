@@ -121259,3 +121259,23 @@ textarea:focus-visible {
   border-color: var(--line-2) !important;
 }
 /* END subnav + footer-social polish */
+
+/* =====================================================================
+   Toggle-switch focus de-blue — boss-QA cycle 31, ship #32
+   ---------------------------------------------------------------------
+   Ship #1's `:focus-visible` sweep didn't include `.toggle-switch`,
+   so its custom focus-visible at line 9060 still paints with --cta
+   30% blue. Override to --ink-2 22% to match the rest of the focus
+   palette. The on-state blue (background + box-shadow) stays — that's
+   conveying semantic "engaged/affirmative" state, like an active tab.
+   ===================================================================== */
+.toggle-switch:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
+}
+.toggle-switch.on:focus-visible {
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--cta) 25%, transparent),
+    0 4px 12px color-mix(in oklab, var(--cta) 25%, transparent) !important;
+}
+/* END toggle focus polish */
