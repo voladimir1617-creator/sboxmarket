@@ -122,4 +122,119 @@ class HealthController {
             .header('Cache-Control', 'public, max-age=600')
             .body([version: appVersion, startupAt: STARTUP_AT])
     }
+
+    /**
+     * Cookie-aware healthcheck (added 2026-05-03 after the FOURTH NUL-byte
+     * session outage in 24h).
+     *
+     * The previous outages were invisible to /api/health and /api/ready
+     * because both endpoints are anonymous: they never touch
+     * SPRING_SESSION, so a Postgres SQLSTATE 22021 on every authed
+     * request returned 200 here. The Boss QA worker shipped 79 design
+     * tweaks during the 24h while logged-in users 500'd, because the
+     * uptime monitor pinged the wrong probe.
+     *
+     * What this does (PURE READ-ONLY synthetic probe — does NOT
+     * persist anything to the session store):
+     *   1. Bind a known-GOOD UUID into the same SELECT shape Spring
+     *      Session JDBC executes (`SELECT 1 FROM SPRING_SESSION WHERE
+     *      SESSION_ID = ?`).  Verifies the table is reachable, the
+     *      schema matches, and the JDBC pool is alive.
+     *   2. Bind a known-POISONED but printable UUID-shaped value (a
+     *      stale UUID that no real session ever used).  This mirrors
+     *      what JdbcIndexedSessionRepository.findById sees when a
+     *      sanitised cookie reaches the SELECT — Postgres must return
+     *      zero rows without throwing.  The unsanitised NUL-byte
+     *      shape is covered by the deploy gate in run-local.sh which
+     *      replays it via raw TCP end-to-end against / and /market.
+     *
+     * Cloudflare uptime monitoring should target THIS endpoint — it
+     * trips the moment the table is missing, the schema drifts, the
+     * pool is exhausted, or the SELECT shape changes underneath us.
+     * Both probes run on the same connection so a flaky pool can't
+     * pass one and fail the other.
+     *
+     * No-store: identical reasoning to /api/ready — a cached 200 would
+     * pin the LB to "healthy" right through the next outage.
+     */
+    @GetMapping(['/api/health/cookie-aware', '/api/health/cookie-aware/'])
+    ResponseEntity<Map> cookieAware() {
+        def noStore = 'no-store, no-cache, must-revalidate'
+        if (dataSource == null) {
+            return ResponseEntity.status(503)
+                .header('Cache-Control', noStore)
+                .body([status: 'DOWN', reason: 'no-datasource'])
+        }
+        // Known-good 36-char UUID, formatted exactly like Spring Session's
+        // PRIMARY_ID/SESSION_ID columns (CHAR(36)).  The all-zeros UUID
+        // is universally unused by real sessions but legal as a bind.
+        final String GOOD_UUID = '00000000-0000-0000-0000-000000000000'
+        // Known-poisoned: a UUID-shaped value matching the historic
+        // poisoned-cookie payload (same one the deploy gate replays in
+        // its `stale-uuid` probe). UUID-shaped, well-formed, but a
+        // session that should never exist — exercises the SELECT bind
+        // path that JdbcIndexedSessionRepository.findById walks every
+        // request.
+        final String POISONED  = '11111111-2222-3333-4444-555555555555'
+        // Probe SQL — same SELECT shape as JdbcIndexedSessionRepository's
+        // findById path.  We don't actually need rows back; we just need
+        // the bind to succeed without throwing.
+        final String SQL = 'SELECT 1 FROM SPRING_SESSION WHERE SESSION_ID = ?'
+
+        def conn = null
+        try {
+            conn = dataSource.connection
+            // Probe 1: known-good UUID. Must not throw.
+            try {
+                def ps = conn.prepareStatement(SQL)
+                try {
+                    ps.setString(1, GOOD_UUID)
+                    def rs = ps.executeQuery()
+                    try { /* drain */ rs.next() } finally { rs.close() }
+                } finally {
+                    ps.close()
+                }
+            } catch (Exception e) {
+                log.warn("cookie-aware probe FAIL on known-good UUID: ${e.class.name}: ${e.message}")
+                return ResponseEntity.status(503)
+                    .header('Cache-Control', noStore)
+                    .body([status: 'DOWN', reason: 'good-uuid-threw',
+                           exception: e.class.name, message: (e.message ?: '')])
+            }
+            // Probe 2: poisoned (stale) UUID. Must return zero rows and
+            // not throw — this is the shape a sanitised inbound cookie
+            // produces when Spring Session looks up a non-existent
+            // session id.  If Postgres throws here, the SPRING_SESSION
+            // table is in a degraded state (constraint mismatch, schema
+            // drift, etc.) and authed traffic will follow.
+            try {
+                def ps = conn.prepareStatement(SQL)
+                try {
+                    ps.setString(1, POISONED)
+                    def rs = ps.executeQuery()
+                    try { rs.next() } finally { rs.close() }
+                } finally {
+                    ps.close()
+                }
+            } catch (Exception e) {
+                log.warn("cookie-aware probe FAIL on poisoned UUID: ${e.class.name}: ${e.message}")
+                return ResponseEntity.status(503)
+                    .header('Cache-Control', noStore)
+                    .body([status: 'DOWN', reason: 'poisoned-uuid-threw',
+                           exception: e.class.name, message: (e.message ?: '')])
+            }
+        } catch (Exception e) {
+            // Couldn't even acquire a connection — fall through as 503.
+            log.warn("cookie-aware probe FAIL on connection acquire: ${e.class.name}: ${e.message}")
+            return ResponseEntity.status(503)
+                .header('Cache-Control', noStore)
+                .body([status: 'DOWN', reason: 'connection-failed',
+                       exception: e.class.name, message: (e.message ?: '')])
+        } finally {
+            try { if (conn != null) conn.close() } catch (Exception ignored) {}
+        }
+        ResponseEntity.ok()
+            .header('Cache-Control', noStore)
+            .body([status: 'UP', probes: ['good-uuid', 'poisoned-uuid']])
+    }
 }
