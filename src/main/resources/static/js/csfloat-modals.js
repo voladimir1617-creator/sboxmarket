@@ -191,7 +191,10 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         className: 'price-input', style: { width: 90 },
         type: 'number', min: '0', max: '100000', step: '0.01',
         inputMode: 'decimal',
-        placeholder: '$ Min', value: minPrice,
+        // Currency-aware placeholder so a CAD/EUR/etc. user sees
+        // "CA$ Min" / "€ Min" — matches the marketplace price-range
+        // chips sweep (commit 9038358).
+        placeholder: `${currencySymbol()} Min`, value: minPrice,
         onChange: e => setMinPrice(e.target.value),
         'aria-label': 'Minimum floor price',
         title: 'Minimum floor price (blank = no lower bound)'
@@ -200,7 +203,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         className: 'price-input', style: { width: 90 },
         type: 'number', min: '0', max: '100000', step: '0.01',
         inputMode: 'decimal',
-        placeholder: '$ Max', value: maxPrice,
+        placeholder: `${currencySymbol()} Max`, value: maxPrice,
         onChange: e => setMaxPrice(e.target.value),
         'aria-label': 'Maximum floor price',
         title: 'Maximum floor price (blank = no upper bound)'
