@@ -121599,3 +121599,15 @@ textarea {
   background: transparent !important;
 }
 /* END nav-link hover polish */
+
+/* =====================================================================
+   cart-row + filter-rarity-row hover de-blue — boss-QA cycle 31, ship #66
+   ---------------------------------------------------------------------
+   .cart-row:hover at line 14125 paints with --cta 4% wash; the
+   /cart row scan flashes blue on every hover. Switch to neutral
+   --bg-2 hover for consistency with db-row / wallet-tx-list hovers.
+   ===================================================================== */
+.cart-row:hover {
+  background: var(--bg-2) !important;
+}
+/* END cart-row hover polish */
