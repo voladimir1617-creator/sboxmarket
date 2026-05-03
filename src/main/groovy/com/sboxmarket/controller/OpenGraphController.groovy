@@ -66,11 +66,25 @@ class OpenGraphController {
      * leaked `http://localhost:8082/item/...` into Discord / Facebook /
      * Twitter previews. Honors `X-Forwarded-{Proto,Host}` set by Cloudflare,
      * falls back to the direct `Host` header, finally the env var.
+     *
+     * Production-host scheme upgrade: the cloudflared → nginx hop is
+     * plain HTTP, and nginx overwrites `X-Forwarded-Proto` with its own
+     * `$scheme` variable — which is `http`, not the original Cloudflare
+     * `https`. Result: every shared item URL leaked as `http://skinbox.market/...`
+     * even though TLS is mandatory at the edge. Detect the production host
+     * and force https — local dev (`localhost:8082`) is unaffected.
      */
     String resolveBaseUrl(HttpServletRequest req) {
         if (req != null) {
             String proto = req.getHeader('X-Forwarded-Proto') ?: req.getHeader('X-Forwarded-Scheme') ?: req.scheme
             String host = req.getHeader('X-Forwarded-Host') ?: req.getHeader('Host') ?: req.serverName
+            // Production host always serves over HTTPS — Cloudflare HSTS
+            // upgrades any plain-HTTP attempt before it reaches us. Honor
+            // that invariant when the upstream nginx hop has stamped
+            // `http` on `X-Forwarded-Proto`.
+            if (host && (host.equalsIgnoreCase('skinbox.market') || host.equalsIgnoreCase('www.skinbox.market'))) {
+                proto = 'https'
+            }
             if (proto && host) {
                 String url = "${proto}://${host}".toString()
                 return url.endsWith('/') ? url.substring(0, url.length() - 1) : url
@@ -151,7 +165,29 @@ class OpenGraphController {
         // SKUs). Out-of-stock items drop the price block and mark
         // availability=OutOfStock so Google doesn't show stale pricing.
         def jsonLd = itemJsonLd(item, url, image, name)
-        out = out.replace('</head>', "  <script type=\"application/ld+json\">${jsonLd}</script>\n</head>")
+
+        // og:price:amount + og:price:currency — Facebook's Open Graph
+        // Product object spec recommends both for rich shopping
+        // previews. The static template doesn't ship placeholders for
+        // these (every other route would render an empty meta), so we
+        // inject them inline only on in-stock items. og:availability
+        // mirrors the JSON-LD signal so Discord / FB / Pinterest can
+        // display "in stock" badges without parsing schema.org. og:image:alt
+        // gives the screen-reader story for the social-card image.
+        def ogProductTags = new StringBuilder()
+        ogProductTags.append('  <meta property="og:image:alt" content="').append(escape(name)).append(' on SkinBox">\n')
+        if (item.lowestPrice != null && item.lowestPrice > BigDecimal.ZERO) {
+            def priceAmt = item.lowestPrice.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString()
+            ogProductTags.append('  <meta property="og:price:amount" content="').append(priceAmt).append('">\n')
+            ogProductTags.append('  <meta property="og:price:currency" content="USD">\n')
+            ogProductTags.append('  <meta property="product:price:amount" content="').append(priceAmt).append('">\n')
+            ogProductTags.append('  <meta property="product:price:currency" content="USD">\n')
+            ogProductTags.append('  <meta property="og:availability" content="instock">\n')
+        } else {
+            ogProductTags.append('  <meta property="og:availability" content="oos">\n')
+        }
+        out = out.replace('</head>',
+            "${ogProductTags}  <script type=\"application/ld+json\">${jsonLd}</script>\n</head>")
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)

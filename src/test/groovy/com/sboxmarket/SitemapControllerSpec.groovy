@@ -76,6 +76,27 @@ class SitemapControllerSpec extends Specification {
         body.contains('<loc>http://localhost:8082/</loc>')
     }
 
+    def "production host forces https even when X-Forwarded-Proto is http (cloudflared->nginx hop)"() {
+        // The cloudflared → nginx hop is plain HTTP and nginx replaces
+        // X-Forwarded-Proto with its own $scheme (`http`). Without the
+        // explicit production-host check, sitemap entries leaked as
+        // `http://skinbox.market/...` — Google would index the http URL,
+        // hit a 308 redirect on every crawl, and split crawl budget.
+        given:
+        itemRepository.findAllForSitemap(_) >> []
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/sitemap.xml')
+        r.scheme = 'http'
+        r.addHeader('Host', 'skinbox.market')
+        r.addHeader('X-Forwarded-Proto', 'http')
+
+        when:
+        def body = controller.sitemap(r).body as String
+
+        then:
+        body.contains('<loc>https://skinbox.market/</loc>')
+        !body.contains('<loc>http://skinbox.market')
+    }
+
     def "sitemap emits every static URL"() {
         given:
         itemRepository.findAllForSitemap(_) >> []

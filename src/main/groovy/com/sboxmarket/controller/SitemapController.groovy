@@ -208,6 +208,14 @@ class SitemapController {
         String host = req.getHeader('X-Forwarded-Host')
             ?: req.getHeader('Host')
             ?: req.serverName
+        // Production-host scheme upgrade — cloudflared → nginx is plain HTTP
+        // and nginx overwrites `X-Forwarded-Proto` with its own `$scheme`
+        // (`http`). Sitemap entries previously leaked as `http://skinbox.market/...`
+        // which fed crawlers a non-canonical URL. Force https for the
+        // production host; local dev (`localhost:8082`) is unaffected.
+        if (host && (host.equalsIgnoreCase('skinbox.market') || host.equalsIgnoreCase('www.skinbox.market'))) {
+            proto = 'https'
+        }
         if (host && proto) {
             // Strip port from host if it's the default for the scheme
             // (Cloudflare always sends just the hostname, but local dev

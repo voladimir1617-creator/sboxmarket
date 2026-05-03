@@ -173,6 +173,80 @@ class OpenGraphControllerSpec extends Specification {
         !body.contains('"price":')
     }
 
+    // ── og:price + og:availability + og:image:alt injection ────
+
+    def "itemPage injects og:price:amount + og:price:currency + og:availability for in-stock items"() {
+        given:
+        // Facebook's Open Graph Product spec recommends both og:price:* and
+        // product:price:* tags. Pinterest reads product:price:*; Discord +
+        // Slack key off og:price:*. Without these, share previews showed
+        // a title + image but no price chip — buyers had to click through
+        // to know the floor.
+        def item = new Item(id: 7L, name: 'Wizard Hat', lowestPrice: new BigDecimal('4.98'),
+            imageUrl: 'https://example.com/wizard.png')
+        itemRepository.findById(7L) >> Optional.of(item)
+
+        when:
+        def body = controller.itemPage('7', req()).body as String
+
+        then:
+        body.contains('<meta property="og:price:amount" content="4.98">')
+        body.contains('<meta property="og:price:currency" content="USD">')
+        body.contains('<meta property="product:price:amount" content="4.98">')
+        body.contains('<meta property="product:price:currency" content="USD">')
+        body.contains('<meta property="og:availability" content="instock">')
+        body.contains('<meta property="og:image:alt" content="Wizard Hat on SkinBox">')
+    }
+
+    def "itemPage drops og:price tags but keeps og:availability=oos for out-of-stock items"() {
+        given:
+        def item = new Item(id: 7L, name: 'Rare Hat', lowestPrice: null, imageUrl: null)
+        itemRepository.findById(7L) >> Optional.of(item)
+
+        when:
+        def body = controller.itemPage('7', req()).body as String
+
+        then:
+        // No price tags when there's nothing to quote — leaving them at
+        // "0.00" would mislead crawlers into showing a free-item card.
+        !body.contains('og:price:amount')
+        !body.contains('og:price:currency')
+        body.contains('<meta property="og:availability" content="oos">')
+    }
+
+    // ── Production-host scheme upgrade ──────────────────────────
+
+    def "resolveBaseUrl forces https when host is the production domain even if X-Forwarded-Proto is http"() {
+        given:
+        // Reproduces the bug: nginx hop overwrites X-Forwarded-Proto with
+        // its own $scheme (`http`) because cloudflared → nginx is plain.
+        // Production share previews leaked `http://skinbox.market/...`
+        // even though the actual user TLS is enforced upstream.
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/item/3')
+        r.addHeader('Host', 'skinbox.market')
+        r.addHeader('X-Forwarded-Proto', 'http')
+        r.scheme = 'http'
+
+        when:
+        def base = controller.resolveBaseUrl(r)
+
+        then:
+        base == 'https://skinbox.market'
+    }
+
+    def "resolveBaseUrl preserves http for local dev hosts"() {
+        given:
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/item/3')
+        r.addHeader('Host', 'localhost:8082')
+        r.scheme = 'http'
+
+        when:
+        def base = controller.resolveBaseUrl(r)
+
+        then:
+        base == 'http://localhost:8082'
+    }
+
     def "JSON-LD escapes HTML-breaking characters in item names so </script> can't be smuggled in"() {
         given:
         // Adversarial item name that would otherwise close the <script>
