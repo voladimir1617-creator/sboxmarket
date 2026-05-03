@@ -121955,3 +121955,27 @@ nav.nav .steam-btn .steam-btn-text {
   line-height: normal !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #8 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9 — header logo (icon-only, no text)
+   csfloat .logo: 40x40 image, no padding, no margin extras.
+   sboxmarket .nav-logo was: 168x32, with svg 26x26 + text "SkinBox" 15px/600
+     + small "live" badge — totally different shape.
+   Match csfloat: ditch text+badge; show only the logo glyph at 40x40.
+   ===================================================================== */
+nav.nav .nav-logo {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+}
+nav.nav .nav-logo > svg {
+  width: 40px !important;
+  height: 40px !important;
+}
+nav.nav .nav-logo-text,
+nav.nav .nav-logo-live {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9 */
