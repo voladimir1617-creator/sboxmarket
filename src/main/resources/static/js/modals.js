@@ -14202,21 +14202,25 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                         }),
                         // FX equivalent hint — when the user has selected a
                         // non-USD display currency, show what the typed USD
-                        // amount maps to in their currency. The input itself
-                        // stays USD because Stripe + the WalletController
-                        // both round-trip USD raw; the hint is purely a
-                        // sanity check so a CAD user typing "50" sees "≈
-                        // CA$68.50" before clicking Continue. Hidden when
-                        // the user is on USD (no conversion to show) or
-                        // when the field is empty / non-numeric.
+                        // amount maps to in their currency AND explicitly
+                        // call out that the actual charge stays USD. Without
+                        // the "(charged USD)" tail, a CAD user typing "50"
+                        // and seeing "≈ CA$68.50" could reasonably believe
+                        // their card will be billed CA$68.50 — but Stripe
+                        // round-trips USD raw and the cardholder bank
+                        // applies its own FX. Hidden when the user is on
+                        // USD (no conversion to show) or when the field
+                        // is empty / non-numeric.
                         amt > 0 && currencySymbol() !== '$' && h('div', {
                           className: 'wallet-amount-fx-hint',
                           style: {
                             fontSize: 11, color: 'var(--text-muted)',
                             marginTop: 4, fontWeight: 500
                           },
-                          title: 'Wallet ledger is denominated in USD. This is the approximate equivalent in your selected display currency.'
-                        }, '≈ ', fmt(amt), ' in your currency')
+                          title: 'Wallet ledger and Stripe charge are both denominated in USD. The approximate value in your selected display currency is shown for reference; your bank may apply its own FX rate at settlement.'
+                        }, '≈ ', fmt(amt), ' ', h('span', {
+                          style: { opacity: 0.75, fontWeight: 600 }
+                        }, tab === 'deposit' ? '(charged in USD)' : '(paid out in USD)'))
                       ),
                       h('div', { className: 'wallet-preset-row' },
                         presets.map(a =>
