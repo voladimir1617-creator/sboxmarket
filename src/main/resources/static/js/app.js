@@ -2198,19 +2198,29 @@ function ShareStallButton({ userId, sellerName, showToast }) {
     const text = sellerName
       ? `Browse ${sellerName}'s listings on SkinBox — s&box skin marketplace with auctions, buy orders, and secure escrow.`
       : 'Browse this SkinBox stall — s&box skin marketplace.';
-    try {
-      if (navigator.share) {
+    // Native share sheet first; user-dismiss throws AbortError which
+    // we deliberately swallow (otherwise the catch block opened a
+    // window.prompt every time the user backed out of the OS share
+    // sheet — same gotcha the item-modal share button already guards).
+    if (typeof navigator.share === 'function') {
+      try {
         await navigator.share({ title, text, url });
-      } else if (navigator.clipboard?.writeText) {
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        // Fall through to clipboard on real failures.
+      }
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
         showToast && showToast('Link copied to clipboard', 'ok');
       } else {
-        // Last-ditch fallback: prompt so the user can copy manually.
         window.prompt('Copy this link:', url);
       }
-    } catch (e) {
+    } catch (_) {
       window.prompt('Copy this link:', url);
     }
   };
@@ -2220,7 +2230,12 @@ function ShareStallButton({ userId, sellerName, showToast }) {
     title: 'Copy a link to this stall',
     'aria-label': 'Share stall'
   },
-    h('span', { className: 'stall-share-icon' }, copied ? '✓' : '⎘'),
+    // Material icon glyph in place of the legacy U+2398 unicode (no
+    // system font reliably ships Misc Technical glyphs — same fix
+    // shipped on the loadout share button in commit 2609ebc).
+    copied
+      ? h('span', { className: 'stall-share-icon' }, '✓')
+      : h(MaterialIcon, { name: 'content_copy', size: 14, className: 'stall-share-icon' }),
     copied ? 'Copied' : 'Share stall'
   );
 }
