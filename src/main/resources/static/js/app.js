@@ -6923,6 +6923,8 @@ export function App() {
           : (listings.length === 0 || dedupedListings.length === 0)
             ? (() => {
                 // Batch 654 — empty-state now distinguishes:
+                //   - a fetch error (network / 500) → "Couldn't load listings"
+                //     with a Retry CTA so the user isn't stuck.
                 //   - a type-only filter (just Auction / Buy Now) → specific
                 //     "No live auctions right now" copy with a Create-auction
                 //     CTA for signed-in users.
@@ -6939,8 +6941,12 @@ export function App() {
                 const onlyTypeFilter  = !hasQueryFilters && listingTypeFilter !== 'ALL';
                 const hasClientFilters = !hasQueryFilters && !onlyTypeFilter &&
                     (dealsOnly || newOnly || affordableOnly);
+                const isError = !!loadError;
                 let title, sub;
-                if (onlyTypeFilter) {
+                if (isError) {
+                  title = "Couldn't load listings";
+                  sub   = 'Marketplace is reachable but the request failed. Tap Retry to try again — your filters are kept.';
+                } else if (onlyTypeFilter) {
                   title = listingTypeFilter === 'AUCTION' ? 'No live auctions right now' : 'No Buy-Now listings right now';
                   sub   = listingTypeFilter === 'AUCTION'
                     ? 'Check back soon — or list one of your own items as an auction.'
@@ -6955,14 +6961,18 @@ export function App() {
                   title = 'Marketplace is empty';
                   sub   = 'Be the first to list an item — or spin up simulated listings from the admin panel for QA.';
                 }
-                const showClear = hasQueryFilters || hasClientFilters || onlyTypeFilter;
+                const showClear = !isError && (hasQueryFilters || hasClientFilters || onlyTypeFilter);
                 return h('div', { className: 'empty-state' },
                   h('div', { className: 'empty-state-icon' },
-                    h(MaterialIcon, { name: listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2', size: 42 })
+                    h(MaterialIcon, { name: isError ? 'cloud_off' : (listingTypeFilter === 'AUCTION' ? 'gavel' : 'inventory_2'), size: 42 })
                   ),
                   h('div', { className: 'empty-state-title' }, title),
                   h('div', { className: 'empty-state-sub' }, sub),
                   h('div', { className: 'empty-state-actions' },
+                    isError && h('button', {
+                      className: 'btn btn-accent',
+                      onClick: () => { setLoadError(null); load(false); }
+                    }, 'Retry'),
                     showClear && h('button', {
                       className: 'btn btn-ghost',
                       style: { border: '1px solid var(--border)' },
@@ -6972,7 +6982,7 @@ export function App() {
                         setDealsOnly(false); setNewOnly(false); setAffordableOnly(false);
                       }
                     }, 'Clear Filters'),
-                    me && h('a', { className: 'btn btn-accent', href: paths.sell() }, 'Sell Items')
+                    !isError && me && h('a', { className: 'btn btn-accent', href: paths.sell() }, 'Sell Items')
                   )
                 );
               })()

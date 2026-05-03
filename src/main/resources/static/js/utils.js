@@ -23,6 +23,23 @@ function currentCurrency() {
   } catch { return 'USD'; }
 }
 
+// Symbol-only helper for places where we need to label a USD-denominated
+// threshold with the user's currency symbol but keep the underlying
+// number unconverted (e.g. price-filter chips whose min/max round-trip
+// to the server as USD). Returns '$', '€', 'CA$', etc.
+export const currencySymbol = () => FX_SYMBOL[currentCurrency()] || '$';
+
+// Convert a raw USD number into the user's selected currency without
+// any formatting / symbol — used by callers that need to display an
+// FX-equivalent boundary on a price-filter chip while still passing the
+// USD threshold to the server filter pipeline.
+export const fxConvertUsd = (usd) => {
+  const code = currentCurrency();
+  const rate = FX_RATES[code] ?? 1;
+  const raw = Number(usd);
+  return Number.isFinite(raw) ? raw * rate : 0;
+};
+
 export const fmt = (n) => {
   const code = currentCurrency();
   const rate = FX_RATES[code];
