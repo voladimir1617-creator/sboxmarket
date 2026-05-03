@@ -122819,3 +122819,484 @@ mat-card.item-card .actions .buy-now-btn {
 }
 /* END CSFLOAT-1:1 PARITY ship #39 */
 
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #40 — account-page H1 (.info-modal-header)
+   csfloat global page-heading style on its content surfaces is roboto
+     500 24px / 32px, color rgb(255, 255, 255), no big bottom border, with
+     a 16px gap to the next block. sboxmarket renders these page H1s
+     ("Watchlist · 0 items", "Profile", "Wallet") at 28px / 700 oklch
+     white with padding-bottom 20px and margin-bottom 24px on the
+     /watchlist, /profile, /wallet pages.
+   Tighten the page H1 on those routes to csfloat-style 24/500 white,
+     drop the underline padding, keep modest 16px below.
+   ===================================================================== */
+.page-watchlist h1.info-modal-header,
+.page-profile h1.info-modal-header,
+.page-wallet h1.info-modal-header,
+body[data-page="watchlist"] h1.info-modal-header,
+body[data-page="profile"] h1.info-modal-header,
+body[data-page="wallet"] h1.info-modal-header {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 32px !important;
+  letter-spacing: normal !important;
+  padding: 0 0 0 0 !important;
+  margin: 0 0 16px 0 !important;
+  border-bottom: 0 none !important;
+  gap: 0 !important;
+}
+/* fallback when route data attrs are missing — match by url path via :is on body classes the app already exposes */
+body.route-watchlist h1.info-modal-header,
+body.route-profile h1.info-modal-header,
+body.route-wallet h1.info-modal-header {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 32px !important;
+  padding: 0 !important;
+  margin: 0 0 16px 0 !important;
+  border-bottom: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #40 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #41 — account-page empty-state subhead text
+   csfloat body copy on its account/empty surfaces is roboto 14px / 20px
+     normal, color rgb(158, 167, 177). sboxmarket .empty-inline measured
+     13px / 20px in oklch(0.74 0.01 260) — a half-step too small and tinted
+     blue-grey instead of csfloat's neutral grey.
+   Bring the .empty-inline body and its inner .empty-sub up to csfloat's
+     14px / 20px / rgb(158,167,177). Title under icon stays its own size
+     (handled by ship #42).
+   ===================================================================== */
+.empty-inline,
+.empty-inline > p,
+.empty-inline .empty-sub,
+.empty-inline .empty-desc,
+.empty-inline .empty-text {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+}
+.empty-inline {
+  text-align: center !important;
+  max-width: 520px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 36px 24px 28px !important;
+  gap: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #41 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #42 — empty-state title (heading inside .empty-inline)
+   csfloat title-above-CTA style on auth gates is roboto 18px / 24px / 500
+     white. sboxmarket renders this title inline at 13px (whatever the
+     parent inherited) with no distinct weight. The text strings are
+     "Sign in required", "Nothing on your watchlist".
+   Promote the first text node / .empty-title to 18/500 white with 6px
+     space below before the body copy.
+   ===================================================================== */
+.empty-inline .empty-title,
+.empty-inline > h2,
+.empty-inline > h3,
+.empty-inline > strong,
+.empty-inline > .title {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #42 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #43 — empty-state icon disc (.empty-icon)
+   csfloat's neutral surface tile color is rgb(31, 33, 38) (one step
+     lighter than body bg rgb(21, 23, 28)) with no border and a soft 12px
+     radius for medium icons. sboxmarket .empty-icon was 72x72 / radius
+     18px / oklch bg, and .empty-icon-lg was 88x88 with a 1px oklab border
+     — too big and too rounded vs csfloat's smaller iconography.
+   Normalize to csfloat: 64x64 (lg 80x80), radius 12px, bg rgb(31,33,38),
+     no border, centered with 16px below.
+   ===================================================================== */
+.empty-inline .empty-icon,
+.empty-icon {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 12px !important;
+  background: rgb(31, 33, 38) !important;
+  background-color: rgb(31, 33, 38) !important;
+  border: 0 none !important;
+  margin: 0 auto 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+}
+.empty-inline .empty-icon.empty-icon-lg,
+.empty-icon.empty-icon-lg {
+  width: 80px !important;
+  height: 80px !important;
+  border-radius: 12px !important;
+  background: rgb(31, 33, 38) !important;
+  background-color: rgb(31, 33, 38) !important;
+  border: 0 none !important;
+  margin: 0 auto 16px !important;
+  font-size: 28px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #43 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #44 — Steam sign-in CTA (.empty-inline .btn-accent)
+   csfloat sign-in button (header + auth gates):
+     height 40px, padding 13px 30px, font-size 15px, font-weight 700,
+     color rgb(255, 255, 255), background rgb(35, 123, 255),
+     border-radius 8px, no border, no transform, gap 8px for icon.
+   sboxmarket .empty-inline .btn-accent measured: 38h x 146w, 13px / 600,
+     bg rgb(29, 78, 216), radius 6px, padding 0 18px — narrower, dimmer
+     blue, smaller and lighter type than csfloat.
+   Match csfloat exactly on the empty-state CTA only (don't touch other
+     .btn-accent instances handled by other ships).
+   ===================================================================== */
+.empty-inline .btn-accent,
+.empty-inline a.btn.btn-accent,
+.empty-inline button.btn.btn-accent {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 30px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  border-radius: 8px !important;
+  border: 0 none !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin: 16px auto 0 !important;
+}
+.empty-inline .btn-accent:hover,
+.empty-inline a.btn.btn-accent:hover,
+.empty-inline button.btn.btn-accent:hover {
+  background: rgb(54, 137, 255) !important;
+  background-color: rgb(54, 137, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #44 */
+
+
+/* CSFLOAT-1:1 PARITY ship #40 — sidebar width */
+/* csfloat measured: .advanced-search width 350px (filter sticky 350px confirmed) */
+/* sboxmarket was: .sidebar width 240px */
+.sidebar { width: 350px !important; }
+@media (max-width: 1024px) { .sidebar { width: 100% !important; } }
+/* END CSFLOAT-1:1 PARITY ship #40 */
+
+/* CSFLOAT-1:1 PARITY ship #41 — sidebar background color */
+/* csfloat measured: .advanced-search background-color rgb(27, 29, 36) */
+/* sboxmarket was: var(--bg-1) which is oklch(0.20 0.009 260) */
+.sidebar { background-color: rgb(27, 29, 36) !important; }
+/* END CSFLOAT-1:1 PARITY ship #41 */
+
+/* CSFLOAT-1:1 PARITY ship #42 — sidebar padding */
+/* csfloat measured: .advanced-search padding 20px */
+/* sboxmarket was: .sidebar padding 14px */
+.sidebar { padding: 20px !important; }
+/* END CSFLOAT-1:1 PARITY ship #42 */
+
+/* CSFLOAT-1:1 PARITY ship #43 — sidebar border-radius */
+/* csfloat measured: .advanced-search border-radius 12px */
+/* sboxmarket was: var(--r-md) */
+.sidebar { border-radius: 12px !important; }
+/* END CSFLOAT-1:1 PARITY ship #43 */
+
+/* CSFLOAT-1:1 PARITY ship #44 — sidebar removes border (csfloat has none) */
+/* csfloat measured: .advanced-search has 0px none border */
+/* sboxmarket was: 1px solid var(--line) */
+.sidebar { border: 0 !important; }
+/* END CSFLOAT-1:1 PARITY ship #44 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #40 — top-nav search input (.nav-search-input)
+   csfloat: filled material chrome — bg rgba(193,206,255,0.04), no border,
+   border-radius 6px, height 44px, padding 0 0 0 16px+icon.
+   Input itself: Roboto 16px/24px/400, color #fff,
+   placeholder rgba(255,255,255,0.7), letter-spacing 0.5px,
+   caret-color rgb(35,123,255).
+   sbox was: bg var(--bg-1) + 1px solid var(--line) + 8px radius + 36px h
+   + Geist 13px font — full Material miss. Bump to Material chrome.
+   ===================================================================== */
+.nav-search-input {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  height: 44px !important;
+  padding: 0 12px 0 36px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  caret-color: rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+}
+.nav-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
+}
+.nav-search-input:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border: 0 none !important;
+}
+.nav-search-input:focus {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  border: 0 none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.nav-search-icon {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #40 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #41 — generic text/number input (.price-input)
+   csfloat: input itself = transparent w/ no border (Material strips
+   chrome from <input>); chrome lives on .mat-mdc-text-field-wrapper:
+   bg rgba(193,206,255,0.04), 6px radius, height 36px, padding 0 16px.
+   Input text: Roboto 16px/24px/400, color #fff,
+   placeholder rgba(255,255,255,0.7).
+   sbox was: var(--mono) 14px/500 + 1px solid var(--line) + 10px 14px
+   padding + var(--bg) — full Material miss.
+   ===================================================================== */
+.price-input,
+.fee-calc-input,
+.chat-input {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  caret-color: rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.price-input::placeholder,
+.fee-calc-input::placeholder,
+.chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
+}
+.price-input:hover,
+.fee-calc-input:hover,
+.chat-input:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border: 0 none !important;
+}
+.price-input:focus,
+.fee-calc-input:focus,
+.chat-input:focus {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  border: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #41 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #42 — input label (.wallet-input-label,
+   .form-label, .input-label, .field-label)
+   csfloat (.mat-mdc-floating-label): Roboto 16px/normal/400,
+   color rgba(255,255,255,0.7), letter-spacing 0.5px.
+   sbox row labels were ad-hoc — often using .modal-section-title which
+   is a mono 10px uppercase tag. Add a dedicated label rule that maps
+   to csfloat's floating-label typography wherever a row label is used.
+   ===================================================================== */
+.wallet-input-label,
+.form-label,
+.input-label,
+.field-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  margin: 0 0 6px 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #42 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #43 — modal panel chrome (.modal)
+   csfloat (.advanced-search/dialog surface): bg rgb(27,29,36),
+   border-radius 12px, no border, padding 20px;
+   floating overlay panels also use bg rgba(21,23,28,0.8) glass with
+   2px solid rgba(193,206,255,0.07) border. For the main modal dialog
+   we use the solid 27/29/36 surface (csfloat's dialog choice).
+   sbox was: bg var(--bg-1) + 1px solid var(--line-2) + var(--r-md)
+   radius + var(--shadow-2) — close but off by ~1px border + bg tint.
+   Backdrop also overshooting w/ heavy blur+saturate; csfloat just
+   uses a flat dim layer.
+   ===================================================================== */
+.modal:not(.item-page) {
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 none !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 11px 15px -7px,
+    rgba(0, 0, 0, 0.14) 0px 24px 38px 3px,
+    rgba(0, 0, 0, 0.12) 0px 9px 46px 8px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.32) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #43 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #44 — modal close button (.modal-close)
+   csfloat uses standard mat-icon-button: 40x40 circular touch target,
+   transparent bg, no border, ghost glyph color rgba(255,255,255,0.7),
+   hover bg rgba(193,206,255,0.08), 50% radius (Material round button).
+   sbox was: 36x36 + oklch(0.2 0.009 260) bg + 1px border + 6px radius +
+   drop shadow — too chrome'd, csfloat keeps it minimal.
+   ===================================================================== */
+.modal-close {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 8px !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 50% !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 20px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  box-shadow: none !important;
+  top: 12px !important;
+  right: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 160ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.modal-close:hover {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  box-shadow: none !important;
+}
+.modal-close:active {
+  background-color: rgba(193, 206, 255, 0.12) !important;
+  transform: none !important;
+}
+.modal-close:focus-visible {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+  border: 0 none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+@media (max-width: 760px) {
+  .modal-close { width: 44px !important; height: 44px !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #44 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #45 — generic select (.sort-select)
+   csfloat (.mat-mdc-text-field-wrapper around mat-select):
+   bg rgba(193,206,255,0.04), 6px radius, height 36px, padding 0 16px,
+   no border. Trigger text = Roboto 16px/400/#fff.
+   Open panel: bg rgba(21,23,28,0.8) + 2px solid rgba(193,206,255,0.07)
+   + radius 0 0 15px 15px + box-shadow Material 5.
+   sbox was: 999px pill + var(--bg-1) bg + 1px line border + 13px font +
+   inset shadow + custom svg arrow — pill chrome, csfloat is squared.
+   ===================================================================== */
+.sort-select,
+.discount-select,
+.toolbar-select {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  height: 36px !important;
+  padding: 0 38px 0 16px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: none !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px 12px !important;
+  outline: none !important;
+}
+.sort-select:hover,
+.discount-select:hover,
+.toolbar-select:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border: 0 none !important;
+  color: rgb(255, 255, 255) !important;
+}
+.sort-select:focus-visible,
+.discount-select:focus-visible,
+.toolbar-select:focus-visible {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  border: 0 none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+.sort-select:active,
+.discount-select:active,
+.toolbar-select:active {
+  transform: none !important;
+}
+.sort-select option,
+.discount-select option,
+.toolbar-select option {
+  background-color: rgb(21, 23, 28) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  padding: 8px 16px !important;
+}
+@media (max-width: 760px) {
+  .sort-select,
+  .discount-select,
+  .toolbar-select {
+    height: 44px !important;
+    padding-right: 42px !important;
+    background-position: right 16px center !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #45 */
