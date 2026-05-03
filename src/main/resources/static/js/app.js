@@ -1,6 +1,6 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast as domToast, linkifyText } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast as domToast, linkifyText, currencySymbol, fxConvertUsd } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -3032,6 +3032,10 @@ export function App() {
     return () => { cancelled = true; };
   }, []);
   const [loading, setLoading]           = useState(true);
+  // Capture fetch failures so the empty-state can offer a Retry CTA
+  // instead of misreporting "Marketplace is empty" when the network
+  // (or backend) blew up. Cleared on every successful load.
+  const [loadError, setLoadError]       = useState(null);
   // Batch 812 — grid/table view choice is persisted in localStorage so
   // a user who prefers the table view (wider density, more fields per
   // row) doesn't have to flip the toggle every session.
@@ -3178,7 +3182,7 @@ export function App() {
       minDiscountPct > 0 ? `≥${minDiscountPct}% off` : (dealsOnly ? 'Deals' : null),
       newOnly ? 'New' : null,
       affordableOnly ? 'Affordable' : null,
-      (minPrice || maxPrice) ? `$${minPrice || 0}–${maxPrice || '∞'}` : null
+      (minPrice || maxPrice) ? `${currencySymbol()}${minPrice || 0}–${maxPrice || '∞'}` : null
     ].filter(Boolean).join(' · ') || 'Untitled';
     setSaveSearchDraft(defaultName);
   };
@@ -4614,7 +4618,14 @@ export function App() {
       } else {
         setListings(data);
       }
-    } catch (e) { console.error(e); }
+      // Successful fetch — clear any previously-captured error so the
+      // empty-state renders the regular "no listings" copy instead of
+      // a stale Retry CTA.
+      setLoadError(null);
+    } catch (e) {
+      console.error(e);
+      setLoadError(e?.message || 'Failed to load listings');
+    }
     finally { if (!silent) setLoading(false); }
   }, [sort, category, rarity, minPrice, maxPrice, search, listingTypeFilter]);
 
@@ -6394,26 +6405,36 @@ export function App() {
         h('details', { className: 'filter-section', open: true },
           h('summary', { className: 'filter-title' }, 'Price Range'),
           h('div', { className: 'price-inputs' },
-            h('input', { className: 'price-input', placeholder: '$ Min', value: minPrice, onChange: e => setMinPrice(e.target.value), 'aria-label': 'Minimum price filter (USD)', inputMode: 'decimal' }),
-            h('input', { className: 'price-input', placeholder: '$ Max', value: maxPrice, onChange: e => setMaxPrice(e.target.value), 'aria-label': 'Maximum price filter (USD)', inputMode: 'decimal' })
+            // The currencySymbol() prefix ("$" / "CA$" / "€" etc.) keeps
+            // the placeholder readable in the operator's currency. Numeric
+            // VALUE the user types stays USD — the server filters on the
+            // raw USD-anchored amount so a "5" in the box always means
+            // "USD 5" regardless of display currency. (Matches the same
+            // anchor convention used by the price-range chips below.)
+            h('input', { className: 'price-input', placeholder: currencySymbol() + ' Min', value: minPrice, onChange: e => setMinPrice(e.target.value), 'aria-label': 'Minimum price filter (USD-anchored)', inputMode: 'decimal' }),
+            h('input', { className: 'price-input', placeholder: currencySymbol() + ' Max', value: maxPrice, onChange: e => setMaxPrice(e.target.value), 'aria-label': 'Maximum price filter (USD-anchored)', inputMode: 'decimal' })
           ),
           /* csfloat-style quick price chips. SBox prices cluster $1-$10 so the
-             ranges are scaled accordingly (csfloat uses <$10/$10-50/$50-250/>$250). */
+             ranges are scaled accordingly (csfloat uses <$10/$10-50/$50-250/>$250).
+             Backend filter ALWAYS uses USD numeric strings (min/max stay as
+             "2", "5", "10"); chip LABELS run through fmt() so they read in
+             the operator's selected currency (e.g. "<CA$2.74" when CAD). */
           h('div', { className: 'price-chips' },
             [
-              { label: '<$2',    min: '',  max: '2'  },
-              { label: '$2-$5',  min: '2', max: '5'  },
-              { label: '$5-$10', min: '5', max: '10' },
-              { label: '>$10',   min: '10', max: ''  }
+              { min: '',   max: '2',  fmt: (lo, hi) => '<' + fmt(2) },
+              { min: '2',  max: '5',  fmt: (lo, hi) => fmt(2) + '–' + fmt(5) },
+              { min: '5',  max: '10', fmt: (lo, hi) => fmt(5) + '–' + fmt(10) },
+              { min: '10', max: '',   fmt: (lo, hi) => '>' + fmt(10) }
             ].map(chip => {
+              const label = chip.fmt();
               const isActive = String(minPrice || '') === chip.min && String(maxPrice || '') === chip.max;
               return h('button', {
-                key: chip.label,
+                key: chip.min + '-' + chip.max,
                 type: 'button',
                 className: `price-chip ${isActive ? 'active' : ''}`,
                 onClick: () => { setMinPrice(chip.min); setMaxPrice(chip.max); },
                 'aria-pressed': isActive
-              }, chip.label);
+              }, label);
             })
           )
         ),
@@ -6840,9 +6861,9 @@ export function App() {
             rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All') },
               h('strong', null, rarity), h('span', null, ' ✕')),
             minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice('') },
-              '≥ $', h('strong', null, minPrice), h('span', null, ' ✕')),
+              '≥ ', currencySymbol(), h('strong', null, minPrice), h('span', null, ' ✕')),
             maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice('') },
-              '≤ $', h('strong', null, maxPrice), h('span', null, ' ✕')),
+              '≤ ', currencySymbol(), h('strong', null, maxPrice), h('span', null, ' ✕')),
             // Batch 651 — removable min-discount chip.
             minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0) },
               '≥ ', h('strong', null, minDiscountPct + '%'), ' off', h('span', null, ' ✕')),
@@ -6926,7 +6947,7 @@ export function App() {
                     : 'Only auctions are active. Flip the filter to All to see them, or list your own Buy-Now item.';
                 } else if (hasClientFilters) {
                   title = 'No listings match your filters';
-                  sub   = 'Try clearing Deals / New / Under $X / discount threshold to broaden the view.';
+                  sub   = `Try clearing Deals / New / Under ${currencySymbol()}X / discount threshold to broaden the view.`;
                 } else if (hasQueryFilters) {
                   title = 'No listings match your filters';
                   sub   = 'Try a broader search, clear the filters, or list one of your own items.';
