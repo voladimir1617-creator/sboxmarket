@@ -121131,3 +121131,32 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 /* END tabular-nums */
+
+/* =====================================================================
+   Cmd-K palette polish — boss-QA cycle 31, ship #25
+   ---------------------------------------------------------------------
+   Two issues with the cmd-K command palette: (1) the input has
+   `outline: none` and no focus indicator — keyboard users land on a
+   visually inert field. (2) the .active item shares the same hover
+   background, so when you arrow-key down it's hard to tell which item
+   the keyboard cursor is on. Add a 1px shadow ring on input focus
+   plus a 2px left-edge accent strip on the .active item so the
+   keyboard cursor is always visible.
+   ===================================================================== */
+.csfloat-cmdk-input:focus {
+  outline: none !important;
+  border-bottom-color: var(--ink-2) !important;
+  box-shadow: 0 1px 0 0 var(--ink-2) !important;
+}
+.csfloat-cmdk-item {
+  border-left: 2px solid transparent;
+  padding-left: 16px !important;
+}
+.csfloat-cmdk-item.active {
+  border-left-color: var(--ink) !important;
+  background: var(--bg-2) !important;
+}
+.csfloat-cmdk-item:hover:not(.active) {
+  background: color-mix(in oklab, var(--bg-2) 60%, transparent) !important;
+}
+/* END cmd-K palette polish */
