@@ -121406,3 +121406,25 @@ textarea {
   outline-offset: 2px !important;
 }
 /* END home-rail-tab focus polish */
+
+/* =====================================================================
+   nav-link active underline + focus polish — ship #49
+   ---------------------------------------------------------------------
+   .nav-link.active::after had a 14px blue glow + gradient — louder than
+   the subnav active underline (2px solid). Calm to a clean 2px solid
+   --cta with no glow, matching the cycle-31 ship #2 active-tab pattern.
+   Also flip the .nav-link:focus-visible blue ring to --ink-2 per the
+   ring sweep.
+   ===================================================================== */
+.nav-link.active::after {
+  height: 2px !important;
+  background: var(--cta) !important;
+  box-shadow: none !important;
+  border-radius: 1px !important;
+}
+.nav-link:focus-visible {
+  outline: none !important;
+  background: var(--bg-1) !important;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-2) 22%, transparent) !important;
+}
+/* END nav-link active polish */
