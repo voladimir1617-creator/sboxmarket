@@ -120753,3 +120753,55 @@ textarea:focus-visible {
   box-shadow: var(--shadow-1) !important;
 }
 /* END hairline audit */
+
+/* =====================================================================
+   :empty skeleton placeholders — boss-QA cycle 31, ship #9
+   ---------------------------------------------------------------------
+   Several async-data surfaces (wallet tx list, offers list, db rows,
+   loadout slots, profile tab content) cold-snap into existence after
+   their fetch resolves. Pure-CSS fix: inject a shimmer placeholder via
+   `:empty::before` so the surface is never visually empty during the
+   loading window. React removes the :empty state as soon as the first
+   row mounts, so this only paints while there's no content to show.
+   ===================================================================== */
+@keyframes skelShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.wallet-tx-list:empty::before,
+.wallet-history-list:empty::before,
+.offers-list:empty::before,
+.offer-thread-list:empty::before,
+.db-table-body:empty::before,
+.loadout-slots:empty::before,
+.profile-tab-content:empty::before,
+.watchlist-list:empty::before,
+.csfloat-skel-target:empty::before {
+  content: "";
+  display: block;
+  min-height: 280px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-2) 0%,
+    color-mix(in oklab, var(--bg-2) 60%, var(--ink-3)) 50%,
+    var(--bg-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: skelShimmer 1.4s ease-in-out infinite;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wallet-tx-list:empty::before,
+  .wallet-history-list:empty::before,
+  .offers-list:empty::before,
+  .offer-thread-list:empty::before,
+  .db-table-body:empty::before,
+  .loadout-slots:empty::before,
+  .profile-tab-content:empty::before,
+  .watchlist-list:empty::before,
+  .csfloat-skel-target:empty::before {
+    animation: none;
+  }
+}
+/* END :empty skeleton placeholders */
