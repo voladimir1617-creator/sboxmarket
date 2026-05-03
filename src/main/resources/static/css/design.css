@@ -120990,3 +120990,26 @@ textarea:focus-visible {
   color: var(--ink) !important;
 }
 /* END error-banner tiering */
+
+/* =====================================================================
+   Dropdown menu animation polish — boss-QA cycle 31, ship #17
+   ---------------------------------------------------------------------
+   Two refinements: (1) the user-menu / notif-dropdown drop-in keyframe
+   sets only `from {}` so a refresh that interrupts mid-animation
+   stutters; pin both `from` AND `to` so the curve is fully defined.
+   (2) tighten the duration from 160ms → 140ms to feel snappier on
+   slow devices, and standardize `animation-fill-mode: both` so the
+   dropdown holds its starting opacity until the first frame paints
+   (no flash of fully-opaque content).
+   ===================================================================== */
+@keyframes user-menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.user-menu,
+.notif-dropdown,
+.tweaks-panel {
+  animation-duration: 140ms !important;
+  animation-fill-mode: both !important;
+}
+/* END dropdown animation polish */
