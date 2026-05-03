@@ -120557,3 +120557,49 @@ button:hover,
   text-decoration: none;
 }
 /* END universal button fade */
+
+/* =====================================================================
+   :focus-visible ring sweep — boss-QA cycle 31, ship #1
+   ---------------------------------------------------------------------
+   Operator constraint: blue (`--accent`) is reserved for buy-btn / LEDs /
+   auction countdown / active-tab underlines / Stripe badge. Focus rings
+   are NOT on that list, so we override the cycle-5 accent ring with the
+   neutral `--ink-2` token and a 2px offset, applied universally through
+   the existing widget rules.
+   ===================================================================== */
+*:focus-visible {
+  outline: 2px solid var(--ink-2) !important;
+  outline-offset: 2px !important;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[class*="-btn"]:focus-visible,
+[class*="-cta"]:focus-visible,
+.nav-picker-chip:focus-visible,
+.sort-picker-chip:focus-visible,
+.deals-chip:focus-visible,
+.nav-icon-btn:focus-visible,
+.toolbar-refresh:focus-visible,
+.steam-btn:focus-visible,
+.search-btn:focus-visible,
+.csfloat-subnav-tab:focus-visible,
+.type-toggle-btn:focus-visible,
+.filter-chip:focus-visible,
+.modal-close:focus-visible,
+.scroll-up-fab:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ink-2) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+/* Buy-CTA and Stripe checkout button get accent-tinted ring (allowed blue) */
+.buy-btn:focus-visible,
+.btn-accent:focus-visible,
+.btn-primary:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+/* END :focus-visible sweep */
