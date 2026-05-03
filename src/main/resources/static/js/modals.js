@@ -9103,6 +9103,29 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     loadInternal();
   }, [me, loadSteam, loadInternal]);
 
+  // Visibility-aware 30s poll — refresh both inventory views in the
+  // background while the Sell modal is open so floor / suggested
+  // prices on each row stay current with the listing-floor sweep
+  // (which runs every 60s server-side). Without this, a seller who
+  // leaves the Pick screen open watches stale prices while the
+  // backend keeps recomputing under them. Pauses on hidden tabs to
+  // avoid burning bandwidth on backgrounded windows.
+  useEffect(() => {
+    if (!me) return;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      loadSteam();
+      loadInternal();
+    };
+    const id = setInterval(tick, 30_000);
+    const onVis = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [me, loadSteam, loadInternal]);
+
   // Batch 551 — bulk-fetch buy-order demand for every catalogued item in
   // the combined inventory view. Drops the result into
   // inventoryBuyOrderDemand keyed by itemId so the grid can render a
@@ -9693,6 +9716,13 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
       h('button', { className: `offer-tab ${source === 'internal' ? 'active' : ''}`, onClick: () => setSource('internal') },
         'Platform Inventory', internal && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, internalList.length)),
       h('div', { style: { flex: 1 } }),
+      // Price-freshness chip — quiet "Prices updated 23s ago" badge
+      // so a seller can tell the suggested-price column on each row
+      // hasn't gone stale. Compact variant (slim inline) so it
+      // doesn't crowd the Sync Steam button next to it.
+      h('div', {
+        style: { display: 'inline-flex', alignItems: 'center', marginRight: 8 }
+      }, h(PriceFreshnessChip, { compact: true })),
       source === 'steam' && h('button', {
         className: 'btn btn-ghost',
         style: {

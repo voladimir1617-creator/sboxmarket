@@ -71,10 +71,56 @@ class SteamInventoryController {
         def catalogue = lowerNames.isEmpty() ? [:] :
             itemRepository.findByNamesLowerIn(lowerNames).collectEntries { [(it.name?.toLowerCase()): it] }
 
-        def enriched = items.collect { s ->
+        // Stack-aware grouping. Steam returns one descriptor per
+        // (classid, instanceid) and one entry in `assets[]` per physical
+        // copy — so 50 Lunar Trousers come back as 50 asset rows that
+        // share a descriptor. The Sell Items grid has always shown those
+        // 50 copies as 50 distinct rows, which made stacks of identical
+        // items eat the entire grid and caused the per-row "tradable"
+        // and "est. value" totals to ignore quantity. Group by descriptor
+        // here so the frontend renders ONE card per stack with a ×N
+        // quantity badge, and so summary totals can multiply by quantity.
+        //
+        // The representative `assetId` is the first tradable asset in
+        // the group (falling back to the first asset overall if the
+        // whole stack is locked) so the existing single-item Pick flow
+        // (POST /api/steam/list with one assetId) still works without
+        // the frontend having to know about the assetIds[] array.
+        // /api/steam/list-bulk callers can either expand a stack into
+        // its full assetIds[] for "list every copy" or just iterate.
+        // /api/steam/sync (steamInventorySize) is unchanged — it still
+        // counts at the asset level via SteamInventoryService.fetchInventory.
+        def grouped = new java.util.LinkedHashMap<String, Map>()
+        items.each { s ->
+            // classId + instanceId is the canonical Steam descriptor
+            // key. Some workshop assets have null instanceId (rare on
+            // s&box but documented for partner contexts) — fall back
+            // to the assetId so those rows stay distinct rather than
+            // being collapsed into a single mystery group.
+            def key = "${s.classId ?: ''}_${s.instanceId ?: s.assetId}".toString()
+            def g = grouped.get(key)
+            if (g == null) {
+                g = [first: s, assetIds: new java.util.ArrayList<String>(), tradableCount: 0]
+                grouped.put(key, g)
+            }
+            (g.assetIds as List).add(s.assetId?.toString())
+            if (s.tradable) {
+                g.tradableCount = (g.tradableCount as int) + 1
+                if (g.tradableAssetId == null) g.tradableAssetId = s.assetId?.toString()
+            }
+        }
+        def enriched = grouped.values().collect { g ->
+            def s = g.first as Map
             def existing = catalogue[(s.name ?: '').toString().toLowerCase()]
+            def assetIdsList = g.assetIds as List<String>
             [
-                assetId:     s.assetId,
+                // Pick a tradable asset as the representative when one
+                // exists — listing flow needs a tradable assetId or it
+                // throws NOT_TRADABLE — falling back to the first asset
+                // for fully-locked stacks so the row still renders.
+                assetId:     g.tradableAssetId ?: assetIdsList[0],
+                assetIds:    assetIdsList,
+                quantity:    assetIdsList.size(),
                 name:        s.name,
                 type:        s.type,
                 iconUrl:     s.iconUrl,
@@ -86,9 +132,17 @@ class SteamInventoryController {
                 suggestedPrice: existing?.lowestPrice ?: BigDecimal.ZERO
             ]
         }
+        // `count` was historically the number of items the frontend
+        // would render. Now that rows are stacked, the asset count
+        // (= sum of quantities) is the more useful number for the UI's
+        // "total" badge. We expose BOTH so older clients reading
+        // `count` keep working AND the new stacked client has an
+        // explicit `assetCount` to anchor on.
+        int assetCount = (enriched.collect { (it.quantity as Integer) ?: 1 } as List<Integer>).sum() ?: 0
         Map resp = [
             items:         enriched,
             count:         enriched.size(),
+            assetCount:    assetCount,
             lastSyncedAt:  user.lastSyncedAt,
             steamId64:     user.steamId64
         ]
