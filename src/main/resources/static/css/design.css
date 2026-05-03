@@ -121196,3 +121196,22 @@ textarea:focus-visible {
   background: color-mix(in oklab, var(--ink) 38%, var(--ink-4)) !important;
 }
 /* END scrollbar polish */
+
+/* =====================================================================
+   Scroll-up FAB neutralizer — boss-QA cycle 31, ship #29
+   ---------------------------------------------------------------------
+   The .scroll-up-fab hover paints `0 8px 20px color-mix(--cta 30%,
+   transparent)` — a chunky blue glow on a chrome utility. Drop the
+   glow to a neutral shadow + var(--ink-2) outline ring on focus
+   (also previously was --cta blue per cycle-1's "improve focus state"
+   block), keeping the FAB readable but quiet.
+   ===================================================================== */
+.scroll-up-fab:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4) !important;
+  border-color: var(--line-2) !important;
+}
+.scroll-up-fab:focus-visible {
+  outline: 2px solid var(--ink-2) !important;
+  outline-offset: 2px !important;
+}
+/* END scroll-up FAB polish */
