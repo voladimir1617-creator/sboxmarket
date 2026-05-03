@@ -2468,8 +2468,12 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         !ended && (view.bidCount === 0 && view.currentBid == null) && h('div', {
           className: 'auction-bidder',
           style: { marginTop: 4, fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.3 },
-          title: `No bids yet — be the first to bid. Minimum is $${minNext}.`
-        }, '○ No bids yet · min $', minNext),
+          // Display copy — convert through fmt() so a CAD/EUR/etc. viewer
+          // sees the minimum-next-bid in their selected currency. The bid
+          // input below still takes USD (matches deposit-preset pattern),
+          // so this header label is a pure display read.
+          title: `No bids yet — be the first to bid. Minimum is ${fmt(parseFloat(minNext))}.`
+        }, '○ No bids yet · min ', fmt(parseFloat(minNext))),
         // Batch 643 — "Last bid Xm ago" activity chip. Surfaces the
         // temperature of the auction without forcing the viewer to
         // scroll to the Bid History section. `history[0]` is the most

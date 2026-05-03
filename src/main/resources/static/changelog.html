@@ -113,7 +113,15 @@
     </p>
 
     <div class="changelog-entry">
-      <h2 class="changelog-date">May 1, 2026 — latest</h2>
+      <h2 class="changelog-date">May 3, 2026 — latest</h2>
+      <div class="changelog-title">Site reliability + UX sweep</div>
+      <ul class="changelog-list">
+        <li><span class="changelog-tag polish">POLISH</span>Cookie-aware health checks, currency consistency across listings + cart, stack-aware Sell Items grouping, freshness chip on grid cards, and a soft-fade on nav active state.</li>
+      </ul>
+    </div>
+
+    <div class="changelog-entry">
+      <h2 class="changelog-date">May 1, 2026</h2>
       <div class="changelog-title">SEO + PWA + share URL fixes · HSTS · /watchlist 401 silenced · browser-search routing · seller-stall analytics</div>
       <ul class="changelog-list">
         <li><span class="changelog-tag fix">FIX</span><strong>Public sitemap was emitting <code>http://localhost:8082/...</code> URLs.</strong> Search engines crawling skinbox.market would have indexed broken URLs. <code>SitemapController</code> now derives the base URL from the actual request via <code>X-Forwarded-Proto</code> + <code>X-Forwarded-Host</code> (Cloudflare). Local dev still emits localhost URLs; public visitors get https://skinbox.market. Same fix applied to <code>OpenGraphController</code> (Discord / Facebook / Twitter shares of /item/{id}, /stall/{id}, /faq, /loadout/{id} all leaked localhost canonical + og:url tags).</li>
