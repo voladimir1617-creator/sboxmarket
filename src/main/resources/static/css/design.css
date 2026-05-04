@@ -127265,3 +127265,138 @@ nav.nav {
   z-index: 998 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1104 */
+/* CSFLOAT-1:1 PARITY ship #606 — search-suggest dropdown container parity
+   csfloat .container (spotlight overlay): width 700px, max-height 450px,
+   bg rgba(0,0,0,0.4), border 2px solid rgba(193,206,255,0.07),
+   border-radius 12px 12px 0 0, backdrop-filter blur(15px), no
+   box-shadow, overflow-y hidden, padding 0, font Roboto. sboxmarket
+   .search-suggest had bg var(--bg-1), 1px var(--line-2) border, 8px
+   radius, 12px 32px shadow, 6px padding. Pin to csfloat spotlight
+   tokens so the dropdown reads as the same overlay surface. */
+body .search-suggest {
+  background: rgba(0, 0, 0, 0.4) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 12px !important;
+  box-shadow: rgba(0, 0, 0, 0.4) 0 16px 48px 0 !important;
+  -webkit-backdrop-filter: blur(15px) !important;
+  backdrop-filter: blur(15px) !important;
+  padding: 8px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  overflow-y: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #606 */
+/* CSFLOAT-1:1 PARITY ship #607 — search-suggest row hover parity
+   csfloat row hover/selected uses subtle white-alpha overlay
+   rgba(255,255,255,0.04) with 6px corner radius. sboxmarket used
+   var(--bg-2) which read as a flat panel color. Replace with the
+   csfloat focus-overlay token for identical hover feel. */
+body .search-suggest-row {
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(207, 213, 219) !important;
+  transition: background-color 120ms ease, color 120ms ease !important;
+}
+body .search-suggest-row:hover,
+body .search-suggest-row.sel,
+body .search-suggest-row.active,
+body .search-suggest-row[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* csfloat does NOT show the left-edge accent bar that sboxmarket
+   was painting on .sel — kill the ::before so selection is purely
+   the bg overlay. */
+body .search-suggest-row.sel::before,
+body .search-suggest-row.active::before {
+  content: none !important;
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #607 */
+/* CSFLOAT-1:1 PARITY ship #608 — recent-searches heading parity
+   csfloat sectional headers in the spotlight overlay (Examples /
+   Reference / Recent) render as Roboto 11px 700 weight uppercase
+   with letter-spacing 0.06em and color rgb(158,167,177) — a low-
+   noise label rather than a card title. sboxmarket
+   .search-suggest-heading was 13px regular, reading as another row.
+   Pin to csfloat label spec. */
+body .search-suggest-heading {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 8px 10px 4px !important;
+  margin: 0 !important;
+}
+body .search-suggest-heading > span:first-child {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  text-transform: inherit !important;
+  letter-spacing: inherit !important;
+  color: inherit !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #608 */
+/* CSFLOAT-1:1 PARITY ship #609 — search-suggest thumbnail parity
+   csfloat result thumbnails inside spotlight rows: 32x32 box with
+   no background fill, contain object-fit, sub-pixel-snug 4px
+   radius (just enough to soften the edge against the dark bg).
+   sboxmarket .search-suggest-thumb had a var(--bg-2) fill and
+   6px radius — the visible square reads as a "card", not a thumb.
+   Strip the fill and pin to 4px to match csfloat. */
+body .search-suggest-thumb {
+  flex: 0 0 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  background: transparent !important;
+  border-radius: 4px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+}
+body .search-suggest-thumb img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #609 */
+/* CSFLOAT-1:1 PARITY ship #610 — search-suggest typography parity
+   csfloat result row text spec:
+     name: Roboto 13px / 500, color rgb(255,255,255)
+     meta: Roboto 11px / 400, color rgb(158,167,177)
+     price: Roboto 13px / 500, color rgb(255,255,255), tabular-nums
+   sboxmarket .search-suggest-name was 13/500 white (good), but
+   .search-suggest-cat (and .search-suggest-meta) drifted to 11px
+   var(--ink-3) with no font-family pin, and .search-suggest-price
+   used var(--mono) at 13/600 var(--cta) green — the price popped
+   green where csfloat keeps it the same neutral white as the
+   name. Pin all three classes to csfloat tokens. */
+body .search-suggest-name {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 18px !important;
+}
+body .search-suggest-meta,
+body .search-suggest-cat {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+  letter-spacing: 0 !important;
+}
+body .search-suggest-price {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #610 */
