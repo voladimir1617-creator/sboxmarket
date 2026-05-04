@@ -128986,3 +128986,221 @@ body .switch[aria-checked="true"]::after {
   left: 18px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1384 */
+
+
+/* CSFLOAT-1:1 PARITY ship #1385 — active filter chip pill matches csfloat .price-chip
+   Measured csfloat-style chip: 32px height, padding 4px 10px, border-radius 999px,
+   bg rgba(193,206,255,0.04), border 1px solid rgba(193,206,255,0.12),
+   color #fff, font-size 11px, font-weight 700.
+   Local .filter-chip was 28px tall, weight 500 — bring to parity. */
+.active-filters .filter-chip,
+.filter-chip {
+  height: 32px !important;
+  padding: 4px 10px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  border-radius: 999px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  gap: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+.active-filters .filter-chip:hover,
+.filter-chip:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(193, 206, 255, 0.20) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.active-filters .filter-chip strong,
+.filter-chip strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 700 !important;
+}
+.active-filters .filter-chip > span:last-child,
+.filter-chip > span:last-child {
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-weight: 500 !important;
+  margin-left: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1385 */
+
+/* CSFLOAT-1:1 PARITY ship #1386 — clear-all chip distinct accent / text-only csfloat style
+   Csfloat presents "Clear filters" as a low-emphasis text link, not a pill. */
+.active-filters .filter-chip.clear-all,
+.filter-chip.clear-all {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 4px 10px !important;
+  text-decoration: none !important;
+  height: 32px !important;
+  border-radius: 999px !important;
+}
+.active-filters .filter-chip.clear-all:hover,
+.filter-chip.clear-all:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+  text-decoration: none !important;
+}
+.active-filters .filter-chip.clear-all strong,
+.filter-chip.clear-all strong {
+  font-weight: 600 !important;
+  color: inherit !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1386 */
+
+/* CSFLOAT-1:1 PARITY ship #1387 — results-meta count display matches csfloat strip
+   Csfloat shows "0 listings found" with bold count + lighter label, ~14px / left aligned.
+   Local results-meta was justify-content: space-between with mono numerals. */
+.results-meta {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  padding: 14px 0 10px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  letter-spacing: 0 !important;
+}
+.results-meta strong,
+.results-meta b {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 14px !important;
+}
+.results-meta span strong {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1387 */
+
+/* CSFLOAT-1:1 PARITY ship #1388 — load-more pagination button matches csfloat ghost btn
+   Csfloat's "load more" pattern uses a subtle ghost button with rounded corners,
+   centered below grid. Local was inline-styled at React level — override to match. */
+.btn.btn-ghost[title*="next 100 listings"],
+.btn.btn-ghost[title*="Load the next"] {
+  height: 40px !important;
+  padding: 0 24px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: inherit !important;
+}
+.btn.btn-ghost[title*="next 100 listings"]:hover,
+.btn.btn-ghost[title*="Load the next"]:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(193, 206, 255, 0.20) !important;
+}
+.btn.btn-ghost[title*="next 100 listings"]:disabled,
+.btn.btn-ghost[title*="Load the next"]:disabled {
+  opacity: 0.55 !important;
+  cursor: wait !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1388 */
+
+/* CSFLOAT-1:1 PARITY ship #1389 — active-filters bar layout/spacing/divider
+   Csfloat keeps the active-filters as a clean horizontal strip above the grid
+   with consistent 8px gaps and a hairline bottom border. Add "Filters:" label. */
+.active-filters {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 10px 0 12px !important;
+  margin: 4px 0 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: 0 !important;
+}
+.active-filters::before {
+  content: "Filters:" !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: rgba(255, 255, 255, 0.40) !important;
+  margin-right: 4px !important;
+  align-self: center !important;
+}
+@media (max-width: 720px) {
+  .active-filters { gap: 6px !important; padding: 8px 0 10px !important; }
+  .active-filters::before { display: none !important; }
+  .filter-chip,
+  .active-filters .filter-chip { height: 28px !important; font-size: 10px !important; padding: 4px 8px !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #1389 */
+/* CSFLOAT-1:1 PARITY ship #1218 — hero stack-front gradient (higher-specificity override)
+   Ship #1215 pinned `body .csfloat-home-hero-feature-stub.stack-front`
+   to a blue gradient, but a LATER rule in the same stylesheet
+   carries the canonical magenta gradient at the more-specific
+   selector
+       .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front
+   so #1215's `body .stub.stack-front` (specificity 0,2,1) loses
+   to that selector (0,3,0) — even with !important the cascade
+   tiebreaker is selector-strength, and an earlier !important
+   rule loses to a later !important rule of equal-or-higher
+   specificity. The pink stripe in the centre of the hero card
+   is the result. Match the higher-specificity selector exactly
+   and append it AFTER the offender so this rule wins on the
+   later-declared tiebreak. Keep the same csfloat-blue palette
+   from #1215; #1216 already covers the surrounding radial wash. */
+body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  background-image: linear-gradient(
+    rgb(28, 32, 48) 0%,
+    rgb(30, 36, 58) 45%,
+    rgb(32, 56, 100) 56%,
+    rgba(35, 123, 255, 0.55) 60%,
+    rgba(35, 123, 255, 0.55) 62%,
+    rgb(28, 70, 140) 78%,
+    rgb(20, 36, 80) 100%
+  ) !important;
+  background-color: rgb(28, 32, 48) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1218 */
+/* CSFLOAT-1:1 PARITY ship #1219 — hero stack-back/stack-mid gradient (defensive)
+   The stack-front sits on top of two stack-back / stack-mid
+   layers in the .csfloat-home-hero-stack. If those backing
+   cards inherit the same magenta-stop gradient as the original
+   stack-front (likely — they were authored as a set), they'd
+   bleed pink edges around the front card even after #1218
+   muted the main face. Pin .stack-back and .stack-mid to the
+   same csfloat-blue gradient family with slightly deeper
+   tones so the back layers read as supporting depth shadows
+   rather than competing colour. Defensive — even if the back
+   layers were already neutral, this keeps them locked to the
+   blue palette through any future style drift. */
+body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-back,
+body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-mid,
+body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-rear {
+  background-image: linear-gradient(
+    rgb(20, 24, 38) 0%,
+    rgb(22, 28, 48) 50%,
+    rgb(20, 36, 80) 100%
+  ) !important;
+  background-color: rgb(20, 24, 38) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1219 */
