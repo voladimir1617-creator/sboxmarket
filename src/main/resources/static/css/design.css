@@ -127400,3 +127400,151 @@ body .search-suggest-price {
   font-variant-numeric: tabular-nums !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #610 */
+/* CSFLOAT-1:1 PARITY ship #1105 — Material standard easing token globalization
+   csfloat measure: every interactive surface settles on
+   cubic-bezier(0.4, 0, 0.2, 1) (Material Design "standard easing").
+   sboxmarket has 60+ rules using plain `ease` for hover/click states.
+   Override the timing function on every non-Material custom element
+   so all hover transitions share csfloat's exact curve. */
+body button:not([class*="mdc-"]):not([class*="mat-"]),
+body a:not([class*="mdc-"]):not([class*="mat-"]),
+body .btn,
+body .button,
+body .nav-icon-btn,
+body .hero-tab,
+body .hero-tab-cta,
+body .px-card-interactive,
+body .filter-chip,
+body .toggle,
+body .pill,
+body .tag,
+body .chip {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1105 */
+/* CSFLOAT-1:1 PARITY ship #1106 — card hover transition parity
+   csfloat measure: mat-card.item-card uses transition: 0.3s (all,
+   ease). sboxmarket .card / .item-card mostly match but several
+   custom card classes drift to 140-220ms. Pin every card-class
+   container to csfloat's exact 300ms duration with Material easing. */
+body .card,
+body .item-card,
+body .listing-card,
+body .skin-card,
+body .product-card,
+body .market-card,
+body mat-card.mat-mdc-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1106 */
+/* CSFLOAT-1:1 PARITY ship #1107 — raised button shadow timing
+   csfloat measure: button.mdc-button--raised computes
+   `box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1)` plus a matching
+   `border 0.28s ...` rule. sboxmarket buttons elevate on hover but
+   without that 280ms shadow ramp. Lock raised + flat MDC buttons
+   plus our floating-cta primary buttons to the canonical 280ms. */
+body button.mdc-button--raised,
+body button.mat-mdc-raised-button,
+body button.floating-cta,
+body .floating-cta,
+body .btn-primary,
+body button.primary {
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1107 */
+/* CSFLOAT-1:1 PARITY ship #1108 — modal/dialog enter+exit cadence
+   csfloat measure: cdk-overlay backdrop + .mat-mdc-dialog-container
+   ride Material's emphasized motion — 150ms decel for fade-in.
+   sboxmarket modals open/close with default ease at varying
+   durations. Pin overlay backdrop and modal containers to csfloat's
+   exact split. */
+body .cdk-overlay-backdrop,
+body .modal-overlay,
+body .modal-backdrop {
+  transition: opacity 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+body .cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
+  transition: opacity 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+body .mat-mdc-dialog-container,
+body .modal,
+body .dialog {
+  transition: opacity 150ms cubic-bezier(0, 0, 0.2, 1),
+              transform 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1108 */
+/* CSFLOAT-1:1 PARITY ship #1109 — drawer slide-in timing
+   csfloat measure: .mat-drawer / side panels slide in with the
+   Material standard 400ms cubic-bezier(0.4, 0, 0.2, 1). sboxmarket
+   side panels and filter drawers default to 0.3s ease which feels
+   snappier than csfloat. Lock to the Material long-form duration
+   csfloat actually ships for the drawer family. */
+body .mat-drawer,
+body mat-drawer,
+body .side-drawer,
+body .filter-drawer,
+body .cdk-drawer,
+body .drawer {
+  transition: transform 400ms cubic-bezier(0.4, 0, 0.2, 1),
+              margin 400ms cubic-bezier(0.4, 0, 0.2, 1),
+              width 400ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1109 */
+/* CSFLOAT-1:1 PARITY ship #1110 — toast/snackbar animation parity
+   csfloat measure: .mat-mdc-snack-bar-container enters with
+   150ms cubic-bezier(0, 0, 0.2, 1) (decel) and exits with 75ms
+   cubic-bezier(0.4, 0, 1, 1) (accel). sboxmarket toasts use a
+   uniform 200ms ease in both directions. Match csfloat's split. */
+body .mat-mdc-snack-bar-container,
+body .toast,
+body .toast-notification,
+body .snackbar,
+body .notification-toast {
+  transition: transform 150ms cubic-bezier(0, 0, 0.2, 1),
+              opacity 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+body .mat-mdc-snack-bar-container.cdk-overlay-pane-leaving,
+body .toast.exiting,
+body .toast.toast-leave,
+body .snackbar.snackbar-leaving {
+  transition: transform 75ms cubic-bezier(0.4, 0, 1, 1),
+              opacity 75ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1110 */
+/* CSFLOAT-1:1 PARITY ship #1111 — skeleton shimmer cycle parity
+   csfloat measure: skeleton placeholders sweep with a 1500ms
+   linear cycle, gradient travels left-to-right. sboxmarket
+   skeletons use ~1.2s cycles at varying easings. Pin every
+   skeleton/shimmer/loading-block to csfloat's 1.5s linear loop. */
+@keyframes csfloat-skeleton-shimmer {
+  0% { background-position: -468px 0; }
+  100% { background-position: 468px 0; }
+}
+body .skeleton,
+body .shimmer,
+body .loading-block,
+body .skeleton-loader,
+body .placeholder-shimmer {
+  animation-duration: 1500ms !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-name: csfloat-skeleton-shimmer !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1111 */
+/* CSFLOAT-1:1 PARITY ship #1112 — tooltip fade-in timing
+   csfloat measure: .mat-mdc-tooltip enters with 150ms standard
+   easing, exits with 75ms accelerate. sboxmarket tooltips are
+   instant or use 200ms ease. Match csfloat's exact fade. */
+body .mat-mdc-tooltip,
+body .tooltip,
+body [role="tooltip"],
+body .px-tooltip {
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  animation-duration: 150ms !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1112 */
