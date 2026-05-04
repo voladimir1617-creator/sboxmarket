@@ -128337,3 +128337,135 @@ body footer.site-footer a[href*="cookies"]:hover {
   text-decoration: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1319 */
+/* CSFLOAT-1:1 PARITY ship #1211 — .empty-state surface to canonical panel
+   The .empty-state container (and its title/sub/icon/actions
+   children that inherit the same bg) was painted with
+   rgb(20, 22, 28) — a tone darker than the canonical csfloat
+   panel rgb(27, 29, 36). Visible result: the empty-state plate
+   reads as a slightly sunken near-black inset against every
+   other panel on the surrounding toolbar/grid (which all sit at
+   rgb(27,29,36)), so the eye instantly notices the colour break
+   between the empty-state hole and its container. csfloat keeps
+   the empty-state plate at the same panel surface as everything
+   else and uses a single hairline rgba(255,255,255,0.06)
+   bottom border on the section above to divide it. Pin the
+   container to rgb(27,29,36); leave the icon/title/sub/actions
+   children transparent so they inherit the corrected fill. */
+body .empty-state {
+  background-color: rgb(27, 29, 36) !important;
+  border-radius: 12px !important;
+}
+body .empty-state-icon,
+body .empty-state-title,
+body .empty-state-sub,
+body .empty-state-actions {
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1211 */
+/* CSFLOAT-1:1 PARITY ship #1212 — secondary-ink color for empty-state-sub
+   The .empty-state-sub copy ("Be the first to list an item — or
+   spin up simulated listings…") was painted at
+   rgba(255,255,255,0.6) — close, but reads as ghost-white over
+   the corrected panel surface. csfloat's matching empty-state
+   secondary copy uses the canonical secondary-ink token
+   rgb(158, 167, 177) — the same neutral grey used in every
+   other meta line on the site (suggest-meta, db-meta, etc.).
+   Pin .empty-state-sub to that token so the empty state's body
+   copy matches every other secondary line on the site. */
+body .empty-state-sub {
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+}
+body .empty-state-title {
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+}
+body .empty-state-icon {
+  color: rgb(158, 167, 177) !important;
+  opacity: 0.6 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1212 */
+/* CSFLOAT-1:1 PARITY ship #1213 — .header (trust section) to csfloat caption parity
+   The DIV.header inside .stats > .container was rendering at
+   42px / 500 weight Roboto with no text-transform, which gave
+   the trust block a gigantic display-style heading that doesn't
+   exist on csfloat. csfloat's matching trust-section heading is
+   a tiny uppercase eyebrow caption, ~12px / 700 / Roboto with
+   letter-spacing 0.16em and the secondary-ink colour
+   rgb(158, 167, 177) — barely-there text that frames the stat
+   tiles below. Pin .stats > .header (or .stats .header) to the
+   csfloat caption tokens so the heading reads as an eyebrow
+   instead of a display title. Scope to .stats so we don't break
+   any other .header usage elsewhere on the site. */
+body .stats .header,
+body .stats > .header,
+body .stats .container > .header {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1213 */
+/* CSFLOAT-1:1 PARITY ship #1214 — .filter-title eyebrow tighten
+   The .filter-title (Availability, Price Range, etc. side-panel
+   group titles) was already pinned to 12px / 700, but it lacked
+   the canonical csfloat letter-spacing on uppercase eyebrows
+   (csfloat uses 0.06em on small uppercase labels). Without it,
+   the title looks too tight, closer to bold body copy than to
+   an eyebrow. Pin to the csfloat eyebrow letter-spacing token
+   plus 11px text-transform uppercase so the side-panel group
+   titles read as the tiny caption headers csfloat shows. */
+body .filter-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1214 */
+
+/* CSFLOAT-1:1 PARITY ship #1320 — footer column link tone (override ship #12 over-loud blue)
+   ship #12 historically pinned footer column anchors to rgb(30,144,255) (dodger
+   blue) at 16px to match an early csfloat measurement of legal anchors as
+   bright primary blue. A re-measure on csfloat home today shows the marketplace
+   has effectively NO bright blue link anywhere in the chrome — every footer
+   anchor renders as muted body text (white-65 / Roboto 13px) and only the CTA
+   ("Buy Now", "Sign in") use the cyan accent. Pin every footer.site-footer
+   anchor (col + bottom + cookies) to that csfloat-spec muted-link tone, and
+   make the rule MORE specific than ship #12 by adding `body` to the chain. */
+body footer.site-footer .site-footer-col a,
+body footer.site-footer .site-footer-bottom a,
+body footer.site-footer a[href*="cookies"],
+body footer.site-footer a[href*="privacy"],
+body footer.site-footer a[href*="terms"],
+body footer.site-footer a[href*="legal"] {
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 13px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  text-decoration: none !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: normal !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+body footer.site-footer .site-footer-col a:hover,
+body footer.site-footer .site-footer-bottom a:hover,
+body footer.site-footer a[href*="cookies"]:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1320 */
