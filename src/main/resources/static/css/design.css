@@ -127548,3 +127548,210 @@ body .px-tooltip {
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1112 */
+
+/* CSFLOAT-1:1 PARITY ship #1200 — home hero preview card geometry to csfloat 220×460 stack-front
+   csfloat measured: cards 275w×473h at top:170 left:974 inside banner 355×603 (pad 100/80/30/0).
+   Each visible front card image base 220×460, scaled by 3D matrix to ~313×440 visible.
+   sboxmarket .csfloat-home-hero-feature-stub.stack-front was 317×352 — too short for the tall hero card.
+   Lock to csfloat 220×460 base + the 275×473 stack frame. */
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  width: 220px !important;
+  height: 460px !important;
+  border-radius: 16px !important;
+}
+.csfloat-home-hero-art .csfloat-home-hero-stack {
+  width: 275px !important;
+  height: 473px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1200 */
+
+/* CSFLOAT-1:1 PARITY ship #1201 — home hero preview card transform tilt + drop-shadow
+   csfloat measure: .card-3 (front) uses matrix3d 0.898816 perspective tilt with
+   filter: drop-shadow(rgba(0,0,0,0.3) 21px 21px 35px). sboxmarket stub uses a flat 2D
+   matrix(0.992, -0.121, 0.121, 0.992) — no perspective, no soft drop-shadow.
+   Approximate csfloat's 3D tilt with rotateY/rotateZ + same exact drop-shadow. */
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  transform: perspective(900px) rotateY(13deg) rotateZ(-2deg) !important;
+  transform-origin: 50% 50% !important;
+  filter: drop-shadow(21px 21px 35px rgba(0, 0, 0, 0.3)) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1201 */
+
+/* CSFLOAT-1:1 PARITY ship #1202 — home hero card surface fill to csfloat magenta-violet gradient
+   csfloat measure: hero card-3 image is dark-navy at top → bright magenta/pink lower band → purple foot.
+   sboxmarket stub used a flat oklch(0.23) → oklch(0.20) dark gradient — too dim.
+   Match the violet/magenta canvas csfloat ships behind StatTrak items. */
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  background-image:
+    linear-gradient(180deg,
+      rgba(20, 20, 30, 0.95) 0%,
+      rgba(40, 25, 55, 0.92) 35%,
+      rgba(180, 50, 160, 0.55) 70%,
+      rgba(220, 60, 180, 0.85) 92%,
+      rgba(110, 30, 100, 1) 100%) !important;
+  background-color: rgb(20, 20, 30) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1202 */
+
+/* CSFLOAT-1:1 PARITY ship #1203 — home hero ART column width parity to csfloat 355px banner
+   csfloat measure: banner column = 355w × 603h with padding 100/80/30/0.
+   sboxmarket .csfloat-home-hero-art measured 564w × 380h — way too wide and too short.
+   Tighten the art track so the stacked card lands in the same right-edge slot csfloat uses. */
+.csfloat-home-hero-inner .csfloat-home-hero-art {
+  width: 355px !important;
+  min-width: 355px !important;
+  max-width: 355px !important;
+  min-height: 603px !important;
+  padding: 100px 80px 30px 0 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: flex-end !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1203 */
+
+/* CSFLOAT-1:1 PARITY ship #1204 — home hero radial-gradient back-glow parity
+   csfloat measure: .hero ships url(hero-background.svg) at background-size 120% — soft cyan/blue
+   grid lines + radial purple glow centered around the right-side card cluster.
+   sboxmarket .csfloat-home-hero used a dim oklab radial. Replace with a stronger off-center
+   magenta + secondary blue radial that matches csfloat's hero ambience behind the cards. */
+section.csfloat-home-hero {
+  background-image:
+    radial-gradient(circle at 78% 32%, rgba(180, 60, 200, 0.22) 0%, rgba(180, 60, 200, 0) 35%),
+    radial-gradient(circle at 30% 50%, rgba(40, 100, 220, 0.10) 0%, rgba(40, 100, 220, 0) 40%),
+    linear-gradient(180deg, rgb(8, 10, 18) 0%, rgb(12, 14, 24) 100%) !important;
+  background-color: rgb(8, 10, 18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1204 */
+/* CSFLOAT-1:1 PARITY ship #1205 — search-input resting border parity
+   sboxmarket .search-input was painted with a 1px rgb(59,130,246)
+   bright accent border at REST plus a 2px blue glow box-shadow,
+   so the search field on /market always looked actively focused
+   and screamed for attention. csfloat keeps the resting search
+   field neutral: a 1px rgba(255,255,255,0.06) hairline on the
+   panel surface with NO box-shadow, only switching to the accent
+   ring while :focus is held. Pin the resting state to the
+   csfloat hairline + panel bg, drop the always-on glow, then
+   re-apply the accent only on :focus / :focus-within. */
+body .search-input {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+body .search-input:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+body .search-input:focus,
+body .search-input:focus-visible,
+body .search-input:focus-within {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.18) !important;
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1205 */
+/* CSFLOAT-1:1 PARITY ship #1206 — % Deals / New chip neutral parity
+   .deals-chip and .new-chip were painted on the cool-tinted
+   rgba(193,206,255,0.04) plate with a rgba(193,206,255,0.12)
+   border, which gave both pills a faint blue-violet cast on
+   the dark background. csfloat's matching pills sit on the
+   panel rgb(27,29,36) with the canonical rgba(255,255,255,0.06)
+   hairline and white text — pure neutral. Pin both classes to
+   csfloat's neutral chip tokens; the active state still lifts
+   to the accent. */
+body .deals-chip,
+body .deals-chip.new-chip,
+body .new-chip {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 999px !important;
+}
+body .deals-chip:hover,
+body .new-chip:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgb(31, 33, 41) !important;
+}
+body .deals-chip.is-active,
+body .deals-chip[aria-pressed="true"],
+body .new-chip.is-active,
+body .new-chip[aria-pressed="true"] {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  border-color: rgba(35, 123, 255, 0.40) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1206 */
+/* CSFLOAT-1:1 PARITY ship #1207 — sort-picker-chip neutral parity
+   .sort-picker-chip ("Price: High to Low" dropdown) and the
+   "Any discount" select were both painted on the same cool-tinted
+   rgba(193,206,255,0.04) plate with a 4px radius and a
+   rgba(193,206,255,0.12) border. csfloat's equivalent dropdown
+   chips sit on the panel rgb(27,29,36) with the canonical
+   rgba(255,255,255,0.06) hairline at the 8px button radius. Pin
+   both .sort-picker-chip and the "Any discount" trigger to
+   csfloat's neutral dropdown tokens. */
+body .sort-picker-chip,
+body .sort-picker-chip[type="button"],
+body select.discount-select,
+body .discount-select-trigger,
+body .market-toolbar select {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .sort-picker-chip:hover,
+body .discount-select-trigger:hover,
+body .market-toolbar select:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgb(31, 33, 41) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1207 */
+/* CSFLOAT-1:1 PARITY ship #1208 — empty-state .btn-ghost radius parity
+   The empty-state "Clear Filters" .btn-ghost was painted with a
+   6px border-radius and the cool-tinted rgba(193,206,255,0.12)
+   hairline. csfloat's secondary buttons sit at the canonical
+   8px radius with the rgba(255,255,255,0.06) hairline on a
+   transparent fill (panel bleeds through) and switch to the
+   slightly brighter rgba(255,255,255,0.12) on hover. Pin the
+   .btn-ghost surface to those tokens so the empty state's CTA
+   matches every other secondary button. */
+body .btn.btn-ghost,
+body button.btn-ghost,
+body a.btn-ghost {
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background-color: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .btn.btn-ghost:hover,
+body button.btn-ghost:hover,
+body a.btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1208 */
+/* CSFLOAT-1:1 PARITY ship #1209 — .csfloat-subnav surface parity
+   The category strip nav (All / Hats / Jackets / Shirts / Pants /
+   Gloves / Boots / Accessories) sits in a NAV.csfloat-subnav
+   that was painted with rgba(7,11,24,0.8) — a near-black with
+   a heavy blue cast that read as a deep navy band against the
+   page bg rgb(21,23,28). It was also bordered top + bottom with
+   oklch(0.3 0.012 260), an off-spec divider tone. csfloat keeps
+   its sub-navigation strip on the same panel rgb(27,29,36)
+   surface used by every other panel, and only divides it with a
+   single bottom hairline at rgba(255,255,255,0.06). Pin the
+   subnav to those neutral tokens and remove the top border so
+   the band stops looking blue-tinted on the page bg. */
+body nav.csfloat-subnav,
+body .csfloat-subnav {
+  background-color: rgb(27, 29, 36) !important;
+  border-top: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body nav.csfloat-subnav .csfloat-subnav-inner {
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1209 */
