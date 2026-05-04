@@ -127856,3 +127856,484 @@ section.csfloat-home-hero {
     linear-gradient(180deg, rgb(8, 10, 18) 0%, rgb(10, 12, 22) 100%) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1304 */
+/* CSFLOAT-1:1 PARITY ship #1305 — profile .trade-row card spec
+   Measured sboxmarket .trade-row: bg transparent, border-bottom 1px on
+   .trade-list > div, padding 14px 18px, no card radius. csfloat renders
+   each profile/trades row as a STANDALONE CARD: panel bg rgb(27,29,36),
+   1px border rgb(38,40,48), 8px radius, 16px 20px padding, 12px stack
+   gap between rows (no shared list border). Override .trade-row to the
+   csfloat card token; reset the legacy .trade-list border-bottom rule
+   so each row floats. */
+body .trade-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+body .trade-list > .trade-row,
+body .trade-row {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgb(38, 40, 48) !important;
+  border-radius: 8px !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid rgb(38, 40, 48) !important;
+  transition: border-color 140ms ease, background 140ms ease !important;
+}
+body .trade-list > .trade-row:hover,
+body .trade-row:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgb(50, 52, 62) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1305 */
+/* CSFLOAT-1:1 PARITY ship #1306 — .trade-state chip token parity
+   Measured sboxmarket .trade-state: 10px Geist Mono uppercase, 1em
+   letter-spacing, 999px pill, oklch palette. csfloat status chips on
+   trade rows are Roboto 11px / 700 weight, UPPERCASE only when the
+   semantic is a status code (PENDING / SHIPPED / COMPLETED), 4px
+   radius (NOT pill — csfloat squares the corners on row chips so they
+   read as labels, not buttons), 6px 10px padding, color rgb(255,255,255)
+   on a flat 12% accent / yellow / green / red overlay. Override font
+   family + radius + padding to the csfloat label spec; preserve the
+   semantic color hooks the existing rules set so accept/reject states
+   stay distinguishable. */
+body .trade-state {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  border-width: 1px !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: auto !important;
+  line-height: 14px !important;
+}
+/* trade-role is the secondary "You are selling/buying" label —
+   csfloat keeps these as Roboto 12/500 muted ink, NOT a mono caps
+   tag. Pin to the csfloat token. */
+body .trade-role {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1306 */
+/* CSFLOAT-1:1 PARITY ship #1307 — .offer-row card token parity
+   Measured sboxmarket .offer-row (#7270 ruleset wins on profile/offers
+   page): grid-template-columns 48px 1fr auto auto, padding 14px 18px,
+   border-bottom 1px on .offer-list shared frame. The earlier #1752
+   ruleset gives 56px 1.4fr 260px auto on a separate panel — drift in
+   both. csfloat offer rows render as standalone cards (matching trade
+   rows from ship #1305): panel bg rgb(27,29,36), 1px border
+   rgb(38,40,48), 8px radius, 16px 20px padding, 16px gap, 12px stack
+   gap between rows. Pin both .offer-list rulesets to the csfloat card
+   spec. Avatar/thumb is 48x48 with 4px radius and NO border on csfloat
+   — the existing .offer-thumb has a fill + border that reads as a
+   second card; strip them. */
+body .offer-list,
+body .offers-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+body .offer-row {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgb(38, 40, 48) !important;
+  border-radius: 8px !important;
+  padding: 16px 20px !important;
+  gap: 16px !important;
+  border-bottom: 1px solid rgb(38, 40, 48) !important;
+  transition: border-color 140ms ease, background 140ms ease !important;
+}
+body .offer-row:last-child { border-bottom: 1px solid rgb(38, 40, 48) !important; }
+body .offer-row:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgb(50, 52, 62) !important;
+}
+body .offer-thumb {
+  width: 48px !important;
+  height: 48px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
+}
+body .offer-thumb img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1307 */
+/* CSFLOAT-1:1 PARITY ship #1308 — .offer-row typography parity
+   Measured sboxmarket: .offer-title 13.5px / 500 (close), .offer-sub
+   10.5px Geist Mono with 0.04em letter-spacing (drift), .offer-amt
+   14.5px / 600 Geist Mono (drift). csfloat offer row text spec:
+     title: Roboto 14px / 500, color rgb(255,255,255), -0.005em ls
+     sub:   Roboto 12px / 400, color rgb(158,167,177), 0 ls (NOT mono)
+     amount: Roboto 14px / 600, color rgb(255,255,255), tabular-nums
+     pct:   Roboto 12px / 600, up=rgb(64,200,140) down=rgb(220,90,90)
+   Pin all to csfloat tokens — keep the .up/.down semantic colors. */
+body .offer-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: -0.005em !important;
+  line-height: 20px !important;
+}
+body .offer-sub {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 16px !important;
+}
+body .offer-amt,
+body .offer-price {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .offer-pct {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .offer-name { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 14px !important; font-weight: 500 !important; color: rgb(255, 255, 255) !important; }
+body .offer-meta { font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important; font-size: 12px !important; font-weight: 400 !important; color: rgb(158, 167, 177) !important; }
+body .offer-state {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1308 */
+/* CSFLOAT-1:1 PARITY ship #1309 — sell .inventory-grid card parity
+   Measured sboxmarket .inventory-item: 196x253 box, panel bg, 8px
+   radius (close to csfloat 8px target — already on token), but the
+   typography below the thumb drifts: .inventory-name 12.5px / 500
+   reads small but Geist Mono leaks into .inventory-floor (11px mono).
+   csfloat sell-inventory cards (the smaller "select to list" grid)
+   spec — measured against the csfloat market card baseline scaled
+   down for the inventory variant:
+     name:  Roboto 13px / 500, rgb(255,255,255), 1-line clamp
+     price: Roboto 13px / 600, rgb(255,255,255), tabular-nums
+     thumb: aspect 1/1, no border-bottom strip (csfloat removes the
+            divider on selectable inventory cards so the thumb +
+            metadata read as one tile)
+   Also tighten the grid to 168px min so cards match csfloat density
+   (the current 180px gives bigger cards than csfloat sell view).
+   Bulk-select selected state: 2px accent ring (rgb(35,123,255)) at
+   8px radius — the existing .inventory-item.bulk-selected likely
+   relies on a generic style; pin to the csfloat ring. */
+body .inventory-grid {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)) !important;
+  gap: 12px !important;
+}
+body .inventory-item {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgb(38, 40, 48) !important;
+  border-radius: 8px !important;
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease !important;
+}
+body .inventory-item:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgb(50, 52, 62) !important;
+  transform: translateY(-1px) !important;
+}
+body .inventory-item.bulk-selected {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 1px rgb(35, 123, 255) !important;
+}
+body .inventory-thumb {
+  background: transparent !important;
+  border-bottom: 0 !important;
+  padding: 8px !important;
+}
+body .inventory-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+body .inventory-name {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  padding: 4px 10px 2px !important;
+  line-height: 18px !important;
+}
+body .inventory-floor {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  padding: 0 10px 10px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1309 */
+/* CSFLOAT-1:1 PARITY ship #1210 — .price-input neutral parity
+   The .price-input fields ($ Min / $ Max in the Price Range
+   filter, plus the .fee-calc-input on the Sell flow) were
+   painted with rgba(193,206,255,0.04) — the same cool-tinted
+   wash that gave every chip on the toolbar a faint blue cast.
+   They also had no border at all (0px none), so the inputs
+   read as floating wells against the panel rather than as a
+   bordered field. csfloat's price input uses the panel
+   surface rgb(27,29,36) with the canonical
+   rgba(255,255,255,0.06) hairline at the 8px button radius,
+   neutral in resting state, accent only on focus. Pin
+   .price-input to those tokens; the .fee-calc-input
+   inherits via the shared class. */
+body input.price-input,
+body input.price-input.fee-calc-input,
+body .price-input {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body input.price-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+body input.price-input:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+body input.price-input:focus,
+body input.price-input:focus-visible {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.18) !important;
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1210 */
+
+/* CSFLOAT-1:1 PARITY ship #1310 — market sidebar bg + padding parity
+   csfloat measure: .filter.sticky background = transparent (rgba(0,0,0,0)), padding 0.
+   sboxmarket aside.sidebar measured bg rgb(27,29,36), padding 20px, border-radius 12px.
+   Drop the panel chrome so filter sections sit flush against the body bg like csfloat. */
+body aside.sidebar {
+  background-color: transparent !important;
+  background-image: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1310 */
+
+/* CSFLOAT-1:1 PARITY ship #1311 — body bg color match csfloat #15171C
+   csfloat measure: body computed background-color = rgb(21, 23, 28).
+   sboxmarket body had a slightly different hue. Pin exact match for full-page parity. */
+body {
+  background-color: rgb(21, 23, 28) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1311 */
+
+/* CSFLOAT-1:1 PARITY ship #1312 — body horizontal padding parity 60px
+   csfloat measure: body computed padding = 0px 60px (full-width gutter).
+   sboxmarket body left=0 caused subnav to land at left=635 (auto-centered) at 1440 viewport.
+   Apply matching 60px gutters so the inner column lands exactly where csfloat ships it. */
+body {
+  padding-left: 60px !important;
+  padding-right: 60px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1312 */
+
+/* CSFLOAT-1:1 PARITY ship #1313 — sub-nav inner left-align (no auto-center)
+   csfloat measure: mat-tab-nav-bar inner content starts at left=80 (60 body + 20 root inset).
+   sboxmarket .csfloat-subnav-inner measured 609w auto-centered at left=635.
+   Force the inner subnav to flow flush-left with the body's content column. */
+body nav.csfloat-subnav .csfloat-subnav-inner {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  justify-content: flex-start !important;
+}
+body nav.csfloat-subnav {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1313 */
+
+/* CSFLOAT-1:1 PARITY ship #1314 — filter availability dot color parity
+   csfloat measure: availability dots use distinct hues per row — Limited (pink/magenta),
+   Off-Market (cyan/blue), Standard (white/light). sboxmarket .filter-dot defaulted to a
+   single oklch pink hue for every row. Anchor each dot to its csfloat-equivalent color
+   so the sidebar reads at-a-glance the way csfloat's filter does. */
+body aside.sidebar .filter-option:nth-of-type(2) .filter-dot {
+  background-color: rgb(255, 64, 129) !important;
+  color: rgb(255, 64, 129) !important;
+}
+body aside.sidebar .filter-option:nth-of-type(3) .filter-dot {
+  background-color: rgb(64, 156, 255) !important;
+  color: rgb(64, 156, 255) !important;
+}
+body aside.sidebar .filter-option:nth-of-type(4) .filter-dot {
+  background-color: rgb(220, 226, 235) !important;
+  color: rgb(220, 226, 235) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1314 */
+
+
+/* CSFLOAT-1:1 PARITY ship #1315 — float-bar quality color tokens (FN/MW/FT/WW/BS)
+   csfloat measure on .float-bar-width.progress-width-{quality}:
+     fn = rgb(0, 128, 0)      — Factory New (deep green)
+     mw = rgb(24, 165, 24)    — Minimal Wear (mid green)
+     ft = rgb(154, 205, 50)   — Field-Tested (yellow-green)
+     ww = rgb(205, 92, 92)    — Well-Worn (rose)
+     bs = rgb(249, 36, 36)    — Battle-Scarred (red)
+   sboxmarket previously had no float-bar-width width-class colors at all
+   (and many oklch greens/reds), causing wear bars to render in a single
+   theme accent. Pin each progress-width-* to csfloat exact rgb. */
+body .float-bar-width.progress-width-fn,
+body .float-bar .float-bar-width.progress-width-fn {
+  background-color: rgb(0, 128, 0) !important;
+}
+body .float-bar-width.progress-width-mw,
+body .float-bar .float-bar-width.progress-width-mw {
+  background-color: rgb(24, 165, 24) !important;
+}
+body .float-bar-width.progress-width-ft,
+body .float-bar .float-bar-width.progress-width-ft {
+  background-color: rgb(154, 205, 50) !important;
+}
+body .float-bar-width.progress-width-ww,
+body .float-bar .float-bar-width.progress-width-ww {
+  background-color: rgb(205, 92, 92) !important;
+}
+body .float-bar-width.progress-width-bs,
+body .float-bar .float-bar-width.progress-width-bs {
+  background-color: rgb(249, 36, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1315 */
+
+/* CSFLOAT-1:1 PARITY ship #1316 — .float-bar slim quality bar geometry
+   csfloat measure on .float-bar inside an item card:
+     height: 8px (exact)
+     border-radius: 0px (square edges, NOT rounded)
+     bg: rgba(0,0,0,0)        — transparent track, fill provided by .float-bar-width
+     padding: 0px
+   Anchor .float-bar to those exact tokens so the wear strip reads as a
+   single thin horizontal slab (not a pill). Inner .float-bar-width gets
+   the same height/radius for pixel parity. */
+body .float-bar,
+body item-float-bar .float-bar {
+  height: 8px !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+body .float-bar .float-bar-width,
+body item-float-bar .float-bar-width {
+  height: 8px !important;
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1316 */
+
+/* CSFLOAT-1:1 PARITY ship #1317 — .item-grid .footer card-bottom region parity
+   csfloat measure on .item-grid > mat-card .footer (the price/details strip
+   stacked at the bottom of every market card):
+     padding:        12px 12px 0px
+     gap:            10px
+     display:        flex; flex-direction: column
+     font-family:    Roboto, "Helvetica Neue", sans-serif
+     font-size:      16px
+     border-top:     0
+     background:     transparent
+   sboxmarket had no equivalent rule for the in-card .footer slot, so
+   any future card-bottom region rendered with default flow + Geist Mono.
+   Pin the canonical csfloat geometry now so when card markup adds a
+   `.footer` slot it lands on csfloat-spec spacing automatically. */
+body .item-grid .footer,
+body .item-grid > div .footer,
+body .market-grid .item-card .footer {
+  padding: 12px 12px 0px !important;
+  gap: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  border-top: 0 !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1317 */
+
+/* CSFLOAT-1:1 PARITY ship #1318 — site-footer typography to csfloat Roboto stack
+   csfloat measure: every text node in the footer/legal area inherits
+   Roboto, "Helvetica Neue", sans-serif at 16px (footer items in cards).
+   sboxmarket .site-footer was painting all text in Geist Mono 13px — a
+   monospace stack that visually broke the design language switch
+   between the cards (Roboto) and the bottom band (mono). Pin the
+   .site-footer (and its inner cells) to the csfloat Roboto stack at the
+   csfloat 13px size used for legal/footer rows. */
+body footer.site-footer,
+body footer.site-footer .site-footer-inner,
+body footer.site-footer .site-footer-col,
+body footer.site-footer .site-footer-bottom,
+body footer.site-footer p,
+body footer.site-footer span,
+body footer.site-footer a,
+body footer.site-footer li {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+}
+body footer.site-footer .site-footer-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1318 */
+
+/* CSFLOAT-1:1 PARITY ship #1319 — site-footer Cookies link tone parity
+   csfloat measure: csfloat does NOT surface a top-level Cookies link in
+   the chrome, so any anchor labeled "Cookies" in the legal row should
+   read as a quiet legal-link, NOT a primary CTA. sboxmarket previously
+   rendered the `Cookies` <a> at color rgb(30, 144, 255) (dodger blue,
+   the bright primary blue) at 16px Geist Mono — a screaming bright-blue
+   link in the muted footer that drew the eye away from the brand and
+   the legal copy. Pin every footer anchor (including the cookies link)
+   to the csfloat-spec muted footer-link tone (white-65) at the 13px
+   Roboto size from ship #1318, so the cookies row reads as legal copy
+   rather than a button. Hover gets a subtle brighten. */
+body footer.site-footer a,
+body footer.site-footer a[href*="cookies"],
+body footer.site-footer .site-footer-bottom a {
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 13px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  text-decoration: none !important;
+}
+body footer.site-footer a:hover,
+body footer.site-footer a[href*="cookies"]:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1319 */
