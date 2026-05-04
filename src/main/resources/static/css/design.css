@@ -128469,3 +128469,520 @@ body footer.site-footer a[href*="cookies"]:hover {
   text-decoration: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1320 */
+
+/* CSFLOAT-1:1 PARITY ship #1321 — .profile-tabs underline marker accent
+   Measured sboxmarket .profile-tabs button.active: 30px tall, 13px
+   Roboto / 500, bg rgba(255,255,255,0.08) (white overlay), 5px radius.
+   The .csfloat-profile-tab.active::after underline uses var(--ink-1)
+   (white) instead of csfloat accent rgb(35,123,255). csfloat profile
+   tabs spec: 36-40px tall, 14px Roboto / 700 active weight, NO
+   background fill, 2px underline marker in accent rgb(35,123,255),
+   rgb(158,167,177) inactive label, rgb(255,255,255) active label.
+   Pin both .profile-tabs (sboxmarket native) and the
+   .csfloat-profile-tab fork to the csfloat token so all profile-tab
+   surfaces converge. */
+body .profile-tabs,
+body .mystall-tabs,
+body .wallet-tabs,
+body .offer-tabs {
+  border-bottom: 1px solid rgb(38, 40, 48) !important;
+  gap: 4px !important;
+  padding: 0 !important;
+  margin-bottom: 18px !important;
+}
+body .profile-tabs button,
+body .mystall-tabs button,
+body .wallet-tabs button,
+body .offer-tab,
+body .csfloat-profile-tab {
+  position: relative !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 12px 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  height: auto !important;
+  cursor: pointer !important;
+  transition: color 120ms ease !important;
+}
+body .profile-tabs button:hover,
+body .mystall-tabs button:hover,
+body .wallet-tabs button:hover,
+body .offer-tab:hover,
+body .csfloat-profile-tab:hover {
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .profile-tabs button.active,
+body .mystall-tabs button.active,
+body .wallet-tabs button.active,
+body .offer-tab.active,
+body .csfloat-profile-tab.active {
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 700 !important;
+}
+body .profile-tabs button.active::after,
+body .mystall-tabs button.active::after,
+body .wallet-tabs button.active::after,
+body .offer-tab.active::after,
+body .csfloat-profile-tab.active::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 16px !important;
+  right: 16px !important;
+  bottom: -1px !important;
+  height: 2px !important;
+  background: rgb(35, 123, 255) !important;
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1321 */
+/* CSFLOAT-1:1 PARITY ship #1322 — bulk-action toolbar accent parity
+   Measured sboxmarket .csfloat-bulk-bar (the floating selection
+   toolbar that appears when items are bulk-selected on /sell):
+   bg oklch(0.18 0.008 260 / 0.92), 10px radius (drift — csfloat is
+   8px), 1px var(--line) border, count uses var(--mono) Geist Mono
+   with var(--cta) green strong (drift — csfloat keeps the count chip
+   in Roboto with the accent BLUE). Action buttons use var(--bg-2)
+   fill with neutral border (drift — csfloat primary action chip is
+   solid accent rgb(35,123,255) with white text, secondaries are
+   ghost border-only).
+   Pin to csfloat tokens:
+     bar:    rgba(27,29,36,0.92) / 1px rgb(38,40,48) / 8px radius
+     count:  Roboto 13px / 600 with strong → accent rgb(35,123,255)
+     action: 32px tall, Roboto 13/600, 8px radius, 6px 14px padding
+     primary: solid accent rgb(35,123,255) with rgb(255,255,255) text
+     danger:  border rgb(220,90,90), color rgb(220,90,90), ghost fill */
+body .csfloat-bulk-bar {
+  background: rgba(27, 29, 36, 0.92) !important;
+  border: 1px solid rgb(38, 40, 48) !important;
+  border-radius: 8px !important;
+  padding: 10px 16px !important;
+  gap: 12px !important;
+}
+body .csfloat-bulk-bar-count {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .csfloat-bulk-bar-count strong,
+body .csfloat-bulk-bar-count > b {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+}
+body .csfloat-bulk-bar-action,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border: 1px solid rgb(50, 52, 62) !important;
+  border-radius: 8px !important;
+  padding: 6px 14px !important;
+  height: 32px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease !important;
+}
+body .csfloat-bulk-bar-action:hover,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgb(70, 72, 84) !important;
+}
+body .csfloat-bulk-bar-action.primary,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.primary {
+  background: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .csfloat-bulk-bar-action.primary:hover,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.primary:hover {
+  background: rgb(50, 138, 255) !important;
+  border-color: rgb(50, 138, 255) !important;
+}
+body .csfloat-bulk-bar-action.danger,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.danger {
+  background: transparent !important;
+  border-color: rgb(220, 90, 90) !important;
+  color: rgb(220, 90, 90) !important;
+}
+body .csfloat-bulk-bar-action.danger:hover,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.danger:hover {
+  background: rgba(220, 90, 90, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1322 */
+/* CSFLOAT-1:1 PARITY ship #1215 — hero stack-front gradient muted to csfloat blue
+   The .csfloat-home-hero-feature-stub.stack-front is the
+   tilted "skin card" mockup in the hero. It was painted with
+   a vertical gradient that snapped through bright magenta
+   stops:
+       rgb(220, 60, 180) 60–62%  (#dc3cb4 — saturated pink)
+       rgb(170, 45, 145) 78%      (#aa2d91 — magenta)
+   Result: a hot-pink stripe across the centre of the card
+   that screams against the cool, near-monochrome dark-blue
+   palette csfloat uses everywhere else. csfloat's hero artwork
+   stays inside the brand palette — every accent is a deep
+   blue or muted indigo, never a saturated magenta. Replace
+   the magenta band with the canonical csfloat accent
+   rgb(35, 123, 255) at ~22-28% alpha so the card's middle
+   band reads as a deep-blue glint instead of a pink slash,
+   keeping the same overall composition but inside the
+   csfloat colour space. */
+body .csfloat-home-hero-feature-stub.stack-front {
+  background-image: linear-gradient(
+    rgb(28, 32, 48) 0%,
+    rgb(30, 36, 58) 45%,
+    rgb(32, 56, 100) 56%,
+    rgba(35, 123, 255, 0.55) 60%,
+    rgba(35, 123, 255, 0.55) 62%,
+    rgb(28, 70, 140) 78%,
+    rgb(20, 36, 80) 100%
+  ) !important;
+  background-color: rgb(28, 32, 48) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1215 */
+/* CSFLOAT-1:1 PARITY ship #1216 — hero radial-gradient backdrop muted
+   The .csfloat-home-hero outer wrapper layered three radial
+   gradients on top of the rgb(8,10,18) base, the loudest of
+   which was a 60% × 55% radial at 80% 45% in
+   rgba(180, 60, 200, 0.28) — a violet-magenta wash that
+   bleeds into the right half of the hero band. Combined with
+   ship #1215, that violet wash is what makes the whole
+   right column look pink-purple rather than blue. csfloat
+   keeps the hero backdrop entirely inside its blue palette:
+   one radial of the accent rgba(35, 123, 255, ~0.10) at the
+   right edge plus a deeper rgba(20, 30, 70, ~0.25) at the
+   bottom — same dark-blue family, no magenta. Pin the
+   .csfloat-home-hero background-image to the csfloat
+   triple-radial recipe so the backdrop matches. */
+body .csfloat-home-hero {
+  background-image:
+    radial-gradient(60% 55% at 80% 45%, rgba(35, 123, 255, 0.18) 0%, rgba(35, 123, 255, 0) 65%),
+    radial-gradient(80% 50% at 25% 50%, rgba(40, 100, 220, 0.10) 0%, rgba(40, 100, 220, 0) 55%),
+    radial-gradient(100% 70% at 50% 100%, rgba(20, 30, 70, 0.25) 0%, rgba(20, 30, 70, 0) 60%),
+    linear-gradient(180deg, rgb(8, 10, 18) 0%, rgb(12, 14, 24) 100%) !important;
+  background-color: rgb(8, 10, 18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1216 */
+/* CSFLOAT-1:1 PARITY ship #1217 — hero secondary CTA neutral parity
+   The .csfloat-home-hero-cta.secondary ("Database" button next
+   to the primary "Marketplace" CTA) was painted with an oklab
+   colour fill: oklab(0.242307 -0.004729 -0.0264807). That
+   resolves to a near-grey with a faint cool tint that
+   differs from the canonical csfloat panel rgb(27,29,36)
+   used by every other secondary surface. csfloat's matching
+   hero secondary CTA sits on the panel rgb(27,29,36) with the
+   canonical rgba(255,255,255,0.06) hairline at the 8px button
+   radius, white label. Pin the secondary CTA to those tokens
+   so it matches every other csfloat secondary action. */
+body .csfloat-home-hero-cta.secondary,
+body a.csfloat-home-hero-cta.secondary,
+body button.csfloat-home-hero-cta.secondary {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .csfloat-home-hero-cta.secondary:hover {
+  background-color: rgb(31, 33, 41) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1217 */
+
+/* CSFLOAT-1:1 PARITY ship #1380 — .nav-picker-chip dropdown trigger
+   parity (USD / EN). The two .nav-picker-chip buttons in the top
+   nav were rendered as bare flex buttons: 0px radius, 0 border,
+   transparent fill, with 16px Roboto. Measured live on csfloat,
+   the matching dropdown chips in the top nav sit on the same panel
+   rgb(27,29,36) with the canonical rgba(255,255,255,0.06) hairline
+   at the 8px button radius, with 13px Roboto and 6px 10px padding
+   so they line up vertically with the rest of the nav row. Pin
+   both .nav-picker-chip instances to those tokens so the
+   currency/lang triggers actually look like dropdown buttons. */
+body .nav-picker-chip,
+body button.nav-picker-chip {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  padding: 6px 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+}
+body .nav-picker-chip:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgb(31, 33, 41) !important;
+}
+body .nav-picker-chip .nav-picker-label {
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .nav-picker-chip .nav-picker-caret {
+  font-size: 10px !important;
+  opacity: 0.7 !important;
+  margin-left: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1380 */
+/* CSFLOAT-1:1 PARITY ship #1381 — .sort-picker-chip font parity
+   The toolbar sort dropdown chip ('Price: High to Low') had the
+   right surface (rgb(27,29,36) panel + 8px radius + canonical
+   rgba(255,255,255,0.06) hairline) but used 'Geist' 12px for the
+   label/caret. Measured live on csfloat, every dropdown trigger in
+   the toolbar uses 13px Roboto. Pin .sort-picker-chip plus its
+   inner .sort-picker-label and .sort-picker-caret to Roboto 13px
+   so the chip reads identical to the currency/lang chips just
+   shipped in #1380. */
+body .sort-picker-chip,
+body button.sort-picker-chip {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+}
+body .sort-picker-chip .sort-picker-label,
+body .sort-picker .sort-picker-label {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .sort-picker-chip .sort-picker-caret,
+body .sort-picker .sort-picker-caret {
+  font-size: 10px !important;
+  opacity: 0.7 !important;
+}
+body .sort-picker {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1381 */
+/* CSFLOAT-1:1 PARITY ship #1382 — select.discount-select native
+   select font + dimensions parity. The native discount select
+   ('Any discount') had the right panel surface but inherited
+   16px Roboto and a 36px height, while every other dropdown
+   trigger in the toolbar sits at 13px Roboto / 32px tall.
+   Pin select.discount-select (and the related .discount-select /
+   select.sort-select) to 13px Roboto + 32px height + 12px left /
+   32px right padding so it aligns with the sort chip just re-pinned
+   in #1381. Also pin the <option> children so the OS-rendered
+   dropdown list reads dark instead of falling through to the
+   system-default white. */
+body select.discount-select,
+body select.sort-select,
+body .discount-select {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  padding: 0 32px 0 12px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+}
+body select.discount-select option,
+body select.sort-select option,
+body .discount-select option {
+  background-color: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1382 */
+/* CSFLOAT-1:1 PARITY ship #1383 — custom dropdown menu surface
+   parity (the panel that opens when a dropdown chip is clicked).
+   Measured live on csfloat, the .mat-mdc-select-panel that pops
+   under the currency selector reads at background
+   rgba(21,23,28,0.8), border-radius 0 0 15px 15px (top corners
+   square because the panel docks under its trigger), and the
+   Material elevation shadow stack. Today the codebase's generic
+   .dropdown-menu / .menu-panel / .picker-menu / .nav-picker-menu /
+   .sort-picker-menu containers are bare. Pin every dropdown menu
+   surface to those tokens, and pin each menu item to the csfloat
+   option chrome - 36px row, 13px Roboto, padding 0 12px, hover at
+   rgba(255,255,255,0.06), selected at rgba(35,123,255,0.12). */
+body .nav-picker-menu,
+body .sort-picker-menu,
+body .picker-menu,
+body .dropdown-menu,
+body .menu-panel,
+body .currency-selector-panel,
+body .mat-mdc-select-panel {
+  background-color: rgba(21, 23, 28, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 0 0 15px 15px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.20) 0 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0 3px 14px 2px !important;
+  padding: 4px 0 !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .nav-picker-menu .menu-item,
+body .sort-picker-menu .menu-item,
+body .picker-menu .menu-item,
+body .dropdown-menu .menu-item,
+body .menu-panel .menu-item,
+body .nav-picker-menu > button,
+body .sort-picker-menu > button,
+body .picker-menu > button,
+body .dropdown-menu > button,
+body .menu-panel > button,
+body .currency-selector-panel .mat-mdc-option,
+body .mat-mdc-select-panel .mat-mdc-option {
+  display: flex !important;
+  align-items: center !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+body .nav-picker-menu .menu-item:hover,
+body .sort-picker-menu .menu-item:hover,
+body .picker-menu .menu-item:hover,
+body .dropdown-menu .menu-item:hover,
+body .menu-panel .menu-item:hover,
+body .nav-picker-menu > button:hover,
+body .sort-picker-menu > button:hover,
+body .picker-menu > button:hover,
+body .dropdown-menu > button:hover,
+body .menu-panel > button:hover,
+body .currency-selector-panel .mat-mdc-option:hover,
+body .mat-mdc-select-panel .mat-mdc-option:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+body .nav-picker-menu .menu-item.is-active,
+body .sort-picker-menu .menu-item.is-active,
+body .nav-picker-menu .menu-item[aria-selected="true"],
+body .sort-picker-menu .menu-item[aria-selected="true"],
+body .currency-selector-panel .mat-mdc-option.mdc-list-item--selected,
+body .mat-mdc-select-panel .mat-mdc-option.mdc-list-item--selected {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1383 */
+/* CSFLOAT-1:1 PARITY ship #1384 - native radio + custom toggle
+   switch parity. Settings + filter forms today use native
+   input[type="radio"] and a custom .toggle / .switch widget,
+   both unstyled. Measured live on csfloat, the matching radios
+   are 18px circles with the same 2px rgba(255,255,255,0.7) border
+   the checkbox token uses, filling to rgb(35,123,255) when
+   selected, and the matching toggle is a 36x20 pill with a 14px
+   round white knob that uses the same accent fill when on. Pin
+   native radios AND .toggle / .switch widgets to those tokens so
+   every form control on the settings + filter pages matches the
+   checkbox chrome already shipping in the filter sidebar. */
+body input[type="radio"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  border: 2px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  cursor: pointer !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+}
+body input[type="radio"]:hover {
+  border-color: rgba(255, 255, 255, 0.85) !important;
+}
+body input[type="radio"]:checked {
+  border-color: rgb(35, 123, 255) !important;
+  background-color: transparent !important;
+}
+body input[type="radio"]:checked::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background-color: rgb(35, 123, 255) !important;
+}
+body input[type="radio"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.30) !important;
+}
+body .toggle,
+body .switch,
+body input[type="checkbox"].toggle,
+body input[type="checkbox"].switch {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  position: relative !important;
+  display: inline-block !important;
+  width: 36px !important;
+  height: 20px !important;
+  border-radius: 999px !important;
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  cursor: pointer !important;
+  transition: background-color 0.18s ease !important;
+  vertical-align: middle !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+body input[type="checkbox"].toggle::after,
+body input[type="checkbox"].switch::after,
+body .toggle::after,
+body .switch::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 2px !important;
+  transform: translateY(-50%) !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background-color: rgb(255, 255, 255) !important;
+  transition: left 0.18s ease, background-color 0.18s ease !important;
+}
+body input[type="checkbox"].toggle:checked,
+body input[type="checkbox"].switch:checked,
+body .toggle.is-on,
+body .switch.is-on,
+body .toggle[aria-checked="true"],
+body .switch[aria-checked="true"] {
+  background-color: rgb(35, 123, 255) !important;
+}
+body input[type="checkbox"].toggle:checked::after,
+body input[type="checkbox"].switch:checked::after,
+body .toggle.is-on::after,
+body .switch.is-on::after,
+body .toggle[aria-checked="true"]::after,
+body .switch[aria-checked="true"]::after {
+  left: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1384 */
