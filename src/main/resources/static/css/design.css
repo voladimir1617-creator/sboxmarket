@@ -127755,3 +127755,104 @@ body nav.csfloat-subnav .csfloat-subnav-inner {
   background-color: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1209 */
+
+/* CSFLOAT-1:1 PARITY ship #1300 — home hero card render width restore (canvas overshoot)
+   ship #1200 dropped the card to 220px BASE then perspective scaled it down to ~120px visible —
+   csfloat's visible front card is ~283px wide (card-1) / ~313px wide (card-3). The base must be
+   wide enough that after the rotateY collapse the visible width matches csfloat. Move base to 280
+   so visible (after 13deg rotateY) lands close to csfloat's ~283px observed width. */
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  width: 280px !important;
+  height: 460px !important;
+}
+.csfloat-home-hero-art .csfloat-home-hero-stack {
+  width: 320px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1300 */
+
+/* CSFLOAT-1:1 PARITY ship #1301 — hero card gradient parity to csfloat StatTrak canvas
+   csfloat hero card-3 visual: ~55% dark navy/charcoal (where the AK silhouette sits) → bright
+   magenta horizontal stripe at ~55-60% (price-bar separator) → lighter magenta foot.
+   Previous ship #1202 had the dark zone too short (35%) and the magenta starting too high (70%).
+   Recalibrate to csfloat's actual band positions. */
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  background-image:
+    linear-gradient(180deg,
+      rgb(38, 36, 56) 0%,
+      rgb(40, 32, 60) 45%,
+      rgb(70, 38, 78) 56%,
+      rgb(220, 60, 180) 60%,
+      rgb(220, 60, 180) 62%,
+      rgb(170, 45, 145) 78%,
+      rgb(110, 30, 100) 100%) !important;
+  background-color: rgb(38, 36, 56) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1301 */
+
+/* CSFLOAT-1:1 PARITY ship #1302 — hero card stack-back ghost cards (peek behind)
+   csfloat shows 3 stacked cards (card-1, card-2, card-3) with the back two peeking right & down.
+   sboxmarket renders only the single stack-front. Use ::before / ::after on the stack to draw
+   the two peek cards behind, matching csfloat's offset cascade. */
+.csfloat-home-hero-stack {
+  position: relative !important;
+}
+.csfloat-home-hero-stack::before,
+.csfloat-home-hero-stack::after {
+  content: "" !important;
+  position: absolute !important;
+  width: 280px !important;
+  height: 460px !important;
+  border-radius: 16px !important;
+  background-image: linear-gradient(180deg,
+    rgb(34, 32, 50) 0%,
+    rgb(50, 32, 65) 50%,
+    rgb(140, 40, 120) 80%,
+    rgb(90, 25, 80) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  filter: drop-shadow(15px 15px 28px rgba(0, 0, 0, 0.28)) !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+}
+.csfloat-home-hero-stack::before {
+  top: 12px !important;
+  left: 28px !important;
+  transform: perspective(900px) rotateY(13deg) rotateZ(-2deg) translateZ(-30px) !important;
+  opacity: 0.85 !important;
+}
+.csfloat-home-hero-stack::after {
+  top: 24px !important;
+  left: 56px !important;
+  transform: perspective(900px) rotateY(13deg) rotateZ(-2deg) translateZ(-60px) !important;
+  opacity: 0.65 !important;
+}
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  position: relative !important;
+  z-index: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1302 */
+
+/* CSFLOAT-1:1 PARITY ship #1303 — hero card edge highlight + inset border parity
+   csfloat hero cards have a subtle 1px lighter top edge + the natural rounded corner radius
+   16px crop. sboxmarket already pulls 16px radius via #1200; add a lighter top inset so the
+   card reads as a "screenshot" rather than a flat tile. */
+.csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-front {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.20) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.30) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1303 */
+
+/* CSFLOAT-1:1 PARITY ship #1304 — hero section radial-gradient FINAL position parity
+   csfloat hero glow sits behind the right-side cards at viewport ~78% / 50% with a much wider
+   spread + slightly cooler periphery. Ship #1204 sized the glow too small (35%). Widen the
+   primary radial and re-anchor for the new card position so the back-glow matches csfloat. */
+section.csfloat-home-hero {
+  background-image:
+    radial-gradient(ellipse 60% 55% at 80% 45%, rgba(180, 60, 200, 0.28) 0%, rgba(180, 60, 200, 0) 65%),
+    radial-gradient(ellipse 80% 50% at 25% 50%, rgba(40, 100, 220, 0.08) 0%, rgba(40, 100, 220, 0) 55%),
+    radial-gradient(ellipse 100% 70% at 50% 100%, rgba(20, 30, 70, 0.25) 0%, rgba(20, 30, 70, 0) 60%),
+    linear-gradient(180deg, rgb(8, 10, 18) 0%, rgb(10, 12, 22) 100%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1304 */
