@@ -18,9 +18,16 @@ import org.springframework.core.Ordered
  *   Spring Session read the cookie before our sanitizer could clean it.
  *
  *   Wrapping the filter in an explicit FilterRegistrationBean with
- *   `Ordered.HIGHEST_PRECEDENCE` guarantees it runs FIRST, ahead of
- *   Spring Session's `SessionRepositoryFilter` (typically registered at
- *   `Integer.MIN_VALUE + 50`).
+ *   `Ordered.HIGHEST_PRECEDENCE + 1` puts us second-from-the-front,
+ *   immediately after {@link CatastrophicErrorFilter} (which sits at
+ *   `HIGHEST_PRECEDENCE` so it can wrap any catastrophic exception
+ *   from anything below it, this sanitizer included), and well ahead
+ *   of Spring Session's `SessionRepositoryFilter` (typically registered
+ *   at `Integer.MIN_VALUE + 50`).  Bumped from raw HIGHEST_PRECEDENCE
+ *   on 2026-05-03 to disambiguate from CatastrophicErrorFilter — at
+ *   the same order, FilterRegistrationBean's tie-break is not stable
+ *   across boots and we need the catastrophic catch to be strictly
+ *   first.
  */
 @Configuration
 class SessionCookieSanitizerConfig {
@@ -29,7 +36,7 @@ class SessionCookieSanitizerConfig {
     FilterRegistrationBean<SessionCookieSanitizerFilter> sessionCookieSanitizerRegistration(
             SessionCookieSanitizerFilter filter) {
         FilterRegistrationBean<SessionCookieSanitizerFilter> reg = new FilterRegistrationBean<>(filter)
-        reg.setOrder(Ordered.HIGHEST_PRECEDENCE)
+        reg.setOrder(Ordered.HIGHEST_PRECEDENCE + 1)
         reg.setName('sessionCookieSanitizerFilter')
         reg.addUrlPatterns('/*')
         reg
