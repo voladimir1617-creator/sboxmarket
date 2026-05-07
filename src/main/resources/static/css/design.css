@@ -148978,30 +148978,31 @@ html .full-page-mode .info-modal-body h2.settings-section-heading:first-child {
 
 /* =====================================================================
    CSFLOAT-1:1 PARITY ship #9022 — per-event row label + sublabel
-   csfloat: label is Roboto 14px / 500 / line-height 20px / color
-     rgb(229,231,235). Sublabel is Roboto 12px / 400 / line-height 16px
-     / color rgba(229,231,235,0.55), with 4px gap between them. The
-     sublabel caps at 480px so toggle pills stay on the right edge on
-     wide viewports.
+   Locked baseline measurement: label is Roboto 14px / 500 / lh20 /
+     rgba(255,255,255,0.92). Sublabel is 12px / 400 / lh16 /
+     rgba(255,255,255,0.5). Cap sublabel at 480px so toggle pills
+     stay clean on the right edge on wide viewports. Boosted
+     specificity (html .info-modal-body) so any later modal-scope
+     colour drift cannot downgrade the per-event row tokens.
    ===================================================================== */
-.settings-row .settings-label,
-.settings-row label.settings-label {
+html .info-modal-body .settings-row .settings-label,
+html .info-modal-body .settings-row label.settings-label {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 14px !important;
   font-weight: 500 !important;
   line-height: 20px !important;
-  color: rgb(229, 231, 235) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
   letter-spacing: normal !important;
   text-transform: none !important;
-  margin: 0 0 4px !important;
+  margin: 0 0 2px !important;
   padding: 0 !important;
 }
-.settings-row .settings-sublabel {
+html .info-modal-body .settings-row .settings-sublabel {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 12px !important;
   font-weight: 400 !important;
   line-height: 16px !important;
-  color: rgba(229, 231, 235, 0.55) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
   letter-spacing: normal !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -149041,13 +149042,14 @@ html .info-modal-body .settings-row .toggle-switch:focus-visible {
      background fill — a thin outlined pill, matching csfloat's
      "subscribed" indicator.
    ===================================================================== */
-.settings-row .wallet-tx-filter-chip {
+html .info-modal-body .settings-row .wallet-tx-filter-chip {
   height: 28px !important;
+  min-height: 28px !important;
   padding: 0 12px !important;
   border-radius: 999px !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   background: transparent !important;
-  color: rgba(229, 231, 235, 0.78) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 12px !important;
   font-weight: 500 !important;
@@ -149061,18 +149063,18 @@ html .info-modal-body .settings-row .toggle-switch:focus-visible {
   transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease !important;
   box-shadow: none !important;
 }
-.settings-row .wallet-tx-filter-chip:hover {
+html .info-modal-body .settings-row .wallet-tx-filter-chip:hover {
   border-color: rgba(255, 255, 255, 0.24) !important;
-  color: rgb(229, 231, 235) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
   background: rgba(255, 255, 255, 0.04) !important;
 }
-.settings-row .wallet-tx-filter-chip.active {
-  border-color: rgb(64, 142, 255) !important;
-  color: rgb(64, 142, 255) !important;
+html .info-modal-body .settings-row .wallet-tx-filter-chip.active {
+  border-color: #237bff !important;
+  color: #237bff !important;
   background: transparent !important;
 }
-.settings-row .wallet-tx-filter-chip.active:hover {
-  background: rgba(64, 142, 255, 0.08) !important;
+html .info-modal-body .settings-row .wallet-tx-filter-chip.active:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9024 */
 
@@ -149084,24 +149086,24 @@ html .info-modal-body .settings-row .toggle-switch:focus-visible {
      16px gap between text and CTA. Strong tag inside upgrades to
      rgb(229,231,235) at weight 500 to keep the lead phrase legible.
    ===================================================================== */
-.info-modal-content > div[style*="--accent-dim"],
-.info-modal-content > div[style*="accent-dim"],
-.info-modal-content > div[style*="accent-border"] {
-  background: rgba(64, 142, 255, 0.08) !important;
-  background-color: rgba(64, 142, 255, 0.08) !important;
-  border: 1px solid rgba(64, 142, 255, 0.24) !important;
+html .info-modal-content > div[style*="--accent-dim"],
+html .info-modal-content > div[style*="accent-dim"],
+html .info-modal-content > div[style*="accent-border"] {
+  background: rgba(35, 123, 255, 0.08) !important;
+  background-color: rgba(35, 123, 255, 0.08) !important;
+  border: 1px solid rgba(35, 123, 255, 0.24) !important;
   border-radius: 8px !important;
   padding: 12px 16px !important;
   margin-bottom: 20px !important;
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
   font-size: 12px !important;
   line-height: 18px !important;
-  color: rgba(229, 231, 235, 0.78) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
   gap: 16px !important;
 }
-.info-modal-content > div[style*="accent-dim"] strong,
-.info-modal-content > div[style*="accent-border"] strong {
-  color: rgb(229, 231, 235) !important;
+html .info-modal-content > div[style*="accent-dim"] strong,
+html .info-modal-content > div[style*="accent-border"] strong {
+  color: rgba(255, 255, 255, 0.92) !important;
   font-weight: 500 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9025 */
@@ -149525,3 +149527,705 @@ mark[data-csfloat-match]:hover,
   margin: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9304 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9500 - site-footer-bottom row layout: full-width band, hairline divider on top
+   Measured live (5/6/2026): .site-footer-bottom rect 444x247 (sits next to brand col), justify-content: space-between
+   but flex-wrap kicks in to a tall column because the row is constrained to a single grid cell.
+   csfloat-spec: footer bottom is a SEPARATE strip below the column grid, full inner width, hairline top divider
+   rgba(255,255,255,0.06), 16px vertical padding, copy left + meta right on a single horizontal row.
+   Force the .site-footer-bottom to break out of the grid as a row spanning all columns by widening
+   inner display to a block with a stacked grid, then bottom block flexes left/right. */
+body footer.site-footer .site-footer-inner {
+  display: block !important;
+  max-width: 1382.4px !important;
+  margin: 0 auto !important;
+  padding: 0 30px !important;
+}
+body footer.site-footer .site-footer-inner > .site-footer-col,
+body footer.site-footer .site-footer-inner > .site-footer-brand {
+  display: inline-block !important;
+  vertical-align: top !important;
+}
+body footer.site-footer .site-footer-grid {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(140px, 1fr)) !important;
+  gap: 36px !important;
+}
+body footer.site-footer .site-footer-bottom {
+  display: flex !important;
+  width: 100% !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-top: 32px !important;
+  padding: 16px 0 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+body footer.site-footer .site-footer-copy {
+  flex: 1 1 auto !important;
+  min-width: 240px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9500 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9501 - site-footer column grid auto-layout (override sibling display:inline-block fallback)
+   ship #9500 above used inline-block as a defensive fallback, but the cleaner csfloat-spec is a CSS grid
+   with the bottom row using grid-column: 1 / -1 (span all). Promote .site-footer-inner back to grid
+   semantics with an auto-flow column row + a full-span row for the bottom strip. This produces the
+   exact "5 cols on top, 1 full-width strip below" layout csfloat ships. */
+body footer.site-footer .site-footer-inner {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(120px, 1fr)) !important;
+  grid-auto-rows: auto !important;
+  column-gap: 36px !important;
+  row-gap: 0 !important;
+}
+body footer.site-footer .site-footer-inner > .site-footer-bottom {
+  grid-column: 1 / -1 !important;
+}
+body footer.site-footer .site-footer-inner > .site-footer-col,
+body footer.site-footer .site-footer-inner > .site-footer-brand {
+  display: flex !important;
+  flex-direction: column !important;
+  vertical-align: baseline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9501 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9502 - social icon row pill buttons (Discord, Twitter/X, Instagram pattern)
+   Measured: only one .site-footer-social link rendered (mail), 20x32 (icon-only, no chip).
+   csfloat-spec: social icons are 36x36 circular pills with subtle bg rgba(255,255,255,0.04),
+   1px hairline rgba(255,255,255,0.08), 18px icon centered, white-65 color. Hover lifts to white-92
+   and bg rgba(35,123,255,0.12) (csfloat accent tint). Row gap is 8px.
+   Pin .site-footer-socials row + .site-footer-social pill geometry to that spec, override prior
+   site-footer-social styles that left it as bare inline icon. */
+body footer.site-footer .site-footer-socials {
+  display: inline-flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+body footer.site-footer a.site-footer-social,
+body footer.site-footer .site-footer-social {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  text-decoration: none !important;
+  transition: color .12s ease, background-color .12s ease, border-color .12s ease, transform .12s ease !important;
+}
+body footer.site-footer a.site-footer-social:hover,
+body footer.site-footer .site-footer-social:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+  border-color: rgba(35, 123, 255, 0.32) !important;
+}
+body footer.site-footer .site-footer-social .material-symbols-rounded,
+body footer.site-footer .site-footer-social .mi,
+body footer.site-footer a.site-footer-social .material-symbols-rounded,
+body footer.site-footer a.site-footer-social .mi {
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9502 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9503 - Powered by Stripe chip parity
+   Measured local: .stripe-badge rect 101x32, no border, no bg, plain inline link, label and mark
+   on one line as text. csfloat-spec: Stripe chip is a pill with bg rgba(255,255,255,0.04),
+   1px hairline rgba(255,255,255,0.08), 4-12px padding, 11px label "Powered by" in white-50,
+   13px wordmark in white-90 with 600 weight, gap 6px. Hover lifts to white-65 / brighter bg.
+   Pin geometry + typography to chip spec. */
+body footer.site-footer .stripe-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px !important;
+  height: 28px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  transition: color .12s ease, background-color .12s ease, border-color .12s ease !important;
+}
+body footer.site-footer .stripe-badge:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+body footer.site-footer .stripe-badge .stripe-badge-label {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  letter-spacing: 0.01em !important;
+}
+body footer.site-footer .stripe-badge .stripe-badge-mark {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-transform: lowercase !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9503 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9504 - TLS / trust strip chip parity
+   Measured local: .trust-badge 174x70 (ballooned vertically because flex with no align inside
+   narrow 174px col so text wraps). csfloat-spec: trust chip is the SAME pill geometry as the
+   Stripe chip - single line, never wraps, 28px height, 5px 12px padding, 999px radius,
+   subtle dark surface, 1px hairline border, 11-12px font, lock icon 12-13px before text.
+   Pin .trust-badge to chip parity + force single-line. */
+body footer.site-footer .trust-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px !important;
+  height: 28px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  letter-spacing: 0.01em !important;
+}
+body footer.site-footer .trust-badge .material-symbols-rounded,
+body footer.site-footer .trust-badge .mi,
+body footer.site-footer .trust-badge mat-icon {
+  font-size: 13px !important;
+  line-height: 1 !important;
+  color: rgba(100, 236, 66, 0.85) !important;
+}
+body footer.site-footer .site-footer-badges {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-top: 14px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9504 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9505 - meta strip + copyright row layout (full-width with proper splits)
+   Measured local: .site-footer-meta sits inside .site-footer-bottom alongside copy + socials,
+   but with bottom narrowing to 444px the three children stack vertically. csfloat-spec:
+   the bottom band has 3 logical regions on a single horizontal row at desktop:
+     copyright + version  social icon row  meta dot-separated chips
+   Allow wrap to a 2-row layout on narrow with copy on top and socials/meta below.
+   Also: dot separator between meta items gets the muted secondary tone. */
+body footer.site-footer .site-footer-bottom {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+body footer.site-footer .site-footer-bottom .site-footer-copy {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  line-height: 1.5 !important;
+}
+body footer.site-footer .site-footer-bottom .site-footer-meta {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 0 !important;
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  margin-top: 0 !important;
+}
+body footer.site-footer .site-footer-bottom .site-footer-meta > span {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  padding: 0 10px !important;
+}
+body footer.site-footer .site-footer-bottom .site-footer-meta > span.dot {
+  padding: 0 !important;
+  color: rgba(255, 255, 255, 0.28) !important;
+}
+body footer.site-footer .site-footer-bottom .site-footer-meta > span:first-child { padding-left: 0 !important; }
+body footer.site-footer .site-footer-bottom .site-footer-meta > span:last-child { padding-right: 0 !important; }
+body footer.site-footer .site-footer-bottom .site-footer-socials {
+  flex: 0 0 auto !important;
+  margin: 0 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9505 */
+
+/* CSFLOAT-1:1 PARITY ship #9700 — Trade timeline stepper container.
+   Sboxmarket painted the stepper as a panel: bg-1 surface, 1px line border,
+   10px radius, mono geist-mono text. Csfloat (Angular Material mat-stepper-
+   horizontal) renders the rail flush with the surrounding card — no panel
+   chrome, just the steps in a horizontal row, sans-serif Roboto labels,
+   24px gap and 24px vertical padding. We strip the panel chrome and reset
+   to the Material baseline so subsequent ships only need to style the
+   step nodes themselves. */
+.trade-progress-stepper,
+.trade-progress-stepper.six-node {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 24px 8px 44px !important;
+  margin: 0 0 16px 0 !important;
+  gap: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+.trade-progress-stepper .trade-phase {
+  display: flex !important;
+  flex: 1 1 0 !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  position: relative !important;
+  min-width: 0 !important;
+}
+.trade-progress-stepper .trade-phase:last-child {
+  flex: 0 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9700 */
+
+/* CSFLOAT-1:1 PARITY ship #9701 — Step dot baseline (idle / pending state).
+   Sboxmarket dots were 22px, mono 10px, neutral grey-on-grey, 1px line
+   border. Csfloat (mat-step-icon idle) is a 24px circle filled with a
+   muted neutral surface (rgba(255,255,255,0.12)) carrying the step number
+   in 14px Roboto white at 60% opacity, no border. The dot is the visual
+   anchor of each step — must read as a numbered token, not as a button. */
+.trade-progress-stepper .trade-phase .trade-phase-dot {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border: 0 none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 2 !important;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
+}
+/* Anchor dots (Seller / Buyer) keep the em-dash glyph but in the same
+   neutral chip styling so they don't masquerade as completed steps. */
+.trade-progress-stepper .trade-phase.anchor .trade-phase-dot {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9701 */
+
+/* CSFLOAT-1:1 PARITY ship #9702 — Active and completed step states.
+   Sboxmarket's `.on` (completed) class only changed text colour; csfloat
+   uses Material's edit-state pattern: completed steps are filled with the
+   accent blue (rgb(35,123,255)) carrying a white check, and the CURRENT
+   step gets a 3px translucent halo (`box-shadow: 0 0 0 3px rgba(35,123,255,
+   0.22)`) so the eye lands on it immediately. Failed/disputed → red fill
+   with a white "x". This is the entire visual state machine. */
+.trade-progress-stepper .trade-phase.on:not(.anchor):not(.current) .trade-phase-dot {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  box-shadow: none !important;
+}
+.trade-progress-stepper .trade-phase.current:not(.anchor) .trade-phase-dot {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.22) !important;
+}
+.trade-progress-stepper .trade-phase.failed .trade-phase-dot,
+.trade-progress-stepper .trade-phase.disputed .trade-phase-dot,
+.trade-progress-stepper .trade-phase.cancelled .trade-phase-dot {
+  background: rgb(244, 67, 54) !important;
+  background-color: rgb(244, 67, 54) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9702 */
+
+/* CSFLOAT-1:1 PARITY ship #9703 — Connector line between steps.
+   Sboxmarket's bar was a flex item with no visible content (transparent
+   background, 33px tall — invisible to the user). Csfloat's mat-stepper
+   draws a 1px horizontal rule at the dot's vertical centre between
+   adjacent steps; completed segments take the accent blue, pending
+   segments stay neutral white-12%. We render the bar as the connector
+   directly so the trade rail reads as a connected chain instead of
+   floating dots. */
+.trade-progress-stepper .trade-phase .trade-phase-bar {
+  display: block !important;
+  flex: 1 1 auto !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  margin: 0 8px !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  align-self: center !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+.trade-progress-stepper .trade-phase .trade-phase-bar::before,
+.trade-progress-stepper .trade-phase .trade-phase-bar::after {
+  content: none !important;
+  display: none !important;
+}
+/* Connector glows blue once the NEXT step is reached (this step is .on
+   AND not the current pending one). */
+.trade-progress-stepper .trade-phase.on:not(.current) .trade-phase-bar {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+}
+/* Failed states bleed red into the connector that brought us here. */
+.trade-progress-stepper .trade-phase.failed .trade-phase-bar,
+.trade-progress-stepper .trade-phase.disputed .trade-phase-bar,
+.trade-progress-stepper .trade-phase.cancelled .trade-phase-bar {
+  background: rgb(244, 67, 54) !important;
+  background-color: rgb(244, 67, 54) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9703 */
+
+/* CSFLOAT-1:1 PARITY ship #9704 — Step labels under each dot.
+   Sboxmarket rendered the label inline beside the dot in 10px geist-mono
+   uppercase with letter-spacing — read like a chip caption rather than a
+   step title. Csfloat (mat-step-label) stacks the label BELOW the dot in
+   12px Roboto sentence case, white at 87% for the active/completed steps
+   and 60% for idle. We position absolutely under the dot so the connector
+   line stays straight and labels don't push the row width around. */
+.trade-progress-stepper .trade-phase .trade-phase-label {
+  position: absolute !important;
+  top: calc(50% + 18px) !important;
+  left: 12px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  transform: translateX(-50%) !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+.trade-progress-stepper .trade-phase.on:not(.current) .trade-phase-label,
+.trade-progress-stepper .trade-phase.current .trade-phase-label {
+  color: rgba(255, 255, 255, 0.87) !important;
+  font-weight: 500 !important;
+}
+.trade-progress-stepper .trade-phase.failed .trade-phase-label,
+.trade-progress-stepper .trade-phase.disputed .trade-phase-label,
+.trade-progress-stepper .trade-phase.cancelled .trade-phase-label {
+  color: rgb(244, 67, 54) !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9704 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9400 - Order summary card surface
+   Match csfloat receipt-card visual language: flat oklch fill,
+   exact 12px radius, csfloat two-tier outer shadow, neutral
+   border. Replaces blue-tinted gradient that previously shouted
+   for attention against csfloat quiet receipt panels.
+   Measured: bg oklch(0.2 0.009 260), bd 1px solid oklch(0.36
+   0.014 260), br 12px, sh "rgba(0,0,0,0.4) 0 24px 48px -12px,
+   rgba(0,0,0,0.3) 0 8px 24px -8px".
+   ============================================================ */
+.cart-summary {
+  background: oklch(0.2 0.009 260) !important;
+  border: 1px solid oklch(0.36 0.014 260) !important;
+  border-radius: 12px !important;
+  padding: 22px 22px 18px !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9400 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9401 - Order summary heading
+   csfloat receipt headings use 16px / 500 / rgb(255,255,255) /
+   28px line-height (matches the H1 Wallet measurement). The
+   local title was 15/700 with a -0.01em squeeze and a Geist
+   override; flatten to csfloat Roboto-stack 500 to read as
+   the same surface heading they ship across receipt panels.
+   Removes the bottom border so the heading rides flush with
+   the first row, matching csfloat receipt cadence.
+   ============================================================ */
+.cart-summary-title {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin-bottom: 12px !important;
+  padding-bottom: 0 !important;
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9401 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9402 - Order summary line rows
+   csfloat uses 13px / 400 / rgba(255,255,255,0.65) for the
+   secondary receipt rows (subtotal/fees/tax) and the local
+   build had 13/400-ish but with the wrong text color (var(--
+   ink-2) reads warmer). Lock to csfloat exact rgba so the
+   rows recede behind the totals row.
+   ============================================================ */
+.cart-summary-row {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  padding: 6px 0 !important;
+  letter-spacing: normal !important;
+}
+.cart-summary-row .mono {
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9402 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9403 - Order summary grand total
+   csfloat receipt totals row is a quiet bump in weight, not
+   a glow. Local CSS painted the total amount with a cta-tinted
+   color-mix and a 14px text-shadow halo, which reads off-brand
+   on csfloat receipt panels. Restore neutral white at the
+   csfloat weight/size and drop the shadow.
+   ============================================================ */
+.cart-summary-total {
+  margin-top: 6px !important;
+  padding: 12px 0 4px !important;
+  border-top: 1px solid oklch(0.36 0.014 260) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.cart-summary-total .mono {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9403 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9404 - Confirm-purchase receipt
+   panel surface. The post-checkout confirmation panel mirrors
+   the order-detail receipt - same card chrome (oklch fill,
+   12px radius, csfloat shadow). Prior CSS used --bg-1 and
+   --r-lg which trend brighter and more rounded than csfloat
+   panel. Pin to csfloat measured values.
+   ============================================================ */
+.cart-confirm-panel {
+  background: oklch(0.2 0.009 260) !important;
+  border: 1px solid oklch(0.36 0.014 260) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4),
+              0 8px 24px -8px rgba(0, 0, 0, 0.3) !important;
+}
+.cart-confirm-title {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+}
+.cart-confirm-sub {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  line-height: 1.5 !important;
+}
+.cart-confirm-row {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid oklch(0.27 0.011 260) !important;
+}
+.cart-confirm-total {
+  border-top: 1px solid oklch(0.36 0.014 260) !important;
+}
+.cart-confirm-total-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.cart-confirm-total-hint {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  line-height: 1.5 !important;
+}
+.cart-confirm-total-amt {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9404 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9405 - Order item row in receipt
+   Order detail line items inherit .cart-row chrome. csfloat
+   draws each line as a flush, low-noise row separated by a
+   single hairline at the panel inner border tone - no
+   hover lift on the receipt surface (the receipt is a record,
+   not an interactive list). Suppress hover transform / bg
+   change while preserving the hairline.
+   ============================================================ */
+.cart-row {
+  border-bottom: 1px solid oklch(0.27 0.011 260) !important;
+  background: transparent !important;
+  transition: none !important;
+}
+.cart-row:hover { background: transparent !important; transform: none !important; }
+.cart-row:active { background: transparent !important; transform: none !important; }
+.cart-name {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  line-height: 1.3 !important;
+}
+.cart-id {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  letter-spacing: normal !important;
+}
+.cart-price {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9405 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9406 - Fee-calc / payment-method
+   breakdown. The fee-calc widget is the receipt payment
+   breakdown analog: subtotal, platform fee, payout. csfloat
+   renders the breakdown lines at 13/400 with the rgba(.65)
+   secondary tone, and the totals row at 14/500 white. Local
+   build has decorative tinting; align to csfloat receipt
+   aesthetic.
+   ============================================================ */
+.fee-calc-line {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  letter-spacing: normal !important;
+}
+.fee-calc-line.total {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  border-top: 1px solid oklch(0.36 0.014 260) !important;
+}
+.fee-calc-title {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 28px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+}
+.fee-calc-sub, .fee-calc-note {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  line-height: 1.5 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9406 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #9407 - Receipt CTA button
+   The complete-purchase / download-invoice button on the
+   receipt panel matches csfloat primary at 320x44, font-size
+   15px / weight 700 / color #fff / bg rgb(35,123,255) / br 8px
+   / padding 0 22px (measured on csfloat sign-in CTA). Lock
+   the .cart-summary-actions button so it never drifts.
+   ============================================================ */
+.cart-summary-actions .btn,
+.cart-summary-actions .btn-accent {
+  height: 44px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  border-radius: 8px !important;
+  padding: 0 22px !important;
+  width: 100% !important;
+  justify-content: center !important;
+}
+.cart-summary-actions .btn-accent {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+}
+.cart-confirm-actions .btn {
+  height: 44px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 0 22px !important;
+}
+.cart-confirm-actions .btn-accent {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9407 */
