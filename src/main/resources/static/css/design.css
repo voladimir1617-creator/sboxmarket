@@ -141429,3 +141429,525 @@ input[name="deposit-amount"]:focus,
   border-bottom: 2px solid #237bff !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5506 */
+
+/* CSFLOAT-1:1 PARITY ship #5400 — listing-row hover reveals pencil/edit icon */
+body .listing-row .row-edit,
+body .listing-row .listing-row-edit,
+body tr.listing-row .row-edit,
+body .listing-row [data-action="edit"],
+body .price-cell .price-edit-trigger {
+  opacity: 0 !important;
+  transform: translateX(2px) !important;
+  transition: opacity 120ms ease, transform 120ms ease, background-color 120ms ease !important;
+  pointer-events: none !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(193, 206, 255, 0.62) !important;
+  cursor: pointer !important;
+}
+body .listing-row:hover .row-edit,
+body .listing-row:hover .listing-row-edit,
+body tr.listing-row:hover .row-edit,
+body .listing-row:hover [data-action="edit"],
+body .price-cell:hover .price-edit-trigger,
+body .listing-row:focus-within .row-edit,
+body .listing-row:focus-within .listing-row-edit {
+  opacity: 0.92 !important;
+  transform: translateX(0) !important;
+  pointer-events: auto !important;
+}
+body .listing-row .row-edit:hover,
+body .listing-row .listing-row-edit:hover,
+body .listing-row [data-action="edit"]:hover,
+body .price-cell .price-edit-trigger:hover {
+  opacity: 1 !important;
+  background: rgba(82, 148, 255, 0.14) !important;
+  color: #5294ff !important;
+}
+body .listing-row .row-edit:focus-visible,
+body .listing-row .listing-row-edit:focus-visible {
+  opacity: 1 !important;
+  outline: 2px solid rgba(82, 148, 255, 0.6) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5400 */
+
+/* CSFLOAT-1:1 PARITY ship #5401 — inline price edit input field */
+body .price-edit,
+body .inline-price-edit,
+body .listing-row .price-input,
+body .listing-row input.row-price-input,
+body td.price-cell input[type="number"] {
+  height: 32px !important;
+  padding: 0 8px 0 18px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(82, 148, 255, 0.55) !important;
+  background: rgba(20, 26, 40, 0.92) !important;
+  color: oklch(0.97 0.006 90) !important;
+  font: 500 13px/32px "JetBrains Mono", ui-monospace, monospace !important;
+  font-feature-settings: "tnum" 1, "zero" 1 !important;
+  letter-spacing: 0 !important;
+  width: 88px !important;
+  outline: none !important;
+  transition: border-color 100ms ease, box-shadow 100ms ease, background-color 100ms ease !important;
+  -moz-appearance: textfield !important;
+}
+body .price-edit::-webkit-outer-spin-button,
+body .price-edit::-webkit-inner-spin-button,
+body .inline-price-edit::-webkit-outer-spin-button,
+body .inline-price-edit::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+body .price-edit:focus,
+body .inline-price-edit:focus,
+body .listing-row .price-input:focus,
+body td.price-cell input[type="number"]:focus {
+  border-color: #5294ff !important;
+  box-shadow: 0 0 0 3px rgba(82, 148, 255, 0.18) !important;
+  background: rgba(20, 26, 40, 1) !important;
+}
+body .price-edit-wrap,
+body .inline-price-edit-wrap {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+body .price-edit-wrap::before,
+body .inline-price-edit-wrap::before {
+  content: "$" !important;
+  position: absolute !important;
+  left: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  font: 500 12px "JetBrains Mono", ui-monospace, monospace !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+body .price-edit.is-invalid,
+body .inline-price-edit.is-invalid {
+  border-color: #ff5e5e !important;
+  box-shadow: 0 0 0 3px rgba(255, 94, 94, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5401 */
+
+/* CSFLOAT-1:1 PARITY ship #5402 — save / cancel button stack */
+body .inline-edit-actions,
+body .price-edit-actions,
+body .row-edit-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-left: 6px !important;
+}
+body .inline-edit-actions > button,
+body .price-edit-actions > button,
+body .row-edit-actions > button,
+body button.inline-edit-save,
+body button.inline-edit-cancel {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: background-color 100ms ease, border-color 100ms ease, transform 80ms ease, opacity 100ms ease !important;
+}
+body .inline-edit-actions > button.save,
+body button.inline-edit-save,
+body .price-edit-actions > button[type="submit"] {
+  background: #5294ff !important;
+  border-color: #4378d6 !important;
+  color: #ffffff !important;
+}
+body .inline-edit-actions > button.save:hover,
+body button.inline-edit-save:hover,
+body .price-edit-actions > button[type="submit"]:hover {
+  background: #6ba4ff !important;
+  border-color: #5294ff !important;
+}
+body .inline-edit-actions > button.save:active,
+body button.inline-edit-save:active {
+  transform: scale(0.96) !important;
+  background: #4378d6 !important;
+}
+body .inline-edit-actions > button.cancel,
+body button.inline-edit-cancel,
+body .price-edit-actions > button[type="button"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(193, 206, 255, 0.7) !important;
+}
+body .inline-edit-actions > button.cancel:hover,
+body button.inline-edit-cancel:hover,
+body .price-edit-actions > button[type="button"]:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: oklch(0.97 0.006 90) !important;
+}
+body .inline-edit-actions > button.cancel:active,
+body button.inline-edit-cancel:active {
+  transform: scale(0.96) !important;
+}
+body .inline-edit-actions > button:disabled,
+body .price-edit-actions > button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+body .inline-edit-actions > button:focus-visible,
+body .price-edit-actions > button:focus-visible {
+  outline: 2px solid rgba(82, 148, 255, 0.6) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5402 */
+
+/* CSFLOAT-1:1 PARITY ship #5403 — loadout inline rename field */
+body .loadout-name-edit,
+body .loadout-rename-input,
+body input.loadout-name-input,
+body .loadout-title input[type="text"] {
+  font: 600 20px/1.25 Geist, ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -0.01em !important;
+  color: oklch(0.97 0.006 90) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 0 !important;
+  padding: 2px 4px !important;
+  margin: 0 !important;
+  outline: none !important;
+  width: 240px !important;
+  max-width: 60vw !important;
+  transition: border-color 120ms ease, background-color 120ms ease !important;
+}
+body .loadout-name-edit:hover,
+body .loadout-rename-input:hover,
+body input.loadout-name-input:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.28) !important;
+}
+body .loadout-name-edit:focus,
+body .loadout-rename-input:focus,
+body input.loadout-name-input:focus,
+body .loadout-title input[type="text"]:focus {
+  border-bottom-color: #5294ff !important;
+  background: rgba(82, 148, 255, 0.04) !important;
+}
+body .loadout-rename-trigger,
+body button.loadout-rename,
+body .loadout-title .row-edit {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin-left: 6px !important;
+  vertical-align: middle !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  opacity: 0 !important;
+  transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body .loadout-title:hover .loadout-rename-trigger,
+body .loadout-title:hover button.loadout-rename,
+body .loadout-title:hover .row-edit,
+body .loadout-title:focus-within .loadout-rename-trigger {
+  opacity: 0.85 !important;
+}
+body .loadout-rename-trigger:hover,
+body button.loadout-rename:hover {
+  opacity: 1 !important;
+  color: #5294ff !important;
+  background: rgba(82, 148, 255, 0.12) !important;
+}
+body .loadout-name-edit::placeholder,
+body .loadout-rename-input::placeholder,
+body input.loadout-name-input::placeholder {
+  color: rgba(193, 206, 255, 0.32) !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5403 */
+
+/* CSFLOAT-1:1 PARITY ship #5404 — optimistic update saving spinner */
+@keyframes csf-row-saving-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes csf-saved-flash {
+  0%   { background-color: rgba(82, 168, 110, 0.22); }
+  60%  { background-color: rgba(82, 168, 110, 0.10); }
+  100% { background-color: transparent; }
+}
+body .listing-row.is-saving,
+body .listing-row[data-state="saving"],
+body tr.listing-row.is-saving {
+  opacity: 0.7 !important;
+  pointer-events: none !important;
+  transition: opacity 120ms ease !important;
+}
+body .listing-row.is-saving .price-edit,
+body .listing-row.is-saving .inline-price-edit {
+  padding-right: 28px !important;
+}
+body .inline-edit-saving-spinner,
+body .inline-price-edit-wrap.is-saving::after,
+body .listing-row.is-saving .inline-price-edit-wrap::after {
+  content: "" !important;
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin-top: -7px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(82, 148, 255, 0.22) !important;
+  border-top-color: #5294ff !important;
+  animation: csf-row-saving-spin 600ms linear infinite !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+body button.inline-edit-save.is-saving,
+body .inline-edit-actions > button.save.is-saving,
+body .price-edit-actions > button[type="submit"].is-saving {
+  position: relative !important;
+  color: transparent !important;
+  pointer-events: none !important;
+}
+body button.inline-edit-save.is-saving::after,
+body .inline-edit-actions > button.save.is-saving::after,
+body .price-edit-actions > button[type="submit"].is-saving::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  margin: auto !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.32) !important;
+  border-top-color: #ffffff !important;
+  animation: csf-row-saving-spin 600ms linear infinite !important;
+  box-sizing: border-box !important;
+}
+body .inline-edit-saved-flash,
+body .listing-row.is-saved {
+  animation: csf-saved-flash 800ms ease forwards !important;
+}
+body .listing-row.is-error,
+body .listing-row[data-state="error"] {
+  background: rgba(255, 94, 94, 0.06) !important;
+  transition: background-color 200ms ease !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5404 */
+
+/* CSFLOAT-1:1 PARITY ship #5500 — sticky <thead> on /db.
+   csfloat /db has a 118px tall .header-container sticky at top:0 z:999.
+   The local /db table is INSIDE a modal/page surface that scrolls; sticky
+   thead inside the table needs position:sticky with top:0 (the surface
+   scrolls, not window) and a z above row content. Cells must carry the
+   sticky bg — Safari/Chrome both ignore sticky on <thead> alone for tables
+   with border-collapse:collapse, so per-th sticky is the only reliable
+   path. Border-bottom stays the existing 1px var(--line); a subtle drop
+   shadow appears under the row to signal "header floats above content"
+   the moment any row scrolls behind it. */
+body .db-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 5 !important;
+  background: var(--bg-2) !important;
+  /* shadow only renders when something passes under — paint-cheap. */
+  box-shadow: 0 1px 0 0 var(--line), 0 4px 8px -4px rgba(0, 0, 0, 0.35) !important;
+  /* sticky cells must paint before tbody — clip overflow so radius works
+     if any future variant adds rounded corners to the header. */
+  background-clip: padding-box !important;
+}
+/* When the table sits in a modal that scrolls, the thead's sticky context
+   is the closest scrolling ancestor — usually .db-table-scroll. Force it
+   to be the offset parent by making it position:relative without changing
+   layout. Already relative in most builds; no-op safety net. */
+body .db-table-scroll { position: relative !important; }
+/* END CSFLOAT-1:1 PARITY ship #5500 */
+
+/* CSFLOAT-1:1 PARITY ship #5501 — .db-pager table footer polish.
+   Existing .db-pager: padding 14px 16px, border-top 1px var(--line),
+   bg var(--bg). csfloat keeps the page surface seamless (no separate bg
+   stripe between table and pager); the pager floats on the same surface
+   with a hairline divider above. Bring the pager bg to transparent so the
+   parent surface shows through, tighten the vertical padding to 12px to
+   match csfloat's 12px button-row rhythm, and pin a min-height of 56px so
+   the buttons never crowd the indicator. */
+body .db-pager {
+  background: transparent !important;
+  padding: 12px 16px !important;
+  min-height: 56px !important;
+  border-top: 1px solid var(--line) !important;
+  /* csfloat aligns prev/indicator/next on a single baseline; flex gap of
+     12px keeps the indicator from kissing the buttons on narrow widths. */
+  gap: 12px !important;
+}
+body .db-pager .btn-ghost {
+  /* csfloat pager buttons are pill-tight: ~32px tall, 12px horizontal,
+     subtle border, no fill. Match exactly. */
+  height: 32px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--ink-2) !important;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease !important;
+}
+body .db-pager .btn-ghost:not(:disabled):hover {
+  border-color: var(--ink-3) !important;
+  color: var(--ink) !important;
+  background: var(--bg-2) !important;
+}
+body .db-pager .btn-ghost:disabled {
+  opacity: 0.45 !important;
+  cursor: default !important;
+}
+body .db-pager > span {
+  /* page indicator chip styling — mono, tabular nums, ink-3. */
+  font-family: var(--mono) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 12px !important;
+  color: var(--ink-3) !important;
+  letter-spacing: 0.02em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5501 */
+
+/* CSFLOAT-1:1 PARITY ship #5502 — .db-meta caption strip.
+   This is the "X results · page Y / Z" strip ABOVE the table — the
+   functional analogue of csfloat's app-skin-counter (text "1,871,925,394
+   Skins", fs:18px, color:white, h:22, bg transparent). Local existing
+   .db-meta: padding 6px 0 14px, fs 12px, color ink-4. csfloat's counter
+   is bigger and brighter — bump fs to 13px (we have a richer label
+   "results · page X / Y" so 18px would dominate), keep bg transparent,
+   pad 10px 0 14px so the strip floats clearly between the controls and
+   the table. The numeric <strong> tags get csfloat's white-on-dark
+   accent treatment. */
+body .db-meta {
+  padding: 10px 0 14px !important;
+  font-size: 13px !important;
+  color: var(--ink-3) !important;
+  background: transparent !important;
+  /* tabular nums so "300 results" and "3,000 results" align across loads */
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.005em !important;
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+body .db-meta strong {
+  color: var(--ink) !important;
+  font-family: var(--mono) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5502 */
+
+/* CSFLOAT-1:1 PARITY ship #5503 — density toggle (compact ↔ comfortable).
+   csfloat /db itself does NOT ship a density toggle (verified — no
+   compact/comfortable/density-labelled buttons in app-float-dbtable on
+   csfloat.com /db). Local /db likewise does not currently render one in
+   markup. This ship therefore adds the CSS HOOK so that if the JS layer
+   later attaches `data-density="compact"` to the .db-table-scroll
+   wrapper (or the table itself), the row height + cell padding compress
+   without any further restyle. Comfortable (default) keeps the existing
+   64px row height + 14px cell padding (Boss QA D4); compact drops to a
+   csfloat-style 44px row + 8px 12px padding. Strictly opt-in via the
+   data attribute so no current pixel changes. */
+body .db-table-scroll[data-density="compact"] .db-table tbody tr,
+body .db-table[data-density="compact"] tbody tr {
+  height: 44px !important;
+}
+body .db-table-scroll[data-density="compact"] .db-table tbody td,
+body .db-table[data-density="compact"] tbody td {
+  padding: 8px 12px !important;
+  font-size: 12.5px !important;
+}
+body .db-table-scroll[data-density="compact"] .db-table thead th,
+body .db-table[data-density="compact"] thead th {
+  padding: 8px 12px !important;
+}
+body .db-table-scroll[data-density="compact"] .db-table .db-thumb,
+body .db-table[data-density="compact"] .db-thumb {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+}
+/* Comfortable explicit override (default values, kept for symmetry so a
+   JS toggle can flip back without leaving the row in a half-state). */
+body .db-table-scroll[data-density="comfortable"] .db-table tbody tr,
+body .db-table[data-density="comfortable"] tbody tr {
+  height: 64px !important;
+}
+body .db-table-scroll[data-density="comfortable"] .db-table tbody td,
+body .db-table[data-density="comfortable"] tbody td {
+  padding: 14px 14px !important;
+  font-size: 13px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5503 */
+
+/* CSFLOAT-1:1 PARITY ship #5504 — selected row highlight.
+   csfloat /db rows are clickable and use a subtle accent-tint on hover
+   (already shipped via earlier .db-row:hover). For a selected/active row
+   (e.g. keyboard-focused, or when the modal carries an "open detail"
+   state with the row visually anchored) we want a stronger but still
+   subtle treatment: 8% accent-mix bg (versus 4% on hover), a 2px-wide
+   left accent rail on the first cell, and ink color bumped to var(--ink)
+   for the row's text content. The trigger is `.db-row.is-selected`,
+   `.db-row[aria-selected="true"]`, or `.db-row.is-active` so any of the
+   common React/A11y patterns latch on without extra wiring. Focus-visible
+   on a row's <a.db-name> child also opts the row in via :has() so
+   keyboard users see the same anchor as mouse-clickers. */
+body .db-table tbody tr.db-row.is-selected,
+body .db-table tbody tr.db-row[aria-selected="true"],
+body .db-table tbody tr.db-row.is-active,
+body .db-table tbody tr.db-row:has(a.db-name:focus-visible) {
+  background: color-mix(in oklab, var(--cta) 8%, transparent) !important;
+}
+body .db-table tbody tr.db-row.is-selected td,
+body .db-table tbody tr.db-row[aria-selected="true"] td,
+body .db-table tbody tr.db-row.is-active td,
+body .db-table tbody tr.db-row:has(a.db-name:focus-visible) td {
+  color: var(--ink) !important;
+}
+body .db-table tbody tr.db-row.is-selected td:first-child,
+body .db-table tbody tr.db-row[aria-selected="true"] td:first-child,
+body .db-table tbody tr.db-row.is-active td:first-child,
+body .db-table tbody tr.db-row:has(a.db-name:focus-visible) td:first-child {
+  /* 2px accent rail on the first cell — csfloat's grid-row selection
+     pattern (used in the inventory selector). Inset box-shadow keeps the
+     rail from forcing an extra px of width. */
+  box-shadow: inset 2px 0 0 0 var(--cta) !important;
+}
+/* The row's <a.db-name> shouldn't double-paint a focus ring inside an
+   already highlighted row — drop the outline only when the row's parent
+   carries the selection state, otherwise leave default a11y outline. */
+body .db-table tbody tr.db-row.is-selected a.db-name:focus-visible,
+body .db-table tbody tr.db-row[aria-selected="true"] a.db-name:focus-visible,
+body .db-table tbody tr.db-row.is-active a.db-name:focus-visible {
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5504 */
