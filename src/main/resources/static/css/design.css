@@ -142607,3 +142607,403 @@ html body .auction-history > div:has(> div:first-child:not(.auction-history-bidd
   /* fallback selector for the inline-styled sparkline wrapper */
 }
 /* END CSFLOAT-1:1 PARITY ship #6204 */
+
+/* CSFLOAT-1:1 PARITY ship #6300 - /db drilldown table baseline. csfloat database table renders rows at 56px min-height with 13px Roboto on data cells and 11px uppercase tracked headers. The current local table uses 12.5px which is slightly off. Tighten row geometry + header treatment to match csfloat data table conventions. */
+.info-modal:has(.db-table) .db-table {
+  font-size: 13px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  line-height: 1.4 !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.info-modal:has(.db-table) .db-row {
+  min-height: 56px !important;
+  align-items: center !important;
+}
+.info-modal:has(.db-table) .db-row.db-head {
+  min-height: 36px !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  font-weight: 500 !important;
+  color: var(--ink-4) !important;
+}
+.info-modal:has(.db-table) .db-row:not(.db-head):hover {
+  background: rgba(255,255,255,0.025) !important;
+  cursor: pointer !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6300 */
+
+/* CSFLOAT-1:1 PARITY ship #6301 - /db drilldown row thumbnail size + frame. csfloat thumbnail in the database row is 48x48 with a thin 1px hairline border at rgba white 6 percent. The local .db-thumb is currently smaller (40x40) and lacks the hairline. Match the dimension and add the hairline for visual parity with how skin previews appear inside csfloat rows. */
+.info-modal:has(.db-table) .db-thumb:not(.sm) {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  background: rgba(255,255,255,0.02) !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.info-modal:has(.db-table) .db-thumb:not(.sm) img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+.info-modal:has(.db-table) .db-item {
+  gap: 14px !important;
+  align-items: center !important;
+}
+.info-modal:has(.db-table) .db-name {
+  font-weight: 400 !important;
+  font-size: 13px !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.005em !important;
+}
+.info-modal:has(.db-table) .db-sub {
+  font-size: 11px !important;
+  letter-spacing: 0.02em !important;
+  margin-top: 2px !important;
+  color: var(--ink-4) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6301 */
+
+/* CSFLOAT-1:1 PARITY ship #6302 - /db drilldown aggregate stat strip. csfloat shows database stats (total indexed, last updated, average price) in a 4-column row above the table at 22px monospace value with 10px uppercase key, on a single hairline-divided strip. Local .db-stats already has the right structure but spacing/typography is loose; tighten to csfloat data-density. */
+.info-modal:has(.db-table) .db-stats,
+.info-modal:has(.db-controls) .db-stats {
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 0 !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--bd-1) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  margin-bottom: 18px !important;
+}
+.info-modal:has(.db-table) .db-stats > div,
+.info-modal:has(.db-controls) .db-stats > div {
+  padding: 14px 18px !important;
+  background: transparent !important;
+  border-right: 1px solid var(--bd-1) !important;
+}
+.info-modal:has(.db-table) .db-stats > div:last-child,
+.info-modal:has(.db-controls) .db-stats > div:last-child {
+  border-right: 0 !important;
+}
+.info-modal:has(.db-table) .db-stats .k,
+.info-modal:has(.db-controls) .db-stats .k {
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  color: var(--ink-4) !important;
+  font-weight: 500 !important;
+  margin-bottom: 6px !important;
+}
+.info-modal:has(.db-table) .db-stats .v,
+.info-modal:has(.db-controls) .db-stats .v {
+  font-family: var(--mono), "Roboto Mono", monospace !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--ink) !important;
+  line-height: 1.1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6302 */
+
+/* CSFLOAT-1:1 PARITY ship #6303 - /db drilldown toolbar (search + filter chips). csfloat search bar in the database is a 36px-tall pill with 12px inner padding, hairline border that brightens on focus to the accent. The chip filter row sits inline with the search. Local .db-toolbar lacks the focus state and chip spacing is uneven. Match csfloat toolbar density. */
+.info-modal:has(.db-table) .db-toolbar,
+.info-modal:has(.db-controls) .db-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  padding: 12px 0 !important;
+  margin-bottom: 12px !important;
+  border-bottom: 1px solid var(--bd-1) !important;
+}
+.info-modal:has(.db-table) .db-search,
+.info-modal:has(.db-controls) .db-search {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--bd-1) !important;
+  border-radius: 6px !important;
+  min-width: 240px !important;
+  flex: 1 1 240px !important;
+  max-width: 320px !important;
+  transition: border-color 120ms ease, background-color 120ms ease !important;
+}
+.info-modal:has(.db-table) .db-search:focus-within,
+.info-modal:has(.db-controls) .db-search:focus-within {
+  border-color: var(--accent) !important;
+  background: var(--bg-2) !important;
+}
+.info-modal:has(.db-table) .db-search input,
+.info-modal:has(.db-controls) .db-search input {
+  font-size: 13px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ink) !important;
+  outline: none !important;
+  width: 100% !important;
+  padding: 0 !important;
+}
+.info-modal:has(.db-table) .db-chips,
+.info-modal:has(.db-controls) .db-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6303 */
+
+/* CSFLOAT-1:1 PARITY ship #6304 - /db drilldown empty state + foot + header. csfloat shows zero items feedback as a quiet centered note below the table at 12px ink-4 with a refresh hint. The local .db-foot is already there but lacks centering and the empty-row treatment when there are no rows. The header (Database 0 indexed) needs the csfloat 22px medium Roboto treatment. */
+.info-modal:has(.db-table) .db-foot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 14px 0 0 !important;
+  margin-top: 14px !important;
+  border-top: 1px solid var(--bd-1) !important;
+  font-size: 12px !important;
+  color: var(--ink-4) !important;
+  letter-spacing: 0.01em !important;
+}
+.info-modal:has(.db-table) .db-foot a {
+  color: var(--ink-3) !important;
+  text-decoration: none !important;
+  transition: color 120ms ease !important;
+}
+.info-modal:has(.db-table) .db-foot a:hover {
+  color: var(--accent) !important;
+  text-decoration: none !important;
+}
+.info-modal:has(.db-table) .db-table tbody:empty::after,
+.info-modal:has(.db-table) .db-table:not(:has(.db-row:not(.db-head)))::after {
+  content: "No items indexed yet" !important;
+  display: block !important;
+  text-align: center !important;
+  padding: 40px 12px !important;
+  font-size: 13px !important;
+  color: var(--ink-4) !important;
+  letter-spacing: 0.01em !important;
+  background: rgba(255,255,255,0.015) !important;
+  border-top: 1px solid var(--bd-1) !important;
+}
+.info-modal:has(.db-table) .info-modal-header {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  padding: 18px 22px !important;
+  color: var(--ink) !important;
+  border-bottom: 1px solid var(--bd-1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6304 */
+
+/* CSFLOAT-1:1 PARITY ship #5800 — Seamless Trading Journey container.
+   csfloat .journey is two-col flex (details left + timeline right) gap 60px,
+   max width 1310px. Local .csfloat-home-journey-inner was a CSS grid; rebuild
+   as a flex two-column to match. */
+html body .csfloat-home-journey {
+  padding: 80px 24px 80px !important;
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-inner {
+  max-width: min(96vw, 1310px) !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 60px !important;
+  align-items: flex-start !important;
+}
+@media (max-width: 880px) {
+  html body .csfloat-home-journey .csfloat-home-journey-inner {
+    flex-direction: column !important;
+    gap: 28px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #5800 */
+
+/* CSFLOAT-1:1 PARITY ship #5801 — Journey left column (.details parity).
+   csfloat .details is flex column gap 30px. Header 42px/500 white;
+   sub-text 14px/500 #9ea7b1 line-height 20px. */
+html body .csfloat-home-journey .csfloat-home-journey-left {
+  flex: 0 0 530px !important;
+  width: 530px !important;
+  max-width: 530px !important;
+  position: sticky !important;
+  top: 80px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 30px !important;
+}
+@media (max-width: 880px) {
+  html body .csfloat-home-journey .csfloat-home-journey-left {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+  }
+}
+html body .csfloat-home-journey .csfloat-home-journey-title {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 42px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: 0 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-blurb {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: #9ea7b1 !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5801 */
+
+/* CSFLOAT-1:1 PARITY ship #5802 — Journey right column timeline + step
+   layout (.timeline + .event parity). csfloat .timeline is flex column 720px
+   wide; each .event is flex row gap 40px with a thin connector column +
+   .box card. Re-skin local .csfloat-home-journey-steps + step. Kill the
+   old single-line ::before; add per-step connector + dot pseudos. */
+html body .csfloat-home-journey .csfloat-home-journey-steps {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 1 1 720px !important;
+  max-width: 720px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  position: relative !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-steps::before {
+  content: none !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 40px !important;
+  padding: 0 0 0 16px !important;
+  min-height: 153px !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 3px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 5px !important;
+  background: #15171c !important;
+  z-index: 0 !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step:first-child::before {
+  top: 50% !important;
+  bottom: 0 !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step:last-child::before {
+  top: 0 !important;
+  bottom: 50% !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: calc(50% - 6px) !important;
+  width: 11px !important;
+  height: 12px !important;
+  border-radius: 999px !important;
+  background: #237BFF !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5802 */
+
+/* CSFLOAT-1:1 PARITY ship #5803 — Journey step body card + icon disc
+   (.box + .icon parity). csfloat .box is bg #1B1D24, br 12px, padding 30px,
+   flex row gap 20px, align center, margin 15px 0. The 60x60 blue-tint icon
+   disc sits as the LEFT column of the card. Re-skin
+   .csfloat-home-journey-step-body as the card, .csfloat-home-journey-step-icon
+   as the inline disc with order:-1 so the existing markup (icon, body)
+   renders icon-then-text inside the body. */
+html body .csfloat-home-journey .csfloat-home-journey-step-body {
+  flex: 1 1 auto !important;
+  background: #1B1D24 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  margin: 15px 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 20px !important;
+  min-height: 63px !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-icon {
+  flex-shrink: 0 !important;
+  width: 60px !important;
+  height: 60px !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #237BFF !important;
+  box-shadow: none !important;
+  position: static !important;
+  z-index: auto !important;
+  order: -1 !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-icon .material-icons,
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-icon svg,
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-icon .mat-icon {
+  font-size: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  line-height: 1 !important;
+  color: #237BFF !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5803 */
+
+/* CSFLOAT-1:1 PARITY ship #5804 — Journey step typography (.text parity).
+   csfloat header 28px/500 white inside the card; sub-text 16px/500 #9ea7b1
+   with margin-top 10px. The local label and sub are direct siblings of
+   .csfloat-home-journey-step-icon inside the body. With the icon set to
+   order:-1, label and sub flow as a vertical text column on the right —
+   keep them block + give the sub a 10px top margin per csfloat. */
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-label {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  letter-spacing: 0 !important;
+  display: block !important;
+}
+html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey-step-sub {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  color: #9ea7b1 !important;
+  margin: 10px 0 0 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5804 */
