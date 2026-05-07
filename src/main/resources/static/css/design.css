@@ -130582,3 +130582,101 @@ div[style*="background: var(--bg-secondary)"][style*="borderRadius"] {
 .help-faq { margin: 0 !important; }
 .help-faq-row:last-child { margin-bottom: 0 !important; }
 /* END CSFLOAT-1:1 PARITY ship #1426 */
+
+/* CSFLOAT-1:1 PARITY ship #1427 - FAQ question header */
+.help-faq-q {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 20px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  color: #ffffff !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 25px !important;
+  letter-spacing: normal !important;
+  transition: color 0.3s !important;
+  text-transform: none !important;
+}
+.help-faq-q:hover { color: #1ea5ff !important; }
+.help-faq-row.open .help-faq-q { color: #ffffff !important; }
+.help-faq-q .material-icons,
+.help-faq-q .material-symbols-outlined,
+.help-faq-q [class*="material-symbols"],
+.help-faq-q .icon,
+.help-faq-q > svg {
+  flex: 0 0 26px !important;
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 26px !important;
+  color: #86898E !important;
+  order: -1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform 0.25s ease-out, color 0.3s !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1427 */
+
+/* CSFLOAT-1:1 PARITY ship #1428 - FAQ answer body */
+.help-faq-a {
+  padding: 0 0 0 48px !important;
+  margin: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 21px !important;
+  letter-spacing: 0.48px !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  background: transparent !important;
+}
+.help-faq-a > p,
+.help-faq-a p:first-child {
+  margin: 16px 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 21px !important;
+  letter-spacing: 0.48px !important;
+}
+.help-faq-a p:last-child { margin-bottom: 0 !important; }
+.help-faq-row:not(.open) .help-faq-a { display: none !important; }
+.help-faq-row.open .help-faq-a {
+  display: block !important;
+  margin-top: 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1428 */
+
+/* CSFLOAT-1:1 PARITY ship #1429 - FAQ section heading typography */
+.help-page h2,
+.help-page .help-section-title {
+  letter-spacing: 1.26px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1429 */
+
+/* CSFLOAT-1:1 PARITY ship #1430 - FAQ row separator removal */
+.help-faq-row + .help-faq-row {
+  border-top: 0 !important;
+  padding-top: 0 !important;
+}
+.help-faq-row.open + .help-faq-row,
+.help-faq-row + .help-faq-row.open {
+  margin-top: 0 !important;
+}
+.market-filters .filter-section-header[aria-expanded],
+.market-filter-accordion .accordion-header,
+.filter-accordion-toggle {
+  cursor: pointer !important;
+  transition: color 0.3s !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1430 */
