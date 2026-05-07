@@ -149010,50 +149010,25 @@ html .full-page-mode .info-modal-body h2.settings-section-heading:first-child {
 /* END CSFLOAT-1:1 PARITY ship #9022 */
 
 /* =====================================================================
-   CSFLOAT-1:1 PARITY ship #9023 — toggle pill dimensions
-   csfloat: toggle is 32x18px with a 14x14 knob, 2px inset, 999px
-     radius. Off state is rgba(255,255,255,0.16); on state is the
-     accent rgb(64,142,255). Knob slides 14px when on. Smooth 200ms
-     ease for both background and transform.
+   CSFLOAT-1:1 PARITY ship #9023 — toggle hover + focus polish
+   Locked baseline (ship #2302) sets the toggle pill to 36x20 with the
+     #237bff accent. csfloat measurement confirms those dimensions are
+     correct. Add hover + focus refinements that match csfloat: hover
+     lifts the off-state bg from 0.18 to 0.24 alpha for a subtle hint;
+     focus-visible draws a 2px outline at the brand blue with 3px
+     offset so keyboard users see clear focus on the per-event row.
+     No size/color baseline mutation here — purely interaction layer.
    ===================================================================== */
-.settings-row .toggle-switch {
-  width: 32px !important;
-  height: 18px !important;
-  border-radius: 999px !important;
-  background: rgba(255, 255, 255, 0.16) !important;
-  position: relative !important;
-  cursor: pointer !important;
-  flex: 0 0 auto !important;
-  transition: background-color 200ms ease !important;
-  border: 0 none !important;
-  padding: 0 !important;
-  box-shadow: none !important;
+html .info-modal-body .settings-row .toggle-switch:hover.off,
+html .info-modal-body .settings-row .toggle-switch.off:hover {
+  background: rgba(255, 255, 255, 0.24) !important;
 }
-.settings-row .toggle-switch::after,
-.settings-row .toggle-switch::before {
-  content: "" !important;
-  position: absolute !important;
-  top: 2px !important;
-  left: 2px !important;
-  width: 14px !important;
-  height: 14px !important;
-  border-radius: 50% !important;
-  background: rgb(255, 255, 255) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
-  transition: transform 200ms ease !important;
+html .info-modal-body .settings-row .toggle-switch:hover:not(.off):not([data-on="false"]) {
+  background: rgb(56, 134, 247) !important;
 }
-.settings-row .toggle-switch:not(.off):not([data-on="false"]) {
-  background: rgb(64, 142, 255) !important;
-}
-.settings-row .toggle-switch:not(.off):not([data-on="false"])::after,
-.settings-row .toggle-switch:not(.off):not([data-on="false"])::before {
-  transform: translateX(14px) !important;
-}
-.settings-row .toggle-switch.off::after,
-.settings-row .toggle-switch.off::before,
-.settings-row .toggle-switch[data-on="false"]::after,
-.settings-row .toggle-switch[data-on="false"]::before {
-  transform: translateX(0) !important;
+html .info-modal-body .settings-row .toggle-switch:focus-visible {
+  outline: 2px solid #237bff !important;
+  outline-offset: 3px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9023 */
 
