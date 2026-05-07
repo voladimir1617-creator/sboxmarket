@@ -155817,3 +155817,246 @@ body .csfloat-cart-drawer .cart-row .row-watchlist .material-symbols-rounded {
   font-size: 16px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #12304 */
+
+/* CSFLOAT-1:1 PARITY ship #12400 — modal close button hit area expansion.
+   csfloat keeps the visual close glyph compact but extends the clickable
+   surface via a ::before pseudo-overlay. We mirror that so the hover
+   ring reads cleanly without expanding the visual chrome. */
+.modal-close,
+.info-modal-close,
+.csfloat-dialog-close,
+.csfloat-zoom-modal-close,
+.share-modal-close {
+  position: relative !important;
+  cursor: pointer !important;
+}
+.modal-close::before,
+.info-modal-close::before,
+.csfloat-dialog-close::before,
+.csfloat-zoom-modal-close::before,
+.share-modal-close::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: -6px !important;
+  border-radius: inherit !important;
+  pointer-events: auto !important;
+  z-index: -1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12400 */
+
+/* CSFLOAT-1:1 PARITY ship #12401 — modal close transition smoothing.
+   csfloat uses cubic-bezier(0.4, 0, 0.2, 1) MD-standard for all interactive
+   transitions on close icons. Replace the 160ms ease with the matching
+   180ms cubic-bezier curve and add a 90deg rotate on hover. */
+.modal-close,
+.info-modal-close,
+.csfloat-dialog-close,
+.csfloat-zoom-modal-close,
+.share-modal-close {
+  transition: color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: transform, background-color !important;
+}
+.modal-close:hover,
+.info-modal-close:hover,
+.csfloat-dialog-close:hover,
+.csfloat-zoom-modal-close:hover,
+.share-modal-close:hover {
+  transform: rotate(90deg) !important;
+}
+.modal-close:active,
+.info-modal-close:active,
+.csfloat-dialog-close:active,
+.csfloat-zoom-modal-close:active,
+.share-modal-close:active {
+  transform: rotate(90deg) scale(0.92) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-close:hover,
+  .info-modal-close:hover,
+  .csfloat-dialog-close:hover,
+  .csfloat-zoom-modal-close:hover,
+  .share-modal-close:hover {
+    transform: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12401 */
+
+/* CSFLOAT-1:1 PARITY ship #12402 — Esc-key hint chip in modal corner.
+   csfloat shows a faint ESC pill near the close button as keyboard
+   affordance. 9px monospace, ink-3, hairline border. Fades in on
+   modal hover, hidden on mobile. */
+.modal-content,
+.info-modal,
+.csfloat-dialog,
+.csfloat-zoom-modal,
+.share-modal {
+  position: relative !important;
+}
+.modal-content::after,
+.info-modal::after,
+.csfloat-dialog::after,
+.csfloat-zoom-modal::after,
+.share-modal::after {
+  content: "ESC" !important;
+  position: absolute !important;
+  top: 14px !important;
+  right: 60px !important;
+  font: 600 9px/1 ui-monospace, "SF Mono", Menlo, monospace !important;
+  letter-spacing: 0.08em !important;
+  color: var(--ink-3, #6b7280) !important;
+  background: var(--bg-1, rgba(255,255,255,0.04)) !important;
+  border: 1px solid var(--line, rgba(255,255,255,0.08)) !important;
+  border-radius: 4px !important;
+  padding: 4px 6px !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: translateY(-2px) !important;
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 220ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  z-index: 10 !important;
+}
+.modal-content:hover::after,
+.info-modal:hover::after,
+.csfloat-dialog:hover::after,
+.csfloat-zoom-modal:hover::after,
+.share-modal:hover::after {
+  opacity: 0.7 !important;
+  transform: translateY(0) !important;
+}
+@media (max-width: 760px) {
+  .modal-content::after,
+  .info-modal::after,
+  .csfloat-dialog::after,
+  .csfloat-zoom-modal::after,
+  .share-modal::after {
+    display: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12402 */
+
+/* CSFLOAT-1:1 PARITY ship #12403 — backdrop click-out cursor + dim feedback.
+   csfloat backdrop uses cursor:pointer on .cdk-overlay-backdrop so users
+   know clicking outside dismisses. Subtle backdrop-filter intensifies on
+   hover to communicate the dismissable surface. */
+.modal-backdrop,
+.modal-overlay,
+.cdk-overlay-backdrop,
+.csfloat-overlay-backdrop,
+.dialog-backdrop,
+.info-modal-backdrop {
+  cursor: pointer !important;
+  transition: backdrop-filter 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              -webkit-backdrop-filter 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 220ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.modal-backdrop:hover,
+.modal-overlay:hover,
+.cdk-overlay-backdrop:hover,
+.csfloat-overlay-backdrop:hover,
+.dialog-backdrop:hover,
+.info-modal-backdrop:hover {
+  backdrop-filter: blur(8px) saturate(0.85) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(0.85) !important;
+  background-color: rgba(0, 0, 0, 0.62) !important;
+}
+.modal-content,
+.info-modal,
+.csfloat-dialog,
+.csfloat-zoom-modal,
+.share-modal {
+  cursor: auto;
+}
+/* END CSFLOAT-1:1 PARITY ship #12403 */
+
+/* CSFLOAT-1:1 PARITY ship #12404 — drag-to-close gesture pill (mobile).
+   csfloat shows a 4px tall, 36px wide pill at the top of mobile modals
+   to indicate swipe-down-to-close. Centers via translate, ink-3 colored,
+   widens slightly on :active. Only renders below 760px. */
+@media (max-width: 760px) {
+  .modal-content::before,
+  .info-modal::before,
+  .csfloat-dialog::before,
+  .csfloat-zoom-modal::before,
+  .share-modal::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 8px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 36px !important;
+    height: 4px !important;
+    border-radius: 2px !important;
+    background: var(--ink-3, rgba(255,255,255,0.28)) !important;
+    pointer-events: none !important;
+    z-index: 11 !important;
+    transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+                width 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  .modal-content:active::before,
+  .info-modal:active::before,
+  .csfloat-dialog:active::before,
+  .csfloat-zoom-modal:active::before,
+  .share-modal:active::before {
+    background: var(--ink-2, rgba(255,255,255,0.5)) !important;
+    width: 48px !important;
+  }
+  .modal-content,
+  .info-modal,
+  .csfloat-dialog,
+  .csfloat-zoom-modal,
+  .share-modal {
+    padding-top: max(20px, env(safe-area-inset-top, 0px)) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12404 */
+
+/* CSFLOAT-1:1 PARITY ship #12405 — focus-trap visual indicator on close.
+   When a keyboard user tabs into the modal, the close X gets a 2px
+   accent ring + soft pulse so the dismissal anchor is unmistakable.
+   Mirrors csfloat's WCAG 2.1 AA accessible focus style. */
+.modal-close:focus-visible,
+.info-modal-close:focus-visible,
+.csfloat-dialog-close:focus-visible,
+.csfloat-zoom-modal-close:focus-visible,
+.share-modal-close:focus-visible {
+  outline: none !important;
+  border-color: var(--cta, #5d8df6) !important;
+  background: color-mix(in oklab, var(--cta, #5d8df6) 10%, var(--bg-1, transparent)) !important;
+  color: var(--ink, #fff) !important;
+  box-shadow:
+    0 0 0 2px var(--bg-0, #0a0a0a),
+    0 0 0 4px var(--cta, #5d8df6),
+    0 0 12px color-mix(in oklab, var(--cta, #5d8df6) 40%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--cta, #5d8df6) 30%, transparent) !important;
+  animation: closeFocusPulse 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+}
+@keyframes closeFocusPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px var(--bg-0, #0a0a0a),
+      0 0 0 4px var(--cta, #5d8df6),
+      0 0 12px color-mix(in oklab, var(--cta, #5d8df6) 40%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, var(--cta, #5d8df6) 30%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--bg-0, #0a0a0a),
+      0 0 0 4px var(--cta, #5d8df6),
+      0 0 18px color-mix(in oklab, var(--cta, #5d8df6) 60%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, var(--cta, #5d8df6) 50%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-close:focus-visible,
+  .info-modal-close:focus-visible,
+  .csfloat-dialog-close:focus-visible,
+  .csfloat-zoom-modal-close:focus-visible,
+  .share-modal-close:focus-visible {
+    animation: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12405 */
