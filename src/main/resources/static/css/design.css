@@ -154471,3 +154471,30 @@ body .buyorder-picked .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.04) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11404 */
+
+/* CSFLOAT-1:1 PARITY ship #11600 — card hover lift translateY(-2px) + shadow growth (csfloat: 140ms cubic-bezier(.4,0,.2,1)) */
+body .csfloat-card,
+body .csfloat-card-base,
+body .item-card,
+body .listing-card,
+body .market-card,
+body .market-item,
+body .product-card,
+body .skin-card,
+body .csfloat-card-grid-with-hover-tile {
+  transition: transform 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: transform, box-shadow !important;
+}
+body .csfloat-card:hover,
+body .csfloat-card-base:hover,
+body .item-card:hover,
+body .listing-card:hover,
+body .market-card:hover,
+body .market-item:hover,
+body .product-card:hover,
+body .skin-card:hover,
+body .csfloat-card-grid-with-hover-tile:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: rgba(0, 0, 0, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.18) 0px 3px 7px -3px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11600 */
