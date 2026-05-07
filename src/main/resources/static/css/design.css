@@ -142271,3 +142271,136 @@ html body .profile-tabs ~ div .empty-inline .btn.btn-ghost {
   color: rgba(255,255,255,0.78) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5707 */
+
+/* CSFLOAT-1:1 PARITY ship #5708 — Profile transactions table row height: must beat earlier `.db-table tbody tr { height: 64px !important; }` (line 116396). Use compound selector for higher specificity within profile context. */
+html body div .profile-tabs ~ div table.db-table tbody tr.db-row,
+html body div .profile-tabs ~ div table.db-table tbody tr {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+}
+html body div .profile-tabs ~ div table.db-table tbody td {
+  height: 40px !important;
+  vertical-align: middle !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5708 */
+
+/* CSFLOAT-1:1 PARITY ship #6001 — csfloat.com renders ZERO cookie consent banner anywhere in the DOM (verified: no "cookie", "consent", "accept all", "manage", "gdpr" strings present, no fixed/sticky overlay near viewport bottom). Mirror that banner-free state on sboxmarket by suppressing any 3rd-party / future-injected consent strip matching common library selectors. Measure-and-match only. */
+#cookie-banner,
+#cookie-consent,
+#cookie-notice,
+#cookieconsent,
+#CybotCookiebotDialog,
+#onetrust-banner-sdk,
+#onetrust-consent-sdk,
+#usercentrics-root,
+.cookie-banner,
+.cookie-consent,
+.cookie-notice,
+.cookie-bar,
+.consent-banner,
+.gdpr-banner,
+.cc-window,
+.cc-banner,
+[class*="CookieConsent"],
+[id*="cookie-consent"][class*="banner"],
+[aria-label="Cookie consent"],
+[aria-label="cookie consent"],
+[role="dialog"][aria-label*="cookie" i] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -99999px !important;
+  top: -99999px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6001 */
+
+/* CSFLOAT-1:1 PARITY ship #6002 — also suppress the matching backdrop / dim-overlay siblings these libraries inject (they otherwise leave a darkened scrim covering the page). csfloat shows no scrim; mirror that. */
+.cc-overlay,
+.cookie-overlay,
+.consent-overlay,
+.gdpr-overlay,
+#cookie-overlay,
+#consent-overlay,
+#CybotCookiebotDialogBodyUnderlay,
+.onetrust-pc-dark-filter,
+.ot-fade-in,
+[class*="cookieConsent"][class*="overlay"],
+[class*="cookieConsent"][class*="backdrop"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6002 */
+
+/* CSFLOAT-1:1 PARITY ship #6003 — undo any padding-bottom / margin-bottom these libraries push onto <body> or <html> to "reserve space" for the banner. csfloat applies no such offset; sboxmarket must not either. */
+html.has-cookie-banner,
+html.cookie-consent-active,
+html.cc-onload,
+body.has-cookie-banner,
+body.cookie-consent-active,
+body.cc-onload,
+body[style*="padding-bottom"][class*="cookie"],
+body[style*="margin-bottom"][class*="cookie"] {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  overflow: visible !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6003 */
+
+/* CSFLOAT-1:1 PARITY ship #6004 — suppress the "manage preferences" sub-modal variants too, in case a banner gets dismissed but the prefs panel lingers. csfloat ships neither. */
+#cookie-preferences,
+#cookie-settings,
+.cookie-preferences,
+.cookie-settings,
+.cookie-modal,
+.consent-modal,
+.gdpr-modal,
+#CybotCookiebotDialogDetail,
+#onetrust-pc-sdk,
+#ot-pc-content,
+.ot-pc-footer,
+[role="dialog"][aria-label*="preferences" i][class*="cookie" i],
+[role="dialog"][aria-labelledby*="cookie" i] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(120%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6004 */
+
+/* CSFLOAT-1:1 PARITY ship #6005 — final sweep: any element that mentions cookies/consent in its data-* attribute, plus generic Pascal-case naming. Some bespoke implementations bypass class/id naming; this is the catch-all. csfloat = zero such elements; mirror exactly. */
+[data-component="cookie-banner"],
+[data-component="cookie-consent"],
+[data-cookie-banner],
+[data-cookie-consent],
+[data-consent-banner],
+[data-testid="cookie-banner"],
+[data-testid="cookie-consent"],
+[data-test="cookie-banner"],
+[data-qa="cookie-banner"],
+[data-nosnippet][class*="cookie" i],
+div[class*="CookieBanner" i],
+div[class*="ConsentBanner" i] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  position: absolute !important;
+  left: -99999px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6005 */
