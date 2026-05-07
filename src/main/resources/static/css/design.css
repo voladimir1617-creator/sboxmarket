@@ -136607,7 +136607,9 @@ body .full-page-mode .empty-inline {
   max-width: 480px !important;
 }
 body .modal-body .empty-inline .empty-icon,
-body .full-page-mode .empty-inline .empty-icon {
+body .full-page-mode .empty-inline .empty-icon,
+body .info-modal .info-modal-body .empty-inline .empty-icon,
+body .full-page-mode .info-modal .info-modal-body .empty-icon {
   width: 56px !important;
   height: 56px !important;
   margin: 0 auto 16px !important;
@@ -136660,3 +136662,398 @@ body .full-page-mode .empty-inline > div:nth-of-type(3) {
   margin: 0 auto 24px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3506 */
+
+/* CSFLOAT-1:1 PARITY ship #3700 — toast/snackbar container surface parity.
+   Measured csfloat root vars: --mat-snack-bar-container-shape 4px,
+   --mat-snack-bar-container-color #424242, --mat-snack-bar-supporting-text-color
+   white, --mat-snack-bar-button-color #7986cb (with #188fff variant),
+   --mat-snack-bar-supporting-text-font Roboto, 14px/20px/400.
+   MDC structural defaults: surface min-width 344px, max-width 672px,
+   min-height 48px, padding 0 16px, box-shadow 0 3px 5px -1px rgba(0,0,0,.2),
+   0 6px 10px 0 rgba(0,0,0,.14), 0 1px 18px 0 rgba(0,0,0,.12). */
+body .mat-mdc-snack-bar-container,
+body .mdc-snackbar,
+body .toast,
+body .snackbar,
+body .sale-toast,
+body .toast-notification {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0178571em !important;
+}
+body .mat-mdc-snack-bar-container .mdc-snackbar__surface,
+body .mat-mdc-snackbar-surface {
+  background-color: #424242 !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+  min-width: 344px !important;
+  max-width: 672px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  box-shadow:
+    0 3px 5px -1px rgba(0, 0, 0, 0.2),
+    0 6px 10px 0 rgba(0, 0, 0, 0.14),
+    0 1px 18px 0 rgba(0, 0, 0, 0.12) !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+body .mdc-snackbar__label,
+body .mat-mdc-snack-bar-label {
+  padding: 14px 16px !important;
+  color: inherit !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  flex-grow: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3700 */
+
+/* CSFLOAT-1:1 PARITY ship #3701 — toast/snackbar container positioning
+   (bottom-center stack for transient + top-right for sale-toasts).
+   Measured csfloat: snack-bar handset/center positions overlay pane via
+   .cdk-overlay-pane.mat-mdc-snack-bar-handset with margin auto + bottom 24px;
+   max-width 672px. Site already targets bottom-center for .sale-toasts.
+   Ensure stack alignment: column, gap 8px, centered, pointer-events pass-thru. */
+body .cdk-overlay-pane.mat-mdc-snack-bar-handset,
+body .cdk-overlay-pane.mat-mdc-snack-bar-bottom,
+body .cdk-overlay-pane.mat-mdc-snack-bar-center {
+  position: static !important;
+  margin: 8px auto !important;
+  max-width: 672px !important;
+  min-width: 344px !important;
+  pointer-events: auto !important;
+}
+body .sale-toasts,
+body .toasts-container,
+body .toast-stack {
+  position: fixed !important;
+  inset: auto auto 24px 50% !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  max-width: 672px !important;
+  width: max-content !important;
+}
+body .sale-toasts > *,
+body .toasts-container > *,
+body .toast-stack > * {
+  pointer-events: auto !important;
+  width: max-content !important;
+  max-width: 672px !important;
+  min-width: 344px !important;
+}
+@media (max-width: 720px) {
+  body .sale-toasts,
+  body .toasts-container,
+  body .toast-stack {
+    inset: auto 8px 16px 8px !important;
+    transform: none !important;
+    max-width: none !important;
+    width: auto !important;
+    align-items: stretch !important;
+  }
+  body .sale-toasts > *,
+  body .toasts-container > *,
+  body .toast-stack > * {
+    min-width: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #3701 */
+
+/* CSFLOAT-1:1 PARITY ship #3702 — toast slide-in/slide-out animation timing
+   parity with MDC snackbar. Measured csfloat (Angular Material MDC):
+   enter 150ms cubic-bezier(0,0,.2,1) (deceleration), exit 75ms
+   cubic-bezier(.4,0,1,1) (acceleration), opening transform translateY(0)
+   opacity 1, closing translateY(100%) opacity 0 (bottom). */
+@keyframes csfloat-snackbar-enter {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes csfloat-snackbar-leave {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+@keyframes csfloat-snackbar-enter-top {
+  0% { transform: translateY(-100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+body .mat-mdc-snack-bar-container.mdc-snackbar--opening,
+body .mat-mdc-snack-bar-container.mdc-snackbar--open,
+body .toast.toast-in,
+body .sale-toast:not(.toast-out),
+body .snackbar.snackbar-open {
+  animation: csfloat-snackbar-enter 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+body .mat-mdc-snack-bar-container.mdc-snackbar--closing,
+body .toast.exiting,
+body .toast.toast-leave,
+body .sale-toast.toast-out,
+body .snackbar.snackbar-leaving {
+  animation: csfloat-snackbar-leave 75ms cubic-bezier(0.4, 0, 1, 1) forwards !important;
+}
+body .mat-mdc-snack-bar-container,
+body .toast,
+body .sale-toast,
+body .snackbar {
+  transition: transform 150ms cubic-bezier(0, 0, 0.2, 1),
+              opacity 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+  will-change: transform, opacity !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body .mat-mdc-snack-bar-container,
+  body .toast,
+  body .sale-toast,
+  body .snackbar {
+    animation: none !important;
+    transition: opacity 100ms linear !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #3702 */
+
+/* CSFLOAT-1:1 PARITY ship #3703 — snackbar action button parity (Undo / OK).
+   Measured csfloat: --mat-snack-bar-button-color #188fff (some dialogs
+   use #7986cb), MDC button: 36px height, padding 0 8px, font-size 14px,
+   font-weight 500, letter-spacing .0892857em, text-transform uppercase,
+   border-radius 4px, no background, margin-left auto, ripple wraps text.
+   Action lives in .mdc-snackbar__actions which gets margin-right -8px to
+   absorb surface inset. */
+body .mdc-snackbar__actions,
+body .mat-mdc-snack-bar-actions {
+  display: flex !important;
+  flex-shrink: 0 !important;
+  align-items: center !important;
+  margin-left: auto !important;
+  margin-right: -8px !important;
+  padding-left: 8px !important;
+}
+body .mat-mdc-snack-bar-action,
+body .mat-mdc-snack-bar-container .mat-mdc-button,
+body .mat-mdc-snack-bar-container .mdc-button,
+body .toast .toast-action,
+body .snackbar .snack-action,
+body .sale-toast .toast-cta,
+body .sale-toast .sale-toast-cta {
+  background: transparent !important;
+  border: 0 !important;
+  color: #188fff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: uppercase !important;
+  padding: 0 8px !important;
+  min-width: 64px !important;
+  height: 36px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  user-select: none !important;
+  outline: none !important;
+  transition: background-color 15ms linear,
+              color 15ms linear !important;
+}
+body .mat-mdc-snack-bar-action:hover,
+body .mat-mdc-snack-bar-container .mat-mdc-button:hover,
+body .toast .toast-action:hover,
+body .snackbar .snack-action:hover,
+body .sale-toast .toast-cta:hover,
+body .sale-toast .sale-toast-cta:hover {
+  background: rgba(24, 143, 255, 0.08) !important;
+}
+body .mat-mdc-snack-bar-action:focus-visible,
+body .toast .toast-action:focus-visible,
+body .snackbar .snack-action:focus-visible {
+  background: rgba(24, 143, 255, 0.12) !important;
+}
+body .mat-mdc-snack-bar-action:active,
+body .toast .toast-action:active,
+body .snackbar .snack-action:active {
+  background: rgba(24, 143, 255, 0.16) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3703 */
+
+/* CSFLOAT-1:1 PARITY ship #3704 — toast severity variants parity.
+   Measured csfloat: .snackbar-error background rgba(139,19,20,.7) +
+   backdrop-filter blur(32px) + border-radius 6px; .snackbar-info background
+   rgba(27,29,36,.8) + same blur + 6px. Inferred matching success/warning
+   from MD ramp using csfloat accent palette. Severity left-bar style on
+   .sale-toast retained at 3px. */
+body .snackbar-error,
+body .mat-mdc-snack-bar-container.snackbar-error,
+body .toast.error,
+body .toast.toast-error,
+body .sale-toast.err {
+  background-color: rgba(139, 19, 20, 0.7) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  backdrop-filter: blur(32px) !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+}
+body .snackbar-error > div,
+body .snackbar-error .mdc-snackbar__surface {
+  background-color: transparent !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+body .snackbar-info,
+body .mat-mdc-snack-bar-container.snackbar-info,
+body .toast.info,
+body .toast.toast-info {
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  backdrop-filter: blur(32px) !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+}
+body .snackbar-info > div,
+body .snackbar-info .mdc-snackbar__surface {
+  background-color: transparent !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+body .snackbar-success,
+body .mat-mdc-snack-bar-container.snackbar-success,
+body .toast.ok,
+body .toast.success,
+body .sale-toast.success {
+  background-color: rgba(31, 110, 60, 0.7) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  backdrop-filter: blur(32px) !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+}
+body .snackbar-success > div,
+body .snackbar-success .mdc-snackbar__surface {
+  background-color: transparent !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+body .snackbar-warning,
+body .mat-mdc-snack-bar-container.snackbar-warning,
+body .toast.warn,
+body .toast.warning,
+body .sale-toast.warn {
+  background-color: rgba(176, 113, 24, 0.75) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  backdrop-filter: blur(32px) !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+}
+body .snackbar-warning > div,
+body .snackbar-warning .mdc-snackbar__surface {
+  background-color: transparent !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+body .snackbar-error .mat-mdc-snack-bar-action,
+body .snackbar-info .mat-mdc-snack-bar-action,
+body .snackbar-success .mat-mdc-snack-bar-action,
+body .snackbar-warning .mat-mdc-snack-bar-action,
+body .toast.error .toast-action,
+body .toast.info .toast-action,
+body .toast.success .toast-action,
+body .toast.warn .toast-action {
+  color: #fff !important;
+}
+body .snackbar-error .mat-mdc-snack-bar-action:hover,
+body .snackbar-info .mat-mdc-snack-bar-action:hover,
+body .snackbar-success .mat-mdc-snack-bar-action:hover,
+body .snackbar-warning .mat-mdc-snack-bar-action:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3704 */
+
+/* CSFLOAT-1:1 PARITY ship #3705 — multi-toast stacking + auto-dismiss
+   progress bar parity. Measured csfloat behavior: only one MDC snackbar
+   visible at a time, but local site already has a stack — preserve stack
+   while keeping vertical rhythm 8px gap, FILO order with newest at bottom
+   (since stack origin is bottom-center). Add CSS-driven 4-second progress
+   bar at the bottom edge (tracks default Material auto-hide-duration of
+   4000ms) — purely visual, no JS. */
+@keyframes csfloat-toast-progress {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+body .toast,
+body .sale-toast,
+body .snackbar,
+body .mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  position: relative !important;
+  overflow: hidden !important;
+}
+body .toast::after,
+body .sale-toast::after,
+body .snackbar::after,
+body .mat-mdc-snack-bar-container .mdc-snackbar__surface::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  width: 100% !important;
+  transform-origin: left center !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  animation: csfloat-toast-progress 4s linear forwards !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+body .toast.no-progress::after,
+body .sale-toast.no-progress::after,
+body .snackbar.no-progress::after,
+body .toast.persistent::after,
+body .sale-toast.persistent::after,
+body .snackbar.persistent::after {
+  display: none !important;
+}
+body .toast.toast-paused::after,
+body .sale-toast:hover::after,
+body .toast:hover::after,
+body .snackbar:hover::after {
+  animation-play-state: paused !important;
+}
+body .toast.toast-error::after,
+body .toast.error::after,
+body .snackbar-error .mdc-snackbar__surface::after {
+  background: rgba(255, 184, 184, 0.7) !important;
+}
+body .toast.toast-info::after,
+body .toast.info::after,
+body .snackbar-info .mdc-snackbar__surface::after {
+  background: rgba(184, 211, 255, 0.65) !important;
+}
+body .toast.success::after,
+body .toast.ok::after,
+body .snackbar-success .mdc-snackbar__surface::after,
+body .sale-toast.success::after {
+  background: rgba(170, 255, 200, 0.7) !important;
+}
+body .toast.warn::after,
+body .toast.warning::after,
+body .snackbar-warning .mdc-snackbar__surface::after,
+body .sale-toast.warn::after {
+  background: rgba(255, 220, 160, 0.7) !important;
+}
+/* Stack rhythm: ensure later toasts visually push earlier ones up. */
+body .sale-toasts,
+body .toasts-container,
+body .toast-stack {
+  flex-direction: column-reverse !important;
+}
+body .sale-toasts > * + *,
+body .toasts-container > * + *,
+body .toast-stack > * + * {
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3705 */
