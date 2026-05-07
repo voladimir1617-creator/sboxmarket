@@ -138387,6 +138387,327 @@ button[data-copy*="trade"]:hover {
 }
 /* END CSFLOAT-1:1 PARITY ship #4204 */
 
+/* CSFLOAT-1:1 PARITY ship #4300 — Auctions Ending Soon rail header.
+   Probe-measured baseline: 24px/700, no gap, no flex. csfloat header
+   pattern: 18px section title, 600 weight, ink primary. */
+.auctions-ending-soon {
+  margin: 24px 0 16px !important;
+  padding: 0 !important;
+}
+.auctions-ending-soon-head,
+section.auctions-ending-soon > h2.auctions-ending-soon-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 0 14px !important;
+  padding: 0 !important;
+  font-family: var(--ui) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  line-height: 24px !important;
+  color: var(--ink) !important;
+  text-transform: none !important;
+}
+.auctions-ending-soon-head > span:nth-child(2) {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  color: var(--ink) !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4300 */
+
+/* CSFLOAT-1:1 PARITY ship #4301 — Live-LED dot in rail header.
+   Probe-measured baseline: 0 width, no bg. Mirror csfloat live red dot. */
+.auctions-ending-soon-dot,
+.auctions-ending-soon-head .auctions-ending-soon-dot {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  background: #ef4444 !important;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6) !important;
+  animation: csf-live-pulse-4301 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+  vertical-align: middle !important;
+}
+@keyframes csf-live-pulse-4301 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+}
+/* END CSFLOAT-1:1 PARITY ship #4301 */
+
+/* CSFLOAT-1:1 PARITY ship #4302 — "N live" count chip after title.
+   Probe baseline: 24px/700 inherits h2. Pin small mono red-tinted chip. */
+.auctions-ending-soon-count,
+.auctions-ending-soon-head .auctions-ending-soon-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 20px !important;
+  padding: 0 8px !important;
+  margin-left: 4px !important;
+  font-family: var(--mono, ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border-radius: 4px !important;
+  line-height: 1 !important;
+  font-feature-settings: 'tnum' 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4302 */
+
+/* CSFLOAT-1:1 PARITY ship #4303 — horizontal scroll rail container.
+   Probe baseline: display:block stacks vertically. csfloat ending-soon
+   rail is horizontal-scroll with 12px gaps, ~215px card cells. */
+.auctions-ending-soon-rail {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 4px 0 12px !important;
+  margin: 0 !important;
+  scroll-snap-type: x proximity !important;
+  scroll-padding-left: 0 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255,255,255,0.18) transparent !important;
+}
+.auctions-ending-soon-rail::-webkit-scrollbar { height: 6px !important; }
+.auctions-ending-soon-rail::-webkit-scrollbar-track { background: transparent !important; }
+.auctions-ending-soon-rail::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18) !important;
+  border-radius: 3px !important;
+}
+.auctions-ending-soon-card-wrap {
+  flex: 0 0 auto !important;
+  width: 215px !important;
+  min-width: 215px !important;
+  max-width: 215px !important;
+  scroll-snap-align: start !important;
+}
+@media (min-width: 1280px) {
+  .auctions-ending-soon-card-wrap {
+    width: 232px !important;
+    min-width: 232px !important;
+    max-width: 232px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4303 */
+
+/* CSFLOAT-1:1 PARITY ship #4304 — bid-count chip + AUCTION tag.
+   Probe baseline: bid-count 16px/400 generic blue, tag 16px/400 same.
+   csfloat uses compact mono micro-chips that subordinate to price. */
+.grid-card .grid-bid-count,
+.csfloat-grid-card .grid-bid-count,
+.csfloat-band-card .grid-bid-count,
+.market-grid .grid-bid-count,
+.auctions-ending-soon-rail .grid-bid-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 16px !important;
+  padding: 0 6px !important;
+  margin-top: 2px !important;
+  font-family: var(--mono, ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  line-height: 1 !important;
+  color: #60a5fa !important;
+  background: rgba(96, 165, 250, 0.08) !important;
+  border: 1px solid rgba(96, 165, 250, 0.22) !important;
+  border-radius: 3px !important;
+  font-feature-settings: 'tnum' 1 !important;
+  width: -moz-fit-content !important;
+  width: fit-content !important;
+}
+.grid-card .grid-cat .grid-auction-tag,
+.csfloat-grid-card .grid-auction-tag,
+.csfloat-band-card .grid-auction-tag,
+.market-grid .grid-auction-tag,
+.auctions-ending-soon-rail .grid-auction-tag {
+  font-family: var(--mono, ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace) !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #ef4444 !important;
+  margin-right: 6px !important;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+  vertical-align: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4304 */
+
+/* CSFLOAT-1:1 PARITY ship #4305 — auction countdown urgency states.
+   Probe baseline: 16px Roboto generic blue; dot 0px. Lock to mono tnum.
+   Red glow on .ending (<1hr); muted on .ended. */
+.grid-card .auction-countdown,
+.csfloat-grid-card .auction-countdown,
+.csfloat-band-card .auction-countdown,
+.market-grid .auction-countdown,
+.auctions-ending-soon-rail .auction-countdown,
+.grid-thumb .auction-countdown {
+  font-family: var(--mono, ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace) !important;
+  font-feature-settings: 'tnum' 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  height: 20px !important;
+  padding: 0 7px !important;
+  border-radius: 4px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  backdrop-filter: blur(6px) !important;
+  white-space: nowrap !important;
+}
+.grid-card .auction-countdown.ending,
+.csfloat-grid-card .auction-countdown.ending,
+.csfloat-band-card .auction-countdown.ending,
+.market-grid .auction-countdown.ending,
+.auctions-ending-soon-rail .auction-countdown.ending,
+.grid-thumb .auction-countdown.ending {
+  color: #fecaca !important;
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.15) inset !important;
+}
+.grid-card .auction-countdown.ended,
+.csfloat-grid-card .auction-countdown.ended,
+.csfloat-band-card .auction-countdown.ended,
+.market-grid .auction-countdown.ended,
+.auctions-ending-soon-rail .auction-countdown.ended,
+.grid-thumb .auction-countdown.ended {
+  color: rgba(255, 255, 255, 0.55) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+.grid-card .auction-countdown .auction-countdown-dot,
+.csfloat-grid-card .auction-countdown .auction-countdown-dot,
+.csfloat-band-card .auction-countdown .auction-countdown-dot,
+.market-grid .auction-countdown .auction-countdown-dot,
+.auctions-ending-soon-rail .auction-countdown .auction-countdown-dot,
+.grid-thumb .auction-countdown .auction-countdown-dot {
+  display: inline-block !important;
+  width: 6px !important;
+  height: 6px !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  background: #22c55e !important;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.6) !important;
+  animation: csf-cd-dot-pulse-4305 1.4s ease-in-out infinite !important;
+}
+.grid-card .auction-countdown.ending .auction-countdown-dot,
+.csfloat-grid-card .auction-countdown.ending .auction-countdown-dot,
+.csfloat-band-card .auction-countdown.ending .auction-countdown-dot,
+.market-grid .auction-countdown.ending .auction-countdown-dot,
+.auctions-ending-soon-rail .auction-countdown.ending .auction-countdown-dot,
+.grid-thumb .auction-countdown.ending .auction-countdown-dot {
+  background: #ef4444 !important;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.8) !important;
+  animation: csf-cd-dot-urgent-4305 0.9s ease-in-out infinite !important;
+}
+.grid-card .auction-countdown.ended .auction-countdown-dot,
+.csfloat-grid-card .auction-countdown.ended .auction-countdown-dot,
+.csfloat-band-card .auction-countdown.ended .auction-countdown-dot,
+.market-grid .auction-countdown.ended .auction-countdown-dot,
+.auctions-ending-soon-rail .auction-countdown.ended .auction-countdown-dot,
+.grid-thumb .auction-countdown.ended .auction-countdown-dot {
+  background: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+@keyframes csf-cd-dot-pulse-4305 {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.78); }
+}
+@keyframes csf-cd-dot-urgent-4305 {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.7); }
+}
+.grid-card.is-auction .grid-thumb { position: relative !important; }
+.grid-card.is-auction .grid-thumb > .auction-countdown,
+.auctions-ending-soon-rail .grid-card.is-auction .grid-thumb > .auction-countdown {
+  position: absolute !important;
+  top: 8px !important;
+  left: 8px !important;
+  z-index: 3 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4305 */
+
+/* CSFLOAT-1:1 PARITY ship #4306 — "Place bid" mini-CTA on auction cards.
+   csfloat shows a compact bid CTA in the action area. Reserve a slot
+   that ships use via .grid-bid-cta and pin its chrome (35,123,255). */
+.grid-card .grid-bid-cta,
+.csfloat-grid-card .grid-bid-cta,
+.csfloat-band-card .grid-bid-cta,
+.market-grid .grid-bid-cta,
+.auctions-ending-soon-rail .grid-bid-cta,
+a.grid-bid-cta,
+button.grid-bid-cta {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 4 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  height: 26px !important;
+  padding: 0 9px !important;
+  font-family: var(--ui) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  color: #ffffff !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 2px 6px rgba(35,123,255,0.32) !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  transition: filter 120ms ease, transform 120ms ease !important;
+}
+.grid-card .grid-bid-cta:hover,
+.csfloat-grid-card .grid-bid-cta:hover,
+.csfloat-band-card .grid-bid-cta:hover,
+.market-grid .grid-bid-cta:hover,
+.auctions-ending-soon-rail .grid-bid-cta:hover,
+a.grid-bid-cta:hover,
+button.grid-bid-cta:hover {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1px) !important;
+}
+.grid-card .grid-bid-cta:active,
+.csfloat-grid-card .grid-bid-cta:active,
+.csfloat-band-card .grid-bid-cta:active,
+.market-grid .grid-bid-cta:active,
+.auctions-ending-soon-rail .grid-bid-cta:active,
+a.grid-bid-cta:active,
+button.grid-bid-cta:active {
+  transform: translateY(0) !important;
+  filter: brightness(0.96) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4306 */
+
 /* CSFLOAT-1:1 PARITY ship #4400 - Snackbar / Alert banner surface
    csfloat MDC snackbar surface: bg rgb(66, 66, 66), color #fff,
    border-radius 4px, min-width 344px, max-width 672px, shadow
