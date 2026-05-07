@@ -146188,3 +146188,382 @@ body .nav-picker-panel .nav-picker-row.active .mi {
   background: rgba(193, 206, 255, 0.05) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #7904 */
+
+/* CSFLOAT-1:1 PARITY ship #8200 — Reviews 5-star rating display: gold/amber filled stars, ink-4 empty, tight tracking. csfloat uses gold #f5b94a (oklch 0.78 0.16 80) for filled, slightly larger glyph than ink-3 muted. */
+.stall-review-stars,
+.profile-reviews-stars,
+.csfloat-review-row-rating {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 1px !important;
+  letter-spacing: 0 !important;
+  font-size: 12px !important;
+  color: oklch(0.78 0.16 80) !important;
+  line-height: 1 !important;
+}
+.stall-review-stars-picker button {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  padding: 2px 1px !important;
+  color: var(--ink-4) !important;
+  transition: color 120ms ease !important;
+}
+.stall-review-stars-picker button.on,
+.stall-review-stars-picker button:hover {
+  color: oklch(0.78 0.16 80) !important;
+}
+.csfloat-review-row-rating-star {
+  font-size: 12px !important;
+  color: oklch(0.78 0.16 80) !important;
+  line-height: 1 !important;
+}
+.csfloat-review-row-rating-star.empty {
+  color: var(--ink-4) !important;
+  opacity: 0.55 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8200 */
+
+/* CSFLOAT-1:1 PARITY ship #8201 — Review row layout: 36x36 round avatar, 12px gap, name+verified badge inline, timestamp pushed right with mono tabular-nums. csfloat reviews list-item is grid 36px/1fr/auto. */
+.stall-review,
+.stall-review-item,
+.profile-reviews-list .stall-review {
+  padding: 14px 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+.stall-review-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  margin-bottom: 8px !important;
+}
+.stall-review-from {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--ink-1, var(--ink)) !important;
+  letter-spacing: -0.005em !important;
+  min-width: 0 !important;
+}
+.stall-review-from img,
+.stall-review-from .avatar,
+.stall-review-from .review-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  border: 1px solid var(--line) !important;
+  background: var(--bg-2) !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+}
+.stall-review-time {
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  color: var(--ink-3) !important;
+  letter-spacing: 0.04em !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+  margin-left: auto !important;
+}
+.stall-review-body,
+.stall-review-text {
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  color: var(--ink-2) !important;
+  padding: 0 !important;
+  margin: 6px 0 8px !important;
+  word-break: break-word !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8201 */
+
+/* CSFLOAT-1:1 PARITY ship #8202 — "Helpful?" thumbs row: csfloat uses muted pill button with thumb icon + count, hover tints with accent color. Sits below review body. */
+.stall-review-helpful,
+.review-helpful,
+.review-helpful-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 10px !important;
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 999px !important;
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.04em !important;
+  color: var(--ink-3) !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease !important;
+  font-variant-numeric: tabular-nums !important;
+  line-height: 1.4 !important;
+}
+.stall-review-helpful:hover,
+.review-helpful:hover,
+.review-helpful-btn:hover {
+  color: var(--ink) !important;
+  border-color: var(--ink-3) !important;
+  background: var(--bg-2) !important;
+}
+.stall-review-helpful.is-active,
+.stall-review-helpful.voted,
+.review-helpful.is-active,
+.review-helpful-btn.is-active {
+  color: oklch(0.72 0.18 250) !important;
+  border-color: oklch(0.72 0.18 250 / 0.4) !important;
+  background: oklch(0.72 0.18 250 / 0.08) !important;
+}
+.stall-review-actions {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-top: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8202 */
+
+/* CSFLOAT-1:1 PARITY ship #8203 — Review filter (Most Recent / Highest / Lowest): csfloat uses segmented mat-button-toggle bar; tab buttons share a border, active = ink fg + bg-2 fill. */
+.profile-reviews-filter,
+.stall-reviews-filter {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  gap: 0 !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 6px !important;
+  background: var(--bg-1) !important;
+  padding: 2px !important;
+  margin-bottom: 14px !important;
+}
+.profile-reviews-filter button,
+.profile-reviews-filter .filter-btn,
+.profile-reviews-filter a,
+.stall-reviews-filter button,
+.stall-reviews-filter .filter-btn,
+.stall-reviews-filter a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px 14px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-3) !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, background-color 120ms ease !important;
+  white-space: nowrap !important;
+  line-height: 1.4 !important;
+  text-decoration: none !important;
+}
+.profile-reviews-filter button:hover,
+.profile-reviews-filter .filter-btn:hover,
+.profile-reviews-filter a:hover,
+.stall-reviews-filter button:hover,
+.stall-reviews-filter .filter-btn:hover,
+.stall-reviews-filter a:hover {
+  color: var(--ink) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+.profile-reviews-filter button.active,
+.profile-reviews-filter button.is-active,
+.profile-reviews-filter button[aria-pressed="true"],
+.profile-reviews-filter .filter-btn.active,
+.profile-reviews-filter a.active,
+.stall-reviews-filter button.active,
+.stall-reviews-filter button.is-active,
+.stall-reviews-filter button[aria-pressed="true"],
+.stall-reviews-filter .filter-btn.active,
+.stall-reviews-filter a.active {
+  color: var(--ink) !important;
+  background: var(--bg-2) !important;
+  box-shadow: inset 0 0 0 1px var(--line) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8203 */
+
+/* CSFLOAT-1:1 PARITY ship #8204 — Reviews tab head: avg rating display (40px serif → mono per csfloat spec), star row beneath, "Based on N reviews" sub. csfloat reviews-summary block. */
+.profile-reviews-head,
+.stall-reviews-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 24px !important;
+  padding: 0 0 16px !important;
+  border-bottom: 1px solid var(--line) !important;
+  margin-bottom: 16px !important;
+  flex-wrap: wrap !important;
+}
+.profile-reviews-avg,
+.stall-rating-avg {
+  font-family: var(--mono) !important;
+  font-size: 36px !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  display: block !important;
+  margin: 0 !important;
+}
+.profile-reviews-avg-block,
+.stall-rating-block {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+.profile-reviews-avg-stars,
+.stall-rating-stars {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  font-size: 13px !important;
+  color: oklch(0.78 0.16 80) !important;
+  line-height: 1 !important;
+}
+.profile-reviews-count,
+.stall-rating-count {
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-3) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.profile-reviews-empty {
+  padding: 28px 16px !important;
+  text-align: center !important;
+  color: var(--ink-3) !important;
+  font-size: 13px !important;
+  border: 1px dashed var(--line) !important;
+  border-radius: var(--r-md, 8px) !important;
+  background: var(--bg-1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8204 */
+
+/* CSFLOAT-1:1 PARITY ship #8205 — Home tool cards grid: csfloat .tools wrapper renders as 2-up at desktop, 1-col at mobile, 24px gap, max-width matches inner content rail (~1180px between cards across full 1337 outer). */
+.csfloat-home-tools,
+section.csfloat-home-tools,
+.csfloat-home-tools-inner {
+  display: block !important;
+  margin: 0 auto !important;
+  padding: 56px 24px 24px !important;
+  max-width: 1180px !important;
+  box-sizing: border-box !important;
+}
+.csfloat-home-tools-grid,
+.csfloat-home-tools-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 24px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+@media (max-width: 880px) {
+  .csfloat-home-tools-grid,
+  .csfloat-home-tools-row {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .csfloat-home-tools,
+  section.csfloat-home-tools,
+  .csfloat-home-tools-inner {
+    padding: 40px 16px 16px !important;
+  }
+}
+.csfloat-home-tools-eyebrow {
+  font-family: var(--mono, "JetBrains Mono", monospace) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-3) !important;
+  margin: 0 0 12px !important;
+  line-height: 1 !important;
+}
+.csfloat-home-tools-title {
+  font-family: var(--font-display, var(--font-sans), system-ui), sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.2 !important;
+  margin: 0 0 28px !important;
+}
+@media (max-width: 880px) {
+  .csfloat-home-tools-title { font-size: 22px !important; margin-bottom: 20px !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #8205 */
+
+/* CSFLOAT-1:1 PARITY ship #8206 — Tool card base styling: csfloat tool cards are dark elevated panels (bg ~ #161A22), 14px radius, 1px ink-line border, 28px-32px inner padding, top-right "arrow_outward" Material icon glyph at 22px ink-3, subtle hover lift. Card height ~130 at desktop, fluid. Aspect: title bottom-left, description top-left small text. */
+.csfloat-home-tool-card,
+.csfloat-home-tools-grid > .card,
+.csfloat-home-tools-grid > a,
+.csfloat-home-tools-grid > li > a,
+.csfloat-home-tools-row .card {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 130px !important;
+  padding: 22px 24px 20px !important;
+  background: var(--bg-1, #161A22) !important;
+  border: 1px solid var(--line, rgba(193, 206, 255, 0.08)) !important;
+  border-radius: 14px !important;
+  text-decoration: none !important;
+  color: var(--ink, #E8ECF6) !important;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+}
+.csfloat-home-tool-card:hover,
+.csfloat-home-tools-grid > .card:hover,
+.csfloat-home-tools-grid > a:hover,
+.csfloat-home-tools-grid > li > a:hover,
+.csfloat-home-tools-row .card:hover {
+  border-color: var(--accent, #1EA5FF) !important;
+  background: var(--bg-2, #1B2030) !important;
+  transform: translateY(-1px) !important;
+}
+/* arrow_outward icon top-right (Material symbol) */
+.csfloat-home-tool-card-arrow,
+.csfloat-home-tools-grid > .card .material-symbols-outlined,
+.csfloat-home-tools-grid > a .material-symbols-outlined,
+.csfloat-home-tools-grid > .card > i.material-icons,
+.csfloat-home-tools-grid > a > i.material-icons {
+  position: absolute !important;
+  top: 18px !important;
+  right: 20px !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  color: var(--ink-3, rgba(193, 206, 255, 0.45)) !important;
+  font-weight: 400 !important;
+  transition: color 160ms ease, transform 160ms ease !important;
+  pointer-events: none !important;
+}
+.csfloat-home-tool-card:hover .csfloat-home-tool-card-arrow,
+.csfloat-home-tools-grid > .card:hover .material-symbols-outlined,
+.csfloat-home-tools-grid > a:hover .material-symbols-outlined {
+  color: var(--accent, #1EA5FF) !important;
+  transform: translate(2px, -2px) !important;
+}
+.csfloat-home-tool-card-desc {
+  font-size: 13px !important;
+  color: var(--ink-3, rgba(193, 206, 255, 0.55)) !important;
+  line-height: 1.5 !important;
+  margin: 0 0 12px !important;
+  letter-spacing: 0 !important;
+  padding-right: 32px !important;
+}
+.csfloat-home-tool-card-title {
+  font-family: var(--font-display, var(--font-sans), system-ui), sans-serif !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  color: var(--ink, #E8ECF6) !important;
+  margin: 0 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8206 */
