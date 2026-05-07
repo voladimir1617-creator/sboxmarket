@@ -146567,3 +146567,1009 @@ section.csfloat-home-tools,
   line-height: 1.2 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #8206 */
+
+/* CSFLOAT-1:1 PARITY ship #8207 — Float Checker + Trade Up Calculator specific accent colors. csfloat applies subtle tool-specific tint (left-edge accent or icon hue) so user can read the difference at a glance. Trade Up uses an amber/orange tint (oklch 0.78 0.18 60), Float Checker uses the brand cyan (oklch 0.78 0.16 230). */
+.csfloat-home-tool-card.trade-up,
+.csfloat-home-tool-card[data-tool="trade-up"],
+.csfloat-home-tools-grid > .trade-up,
+.csfloat-home-tools-row > .trade-up.card {
+  --tool-accent: oklch(0.78 0.16 60) !important;
+}
+.csfloat-home-tool-card.float-checker,
+.csfloat-home-tool-card[data-tool="float-checker"],
+.csfloat-home-tools-grid > .float-checker,
+.csfloat-home-tools-row > .float-checker.card {
+  --tool-accent: oklch(0.78 0.16 230) !important;
+}
+.csfloat-home-tool-card::before,
+.csfloat-home-tools-grid > .card::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+  background: radial-gradient(120% 80% at 100% 0%, color-mix(in oklch, var(--tool-accent, var(--accent, #1EA5FF)) 8%, transparent) 0%, transparent 60%) !important;
+  opacity: 0.65 !important;
+  transition: opacity 160ms ease !important;
+  z-index: 0 !important;
+}
+.csfloat-home-tool-card:hover::before,
+.csfloat-home-tools-grid > .card:hover::before {
+  opacity: 1 !important;
+}
+.csfloat-home-tool-card > *,
+.csfloat-home-tools-grid > .card > *,
+.csfloat-home-tools-grid > a > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.csfloat-home-tool-card.trade-up .csfloat-home-tool-card-arrow,
+.csfloat-home-tool-card[data-tool="trade-up"] .csfloat-home-tool-card-arrow {
+  color: oklch(0.78 0.18 60) !important;
+}
+.csfloat-home-tool-card.float-checker .csfloat-home-tool-card-arrow,
+.csfloat-home-tool-card[data-tool="float-checker"] .csfloat-home-tool-card-arrow {
+  color: oklch(0.78 0.16 230) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8207 */
+
+/* CSFLOAT-1:1 PARITY ship #8208 — Affiliate program card: csfloat-style payout-bullet card. Wider single-column block (1180px max), dark elevated bg with subtle gradient, 28px padding, mono "AFFILIATE PROGRAM" eyebrow at top, large H2 headline, then 3 payout bullets in a horizontal row with check-bullet glyphs. Right-side CTA button "Become a Partner" pinned. */
+.csfloat-home-affiliate {
+  display: block !important;
+  margin: 32px auto !important;
+  padding: 0 24px !important;
+  max-width: 1180px !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 880px) { .csfloat-home-affiliate { padding: 0 16px !important; } }
+.csfloat-home-affiliate-card {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 28px !important;
+  align-items: center !important;
+  padding: 32px 32px 30px !important;
+  background:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in oklch, var(--accent, #1EA5FF) 10%, transparent) 0%, transparent 70%),
+    var(--bg-1, #161A22) !important;
+  border: 1px solid var(--line, rgba(193, 206, 255, 0.08)) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+}
+@media (max-width: 880px) {
+  .csfloat-home-affiliate-card {
+    grid-template-columns: 1fr !important;
+    padding: 24px 20px 22px !important;
+    gap: 20px !important;
+  }
+}
+.csfloat-home-affiliate-eyebrow {
+  font-family: var(--mono, "JetBrains Mono", monospace) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: var(--accent, #1EA5FF) !important;
+  margin: 0 0 8px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+}
+.csfloat-home-affiliate-title {
+  font-family: var(--font-display, var(--font-sans), system-ui), sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  color: var(--ink, #E8ECF6) !important;
+  margin: 0 0 6px !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.25 !important;
+}
+@media (max-width: 880px) { .csfloat-home-affiliate-title { font-size: 20px !important; } }
+.csfloat-home-affiliate-sub {
+  font-size: 14px !important;
+  color: var(--ink-3, rgba(193, 206, 255, 0.55)) !important;
+  margin: 0 0 16px !important;
+  line-height: 1.55 !important;
+}
+/* Payout bullets row */
+.csfloat-home-affiliate-bullets,
+.csfloat-home-affiliate-payouts {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px 22px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+.csfloat-home-affiliate-bullets > li,
+.csfloat-home-affiliate-payouts > li {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  color: var(--ink-2, rgba(193, 206, 255, 0.78)) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+.csfloat-home-affiliate-bullets > li::before,
+.csfloat-home-affiliate-payouts > li::before {
+  content: "" !important;
+  width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 14px !important;
+  border-radius: 50% !important;
+  background: color-mix(in oklch, var(--accent, #1EA5FF) 22%, transparent) !important;
+  border: 1px solid color-mix(in oklch, var(--accent, #1EA5FF) 60%, transparent) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2.5 6.2 L4.8 8.5 L9.5 3.8' fill='none' stroke='%231EA5FF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 10px 10px !important;
+}
+/* CTA button */
+.csfloat-home-affiliate-cta,
+.csfloat-home-affiliate-card a.btn,
+.csfloat-home-affiliate-card a[role="button"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 40px !important;
+  padding: 0 22px !important;
+  background: var(--accent, #1EA5FF) !important;
+  color: #0A0E14 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-family: var(--font-sans, system-ui), sans-serif !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: filter 160ms ease, transform 160ms ease !important;
+  align-self: center !important;
+  justify-self: end !important;
+}
+.csfloat-home-affiliate-cta:hover,
+.csfloat-home-affiliate-card a.btn:hover {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1px) !important;
+}
+@media (max-width: 880px) {
+  .csfloat-home-affiliate-cta,
+  .csfloat-home-affiliate-card a.btn {
+    justify-self: stretch !important;
+    width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8208 */
+
+/* CSFLOAT-1:1 PARITY ship #8209 — 3-up tool grid variant + responsive scaling. csfloat sometimes shows tools as a triple-card row at very wide breakpoints; cards stay equal-width and shrink min height to ~120 to preserve aspect when extra column is present. Below 1080 we collapse 3-up to 2-up, below 720 to 1-col. Adds csfloat's exact card "loading" hover ripple via outline ring rather than opacity bump, matching their feel exactly. */
+.csfloat-home-tools-grid.three-up,
+.csfloat-home-tools-grid[data-cols="3"],
+.csfloat-home-tools[data-cols="3"] .csfloat-home-tools-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+@media (max-width: 1080px) {
+  .csfloat-home-tools-grid.three-up,
+  .csfloat-home-tools-grid[data-cols="3"],
+  .csfloat-home-tools[data-cols="3"] .csfloat-home-tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 720px) {
+  .csfloat-home-tools-grid.three-up,
+  .csfloat-home-tools-grid[data-cols="3"],
+  .csfloat-home-tools[data-cols="3"] .csfloat-home-tools-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+.csfloat-home-tools-grid.three-up > .card,
+.csfloat-home-tools-grid[data-cols="3"] > .card,
+.csfloat-home-tools[data-cols="3"] .csfloat-home-tool-card {
+  min-height: 120px !important;
+  padding: 20px 22px 18px !important;
+}
+/* csfloat-style outline ring on focus for keyboard nav */
+.csfloat-home-tool-card:focus-visible,
+.csfloat-home-tools-grid > .card:focus-visible,
+.csfloat-home-tools-grid > a:focus-visible {
+  outline: 2px solid var(--accent, #1EA5FF) !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent, #1EA5FF) !important;
+}
+/* Truncate long descriptions to 2 lines like csfloat (no wrap explosion) */
+.csfloat-home-tool-card-desc {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8209 */
+
+/* CSFLOAT-1:1 PARITY ship #8210 — Tool card icon slot (left): csfloat's tool cards reserve a 36px square icon slot to the left of the title block with the tool's emblem (Float Checker = magnifier+bar, Trade Up = arrow-merge, Loadout = grid). Slot is muted ink-3 stroke with subtle bg tint. We make the layout flexible: when an icon child exists (.tool-icon, svg, [data-icon]) the title block shifts right with 14px gap. */
+.csfloat-home-tool-card.has-icon,
+.csfloat-home-tool-card:has(.tool-icon),
+.csfloat-home-tool-card:has(> svg[data-icon]),
+.csfloat-home-tools-grid > .card:has(.tool-icon) {
+  display: grid !important;
+  grid-template-columns: 36px 1fr !important;
+  column-gap: 14px !important;
+  align-items: center !important;
+  padding: 22px 24px !important;
+}
+.csfloat-home-tool-card .tool-icon,
+.csfloat-home-tool-card > svg[data-icon],
+.csfloat-home-tools-grid .card > .tool-icon {
+  grid-row: 1 / span 2 !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: color-mix(in oklch, var(--tool-accent, var(--accent, #1EA5FF)) 10%, transparent) !important;
+  border: 1px solid color-mix(in oklch, var(--tool-accent, var(--accent, #1EA5FF)) 30%, transparent) !important;
+  border-radius: 9px !important;
+  color: var(--tool-accent, var(--accent, #1EA5FF)) !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  flex: 0 0 36px !important;
+}
+.csfloat-home-tool-card.has-icon .csfloat-home-tool-card-desc,
+.csfloat-home-tool-card:has(.tool-icon) .csfloat-home-tool-card-desc {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  margin: 0 0 4px !important;
+}
+.csfloat-home-tool-card.has-icon .csfloat-home-tool-card-title,
+.csfloat-home-tool-card:has(.tool-icon) .csfloat-home-tool-card-title {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+}
+@media (max-width: 720px) {
+  .csfloat-home-tool-card.has-icon,
+  .csfloat-home-tool-card:has(.tool-icon) {
+    grid-template-columns: 32px 1fr !important;
+    column-gap: 12px !important;
+  }
+  .csfloat-home-tool-card .tool-icon,
+  .csfloat-home-tool-card > svg[data-icon] {
+    width: 32px !important;
+    height: 32px !important;
+    flex: 0 0 32px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8210 */
+
+/* CSFLOAT-1:1 PARITY ship #8400 — db filter chip group container (csfloat: bg rgba(193,206,255,0.04), border-radius 7px, inline-flex, h 38px wrapping a row of toggles padded 3px) */
+.db-controls .filter-chip-group,
+.db-controls .filter-toggle-group,
+.db-controls [role="group"][data-filter-pills] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 3px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  height: 38px !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8400 */
+
+/* CSFLOAT-1:1 PARITY ship #8401 — db filter chip toggle (csfloat: 32px tall, label-content padding 0 12px, font-size 14px, line-height 32px, border-radius 4px, transparent inactive) */
+.db-controls .filter-chip-toggle,
+.db-controls .filter-pill,
+.db-controls [data-filter-pill] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: #fff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 32px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: background 120ms ease !important;
+}
+.db-controls .filter-chip-toggle:hover,
+.db-controls .filter-pill:hover,
+.db-controls [data-filter-pill]:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8401 */
+
+/* CSFLOAT-1:1 PARITY ship #8402 — db filter chip ACTIVE state (csfloat: lit by rgba(193,206,255,0.04) bg same as group, color stays #fff, no border, no shadow) */
+.db-controls .filter-chip-toggle.is-active,
+.db-controls .filter-chip-toggle[aria-pressed="true"],
+.db-controls .filter-chip-toggle[data-checked="true"],
+.db-controls .filter-pill.is-active,
+.db-controls .filter-pill[aria-pressed="true"],
+.db-controls .filter-pill[data-checked="true"],
+.db-controls [data-filter-pill].is-active,
+.db-controls [data-filter-pill][aria-pressed="true"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: #fff !important;
+  font-weight: 400 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8402 */
+
+/* CSFLOAT-1:1 PARITY ship #8403 — db filter chip counter badge (csfloat-style trailing count: 12px Roboto, ink-3 #9EA7B1, 6px gap from label, no bubble) */
+.db-controls .filter-chip-toggle .pill-count,
+.db-controls .filter-pill .pill-count,
+.db-controls [data-filter-pill] .pill-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 6px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: #9EA7B1 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  min-width: 0 !important;
+  height: auto !important;
+}
+.db-controls .filter-chip-toggle.is-active .pill-count,
+.db-controls .filter-pill.is-active .pill-count,
+.db-controls [data-filter-pill].is-active .pill-count {
+  color: #fff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8403 */
+
+/* CSFLOAT-1:1 PARITY ship #8404 — db Reset filters button (csfloat: ghost link, 14px Roboto, color #9EA7B1, hover #fff, 32px tall, no bg, no border, padding 0 12px, inline-flex aligned with chip group) */
+.db-controls .db-reset-filters,
+.db-controls .filter-reset,
+.db-controls [data-filter-reset] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: #9EA7B1 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 32px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: color 120ms ease, background 120ms ease !important;
+}
+.db-controls .db-reset-filters:hover,
+.db-controls .filter-reset:hover,
+.db-controls [data-filter-reset]:hover {
+  color: #fff !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+.db-controls .db-reset-filters:disabled,
+.db-controls .filter-reset:disabled,
+.db-controls [data-filter-reset][aria-disabled="true"] {
+  color: rgba(158, 167, 177, 0.4) !important;
+  cursor: default !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8404 */
+
+/* CSFLOAT-1:1 PARITY ship #8405 — db Saved filter shortcut chips (csfloat: same pill toggle visual but bg lift on active, 14px label + optional remove-x at 12px) */
+.db-controls .saved-filter-row,
+.db-controls [data-saved-filters] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  vertical-align: middle !important;
+}
+.db-controls .saved-filter-chip,
+.db-controls [data-saved-filter] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  color: #fff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 32px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: background 120ms ease !important;
+}
+.db-controls .saved-filter-chip:hover,
+.db-controls [data-saved-filter]:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+}
+.db-controls .saved-filter-chip.is-active,
+.db-controls [data-saved-filter][aria-pressed="true"] {
+  background: rgba(193, 206, 255, 0.08) !important;
+  color: #fff !important;
+}
+.db-controls .saved-filter-chip .remove-x,
+.db-controls [data-saved-filter] .remove-x {
+  display: inline-flex !important;
+  width: 14px !important;
+  height: 14px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  color: #9EA7B1 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  margin-left: 2px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+.db-controls .saved-filter-chip .remove-x:hover,
+.db-controls [data-saved-filter] .remove-x:hover {
+  color: #fff !important;
+  background: rgba(193, 206, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8405 */
+
+/* CSFLOAT-1:1 PARITY ship #8406 — db Listed-only checkbox styled as csfloat pill toggle (existing inline label uses pill aesthetics: 32px tall, 14px Roboto, transparent off, lit-on bg rgba(193,206,255,0.04), native checkbox visual replaced) */
+.db-controls > label[title*="active listing"],
+.db-controls > label.filter-listed-only {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  color: #fff !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 32px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: background 120ms ease !important;
+  width: auto !important;
+}
+.db-controls > label[title*="active listing"]:hover,
+.db-controls > label.filter-listed-only:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+}
+.db-controls > label[title*="active listing"] input[type="checkbox"],
+.db-controls > label.filter-listed-only input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 1px solid rgba(158, 167, 177, 0.35) !important;
+  border-radius: 3px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  cursor: pointer !important;
+  position: relative !important;
+}
+.db-controls > label[title*="active listing"] input[type="checkbox"]:checked,
+.db-controls > label.filter-listed-only input[type="checkbox"]:checked {
+  background: #c1ceff !important;
+  border-color: #c1ceff !important;
+}
+.db-controls > label[title*="active listing"] input[type="checkbox"]:checked::after,
+.db-controls > label.filter-listed-only input[type="checkbox"]:checked::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 4px !important;
+  top: 1px !important;
+  width: 4px !important;
+  height: 8px !important;
+  border: solid #0e1217 !important;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8406 */
+
+/* CSFLOAT-1:1 PARITY ship #8300 — card stagger fade-in on grid render */
+@keyframes sb-grid-card-fade-in {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.listings > item-card,
+.listings > .item-card,
+.listings > .grid-card,
+.listing-grid > .grid-card,
+.market-grid > .grid-card,
+.market-grid > .item-card,
+.market-grid > item-card {
+  animation: sb-grid-card-fade-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+  will-change: opacity, transform !important;
+}
+.listings > *:nth-child(1),  .listing-grid > *:nth-child(1),  .market-grid > *:nth-child(1)  { animation-delay: 0ms !important; }
+.listings > *:nth-child(2),  .listing-grid > *:nth-child(2),  .market-grid > *:nth-child(2)  { animation-delay: 30ms !important; }
+.listings > *:nth-child(3),  .listing-grid > *:nth-child(3),  .market-grid > *:nth-child(3)  { animation-delay: 60ms !important; }
+.listings > *:nth-child(4),  .listing-grid > *:nth-child(4),  .market-grid > *:nth-child(4)  { animation-delay: 90ms !important; }
+.listings > *:nth-child(5),  .listing-grid > *:nth-child(5),  .market-grid > *:nth-child(5)  { animation-delay: 120ms !important; }
+.listings > *:nth-child(6),  .listing-grid > *:nth-child(6),  .market-grid > *:nth-child(6)  { animation-delay: 150ms !important; }
+.listings > *:nth-child(7),  .listing-grid > *:nth-child(7),  .market-grid > *:nth-child(7)  { animation-delay: 180ms !important; }
+.listings > *:nth-child(8),  .listing-grid > *:nth-child(8),  .market-grid > *:nth-child(8)  { animation-delay: 210ms !important; }
+.listings > *:nth-child(9),  .listing-grid > *:nth-child(9),  .market-grid > *:nth-child(9)  { animation-delay: 240ms !important; }
+.listings > *:nth-child(10), .listing-grid > *:nth-child(10), .market-grid > *:nth-child(10) { animation-delay: 270ms !important; }
+.listings > *:nth-child(11), .listing-grid > *:nth-child(11), .market-grid > *:nth-child(11) { animation-delay: 300ms !important; }
+.listings > *:nth-child(12), .listing-grid > *:nth-child(12), .market-grid > *:nth-child(12) { animation-delay: 330ms !important; }
+.listings > *:nth-child(13), .listing-grid > *:nth-child(13), .market-grid > *:nth-child(13) { animation-delay: 360ms !important; }
+.listings > *:nth-child(14), .listing-grid > *:nth-child(14), .market-grid > *:nth-child(14) { animation-delay: 390ms !important; }
+.listings > *:nth-child(15), .listing-grid > *:nth-child(15), .market-grid > *:nth-child(15) { animation-delay: 420ms !important; }
+.listings > *:nth-child(16), .listing-grid > *:nth-child(16), .market-grid > *:nth-child(16) { animation-delay: 450ms !important; }
+.listings > *:nth-child(17), .listing-grid > *:nth-child(17), .market-grid > *:nth-child(17) { animation-delay: 480ms !important; }
+.listings > *:nth-child(18), .listing-grid > *:nth-child(18), .market-grid > *:nth-child(18) { animation-delay: 510ms !important; }
+.listings > *:nth-child(19), .listing-grid > *:nth-child(19), .market-grid > *:nth-child(19) { animation-delay: 540ms !important; }
+.listings > *:nth-child(20), .listing-grid > *:nth-child(20), .market-grid > *:nth-child(20) { animation-delay: 570ms !important; }
+.listings > *:nth-child(n+21), .listing-grid > *:nth-child(n+21), .market-grid > *:nth-child(n+21) { animation-delay: 600ms !important; }
+@media (prefers-reduced-motion: reduce) {
+  .listings > item-card, .listings > .item-card, .listings > .grid-card,
+  .listing-grid > .grid-card, .market-grid > .grid-card,
+  .market-grid > .item-card, .market-grid > item-card {
+    animation: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8300 */
+
+/* CSFLOAT-1:1 PARITY ship #8301 — card scale-in on render */
+@keyframes sb-card-scale-in {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.csfloat-card-image-fade-in,
+.animate-card-scale-in {
+  animation: sb-card-scale-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+}
+/* hover transform must not collide with the entrance */
+.listings > item-card.hover-enabled:hover,
+.listings > .item-card.hover-enabled:hover,
+.listing-grid > .grid-card:hover,
+.market-grid > .grid-card:hover {
+  animation-name: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8301 */
+
+/* CSFLOAT-1:1 PARITY ship #8302 — skeleton-to-real fade transition */
+@keyframes sb-skeleton-real-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+.grid-card[data-loaded="true"],
+.grid-card.is-loaded,
+.item-card[data-loaded="true"],
+.item-card.is-loaded,
+item-card[data-loaded="true"],
+.csfloat-card[data-loaded="true"] {
+  animation: sb-skeleton-real-in 240ms ease-out both !important;
+}
+.skeleton-card,
+.skeleton-thumb,
+.skeleton-line,
+.skeleton-body,
+[class*="skeleton-"] {
+  transition: opacity 220ms ease-out !important;
+}
+.skeleton-card.is-out,
+.skeleton-thumb.is-out,
+.skeleton-line.is-out,
+[class*="skeleton-"].is-out {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8302 */
+
+/* CSFLOAT-1:1 PARITY ship #8303 — image lazy-load fade-in */
+@keyframes sb-img-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+.grid-card .item-image,
+.grid-card img.item-img,
+.grid-card .csfloat-img,
+.item-card img,
+item-card img,
+.csfloat-band-card .item-image,
+.csfloat-hero-stack-img .item-image,
+.csfloat-card-image-fade-in {
+  animation: sb-img-fade-in 280ms ease-out both !important;
+}
+.grid-card img,
+.item-card img,
+item-card img,
+.csfloat-card img {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+.grid-card img.is-loaded,
+.item-card img.is-loaded,
+item-card img.is-loaded {
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8303 */
+
+/* CSFLOAT-1:1 PARITY ship #8304 — just-listed pulse highlight on new cards */
+@keyframes sb-just-listed-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--cta, #237bff) 55%, transparent), inset 0 1px 0 rgba(255,255,255,0.03); }
+  50%  { box-shadow: 0 0 0 4px color-mix(in oklab, var(--cta, #237bff) 22%, transparent), inset 0 1px 0 rgba(255,255,255,0.03); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--cta, #237bff) 0%, transparent), inset 0 1px 0 rgba(255,255,255,0.03); }
+}
+.grid-card.is-just-listed,
+.grid-card[data-just-listed="true"],
+.item-card.is-just-listed,
+.item-card[data-just-listed="true"],
+item-card.is-just-listed,
+item-card[data-just-listed="true"],
+.csfloat-card.is-just-listed,
+.csfloat-card[data-just-listed="true"] {
+  animation: sb-just-listed-pulse 1800ms ease-in-out 0s 2 !important;
+}
+@keyframes sb-just-listed-badge-pop {
+  0%   { opacity: 0; transform: translateY(-4px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.grid-card .just-listed-badge,
+.item-card .just-listed-badge,
+item-card .just-listed-badge,
+.csfloat-card .just-listed-badge,
+.just-listed-badge {
+  animation: sb-just-listed-badge-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8304 */
+
+/* CSFLOAT-1:1 PARITY ship #8305 — FLIP reorder transition for cards */
+.listings,
+.listing-grid,
+.market-grid {
+  contain: layout style;
+}
+.listings > item-card,
+.listings > .item-card,
+.listings > .grid-card,
+.listing-grid > .grid-card,
+.market-grid > .grid-card,
+.market-grid > .item-card,
+.market-grid > item-card,
+.csfloat-card {
+  transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 240ms ease-out !important;
+}
+.listings.is-reordering > *,
+.listing-grid.is-reordering > *,
+.market-grid.is-reordering > * {
+  transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  will-change: transform !important;
+}
+@keyframes sb-card-remove {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.96); }
+}
+.listings > .is-leaving,
+.listing-grid > .is-leaving,
+.market-grid > .is-leaving {
+  animation: sb-card-remove 220ms ease-in both !important;
+  pointer-events: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .listings > *, .listing-grid > *, .market-grid > * {
+    transition: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8305 */
+
+/* CSFLOAT-1:1 PARITY ship #8306 — grid container fade-in */
+@keyframes sb-grid-container-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+.market-grid,
+.listing-grid,
+.listings {
+  animation: sb-grid-container-fade-in 200ms ease-out both !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8306 */
+
+/* CSFLOAT-1:1 PARITY ship #8501 — /db sticky pagination footer.
+   csfloat docks the table pager to the bottom of the viewport so the
+   prev/next + page count never scrolls offscreen on long result sets.
+   Pin .db-pager to position:sticky bottom:0 inside the table-scroll
+   wrapper, raise z-index above the row hover overlay, and lay a 1px
+   line above with a soft shadow ramp so the dock reads as a real
+   footer not a free-floating row. Background opaque so rows scroll
+   underneath cleanly. */
+.db-pager {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 12 !important;
+  background: var(--bg) !important;
+  border-top: 1px solid var(--line) !important;
+  box-shadow: 0 -1px 0 0 rgba(193, 206, 255, 0.04),
+              0 -8px 16px -8px rgba(0, 0, 0, 0.45) !important;
+  padding: 12px 16px !important;
+  min-height: 52px !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+.db-table-scroll {
+  position: relative !important;
+}
+@media (max-width: 700px) {
+  .db-pager {
+    padding: 10px 12px !important;
+    min-height: 48px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8501 */
+
+/* CSFLOAT-1:1 PARITY ship #8502 — /db pager "Showing N of M" text block.
+   csfloat surfaces the row range ("Showing 1-30 of 1,247") inline left
+   in the sticky footer, mono numerics with a muted prose label. Style
+   the existing .db-pager > span and any future .db-pager-count /
+   .db-showing helper so the count reads consistent regardless of
+   which DOM the JS lands on. Tabular nums to keep digit columns from
+   shifting when page changes. */
+.db-pager > span,
+.db-pager .db-pager-count,
+.db-pager .db-showing {
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  color: var(--ink-3) !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: 'tnum' 1 !important;
+  white-space: nowrap !important;
+}
+.db-pager > span strong,
+.db-pager .db-pager-count strong,
+.db-pager .db-showing strong {
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+.db-pager .db-showing-label {
+  color: var(--ink-4) !important;
+  font-weight: 400 !important;
+  margin-right: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8502 */
+
+/* CSFLOAT-1:1 PARITY ship #8503 — /db per-page selector (25/50/100/All).
+   csfloat sticks a small mat-select dropdown right of the count where
+   users pick rows-per-page. Style any <select.db-per-page> to match
+   the csfloat token shape: 32px height, 8px h-padding, 6px radius,
+   1px ink-line border, mono 12px text, ink-3 color, transparent fill,
+   chevron via background-image. Hover lightens the border, focus
+   rings the accent. Sits inline-flex in the pager. */
+.db-pager .db-per-page,
+.db-pager select.db-per-page,
+.db-pager .per-page-select,
+.db-pager select[data-per-page] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  height: 32px !important;
+  padding: 0 26px 0 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--line) !important;
+  background-color: transparent !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'><path d='M1 1l4 4 4-4' stroke='%239EA7B1' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 10px 6px !important;
+  color: var(--ink-3) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: border-color 140ms ease, color 140ms ease !important;
+}
+.db-pager .db-per-page:hover,
+.db-pager select.db-per-page:hover,
+.db-pager .per-page-select:hover,
+.db-pager select[data-per-page]:hover {
+  border-color: rgba(193, 206, 255, 0.18) !important;
+  color: var(--ink) !important;
+}
+.db-pager .db-per-page:focus-visible,
+.db-pager select.db-per-page:focus-visible,
+.db-pager .per-page-select:focus-visible,
+.db-pager select[data-per-page]:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent) !important;
+}
+.db-pager .db-per-page-label {
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  color: var(--ink-4) !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  margin-right: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8503 */
+
+/* CSFLOAT-1:1 PARITY ship #8504 — /db jump-to-page input.
+   csfloat lets power users jump directly to any page via a small
+   numeric field next to the prev/next buttons ("Page [__] of 42").
+   Style any <input.db-jump-page> to match the per-page select tokens:
+   32px height, 6px radius, mono 12px, narrow 56px width, tabular-nums.
+   Strip the spinner controls — csfloat hides them so the chip stays
+   compact. Focus rings accent. Pairs with a small "of N" suffix span
+   that uses the muted ink-4 color. */
+.db-pager .db-jump-page,
+.db-pager input.db-jump-page,
+.db-pager input[data-jump-page],
+.db-pager .jump-page-input {
+  appearance: textfield !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: textfield !important;
+  height: 32px !important;
+  width: 56px !important;
+  padding: 0 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--line) !important;
+  background-color: transparent !important;
+  color: var(--ink) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: 'tnum' 1 !important;
+  text-align: center !important;
+  letter-spacing: 0 !important;
+  transition: border-color 140ms ease !important;
+}
+.db-pager .db-jump-page::-webkit-outer-spin-button,
+.db-pager .db-jump-page::-webkit-inner-spin-button,
+.db-pager input.db-jump-page::-webkit-outer-spin-button,
+.db-pager input.db-jump-page::-webkit-inner-spin-button,
+.db-pager input[data-jump-page]::-webkit-outer-spin-button,
+.db-pager input[data-jump-page]::-webkit-inner-spin-button,
+.db-pager .jump-page-input::-webkit-outer-spin-button,
+.db-pager .jump-page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+.db-pager .db-jump-page:hover,
+.db-pager input.db-jump-page:hover,
+.db-pager input[data-jump-page]:hover,
+.db-pager .jump-page-input:hover {
+  border-color: rgba(193, 206, 255, 0.18) !important;
+}
+.db-pager .db-jump-page:focus-visible,
+.db-pager input.db-jump-page:focus-visible,
+.db-pager input[data-jump-page]:focus-visible,
+.db-pager .jump-page-input:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent) !important;
+}
+.db-pager .db-jump-page-suffix {
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  color: var(--ink-4) !important;
+  margin-left: 4px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8504 */
+
+/* CSFLOAT-1:1 PARITY ship #8505 — /db load-more button alternative.
+   csfloat offers a "Load more results" button as the alternative
+   pagination mode (clicked between table-pager and inline scroll).
+   Style any <button.db-load-more> as a wide centered chip: 36px
+   height, 14px h-padding, 8px radius, transparent fill with 1px
+   ink-line border, hover deepens to bg-2 + tints accent text.
+   Pairs with a small spinner state (.is-loading) that dims the
+   label and shows a chasing dot via accent gradient. Centered when
+   used standalone outside the .db-pager dock. */
+.db-load-more,
+button.db-load-more,
+.db-pager .db-load-more,
+.db-pager button.db-load-more {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  padding: 0 18px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--line) !important;
+  background-color: transparent !important;
+  color: var(--ink-3) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, color 140ms ease,
+              border-color 140ms ease !important;
+}
+.db-load-more:hover:not(:disabled),
+button.db-load-more:hover:not(:disabled),
+.db-pager .db-load-more:hover:not(:disabled),
+.db-pager button.db-load-more:hover:not(:disabled) {
+  background-color: var(--bg-2, rgba(193, 206, 255, 0.04)) !important;
+  border-color: rgba(193, 206, 255, 0.18) !important;
+  color: var(--ink) !important;
+}
+.db-load-more:focus-visible,
+button.db-load-more:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+.db-load-more:disabled,
+button.db-load-more:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+.db-load-more.is-loading,
+button.db-load-more.is-loading {
+  pointer-events: none !important;
+  color: var(--ink-4) !important;
+}
+.db-load-more.is-loading::after,
+button.db-load-more.is-loading::after {
+  content: "" !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid currentColor !important;
+  border-right-color: transparent !important;
+  animation: sb-db-load-more-spin 700ms linear infinite !important;
+}
+@keyframes sb-db-load-more-spin {
+  to { transform: rotate(360deg); }
+}
+.db-load-more-wrap {
+  display: flex !important;
+  justify-content: center !important;
+  padding: 16px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8505 */
