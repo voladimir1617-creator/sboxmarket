@@ -154569,3 +154569,208 @@ body .chip {
   transition: color 140ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11603 */
+
+/* CSFLOAT-1:1 PARITY ship #11806 — /db result count "Showing X of Y" header.
+   Measured csfloat: muted 12.5px caption above the table, tabular-nums so
+   the count climbs without horizontal jiggle during infinite scroll.
+   Pairs with .db-meta which currently renders "N results · page X / Y";
+   we tighten the visual + lock numerals to mono so values stay aligned. */
+body .db-meta {
+  font-size: 12.5px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  padding: 10px 4px 12px !important;
+  margin: 0 0 8px !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.01em !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+body .db-meta strong {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 600 !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11806 */
+
+/* CSFLOAT-1:1 PARITY ship #11807 — /db infinite scroll bottom loader spinner.
+   csfloat measurement: 24px circular indeterminate spinner (mat-spinner)
+   centered below the last row, 720ms linear rotation, 2px stroke in the
+   accent blue. Triggered by .db-loader / .db-load-more.loading hooks so
+   the JS can render either pattern and inherit the same look. */
+body .db-loader,
+body .db-load-more {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px 0 32px !important;
+  gap: 10px !important;
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  letter-spacing: 0.02em !important;
+}
+body .db-loader::before,
+body .db-load-more.loading::before {
+  content: '' !important;
+  display: block !important;
+  width: 24px !important;
+  height: 24px !important;
+  border: 2px solid rgba(255, 255, 255, 0.1) !important;
+  border-top-color: rgb(54, 178, 255) !important;
+  border-radius: 50% !important;
+  animation: db-loader-spin 720ms linear infinite !important;
+}
+@keyframes db-loader-spin {
+  to { transform: rotate(360deg); }
+}
+/* END CSFLOAT-1:1 PARITY ship #11807 */
+
+/* CSFLOAT-1:1 PARITY ship #11808 — /db "End of results" terminal indicator.
+   csfloat shows a compact muted caption ("END OF RESULTS") with a hairline
+   gradient on each side once the user has paged through every catalogued
+   item. Activated whenever JS emits .db-end-of-results below the table. */
+body .db-end-of-results {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 14px !important;
+  padding: 28px 0 36px !important;
+  margin: 8px 0 0 !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.42) !important;
+}
+body .db-end-of-results::before,
+body .db-end-of-results::after {
+  content: '' !important;
+  flex: 1 0 24px !important;
+  max-width: 80px !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11808 */
+
+/* CSFLOAT-1:1 PARITY ship #11809 — /db scroll-to-top floating action button.
+   Reuses the existing .scroll-up-fab selector. csfloat measurement: 44px
+   circle, dark glass surface w/ subtle blue accent ring, anchored
+   bottom-right with a backdrop blur. We override z-index, sizing, and
+   the visual treatment so the FAB reads as a deliberate quick-action
+   chip rather than the existing translucent ghost variant. */
+body .scroll-up-fab {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: rgba(20, 24, 32, 0.92) !important;
+  border: 1px solid rgba(54, 178, 255, 0.32) !important;
+  color: rgb(54, 178, 255) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04) inset !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  z-index: 80 !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 200ms ease,
+              background 140ms ease,
+              border-color 140ms ease !important;
+}
+body .scroll-up-fab:hover {
+  background: rgba(28, 34, 44, 0.96) !important;
+  border-color: rgba(54, 178, 255, 0.55) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(54, 178, 255, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+}
+body .scroll-up-fab:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11809 */
+
+/* CSFLOAT-1:1 PARITY ship #11810 — /db pager visual cleanup. csfloat's pager
+   buttons sit smaller, monochrome, flush with the table edge, and the
+   page indicator uses a fixed-width tabular-nums block so it doesn't
+   jiggle as page count changes. Tightens vertical padding so the End-
+   of-Results indicator (#11808) can sit cleanly above without crowding. */
+body .db-pager {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 14px 4px 8px !important;
+  margin: 8px 0 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+body .db-pager .btn-ghost {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease !important;
+}
+body .db-pager .btn-ghost:hover:not(:disabled) {
+  border-color: rgba(54, 178, 255, 0.4) !important;
+  background: rgba(54, 178, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .db-pager .btn-ghost:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+}
+body .db-pager > span {
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  min-width: 70px !important;
+  text-align: center !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11810 */
+
+/* CSFLOAT-1:1 PARITY ship #11604 — filter chip / tab hover lift (csfloat: subtle translateY(-1px) + bg lighten) */
+body .csfloat-chip,
+body .filter-chip,
+body .chip,
+body .csfloat-tab,
+body .csfloat-pill,
+body .pill,
+body .nav-picker-chip {
+  transition: transform 140ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .csfloat-chip:hover,
+body .filter-chip:hover,
+body .chip:hover,
+body .csfloat-tab:hover,
+body .csfloat-pill:hover,
+body .pill:hover,
+body .nav-picker-chip:hover {
+  transform: translateY(-1px) !important;
+  background-color: rgba(193, 206, 255, 0.08) !important;
+}
+body .csfloat-chip:active,
+body .filter-chip:active,
+body .chip:active,
+body .csfloat-tab:active,
+body .csfloat-pill:active,
+body .pill:active,
+body .nav-picker-chip:active {
+  transform: translateY(0) !important;
+  transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1), background-color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11604 */
