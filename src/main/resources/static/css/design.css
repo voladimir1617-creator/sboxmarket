@@ -139858,3 +139858,292 @@ body .csfloat-announce-tag {
   border-radius: 4px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5005 */
+
+/* CSFLOAT-1:1 PARITY ship #4801 — filter-section accordion expand/collapse.
+   Measure (csfloat sidebar mat-expansion-panel-header h=48px, padding 0 16px,
+   row gap 0, no border between header and body, body padding 0 16px 16px).
+   The header is the click target; cursor pointer; rest of the row is a flex
+   space-between with title left, chevron right. Collapsed body has
+   max-height 0 with overflow:hidden. Expanded body unsets max-height.
+   csfloat uses 280ms cubic-bezier(0.4,0,0.2,1) — Material's standard easing. */
+body .filter-section {
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.06) !important;
+}
+body .filter-section > .filter-title,
+body .filter-section[data-collapsible] > .filter-title,
+body .filter-section .filter-section-header {
+  height: 48px !important;
+  margin: 0 !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+  transition: background-color 140ms ease !important;
+}
+body .filter-section > .filter-title:hover,
+body .filter-section .filter-section-header:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+body .filter-section .filter-section-body {
+  padding: 0 16px 16px !important;
+  overflow: hidden !important;
+  transition: max-height 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              padding 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 200ms ease !important;
+}
+body .filter-section.is-collapsed .filter-section-body,
+body .filter-section[data-collapsed="true"] .filter-section-body,
+body .filter-section[aria-expanded="false"] .filter-section-body {
+  max-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  opacity: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4801 */
+
+/* CSFLOAT-1:1 PARITY ship #4802 — chevron icon rotation on expand.
+   Measure (csfloat .mat-expansion-indicator svg w=10 h=10, color rgba(255,255,255,0.62),
+   rotate 0deg collapsed → 180deg expanded, transition 240ms cubic-bezier(0.4,0,0.2,1)).
+   Csfloat uses an inline SVG arrow; we hook the existing material-symbols expand_more
+   glyph plus a generic chevron class. The rotation must be on the icon element only,
+   not on the parent (otherwise the title text rotates too). */
+body .filter-section .filter-chevron,
+body .filter-section .filter-section-chevron,
+body .filter-section .filter-title > .material-symbols-rounded,
+body .filter-section .filter-title > svg.chevron,
+body .filter-section .filter-title [data-icon="expand_more"] {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform: rotate(0deg) !important;
+  transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 140ms ease !important;
+}
+body .filter-section:not(.is-collapsed):not([data-collapsed="true"]) .filter-chevron,
+body .filter-section:not(.is-collapsed):not([data-collapsed="true"]) .filter-section-chevron,
+body .filter-section[aria-expanded="true"] .filter-chevron,
+body .filter-section[data-collapsed="false"] .filter-chevron,
+body .filter-section[data-collapsed="false"] .filter-title > .material-symbols-rounded,
+body .filter-section[aria-expanded="true"] .filter-title > .material-symbols-rounded {
+  transform: rotate(180deg) !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+body .filter-section .filter-title:hover .filter-chevron,
+body .filter-section .filter-title:hover .filter-section-chevron,
+body .filter-section .filter-title:hover .material-symbols-rounded {
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4802 */
+
+/* CSFLOAT-1:1 PARITY ship #4803 — sub-filter group (rarity → variants).
+   Measure (csfloat: nested filter group inside parent has 8px top margin, indent 12px,
+   parent label keeps original spec, children rendered as smaller list items 26px
+   row height, font 12px, color rgba(255,255,255,0.62), gap 4px).
+   The structure: a sub-group container (.filter-subgroup) holds an optional small
+   header (.filter-subgroup-title font 10px mono uppercase, color ink-4) and the rows.
+   Selected sub-rows get a 2px left accent bar + bg highlight (matches selected
+   filter-option spec but tighter). */
+body .filter-subgroup {
+  margin-top: 8px !important;
+  padding-left: 12px !important;
+  border-left: 1px solid rgba(193, 206, 255, 0.06) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+body .filter-subgroup-title {
+  font-family: var(--mono, "JetBrains Mono", monospace) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-weight: 500 !important;
+  padding: 4px 0 6px !important;
+  margin: 0 !important;
+}
+body .filter-subgroup .filter-option,
+body .filter-subgroup-row {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, color 120ms ease !important;
+}
+body .filter-subgroup .filter-option:hover,
+body .filter-subgroup-row:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+body .filter-subgroup .filter-option.selected,
+body .filter-subgroup-row.selected {
+  color: #ffffff !important;
+  background: rgba(82, 148, 255, 0.10) !important;
+  position: relative !important;
+}
+body .filter-subgroup .filter-option.selected::before,
+body .filter-subgroup-row.selected::before {
+  content: "" !important;
+  position: absolute !important;
+  left: -13px !important;
+  top: 4px !important;
+  bottom: 4px !important;
+  width: 2px !important;
+  background: rgb(82, 148, 255) !important;
+  border-radius: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4803 */
+
+/* CSFLOAT-1:1 PARITY ship #4804 — "Show N more" expand link in overflow lists.
+   Measure (csfloat: inline button at bottom of overflow filter lists, font 12px,
+   color rgb(82, 148, 255), padding 6px 8px, no background, no border,
+   hover decoration underline. Optional caret-down icon at 12px before label.
+   When clicked, the list reveals all items and the label switches to "Show less".
+   Csfloat uses a single button anchor with class show-more, mat-button styling
+   stripped). */
+body .filter-show-more,
+body .show-more-filter,
+body button.filter-show-more,
+body a.filter-show-more {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-top: 8px !important;
+  padding: 6px 8px !important;
+  background: transparent !important;
+  border: 0 none !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  line-height: 16px !important;
+  color: rgb(82, 148, 255) !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: color 120ms ease, background-color 120ms ease !important;
+}
+body .filter-show-more:hover,
+body .show-more-filter:hover {
+  color: rgb(123, 174, 255) !important;
+  background: rgba(82, 148, 255, 0.08) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+body .filter-show-more::before,
+body .show-more-filter::before {
+  content: "expand_more" !important;
+  font-family: "Material Symbols Rounded" !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  line-height: 1 !important;
+  display: inline-block !important;
+  transition: transform 200ms ease !important;
+}
+body .filter-show-more.is-expanded::before,
+body .filter-show-more[aria-expanded="true"]::before,
+body .show-more-filter.is-expanded::before {
+  transform: rotate(180deg) !important;
+}
+body .filter-show-more:focus-visible,
+body .show-more-filter:focus-visible {
+  outline: 2px solid rgba(82, 148, 255, 0.55) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4804 */
+
+/* CSFLOAT-1:1 PARITY ship #4805 — filter count badge on collapsed sections + sticky sidebar.
+   Measure (csfloat: when a section is collapsed and has active selections, a small pill
+   badge appears in the header next to the chevron showing the count; bg rgba(82,148,255,0.16),
+   color rgb(123,174,255), font 11px mono, padding 1px 6px, border-radius 999px,
+   min-width 18px, height 18px, line-height 16px).
+   The whole sidebar gets sticky behavior (top 76px to clear the toolbar, max-height
+   calc(100vh - 92px), overflow-y auto, scroll-bar styled thin). Hides when toolbar
+   isn't sticky (mobile breakpoint < 768px the sidebar collapses to drawer). */
+body .filter-section .filter-count-badge,
+body .filter-title .filter-count-badge,
+body .filter-section[data-collapsed="true"] .filter-count-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 1px 6px !important;
+  margin-right: 8px !important;
+  border-radius: 999px !important;
+  font-family: var(--mono, "JetBrains Mono", monospace) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.02em !important;
+  color: rgb(123, 174, 255) !important;
+  background: rgba(82, 148, 255, 0.16) !important;
+  border: 1px solid rgba(82, 148, 255, 0.24) !important;
+  opacity: 0 !important;
+  transform: scale(0.8) !important;
+  transition: opacity 200ms ease, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  pointer-events: none !important;
+}
+body .filter-section.has-active-filters .filter-count-badge,
+body .filter-section[data-active-count]:not([data-active-count="0"]) .filter-count-badge,
+body .filter-section .filter-count-badge.is-visible {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+/* Sticky sidebar — only when there is sufficient viewport room. */
+@media (min-width: 768px) {
+  body .layout > .sidebar,
+  body .layout > aside.sidebar,
+  body .filter.sticky,
+  body aside.filter-sidebar {
+    position: sticky !important;
+    top: 76px !important;
+    max-height: calc(100vh - 92px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(193, 206, 255, 0.18) transparent !important;
+  }
+  body .layout > .sidebar::-webkit-scrollbar,
+  body .filter.sticky::-webkit-scrollbar,
+  body aside.filter-sidebar::-webkit-scrollbar {
+    width: 6px !important;
+  }
+  body .layout > .sidebar::-webkit-scrollbar-thumb,
+  body .filter.sticky::-webkit-scrollbar-thumb,
+  body aside.filter-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(193, 206, 255, 0.18) !important;
+    border-radius: 999px !important;
+  }
+  body .layout > .sidebar::-webkit-scrollbar-thumb:hover,
+  body .filter.sticky::-webkit-scrollbar-thumb:hover,
+  body aside.filter-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(193, 206, 255, 0.32) !important;
+  }
+  body .layout > .sidebar::-webkit-scrollbar-track,
+  body .filter.sticky::-webkit-scrollbar-track,
+  body aside.filter-sidebar::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4805 */
