@@ -143264,7 +143264,7 @@ body h1#info-modal-h-sell-items::after {
 }
 /* END CSFLOAT-1:1 PARITY ship #6903 */
 
-/* CSFLOAT-1:1 PARITY ship #6304 — measured: .outer-actions footer slides in on hover. Default state: height:0, opacity:0, overflow:hidden, position:absolute. Hover state: height:calc(40px + 2*var(--footer-padding)), border-radius bottom corners 12px, side+bottom border matches highlight. Inner .actions opacity 0 → 1 with 0.3s transition. Match exactly. */
+/* CSFLOAT-1:1 PARITY ship #6904 — measured: .outer-actions footer slides in on hover. Default state: height:0, opacity:0, overflow:hidden, position:absolute. Hover state: height:calc(40px + 2*var(--footer-padding)), border-radius bottom corners 12px, side+bottom border matches highlight. Inner .actions opacity 0 to 1 with 0.3s transition. Match exactly. */
 .item-card.hover-enabled .item-grid .footer .actions-container .outer-actions {
   z-index: 2 !important;
   height: 0 !important;
@@ -143296,9 +143296,9 @@ body h1#info-modal-h-sell-items::after {
 .item-card.hover-enabled.force-hover .item-grid .footer .actions-container .outer-actions .actions {
   opacity: 1 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #6304 */
+/* END CSFLOAT-1:1 PARITY ship #6904 */
 
-/* CSFLOAT-1:1 PARITY ship #6305 — supplemental: ensure .item-card.hover-enabled has overflow:visible (so the lifted footer + buttons aren't clipped) and footer padding-bottom:0 to make room for the slide-in actions row. Mirrors csfloat's .item-card.hover-enabled .item-grid .footer { padding-bottom: 0 } rule. */
+/* CSFLOAT-1:1 PARITY ship #6905 — supplemental: ensure .item-card.hover-enabled has overflow:visible (so the lifted footer + buttons aren't clipped) and footer padding-bottom:0 to make room for the slide-in actions row. Mirrors csfloat's .item-card.hover-enabled .item-grid .footer { padding-bottom: 0 } rule. */
 .item-card.hover-enabled {
   overflow: visible !important;
   position: relative !important;
@@ -143310,7 +143310,7 @@ body h1#info-modal-h-sell-items::after {
 .item-card.hover-enabled .item-grid .footer .actions-container {
   position: relative !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #6305 */
+/* END CSFLOAT-1:1 PARITY ship #6905 */
 
 /* CSFLOAT-1:1 PARITY ship #6600 — user-menu (signed-in avatar dropdown) panel chrome.
    csfloat .mat-mdc-menu-panel ships radius 8px, 1px hairline border, opaque dark surface (#1c1d22),
