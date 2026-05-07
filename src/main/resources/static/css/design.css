@@ -137668,3 +137668,180 @@ body .form-field:has(.field-error) > label {
 }
 /* END CSFLOAT-1:1 PARITY ship #3808 */
 
+
+/* CSFLOAT-1:1 PARITY ship #4100 — steam-btn pixel-match: csfloat shows 238x40 with full "Sign in through Steam" text. Localhost rendering 80x40. Force min-width 238px and ensure text shows on desktop */
+@media (min-width: 768px) {
+  .steam-btn {
+    min-width: 238px !important;
+    height: 40px !important;
+    padding: 0 16px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    gap: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+  }
+  .steam-btn .steam-btn-text { display: inline !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #4100 */
+
+/* CSFLOAT-1:1 PARITY ship #4101 — Steam external inspect-link buttons: csfloat 38x30, rgba(30,32,38,0.55) bg, 20px radius, color rgb(158,167,177) */
+a[href^="steam://"]:not(.steam-btn),
+a.inspect-link,
+.inspect-link,
+.external-steam,
+.steam-inspect-link {
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  color: rgb(158, 167, 177) !important;
+  border-radius: 20px !important;
+  padding: 4px 8px !important;
+  min-height: 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  font-size: 13px !important;
+  text-decoration: none !important;
+  transition: background-color 120ms ease-out, color 120ms ease-out !important;
+}
+a[href^="steam://"]:not(.steam-btn):hover,
+a.inspect-link:hover,
+.inspect-link:hover,
+.external-steam:hover,
+.steam-inspect-link:hover {
+  background-color: rgba(30, 32, 38, 0.85) !important;
+  color: rgb(204, 211, 219) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4101 */
+
+/* CSFLOAT-1:1 PARITY ship #4102 — Steam ID display chip: small rounded pill, csfloat uses dark surface bg + muted text */
+.steam-id,
+.steamid,
+.steam-id-chip,
+[class*="steamid-display"],
+[class*="steam-id-display"] {
+  background-color: rgba(30, 32, 38, 0.65) !important;
+  color: rgb(158, 167, 177) !important;
+  border-radius: 16px !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important;
+  line-height: 1.4 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4102 */
+
+/* CSFLOAT-1:1 PARITY ship #4103 — "View on Steam" external link button: bordered ghost variant matching csfloat external CTA pattern */
+.view-on-steam,
+.steam-external-link,
+a[href*="steamcommunity.com"]:not(.nav-link):not(.steam-btn),
+a[href*="steampowered.com"]:not(.nav-link):not(.steam-btn) {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+  min-height: 30px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: border-color 120ms ease-out, color 120ms ease-out, background-color 120ms ease-out !important;
+}
+.view-on-steam:hover,
+.steam-external-link:hover,
+a[href*="steamcommunity.com"]:not(.nav-link):not(.steam-btn):hover,
+a[href*="steampowered.com"]:not(.nav-link):not(.steam-btn):hover {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: rgb(204, 211, 219) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4103 */
+
+/* CSFLOAT-1:1 PARITY ship #4104 — Trade URL field + copy button: csfloat uses tonal surface, monospace text, copy chip on right */
+.trade-url-field,
+.trade-url-display,
+input[name*="trade_url" i],
+input[name*="tradeurl" i],
+input[placeholder*="trade url" i] {
+  background-color: rgba(30, 32, 38, 0.65) !important;
+  color: rgb(204, 211, 219) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important;
+  font-size: 13px !important;
+  height: 40px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.trade-url-field:focus,
+.trade-url-display:focus,
+input[name*="trade_url" i]:focus,
+input[name*="tradeurl" i]:focus {
+  border-color: rgb(35, 123, 255) !important;
+  outline: none !important;
+}
+.trade-url-copy,
+.copy-trade-url,
+button[data-copy*="trade"] {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(120, 168, 255) !important;
+  border: 1px solid rgba(35, 123, 255, 0.24) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease-out !important;
+}
+.trade-url-copy:hover,
+.copy-trade-url:hover,
+button[data-copy*="trade"]:hover {
+  background-color: rgba(35, 123, 255, 0.22) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4104 */
+
+/* CSFLOAT-1:1 PARITY ship #4105 — Steam inventory empty state: muted tonal panel matching csfloat inventory empty pattern */
+.steam-inventory-empty,
+.inventory-empty,
+.inventory-empty-state,
+[class*="inventory"] [class*="empty"] {
+  background-color: rgba(30, 32, 38, 0.45) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 48px 24px !important;
+  text-align: center !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 200px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+.steam-inventory-empty .icon,
+.inventory-empty .icon,
+.inventory-empty-state .icon {
+  width: 48px !important;
+  height: 48px !important;
+  opacity: 0.4 !important;
+  margin-bottom: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4105 */
