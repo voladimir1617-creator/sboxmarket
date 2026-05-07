@@ -144950,6 +144950,133 @@ body .order-confirmation-dialog .receipt-chip .check-icon {
 }
 /* END CSFLOAT-1:1 PARITY ship #7004 */
 
+/* CSFLOAT-1:1 PARITY ship #7200 — Home FAQ title typography
+   csfloat: 42px / weight 500 / letter-spacing 1.26px / Roboto / white / left
+   was:     28px / weight 700 / letter-spacing -0.02em / Geist / center */
+body .csfloat-home-faq-title {
+  font-size: 42px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: 1.26px !important;
+  color: #ffffff !important;
+  text-align: left !important;
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif !important;
+  margin: 0 0 22px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7200 */
+
+/* CSFLOAT-1:1 PARITY ship #7201 — Home FAQ section padding/border
+   csfloat: no top border, padded section, transparent bg
+   was:     padding 64px 24px 96px, border-top 1px line, var(--bg) */
+body .csfloat-home-faq {
+  padding: 80px 24px 100px !important;
+  background: transparent !important;
+  border-top: 0 !important;
+}
+body .csfloat-home-faq-inner {
+  max-width: min(96vw, 1200px) !important;
+  margin: 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7201 */
+
+/* CSFLOAT-1:1 PARITY ship #7202 — FAQ item: drop card chrome, csfloat is naked rows
+   csfloat: cdk-accordion-item, block, margin 0 0 20px, no bg, no border, no radius
+   was:     bg --bg-1, 1px border --line, radius 12px, gap 10px between items */
+body .csfloat-home-faq-list {
+  gap: 0 !important;
+}
+body .csfloat-home-faq-item {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  margin: 0 0 20px !important;
+  transition: none !important;
+}
+body .csfloat-home-faq-item:hover { border-color: transparent !important; background: transparent !important; }
+body .csfloat-home-faq-item[open] {
+  border-color: transparent !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7202 */
+
+/* CSFLOAT-1:1 PARITY ship #7203 — Question summary row typography + layout
+   csfloat: 20px / weight 500 / 25px line-height, no padding on row, gap 20px
+            arrow icon to LEFT of question (not right), white text, Roboto
+   was:     14px / weight 600 / padding 18px 22px / Geist / between */
+body .csfloat-home-faq-q {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 20px !important;
+  padding: 0 !important;
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 25px !important;
+  color: #ffffff !important;
+  letter-spacing: normal !important;
+  cursor: pointer !important;
+  flex-direction: row-reverse !important;
+}
+body .csfloat-home-faq-q:hover {
+  background: transparent !important;
+}
+body .csfloat-home-faq-q:active {
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7203 */
+
+/* CSFLOAT-1:1 PARITY ship #7204 — Answer body typography & indent
+   csfloat: padding 0 0 0 48px (indent under question to align past icon+gap)
+            font 16px / line-height 21px / weight 500 / letter-spacing 0.48px
+            color rgb(158, 167, 177)  — muted slate-grey, not --ink-2
+   was:     padding 0 22px 20px, 13px / 1.65 lh, --ink-2, max-width 64ch */
+body .csfloat-home-faq-a {
+  padding: 12px 0 0 48px !important;
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 21px !important;
+  letter-spacing: 0.48px !important;
+  color: rgb(158, 167, 177) !important;
+  max-width: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7204 */
+
+/* CSFLOAT-1:1 PARITY ship #7205 — Chevron icon: csfloat uses 26x27 ringed-circle
+   csfloat: .icon { 26x27 } containing an SVG ellipse stroke #86898E w/ chevron
+   was:     dynamic 24x24 with material-symbols arrow rotating 180deg
+   The simplest 1:1 match: size the arrow span to 26x27 with a circle border
+   stroked #86898E so it visually reads as csfloat's icon. */
+body .csfloat-home-faq-q-arrow {
+  width: 26px !important;
+  height: 27px !important;
+  min-width: 26px !important;
+  border: 2px solid #86898E !important;
+  border-radius: 50% !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  color: #86898E !important;
+  transform: none !important;
+  transition: transform 200ms ease, color 200ms ease, border-color 200ms ease !important;
+  box-sizing: border-box !important;
+}
+body .csfloat-home-faq-q-arrow .material-symbols-rounded,
+body .csfloat-home-faq-q-arrow .mi,
+body .csfloat-home-faq-q-arrow svg {
+  width: 14px !important;
+  height: 14px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+body .csfloat-home-faq-item[open] .csfloat-home-faq-q-arrow {
+  transform: rotate(180deg) !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7205 */
+
 /* CSFLOAT-1:1 PARITY ship #7100 — watchlist heart outline (default) state.
    Match csfloat: empty heart glyph at #8a8f98 ink-3, no fill, 18px glyph in
    30x30 tap target on grid card; ghost background; subtle 1px border that
@@ -145182,3 +145309,183 @@ body .item-watchlist-toggle[aria-disabled="true"]::after {
   display: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #7104 */
+
+/* CSFLOAT-1:1 PARITY ship #7501 — Trade-confirm modal surface tokens.
+   csfloat measured (computed from .mat-mdc-dialog-surface): background
+   rgb(31,31,31), color rgb(255,255,255), border-radius 4px, min-width
+   280px, max-width 560px, padding 0, border 0, box-shadow Material
+   level-24 stack (rgba(0,0,0,0.2) 0 11px 15px -7px, rgba(0,0,0,0.14)
+   0 24px 38px 3px, rgba(0,0,0,0.12) 0 9px 46px 8px), font Roboto,
+   "Helvetica Neue", sans-serif, overflow hidden. The local
+   .trade-confirm-modal currently sets var(--bg-1) (oklch slate),
+   1px var(--line-2) hairline, var(--r-md) ~10px corner, and the
+   serif title family — drift ≈11px corner, ≈22→20 title scale,
+   wrong family. Lock to csfloat's exact mat-mdc-dialog-surface
+   constants. */
+.trade-confirm-modal {
+  background: rgb(31, 31, 31) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 4px !important;
+  min-width: 280px !important;
+  max-width: 560px !important;
+  width: min(560px, 100%) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 11px 15px -7px,
+    rgba(0, 0, 0, 0.14) 0 24px 38px 3px,
+    rgba(0, 0, 0, 0.12) 0 9px 46px 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7501 */
+
+/* CSFLOAT-1:1 PARITY ship #7502 — Trade-confirm title typography lock.
+   csfloat measured (computed from .mat-mdc-dialog-title): margin 0,
+   padding 24px 24px 9px, font-size 20px, line-height 32px, font-weight
+   500, letter-spacing 0.25px, color rgb(255,255,255), display block.
+   Local .trade-confirm-title is at 22px serif (later overridden to
+   28px Geist by ship around line 9573, drift ~8px both directions).
+   Pin csfloat's exact 20/32/500/0.25px Roboto title geometry so
+   the dialog header lines up to the 9px gap below before content. */
+.trade-confirm-title {
+  display: block !important;
+  margin: 0 !important;
+  padding: 24px 24px 9px !important;
+  font-size: 20px !important;
+  line-height: 32px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-variation-settings: normal !important;
+  font-style: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7502 */
+
+/* CSFLOAT-1:1 PARITY ship #7503 — Trade-confirm content (sub + detail)
+   region tokens. csfloat measured (.mat-mdc-dialog-content): margin 0,
+   padding 0 24px 20px, font-size 14px, line-height 20px, font-weight
+   400, letter-spacing 0.25px, color rgba(255,255,255,0.6), display
+   block. Local .trade-confirm-sub is 13/13.5px with var(--ink-3) and
+   sits over a hairline border-bottom; local .trade-confirm-detail
+   uses 16-18px asymmetric padding which doesn't match csfloat's
+   0/24/20 padding rhythm. Lock the sub to csfloat 14/20/400/0.25px
+   60%-white tone, drop the divider rule (csfloat doesn't render one),
+   and align detail padding so the row stack starts flush with the
+   title's 24px gutter. */
+.trade-confirm-sub {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 24px 20px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  border-bottom: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.trade-confirm-detail {
+  padding: 0 24px 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7503 */
+
+/* CSFLOAT-1:1 PARITY ship #7504 — Trade-confirm row + key/value scale
+   for steam trade URL, items, fees, hold countdown. csfloat measured
+   the body content rule at font-size 14px line-height 20px weight 400
+   letter-spacing 0.25px — but the row labels in csfloat sales dialogs
+   render the *key* in 12px regular muted and the *value* at 14px
+   inheriting from the dialog content. Local has key 10.5px tracked
+   uppercase and value 14px mono — too compressed and the mono family
+   doesn't render in csfloat's typography. Pin row to flex-between
+   align-center 12px vertical rhythm, key to 12/16/400/0.25px
+   62%-white, value to 14/20/400/0.25px solid white, both Roboto.
+   Drop the dashed underline (csfloat ships solid 1px alpha line
+   at rgba(255,255,255,0.06)). */
+.trade-confirm-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 12px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.trade-confirm-row:last-child {
+  border-bottom: 0 !important;
+}
+.trade-confirm-k {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  text-transform: none !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+.trade-confirm-v {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.trade-confirm-v.muted {
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-weight: 400 !important;
+}
+.trade-confirm-v.accent {
+  color: rgb(64, 160, 254) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7504 */
+
+/* CSFLOAT-1:1 PARITY ship #7505 — Trade-confirm action bar (Send Trade
+   Offer / Cancel trade CTAs). csfloat measured (.mat-mdc-dialog-actions
+   + button): action row display flex, justify-content flex-end,
+   align-items center, gap 8px, padding 8px, margin 0, min-height 52px,
+   border-top 0, background transparent. Buttons height 36, min-width
+   64, padding 0 12, border-radius 4, font-size 14, line-height 36,
+   font-weight 500, letter-spacing 0.0892857em, TEXT-TRANSFORM UPPERCASE
+   (Material 2 button tokens), font-family Roboto, border 0, no
+   box-shadow, color-tween 200ms cubic-bezier(.4,0,.2,1). Local
+   .trade-confirm-actions is 16-18px padded with a top hairline + bg
+   gradient; that breaks the dialog flush rhythm and the buttons
+   inside still get .btn typography (Geist 13/2px tracking). Pin the
+   row to csfloat's exact 8/52/transparent shell, then specifically
+   uppercase the contained .btn instances at 14px Roboto so the CTAs
+   read "CANCEL" / "CONFIRM RECEIPT" matching csfloat's mat-button. */
+.trade-confirm-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  min-height: 52px !important;
+  border-top: 0 !important;
+  background: transparent !important;
+}
+.trade-confirm-actions .btn,
+.trade-confirm-actions button {
+  height: 36px !important;
+  min-width: 64px !important;
+  padding: 0 12px !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  line-height: 36px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: uppercase !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7505 */
