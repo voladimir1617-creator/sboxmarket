@@ -139476,3 +139476,385 @@ body .views-display {
   text-align: center !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #4605 */
+
+/* CSFLOAT-1:1 PARITY ship #4700 — cart-confirm panel max-width + backdrop scrim.
+   Measure (csfloat MDC dialog .mat-mdc-dialog-surface): max-width 480px, the
+   .cdk-overlay-dark-backdrop scrim is rgba(0,0,0,0.32). Local panel was
+   measuring 520px wide and the backdrop alpha 0.62 — both too heavy. Trim
+   the panel to MDC spec width and lighten the scrim. */
+body .cart-confirm-backdrop {
+  background: rgba(0, 0, 0, 0.32) !important;
+}
+body .cart-confirm-panel {
+  max-width: 480px !important;
+  width: calc(100% - 32px) !important;
+}
+@media (max-width: 599px) {
+  body .cart-confirm-panel {
+    max-width: calc(100vw - 32px) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4700 */
+
+/* CSFLOAT-1:1 PARITY ship #4701 — cart-confirm total bar typography reset.
+   Measure (csfloat dialog supporting text + cost summary): label 14px/20px
+   Roboto 500 white, hint 12px/16px Roboto 400 alpha 0.62, amount Roboto Mono
+   18px/24px 600 white. Local was bleeding from a global mono+oklch beige
+   token that made the total bar look like a code block. Reset the family,
+   color, weight, and size on each total subnode. */
+body .cart-confirm-total {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgb(255, 255, 255) !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+}
+body .cart-confirm-total > div:first-child {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+body .cart-confirm-total-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+}
+body .cart-confirm-total-hint {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  letter-spacing: 0 !important;
+  margin-top: 2px !important;
+}
+body .cart-confirm-total-amt {
+  font-family: "Roboto Mono", "Geist Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  align-self: flex-start !important;
+  height: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4701 */
+
+/* CSFLOAT-1:1 PARITY ship #4702 — cart-confirm action buttons MDC parity.
+   Measure (csfloat .mat-mdc-button + .mat-mdc-raised-button inside dialog
+   actions): height 36px, padding 0 16px, radius 4px, font-family Roboto
+   sans, size 14px, weight 500, line-height 36px, letter-spacing 0.0892857143em.
+   Local confirm-actions buttons were 38px tall with 6/8px radius and a
+   -0.065px letter-spacing — re-flow to MDC button geometry. The flat ghost
+   variant uses transparent fill with the brand text color; raised accent
+   uses solid blue with white text and the standard MDC elevation. */
+body .cart-confirm-actions .btn,
+body .cart-confirm-actions .btn-accent,
+body .cart-confirm-actions .btn-ghost,
+body .cart-confirm-actions button {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body .cart-confirm-actions .btn-ghost {
+  background: transparent !important;
+  border: 0 none !important;
+  color: rgb(101, 153, 255) !important;
+  box-shadow: none !important;
+}
+body .cart-confirm-actions .btn-ghost:hover:not(:disabled) {
+  background: rgba(101, 153, 255, 0.08) !important;
+}
+body .cart-confirm-actions .btn-accent {
+  background: rgb(29, 78, 216) !important;
+  border: 0 none !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.20),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+}
+body .cart-confirm-actions .btn-accent:hover:not(:disabled) {
+  background: rgb(37, 99, 235) !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.20),
+    0 4px 5px 0 rgba(0, 0, 0, 0.14),
+    0 1px 10px 0 rgba(0, 0, 0, 0.12) !important;
+}
+body .cart-confirm-actions .btn-accent:disabled,
+body .cart-confirm-actions .btn-ghost:disabled {
+  opacity: 0.38 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4702 */
+
+/* CSFLOAT-1:1 PARITY ship #4703 — cart-confirm row separators + amount column.
+   Measure (csfloat dialog list rows): each row is a flex container, 14px/20px
+   Roboto, with a 1px bottom hairline rgba(193,206,255,0.06) so consecutive
+   items are visually segmented. The amount column is right-aligned mono
+   with tabular numerals at 14px/20px 500 weight. Local rows were grid-
+   display'd from a parent token and amounts inherited the body font, so
+   prices floated mid-row instead of locking to a column edge. */
+body .cart-confirm-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.06) !important;
+}
+body .cart-confirm-row:last-child {
+  border-bottom: 0 !important;
+}
+body .cart-confirm-amt {
+  font-family: "Roboto Mono", "Geist Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  text-align: right !important;
+}
+body .cart-confirm-more {
+  padding: 10px 24px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  text-align: center !important;
+  background: rgba(193, 206, 255, 0.02) !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4703 */
+
+/* CSFLOAT-1:1 PARITY ship #4704 — cart-confirm head sub-text + multi-seller chip.
+   Measure (csfloat dialog header + warn chip): subtext 13px/18px Roboto 400
+   alpha 0.62; multi-seller indicator is a 11px/16px Roboto 500 inline chip
+   with the warn-amber tint (bg rgba(255,184,80,0.12), text rgb(255,196,107)).
+   Local sub used inline color var(--accent) (blue) on the chip which conflicted
+   with the warning intent — re-tint to the standard csfloat warn surface. */
+body .cart-confirm-sub {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  letter-spacing: 0 !important;
+  margin-top: 4px !important;
+}
+body .cart-confirm-sub > div[style*="--accent"],
+body .cart-confirm-sub > div:not(:first-child) {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-top: 8px !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 184, 80, 0.12) !important;
+  border: 1px solid rgba(255, 184, 80, 0.28) !important;
+  color: rgb(255, 196, 107) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4704 */
+
+/* CSFLOAT-1:1 PARITY ship #4705 — cart-confirm panel surface + list framing.
+   Measure (csfloat .mat-mdc-dialog-surface): background rgb(30, 32, 41),
+   border-radius 12px, no border (the 2px border local was using showed up
+   as a halo against the lightened backdrop). Match MDC dialog elevation —
+   24dp = box-shadow tokens 0 11p 15p -7p, 0 24p 38p 3p, 0 9p 46p 8p.
+   Frame the list with hairlines top+bottom so it reads as a distinct middle
+   band between head and total/actions. */
+body .cart-confirm-panel {
+  background: rgb(30, 32, 41) !important;
+  border: 0 none !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 11px 15px -7px rgba(0, 0, 0, 0.20),
+    0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  overflow: hidden !important;
+}
+body .cart-confirm-list {
+  max-height: 280px !important;
+  overflow-y: auto !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.06) !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.06) !important;
+}
+body .cart-confirm-total {
+  border-top: 0 !important;
+  padding: 16px 24px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4705 */
+
+/* CSFLOAT-1:1 PARITY ship #5001 — announce-banner full-width parity.
+   Measure (csfloat .toolbar y=0 h=70 bg rgba(27,29,36,0.8) font 14px);
+   csfloat has NO promo strip above the toolbar — when sboxmarket renders
+   .announce-banner as a top-of-page strip, mirror toolbar metrics: solid
+   dark surface, 14px font, hairline divider, full bleed (no border-radius),
+   no margin so it stacks flush against the nav like csfloat's frame. */
+body .announce-banner {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  padding: 12px 24px !important;
+  background: rgba(27, 29, 36, 0.92) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-radius: 0 !important;
+  border-top: 0 none !important;
+  border-left: 0 none !important;
+  border-right: 0 none !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.06) !important;
+  margin: 0 !important;
+  letter-spacing: 0 !important;
+}
+body .announce-banner-text {
+  font-size: 14px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5001 */
+
+/* CSFLOAT-1:1 PARITY ship #5002 — announce-banner severity tint calm-down.
+   Measure: csfloat uses ZERO saturated full-bleed strips. Severity tints
+   on sboxmarket .sev-warn / .sev-error are too saturated against bg-1.
+   Drop the color-mix wash, keep the strip on the same dark toolbar bg
+   and only tint the LEFT border at 3px (csfloat's standard accent rail
+   on .csfloat-alert is also 3px). Icon stays color-coded. */
+body .announce-banner.sev-warn {
+  background: rgba(27, 29, 36, 0.92) !important;
+  border-bottom-color: rgba(232, 185, 96, 0.36) !important;
+  border-left: 3px solid rgba(232, 185, 96, 0.92) !important;
+  padding-left: 21px !important;
+}
+body .announce-banner.sev-error {
+  background: rgba(27, 29, 36, 0.92) !important;
+  border-bottom-color: rgba(232, 96, 96, 0.36) !important;
+  border-left: 3px solid rgba(232, 96, 96, 0.92) !important;
+  padding-left: 21px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5002 */
+
+/* CSFLOAT-1:1 PARITY ship #5003 — announce-banner close button parity.
+   Measure (csfloat tool/dialog close glyph): 32x32 hit area, transparent
+   bg, ink-3 color, 4px radius hover bg rgba(193,206,255,0.06). The local
+   close-btn is 28x28 with var(--r-sm) (~6-8px) — too rounded and slightly
+   small for thumb targets. Bump to 32x32 / 4px to match dialog close. */
+body .announce-banner-close {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 4px !important;
+  color: rgba(193, 206, 255, 0.62) !important;
+  transition: background 140ms ease, color 140ms ease !important;
+}
+body .announce-banner-close:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+body .announce-banner-close:focus-visible {
+  outline: 2px solid rgba(193, 206, 255, 0.32) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5003 */
+
+/* CSFLOAT-1:1 PARITY ship #5004 — .csfloat-alert in-flow card parity.
+   Measure (csfloat in-flow info card on settings page): bg rgba(27,29,36)
+   solid (no severity wash), 1px border 1px rgba(193,206,255,0.08), 8px
+   radius, 14px padding, 14px font. The local oklch wash on
+   .csfloat-alert.success/warning/error is a redesign — csfloat uses
+   accent-only on left rail, body stays neutral dark. Strip the wash,
+   keep accent on left rail. */
+body .csfloat-alert {
+  background: rgba(27, 29, 36, 0.96) !important;
+  border: 1px solid rgba(193, 206, 255, 0.08) !important;
+  border-left: 3px solid rgba(82, 148, 255, 0.92) !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  font-size: 14px !important;
+}
+body .csfloat-alert.success {
+  background: rgba(27, 29, 36, 0.96) !important;
+  border-left-color: rgba(96, 196, 132, 0.92) !important;
+}
+body .csfloat-alert.warning {
+  background: rgba(27, 29, 36, 0.96) !important;
+  border-left-color: rgba(232, 185, 96, 0.92) !important;
+}
+body .csfloat-alert.error {
+  background: rgba(27, 29, 36, 0.96) !important;
+  border-left-color: rgba(232, 96, 96, 0.92) !important;
+}
+body .csfloat-alert-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+body .csfloat-alert-desc {
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5004 */
+
+/* CSFLOAT-1:1 PARITY ship #5005 — .csfloat-announce hero card parity.
+   Measure (csfloat does NOT render hero promo cards on home; analog is
+   the dialog/info card surface): bg rgba(30,32,41) solid, 1px border
+   rgba(193,206,255,0.08), 12px radius, no shimmer / no radial-gradient
+   ::before halo. The local linear-gradient + radial halo + saturated
+   border are a redesign. Flatten to dialog-tier surface with a subtle
+   accent rail on the left to read as "announcement" not "decorative". */
+body .csfloat-announce {
+  background: rgba(30, 32, 41, 0.96) !important;
+  border: 1px solid rgba(193, 206, 255, 0.08) !important;
+  border-left: 3px solid rgba(82, 148, 255, 0.85) !important;
+  border-radius: 12px !important;
+  padding: 16px 18px !important;
+  overflow: hidden !important;
+}
+body .csfloat-announce::before {
+  display: none !important;
+}
+body .csfloat-announce-icon {
+  background: rgba(82, 148, 255, 0.16) !important;
+  color: rgba(82, 148, 255, 1) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  flex: 0 0 32px !important;
+}
+body .csfloat-announce-tag {
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(82, 148, 255, 0.92) !important;
+  background: rgba(82, 148, 255, 0.12) !important;
+  border-radius: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5005 */
