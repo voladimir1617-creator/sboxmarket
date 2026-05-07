@@ -156060,3 +156060,680 @@ body .csfloat-cart-drawer .cart-row .row-watchlist .material-symbols-rounded {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #12405 */
+
+/* CSFLOAT-1:1 PARITY ship #12406 — sale-completed celebration surface matches csfloat .mat-mdc-dialog-surface tokens (border-radius 12px, 2px hairline border, dialog-background-firefox surface). */
+body .csfloat-modal-center > * .csfloat-dialog-surface,
+body .csfloat-modal-center.open > .csfloat-dialog-surface,
+body .csfloat-modal-center .sale-completed-card,
+body .sale-completed-overlay .sale-completed-card,
+body .sale-success-card,
+body .sold-celebration-card,
+body .csfloat-dialog.sale-completed,
+body .csfloat-dialog-body.sale-completed-body {
+  border-radius: 12px !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  background-color: rgba(21, 23, 28, 1) !important;
+  overscroll-behavior: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12406 */
+
+/* CSFLOAT-1:1 PARITY ship #12407 — celebration overlay backdrop tone matches csfloat .lighter-cdk-overlay-backdrop (#00000026 = rgba(0,0,0,.149)). */
+body .sale-completed-overlay,
+body .sale-success-overlay,
+body .sold-celebration-overlay,
+body .csfloat-modal-center.sale-completed,
+body .csfloat-modal-center.celebration {
+  background-color: rgba(0, 0, 0, 0.149) !important;
+}
+body .sale-completed-overlay::before,
+body .sold-celebration-overlay::before {
+  background-color: rgba(0, 0, 0, 0.149) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12407 */
+
+/* CSFLOAT-1:1 PARITY ship #12408 — "$X.XX earned" big-numeral hierarchy matches csfloat dialog title scale: 28px / 600 / -0.01em primary-text, $ prefix at 0.7em weight 500 secondary-text. */
+body .sale-completed-card .sale-amount-earned,
+body .sold-celebration-card .sale-amount-earned,
+body .sale-success-card .amount-earned,
+body .sale-completed-amount,
+body .csfloat-dialog-amount-earned {
+  font-size: 28px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.15 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  margin: 0 !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+}
+body .sale-completed-card .sale-amount-earned .currency-prefix,
+body .sold-celebration-card .sale-amount-earned .currency-prefix,
+body .sale-success-card .amount-earned .currency-prefix,
+body .csfloat-dialog-amount-earned .currency-prefix {
+  font-size: 0.7em !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  margin-right: 2px !important;
+}
+body .sale-completed-card .sale-amount-earned-label,
+body .sold-celebration-card .sale-amount-earned-label,
+body .sale-completed-amount-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12408 */
+
+/* CSFLOAT-1:1 PARITY ship #12409 — "View transaction" CTA matches csfloat primary-button geometry: 36px height, 14px font, 6px radius, 0 16px padding, 1px hairline border, 500 weight. */
+body .sale-completed-card .view-transaction-cta,
+body .sold-celebration-card .view-transaction-cta,
+body .sale-success-card .view-transaction-cta,
+body .csfloat-dialog-footer .view-transaction,
+body .sale-completed-card .btn-view-transaction,
+body a.view-transaction-cta {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  background-color: rgba(193, 206, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, border-color 120ms ease !important;
+}
+body .sale-completed-card .view-transaction-cta:hover,
+body .sold-celebration-card .view-transaction-cta:hover,
+body .sale-success-card .view-transaction-cta:hover,
+body .csfloat-dialog-footer .view-transaction:hover,
+body a.view-transaction-cta:hover {
+  background-color: rgba(193, 206, 255, 0.12) !important;
+  border-color: rgba(193, 206, 255, 0.14) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12409 */
+
+/* CSFLOAT-1:1 PARITY ship #12410 — "Share to social" row matches csfloat icon-row spec: 8px gap, 32x32 round buttons, 1px hairline border, mat-icon center. */
+body .sale-completed-card .share-row,
+body .sold-celebration-card .share-row,
+body .sale-success-card .share-social,
+body .sale-completed-share-row,
+body .csfloat-dialog-share-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin-top: 16px !important;
+}
+body .sale-completed-card .share-row > a,
+body .sale-completed-card .share-row > button,
+body .sold-celebration-card .share-row > a,
+body .sold-celebration-card .share-row > button,
+body .sale-success-card .share-social > a,
+body .sale-success-card .share-social > button,
+body .sale-completed-share-row > a,
+body .sale-completed-share-row > button,
+body .csfloat-dialog-share-row > a,
+body .csfloat-dialog-share-row > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+body .sale-completed-card .share-row > a:hover,
+body .sale-completed-card .share-row > button:hover,
+body .sold-celebration-card .share-row > a:hover,
+body .sold-celebration-card .share-row > button:hover,
+body .sale-success-card .share-social > a:hover,
+body .sale-success-card .share-social > button:hover,
+body .sale-completed-share-row > a:hover,
+body .sale-completed-share-row > button:hover,
+body .csfloat-dialog-share-row > a:hover,
+body .csfloat-dialog-share-row > button:hover {
+  background-color: rgba(193, 206, 255, 0.10) !important;
+  border-color: rgba(193, 206, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+body .sale-completed-card .share-row svg,
+body .sold-celebration-card .share-row svg,
+body .sale-success-card .share-social svg,
+body .sale-completed-share-row svg,
+body .csfloat-dialog-share-row svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12410 */
+
+/* CSFLOAT-1:1 PARITY ship #12411 — confetti sizing + duration normalised to csfloat-feel: 8x14 rect, 3s fall, positive-accent green hue (oklch 0.62 0.18 152). */
+body .sale-completed-overlay .csfloat-confetti,
+body .sold-celebration-overlay .csfloat-confetti,
+body .sale-success-overlay .csfloat-confetti,
+body .sale-completed-card ~ .csfloat-confetti {
+  width: 8px !important;
+  height: 14px !important;
+  border-radius: 1px !important;
+  animation-duration: 3s !important;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+  pointer-events: none !important;
+  will-change: transform, opacity !important;
+}
+body .sale-completed-overlay .csfloat-confetti.green,
+body .sold-celebration-overlay .csfloat-confetti.green {
+  background-color: oklch(0.62 0.18 152) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12411 */
+
+/* CSFLOAT-1:1 PARITY ship #12412 — sale-completed body padding matches csfloat .mat-mdc-dialog-content vertical rhythm (24px top/bottom, 24px sides, 12px gap between blocks). */
+body .sale-completed-card,
+body .sold-celebration-card,
+body .sale-success-card,
+body .csfloat-dialog-body.sale-completed-body {
+  padding: 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 12px !important;
+  min-width: 320px !important;
+  max-width: 420px !important;
+}
+body .sale-completed-card > .sale-amount-earned + *,
+body .sold-celebration-card > .sale-amount-earned + *,
+body .sale-success-card > .amount-earned + * {
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12412 */
+
+/* CSFLOAT-1:1 PARITY ship #12600 â€” Cart-confirm wallet-balance preview line.
+   csfloat: between the totals row and the Pay button, a small "Wallet balance: $X.XX"
+   meta line in 12px Roboto, --ink-3 muted, monospace numerals, with 12px top
+   padding and a hairline divider above. Lives inside .cart-confirm-panel. */
+body .cart-confirm-panel .cart-confirm-wallet-balance,
+body .cart-confirm-panel .wallet-balance-preview,
+body .cart-confirm-panel .cart-wallet-balance {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 10px 22px 12px !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--line) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-family: var(--mono) !important;
+  line-height: 1.4 !important;
+}
+body .cart-confirm-panel .cart-confirm-wallet-balance .label,
+body .cart-confirm-panel .wallet-balance-preview .label,
+body .cart-confirm-panel .cart-wallet-balance .label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+body .cart-confirm-panel .cart-confirm-wallet-balance .amount,
+body .cart-confirm-panel .wallet-balance-preview .amount,
+body .cart-confirm-panel .cart-wallet-balance .amount {
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.02em !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12600 */
+
+/* CSFLOAT-1:1 PARITY ship #12601 â€” Color-coded wallet-balance indicator.
+   csfloat states by data-state attribute / class:
+     sufficient -> green (#4ade80)
+     low        -> amber (#fbbf24)
+     insufficient -> red (#f87171)
+   The amount color shifts and a small left dot indicator (6px) reflects state. */
+body .cart-confirm-panel .cart-confirm-wallet-balance .amount::before,
+body .cart-confirm-panel .wallet-balance-preview .amount::before,
+body .cart-confirm-panel .cart-wallet-balance .amount::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  margin-right: 7px !important;
+  vertical-align: 1px !important;
+  background: #4ade80 !important;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.18) !important;
+  transition: background-color 160ms ease, box-shadow 160ms ease !important;
+}
+body .cart-confirm-panel[data-balance="sufficient"] .cart-confirm-wallet-balance .amount,
+body .cart-confirm-panel .cart-confirm-wallet-balance.is-sufficient .amount,
+body .cart-confirm-panel .wallet-balance-preview.is-sufficient .amount,
+body .cart-confirm-panel .cart-wallet-balance.is-sufficient .amount {
+  color: #4ade80 !important;
+}
+body .cart-confirm-panel[data-balance="low"] .cart-confirm-wallet-balance .amount,
+body .cart-confirm-panel .cart-confirm-wallet-balance.is-low .amount,
+body .cart-confirm-panel .wallet-balance-preview.is-low .amount,
+body .cart-confirm-panel .cart-wallet-balance.is-low .amount {
+  color: #fbbf24 !important;
+}
+body .cart-confirm-panel[data-balance="low"] .cart-confirm-wallet-balance .amount::before,
+body .cart-confirm-panel .cart-confirm-wallet-balance.is-low .amount::before,
+body .cart-confirm-panel .wallet-balance-preview.is-low .amount::before,
+body .cart-confirm-panel .cart-wallet-balance.is-low .amount::before {
+  background: #fbbf24 !important;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.20) !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-wallet-balance .amount,
+body .cart-confirm-panel .cart-confirm-wallet-balance.is-insufficient .amount,
+body .cart-confirm-panel .wallet-balance-preview.is-insufficient .amount,
+body .cart-confirm-panel .cart-wallet-balance.is-insufficient .amount {
+  color: #f87171 !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-wallet-balance .amount::before,
+body .cart-confirm-panel .cart-confirm-wallet-balance.is-insufficient .amount::before,
+body .cart-confirm-panel .wallet-balance-preview.is-insufficient .amount::before,
+body .cart-confirm-panel .cart-wallet-balance.is-insufficient .amount::before {
+  background: #f87171 !important;
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.22) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12601 */
+
+/* CSFLOAT-1:1 PARITY ship #12602 â€” Inline "Add funds" link beside wallet-balance line.
+   csfloat: when balance is low/insufficient, an inline-text link appears on the right
+   of the balance row in --primary blue (#6c9aff), underlined on hover. 12px Roboto. */
+body .cart-confirm-panel .cart-confirm-wallet-balance .add-funds,
+body .cart-confirm-panel .wallet-balance-preview .add-funds,
+body .cart-confirm-panel .cart-wallet-balance .add-funds,
+body .cart-confirm-panel .cart-confirm-wallet-balance a.add-funds-link,
+body .cart-confirm-panel .wallet-balance-preview a.add-funds-link,
+body .cart-confirm-panel .cart-wallet-balance a.add-funds-link {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  color: #6c9aff !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 2px 4px !important;
+  margin-left: 8px !important;
+  border-radius: 4px !important;
+  transition: color 140ms ease, background-color 140ms ease, text-decoration-color 140ms ease !important;
+  text-decoration-color: transparent !important;
+  text-underline-offset: 3px !important;
+}
+body .cart-confirm-panel .cart-confirm-wallet-balance .add-funds:hover,
+body .cart-confirm-panel .wallet-balance-preview .add-funds:hover,
+body .cart-confirm-panel .cart-wallet-balance .add-funds:hover,
+body .cart-confirm-panel .cart-confirm-wallet-balance a.add-funds-link:hover,
+body .cart-confirm-panel .wallet-balance-preview a.add-funds-link:hover,
+body .cart-confirm-panel .cart-wallet-balance a.add-funds-link:hover {
+  color: #8db3ff !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(141, 179, 255, 0.55) !important;
+  background-color: rgba(108, 154, 255, 0.06) !important;
+}
+body .cart-confirm-panel .cart-confirm-wallet-balance .add-funds:focus-visible,
+body .cart-confirm-panel .wallet-balance-preview .add-funds:focus-visible,
+body .cart-confirm-panel .cart-wallet-balance .add-funds:focus-visible {
+  outline: 2px solid rgba(108, 154, 255, 0.55) !important;
+  outline-offset: 2px !important;
+}
+body .cart-confirm-panel .cart-confirm-wallet-balance .add-funds::before,
+body .cart-confirm-panel .wallet-balance-preview .add-funds::before,
+body .cart-confirm-panel .cart-wallet-balance .add-funds::before {
+  content: "+ " !important;
+  font-weight: 700 !important;
+  margin-right: 1px !important;
+  opacity: 0.82 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12602 */
+
+/* CSFLOAT-1:1 PARITY ship #12603 â€” Low-balance amber warning banner inside cart-confirm.
+   csfloat shows this between the totals row and the actions footer when balance < total
+   but a top-up would cover it. Amber tint, warning glyph, single line copy + CTA chip.
+   The existing .cart-confirm-low-balance is the host element; we lock its layout to
+   match csfloat's measurements: 11px 14px padding, 10px gap, 12px font, amber bg/border. */
+body .cart-confirm-panel .cart-confirm-low-balance {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 11px 14px !important;
+  margin: 12px 14px !important;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.10), rgba(251, 191, 36, 0.06)) !important;
+  border: 1px solid rgba(251, 191, 36, 0.32) !important;
+  border-radius: 8px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0 !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+}
+body .cart-confirm-panel .cart-confirm-low-balance::before {
+  content: "" !important;
+  flex: 0 0 auto !important;
+  width: 16px !important;
+  height: 16px !important;
+  background: #fbbf24 !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2 1 21h22L12 2zm0 6 7.5 13h-15L12 8zm-1 4v3h2v-3h-2zm0 5v2h2v-2h-2z'/></svg>") center / 16px no-repeat !important;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2 1 21h22L12 2zm0 6 7.5 13h-15L12 8zm-1 4v3h2v-3h-2zm0 5v2h2v-2h-2z'/></svg>") center / 16px no-repeat !important;
+}
+body .cart-confirm-panel .cart-confirm-low-balance .text,
+body .cart-confirm-panel .cart-confirm-low-balance > span:first-of-type {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  color: rgba(255, 220, 150, 0.92) !important;
+}
+body .cart-confirm-panel .cart-confirm-low-balance .top-up-wallet,
+body .cart-confirm-panel .cart-confirm-low-balance .btn-top-up,
+body .cart-confirm-panel .cart-confirm-low-balance a.top-up-link {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 26px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  background: rgba(251, 191, 36, 0.16) !important;
+  border: 1px solid rgba(251, 191, 36, 0.42) !important;
+  color: #fbbf24 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease !important;
+}
+body .cart-confirm-panel .cart-confirm-low-balance .top-up-wallet:hover,
+body .cart-confirm-panel .cart-confirm-low-balance .btn-top-up:hover,
+body .cart-confirm-panel .cart-confirm-low-balance a.top-up-link:hover {
+  background: rgba(251, 191, 36, 0.24) !important;
+  border-color: rgba(251, 191, 36, 0.62) !important;
+  color: #ffd96b !important;
+}
+body .cart-confirm-panel .cart-confirm-low-balance .top-up-wallet:active,
+body .cart-confirm-panel .cart-confirm-low-balance .btn-top-up:active,
+body .cart-confirm-panel .cart-confirm-low-balance a.top-up-link:active {
+  transform: translateY(0.5px) !important;
+  background: rgba(251, 191, 36, 0.30) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12603 */
+
+/* CSFLOAT-1:1 PARITY ship #12604 â€” Insufficient-funds error state.
+   csfloat: when wallet balance < total AND user cannot top up enough, the banner
+   becomes a red error variant and the primary "Pay" CTA in .cart-confirm-actions
+   is locked into a disabled error state with red tint. */
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error,
+body .cart-confirm-panel .cart-confirm-insufficient {
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.12), rgba(248, 113, 113, 0.07)) !important;
+  border-color: rgba(248, 113, 113, 0.36) !important;
+  color: #f87171 !important;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.05) inset, 0 1px 2px rgba(0, 0, 0, 0.20) !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance::before,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error::before,
+body .cart-confirm-panel .cart-confirm-insufficient::before {
+  background: #f87171 !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v7h-2V7zm0 9h2v2h-2v-2z'/></svg>") center / 16px no-repeat !important;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v7h-2V7zm0 9h2v2h-2v-2z'/></svg>") center / 16px no-repeat !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance .text,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error .text,
+body .cart-confirm-panel .cart-confirm-insufficient .text {
+  color: rgba(255, 190, 190, 0.92) !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance .top-up-wallet,
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance .btn-top-up,
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance a.top-up-link,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error .top-up-wallet,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error .btn-top-up,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error a.top-up-link {
+  background: rgba(248, 113, 113, 0.18) !important;
+  border-color: rgba(248, 113, 113, 0.46) !important;
+  color: #f87171 !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-low-balance .top-up-wallet:hover,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error .top-up-wallet:hover,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error .btn-top-up:hover,
+body .cart-confirm-panel .cart-confirm-low-balance.is-error a.top-up-link:hover {
+  background: rgba(248, 113, 113, 0.26) !important;
+  border-color: rgba(248, 113, 113, 0.65) !important;
+  color: #ff9090 !important;
+}
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-actions .btn-accent,
+body .cart-confirm-panel[data-balance="insufficient"] .cart-confirm-actions button[type="submit"],
+body .cart-confirm-panel.is-insufficient .cart-confirm-actions .btn-accent {
+  background: rgba(248, 113, 113, 0.10) !important;
+  border-color: rgba(248, 113, 113, 0.32) !important;
+  color: rgba(248, 113, 113, 0.62) !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  opacity: 0.78 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12604 */
+
+/* CSFLOAT-1:1 PARITY ship #12605 â€” Wallet-balance row reveal animation + responsive.
+   csfloat: the wallet-balance preview line fades+slides 4px on modal open, and the
+   low-balance banner does the same with a 60ms stagger. On mobile the banner stacks
+   text+CTA vertically with 8px gap and full-width CTA. */
+@keyframes csfloat-wallet-balance-reveal-12605 {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+body .cart-confirm-panel .cart-confirm-wallet-balance,
+body .cart-confirm-panel .wallet-balance-preview,
+body .cart-confirm-panel .cart-wallet-balance {
+  animation: csfloat-wallet-balance-reveal-12605 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
+  animation-delay: 80ms !important;
+}
+body .cart-confirm-panel .cart-confirm-low-balance,
+body .cart-confirm-panel .cart-confirm-insufficient {
+  animation: csfloat-wallet-balance-reveal-12605 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
+  animation-delay: 140ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body .cart-confirm-panel .cart-confirm-wallet-balance,
+  body .cart-confirm-panel .wallet-balance-preview,
+  body .cart-confirm-panel .cart-wallet-balance,
+  body .cart-confirm-panel .cart-confirm-low-balance,
+  body .cart-confirm-panel .cart-confirm-insufficient {
+    animation: none !important;
+  }
+}
+@media (max-width: 520px) {
+  body .cart-confirm-panel .cart-confirm-wallet-balance,
+  body .cart-confirm-panel .wallet-balance-preview,
+  body .cart-confirm-panel .cart-wallet-balance {
+    padding: 10px 18px 12px !important;
+    font-size: 11.5px !important;
+  }
+  body .cart-confirm-panel .cart-confirm-low-balance {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px 12px !important;
+    margin: 10px 12px !important;
+  }
+  body .cart-confirm-panel .cart-confirm-low-balance::before {
+    align-self: flex-start !important;
+  }
+  body .cart-confirm-panel .cart-confirm-low-balance .top-up-wallet,
+  body .cart-confirm-panel .cart-confirm-low-balance .btn-top-up,
+  body .cart-confirm-panel .cart-confirm-low-balance a.top-up-link {
+    height: 30px !important;
+    width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12605 */
+
+
+/* CSFLOAT-1:1 PARITY ship #12606 — Item page seller info row layout (csfloat: tight 40px avatar row, 10px column gap, 14px vertical padding, 1px hairline divider only on top, no bottom rule) */
+body .modal-seller-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 14px 0 12px !important;
+  border-top: 1px solid var(--line) !important;
+  border-bottom: none !important;
+  position: relative !important;
+}
+body .modal-seller-info > .modal-seller-av,
+body .modal-seller-info > .seller-avatar {
+  flex: 0 0 40px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12606 */
+
+/* CSFLOAT-1:1 PARITY ship #12607 — Seller avatar size + ring (csfloat: 40px circle with 2px transparent ring, dark glass bg, 1px hairline) */
+body .modal-seller-info .modal-seller-av,
+body .modal-seller-info .seller-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255,255,255,0.04) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
+  transition: box-shadow 160ms ease, transform 160ms ease !important;
+}
+body .modal-seller-info .modal-seller-av:hover,
+body .modal-seller-info .seller-avatar:hover {
+  box-shadow: 0 0 0 2px rgba(108, 154, 255, 0.32), inset 0 0 0 1px rgba(255,255,255,0.06) !important;
+  transform: translateY(-1px) !important;
+}
+body .modal-seller-info .modal-seller-av img,
+body .modal-seller-info .seller-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12607 */
+
+/* CSFLOAT-1:1 PARITY ship #12608 — Online status dot on avatar (csfloat: 10px green dot, bottom-right, 2px dark ring) */
+body .modal-seller-info .modal-seller-av {
+  position: relative !important;
+}
+body .modal-seller-info .modal-seller-av::after {
+  content: '' !important;
+  position: absolute !important;
+  right: -1px !important;
+  bottom: -1px !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: #22c55e !important;
+  box-shadow: 0 0 0 2px rgba(15, 17, 22, 1) !important;
+  pointer-events: none !important;
+  opacity: 0.9 !important;
+}
+body .modal-seller-info[data-online="false"] .modal-seller-av::after,
+body .modal-seller-info.is-offline .modal-seller-av::after {
+  background: #6b7280 !important;
+  opacity: 0.7 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12608 */
+
+/* CSFLOAT-1:1 PARITY ship #12609 — Seller name link styling (csfloat: 13.5px white link, no underline, hover blue) */
+body .modal-seller-info .modal-seller-name,
+body .modal-seller-info .seller-name {
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1.3 !important;
+  text-decoration: none !important;
+  transition: color 140ms ease !important;
+}
+body .modal-seller-info a.modal-seller-name:hover,
+body .modal-seller-info a.seller-name:hover {
+  color: #6c9aff !important;
+  text-decoration: none !important;
+}
+body .modal-seller-info .modal-seller-rating,
+body .modal-seller-info .seller-rating {
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  margin-top: 2px !important;
+  letter-spacing: 0.01em !important;
+}
+body .modal-seller-info .modal-seller-rating-count {
+  color: rgba(255, 255, 255, 0.42) !important;
+  margin-left: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12609 */
+
+/* CSFLOAT-1:1 PARITY ship #12610 — Verified-seller chip + total-sales chip (csfloat: tight 9.5px uppercase pill, 10px green pill with shield mark) */
+body .modal-seller-info .seller-verified {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-family: var(--mono) !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 2px 6px !important;
+  border: 1px solid rgba(34, 197, 94, 0.42) !important;
+  border-radius: 4px !important;
+  background: rgba(34, 197, 94, 0.10) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+body .modal-seller-info .seller-verified::before {
+  content: '' !important;
+  width: 8px !important;
+  height: 8px !important;
+  background: currentColor !important;
+  -webkit-mask: radial-gradient(circle, currentColor 60%, transparent 62%) !important;
+  mask: radial-gradient(circle, currentColor 60%, transparent 62%) !important;
+  border-radius: 50% !important;
+  color: #22c55e !important;
+  flex: 0 0 8px !important;
+}
+body .modal-seller-info .seller-sales-count,
+body .modal-seller-info .modal-seller-sales {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  font-family: var(--mono) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  padding: 2px 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  letter-spacing: 0.02em !important;
+  margin-left: 4px !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12610 */
