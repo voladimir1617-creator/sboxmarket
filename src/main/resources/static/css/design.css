@@ -147573,3 +147573,738 @@ button.db-load-more.is-loading::after {
   padding: 16px 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #8505 */
+
+/* CSFLOAT-1:1 PARITY ship #8601 — grid-thumb rarity-tinted base gradient (refresh)
+   Measured on csfloat .container: linear-gradient(rgba(27,29,36,0) 20%, RARITY @ .32 alpha 100%).
+   Default = Standard blue rgba(59,130,246,0.32). Off-Market gold rgba(232,185,96,0.32).
+   Limited red rgba(235,75,75,0.32). Add fallback selectors that don't rely on :has().
+   Background-color base = rgb(27,29,36) so gradient reads against the same neutral as csfloat. */
+.grid-card .grid-thumb {
+  background-color: rgb(27, 29, 36) !important;
+  background-image: linear-gradient(180deg,
+    rgba(27, 29, 36, 0) 20%,
+    rgba(59, 130, 246, 0.32) 100%) !important;
+}
+.grid-card.rarity-Off-Market .grid-thumb,
+.grid-card[data-rarity="Off-Market"] .grid-thumb {
+  background-image: linear-gradient(180deg,
+    rgba(27, 29, 36, 0) 20%,
+    rgba(232, 185, 96, 0.32) 100%) !important;
+}
+.grid-card.rarity-Limited .grid-thumb,
+.grid-card[data-rarity="Limited"] .grid-thumb {
+  background-image: linear-gradient(180deg,
+    rgba(27, 29, 36, 0) 20%,
+    rgba(235, 75, 75, 0.32) 100%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8601 */
+
+/* CSFLOAT-1:1 PARITY ship #8602 — image scale-on-hover 1.04x (csfloat-style subtle)
+   csfloat shows zero scale (img transform stays as translateY for centering) but
+   does translate the whole card -15px on hover. We keep the card-translate elsewhere
+   and add a tasteful 1.04x scale on the image only when the card is hovered, with
+   the same 320ms cubic-bezier the fade-in already uses so motion stays cohesive. */
+.grid-card .grid-thumb img,
+.grid-card .grid-thumb .item-img {
+  transform-origin: center center !important;
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              opacity 320ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  will-change: transform !important;
+}
+.grid-card:hover .grid-thumb img,
+.grid-card:hover .grid-thumb .item-img {
+  transform: scale(1.04) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid-card .grid-thumb img,
+  .grid-card .grid-thumb .item-img,
+  .grid-card:hover .grid-thumb img,
+  .grid-card:hover .grid-thumb .item-img {
+    transform: none !important;
+    transition: opacity 200ms linear !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8602 */
+
+/* CSFLOAT-1:1 PARITY ship #8603 — lazy-load fade-in re-asserted with longer easing
+   ItemImage swaps `loading` for `loaded` once natural dims pass the 10px sanity check.
+   Apply csfloat-y cubic-bezier easing at 360ms so reveal reads as a gentle bloom. */
+.grid-card .grid-thumb .item-img {
+  transition: opacity 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.grid-card .grid-thumb .item-img.loading,
+.grid-card .grid-thumb img.loading {
+  opacity: 0 !important;
+}
+.grid-card .grid-thumb .item-img.loaded,
+.grid-card .grid-thumb img.loaded {
+  opacity: 1 !important;
+}
+.grid-card .grid-thumb img:not(.loading) {
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8603 */
+
+/* CSFLOAT-1:1 PARITY ship #8604 — empty/missing-image poster fallback parity
+   When item.imageUrl is null or onError fires, ItemImage renders <span class="item-poster">.
+   csfloat shows a centered glyph at ~40% of thumb height. Make poster fill the thumb edge-to-edge,
+   inherit border-radius, and stay transparent so the rarity gradient still reads through. */
+.grid-card .grid-thumb .item-poster {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 38px !important;
+  line-height: 1 !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  border-radius: inherit !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8604 */
+
+/* CSFLOAT-1:1 PARITY ship #8605 — rarity-tinted radial GLOW halo behind image
+   csfloat reads as a soft glow from the bottom-center of the thumb due to its 32%-alpha
+   gradient. Layer a soft radial in the same rarity hue at 28% alpha, blurred 4px, anchored
+   at center 60% so it blooms from under the item. Sits beneath the image (z-index 0). */
+.grid-card .grid-thumb {
+  position: relative !important;
+  isolation: isolate !important;
+}
+.grid-card .grid-thumb::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 8% 8% 12% 8% !important;
+  background: radial-gradient(60% 50% at 50% 60%,
+    rgba(59, 130, 246, 0.28) 0%,
+    rgba(59, 130, 246, 0.12) 45%,
+    rgba(59, 130, 246, 0) 75%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 0.85 !important;
+  filter: blur(4px) !important;
+  transition: opacity 240ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.grid-card.rarity-Off-Market .grid-thumb::after,
+.grid-card[data-rarity="Off-Market"] .grid-thumb::after {
+  background: radial-gradient(60% 50% at 50% 60%,
+    rgba(232, 185, 96, 0.28) 0%,
+    rgba(232, 185, 96, 0.12) 45%,
+    rgba(232, 185, 96, 0) 75%) !important;
+}
+.grid-card.rarity-Limited .grid-thumb::after,
+.grid-card[data-rarity="Limited"] .grid-thumb::after {
+  background: radial-gradient(60% 50% at 50% 60%,
+    rgba(235, 75, 75, 0.28) 0%,
+    rgba(235, 75, 75, 0.12) 45%,
+    rgba(235, 75, 75, 0) 75%) !important;
+}
+.grid-card:hover .grid-thumb::after {
+  opacity: 1 !important;
+}
+.grid-card .grid-thumb img,
+.grid-card .grid-thumb .item-img {
+  position: relative !important;
+  z-index: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8605 */
+
+/* CSFLOAT-1:1 PARITY ship #8606 — loading spinner inside thumb (pre-onLoad)
+   While .item-img.loading is opacity:0 the thumb is empty visually. Inject a CSS-only
+   spinner via .grid-thumb's auxiliary content, keyed off :has(.item-img.loading) so it
+   auto-disappears once .loaded class lands — no JS, no flash on cache hits. */
+@keyframes sb-thumb-spinner {
+  0%   { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.grid-card .grid-thumb:has(.item-img.loading)::before,
+.grid-card .grid-thumb:has(img.loading)::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 !important;
+  border: 2px solid rgba(255, 255, 255, 0.18) !important;
+  border-top-color: rgba(255, 255, 255, 0.78) !important;
+  border-radius: 50% !important;
+  animation: sb-thumb-spinner 700ms linear infinite !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  transform: translate(-50%, -50%) !important;
+  opacity: 0.85 !important;
+  background: transparent !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid-card .grid-thumb:has(.item-img.loading)::before,
+  .grid-card .grid-thumb:has(img.loading)::before {
+    animation: none !important;
+    border-top-color: rgba(255, 255, 255, 0.55) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #8606 */
+
+/* CSFLOAT-1:1 PARITY ship #9000 — Stall hero owner card surface tokens.
+   csfloat measured (computed from .seller-details-wrapper / .hero on
+   /stall/{id}): background rgb(36, 37, 44), color rgb(255, 255, 255),
+   border 0, border-radius 4px, padding 24px, display flex (NOT 96px
+   grid), align-items center, gap 16px, margin-bottom 16px, box-shadow
+   none, font-family Roboto. Local .stall-hero is a 96px-1fr-auto grid
+   with var(--bg-1) (oklch slate), 1px var(--line) hairline, var(--r-md)
+   ~10px corner, 24px gap, 24px mb, serif typography — drift in surface
+   tone, corner ~10 to 4, gap 24 to 16, structural model 3-col grid to
+   row flex, and family. Lock to csfloat constants. */
+.stall-hero {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 24px !important;
+  background: rgb(36, 37, 44) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  margin-bottom: 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  grid-template-columns: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9000 */
+
+/* CSFLOAT-1:1 PARITY ship #9001 — Stall hero avatar block.
+   csfloat measured (computed from .stall-hero img.avatar on
+   /stall/{id}): width 80px, height 80px, border-radius 50%, border 0,
+   background rgb(45, 46, 54), object-fit cover, flex 0 0 80px. Local
+   .stall-avatar is 96x96 with var(--r-md) ~10px square-ish corner,
+   1px var(--line-2) border, gradient backdrop, fallback serif glyph
+   centered — drift on shape (square to circle), size 96 to 80,
+   border yes to no, and fallback typeface. Lock to csfloat circular
+   80px avatar. */
+.stall-avatar {
+  width: 80px !important;
+  height: 80px !important;
+  min-width: 80px !important;
+  flex: 0 0 80px !important;
+  border-radius: 50% !important;
+  border: 0 !important;
+  background: rgb(45, 46, 54) !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 500 !important;
+  font-size: 28px !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+.stall-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9001 */
+
+/* CSFLOAT-1:1 PARITY ship #9002 — Stall hero name + verified badge typography.
+   csfloat measured (computed from .seller-details .name on
+   /stall/{id}): font-family Roboto, "Helvetica Neue", sans-serif,
+   font-size 24px, line-height 32px, font-weight 500, letter-spacing
+   normal (0px), color rgb(255, 255, 255), margin 0, display inline-flex,
+   align-items center, gap 6px (for verified check). Local .stall-name
+   uses var(--serif) at clamp(24,2.6vw,34) with 360 weight and -0.025em
+   tracking — drift in family, weight 360 to 500, and tracking. Lock
+   to csfloat exact 24/32/500 Roboto title; pin verified-check icon
+   to 16px blue. */
+.stall-name {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 24px !important;
+  line-height: 32px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  font-variation-settings: normal !important;
+  font-style: normal !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.stall-name .verified-badge,
+.stall-name .verified-check,
+.stall-name [data-verified],
+.stall-name svg.verified {
+  width: 16px !important;
+  height: 16px !important;
+  color: rgb(108, 161, 255) !important;
+  fill: rgb(108, 161, 255) !important;
+  flex: 0 0 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9002 */
+
+/* CSFLOAT-1:1 PARITY ship #9003 — Stall hero stats meta + stat-grid lock.
+   csfloat measured (computed from .seller-details .meta + .stats row on
+   /stall/{id}): the stat row is a horizontal flex row with 24px gap,
+   no inner cards, no background. Each stat uses font-family Roboto,
+   font-size 14px, line-height 20px, font-weight 400, letter-spacing
+   0.25px, color rgba(255,255,255,0.6) for label, rgb(255,255,255) for
+   value, gap 4px (label-value vertical). Local .stall-meta is a
+   var(--mono) row at 11px with 0.04em tracking; .stall-stat-grid is
+   a 140px auto-fill grid of var(--bg-2) capsule cards with mono
+   uppercase labels. Drift: cards yes to no, grid auto-fill to flex
+   row, font-family mono to Roboto, uppercase yes to no, tracking
+   0.12em to 0.25px. Lock to csfloat flat row-of-stats layout. */
+.stall-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 24px !important;
+  flex-wrap: wrap !important;
+  margin-top: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.stall-stat-grid {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 24px !important;
+  flex-wrap: wrap !important;
+  margin-top: 8px !important;
+  grid-template-columns: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+.stall-stat {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.stall-stat-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.4px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+.stall-stat-val {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+  color: rgb(255, 255, 255) !important;
+  white-space: nowrap !important;
+}
+.stall-stat-unit {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  letter-spacing: 0.4px !important;
+  margin-left: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9003 */
+
+/* CSFLOAT-1:1 PARITY ship #9004 — Stall follow / share / subscribe button parity.
+   csfloat measured (computed from .stall-hero button.subscribe on
+   /stall/{id}): height 36px, padding 0 16px, font-family Roboto,
+   font-size 14px, line-height 36px, font-weight 500, letter-spacing
+   1.25px, text-transform uppercase, color rgb(108, 161, 255),
+   background transparent, border 0, border-radius 4px, min-width
+   64px, cursor pointer, transition background 250ms ease. Hover
+   background rgba(108, 161, 255, 0.08). Local .stall-share-btn
+   uses 8/14 padding, 12px font, sentence-case, var(--ink) gray, 1px
+   var(--line-2) border, var(--r-sm) — drift in case, weight, height,
+   tracking, color (gray to blue accent), border (yes to no). Lock to
+   csfloat mat-button text-button geometry; right-align via auto
+   margin against the flex hero. */
+.stall-share-btn,
+.stall-hero .follow-btn,
+.stall-hero .subscribe-btn,
+.stall-hero button.follow,
+.stall-hero button.subscribe {
+  margin-left: auto !important;
+  height: 36px !important;
+  min-width: 64px !important;
+  padding: 0 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 36px !important;
+  font-weight: 500 !important;
+  letter-spacing: 1.25px !important;
+  text-transform: uppercase !important;
+  color: rgb(108, 161, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.stall-share-btn:hover,
+.stall-hero .follow-btn:hover,
+.stall-hero .subscribe-btn:hover,
+.stall-hero button.follow:hover,
+.stall-hero button.subscribe:hover {
+  background: rgba(108, 161, 255, 0.08) !important;
+  color: rgb(108, 161, 255) !important;
+  border-color: transparent !important;
+}
+.stall-share-btn:focus-visible,
+.stall-hero .follow-btn:focus-visible,
+.stall-hero .subscribe-btn:focus-visible {
+  outline: 0 !important;
+  background: rgba(108, 161, 255, 0.12) !important;
+}
+.stall-share-icon {
+  color: rgb(108, 161, 255) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9004 */
+
+/* CSFLOAT-1:1 PARITY ship #9005 — Stall sub-toolbar (sort + filter row above
+   the listing grid). csfloat measured (computed from the search-toolbar /
+   sort-row that appears above the per-stall grid on /stall/{id}): the
+   row is a horizontal flex with 16px gap, 16px vertical padding, NO
+   bottom border (the grid card itself shows the seam), align-items
+   center, font-family Roboto, color rgba(255,255,255,0.6) at 14/20
+   for the "Sort by" label, and the chips/select use 36px tall mat-form-
+   field controls. Local .stall-toolbar / .stall-filter-row paint a 1px
+   var(--line) bottom-border + 14px mb, 12px y-padding, 10px gap — drift
+   in the divider, padding 12 to 16, gap 10 to 16. Also lock the listing-
+   grid container to drop its 1px var(--line) hairline + ~10px var(--r-md)
+   since csfloat presents the per-stall grid flush against the page. */
+.stall-toolbar,
+.stall-filter-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+  padding: 16px 0 !important;
+  border-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  background: transparent !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.stall-toolbar .toolbar-label,
+.stall-filter-row .toolbar-label,
+.stall-toolbar .sort-by,
+.stall-filter-row .sort-by {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  text-transform: none !important;
+}
+.stall-filter-chips {
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+.stall-list,
+.trade-list {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9005 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8506 — Active Listings section title (item page)
+   csfloat /item: header "Active Listings (N)" sits above the table as a
+     thin row label. Measured: font Roboto 14px / 500, color rgb(255,255,255),
+     letter-spacing normal, text-transform none, line-height 1.2.
+     Top margin 24px (gap from history chart), bottom margin 12px (gap
+     to first table row). NO border, NO radius, NO uppercase, NO leading
+     dot. Override the legacy mono-uppercase title that leaks through
+     some sboxmarket surfaces by pinning explicitly on the
+     active-listings-anchor.
+   ===================================================================== */
+.modal-section-title.active-listings-anchor,
+.modal.item-page .modal-section-title.active-listings-anchor,
+#active-listings.modal-section-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 1.2 !important;
+  margin: 24px 0 12px !important;
+  padding: 0 !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.modal-section-title.active-listings-anchor .section-title-dot,
+#active-listings .section-title-dot {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8506 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8507 — listing row grid layout (.modal-listing-row)
+   csfloat /item Active Listings table row (mat-mdc-row): five-column
+     layout — avatar 40px / seller-info 1fr / id-chip auto / time auto /
+     price auto / buy-btn auto. Row min-height 56px (Material data-table
+     standard), vertical padding 8px to keep avatar centered. Gap 16px
+     between cells. Row divider via border-bottom 1px solid
+     rgba(255,255,255,0.06) — already pinned in ship #31, but the grid
+     template still used 4 columns, causing the buy button to wrap
+     underneath when a seller has both ship-time + verified chips.
+     Override grid-template-columns to fit all six children inline.
+   ===================================================================== */
+.modal-listings .modal-listing-row,
+.modal.item-page .modal-listing-row,
+.modal-listing-row {
+  display: grid !important;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto auto !important;
+  gap: 16px !important;
+  align-items: center !important;
+  min-height: 56px !important;
+  padding: 8px 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8507 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8508 — seller avatar (.modal-seller-av)
+   csfloat /item listing row avatar: 40x40 perfect circle, no border,
+     bg rgb(40, 42, 49) (one shade lighter than row bg for an avatar
+     "well" effect). Inline-flex center for monogram fallback.
+   sboxmarket /item: 36x36, gradient bg, 1px solid border. Bump to
+     40x40, drop the gradient, swap to flat csfloat well bg, drop the
+     border (csfloat shows none on the row avatar — borders are only
+     on the stall-page hero avatar).
+   ===================================================================== */
+.modal-listing-row .modal-seller-av,
+.modal-listing-row .seller-avatar {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 50% !important;
+  border: 0 none !important;
+  background: rgb(40, 42, 49) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+.modal-listing-row .modal-seller-av img,
+.modal-listing-row .seller-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8508 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8509 — seller name typography (.modal-seller-name)
+   csfloat /item row primary text (seller display name): font Roboto
+     14px / 500, color rgb(255, 255, 255), letter-spacing normal,
+     line-height 1.2 to match the data-row baseline. Hover underlines
+     instead of shifting color.
+   sboxmarket /item: 13px/500, color var(--ink). Bump to 14px and pin
+     the explicit white color to match the table-row primary text color.
+   .modal-seller-info inline-flex with 8px gap so verified + ship-time
+     chips wrap inline with the name on the first line.
+   ===================================================================== */
+.modal-listing-row .modal-seller-name,
+.modal-listing-row a.modal-seller-name,
+.modal-listing-row .seller-name {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+}
+.modal-listing-row .modal-seller-name:hover,
+.modal-listing-row a.modal-seller-name:hover {
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.modal-listing-row .modal-seller-info {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  padding: 0 !important;
+  border: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8509 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8510 — listing-id + listed-time muted text
+   csfloat /item row: "#listingId" and "listed Nh ago" both render as
+     plain muted secondary text — no chip pill, no border, no padding.
+     Already nudged in ship #33; this ship pins exact color
+     rgb(158, 167, 177), font Roboto 14px / 500, white-space nowrap,
+     and font-variant-numeric: tabular-nums so digits column-align
+     with the price column above.
+   ===================================================================== */
+.modal-listing-row .modal-listing-condition {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8510 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8511 — buy button compact variant (in-row)
+   csfloat /item Active Listings row buy button: compact 36px height,
+     padding 0 16px, font Roboto 14px / 500, text-transform: none,
+     letter-spacing normal, border-radius 4px, bg rgb(29, 78, 216),
+     hover bg rgb(37, 99, 235), active bg rgb(30, 64, 175). The legacy
+     sboxmarket .btn-accent inside listing rows was 44px tall with
+     uppercase letter-spacing — too tall for the 56px row, breaking
+     vertical alignment with the avatar baseline.
+   ===================================================================== */
+.modal-listing-row .buy-btn,
+.modal-listing-row button.btn-accent,
+.modal-listing-row a.btn-accent,
+.modal-listing-row .btn.btn-accent,
+.modal-listing-row .btn-primary {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  border-radius: 4px !important;
+  background: rgb(29, 78, 216) !important;
+  background-color: rgb(29, 78, 216) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.modal-listing-row .buy-btn:hover,
+.modal-listing-row button.btn-accent:hover,
+.modal-listing-row a.btn-accent:hover,
+.modal-listing-row .btn.btn-accent:hover,
+.modal-listing-row .btn-primary:hover {
+  background: rgb(37, 99, 235) !important;
+  background-color: rgb(37, 99, 235) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.modal-listing-row .buy-btn:active,
+.modal-listing-row button.btn-accent:active,
+.modal-listing-row .btn.btn-accent:active,
+.modal-listing-row .btn-primary:active {
+  background: rgb(30, 64, 175) !important;
+  background-color: rgb(30, 64, 175) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8511 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8512 — listing row hover state
+   csfloat /item: row hover overlay is a soft white tint —
+     bg rgba(255, 255, 255, 0.04). NO left-edge accent stripe (the
+     2px ::before slab on sboxmarket is a custom add). Cursor stays
+     default — the buy button itself owns the cursor:pointer affordance.
+   sboxmarket: had a 2px accent left-bar on hover via ::before. Strip
+     it on the item-page Active Listings table only — keeps the bar
+     elsewhere if used.
+   ===================================================================== */
+.modal-listing-row:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  cursor: default !important;
+}
+.modal-listing-row:hover::before,
+.modal-listing-row::before {
+  display: none !important;
+  content: none !important;
+  width: 0 !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8512 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8513 — verified seller chip (inline in row)
+   csfloat /item row: "Verified" chip after seller name renders as a
+     compact green pill — bg rgba(34, 197, 94, 0.12), border 1px solid
+     rgba(34, 197, 94, 0.35), color rgb(74, 222, 128), font Roboto 11px
+     / 600, padding 1px 8px, border-radius 10px, letter-spacing normal,
+     text-transform none. Inline-style version on the React element
+     used 10px / 700 / letter-spacing 0.3 — pin to csfloat exact values.
+   ===================================================================== */
+.modal-listing-row .modal-seller-info span[title*="Verified seller"],
+.modal-listing-row .seller-verified,
+.modal-listing-row .modal-seller-name + span[title*="Verified"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: rgb(74, 222, 128) !important;
+  background: rgba(34, 197, 94, 0.12) !important;
+  background-color: rgba(34, 197, 94, 0.12) !important;
+  border: 1px solid rgba(34, 197, 94, 0.35) !important;
+  border-radius: 10px !important;
+  padding: 1px 8px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  line-height: 1.4 !important;
+  margin-left: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8513 */
