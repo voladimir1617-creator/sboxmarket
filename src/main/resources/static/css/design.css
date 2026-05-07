@@ -141756,7 +141756,7 @@ body .listing-row[data-state="error"] {
 }
 /* END CSFLOAT-1:1 PARITY ship #5404 */
 
-/* CSFLOAT-1:1 PARITY ship #5500 — sticky <thead> on /db.
+/* CSFLOAT-1:1 PARITY ship #5800 — sticky <thead> on /db.
    csfloat /db has a 118px tall .header-container sticky at top:0 z:999.
    The local /db table is INSIDE a modal/page surface that scrolls; sticky
    thead inside the table needs position:sticky with top:0 (the surface
@@ -141782,9 +141782,9 @@ body .db-table thead th {
    to be the offset parent by making it position:relative without changing
    layout. Already relative in most builds; no-op safety net. */
 body .db-table-scroll { position: relative !important; }
-/* END CSFLOAT-1:1 PARITY ship #5500 */
+/* END CSFLOAT-1:1 PARITY ship #5800 */
 
-/* CSFLOAT-1:1 PARITY ship #5501 — .db-pager table footer polish.
+/* CSFLOAT-1:1 PARITY ship #5801 — .db-pager table footer polish.
    Existing .db-pager: padding 14px 16px, border-top 1px var(--line),
    bg var(--bg). csfloat keeps the page surface seamless (no separate bg
    stripe between table and pager); the pager floats on the same surface
@@ -141830,9 +141830,9 @@ body .db-pager > span {
   color: var(--ink-3) !important;
   letter-spacing: 0.02em !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5501 */
+/* END CSFLOAT-1:1 PARITY ship #5801 */
 
-/* CSFLOAT-1:1 PARITY ship #5502 — .db-meta caption strip.
+/* CSFLOAT-1:1 PARITY ship #5802 — .db-meta caption strip.
    This is the "X results · page Y / Z" strip ABOVE the table — the
    functional analogue of csfloat's app-skin-counter (text "1,871,925,394
    Skins", fs:18px, color:white, h:22, bg transparent). Local existing
@@ -141862,9 +141862,9 @@ body .db-meta strong {
   font-size: 13px !important;
   letter-spacing: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5502 */
+/* END CSFLOAT-1:1 PARITY ship #5802 */
 
-/* CSFLOAT-1:1 PARITY ship #5503 — density toggle (compact ↔ comfortable).
+/* CSFLOAT-1:1 PARITY ship #5803 — density toggle (compact ↔ comfortable).
    csfloat /db itself does NOT ship a density toggle (verified — no
    compact/comfortable/density-labelled buttons in app-float-dbtable on
    csfloat.com /db). Local /db likewise does not currently render one in
@@ -141907,9 +141907,9 @@ body .db-table[data-density="comfortable"] tbody td {
   padding: 14px 14px !important;
   font-size: 13px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5503 */
+/* END CSFLOAT-1:1 PARITY ship #5803 */
 
-/* CSFLOAT-1:1 PARITY ship #5504 — selected row highlight.
+/* CSFLOAT-1:1 PARITY ship #5804 — selected row highlight.
    csfloat /db rows are clickable and use a subtle accent-tint on hover
    (already shipped via earlier .db-row:hover). For a selected/active row
    (e.g. keyboard-focused, or when the modal carries an "open detail"
@@ -141950,4 +141950,324 @@ body .db-table tbody tr.db-row[aria-selected="true"] a.db-name:focus-visible,
 body .db-table tbody tr.db-row.is-active a.db-name:focus-visible {
   outline: none !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5504 */
+/* END CSFLOAT-1:1 PARITY ship #5804 */
+
+/* CSFLOAT-1:1 PARITY ship #5601 — specificity-bump for ship #5505/5506.
+   Older `body .wallet-tx-filter-chip` rule (line ~135166) and the
+   .wallet-tabs button rule (~130902) both win cascade because they
+   carry an extra type-or-class selector vs the bare class used in
+   ships 5505/5506. This ship re-publishes those rules with `html body`
+   prefix so they finally take. No new design — pixel intent is
+   identical to ships #5505 and #5506. */
+html body .wallet-tx-filter-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 12px 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+html body .wallet-tx-filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  padding: 0 13px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  background: rgba(255,255,255,0.05) !important;
+  color: rgba(255,255,255,0.6) !important;
+  border: 1px solid transparent !important;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease !important;
+  box-shadow: none !important;
+}
+html body .wallet-tx-filter-chip:hover {
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(255,255,255,0.85) !important;
+  border-color: transparent !important;
+}
+html body .wallet-tx-filter-chip.active,
+html body .wallet-tx-filter-chip[aria-selected="true"] {
+  background: #237bff !important;
+  color: #fff !important;
+  border-color: #237bff !important;
+  box-shadow: none !important;
+}
+html body .wallet-tx-filter-chip.active:hover {
+  background: #1f6fe6 !important;
+  color: #fff !important;
+}
+
+html body .wallet-tabs {
+  display: flex !important;
+  gap: 0 !important;
+  align-items: stretch !important;
+  height: 44px !important;
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  background: transparent !important;
+}
+html body .wallet-tabs button,
+html body .wallet-tabs > a,
+html body .wallet-tabs .tab {
+  position: relative !important;
+  height: 44px !important;
+  padding: 0 18px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  text-transform: none !important;
+  color: rgba(255,255,255,0.6) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  cursor: pointer !important;
+  transition: color 140ms ease, border-color 140ms ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .wallet-tabs button:hover,
+html body .wallet-tabs > a:hover {
+  color: rgba(255,255,255,0.92) !important;
+  background: transparent !important;
+}
+html body .wallet-tabs button.active,
+html body .wallet-tabs button[aria-selected="true"],
+html body .wallet-tabs > a.active,
+html body .wallet-tabs > a[aria-current="page"],
+html body .wallet-tabs .tab.active {
+  color: #fff !important;
+  background: transparent !important;
+  border-bottom: 2px solid #237bff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5601 */
+
+/* CSFLOAT-1:1 PARITY ship #5700 — Profile tabs row tightened to csfloat nav-tab metric (32px tap, 12.5px label, 14px gutter) */
+html body .profile-tabs {
+  gap: 0 !important;
+  margin-bottom: 18px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+html body .profile-tabs button.profile-tab {
+  padding: 8px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  color: rgba(255,255,255,0.56) !important;
+  border-bottom-width: 2px !important;
+  margin-bottom: -1px !important;
+  gap: 6px !important;
+  min-height: 32px !important;
+}
+html body .profile-tabs button.profile-tab:hover { color: rgba(255,255,255,0.88) !important; }
+html body .profile-tabs button.profile-tab.active {
+  color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5700 */
+
+/* CSFLOAT-1:1 PARITY ship #5701 — Profile tab badge: csfloat compact pill (10px mono, 1px x 5px, neutral chip) */
+html body .profile-tab-badge {
+  padding: 1px 5px !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.04em !important;
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(255,255,255,0.62) !important;
+  border-radius: 999px !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+html body .profile-tabs button.profile-tab.active .profile-tab-badge {
+  background: rgba(255,255,255,0.92) !important;
+  color: #0d0f12 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5701 */
+
+/* CSFLOAT-1:1 PARITY ship #5702 — Profile transactions summary stat cells: csfloat 4-up grid (12px gap, 15/9.5px stack, 11x13 padding) */
+html body .profile-tabs ~ div .admin-stat {
+  padding: 11px 13px !important;
+  gap: 3px !important;
+  background: rgba(255,255,255,0.025) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  border-radius: 6px !important;
+}
+html body .profile-tabs ~ div .admin-stat-label {
+  font-size: 9.5px !important;
+  letter-spacing: 0.13em !important;
+  color: rgba(255,255,255,0.46) !important;
+  font-weight: 600 !important;
+}
+html body .profile-tabs ~ div .admin-stat-val {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: #ffffff !important;
+  font-variant-numeric: tabular-nums !important;
+}
+html body .profile-tabs ~ div .admin-stat-val.green { color: #4ade80 !important; }
+html body .profile-tabs ~ div .admin-stat-val.red   { color: #f87171 !important; }
+/* END CSFLOAT-1:1 PARITY ship #5702 */
+
+/* CSFLOAT-1:1 PARITY ship #5703 — Profile filter chip row: tight 28px chips, 11px label (csfloat sub-filter scale) */
+html body .profile-tabs ~ div .wallet-tx-filter-row {
+  gap: 5px !important;
+  flex-wrap: wrap !important;
+}
+html body .profile-tabs ~ div .wallet-tx-filter-chip {
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  min-height: 28px !important;
+  border-radius: 4px !important;
+  background: rgba(255,255,255,0.025) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  color: rgba(255,255,255,0.62) !important;
+}
+html body .profile-tabs ~ div .wallet-tx-filter-chip:hover {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+html body .profile-tabs ~ div .wallet-tx-filter-chip.active {
+  background: rgba(255,255,255,0.92) !important;
+  color: #0d0f12 !important;
+  border-color: rgba(255,255,255,0.92) !important;
+}
+html body .profile-tabs ~ div .wallet-tx-filter-chip:disabled {
+  opacity: 0.34 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5703 */
+
+/* CSFLOAT-1:1 PARITY ship #5704 — Profile date/month select + search: csfloat 28px height, 11px text */
+html body .profile-tabs ~ div .sort-select,
+html body .profile-tabs ~ div input.price-input {
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  background: rgba(255,255,255,0.025) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 4px !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+html body .profile-tabs ~ div .sort-select:focus,
+html body .profile-tabs ~ div input.price-input:focus {
+  border-color: rgba(120,170,255,0.55) !important;
+  outline: none !important;
+}
+html body .profile-tabs ~ div input.price-input::placeholder {
+  color: rgba(255,255,255,0.38) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5704 */
+
+/* CSFLOAT-1:1 PARITY ship #5705 — Profile CSV download button: ghost 28px, 11px label (csfloat secondary action chip) */
+html body .profile-tabs ~ div a.btn.btn-ghost[href*="transactions.csv"] {
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  background: rgba(255,255,255,0.025) !important;
+  color: rgba(255,255,255,0.78) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+html body .profile-tabs ~ div a.btn.btn-ghost[href*="transactions.csv"]:hover {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5705 */
+
+/* CSFLOAT-1:1 PARITY ship #5706 — Profile transactions/listings table: compact 40px row, 11.5/10.5px text, 9px vertical padding */
+html body .profile-tabs ~ div table.db-table {
+  font-size: 11.5px !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  width: 100% !important;
+}
+html body .profile-tabs ~ div table.db-table thead th {
+  padding: 8px 10px !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.13em !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  color: rgba(255,255,255,0.42) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  background: transparent !important;
+}
+html body .profile-tabs ~ div table.db-table tbody tr {
+  height: 40px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+}
+html body .profile-tabs ~ div table.db-table tbody tr:hover {
+  background: rgba(255,255,255,0.025) !important;
+}
+html body .profile-tabs ~ div table.db-table tbody td {
+  padding: 9px 10px !important;
+  border-bottom: 0 !important;
+}
+html body .profile-tabs ~ div table.db-table tbody td.db-rank {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  color: rgba(255,255,255,0.42) !important;
+  font-family: var(--mono) !important;
+}
+html body .profile-tabs ~ div table.db-table tbody td.right.db-mono {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.01em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5706 */
+
+/* CSFLOAT-1:1 PARITY ship #5707 — Profile empty-state: csfloat 40px icon, 14/12px copy, 32px vertical padding (matches their no-listings/no-transactions panel) */
+html body .profile-tabs ~ div .empty-inline {
+  padding: 32px 20px !important;
+  text-align: center !important;
+  border: 1px dashed rgba(255,255,255,0.08) !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,0.015) !important;
+}
+html body .profile-tabs ~ div .empty-inline .empty-icon {
+  width: 40px !important;
+  height: 40px !important;
+  margin: 0 auto 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,0.04) !important;
+  color: rgba(255,255,255,0.46) !important;
+}
+html body .profile-tabs ~ div .empty-inline .btn.btn-accent {
+  height: 30px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 5px !important;
+}
+html body .profile-tabs ~ div .empty-inline .btn.btn-ghost {
+  height: 30px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 5px !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  background: transparent !important;
+  color: rgba(255,255,255,0.78) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5707 */
