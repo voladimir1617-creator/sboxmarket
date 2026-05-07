@@ -135854,3 +135854,365 @@ body .modal.item-page > .modal-body {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #3304 */
+
+/* CSFLOAT-1:1 PARITY ship #3600 — h1 default */
+/* csfloat content h1: 20px / 500 / Roboto / lh 28px / mb 16px / white */
+:where(main, .container, article, section, .content, .page-content) h1:not([class]):not([data-skinbox]) {
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3600 */
+
+/* CSFLOAT-1:1 PARITY ship #3601 — h2 default (label-style) */
+/* csfloat content h2: 11px / 700 / uppercase / letter-spacing 0.5px / muted / mb 10px / Geist */
+:where(main, .container, article, section, .content, .page-content) h2:not([class]):not([data-skinbox]) {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 13.2px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  margin-top: 0 !important;
+  margin-bottom: 10px !important;
+  color: oklch(0.66 0.012 260) !important;
+  font-family: Geist, Inter, system-ui, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3601 */
+
+/* CSFLOAT-1:1 PARITY ship #3602 — p default + small + h3/h4/h5/h6 ladder */
+/* csfloat p: 13px / 700 / lh 19.5px / muted */
+:where(main, .container, article, section, .content, .page-content) p:not([class]):not([data-skinbox]) {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 19.5px !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  color: oklch(0.8 0.01 260) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* csfloat-style h3: 18.72px / 700 / Roboto / lh normal */
+:where(main, .container, article, section, .content, .page-content) h3:not([class]):not([data-skinbox]) {
+  font-size: 18.72px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  margin-top: 18.72px !important;
+  margin-bottom: 18.72px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* csfloat-style h4: 16px / 700 / Roboto / lh normal */
+:where(main, .container, article, section, .content, .page-content) h4:not([class]):not([data-skinbox]) {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  margin-top: 21.28px !important;
+  margin-bottom: 21.28px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* csfloat-style h5: 13.28px / 700 / Roboto / lh normal */
+:where(main, .container, article, section, .content, .page-content) h5:not([class]):not([data-skinbox]) {
+  font-size: 13.28px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  margin-top: 22.1776px !important;
+  margin-bottom: 22.1776px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* csfloat-style h6: 10.72px / 700 / Roboto / lh normal */
+:where(main, .container, article, section, .content, .page-content) h6:not([class]):not([data-skinbox]) {
+  font-size: 10.72px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  margin-top: 24.9776px !important;
+  margin-bottom: 24.9776px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* small (csfloat default — white, native 13.33px) */
+:where(main, .container, article, section, .content, .page-content) small:not([class]):not([data-skinbox]) {
+  font-size: 13.3333px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* strong (csfloat: 700 white, no other deltas) */
+:where(main, .container, article, section, .content, .page-content) p:not([class]) strong,
+:where(main, .container, article, section, .content, .page-content) p:not([class]) b {
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* em (csfloat: italic, normal weight) */
+:where(main, .container, article, section, .content, .page-content) p:not([class]) em,
+:where(main, .container, article, section, .content, .page-content) p:not([class]) i {
+  font-style: italic !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3602 */
+
+/* CSFLOAT-1:1 PARITY ship #3603 — code + kbd boxed */
+/* csfloat-style inline code: monospace ~0.92em, subtle bg, light border, rounded */
+:where(main, .container, article, section, .content, .page-content) :not(pre) > code:not([class]):not([data-skinbox]) {
+  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 0.92em !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  color: oklch(0.97 0.006 90) !important;
+  background-color: oklch(0.22 0.012 260 / 0.6) !important;
+  border: 1px solid oklch(0.32 0.012 260 / 0.55) !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+  margin: 0 1px !important;
+  white-space: pre-wrap !important;
+}
+/* pre>code stays uniform inside fenced blocks */
+:where(main, .container, article, section, .content, .page-content) pre:not([class]) {
+  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 12.5px !important;
+  line-height: 1.55 !important;
+  color: oklch(0.92 0.008 260) !important;
+  background-color: oklch(0.18 0.012 260 / 0.85) !important;
+  border: 1px solid oklch(0.28 0.012 260 / 0.55) !important;
+  border-radius: 6px !important;
+  padding: 12px 14px !important;
+  margin: 12px 0 !important;
+  overflow-x: auto !important;
+}
+:where(main, .container, article, section, .content, .page-content) pre:not([class]) code:not([class]) {
+  background-color: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+/* csfloat-style kbd: small mono pill with subtle 3D border */
+:where(main, .container, article, section, .content, .page-content) kbd:not([class]):not([data-skinbox]) {
+  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 0.82em !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  color: oklch(0.97 0.006 90) !important;
+  background-color: oklch(0.22 0.012 260 / 0.85) !important;
+  border: 1px solid oklch(0.32 0.012 260 / 0.7) !important;
+  border-bottom-width: 2px !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  margin: 0 1px !important;
+  display: inline-block !important;
+  min-width: 16px !important;
+  text-align: center !important;
+  vertical-align: baseline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3603 */
+
+/* CSFLOAT-1:1 PARITY ship #3604 — inline <a> accent + hover */
+/* csfloat inline-link accent: dodgerblue-family link, no underline default, underline on hover */
+:where(main, .container, article, section, .content, .page-content) p:not([class]) a:not([class]),
+:where(main, .container, article, section, .content, .page-content) li:not([class]) a:not([class]),
+:where(main, .container, article, section, .content, .page-content) h1:not([class]) a:not([class]),
+:where(main, .container, article, section, .content, .page-content) h2:not([class]) a:not([class]),
+:where(main, .container, article, section, .content, .page-content) h3:not([class]) a:not([class]),
+:where(main, .container, article, section, .content, .page-content) h4:not([class]) a:not([class]),
+:where(main, .container, article, section, .content, .page-content) span:not([class]) a:not([class]) {
+  color: rgb(30, 144, 255) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease !important;
+  text-underline-offset: 2px !important;
+}
+:where(main, .container, article, section, .content, .page-content) p:not([class]) a:not([class]):hover,
+:where(main, .container, article, section, .content, .page-content) li:not([class]) a:not([class]):hover,
+:where(main, .container, article, section, .content, .page-content) span:not([class]) a:not([class]):hover {
+  color: rgb(96, 173, 255) !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1px !important;
+}
+:where(main, .container, article, section, .content, .page-content) p:not([class]) a:not([class]):active,
+:where(main, .container, article, section, .content, .page-content) li:not([class]) a:not([class]):active {
+  color: rgb(20, 110, 215) !important;
+}
+:where(main, .container, article, section, .content, .page-content) p:not([class]) a:not([class]):focus-visible,
+:where(main, .container, article, section, .content, .page-content) li:not([class]) a:not([class]):focus-visible {
+  outline: 2px solid rgb(30, 144, 255) !important;
+  outline-offset: 2px !important;
+  border-radius: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3604 */
+
+/* CSFLOAT-1:1 PARITY ship #3400 — price-history chart LINE stroke + width.
+   csfloat draws a single 2px polyline in #237bff (their core accent). Our
+   sparkline already uses --up green / --down red as caller intent, but the
+   item-modal price chart should match csfloat's neutral-blue. Override only
+   inside .chart-wrap so other sparklines (notifications, profile, stall
+   chips) keep their semantic up/down coloring. */
+body .chart-wrap svg.chart polyline {
+  stroke: rgb(35, 123, 255) !important;
+  stroke-width: 2 !important;
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+}
+/* Re-key the gradient fill to the same blue so the area below the line
+   matches csfloat's faint blue wash (no mismatched green/blue stack). */
+body .chart-wrap svg.chart polygon {
+  fill: url(#csfloat-chart-area-grad), rgba(35, 123, 255, 0.10) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3400 */
+
+/* CSFLOAT-1:1 PARITY ship #3401 — price-history chart GRID lines. csfloat's
+   dark canvas uses very faint horizontal rules — rgba(255,255,255,0.05) —
+   so the lines whisper rather than compete with the data line. Our sparkline
+   draws gridlines inline via stroke="rgba(255,255,255,0.04)"; nudging to
+   .05 + explicit shape-rendering=crispEdges gives crisper 1px grid. */
+body .chart-wrap svg.chart line {
+  stroke: rgba(255, 255, 255, 0.05) !important;
+  stroke-width: 1 !important;
+  shape-rendering: crispEdges !important;
+}
+/* Hover crosshair (vertical dashed line on cursor) keeps a stronger
+   alpha so it visually leads the eye to the active data point. */
+body .chart-wrap svg.chart line[stroke-dasharray] {
+  stroke: rgba(35, 123, 255, 0.35) !important;
+  stroke-width: 1 !important;
+  shape-rendering: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3401 */
+
+/* CSFLOAT-1:1 PARITY ship #3402 — chart-range pills (7D / 1M / 3M / 1Y / ALL).
+   csfloat: 28px tall, Roboto 12/500 (NOT mono uppercase), 0 letter-spacing,
+   pill-shaped 999px radius, inactive ink rgb(158,167,177) on transparent
+   inside a single rgba(255,255,255,0.08) outer ring, gap 4px between pills,
+   active = rgba(35,123,255,0.15) bg + rgba(35,123,255,0.4) border + white ink. */
+body .chart-range {
+  display: inline-flex !important;
+  gap: 4px !important;
+  padding: 4px !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 999px !important;
+  overflow: visible !important;
+}
+body .chart-range button,
+body .chart-range .chart-range-btn {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  white-space: nowrap !important;
+  transition: background 140ms ease, color 140ms ease !important;
+}
+body .chart-range button:hover:not(.active):not(.on):not(.is-disabled):not(:disabled),
+body .chart-range .chart-range-btn:hover:not(.active):not(.on):not(.is-disabled):not(:disabled) {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body .chart-range button.active,
+body .chart-range button.on,
+body .chart-range .chart-range-btn.active,
+body .chart-range .chart-range-btn.on {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  font-weight: 600 !important;
+}
+body .chart-range button.is-disabled,
+body .chart-range button:disabled,
+body .chart-range .chart-range-btn.is-disabled,
+body .chart-range .chart-range-btn:disabled {
+  color: rgba(158, 167, 177, 0.4) !important;
+  background: transparent !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3402 */
+
+/* CSFLOAT-1:1 PARITY ship #3403 — sparkline hover tooltip (price + date).
+   csfloat tooltip: #1a1d24 bg, rgba(255,255,255,0.08) hairline border,
+   8px radius, 6px 8px padding, Roboto 12/500, white price + muted ash
+   date underneath at 11px, soft drop shadow that lifts off the dark
+   chart canvas, translateX(-50%) so the cursor is the center anchor. */
+body .sparkline-tooltip {
+  background: rgb(26, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+  transform: translateX(-50%) translateY(-8px) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  letter-spacing: 0 !important;
+}
+body .sparkline-tooltip .sparkline-tt-price {
+  color: rgb(255, 255, 255) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  line-height: 1.2 !important;
+}
+body .sparkline-tooltip .sparkline-tt-date {
+  color: rgb(158, 167, 177) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  margin-top: 2px !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3403 */
+
+/* CSFLOAT-1:1 PARITY ship #3404 — chart-axis labels (X time + Y price).
+   csfloat axis labels: Roboto 11/400 in rgba(158,167,177,0.85), no
+   uppercase, 0 letter-spacing. The existing rule used --mono which gave
+   a tabular geometric look — reset to the platform stack so axis numerics
+   read like csfloat's. Also cap line-height so multi-row x-axis ticks
+   don't push the chart canvas. */
+body .chart-axis-label,
+body .chart-wrap .chart-axis-label,
+body .csfloat-chart-axis,
+body .csfloat-chart-tick {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: rgba(158, 167, 177, 0.85) !important;
+  fill: rgba(158, 167, 177, 0.85) !important;
+  line-height: 1.2 !important;
+}
+/* Min/max dot accents on the sparkline — csfloat draws no colored
+   extreme markers, but our component layers a green/red dot. Tone
+   them down to a smaller blue dot ring so they read as "data points"
+   rather than competing semantic up/down coloring. */
+body .chart-wrap svg.chart circle[r="4"] {
+  r: 3 !important;
+  fill: rgb(35, 123, 255) !important;
+  stroke: rgb(13, 16, 22) !important;
+  stroke-width: 1.5 !important;
+}
+body .chart-wrap svg.chart circle[r="5"] {
+  r: 4 !important;
+  fill: rgb(35, 123, 255) !important;
+  stroke: rgb(13, 16, 22) !important;
+  stroke-width: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3404 */
