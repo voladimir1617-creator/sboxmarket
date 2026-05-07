@@ -154498,3 +154498,32 @@ body .csfloat-card-grid-with-hover-tile:hover {
   box-shadow: rgba(0, 0, 0, 0.25) 0px 6px 12px -2px, rgba(0, 0, 0, 0.18) 0px 3px 7px -3px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11600 */
+
+/* CSFLOAT-1:1 PARITY ship #11601 — button hover lift + filter brighten (csfloat: 140ms, translateY(-1px), filter brightness(1.08)) */
+body button,
+body .mat-mdc-button,
+body .mdc-button,
+body .mat-mdc-raised-button,
+body .mat-mdc-unelevated-button,
+body .mat-mdc-outlined-button,
+body .csfloat-btn,
+body .csfloat-button,
+body .btn,
+body .nav-icon-btn,
+body .steam-btn {
+  transition: transform 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body button:hover:not(:disabled),
+body .mat-mdc-button:hover:not(:disabled),
+body .mdc-button:hover:not(:disabled),
+body .mat-mdc-raised-button:hover:not(:disabled),
+body .mat-mdc-unelevated-button:hover:not(:disabled),
+body .csfloat-btn:hover:not(:disabled),
+body .csfloat-button:hover:not(:disabled),
+body .btn:hover:not(:disabled),
+body .steam-btn:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.08) !important;
+  box-shadow: rgba(0, 0, 0, 0.25) 0px 4px 8px -2px, rgba(0, 0, 0, 0.18) 0px 2px 4px -2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11601 */
