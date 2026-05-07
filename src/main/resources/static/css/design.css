@@ -134918,3 +134918,281 @@ body .modal-content > div > .modal-section-title .section-title-dot {
   margin-top: auto !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2611 */
+
+/* CSFLOAT-1:1 PARITY ship #2900 — /buyorders standalone-card row spec
+   Existing ship #75 painted .full-page-mode .buyorder-row as a flat
+   stacked-list row (border-bottom hairline, no radius). csfloat treats
+   the BUY ORDERS list on the dedicated /buy-orders surface the same
+   way it treats trade rows in profile (see ship #1305): each row is
+   a STANDALONE CARD — bg rgb(27,29,36), 1px rgb(38,40,48), 8px
+   radius, 16px 20px padding, 12px stack gap. Override the older
+   stacked-list spec on .full-page-mode + scope to .buyorder-list to
+   keep the modal version (csfloat-modals.js) on the original
+   stacked treatment ship #75 set. Aligns the standalone page with
+   profile/offers/trades card chrome. */
+body .full-page-mode .buyorder-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+body .full-page-mode .buyorder-list > .buyorder-row,
+body .full-page-mode .buyorder-list > .buy-order-row,
+body .full-page-mode .buyorder-list > .bo-row {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgb(38, 40, 48) !important;
+  border-radius: 8px !important;
+  padding: 16px 20px !important;
+  min-height: 64px !important;
+  border-bottom: 1px solid rgb(38, 40, 48) !important;
+  transition: border-color 140ms ease, background 140ms ease !important;
+}
+body .full-page-mode .buyorder-list > .buyorder-row:hover,
+body .full-page-mode .buyorder-list > .buy-order-row:hover,
+body .full-page-mode .buyorder-list > .bo-row:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgb(50, 52, 62) !important;
+}
+body .full-page-mode .buyorder-list > .buyorder-row:last-child,
+body .full-page-mode .buyorder-list > .buy-order-row:last-child {
+  border-bottom: 1px solid rgb(38, 40, 48) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2900 */
+
+/* CSFLOAT-1:1 PARITY ship #2901 — .buyorder-title / .buyorder-sub typography
+   csfloat list-row primary text: Roboto 14/500 white, secondary
+   meta: Roboto 12/400 muted ink rgb(158,167,177). Existing
+   .buyorder-row inherits font-family from ship #75's body rule but
+   the inner .buyorder-title + .buyorder-sub never got pinned —
+   tokens drift to whatever the cascade lands on (often an oklch
+   meta color from the global skin). Pin both. The .buyorder-cap
+   price slot reads as a numeric figure to the right; csfloat uses
+   tabular-nums there so prices align across rows. */
+body .buyorder-row .buyorder-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 20px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+body .buyorder-row .buyorder-sub {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+  margin-top: 2px !important;
+}
+body .buyorder-row .buyorder-sub strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+}
+body .buyorder-row .buyorder-cap {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 20px !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2901 */
+
+/* CSFLOAT-1:1 PARITY ship #2902 — .buyorder-status chip + status-color tokens
+   csfloat trade-state chips (ship #1306) settled on Roboto
+   11/700 caps, 4px radius, 6px 10px padding, 12% accent overlays.
+   .buyorder-status is the analogous slot for /buy-orders rows but
+   has never been pinned to that token — picks up whatever pill
+   token the global cascade hands it (often the legacy oklch
+   999px-radius pill). Snap to the trade-state spec so PENDING /
+   ACTIVE / FILLED / CANCELLED / EXPIRED read as label chips, not
+   button pills. Color hooks: ACTIVE=accent-blue, FILLED=green,
+   CANCELLED=red, EXPIRED=amber, matching csfloat's status palette. */
+body .buyorder-row .buyorder-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: auto !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  line-height: 14px !important;
+  border: 1px solid transparent !important;
+  white-space: nowrap !important;
+  margin-top: 4px !important;
+}
+body .buyorder-row .buyorder-status.ACTIVE,
+body .buyorder-row .buyorder-status.PENDING {
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(116, 174, 255) !important;
+  border-color: rgba(35, 123, 255, 0.3) !important;
+}
+body .buyorder-row .buyorder-status.FILLED {
+  background: rgba(78, 196, 110, 0.12) !important;
+  color: rgb(120, 220, 150) !important;
+  border-color: rgba(78, 196, 110, 0.3) !important;
+}
+body .buyorder-row .buyorder-status.CANCELLED {
+  background: rgba(248, 113, 113, 0.12) !important;
+  color: rgb(255, 138, 138) !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+body .buyorder-row .buyorder-status.EXPIRED {
+  background: rgba(244, 188, 75, 0.12) !important;
+  color: rgb(244, 200, 110) !important;
+  border-color: rgba(244, 188, 75, 0.3) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2902 */
+
+/* CSFLOAT-1:1 PARITY ship #2903 — buyorder-row Cancel inline-button polish
+   The ACTIVE-state Cancel button in csfloat-modals.js renders inline
+   styles: 1px rgba(248,113,113,0.3) border, var(--red) text, 7px 14px
+   pad, 12px font, .btn-ghost class. csfloat's analogous row action
+   buttons are 32px tall, 4px radius (matching the chip squared
+   corners from ship #1306), Roboto 12/600. The .btn-ghost class
+   hover state from the global cascade adds an unwanted bg fill +
+   transform. Pin the row-Cancel button to a calm 32px height +
+   4px radius + no transform-on-hover so it parses as a tertiary
+   action chip, not a button card. */
+body .buyorder-row .btn-ghost {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  background: transparent !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+body .buyorder-row .btn-ghost:hover {
+  background: rgba(248, 113, 113, 0.08) !important;
+  border-color: rgba(248, 113, 113, 0.55) !important;
+  transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2903 */
+
+/* CSFLOAT-1:1 PARITY ship #2904 — .trade-counterparty-* row block tokens
+   Existing rules at line 7072 set .trade-counterparty-label /
+   .trade-counterparty-missing / .trade-counterparty-copy /
+   .trade-counterparty-link with token-prefix vars (--ink-2 etc.).
+   csfloat's profile/trades counterparty row block measures: label
+   12/500 muted, value 13/500 white, copy + steam links 12/500
+   muted with a 1px hairline rgba(255,255,255,0.08) border, 4px
+   radius, 4px 8px pad, 28px height. Existing rules use
+   var(--line-2) borders that resolve to ~rgba(255,255,255,0.12)
+   when the global skin is mid-cycle — too heavy. Pin copy +
+   link buttons to the lighter hairline so they read as action
+   chips, not buttons. Anchor link underline tokens stay (matching
+   inline-link cycle-31 ship #53). */
+body .trade-row .trade-counterparty-url {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-top: 8px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .trade-row .trade-counterparty-label,
+body .trade-row .trade-counterparty-missing {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  text-transform: none !important;
+}
+body .trade-row .trade-counterparty-link {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(116, 174, 255) !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(116, 174, 255, 0.4) !important;
+  text-underline-offset: 2px !important;
+}
+body .trade-row .trade-counterparty-link:hover {
+  text-decoration-color: rgb(116, 174, 255) !important;
+}
+body .trade-row .trade-counterparty-copy,
+body .trade-row .trade-copy-id {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease !important;
+}
+body .trade-row .trade-counterparty-copy:hover,
+body .trade-row .trade-copy-id:hover {
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2904 */
+
+/* CSFLOAT-1:1 PARITY ship #2905 — wallet-tx-filter-chip status-filter pill row
+   The /buyorders & /trades panels reuse .wallet-tx-filter-chip for
+   the [Active · n] [Filled · n] [Cancelled · n] [Expired · n] [All]
+   filter row (csfloat-modals.js line 778, modals.js 5504). csfloat
+   filter chips on detail pages are a pill-shaped Roboto 12/500
+   token, 28px tall, 12px H pad, 1px rgba(255,255,255,0.08) border,
+   transparent base, accent-bg + accent-border when .active.
+   Disabled (count===0) chips drop to 50% opacity, no hover. Pin
+   the existing .wallet-tx-filter-chip to that spec so the chip row
+   reads as a status filter, not a button group. */
+body .wallet-tx-filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .wallet-tx-filter-chip:hover:not(:disabled):not(.active) {
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body .wallet-tx-filter-chip.active {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  border-color: rgba(35, 123, 255, 0.4) !important;
+}
+body .wallet-tx-filter-chip:disabled,
+body .wallet-tx-filter-chip[disabled] {
+  opacity: 0.5 !important;
+  cursor: default !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2905 */
