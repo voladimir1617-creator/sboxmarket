@@ -137057,3 +137057,299 @@ body .toast-stack > * + * {
   margin-top: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3705 */
+
+/* CSFLOAT-1:1 PARITY ship #3800 — Form group spacing
+   csfloat MDC mat-form-field stacks label / input / hint+error vertically.
+   Field margin-bottom 16px between groups; subscript reserves min-height
+   for the hint/error line so layout doesn't reflow on validation. We
+   mirror that on any sboxmarket form-group / .form-row. */
+body .form-group,
+body .form-field,
+body .form-row,
+body form > div,
+body form > label,
+body fieldset > div {
+  margin-bottom: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+body .form-group:last-child,
+body .form-field:last-child,
+body .form-row:last-child {
+  margin-bottom: 0 !important;
+}
+body .form-group::after,
+body .form-field::after {
+  content: "";
+  display: block;
+  min-height: 0;
+}
+/* END CSFLOAT-1:1 PARITY ship #3800 */
+
+/* CSFLOAT-1:1 PARITY ship #3801 — Required indicator (*)
+   csfloat MDC pattern: the required marker uses the M3 error label
+   color which resolves to rgb(244, 67, 54). The asterisk sits next to
+   the label with margin-left: 4px, aria-hidden. */
+body .required::after,
+body label.required::after,
+body label[data-required="true"]::after,
+body .form-label.required::after,
+body label[for] .required-marker {
+  content: " *" !important;
+  color: rgb(244, 67, 54) !important;
+  margin-left: 0 !important;
+  font-weight: 400 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+body abbr.required,
+body abbr[title="required"] {
+  color: rgb(244, 67, 54) !important;
+  text-decoration: none !important;
+  border: 0 !important;
+  margin-left: 4px !important;
+  font-size: inherit !important;
+  font-weight: 400 !important;
+  cursor: help !important;
+}
+body input:required:not(:focus):not(.invalid):not([aria-invalid="true"]),
+body textarea:required:not(:focus):not(.invalid):not([aria-invalid="true"]),
+body select:required:not(:focus):not(.invalid):not([aria-invalid="true"]) {
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3801 */
+
+/* CSFLOAT-1:1 PARITY ship #3802 — Optional indicator
+   csfloat does NOT use an "(optional)" suffix anywhere — required is
+   the only marked variant (with *). For sboxmarket parity, render a
+   muted "(optional)" sibling with csfloat hint typography
+   (12px, white-muted alpha) when an .optional class is set. */
+body label.optional::after,
+body label[data-optional="true"]::after,
+body .form-label.optional::after {
+  content: " (optional)" !important;
+  color: rgba(158, 167, 177, 0.6) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+  margin-left: 4px !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+}
+body label.required.optional::after {
+  content: " *" !important;
+  color: rgb(244, 67, 54) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3802 */
+
+/* CSFLOAT-1:1 PARITY ship #3803 — Inline error message
+   csfloat MDC mat-error inside .mat-mdc-form-field-subscript-wrapper:
+   font-size 12px, line-height 16px, color rgb(244, 67, 54), padding
+   aligns under input text. Input in error state gets red border. */
+body .field-error,
+body .form-error,
+body .invalid-feedback,
+body .error-message,
+body mat-error,
+body .mat-mdc-form-field-error,
+body [role="alert"].error,
+body small.error,
+body span.error {
+  display: block !important;
+  color: rgb(244, 67, 54) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.4px !important;
+  margin: 0 !important;
+  padding: 4px 0 0 0 !important;
+  font-family: inherit !important;
+}
+body input.invalid,
+body input[aria-invalid="true"],
+body input.error,
+body textarea.invalid,
+body textarea[aria-invalid="true"],
+body textarea.error,
+body select.invalid,
+body select[aria-invalid="true"],
+body select.error {
+  border-color: rgb(244, 67, 54) !important;
+  box-shadow: 0 0 0 1px rgba(244, 67, 54, 0.16) !important;
+  outline: none !important;
+}
+body input.invalid:focus,
+body input[aria-invalid="true"]:focus,
+body textarea.invalid:focus,
+body textarea[aria-invalid="true"]:focus {
+  border-color: rgb(244, 67, 54) !important;
+  box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.24) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3803 */
+
+/* CSFLOAT-1:1 PARITY ship #3804 — Hint text style
+   csfloat .mat-mdc-form-field-hint-wrapper: font-size 12px, line-height
+   16px, color M3 caption (~rgba(255,255,255,0.6)). Reads as supporting
+   text without competing with the input value. When error is present,
+   hint hides (MDC default). */
+body .form-hint,
+body .form-help,
+body .help-text,
+body .hint-text,
+body .input-hint,
+body small.hint,
+body small.help,
+body small.form-text,
+body mat-hint,
+body .mat-mdc-form-field-hint {
+  display: block !important;
+  color: rgba(158, 167, 177, 0.6) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.4px !important;
+  margin: 0 !important;
+  padding: 4px 0 0 0 !important;
+  font-family: inherit !important;
+}
+body .form-group:has(.field-error) .form-hint,
+body .form-group:has(.form-error) .form-hint,
+body .form-field:has(.field-error) .form-hint,
+body .form-field:has(.field-error) .hint-text,
+body .form-group:has(.field-error) .hint-text {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3804 */
+
+/* CSFLOAT-1:1 PARITY ship #3805 — Form section divider
+   csfloat splits dialog forms with a mat-divider rendered as 1px
+   hairline at rgba(255,255,255,0.08) with 16px vertical margin.
+   Section heading uses small muted-uppercase caption. */
+body .form-section-divider,
+body .form-divider,
+body fieldset + fieldset,
+body form hr,
+body form .divider {
+  display: block !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  height: 1px !important;
+  margin: 16px 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  width: 100% !important;
+}
+body .form-section-heading,
+body .form-section-title,
+body fieldset > legend {
+  display: block !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  color: rgba(158, 167, 177, 0.7) !important;
+  margin: 0 0 8px 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3805 */
+
+/* CSFLOAT-1:1 PARITY ship #3806 — Disabled state
+   csfloat MDC disabled fields: text rgba(255,255,255,0.38), indicator
+   rgba(255,255,255,0.06), container rgba(255,255,255,0.04), cursor
+   default. Label/hint dim to the same 0.38 alpha. */
+body input:disabled,
+body input[disabled],
+body input[aria-disabled="true"],
+body textarea:disabled,
+body textarea[disabled],
+body select:disabled,
+body select[disabled] {
+  color: rgba(255, 255, 255, 0.38) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  cursor: default !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.38) !important;
+}
+body input:disabled::placeholder,
+body textarea:disabled::placeholder {
+  color: rgba(255, 255, 255, 0.26) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.26) !important;
+}
+body .form-group:has(input:disabled) > label,
+body .form-group:has(input:disabled) > .form-hint,
+body .form-field:has(input:disabled) > label,
+body .form-field:has(input:disabled) > .form-hint {
+  color: rgba(255, 255, 255, 0.38) !important;
+}
+body button[type="submit"]:disabled,
+body button[type="submit"][disabled],
+body button.btn:disabled,
+body button.btn[disabled] {
+  color: rgba(255, 255, 255, 0.38) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: transparent !important;
+  cursor: default !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3806 */
+
+/* CSFLOAT-1:1 PARITY ship #3807 — Read-only state
+   csfloat MDC readonly: same visual as enabled, but caret transparent,
+   no focus indicator animation. */
+body input[readonly],
+body input:read-only,
+body textarea[readonly],
+body textarea:read-only {
+  caret-color: transparent !important;
+  cursor: default !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+body input[readonly]:focus,
+body input:read-only:focus,
+body textarea[readonly]:focus,
+body textarea:read-only:focus {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+body input[readonly]::placeholder,
+body input:read-only::placeholder,
+body textarea[readonly]::placeholder,
+body textarea:read-only::placeholder {
+  color: rgba(255, 255, 255, 0.38) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3807 */
+
+/* CSFLOAT-1:1 PARITY ship #3808 — Form label baseline typography
+   csfloat MDC floating label (filled, above the input): font-size 12px,
+   line-height 16px, weight 400, letter-spacing 0.4px, color
+   rgba(255,255,255,0.6). Focus tints with primary, error tints with red. */
+body label,
+body .form-label,
+body .input-label,
+body legend {
+  font-family: inherit !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.4px !important;
+  color: rgba(158, 167, 177, 0.85) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body .form-group:focus-within > label,
+body .form-field:focus-within > label {
+  color: rgb(35, 123, 255) !important;
+}
+body .form-group:has(.field-error) > label,
+body .form-group:has(.form-error) > label,
+body .form-field:has(.field-error) > label {
+  color: rgb(244, 67, 54) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3808 */
+
