@@ -153864,3 +153864,154 @@ body .sale-toast.sale-toast.warning {
   background-color: rgba(176, 113, 24, 0.75) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11010 */
+
+/* CSFLOAT-1:1 PARITY ship #10900 — home rail-tab letter-spacing canon (csfloat 0.42px) */
+body .csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab,
+body .csfloat-home-rail-tabs .csfloat-home-rail-tab,
+body .csfloat-home-rail-tab {
+  letter-spacing: 0.42px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10900 */
+
+/* CSFLOAT-1:1 PARITY ship #10901 — home rail-tab inactive color matches csfloat (white not muted) */
+body .csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab:not(.active),
+body .csfloat-home-rail-tabs .csfloat-home-rail-tab:not(.active),
+body .csfloat-home-rail-tab:not(.active) {
+  color: rgb(255, 255, 255) !important;
+}
+body .csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab:not(.active):hover,
+body .csfloat-home-rail-tabs .csfloat-home-rail-tab:not(.active):hover,
+body .csfloat-home-rail-tab:not(.active):hover {
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10901 */
+
+/* CSFLOAT-1:1 PARITY ship #10902 — rail tab pill geometry lock (csfloat: 32h, brd 4, mar 3, pad 0 12) */
+body .csfloat-home-rail-tab,
+body .csfloat-home-rail-tab.active,
+body .csfloat-home-rail-tab:not(.active) {
+  height: 32px !important;
+  min-height: 32px !important;
+  line-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 3px !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10902 */
+
+/* CSFLOAT-1:1 PARITY ship #10903 — rail tab container chrome (csfloat: brd 7, bg rgba(193,206,255,0.04)) */
+body .csfloat-home-rail-tabs {
+  border-radius: 7px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10903 */
+
+/* CSFLOAT-1:1 PARITY ship #10904 — rail tab active state bg (csfloat rgba(193,206,255,0.04)) */
+body .csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+body .csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+body .csfloat-home-rail-tab.active {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10904 */
+
+/* CSFLOAT-1:1 PARITY ship #11100 — home reviews/trust strip eyebrow header (csfloat .header: 18px Geist 700, white, 0 letter-spacing, no uppercase, centered) */
+body .csfloat-home-metrics .csfloat-home-metrics-eyebrow {
+  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.3 !important;
+  text-transform: none !important;
+  text-align: center !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 32px 0 !important;
+  padding: 0 !important;
+}
+body .csfloat-home-metrics .csfloat-home-metrics-eyebrow::first-letter {
+  text-transform: uppercase !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11100 */
+
+/* CSFLOAT-1:1 PARITY ship #11101 — bubble cards: csfloat-style pill with rounded 16px radius, subtle gradient, hover lift */
+body .csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric {
+  background: linear-gradient(180deg, rgba(193, 206, 255, 0.04) 0%, rgba(193, 206, 255, 0.02) 100%) !important;
+  border: 1px solid rgba(193, 206, 255, 0.08) !important;
+  border-radius: 16px !important;
+  padding: 24px 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-height: 104px !important;
+  transition: transform 180ms ease, border-color 180ms ease !important;
+}
+body .csfloat-home-metrics .csfloat-home-metrics-row .csfloat-home-metric:hover {
+  border-color: rgba(193, 206, 255, 0.16) !important;
+  transform: translateY(-2px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11101 */
+
+/* CSFLOAT-1:1 PARITY ship #11102 — large stat numbers like csfloat: 32px Geist 700 white, tight letter-spacing, mono-aligned digits */
+body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-num {
+  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: tabular-nums !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11102 */
+
+/* CSFLOAT-1:1 PARITY ship #11103 — stat label sub-text: csfloat .sub-text 13px regular muted, no uppercase */
+body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-label {
+  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.4 !important;
+  text-transform: none !important;
+  color: oklch(0.74 0.01 260) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11103 */
+
+/* CSFLOAT-1:1 PARITY ship #11104 — metrics row: 5-up grid with 16px gap to leave room for trust-pilot reviews card; tighter on mobile */
+body .csfloat-home-metrics .csfloat-home-metrics-row {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 1100px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  align-items: stretch !important;
+}
+@media (max-width: 900px) {
+  body .csfloat-home-metrics .csfloat-home-metrics-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+  body .csfloat-home-metrics .csfloat-home-metric .csfloat-home-metric-num {
+    font-size: 26px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11104 */
