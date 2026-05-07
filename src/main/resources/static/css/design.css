@@ -154527,3 +154527,29 @@ body .steam-btn:hover:not(:disabled) {
   box-shadow: rgba(0, 0, 0, 0.25) 0px 4px 8px -2px, rgba(0, 0, 0, 0.18) 0px 2px 4px -2px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11601 */
+
+/* CSFLOAT-1:1 PARITY ship #11602 — active/pressed press-down state (translateY(0) + smaller shadow, snappy 80ms) */
+body .csfloat-card:active,
+body .csfloat-card-base:active,
+body .item-card:active,
+body .listing-card:active,
+body .market-card:active,
+body .market-item:active,
+body .product-card:active,
+body .skin-card:active,
+body .csfloat-card-grid-with-hover-tile:active,
+body button:active:not(:disabled),
+body .mat-mdc-button:active:not(:disabled),
+body .mdc-button:active:not(:disabled),
+body .mat-mdc-raised-button:active:not(:disabled),
+body .mat-mdc-unelevated-button:active:not(:disabled),
+body .csfloat-btn:active:not(:disabled),
+body .csfloat-button:active:not(:disabled),
+body .btn:active:not(:disabled),
+body .steam-btn:active:not(:disabled) {
+  transform: translateY(0) !important;
+  filter: brightness(0.95) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 1px 2px 0px, rgba(0, 0, 0, 0.14) 0px 1px 1px 0px !important;
+  transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 80ms cubic-bezier(0.4, 0, 0.2, 1), filter 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11602 */
