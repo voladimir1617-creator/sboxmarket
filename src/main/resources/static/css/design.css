@@ -149772,6 +149772,223 @@ body footer.site-footer .site-footer-bottom .site-footer-socials {
 }
 /* END CSFLOAT-1:1 PARITY ship #9505 */
 
+/* CSFLOAT-1:1 PARITY ship #9600 — cart row Save-for-later button: csfloat
+   styles save as a text link with subtle pink/red heart, NOT a square 32x32
+   icon button. Override the prior generic .cart-row .btn-ghost square sizing
+   for the FIRST btn-ghost (the Save action) so it reads as a textual
+   "Save for later" pill at ~28px tall, while keeping the second btn-ghost
+   (the X remove) as a 32x32 square per the prior cart-row .btn-ghost rule. */
+.cart-row > button.btn-ghost:nth-of-type(1) {
+  width: auto !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--line-2) !important;
+  color: var(--ink-3) !important;
+  background: transparent !important;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease !important;
+  white-space: nowrap !important;
+}
+.cart-row > button.btn-ghost:nth-of-type(1):hover {
+  color: color-mix(in oklab, #ec4899 80%, var(--ink)) !important;
+  border-color: color-mix(in oklab, #ec4899 35%, var(--line-2)) !important;
+  background: color-mix(in oklab, #ec4899 6%, transparent) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9600 */
+
+/* CSFLOAT-1:1 PARITY ship #9601 — cart row remove X hover state. The
+   prior rule sized it 32x32 but left the resting tint at the inline-style
+   red border + var(--red) glyph. csfloat brightens the X to a saturated
+   red and adds a soft red wash on hover so the button feels armed before
+   clicking. Targets the last btn-ghost in a row to avoid collision with
+   the Save button styled in #9600. */
+.cart-row > button.btn-ghost:last-of-type {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  color: var(--red) !important;
+  border: 1px solid color-mix(in oklab, var(--red) 25%, var(--line-2)) !important;
+  background: transparent !important;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms ease !important;
+}
+.cart-row > button.btn-ghost:last-of-type:hover {
+  color: color-mix(in oklab, var(--red) 90%, white) !important;
+  border-color: color-mix(in oklab, var(--red) 55%, var(--line-2)) !important;
+  background: color-mix(in oklab, var(--red) 10%, transparent) !important;
+}
+.cart-row > button.btn-ghost:last-of-type:active {
+  transform: scale(0.94) !important;
+  background: color-mix(in oklab, var(--red) 18%, transparent) !important;
+}
+.cart-row > button.btn-ghost:last-of-type:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--red) 70%, transparent) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9601 */
+
+/* CSFLOAT-1:1 PARITY ship #9602 — out-of-stock / no-longer-available chip
+   on cart row. The inline-style NO LONGER AVAILABLE pill is rendered by
+   the JSX using span style props that render as 10px font, var(--red)
+   color on rgba(248,113,113,0.15). csfloat's chip is uppercase, has a
+   1px ring, slightly tighter padding, tabular caps, and a tiny leading
+   dot glyph. Match the visual without changing JSX — target the element
+   via attribute-shape selector that matches its inline styles. */
+.cart-row .cart-name > span[style*="248,113,113"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 2px 7px 2px 6px !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in oklab, var(--red) 35%, transparent) !important;
+  background: color-mix(in oklab, var(--red) 12%, transparent) !important;
+  color: color-mix(in oklab, var(--red) 92%, white) !important;
+  vertical-align: middle !important;
+  line-height: 1.4 !important;
+}
+.cart-row .cart-name > span[style*="248,113,113"]::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 5px; height: 5px;
+  border-radius: 50% !important;
+  background: currentColor !important;
+  box-shadow: 0 0 6px currentColor !important;
+  flex: 0 0 5px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9602 */
+
+/* CSFLOAT-1:1 PARITY ship #9603 — price-changed-since-add badge. JSX
+   renders an inline span with style color #fbbf24, background
+   rgba(251,191,36,0.15) saying PRICE NOW $X. csfloat's equivalent is
+   an amber pill with uppercase tracking, tabular nums, and a soft
+   shadow ring on row hover. Match by attribute-shape selector on the
+   inline-style fingerprint. */
+.cart-row .cart-name > span[style*="251,191,36"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 2px 8px !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  border-radius: 999px !important;
+  border: 1px solid color-mix(in oklab, #fbbf24 38%, transparent) !important;
+  background: color-mix(in oklab, #fbbf24 12%, transparent) !important;
+  color: color-mix(in oklab, #fbbf24 95%, white) !important;
+  vertical-align: middle !important;
+  line-height: 1.4 !important;
+  box-shadow: 0 0 0 0 color-mix(in oklab, #fbbf24 20%, transparent) !important;
+  transition: box-shadow 200ms ease !important;
+}
+.cart-row:hover .cart-name > span[style*="251,191,36"] {
+  box-shadow: 0 0 0 2px color-mix(in oklab, #fbbf24 14%, transparent) !important;
+}
+.cart-row .cart-name > span[style*="251,191,36"]::before {
+  content: "$" !important;
+  font-size: 8.5px !important;
+  font-weight: 800 !important;
+  opacity: 0.75 !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9603 */
+
+/* CSFLOAT-1:1 PARITY ship #9604 — cart row affordance reveal on hover.
+   csfloat keeps the Save / X buttons at slightly lowered opacity until
+   the user hovers the row, then reveals them at full strength. Avoids
+   the wall-of-buttons feel on a busy cart while keeping them present
+   for keyboard / pointer-coarse users (always full opacity for
+   :focus-within and pointer:coarse). */
+.cart-row > button.btn-ghost:nth-of-type(1),
+.cart-row > button.btn-ghost:last-of-type {
+  opacity: 0.62 !important;
+  transition: opacity 160ms ease, color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms ease !important;
+}
+.cart-row:hover > button.btn-ghost:nth-of-type(1),
+.cart-row:hover > button.btn-ghost:last-of-type,
+.cart-row:focus-within > button.btn-ghost:nth-of-type(1),
+.cart-row:focus-within > button.btn-ghost:last-of-type,
+.cart-row > button.btn-ghost:focus-visible,
+.cart-row > button.btn-ghost:hover {
+  opacity: 1 !important;
+}
+@media (pointer: coarse) {
+  .cart-row > button.btn-ghost:nth-of-type(1),
+  .cart-row > button.btn-ghost:last-of-type {
+    opacity: 1 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #9604 */
+
+/* CSFLOAT-1:1 PARITY ship #9605 — cart row stale-row visual. JSX flips
+   the row's inline opacity to 0.55 when the listing is no longer
+   available. csfloat additionally desaturates the thumb image and pulls
+   the price text to a muted grey so the unavailable row reads as
+   frozen not just dimmed. The inline-style opacity 0.55 is the
+   reliable fingerprint. We don't override the parent opacity (stays
+   inline 0.55) but tune the children for richer state. */
+.cart-row[style*="opacity: 0.55"] .cart-thumb img,
+.cart-row[style*="opacity:0.55"] .cart-thumb img {
+  filter: grayscale(80%) contrast(0.92) !important;
+  transition: filter 160ms ease !important;
+}
+.cart-row[style*="opacity: 0.55"] .cart-price,
+.cart-row[style*="opacity:0.55"] .cart-price {
+  color: var(--ink-4) !important;
+  text-decoration: line-through !important;
+  text-decoration-color: color-mix(in oklab, var(--ink-4) 60%, transparent) !important;
+  text-decoration-thickness: 1px !important;
+}
+.cart-row[style*="opacity: 0.55"] .cart-thumb,
+.cart-row[style*="opacity:0.55"] .cart-thumb {
+  border-color: color-mix(in oklab, var(--red) 22%, var(--line)) !important;
+  background: color-mix(in oklab, var(--red) 4%, var(--bg-2)) !important;
+}
+.cart-row[style*="opacity: 0.55"]:hover .cart-thumb img,
+.cart-row[style*="opacity:0.55"]:hover .cart-thumb img {
+  filter: grayscale(45%) contrast(0.96) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9605 */
+
+/* CSFLOAT-1:1 PARITY ship #9606 — cart row touch target sizing on
+   pointer:coarse. csfloat bumps both affordance buttons to a 40px hit
+   area on touch devices so a thumb-tap doesn't accidentally fire the
+   row's whole-row navigation onClick. Keeps the visual size identical
+   on desktop, only expands hit-target via min-height + padding on
+   coarse pointers. */
+@media (pointer: coarse) {
+  .cart-row > button.btn-ghost:nth-of-type(1) {
+    min-height: 40px !important;
+    padding: 0 14px !important;
+  }
+  .cart-row > button.btn-ghost:last-of-type {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 14px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #9606 */
+
 /* CSFLOAT-1:1 PARITY ship #9700 — Trade timeline stepper container.
    Sboxmarket painted the stepper as a panel: bg-1 surface, 1px line border,
    10px radius, mono geist-mono text. Csfloat (Angular Material mat-stepper-
@@ -150229,3 +150446,130 @@ body footer.site-footer .site-footer-bottom .site-footer-socials {
   border: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9407 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9506 - Stripe + trust chip override of legal-link reset
+   Re-measure after #9503 landed: stripe-badge bg=rgba(0,0,0,0), border=0, padding=0, h=32px - the
+   chip pill geometry never showed. Root cause: ship #1320 sets `body footer.site-footer .site-footer-col a {
+   background: transparent !important; border: 0 !important; padding: 0 !important; }` and the
+   .stripe-badge anchor lives inside .site-footer-brand which IS a .site-footer-col, so #1320 wins
+   on specificity (4 classes vs my 3). Bump specificity by adding the .site-footer-col + .site-footer-brand
+   ancestor to the selector chain so the new chip rules outrank #1320. */
+body footer.site-footer .site-footer-col .stripe-badge,
+body footer.site-footer .site-footer-brand .stripe-badge,
+body footer.site-footer .site-footer-badges a.stripe-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 5px 12px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+body footer.site-footer .site-footer-col .stripe-badge:hover,
+body footer.site-footer .site-footer-brand .stripe-badge:hover,
+body footer.site-footer .site-footer-badges a.stripe-badge:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9506 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9507 - footer social icon row override of bottom-row anchor reset
+   Re-measure: .site-footer-social inside .site-footer-bottom risks the same trap as Stripe -
+   ship #1320 strips bg/border/padding on `body footer.site-footer .site-footer-bottom a`. The social
+   pill currently survives because its rules use `body footer.site-footer a.site-footer-social` (4 classes)
+   matching #1320's specificity, but order tiebreak gives last-loaded the win. Lock in deterministic
+   override by adding the .site-footer-bottom or .site-footer-socials ancestor to the chain. */
+body footer.site-footer .site-footer-bottom .site-footer-socials a.site-footer-social,
+body footer.site-footer .site-footer-socials a.site-footer-social,
+body footer.site-footer .site-footer-bottom a.site-footer-social {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  text-decoration: none !important;
+}
+body footer.site-footer .site-footer-bottom .site-footer-socials a.site-footer-social:hover,
+body footer.site-footer .site-footer-socials a.site-footer-social:hover,
+body footer.site-footer .site-footer-bottom a.site-footer-social:hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+  border-color: rgba(35, 123, 255, 0.32) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9507 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9508 - footer-bottom horizontal alignment, version chip parity
+   Measured after #9500-#9505 landed: the bottom band correctly spans full width and shows
+   the hairline divider, but the inline `<span style="margin-left:10px">` for "v1.0.0" is bolted
+   to the copyright run-in with no separator. csfloat ships the version as a muted chip
+   `(v1.0.0)` or `· v1.0.0` in white-30 secondary tone. Pin the inline-styled version span to
+   the canonical secondary-ink token + nudge the spacing so it reads as a footnote. */
+body footer.site-footer .site-footer-copy > span[style] {
+  color: rgba(255, 255, 255, 0.32) !important;
+  margin-left: 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+}
+body footer.site-footer .site-footer-copy {
+  display: block !important;
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0.01em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9508 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9509 - footer outer band hairline + tone parity
+   Measured: footer.site-footer renders bg rgb(27,29,36), no top border. csfloat-spec footer band
+   has a faint 1px top border in rgba(255,255,255,0.06) separating it from the page above, with
+   the same 30px vertical padding csfloat uses. Pin the outer footer to the divider tone +
+   ensure 30px symmetric padding. */
+body footer.site-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 36px 30px 28px !important;
+  background: rgb(27, 29, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9509 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9510 - dot separator tone in meta strip
+   Measured: .site-footer-meta > .dot uses textContent "·" but inherits the same color as siblings.
+   csfloat-spec: the dot dividers are quieter than the line items themselves (white-22 vs white-50)
+   so the meta reads as discrete chips. Pin .dot to a quieter tone + remove any horizontal spacing
+   inherited so the dot sits between siblings as a true separator. */
+body footer.site-footer .site-footer-meta > .dot,
+body footer.site-footer .site-footer-bottom .site-footer-meta > .dot {
+  color: rgba(255, 255, 255, 0.22) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+  user-select: none !important;
+}
+body footer.site-footer .site-footer-meta > span:not(.dot),
+body footer.site-footer .site-footer-bottom .site-footer-meta > span:not(.dot) {
+  padding: 0 8px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.01em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9510 */
