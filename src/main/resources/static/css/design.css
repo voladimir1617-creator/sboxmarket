@@ -148783,3 +148783,765 @@ button.db-load-more.is-loading::after {
   margin: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9010 */
+
+/* CSFLOAT-1:1 PARITY ship #9011 — home subnav inner: drop inset padding so the
+   tab group + Visit-Marketplace CTA align with the hero/grid container edges
+   exactly like csfloat .selectors (no padding, full 1310px row at 1440 vp). */
+.csfloat-home-rail .csfloat-home-rail-inner,
+.csfloat-home-rail-inner {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 24px !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9011 */
+
+/* CSFLOAT-1:1 PARITY ship #9012 — home subnav tab letter-spacing back to
+   normal. Sboxmarket inherited a global -0.07px tracking that shaved ~5px
+   off each tab so the segmented control read narrower than csfloat's. */
+.csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab,
+.csfloat-home-rail-tabs .csfloat-home-rail-tab,
+.csfloat-home-rail-tab {
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 3px !important;
+  height: 32px !important;
+  border-radius: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9012 */
+
+/* CSFLOAT-1:1 PARITY ship #9013 — active home subnav tab: neutral whitish
+   overlay (matches csfloat mat-button-toggle-checked) — no blue tint, no
+   inset blue ring. Sboxmarket painted it with `rgba(29,78,216,0.18)` + a
+   1px blue ring; csfloat just uses the same group bg, full opacity. */
+.csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+.csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+.csfloat-home-rail-tab.active {
+  background: rgba(193, 206, 255, 0.04) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+  border: 0 none !important;
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9013 */
+
+/* CSFLOAT-1:1 PARITY ship #9014 — Visit Marketplace CTA cast as a filled
+   blue pill button to match csfloat's mat-flat-button.visit-marketplace
+   (h=45, padding 0 20px, br 8, bg rgba(35,123,255,0.15), color #237BFF,
+   fs 14 / fw 500). Was a plain text link with no chrome. */
+.csfloat-home-rail .csfloat-home-rail-cta,
+.csfloat-home-rail-cta,
+body .csfloat-home-rail-cta {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  padding: 0 20px !important;
+  margin: 0 !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s ease, box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.csfloat-home-rail .csfloat-home-rail-cta:hover,
+.csfloat-home-rail-cta:hover,
+body .csfloat-home-rail-cta:hover {
+  background: rgba(35, 123, 255, 0.22) !important;
+  background-color: rgba(35, 123, 255, 0.22) !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9014 */
+
+/* CSFLOAT-1:1 PARITY ship #9015 — Visit Marketplace arrow chevron sized to
+   match csfloat's inline 18px arrow_forward SVG (was 12px → looked like a
+   trailing punctuation glyph instead of a button affordance). */
+.csfloat-home-rail .csfloat-home-rail-cta .csfloat-home-rail-arrow,
+.csfloat-home-rail-cta .csfloat-home-rail-arrow,
+.csfloat-home-rail-arrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  color: rgb(35, 123, 255) !important;
+  letter-spacing: normal !important;
+  transition: transform 0.18s ease !important;
+}
+.csfloat-home-rail-cta:hover .csfloat-home-rail-arrow {
+  transform: translateX(2px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9015 */
+
+/* CSFLOAT-1:1 PARITY ship #9016 — outer rail container: align flush with
+   the hero / grid (no padding, no sticky), height collapses to the CTA
+   button (45px) instead of 67px. Csfloat .selectors row is 45px tall. */
+.csfloat-home-rail {
+  position: static !important;
+  top: auto !important;
+  background: transparent !important;
+  border: 0 none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 45px !important;
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9016 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9020 — settings notification row separators
+   csfloat: every settings-row is divided by a solid 1px hairline at
+     rgba(255,255,255,0.06), not the dashed border the local file has.
+     Rows sit on a 16px top / 16px bottom padding rhythm so the toggle
+     pills float clean on the right edge. Last-of-section row drops
+     its border so headings butt against the next group cleanly.
+   ===================================================================== */
+.settings-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom-style: solid !important;
+  padding-top: 16px !important;
+  padding-bottom: 16px !important;
+  gap: 24px !important;
+  align-items: center !important;
+}
+.settings-row:last-child {
+  border-bottom: 0 none !important;
+}
+.settings-row + .settings-section-heading {
+  margin-top: 28px !important;
+}
+.settings-section-heading + .settings-row {
+  border-top: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9020 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9021 — section heading typography (Email me)
+   csfloat: notification section headers are Roboto 12px / 500 / 0.08em
+     letter-spacing, uppercase, color rgba(229,231,235,0.55). Margins
+     follow a 28px top / 12px bottom rhythm so each section feels like
+     a card label, not a paragraph. First heading drops top margin.
+   ===================================================================== */
+.settings-section-heading {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(229, 231, 235, 0.55) !important;
+  line-height: 16px !important;
+  margin: 28px 0 12px !important;
+  padding: 0 !important;
+  border: 0 none !important;
+}
+.settings-section-heading:first-child {
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9021 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9022 — per-event row label + sublabel
+   csfloat: label is Roboto 14px / 500 / line-height 20px / color
+     rgb(229,231,235). Sublabel is Roboto 12px / 400 / line-height 16px
+     / color rgba(229,231,235,0.55), with 4px gap between them. The
+     sublabel caps at 480px so toggle pills stay on the right edge on
+     wide viewports.
+   ===================================================================== */
+.settings-row .settings-label,
+.settings-row label.settings-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgb(229, 231, 235) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+}
+.settings-row .settings-sublabel {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  color: rgba(229, 231, 235, 0.55) !important;
+  letter-spacing: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: 480px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9022 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9023 — toggle pill dimensions
+   csfloat: toggle is 32x18px with a 14x14 knob, 2px inset, 999px
+     radius. Off state is rgba(255,255,255,0.16); on state is the
+     accent rgb(64,142,255). Knob slides 14px when on. Smooth 200ms
+     ease for both background and transform.
+   ===================================================================== */
+.settings-row .toggle-switch {
+  width: 32px !important;
+  height: 18px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  position: relative !important;
+  cursor: pointer !important;
+  flex: 0 0 auto !important;
+  transition: background-color 200ms ease !important;
+  border: 0 none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+.settings-row .toggle-switch::after,
+.settings-row .toggle-switch::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background: rgb(255, 255, 255) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 200ms ease !important;
+}
+.settings-row .toggle-switch:not(.off):not([data-on="false"]) {
+  background: rgb(64, 142, 255) !important;
+}
+.settings-row .toggle-switch:not(.off):not([data-on="false"])::after,
+.settings-row .toggle-switch:not(.off):not([data-on="false"])::before {
+  transform: translateX(14px) !important;
+}
+.settings-row .toggle-switch.off::after,
+.settings-row .toggle-switch.off::before,
+.settings-row .toggle-switch[data-on="false"]::after,
+.settings-row .toggle-switch[data-on="false"]::before {
+  transform: translateX(0) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9023 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9024 — mute-category chip parity
+   csfloat: per-event mute chips are 28px tall, 12px horizontal padding,
+     border 1px solid rgba(255,255,255,0.12), font Roboto 12px / 500,
+     color rgba(229,231,235,0.78), bg transparent. Active chip flips
+     border to rgb(64,142,255) and color to rgb(64,142,255) with no
+     background fill — a thin outlined pill, matching csfloat's
+     "subscribed" indicator.
+   ===================================================================== */
+.settings-row .wallet-tx-filter-chip {
+  height: 28px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+  color: rgba(229, 231, 235, 0.78) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease !important;
+  box-shadow: none !important;
+}
+.settings-row .wallet-tx-filter-chip:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: rgb(229, 231, 235) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.settings-row .wallet-tx-filter-chip.active {
+  border-color: rgb(64, 142, 255) !important;
+  color: rgb(64, 142, 255) !important;
+  background: transparent !important;
+}
+.settings-row .wallet-tx-filter-chip.active:hover {
+  background: rgba(64, 142, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9024 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9025 — sign-in nudge banner above settings
+   csfloat: anonymous-user banner above the notification section uses
+     accent-tinted bg rgba(64,142,255,0.08), 1px border rgba(64,142,255,
+     0.24), 8px radius, 12px / 16px padding, Roboto 12px / 400 body,
+     16px gap between text and CTA. Strong tag inside upgrades to
+     rgb(229,231,235) at weight 500 to keep the lead phrase legible.
+   ===================================================================== */
+.info-modal-content > div[style*="--accent-dim"],
+.info-modal-content > div[style*="accent-dim"],
+.info-modal-content > div[style*="accent-border"] {
+  background: rgba(64, 142, 255, 0.08) !important;
+  background-color: rgba(64, 142, 255, 0.08) !important;
+  border: 1px solid rgba(64, 142, 255, 0.24) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  margin-bottom: 20px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+  color: rgba(229, 231, 235, 0.78) !important;
+  gap: 16px !important;
+}
+.info-modal-content > div[style*="accent-dim"] strong,
+.info-modal-content > div[style*="accent-border"] strong {
+  color: rgb(229, 231, 235) !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9025 */
+
+/* CSFLOAT-1:1 PARITY ship #9100 - search highlight: yellow/blue underline on matched substring */
+mark[data-csfloat-match],
+.csfloat-search-highlight,
+.search-highlight,
+.search-match,
+.highlight-text mark,
+.item-name mark,
+.item-name .match,
+.search-result mark,
+.search-results mark,
+.search-suggestion mark,
+.search-result .highlight,
+.search-suggestion .highlight {
+  background: oklch(0.55 0.18 250 / 0.22) !important;
+  background-color: rgba(77, 200, 255, 0.18) !important;
+  color: rgb(225, 240, 255) !important;
+  padding: 0 2px !important;
+  border-radius: 2px !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(77, 200, 255, 0.78) !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 2px !important;
+  -webkit-text-decoration-color: rgba(77, 200, 255, 0.78) !important;
+  box-shadow: inset 0 -1px 0 rgba(77, 200, 255, 0.45) !important;
+}
+mark[data-csfloat-match]:hover,
+.csfloat-search-highlight:hover,
+.search-highlight:hover,
+.search-match:hover {
+  background-color: rgba(77, 200, 255, 0.28) !important;
+  text-decoration-color: rgba(77, 200, 255, 1) !important;
+  -webkit-text-decoration-color: rgba(77, 200, 255, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9100 */
+
+/* CSFLOAT-1:1 PARITY ship #9101 - match-quality indicator (best match badge) */
+.csfloat-match-quality,
+.match-quality,
+.match-badge,
+.best-match-badge,
+.search-result .match-badge,
+.search-suggestion .best-match {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 18px !important;
+  padding: 0 6px !important;
+  margin-left: 8px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(135, 215, 255) !important;
+  background: rgba(77, 200, 255, 0.14) !important;
+  border: 1px solid rgba(77, 200, 255, 0.32) !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  line-height: 1 !important;
+}
+.csfloat-match-quality::before,
+.match-quality::before,
+.best-match-badge::before {
+  content: "" !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+  background: rgb(77, 200, 255) !important;
+  box-shadow: 0 0 4px rgba(77, 200, 255, 0.7) !important;
+  flex: 0 0 auto !important;
+}
+.csfloat-match-quality.weak,
+.match-quality.weak,
+.match-quality[data-quality="weak"] {
+  color: rgba(229, 231, 235, 0.6) !important;
+  background: rgba(148, 163, 184, 0.10) !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+.csfloat-match-quality.weak::before,
+.match-quality.weak::before {
+  background: rgb(148, 163, 184) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9101 */
+
+/* CSFLOAT-1:1 PARITY ship #9102 - "Did you mean..." suggestion bar */
+.csfloat-did-you-mean,
+.did-you-mean,
+.search-did-you-mean,
+.search-suggestion-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 10px 14px !important;
+  margin: 8px 0 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(229, 231, 235, 0.78) !important;
+  background: linear-gradient(180deg, rgba(77, 200, 255, 0.06) 0%, rgba(77, 200, 255, 0.03) 100%) !important;
+  border: 1px solid rgba(77, 200, 255, 0.22) !important;
+  border-left: 3px solid rgb(77, 200, 255) !important;
+  border-radius: 6px !important;
+  line-height: 1.45 !important;
+}
+.csfloat-did-you-mean::before,
+.did-you-mean::before {
+  content: "Did you mean" !important;
+  font-weight: 600 !important;
+  color: rgba(229, 231, 235, 0.55) !important;
+  margin-right: 2px !important;
+}
+.csfloat-did-you-mean a,
+.csfloat-did-you-mean button,
+.csfloat-did-you-mean .suggestion,
+.did-you-mean a,
+.did-you-mean button,
+.did-you-mean .suggestion {
+  display: inline-flex !important;
+  align-items: center !important;
+  color: rgb(135, 215, 255) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font: inherit !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(77, 200, 255, 0.55) !important;
+  text-underline-offset: 3px !important;
+  cursor: pointer !important;
+}
+.csfloat-did-you-mean a:hover,
+.csfloat-did-you-mean button:hover,
+.did-you-mean a:hover,
+.did-you-mean button:hover {
+  color: rgb(192, 233, 255) !important;
+  text-decoration-color: rgb(77, 200, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9102 */
+
+/* CSFLOAT-1:1 PARITY ship #9103 - "No results" empty state for search */
+.csfloat-search-no-results,
+.search-no-results,
+.search-empty-state,
+.no-search-results,
+.results-empty {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 240px !important;
+  padding: 40px 24px !important;
+  text-align: center !important;
+  color: rgba(229, 231, 235, 0.68) !important;
+}
+.csfloat-search-no-results-icon,
+.search-no-results-icon,
+.search-empty-state-icon,
+.no-search-results-icon,
+.results-empty-icon {
+  width: 56px !important;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 0 14px !important;
+  border-radius: 999px !important;
+  background: rgba(77, 200, 255, 0.06) !important;
+  border: 1px solid rgba(77, 200, 255, 0.16) !important;
+  color: rgba(135, 215, 255, 0.85) !important;
+  font-size: 26px !important;
+}
+.csfloat-search-no-results-title,
+.search-no-results-title,
+.search-empty-state-title,
+.no-search-results-title,
+.results-empty-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: rgb(229, 231, 235) !important;
+  margin: 0 0 6px !important;
+  letter-spacing: -0.01em !important;
+}
+.csfloat-search-no-results-msg,
+.search-no-results-msg,
+.search-empty-state-msg,
+.no-search-results-msg,
+.results-empty-msg {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(229, 231, 235, 0.6) !important;
+  line-height: 1.5 !important;
+  margin: 0 0 14px !important;
+  max-width: 360px !important;
+}
+.csfloat-search-no-results-msg > b,
+.csfloat-search-no-results-msg strong,
+.search-no-results-msg > b,
+.no-search-results-msg > b {
+  color: rgb(229, 231, 235) !important;
+  font-weight: 600 !important;
+}
+.csfloat-search-no-results-actions,
+.search-no-results-actions,
+.no-search-results-actions {
+  display: inline-flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9103 */
+
+/* CSFLOAT-1:1 PARITY ship #9104 - search history dropdown */
+.csfloat-search-history,
+.search-history,
+.search-history-dropdown,
+.search-recent {
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 4000 !important;
+  background: rgba(13, 21, 32, 0.96) !important;
+  border: 1px solid rgba(77, 200, 255, 0.18) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  padding: 6px 0 !important;
+  max-height: 360px !important;
+  overflow-y: auto !important;
+  animation: csfloat-search-history-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+@keyframes csfloat-search-history-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.csfloat-search-history-header,
+.search-history-header,
+.search-history-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 6px 14px 4px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: rgba(229, 231, 235, 0.45) !important;
+}
+.csfloat-search-history-header button,
+.search-history-header button,
+.search-history-clear {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(135, 215, 255, 0.85) !important;
+  font: inherit !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  padding: 2px 4px !important;
+}
+.csfloat-search-history-header button:hover,
+.search-history-clear:hover {
+  color: rgb(192, 233, 255) !important;
+}
+.csfloat-search-history-item,
+.search-history-item,
+.search-recent-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 8px 14px !important;
+  background: transparent !important;
+  border: none !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  color: rgba(229, 231, 235, 0.86) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  transition: background 120ms ease, color 120ms ease !important;
+}
+.csfloat-search-history-item:hover,
+.csfloat-search-history-item.active,
+.csfloat-search-history-item[aria-selected="true"],
+.search-history-item:hover,
+.search-history-item.active,
+.search-recent-item:hover {
+  background: rgba(77, 200, 255, 0.08) !important;
+  color: rgb(229, 231, 235) !important;
+}
+.csfloat-search-history-item .icon,
+.csfloat-search-history-item::before,
+.search-history-item .icon,
+.search-history-item::before {
+  width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 auto !important;
+  color: rgba(135, 215, 255, 0.75) !important;
+  opacity: 0.7 !important;
+}
+.csfloat-search-history-item .meta,
+.search-history-item .meta,
+.search-history-item-time {
+  margin-left: auto !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: rgba(229, 231, 235, 0.4) !important;
+  white-space: nowrap !important;
+}
+.csfloat-search-history-empty,
+.search-history-empty {
+  padding: 16px 14px !important;
+  font-size: 12px !important;
+  color: rgba(229, 231, 235, 0.5) !important;
+  text-align: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9104 */
+
+
+/* CSFLOAT-1:1 PARITY ship #9300 — hero metrics row reset (csfloat .bubbles parity)
+   Reference measured at https://csfloat.com (5/6/2026):
+   .bubbles { display:grid; grid-template-columns:repeat(4, 242px); gap:25px; background:none; border:none }
+   sboxmarket currently uses one bordered card with 4 tiles inside; csfloat uses 4 separate tiles. */
+.csfloat-home-metrics-row {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 25px !important;
+  width: 100% !important;
+  max-width: 1100px !important;
+  margin: 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9300 */
+
+/* CSFLOAT-1:1 PARITY ship #9301 — hero metric tile (csfloat .card parity)
+   Reference: padding:20px, background:rgb(27,29,36), border-radius:12px,
+   display:flex column, gap:5px, align-items:center. */
+.csfloat-home-metric {
+  padding: 20px !important;
+  background: rgb(27, 29, 36) !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9301 */
+
+/* CSFLOAT-1:1 PARITY ship #9302 — hero metric BIG NUMBER (csfloat .stat parity)
+   Reference: Roboto 30px/normal, weight 700, color rgb(35,123,255) (csfloat blue),
+   letter-spacing 1.2px, no text-transform.
+   sboxmarket scope override: keep using the platform's --accent for s&box brand (#1ea5ff/cyan)
+   only if there's a brand reason; otherwise mirror the cs2 blue for visual parity. We pick the
+   platform accent color (#1ea5ff per the JS-required notice in DOM) but match font + size + weight + tracking 1:1. */
+.csfloat-home-metric-num {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 30px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: 1.2px !important;
+  color: #1ea5ff !important;
+  margin: 0 !important;
+  text-align: center !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9302 */
+
+/* CSFLOAT-1:1 PARITY ship #9303 — hero metric LABEL (csfloat .sub-text parity)
+   Reference: Roboto 18px/normal, weight 500, color rgb(158,167,177), letter-spacing normal. */
+.csfloat-home-metric-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+  text-align: center !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9303 */
+
+/* CSFLOAT-1:1 PARITY ship #9304 — hero metrics outer section (csfloat .stats parity)
+   Reference: container is column flex with 40px gap above row. The eyebrow becomes the .stats > .header.
+   sboxmarket currently has padding:56px 24px and a tinted oklch background — strip the inner-row
+   background already taken care of in #9300, but match the outer section to be transparent so the
+   tile cards float against the page like csfloat. Eyebrow centered with gap 40 above row. */
+.csfloat-home-metrics {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 56px 24px !important;
+}
+.csfloat-home-metrics-inner {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 40px !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+.csfloat-home-metrics-eyebrow {
+  text-align: center !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9304 */
