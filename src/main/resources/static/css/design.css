@@ -130680,3 +130680,485 @@ div[style*="background: var(--bg-secondary)"][style*="borderRadius"] {
   transition: color 0.3s !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1430 */
+
+/* CSFLOAT-1:1 PARITY ship #1500 - profile-tabs container as segmented pill group */
+.profile-tabs,
+.mystall-tabs,
+.wallet-tabs,
+.offer-tabs {
+  display: flex !important;
+  gap: 6px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-bottom: 0 !important;
+  border-radius: 7px !important;
+  padding: 3px !important;
+  margin-bottom: 20px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1500 */
+
+/* CSFLOAT-1:1 PARITY ship #1501 - profile tab buttons inside segmented group */
+.profile-tabs button,
+.profile-tabs > .profile-tab,
+.mystall-tabs button,
+.wallet-tabs button,
+.offer-tab {
+  padding: 0 12px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.42px !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 4px !important;
+  margin-bottom: 0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: color 140ms ease, background-color 140ms ease !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1501 */
+
+/* CSFLOAT-1:1 PARITY ship #1502 - hover & active states for segmented pill tabs */
+.profile-tabs button:hover,
+.profile-tabs > .profile-tab:hover,
+.mystall-tabs button:hover,
+.wallet-tabs button:hover,
+.offer-tab:hover {
+  color: rgba(255, 255, 255, 0.85) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-bottom-color: transparent !important;
+}
+.profile-tabs button.active,
+.profile-tabs > .profile-tab.active,
+.mystall-tabs button.active,
+.wallet-tabs button.active,
+.offer-tab.active {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-bottom-color: transparent !important;
+  box-shadow: inset 0 0 0 1px rgba(193, 206, 255, 0.06) !important;
+}
+.profile-tabs button.active::after,
+.profile-tabs > .profile-tab.active::after,
+.mystall-tabs button.active::after,
+.wallet-tabs button.active::after {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1502 */
+
+/* CSFLOAT-1:1 PARITY ship #1503 - profile tab badge (counter chip) parity */
+.profile-tab-badge,
+.tab-badge {
+  padding: 0 6px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  background: rgba(193, 206, 255, 0.08) !important;
+  color: rgb(158, 167, 177) !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 4px !important;
+}
+.profile-tabs button.active .profile-tab-badge,
+.profile-tabs > .profile-tab.active .profile-tab-badge,
+.mystall-tabs button.active .tab-badge,
+.wallet-tabs button.active .tab-badge,
+.offer-tab.active .tab-badge {
+  background: rgba(193, 206, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1503 */
+
+/* CSFLOAT-1:1 PARITY ship #1504 - profile tab content empty-state row layout & spacing */
+.profile-tab-content,
+.profile-tab-content-inner,
+.profile-content {
+  background: transparent !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  margin-top: 16px !important;
+}
+.profile-tab-content:empty::before {
+  display: block !important;
+  text-align: center !important;
+  padding: 60px 20px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.21px !important;
+}
+.profile-tab-content > .empty-state,
+.profile-tab-content .empty {
+  padding: 60px 24px !important;
+  text-align: center !important;
+  font-size: 14px !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.21px !important;
+  background: rgb(27, 29, 36) !important;
+  border-radius: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1504 */
+
+/* CSFLOAT-1:1 PARITY ship #1431 - FAQ specificity bump (defeats .help-page chain) */
+body .help-page .help-faq-q,
+body .help-faq-q,
+.help-page .help-faq-q,
+.help-faq .help-faq-q {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 20px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  color: #ffffff !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 25px !important;
+  letter-spacing: normal !important;
+  transition: color 0.3s !important;
+  text-transform: none !important;
+}
+body .help-page .help-faq-a,
+body .help-faq-a,
+.help-page .help-faq-a {
+  padding: 0 0 0 48px !important;
+  padding-top: 0 !important;
+  margin: 0 !important;
+  margin-top: 10px !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 21px !important;
+  letter-spacing: 0.48px !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  background: transparent !important;
+}
+body .help-page .help-faq-a > p,
+body .help-faq-a > p,
+.help-page .help-faq-a > p {
+  margin: 16px 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 21px !important;
+  letter-spacing: 0.48px !important;
+}
+body .help-page .help-faq-row,
+.help-page .help-faq-row {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 20px !important;
+  box-shadow: none !important;
+}
+body .help-page .help-faq,
+.help-page .help-faq {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1431 */
+
+/* CSFLOAT-1:1 PARITY ship #1505 - active tab font-weight stays 500 (csfloat exact) */
+.profile-tabs button.active,
+.profile-tabs > .profile-tab.active,
+.mystall-tabs button.active,
+.wallet-tabs button.active,
+.offer-tab.active {
+  font-weight: 500 !important;
+}
+.profile-tabs button:not(.active),
+.profile-tabs > .profile-tab:not(.active),
+.mystall-tabs button:not(.active),
+.wallet-tabs button:not(.active),
+.offer-tab:not(.active) {
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1505 */
+
+/* CSFLOAT-1:1 PARITY ship #1600 — cart empty state typography + spacing
+   csfloat empty cart copy is rendered in the same modal panel as the cart drawer.
+   Title is 14px/700 not 15px/600; sub is 12.5px/400 with 1.55 line-height; the
+   icon block sits at 80px square with the icon inside it sized 36px. Tightens
+   the vertical rhythm so CTAs sit close to the copy block. */
+.empty-inline {
+  padding: 28px 16px 8px !important;
+  text-align: center !important;
+}
+.empty-inline .empty-icon {
+  width: 80px !important;
+  height: 80px !important;
+  margin: 0 auto 18px !important;
+  border-radius: 999px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+.empty-inline .empty-icon svg {
+  width: 36px !important;
+  height: 36px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1600 */
+
+/* CSFLOAT-1:1 PARITY ship #1601 — cart row internals (thumb / name / price / x)
+   csfloat cart-drawer rows: thumb 56px square, gap 12px, padding 10px 14px (not
+   14px 16px), name 13px/500, price 14px/600 mono, x button 28px circle ghost.
+   Grid-template-columns shrinks to 56px / 1fr / auto / 28px. */
+.cart-list .cart-row {
+  grid-template-columns: 56px minmax(0, 1fr) auto 28px !important;
+  gap: 12px !important;
+  padding: 10px 14px !important;
+  align-items: center !important;
+}
+.cart-list .cart-thumb {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 6px !important;
+}
+.cart-list .cart-thumb img {
+  width: 84% !important;
+  height: 84% !important;
+}
+.cart-list .cart-name {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1.35 !important;
+}
+.cart-list .cart-id {
+  font-size: 10.5px !important;
+  letter-spacing: 0.06em !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin-top: 2px !important;
+}
+.cart-list .cart-price {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.cart-list .cart-row > button.btn-icon,
+.cart-list .cart-row > .cart-x {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 999px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  transition: background 120ms ease, color 120ms ease !important;
+}
+.cart-list .cart-row > button.btn-icon:hover,
+.cart-list .cart-row > .cart-x:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1601 */
+
+/* CSFLOAT-1:1 PARITY ship #1602 — cart summary panel parity
+   csfloat order-summary: 18px padding, 8px border-radius, no background gradient
+   (flat bg-1), title 11px uppercase 0.08em not 15px/700, rows 12.5px with 6px
+   vertical rhythm, total 13px label + 20px mono value, cta buttons 40px height
+   not 44px, 10px gap. */
+.cart-summary {
+  background: var(--bg-1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 8px !important;
+  padding: 18px !important;
+  box-shadow: none !important;
+}
+.cart-summary-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin-bottom: 14px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.cart-summary-row {
+  font-size: 12.5px !important;
+  padding: 6px 0 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+.cart-summary-row .mono {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+.cart-summary-total {
+  margin-top: 10px !important;
+  padding: 12px 0 4px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+.cart-summary-total .mono {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.015em !important;
+  text-shadow: none !important;
+}
+.cart-summary-actions {
+  margin-top: 14px !important;
+  gap: 10px !important;
+}
+.cart-summary-actions .btn {
+  height: 40px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.005em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1602 */
+
+/* CSFLOAT-1:1 PARITY ship #1603 — cart drawer header + footer (modal-as-drawer)
+   csfloat slide-out cart panel: header 56px tall, 16px horizontal pad, title
+   left "Cart (N)" 15/700, close x right 32px; footer sticky bottom with 1px
+   top divider, 16px pad, total label uppercase tracked, value 18px mono. */
+.info-modal-panel:has(.cart-grid),
+.info-modal-panel:has(.empty-inline .empty-icon) {
+  max-width: 460px !important;
+  width: 92vw !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.info-modal-panel:has(.cart-grid) .info-modal-head,
+.info-modal-panel:has(.empty-inline .empty-icon) .info-modal-head {
+  height: 56px !important;
+  min-height: 56px !important;
+  padding: 0 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.info-modal-panel:has(.cart-grid) .info-modal-title,
+.info-modal-panel:has(.empty-inline .empty-icon) .info-modal-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.005em !important;
+}
+.info-modal-panel:has(.cart-grid) .info-modal-close,
+.info-modal-panel:has(.empty-inline .empty-icon) .info-modal-close {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 999px !important;
+}
+.info-modal-panel:has(.cart-grid) .info-modal-body,
+.info-modal-panel:has(.empty-inline .empty-icon) .info-modal-body {
+  padding: 16px !important;
+}
+.cart-footer {
+  padding: 16px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  background: var(--bg-0, rgba(0, 0, 0, 0.2)) !important;
+  margin-top: 0 !important;
+  gap: 12px !important;
+}
+.cart-total-label {
+  font-size: 10.5px !important;
+  letter-spacing: 0.18em !important;
+}
+.cart-total-val {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.015em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1603 */
+
+/* CSFLOAT-1:1 PARITY ship #1604 — cart empty CTAs + recently-viewed pills + rail
+   csfloat empty-cart calls-to-action: primary Browse marketplace 38px height
+   13px font; pills below at 28px height, 12px font-size, 16px image (not 18),
+   4px image radius, 130px max-width on text. Trending rail header parity. */
+.info-modal-panel:has(.empty-inline) .btn {
+  height: 38px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 0 16px !important;
+  letter-spacing: 0.005em !important;
+}
+.info-modal-panel:has(.empty-inline) a[href^="/item/"] {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+.info-modal-panel:has(.empty-inline) a[href^="/item/"]:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.info-modal-panel:has(.empty-inline) a[href^="/item/"] img {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 4px !important;
+}
+.info-modal-panel:has(.empty-inline) a[href^="/item/"] span {
+  max-width: 130px !important;
+}
+.csfloat-empty-cart-rail {
+  margin-top: 28px !important;
+  padding-top: 20px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.csfloat-empty-cart-rail-head {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  margin-bottom: 12px !important;
+}
+.csfloat-empty-cart-rail-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin: 0 !important;
+}
+.csfloat-empty-cart-rail-link {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(91, 158, 255, 0.92) !important;
+  text-decoration: none !important;
+}
+.csfloat-empty-cart-rail-link:hover {
+  color: rgba(91, 158, 255, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1604 */
