@@ -129204,3 +129204,675 @@ body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-rear {
   background-color: rgb(20, 24, 38) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1219 */
+
+/* CSFLOAT-1:1 PARITY ship #1390 — rarity GRADIENT OVERLAY on grid-thumb (csfloat parity)
+   csfloat .container measured: linear-gradient(rgba(27,29,36,0) 20%, rarity-color@32%-alpha 100%)
+   Image area 246x195, gradient fades transparent top → rarity color at bottom.
+   sboxmarket has LEFT-edge 3px stripe (.grid-card::after) — wrong direction.
+   Add a rarity-tinted vertical gradient OVERLAY to .grid-thumb that matches csfloat exactly.
+   Standard=#3b82f6 blue, Off-Market=#e8b960 gold, Limited=#eb4b4b red. */
+.grid-card .grid-thumb {
+  position: relative !important;
+}
+.grid-card .grid-thumb::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(180deg,
+    rgba(27, 29, 36, 0) 20%,
+    rgba(59, 130, 246, 0.32) 100%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+}
+.grid-card:has(.rarity-Off-Market) .grid-thumb::before,
+.grid-card:has(.grid-rarity.offmarket) .grid-thumb::before {
+  background: linear-gradient(180deg,
+    rgba(27, 29, 36, 0) 20%,
+    rgba(232, 185, 96, 0.32) 100%) !important;
+}
+.grid-card:has(.rarity-Limited) .grid-thumb::before,
+.grid-card:has(.grid-rarity.limited) .grid-thumb::before {
+  background: linear-gradient(180deg,
+    rgba(27, 29, 36, 0) 20%,
+    rgba(235, 75, 75, 0.32) 100%) !important;
+}
+/* Suppress old left-edge 3px bar — csfloat doesn't have one. */
+.grid-card::after {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1390 */
+
+/* CSFLOAT-1:1 PARITY ship #1391 — magnifier zoom button bottom-right of every thumb
+   csfloat: 38x30 action buttons w/ bg rgba(30,32,38,0.55), 20x20 icons. sboxmarket
+   has .grid-zoom — restyle to match csfloat chrome exactly. Bottom-right corner. */
+.grid-card .grid-zoom {
+  position: absolute !important;
+  right: 6px !important;
+  bottom: 6px !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  border: none !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  pointer-events: none !important;
+  z-index: 3 !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  transition: background-color 0.15s ease !important;
+}
+.grid-card .grid-zoom svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+.grid-card:hover .grid-zoom {
+  background-color: rgba(40, 44, 52, 0.75) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1391 */
+
+/* CSFLOAT-1:1 PARITY ship #1392 — price chip $ prefix tinted GREEN like csfloat
+   csfloat .price = 22px white bold w/ adjacent green app-price-icon badge. Mirror by
+   tinting the leading "$" glyph green inside .grid-price. */
+.grid-card .grid-price {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 2px !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.1 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.grid-card .grid-price::first-letter {
+  color: rgb(106, 197, 134) !important;
+  font-weight: 700 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1392 */
+
+/* CSFLOAT-1:1 PARITY ship #1393 — listed-time stripe at bottom of card with hairline
+   csfloat shows a 14px ink-3 row at bottom with a 1px hairline above it (separator from
+   .seller-details-wrapper). sboxmarket .grid-status row equivalent — apply the hairline. */
+.grid-card .grid-status {
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 12px !important;
+  color: rgba(158, 167, 177, 1) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-weight: 500 !important;
+}
+.grid-card .grid-status-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background-color: rgb(120, 130, 142) !important;
+  display: inline-block !important;
+}
+.grid-card .grid-status-dot.online {
+  background-color: rgb(74, 222, 128) !important;
+  box-shadow: 0 0 4px rgba(74, 222, 128, 0.6) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1393 */
+
+/* CSFLOAT-1:1 PARITY ship #1394 — float bar (decorative wear bar) chrome parity
+   csfloat .float-bar segments h=8 w=89 (FN-green→BS-deep-red), with 3x14 .wear-marker
+   thumb. sboxmarket FloatBar — match exact 8px height + marker geometry + segment colors. */
+.grid-card .float-bar,
+.grid-card [class*="float-bar"] {
+  height: 8px !important;
+  border-radius: 2px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  margin: 6px 0 4px !important;
+  position: relative !important;
+}
+.grid-card .float-bar > div,
+.grid-card [class*="float-bar-segment"],
+.grid-card [class*="float-bar-width"] {
+  height: 8px !important;
+}
+.grid-card .wear-marker,
+.grid-card [class*="wear-marker"] {
+  width: 3px !important;
+  height: 14px !important;
+  background-color: rgb(217, 217, 217) !important;
+  position: absolute !important;
+  top: -3px !important;
+  border-radius: 1px !important;
+  z-index: 2 !important;
+}
+.grid-card .float-bar-fn { background-color: rgb(0, 128, 0) !important; }
+.grid-card .float-bar-mw { background-color: rgb(24, 165, 24) !important; }
+.grid-card .float-bar-ft { background-color: rgb(154, 205, 50) !important; }
+.grid-card .float-bar-ww { background-color: rgb(205, 92, 92) !important; }
+.grid-card .float-bar-bs { background-color: rgb(249, 36, 36) !important; }
+/* END CSFLOAT-1:1 PARITY ship #1394 */
+
+/* CSFLOAT-1:1 PARITY ship #1395 — top-right watch/cart icon stack on grid-card
+   csfloat: top-right corner has a watch-toggle (heart) + add-to-cart icon stack.
+   sboxmarket has .grid-star (heart) + .grid-cart-btn — make them match csfloat's
+   icon-button chrome (28x28 circular buttons w/ subtle bg, top-right corner). */
+.grid-card .grid-star,
+.grid-card .grid-cart-btn {
+  position: absolute !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  cursor: pointer !important;
+  z-index: 3 !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  opacity: 0 !important;
+}
+.grid-card:hover .grid-star,
+.grid-card:hover .grid-cart-btn,
+.grid-card .grid-star.on,
+.grid-card .grid-cart-btn.in {
+  opacity: 1 !important;
+}
+.grid-card .grid-star {
+  top: 6px !important;
+  right: 6px !important;
+}
+.grid-card .grid-cart-btn {
+  top: 6px !important;
+  right: 40px !important;
+}
+.grid-card .grid-star.on {
+  background-color: rgba(235, 75, 75, 0.85) !important;
+  color: #fff !important;
+}
+.grid-card .grid-cart-btn.in {
+  background-color: rgba(74, 222, 128, 0.85) !important;
+  color: #0b1220 !important;
+}
+.grid-card .grid-star:hover,
+.grid-card .grid-cart-btn:hover {
+  background-color: rgba(40, 44, 52, 0.85) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1395 */
+
+/* CSFLOAT-1:1 PARITY ship #1396
+   Measured csfloat: nav buttons (.mat-mdc-button) outline 3px, border-radius 8px,
+   visible only on keyboard. Match for our nav-link / nav-icon-btn focus ring. */
+.nav-link:focus-visible,
+.nav-icon-btn:focus-visible,
+.nav-logo:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.85) !important;
+  outline-offset: 0px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1396 */
+
+/* CSFLOAT-1:1 PARITY ship #1397
+   Measured csfloat: weapon-category toggle buttons (.mat-button-toggle-button)
+   focus ring outline 3px white, no border-radius (sharp corners).
+   Match for our category filter chips when they are flush button-toggle style. */
+.category-toggle:focus-visible,
+.weapon-toggle:focus-visible,
+.mat-button-toggle:focus-visible,
+.toggle-btn:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.85) !important;
+  outline-offset: -3px !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1397 */
+
+/* CSFLOAT-1:1 PARITY ship #1398
+   Skip-link parity: csfloat doesn't expose a skip link by default — we keep ours
+   for a11y but trim the visible ring to the same 2px brand-blue used by the
+   underlying CDK overlay focus indicator (rgb(64, 160, 254)). */
+.skip-link:focus,
+.skip-link:focus-visible {
+  outline: 2px solid #40a0fe !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px rgba(64, 160, 254, 0.22) !important;
+  background: #0b1220 !important;
+  color: #fff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1398 */
+
+/* CSFLOAT-1:1 PARITY ship #1399
+   Modal focus trap visual parity: csfloat overlays use the CDK focus trap with
+   a faint 1px brand line on focused fields. Match for our modal/sheet inputs. */
+.modal :focus-visible,
+.sheet :focus-visible,
+[role="dialog"] :focus-visible,
+.cdk-overlay-pane :focus-visible {
+  outline: 2px solid #40a0fe !important;
+  outline-offset: 1px !important;
+  box-shadow: 0 0 0 3px rgba(64, 160, 254, 0.18) !important;
+}
+.modal[aria-hidden="true"],
+[role="dialog"][aria-hidden="true"] {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1399 */
+
+/* CSFLOAT-1:1 PARITY ship #1400
+   Card focus-visible parity: csfloat .market-item card gets a 2px outline at 2px
+   offset in its own brand-blue when keyboard-focused; ours used same accent var
+   but offset 0. Bring the offset out so the corner radius isn't clipped. */
+.grid-card:focus-visible,
+.item-card:focus-visible,
+.market-card:focus-visible,
+a.grid-card:focus-visible {
+  outline: 2px solid #40a0fe !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(64, 160, 254, 0.18) !important;
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1400 */
+
+/* CSFLOAT-1:1 PARITY ship #1401 — native <select> trigger typography
+   matches csfloat: Roboto 16px / 400 / 0.5px tracking, white ink, 25px
+   line-box. Measured on csfloat .mat-mdc-select trigger: font Roboto
+   16px 400, color rgb(255,255,255), letter-spacing 0.5px, height 25px. */
+select {
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 25px !important;
+}
+select option {
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.5px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1401 */
+
+/* CSFLOAT-1:1 PARITY ship #1402 — custom dropdown panels match csfloat
+   .mat-mdc-select-panel chrome: dark elevated surface #2a2a2c, 4px radius,
+   8px vertical padding, 48px option min-height, Roboto 16px options with
+   subtle hover. Measured on csfloat overlay panel and option rows. */
+.dropdown-panel,
+.csfloat-dropdown-panel,
+.custom-select-panel,
+.select-panel,
+.cdk-overlay-pane .mat-mdc-select-panel,
+.mat-mdc-select-panel,
+[class*="dropdown-options"],
+[class*="select-options"] {
+  background: #2a2a2c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  padding: 8px 0 !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+.dropdown-panel .dropdown-option,
+.dropdown-panel li,
+.csfloat-dropdown-panel li,
+.custom-select-panel li,
+.select-panel li,
+.mat-mdc-select-panel .mat-mdc-option,
+[class*="dropdown-options"] [class*="option"],
+[class*="select-options"] [class*="option"] {
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.5px !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease !important;
+}
+.dropdown-panel .dropdown-option:hover,
+.dropdown-panel li:hover,
+.csfloat-dropdown-panel li:hover,
+.custom-select-panel li:hover,
+.select-panel li:hover,
+.mat-mdc-select-panel .mat-mdc-option:hover,
+[class*="dropdown-options"] [class*="option"]:hover,
+[class*="select-options"] [class*="option"]:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1402 */
+
+/* CSFLOAT-1:1 PARITY ship #1403 — checkbox sizing matches csfloat
+   .mat-mdc-checkbox: 18x18 box, 2px radius, brand blue accent when
+   checked, subtle border. Measured on csfloat filter checkboxes:
+   18px box, accent-color matches brand blue (#40a0fe). */
+input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  accent-color: #40a0fe !important;
+  cursor: pointer !important;
+  border-radius: 2px !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+}
+/* csfloat label-pair pattern: 8px gap between checkbox and label text */
+.filter-option,
+.csfloat-filter-checkbox,
+.checkbox-row,
+label:has(> input[type="checkbox"]),
+label:has(> input[type="checkbox"] + *) {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 14px !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1403 */
+
+/* CSFLOAT-1:1 PARITY ship #1404 — radio button sizing matches csfloat
+   .mat-mdc-radio-button native input: 20x20, 50% radius (full circle),
+   brand blue accent when selected. Measured on csfloat radio groups. */
+input[type="radio"] {
+  width: 20px !important;
+  height: 20px !important;
+  accent-color: #40a0fe !important;
+  cursor: pointer !important;
+  border-radius: 50% !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+}
+.radio-row,
+.radio-option,
+label:has(> input[type="radio"]),
+label:has(> input[type="radio"] + *) {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 14px !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1404 */
+
+/* CSFLOAT-1:1 PARITY ship #1405 — toggle switch styling matches csfloat
+   .mat-mdc-slide-toggle: 36x20 track, 16px thumb, brand-blue track when
+   on, neutral grey when off, smooth 200ms transition. Measured on
+   csfloat slide-toggle: track 36x20, thumb 16x16 with 2px inset. */
+[role="switch"],
+.toggle-switch,
+.csfloat-toggle,
+.slide-toggle,
+.mat-mdc-slide-toggle .mdc-switch {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  width: 36px !important;
+  height: 20px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  cursor: pointer !important;
+  transition: background-color 200ms ease, border-color 200ms ease !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+}
+[role="switch"][aria-checked="true"],
+.toggle-switch.on,
+.toggle-switch[data-on="true"],
+.csfloat-toggle.on,
+.slide-toggle.on,
+.mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked .mdc-switch {
+  background: #40a0fe !important;
+  border-color: #40a0fe !important;
+}
+[role="switch"]::before,
+.toggle-switch::before,
+.csfloat-toggle::before,
+.slide-toggle::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 2px !important;
+  width: 16px !important;
+  height: 16px !important;
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  transform: translateY(-50%) !important;
+  transition: left 200ms ease, transform 200ms ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+[role="switch"][aria-checked="true"]::before,
+.toggle-switch.on::before,
+.toggle-switch[data-on="true"]::before,
+.csfloat-toggle.on::before,
+.slide-toggle.on::before {
+  left: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1405 */
+
+/* CSFLOAT-1:1 PARITY ship #1406
+   Right-rail stat-panel container (.modal-stat-box) — measure-and-match the
+   csfloat mat-card surface used in the item detail page right rail.
+   csfloat: bg #1f2128, 1px solid rgba(255,255,255,0.06), radius 8px, padding
+   16px 18px, no shadow on the inner panel. Earlier overrides drifted
+   to #181a20/12px/14px — restore to spec. */
+.modal-stat-box,
+.full-page-mode .modal-stat-box,
+.site-root.full-page-mode .modal-stat-box {
+  background-color: #1f2128 !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 16px 18px !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  min-height: 76px !important;
+  transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+.modal-stat-box:hover,
+.full-page-mode .modal-stat-box:hover {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background-color: #22242c !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1406 */
+
+/* CSFLOAT-1:1 PARITY ship #1407
+   Eyebrow caption labels (.modal-stat-label) — small uppercase text above the
+   big stat number. csfloat: 11px, weight 500, letter-spacing 0.6px, color
+   rgba(255,255,255,0.55), text-transform uppercase, line-height 1.2. */
+.modal-stat-label,
+.full-page-mode .modal-stat-label,
+.site-root.full-page-mode .modal-stat-label {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  line-height: 1.2 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin: 0 0 2px 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1407 */
+
+/* CSFLOAT-1:1 PARITY ship #1408
+   Stat value (.modal-stat-val) — big number under the eyebrow. csfloat:
+   20px, weight 600, color #fff, line-height 1.25, tabular figures so
+   adjacent values line up. The accent variant (used for Listing Price) gets
+   the brand blue #40a0fe. Delta chip is 11px, weight 600, padding 2px 6px,
+   radius 4px, green for positive (#27c483 on rgba(39,196,131,0.14)) and red
+   for negative (#ff4d6e on rgba(255,77,110,0.14)). */
+.modal-stat-val,
+.full-page-mode .modal-stat-val,
+.site-root.full-page-mode .modal-stat-val {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  color: #ffffff !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  margin: 0 !important;
+  letter-spacing: -0.1px !important;
+}
+.modal-stat-val.accent,
+.full-page-mode .modal-stat-val.accent {
+  color: #40a0fe !important;
+}
+.modal-stat-val .delta,
+.modal-stat-val .delta-chip,
+.modal-stat-val .stat-delta,
+.full-page-mode .modal-stat-val .delta {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+  vertical-align: middle !important;
+}
+.modal-stat-val .delta.up,
+.modal-stat-val .delta-chip.up,
+.modal-stat-val .stat-delta.up,
+.modal-stat-val .delta[data-dir="up"] {
+  color: #27c483 !important;
+  background-color: rgba(39, 196, 131, 0.14) !important;
+}
+.modal-stat-val .delta.down,
+.modal-stat-val .delta-chip.down,
+.modal-stat-val .stat-delta.down,
+.modal-stat-val .delta[data-dir="down"] {
+  color: #ff4d6e !important;
+  background-color: rgba(255, 77, 110, 0.14) !important;
+}
+.modal-stat-val .delta.flat,
+.modal-stat-val .delta-chip.flat {
+  color: rgba(255, 255, 255, 0.55) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1408 */
+
+/* CSFLOAT-1:1 PARITY ship #1409
+   Detail-row tables — key/value rows that appear in the item modal body and
+   stall sheets. csfloat formats these as a 2-column row: label on the left
+   in eyebrow style, value on the right in white 13px tabular. Border-bottom
+   1px rgba white .04 except last row. Vertical padding 8px. */
+.modal-detail-row,
+.detail-row,
+.modal-kv-row,
+.full-page-mode .modal-detail-row,
+.full-page-mode .detail-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  gap: 12px !important;
+  min-height: 32px !important;
+}
+.modal-detail-row:last-child,
+.detail-row:last-child,
+.modal-kv-row:last-child {
+  border-bottom: none !important;
+}
+.modal-detail-row .detail-label,
+.modal-detail-row .row-label,
+.detail-row .detail-label,
+.detail-row .row-label,
+.modal-kv-row .kv-label {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  line-height: 1.3 !important;
+  flex: 0 0 auto !important;
+}
+.modal-detail-row .detail-value,
+.modal-detail-row .row-value,
+.detail-row .detail-value,
+.detail-row .row-value,
+.modal-kv-row .kv-value {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  line-height: 1.3 !important;
+  font-variant-numeric: tabular-nums !important;
+  text-align: right !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1409 */
+
+/* CSFLOAT-1:1 PARITY ship #1410
+   Final polish on right-rail stat grid: csfloat uses 12px gap between four
+   stat panels, 4 columns >=1024px, 2 columns 640-1024px, 1 column <640px.
+   Hero Listing Price gets a 3px brand-blue left accent rail at zero offset. */
+.item-modal-stats,
+.full-page-mode .item-modal-stats,
+.modal-stat-grid,
+.full-page-mode .modal-stat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  margin: 16px 0 !important;
+}
+@media (max-width: 1024px) {
+  .item-modal-stats,
+  .full-page-mode .item-modal-stats,
+  .modal-stat-grid,
+  .full-page-mode .modal-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 640px) {
+  .item-modal-stats,
+  .full-page-mode .item-modal-stats,
+  .modal-stat-grid,
+  .full-page-mode .modal-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+.modal-stat-box:first-child,
+.full-page-mode .modal-stat-box:first-child,
+.site-root.full-page-mode .modal-stat-box:first-child {
+  position: relative !important;
+  overflow: hidden !important;
+}
+.modal-stat-box:first-child::before,
+.full-page-mode .modal-stat-box:first-child::before,
+.site-root.full-page-mode .modal-stat-box:first-child::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 3px !important;
+  height: 100% !important;
+  background-color: #40a0fe !important;
+  border-radius: 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1410 */
