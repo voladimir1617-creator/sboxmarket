@@ -136663,6 +136663,321 @@ body .full-page-mode .empty-inline > div:nth-of-type(3) {
 }
 /* END CSFLOAT-1:1 PARITY ship #3506 */
 
+/* CSFLOAT-1:1 PARITY ship #4000 — Material Symbols size hierarchy normalization.
+   csfloat uses a strict 5-tier scale: 18 / 20 / 21 / 24 / 32+.
+   Lock the canonical .mi/.material-symbols-rounded baseline at 24px (the most
+   common default). Any nested context overrides below this baseline. */
+body .material-symbols-rounded,
+body .material-symbols-outlined,
+body .material-icons,
+body mat-icon,
+body span.mi {
+  font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+  font-weight: 400 !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  vertical-align: middle !important;
+  font-feature-settings: 'liga' !important;
+  -webkit-font-feature-settings: 'liga' !important;
+  -webkit-font-smoothing: antialiased !important;
+  white-space: nowrap !important;
+  word-wrap: normal !important;
+  direction: ltr !important;
+  /* csfloat uses Material Symbols variation axes for fill/weight */
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4000 */
+
+/* CSFLOAT-1:1 PARITY ship #4001 — Trust-badge inline icon (lock).
+   Local file had .trust-badge .mi @ 13px font-size, which is wrong.
+   csfloat ships it at 24px font-size in a 14px visual box (vertical-align middle),
+   color matches the muted secondary ink to avoid drawing attention away from text. */
+body .trust-badge .material-symbols-rounded,
+body .trust-badge .mi,
+body .trust-badge mat-icon {
+  font-size: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  margin-right: 6px !important;
+  color: rgba(193, 206, 255, 0.7) !important;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4001 */
+
+/* CSFLOAT-1:1 PARITY ship #4002 — Footer social icons (mail).
+   csfloat footer social link @ 24x24 with mail/x_logo/etc icons rendered at 20px
+   in a muted off-white #9ea7b1-equivalent so they sit below the body text in priority.
+   Local was 13px broken. */
+body .site-footer-social .material-symbols-rounded,
+body .site-footer-social .mi,
+body .site-footer-social mat-icon,
+body a.site-footer-social .material-symbols-rounded,
+body a.site-footer-social .mi {
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  vertical-align: middle !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20 !important;
+}
+body a.site-footer-social:hover .material-symbols-rounded,
+body a.site-footer-social:hover .mi,
+body a.site-footer-social:hover mat-icon {
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4002 */
+
+/* CSFLOAT-1:1 PARITY ship #4003 — Card-action icon button pairing.
+   csfloat: 20px icon in 38x30 pill button, bg rgba(30,32,38,0.55), br 20px.
+   Used for photo_camera / inspect / share on grid card thumbs. */
+body .grid-thumb .action,
+body .grid-thumb a.inspect-link,
+body .grid-card .action,
+body .grid-card a.inspect-link,
+body .item-thumb .action,
+body .grid-thumb .grid-action,
+body .grid-card .grid-action {
+  width: 38px !important;
+  height: 30px !important;
+  border-radius: 20px !important;
+  background: rgba(30, 32, 38, 0.55) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 8px !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .grid-thumb .action:hover,
+body .grid-thumb a.inspect-link:hover,
+body .grid-card .action:hover,
+body .grid-card a.inspect-link:hover,
+body .item-thumb .action:hover,
+body .grid-thumb .grid-action:hover,
+body .grid-card .grid-action:hover {
+  background: rgba(30, 32, 38, 0.85) !important;
+}
+body .grid-thumb .action .material-symbols-rounded,
+body .grid-thumb .action .mi,
+body .grid-thumb a.inspect-link .material-symbols-rounded,
+body .grid-thumb a.inspect-link .mi,
+body .grid-card .action .material-symbols-rounded,
+body .grid-card .action .mi,
+body .grid-card a.inspect-link .material-symbols-rounded,
+body .grid-card a.inspect-link .mi,
+body .item-thumb .action .material-symbols-rounded,
+body .item-thumb .action .mi,
+body .grid-thumb .grid-action .material-symbols-rounded,
+body .grid-thumb .grid-action .mi,
+body .grid-card .grid-action .material-symbols-rounded,
+body .grid-card .grid-action .mi {
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  vertical-align: baseline !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4003 */
+
+/* CSFLOAT-1:1 PARITY ship #4004 — Carousel arrow buttons (navigate_before/next).
+   csfloat band rails: 37x37 button, 6px br, bg rgba(193,206,255,0.04),
+   icon 21px white centered. */
+body .carousel-arrow,
+body .carousel-arrow.left,
+body .carousel-arrow.right,
+body .arrow.left,
+body .arrow.right,
+body .csfloat-band-arrow,
+body .csfloat-band-arrow-left,
+body .csfloat-band-arrow-right {
+  width: 37px !important;
+  height: 37px !important;
+  border-radius: 6px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .carousel-arrow:hover,
+body .arrow.left:hover,
+body .arrow.right:hover,
+body .csfloat-band-arrow:hover,
+body .csfloat-band-arrow-left:hover,
+body .csfloat-band-arrow-right:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+}
+body .carousel-arrow .material-symbols-rounded,
+body .carousel-arrow .mi,
+body .carousel-arrow mat-icon,
+body .arrow.left .material-symbols-rounded,
+body .arrow.right .material-symbols-rounded,
+body .arrow.left .mi,
+body .arrow.right .mi,
+body .csfloat-band-arrow .material-symbols-rounded,
+body .csfloat-band-arrow .mi,
+body .csfloat-band-arrow-left .material-symbols-rounded,
+body .csfloat-band-arrow-left .mi,
+body .csfloat-band-arrow-right .material-symbols-rounded,
+body .csfloat-band-arrow-right .mi {
+  font-size: 21px !important;
+  width: 21px !important;
+  height: 21px !important;
+  line-height: 21px !important;
+  color: rgb(255, 255, 255) !important;
+  vertical-align: baseline !important;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4004 */
+
+/* CSFLOAT-1:1 PARITY ship #4005 — Menu trigger chevron (currency / lang / etc).
+   csfloat: chevron is 18px font-size, color rgb(158,167,177), va: top, lh: 18px,
+   margin-left: 8px to space from preceding text. Applies to dropdown chevrons in
+   .nav-picker-chip, .sort-picker-chip, mat-menu-trigger style buttons. */
+body .nav-picker-chip .material-symbols-rounded,
+body .nav-picker-chip .mi,
+body .sort-picker-chip .material-symbols-rounded,
+body .sort-picker-chip .mi,
+body .mat-mdc-menu-trigger .material-symbols-rounded,
+body .mat-mdc-menu-trigger .mi,
+body button[aria-haspopup="menu"] .material-symbols-rounded,
+body button[aria-haspopup="menu"] .mi,
+body .picker-chip .material-symbols-rounded,
+body .picker-chip .mi,
+body .dropdown-toggle .material-symbols-rounded,
+body .dropdown-toggle .mi {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+  color: rgb(158, 167, 177) !important;
+  vertical-align: top !important;
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4005 */
+
+/* CSFLOAT-1:1 PARITY ship #4006 — Header icon-only utility buttons (refresh / etc).
+   csfloat: refresh button 38x36, br 8px, bg rgba(193,206,255,0.04),
+   icon 18px white va: top. Used for any header utility icon button. */
+body .toolbar-icon-btn,
+body .header-icon-btn,
+body button.icon-only-btn,
+body button.icon-utility-btn {
+  width: 38px !important;
+  height: 36px !important;
+  min-width: 38px !important;
+  border-radius: 8px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  padding: 0 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .toolbar-icon-btn:hover,
+body .header-icon-btn:hover,
+body button.icon-only-btn:hover,
+body button.icon-utility-btn:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+}
+body .toolbar-icon-btn .material-symbols-rounded,
+body .toolbar-icon-btn .mi,
+body .header-icon-btn .material-symbols-rounded,
+body .header-icon-btn .mi,
+body button.icon-only-btn .material-symbols-rounded,
+body button.icon-only-btn .mi,
+body button.icon-utility-btn .material-symbols-rounded,
+body button.icon-utility-btn .mi {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 1 !important;
+  color: rgb(255, 255, 255) !important;
+  vertical-align: top !important;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4006 */
+
+/* CSFLOAT-1:1 PARITY ship #4007 — In-button icon spacing (icon + text pairs).
+   csfloat: when an icon ships inside a labeled button (CTA, link button etc),
+   the icon is 20px with 8px right-margin (or 8px left-margin if trailing).
+   Locks vertical alignment to text baseline via va: middle. */
+body .csfloat-home-hero-cta .material-symbols-rounded,
+body .csfloat-home-hero-cta .mi,
+body .btn-accent .material-symbols-rounded,
+body .btn-accent .mi,
+body .btn-primary .material-symbols-rounded,
+body .btn-primary .mi,
+body .empty-inline .btn-accent .material-symbols-rounded,
+body .empty-inline .btn-accent .mi {
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  margin-right: 8px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20 !important;
+}
+body .csfloat-home-hero-cta .material-symbols-rounded:last-child,
+body .csfloat-home-hero-cta .mi:last-child,
+body .btn-accent .material-symbols-rounded:last-child,
+body .btn-accent .mi:last-child {
+  margin-right: 0 !important;
+  margin-left: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4007 */
+
+/* CSFLOAT-1:1 PARITY ship #4008 — FAQ accordion expand_more icon.
+   csfloat: .csfloat-home-faq-q-arrow @ 24x24 outer span, icon 24px /
+   color rgba(255,255,255,0.54), rotates 180deg on open via transform. */
+body .csfloat-home-faq-q-arrow,
+body .faq-q-arrow {
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .csfloat-home-faq-q-arrow .material-symbols-rounded,
+body .csfloat-home-faq-q-arrow .mi,
+body .faq-q-arrow .material-symbols-rounded,
+body .faq-q-arrow .mi {
+  font-size: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 1 !important;
+  color: rgba(255, 255, 255, 0.54) !important;
+  vertical-align: middle !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+body .csfloat-home-faq-item.open .csfloat-home-faq-q-arrow,
+body .csfloat-home-faq-item[aria-expanded="true"] .csfloat-home-faq-q-arrow,
+body .faq-item.open .faq-q-arrow {
+  transform: rotate(180deg) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4008 */
+
 /* CSFLOAT-1:1 PARITY ship #3700 — toast/snackbar container surface parity.
    Measured csfloat root vars: --mat-snack-bar-container-shape 4px,
    --mat-snack-bar-container-color #424242, --mat-snack-bar-supporting-text-color
