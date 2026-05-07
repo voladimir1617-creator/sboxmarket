@@ -152406,3 +152406,613 @@ body .cart-confirm-total-amt {
   transform: translateX(-50%) translateY(-1px);
 }
 /* END CSFLOAT-1:1 PARITY ship #10304 */
+
+/* CSFLOAT-1:1 PARITY ship #10500 - Follower / Following count chip.
+   csfloat measured (computed from .seller-details-wrapper .badge that
+   shows follower count next to the avatar): height 20px, padding 0 8px,
+   gap 4px, font-family Roboto, font-size 11px, line-height 16px,
+   font-weight 500, letter-spacing 0.4px, color rgb(108,161,255),
+   background rgba(108,161,255,0.10), border 0, border-radius 10px
+   (full pill), inline-flex centered. The count number sits inline with
+   the trailing label as a single chip beside the Follow button. Local
+   .stall-share-btn renders an inline ' · 247' span — drift in case,
+   weight, color, and missing pill chrome. Lock the inline count span
+   to a proper csfloat capsule. */
+.stall-share-btn span[style*="margin-left"],
+.stall-share-btn .stall-follow-count,
+.stall-hero .seller-follow-count,
+.stall-hero .followers-chip,
+.stall-hero .following-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  padding: 0 8px !important;
+  margin-left: 6px !important;
+  gap: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  color: rgb(108, 161, 255) !important;
+  background: rgba(108, 161, 255, 0.10) !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+.stall-share-btn[data-following="true"] span[style*="margin-left"],
+.stall-share-btn.is-following span[style*="margin-left"] {
+  color: rgba(255, 255, 255, 0.87) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10500 */
+
+/* CSFLOAT-1:1 PARITY ship #10501 - "Member since" badge in the stall hero.
+   csfloat shows the join date as a flat stat in the hero meta row
+   plus a separate badge pill in the trust column: label "Joined" /
+   "Member since" in rgba(255,255,255,0.6) at 12px / 16px line-height
+   with 0.4px tracking, value in white at 16px / 24px line-height,
+   weight 500. When the account age is < 30d, csfloat tints the value
+   warning amber (#fbbf24) to flag a fresh account. The standalone pill
+   uses 24px height, 0 10px padding, 12px radius, transparent fill with
+   1px hairline border, all on a flex row with 6px gap. Local cells
+   already render the vertical label/value but lack the freshness tint
+   and tabular-nums lock. */
+.stall-stat-grid .stall-stat .stall-stat-val:has(span[title*="GMT"]),
+.stall-stat-grid .stall-stat .stall-stat-val:has(span[title*=":"]) {
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.15px !important;
+}
+.stall-stat-grid .stall-stat .stall-stat-val[data-fresh="true"],
+.stall-stat-grid .stall-stat[data-fresh="true"] .stall-stat-val {
+  color: #fbbf24 !important;
+}
+.stall-trust-row .member-since,
+.profile-trust .member-since,
+.seller-meta .member-since {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 24px !important;
+  padding: 0 10px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10501 */
+
+/* CSFLOAT-1:1 PARITY ship #10502 - Verified-seller badge with shield icon.
+   csfloat measured (computed from .badge-container .custom-badge that
+   carries the verified-seller checkmark on /stall, /sell, and product
+   detail): inline-flex 22px tall capsule with 0 8px padding, gap 4px
+   between glyph and text. Shield-style mark uses the primary accent
+   (#6ca1ff) at 12px on a translucent halo (rgba(108,161,255,0.10))
+   ringed by 1px solid rgba(108,161,255,0.24). Material 'verified
+   shield' glyph is masked from a Roboto-Material SVG so it stays
+   crisp at any DPR. Local .seller-verified renders only a flat green
+   '✓' character — drift in color, shape, ring, and missing icon. */
+.seller-verified,
+.stall-verified,
+.stall-hero .verified-badge,
+.stall-hero .seller-verified-badge,
+.profile-verified-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  padding: 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 0 !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  color: rgb(108, 161, 255) !important;
+  background: rgba(108, 161, 255, 0.10) !important;
+  border: 1px solid rgba(108, 161, 255, 0.24) !important;
+  border-radius: 11px !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+.seller-verified::before,
+.stall-verified::before,
+.stall-hero .verified-badge::before,
+.stall-hero .seller-verified-badge::before,
+.profile-verified-badge::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 12px !important;
+  height: 12px !important;
+  background-color: rgb(108, 161, 255) !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 16l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z'/></svg>") center / contain no-repeat !important;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 16l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z'/></svg>") center / contain no-repeat !important;
+  flex: 0 0 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10502 */
+
+/* CSFLOAT-1:1 PARITY ship #10503 - Trusted-trader rating display.
+   csfloat measured (computed from .seller-rating row beside the
+   verified badge on a profile / stall page): horizontal flex, 4px gap
+   between glyph + numeric value + review count. Stars use Material
+   'star' filled glyph at 16px in #fbbf24 (warm amber). Average value
+   renders in rgba(255,255,255,0.87) at 14/20 weight 500; trailing
+   review count is rgba(255,255,255,0.6) at 12/16 weight 400. The
+   "Trusted trader" pill (shown when the seller crosses csfloat's
+   volume threshold) uses the same 22px capsule geometry as the
+   verified badge but in warm amber. */
+.stall-rating,
+.stall-rating-chip,
+.profile-rating,
+.seller-rating-row {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  white-space: nowrap !important;
+}
+.stall-rating::before,
+.stall-rating-chip::before,
+.profile-rating::before,
+.seller-rating-row::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 16px !important;
+  height: 16px !important;
+  background-color: #fbbf24 !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/></svg>") center / contain no-repeat !important;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/></svg>") center / contain no-repeat !important;
+  flex: 0 0 16px !important;
+  vertical-align: middle !important;
+}
+.stall-rating .rating-value,
+.stall-rating-chip .rating-value,
+.profile-rating .rating-value,
+.seller-rating-row .rating-value {
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.stall-rating .rating-count,
+.stall-rating-chip .rating-count,
+.profile-rating .rating-count,
+.seller-rating-row .rating-count {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  letter-spacing: 0.4px !important;
+  margin-left: 2px !important;
+}
+.stall-hero .trusted-trader-badge,
+.profile-trusted-badge,
+.seller-trusted-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  margin-left: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  color: #fbbf24 !important;
+  background: rgba(251, 191, 36, 0.10) !important;
+  border: 1px solid rgba(251, 191, 36, 0.24) !important;
+  border-radius: 11px !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10503 */
+
+/* CSFLOAT-1:1 PARITY ship #10504 - Total sales / total purchases counters.
+   csfloat measured (computed from .stat block inside the buyer/seller
+   profile aggregate row): label "Total sales" / "Total purchases" in
+   rgba(255,255,255,0.6) at 12/16 with 0.4px tracking, value white at
+   18/24 weight 500, with optional trailing unit ("sales" / "purchases")
+   muted at 12/16. The values are tabular-numeric so different magnitudes
+   line up. The whole row spans the meta strip with 24px column gap and
+   matches the joined / last-seen / lifetime-sales geometry already
+   shipped in #9003. This ship explicitly raises the value font-size of
+   the counter cells from 16 to 18 (matching csfloat's emphasized
+   counter typography) while leaving the supporting cells alone. */
+.stall-stat-grid .stall-stat .stall-stat-val,
+.profile-stat-grid .profile-stat .profile-stat-val {
+  font-variant-numeric: tabular-nums !important;
+}
+.stall-stat-grid .stall-stat[data-stat="totalSales"] .stall-stat-val,
+.stall-stat-grid .stall-stat[data-stat="totalPurchases"] .stall-stat-val,
+.stall-stat-grid .stall-stat[data-stat="lifetimeSales"] .stall-stat-val,
+.profile-stat-grid .profile-stat[data-stat="totalSales"] .profile-stat-val,
+.profile-stat-grid .profile-stat[data-stat="totalPurchases"] .profile-stat-val {
+  font-size: 18px !important;
+  line-height: 24px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+}
+.stall-stat-grid .stall-stat[data-stat="totalSales"] .stall-stat-unit,
+.stall-stat-grid .stall-stat[data-stat="totalPurchases"] .stall-stat-unit,
+.profile-stat-grid .profile-stat[data-stat="totalSales"] .profile-stat-unit,
+.profile-stat-grid .profile-stat[data-stat="totalPurchases"] .profile-stat-unit {
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  letter-spacing: 0.4px !important;
+  margin-left: 4px !important;
+  font-variant-numeric: normal !important;
+}
+.stall-stat-grid .stall-stat[data-stat="totalPurchases"]::before {
+  content: '' !important;
+  display: inline-block !important;
+  align-self: center !important;
+  width: 1px !important;
+  height: 24px !important;
+  margin-right: 24px !important;
+  margin-left: -12px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10504 */
+/* CSFLOAT-1:1 PARITY ship #10700 — admin sidebar nav exact metric pass.
+   csfloat /admin sidebar uses 240px column, 18px 14px padding, sticky at 56px,
+   sections separated by 16px gap, link rows 32px height with 6px 10px padding,
+   12px font with 500 weight, active link uses cta blue tint. */
+.csfloat-admin-sidebar,
+nav.admin-sidebar,
+aside.admin-sidebar {
+  width: 240px !important;
+  padding: 18px 14px !important;
+  background: var(--bg) !important;
+  border-right: 1px solid var(--line) !important;
+  position: sticky !important;
+  top: 56px !important;
+  height: calc(100vh - 56px) !important;
+  overflow-y: auto !important;
+  font-family: var(--sans) !important;
+}
+.csfloat-admin-sidebar-link,
+.admin-sidebar a,
+.admin-nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 10px !important;
+  min-height: 32px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  color: var(--ink-3) !important;
+  text-decoration: none !important;
+  border-radius: 6px !important;
+  transition: background 100ms ease, color 100ms ease !important;
+}
+.csfloat-admin-sidebar-link:hover,
+.admin-sidebar a:hover,
+.admin-nav-item:hover {
+  background: var(--bg-2) !important;
+  color: var(--ink-1) !important;
+}
+.csfloat-admin-sidebar-link.active,
+.admin-sidebar a.active,
+.admin-nav-item.active,
+.admin-nav-item[aria-current="page"] {
+  background: color-mix(in oklab, var(--cta) 16%, transparent) !important;
+  color: var(--cta) !important;
+  font-weight: 600 !important;
+}
+.csfloat-admin-sidebar-section-title,
+.admin-sidebar-heading {
+  font-family: var(--mono) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: var(--ink-4) !important;
+  padding: 6px 10px !important;
+  margin: 0 0 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10700 */
+/* CSFLOAT-1:1 PARITY ship #10701 — admin breadcrumb chrome.
+   csfloat breadcrumb: 13px sans, ink-3 ancestors, ink-1 current,
+   8px gap, 11px ink-4 separator, 18px bottom margin. */
+.admin-breadcrumb,
+.breadcrumb.admin,
+nav[aria-label="Breadcrumb"].admin-bc {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 0 18px 0 !important;
+  padding: 0 !important;
+  font-family: var(--sans) !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  letter-spacing: -0.005em !important;
+  color: var(--ink-3) !important;
+  list-style: none !important;
+}
+.admin-breadcrumb a,
+.breadcrumb.admin a {
+  color: var(--ink-3) !important;
+  text-decoration: none !important;
+  transition: color 120ms ease !important;
+}
+.admin-breadcrumb a:hover,
+.breadcrumb.admin a:hover {
+  color: var(--ink-1) !important;
+}
+.admin-breadcrumb > *:last-child,
+.admin-breadcrumb [aria-current="page"],
+.breadcrumb.admin [aria-current="page"] {
+  color: var(--ink-1) !important;
+  font-weight: 500 !important;
+}
+.admin-breadcrumb-sep,
+.breadcrumb.admin-sep {
+  color: var(--ink-4) !important;
+  font-size: 11px !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10701 */
+/* CSFLOAT-1:1 PARITY ship #10702 — admin data table styling.
+   csfloat admin tables: 12px font, 11px tabular-nums for numeric cols,
+   th uppercase 10px ink-4 letter-spacing 0.06em, 1px line below headers,
+   row height 44px, hover bg-2, sticky header background bg, no zebra. */
+.admin-table,
+table.admin,
+.admin-tab-content table,
+.admin-card table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-family: var(--sans) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  background: transparent !important;
+}
+.admin-table thead,
+table.admin thead,
+.admin-tab-content table thead,
+.admin-card table thead {
+  background: var(--bg) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1 !important;
+}
+.admin-table th,
+table.admin th,
+.admin-tab-content table th,
+.admin-card table th {
+  font-family: var(--mono) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--ink-4) !important;
+  text-align: left !important;
+  padding: 10px 12px !important;
+  border-bottom: 1px solid var(--line) !important;
+  white-space: nowrap !important;
+}
+.admin-table td,
+table.admin td,
+.admin-tab-content table td,
+.admin-card table td {
+  padding: 12px !important;
+  height: 44px !important;
+  border-bottom: 1px solid var(--line) !important;
+  color: var(--ink-1) !important;
+  vertical-align: middle !important;
+}
+.admin-table td.num,
+.admin-table td[data-num],
+table.admin td.num,
+.admin-card table td.num {
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  font-variant-numeric: tabular-nums !important;
+  text-align: right !important;
+}
+.admin-table tbody tr:hover,
+table.admin tbody tr:hover,
+.admin-tab-content table tbody tr:hover,
+.admin-card table tbody tr:hover {
+  background: var(--bg-2) !important;
+}
+.admin-table tbody tr:last-child td,
+table.admin tbody tr:last-child td,
+.admin-card table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10702 */
+/* CSFLOAT-1:1 PARITY ship #10703 — admin action button trio.
+   csfloat staff actions: 28px tall, 11px font 600 weight, 8px 12px padding,
+   1px outline, semantic colors — suspend down red, verify up green,
+   refund warn amber. Ghost by default; hover fills semantic at 14% mix. */
+.btn-suspend,
+.admin-btn-suspend,
+button[data-action="suspend"],
+.btn-ban,
+button[data-action="ban"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: var(--sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1 !important;
+  color: var(--down) !important;
+  background: transparent !important;
+  border: 1px solid color-mix(in oklab, var(--down) 40%, var(--line)) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.btn-suspend:hover,
+.admin-btn-suspend:hover,
+button[data-action="suspend"]:hover,
+.btn-ban:hover {
+  background: color-mix(in oklab, var(--down) 14%, transparent) !important;
+  border-color: var(--down) !important;
+}
+.btn-verify,
+.admin-btn-verify,
+button[data-action="verify"],
+button[data-action="approve"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: var(--sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1 !important;
+  color: var(--up) !important;
+  background: transparent !important;
+  border: 1px solid color-mix(in oklab, var(--up) 40%, var(--line)) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.btn-verify:hover,
+.admin-btn-verify:hover,
+button[data-action="verify"]:hover,
+button[data-action="approve"]:hover {
+  background: color-mix(in oklab, var(--up) 14%, transparent) !important;
+  border-color: var(--up) !important;
+}
+.btn-refund,
+.admin-btn-refund,
+button[data-action="refund"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: var(--sans) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1 !important;
+  color: var(--warn, #d6a04e) !important;
+  background: transparent !important;
+  border: 1px solid color-mix(in oklab, var(--warn, #d6a04e) 40%, var(--line)) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.btn-refund:hover,
+.admin-btn-refund:hover,
+button[data-action="refund"]:hover {
+  background: color-mix(in oklab, var(--warn, #d6a04e) 14%, transparent) !important;
+  border-color: var(--warn, #d6a04e) !important;
+}
+.btn-suspend:disabled,
+.btn-verify:disabled,
+.btn-refund:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10703 */
+/* CSFLOAT-1:1 PARITY ship #10704 — admin home stats summary card grid.
+   csfloat dashboard top: 4-col responsive stat grid, 14px gap, each card
+   18px 20px padding, 1px line border, 10px label uppercase,
+   24px serif metric value, optional 11px delta in tabular-nums. */
+.admin-stats-grid,
+.csfloat-admin-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  margin: 0 0 22px 0 !important;
+}
+@media (max-width: 1100px) {
+  .admin-stats-grid,
+  .csfloat-admin-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 640px) {
+  .admin-stats-grid,
+  .csfloat-admin-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+.admin-stat-card,
+.csfloat-admin-stat-card {
+  padding: 18px 20px !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--r-md, 8px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  min-height: 92px !important;
+  transition: border-color 140ms ease, background 140ms ease !important;
+}
+.admin-stat-card:hover,
+.csfloat-admin-stat-card:hover {
+  border-color: var(--ink-4) !important;
+}
+.admin-stat-card-label,
+.csfloat-admin-stat-card-label {
+  font-family: var(--mono) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-4) !important;
+  margin: 0 !important;
+}
+.admin-stat-card-value,
+.csfloat-admin-stat-card-value {
+  font-family: var(--serif) !important;
+  font-size: 24px !important;
+  font-weight: 360 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+  color: var(--ink) !important;
+  font-variation-settings: "opsz" 144 !important;
+  font-variant-numeric: tabular-nums !important;
+  margin: 0 !important;
+}
+.admin-stat-card-delta,
+.csfloat-admin-stat-card-delta {
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -0.005em !important;
+  margin: 0 !important;
+  color: var(--ink-3) !important;
+}
+.admin-stat-card-delta.up,
+.csfloat-admin-stat-card-delta.up { color: var(--up) !important; }
+.admin-stat-card-delta.down,
+.csfloat-admin-stat-card-delta.down { color: var(--down) !important; }
+/* END CSFLOAT-1:1 PARITY ship #10704 */
