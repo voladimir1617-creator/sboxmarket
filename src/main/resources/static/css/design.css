@@ -160051,3 +160051,182 @@ html body .float-rank-ladder .frr-float {
   font-variant-numeric: tabular-nums !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #14705 */
+
+/* CSFLOAT-1:1 PARITY ship #14800 (settings sidebar — container geometry) — measured: csfloat .filter.sticky width 221px, max-width 350px, padding 0, bg transparent, position sticky, top 133px, no border-right; sbox .settings-sidebar / .csfloat-settings-nav had no canonical container styles. */
+html body aside.settings-sidebar,
+html body .settings-sidebar,
+html body .csfloat-settings-page > .csfloat-settings-nav,
+html body .settings-tabs-rail,
+html body nav.settings-nav {
+  position: sticky !important;
+  top: 133px !important;
+  width: 221px !important;
+  max-width: 350px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-right: 0 !important;
+  flex-shrink: 0 !important;
+  align-self: flex-start !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14800 */
+
+/* CSFLOAT-1:1 PARITY ship #14801 (settings sidebar — group header h3 / .settings-group-h) — measured: csfloat .filter.sticky div.row.expanded font-size 16px, font-weight 400, color rgb(255,255,255), padding 6px 0, letter-spacing normal, text-transform none; sbox .settings-group-h was undefined / mismatched. */
+html body aside.settings-sidebar > h3,
+html body aside.settings-sidebar > h3.settings-group-h,
+html body .settings-sidebar > h3,
+html body .settings-sidebar h3.settings-group-h,
+html body .settings-sidebar .settings-group-h,
+html body nav.settings-nav h3.settings-group-h,
+html body .settings-tabs-rail h3,
+html body .csfloat-settings-page > .csfloat-settings-nav h3 {
+  display: block !important;
+  margin: 0 !important;
+  padding: 6px 0 !important;
+  font-family: inherit !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  background-color: transparent !important;
+  border: 0 !important;
+}
+html body aside.settings-sidebar > h3 + h3,
+html body .settings-sidebar h3 + h3,
+html body .settings-sidebar h3.settings-group-h + h3.settings-group-h {
+  margin-top: 14px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14801 */
+
+/* CSFLOAT-1:1 PARITY ship #14802 (settings sidebar — nav row geometry / typography) — measured: csfloat sidebar items 36px height, 14px font, 400 weight, color rgb(158,167,177) for inactive (csfloat ink-2), padding 0 12px, background transparent, no border, transition cubic-bezier 200ms; sbox .settings-nav-row was unstyled in nav rail context. */
+html body aside.settings-sidebar a.settings-nav-row,
+html body aside.settings-sidebar .settings-nav-row,
+html body .settings-sidebar a.settings-nav-row,
+html body .settings-sidebar .settings-nav-row,
+html body nav.settings-nav a,
+html body nav.settings-nav .settings-nav-row,
+html body .settings-tabs-rail a,
+html body .csfloat-settings-page > .csfloat-settings-nav .csfloat-settings-nav-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-decoration: none !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14802 */
+
+/* CSFLOAT-1:1 PARITY ship #14803 (settings sidebar — nav row hover state) — measured: csfloat hover background rgba(255,255,255,0.04), color rgb(255,255,255); sbox had no canonical hover treatment in rail context. */
+html body aside.settings-sidebar a.settings-nav-row:hover,
+html body aside.settings-sidebar .settings-nav-row:hover,
+html body .settings-sidebar a.settings-nav-row:hover,
+html body .settings-sidebar .settings-nav-row:hover,
+html body nav.settings-nav a:hover,
+html body nav.settings-nav .settings-nav-row:hover,
+html body .settings-tabs-rail a:hover,
+html body .csfloat-settings-page > .csfloat-settings-nav .csfloat-settings-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14803 */
+
+/* CSFLOAT-1:1 PARITY ship #14804 (settings sidebar — active row indicator: brand left bar + tint + ink-1 text) — measured: csfloat active row background rgba(35,123,255,0.10), color rgb(255,255,255), font-weight 500, with a 2px brand-color left bar via ::before; sbox had inconsistent active treatments. */
+html body aside.settings-sidebar a.settings-nav-row.is-active,
+html body aside.settings-sidebar a.settings-nav-row.active,
+html body aside.settings-sidebar .settings-nav-row.is-active,
+html body aside.settings-sidebar .settings-nav-row[aria-current="page"],
+html body .settings-sidebar a.settings-nav-row.is-active,
+html body .settings-sidebar .settings-nav-row.is-active,
+html body .settings-sidebar .settings-nav-row.active,
+html body nav.settings-nav a.is-active,
+html body nav.settings-nav a.active,
+html body nav.settings-nav a[aria-current="page"],
+html body .settings-tabs-rail a.is-active,
+html body .csfloat-settings-page > .csfloat-settings-nav .csfloat-settings-nav-link.active {
+  background-color: rgba(35, 123, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+  border: 0 !important;
+}
+html body aside.settings-sidebar a.settings-nav-row.is-active::before,
+html body aside.settings-sidebar a.settings-nav-row.active::before,
+html body aside.settings-sidebar .settings-nav-row.is-active::before,
+html body aside.settings-sidebar .settings-nav-row[aria-current="page"]::before,
+html body .settings-sidebar a.settings-nav-row.is-active::before,
+html body .settings-sidebar .settings-nav-row.is-active::before,
+html body .settings-sidebar .settings-nav-row.active::before,
+html body nav.settings-nav a.is-active::before,
+html body nav.settings-nav a.active::before,
+html body nav.settings-nav a[aria-current="page"]::before,
+html body .csfloat-settings-page > .csfloat-settings-nav .csfloat-settings-nav-link.active::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 8px !important;
+  bottom: 8px !important;
+  width: 2px !important;
+  background-color: rgb(35, 123, 255) !important;
+  border-radius: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14804 */
+
+/* CSFLOAT-1:1 PARITY ship #14805 (settings sidebar — leading icon size + group divider hairline) — measured: csfloat icon 16x16, color inherits from text (ink-2 inactive / white active), flex-shrink 0; group dividers use 1px hairline rgba(255,255,255,0.06) with 14px vertical margin; sbox had ad-hoc icon sizing and no canonical divider. */
+html body aside.settings-sidebar a.settings-nav-row > svg,
+html body aside.settings-sidebar a.settings-nav-row > i,
+html body aside.settings-sidebar a.settings-nav-row > .settings-nav-row-icon,
+html body aside.settings-sidebar a.settings-nav-row > .csfloat-settings-nav-link-icon,
+html body .settings-sidebar a.settings-nav-row > svg,
+html body .settings-sidebar a.settings-nav-row > i,
+html body .settings-sidebar a.settings-nav-row > .settings-nav-row-icon,
+html body nav.settings-nav a > svg,
+html body nav.settings-nav a > i,
+html body .csfloat-settings-page > .csfloat-settings-nav .csfloat-settings-nav-link-icon {
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  color: inherit !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  opacity: 1 !important;
+}
+html body aside.settings-sidebar hr,
+html body aside.settings-sidebar .settings-group-divider,
+html body .settings-sidebar hr,
+html body .settings-sidebar .settings-group-divider,
+html body nav.settings-nav hr,
+html body nav.settings-nav .settings-group-divider {
+  display: block !important;
+  height: 1px !important;
+  width: 100% !important;
+  margin: 14px 0 !important;
+  padding: 0 !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14805 */
