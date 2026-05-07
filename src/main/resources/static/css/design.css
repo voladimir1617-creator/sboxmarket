@@ -155627,3 +155627,193 @@ body #sb-steam-redirect > * {
   z-index: 1 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #12006 */
+
+/* CSFLOAT-1:1 PARITY ship #12300 — Cart drawer thumbnail size + effects (csfloat: 56px square thumb in drawer with 8px radius) */
+body .csfloat-cart-drawer .cart-row .cart-thumb,
+body .csfloat-cart-drawer .cart-row > img:first-child,
+body .csfloat-cart-drawer .cart-row .item-thumb {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+  border-radius: 8px !important;
+  object-fit: contain !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%) !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease !important;
+  flex: 0 0 56px !important;
+}
+body .csfloat-cart-drawer .cart-row:hover .cart-thumb,
+body .csfloat-cart-drawer .cart-row:hover > img:first-child,
+body .csfloat-cart-drawer .cart-row:hover .item-thumb {
+  transform: scale(1.04) !important;
+  box-shadow: 0 0 0 1px rgba(108, 154, 255, 0.32), 0 4px 12px rgba(0, 0, 0, 0.32) !important;
+  background: linear-gradient(180deg, rgba(108,154,255,0.08) 0%, rgba(108,154,255,0.02) 100%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12300 */
+
+/* CSFLOAT-1:1 PARITY ship #12301 — Drag handle on left of cart drawer row (csfloat: 6-dot grip, 14px wide, opacity 0 to 0.5 on hover) */
+body .csfloat-cart-drawer .cart-row {
+  position: relative !important;
+  padding-left: 28px !important;
+}
+body .csfloat-cart-drawer .cart-row::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 6px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 14px !important;
+  height: 22px !important;
+  background-image:
+    radial-gradient(circle, currentColor 1.2px, transparent 1.6px),
+    radial-gradient(circle, currentColor 1.2px, transparent 1.6px),
+    radial-gradient(circle, currentColor 1.2px, transparent 1.6px),
+    radial-gradient(circle, currentColor 1.2px, transparent 1.6px),
+    radial-gradient(circle, currentColor 1.2px, transparent 1.6px),
+    radial-gradient(circle, currentColor 1.2px, transparent 1.6px) !important;
+  background-position: 3px 4px, 11px 4px, 3px 11px, 11px 11px, 3px 18px, 11px 18px !important;
+  background-size: 4px 4px !important;
+  background-repeat: no-repeat !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  opacity: 0 !important;
+  cursor: grab !important;
+  transition: opacity 160ms ease !important;
+  pointer-events: auto !important;
+  z-index: 2 !important;
+}
+body .csfloat-cart-drawer .cart-row:hover::before {
+  opacity: 0.5 !important;
+}
+body .csfloat-cart-drawer .cart-row:active::before {
+  opacity: 0.85 !important;
+  cursor: grabbing !important;
+}
+body .csfloat-cart-drawer .cart-row.is-dragging {
+  opacity: 0.6 !important;
+  background: var(--bg-2, rgba(255,255,255,0.04)) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12301 */
+
+/* CSFLOAT-1:1 PARITY ship #12302 — Row swipe-to-delete on mobile (csfloat: row translates -88px, red delete bg revealed beneath) */
+@media (max-width: 768px) {
+  body .csfloat-cart-drawer .cart-row {
+    overflow: hidden !important;
+    touch-action: pan-y !important;
+  }
+  body .csfloat-cart-drawer .cart-row::after {
+    content: 'Delete' !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 88px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(90deg, rgba(220, 53, 69, 0) 0%, rgba(220, 53, 69, 0.92) 18%, rgba(220, 53, 69, 1) 100%) !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    z-index: 0 !important;
+    transform: translateX(100%) !important;
+    transition: transform 200ms ease !important;
+    pointer-events: none !important;
+  }
+  body .csfloat-cart-drawer .cart-row[data-swiped="true"]::after,
+  body .csfloat-cart-drawer .cart-row.swipe-open::after {
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
+  }
+  body .csfloat-cart-drawer .cart-row[data-swiped="true"] > *,
+  body .csfloat-cart-drawer .cart-row.swipe-open > * {
+    transform: translateX(-88px) !important;
+    transition: transform 200ms ease !important;
+  }
+  body .csfloat-cart-drawer .cart-row > * {
+    transition: transform 200ms ease !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12302 */
+
+/* CSFLOAT-1:1 PARITY ship #12303 — Row hover state in drawer (csfloat: bg flash + 2px left accent stripe on hover) */
+body .csfloat-cart-drawer .cart-row {
+  transition: background-color 140ms ease, padding-left 140ms ease, border-left-color 140ms ease !important;
+}
+@media (min-width: 769px) {
+  body .csfloat-cart-drawer .cart-row {
+    border-left: 2px solid transparent !important;
+  }
+  body .csfloat-cart-drawer .cart-row:hover {
+    background-color: rgba(108, 154, 255, 0.04) !important;
+    border-left-color: rgba(108, 154, 255, 0.55) !important;
+  }
+  body .csfloat-cart-drawer .cart-row:active {
+    background-color: rgba(108, 154, 255, 0.07) !important;
+  }
+}
+body .csfloat-cart-drawer .cart-row .cart-row-actions,
+body .csfloat-cart-drawer .cart-row .row-actions {
+  opacity: 0 !important;
+  transition: opacity 140ms ease !important;
+}
+body .csfloat-cart-drawer .cart-row:hover .cart-row-actions,
+body .csfloat-cart-drawer .cart-row:hover .row-actions {
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12303 */
+
+/* CSFLOAT-1:1 PARITY ship #12304 — Move-to-watchlist inline action (csfloat: bookmark icon button, 28x28, on hover) */
+body .csfloat-cart-drawer .cart-row .move-to-watchlist,
+body .csfloat-cart-drawer .cart-row .btn-watchlist,
+body .csfloat-cart-drawer .cart-row .row-watchlist {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  cursor: pointer !important;
+  opacity: 0 !important;
+  transform: translateX(4px) !important;
+  transition: opacity 160ms ease, transform 160ms ease, color 160ms ease, background-color 160ms ease, border-color 160ms ease !important;
+  padding: 0 !important;
+}
+body .csfloat-cart-drawer .cart-row:hover .move-to-watchlist,
+body .csfloat-cart-drawer .cart-row:hover .btn-watchlist,
+body .csfloat-cart-drawer .cart-row:hover .row-watchlist {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+body .csfloat-cart-drawer .cart-row .move-to-watchlist:hover,
+body .csfloat-cart-drawer .cart-row .btn-watchlist:hover,
+body .csfloat-cart-drawer .cart-row .row-watchlist:hover {
+  color: #ffd54a !important;
+  border-color: rgba(255, 213, 74, 0.42) !important;
+  background-color: rgba(255, 213, 74, 0.08) !important;
+}
+body .csfloat-cart-drawer .cart-row .move-to-watchlist:active,
+body .csfloat-cart-drawer .cart-row .btn-watchlist:active,
+body .csfloat-cart-drawer .cart-row .row-watchlist:active {
+  background-color: rgba(255, 213, 74, 0.14) !important;
+  transform: translateX(0) scale(0.94) !important;
+}
+body .csfloat-cart-drawer .cart-row .move-to-watchlist svg,
+body .csfloat-cart-drawer .cart-row .btn-watchlist svg,
+body .csfloat-cart-drawer .cart-row .row-watchlist svg,
+body .csfloat-cart-drawer .cart-row .move-to-watchlist .material-symbols-rounded,
+body .csfloat-cart-drawer .cart-row .btn-watchlist .material-symbols-rounded,
+body .csfloat-cart-drawer .cart-row .row-watchlist .material-symbols-rounded {
+  width: 16px !important;
+  height: 16px !important;
+  font-size: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12304 */
