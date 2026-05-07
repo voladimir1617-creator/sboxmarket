@@ -134178,3 +134178,743 @@ body .rail-count {
   color: rgb(110, 118, 128) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2705 */
+
+/* CSFLOAT-1:1 PARITY ship #2806 — /loadout list becomes 5-col slot grid.
+   csfloat measured: .loadout-grid (overview list of loadout cards) lays out
+   on a tight horizontal grid with 6px column gap, ~221px wide tile, ~140px tall.
+   Inside a single loadout, .loadout-grid uses 5 columns + 22px spacer + 6th col,
+   gap 20px, total width ~1254px, container side margins 33px.
+   sboxmarket .loadout-list was 1 col x 184px-tall full-width cards.
+   Convert to a 5-column grid (auto-fill, minmax 210, max 226) with 20px gap,
+   centered with 33px side margins to match csfloat's loadout column layout. */
+body .info-modal .loadout-list,
+body .info-modal-body .loadout-list,
+body .loadout-list {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 226px)) !important;
+  gap: 20px !important;
+  margin: 12px 33px 0 !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  background: transparent !important;
+  width: auto !important;
+}
+@media (max-width: 1180px) {
+  body .info-modal .loadout-list,
+  body .info-modal-body .loadout-list,
+  body .loadout-list {
+    grid-template-columns: repeat(4, minmax(0, 226px)) !important;
+  }
+}
+@media (max-width: 960px) {
+  body .info-modal .loadout-list,
+  body .info-modal-body .loadout-list,
+  body .loadout-list {
+    grid-template-columns: repeat(3, minmax(0, 226px)) !important;
+    margin: 12px 16px 0 !important;
+  }
+}
+@media (max-width: 720px) {
+  body .info-modal .loadout-list,
+  body .info-modal-body .loadout-list,
+  body .loadout-list {
+    grid-template-columns: repeat(2, minmax(0, 226px)) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #2806 */
+
+/* CSFLOAT-1:1 PARITY ship #2807 — /loadout slot card chrome.
+   csfloat measured: .loadout-card on overview is 221px wide, 140px tall.
+   .loadout-card-content has border-radius 12px. Card background is a dark
+   surface with subtle stickering — solid rgb(20,22,28)-ish slightly elevated
+   from body bg rgb(21,23,28). No outer border, no heavy shadow.
+   sboxmarket .loadout-card was 1182px wide, 184px tall, padding 16px,
+   border-radius 6px, raised oklch(0.2 0.009 260) bg. Compress to 226x140,
+   border-radius 12px, padding 14px to fit name/meta/owner/share stack. */
+body .info-modal .loadout-card,
+body .info-modal-body .loadout-list .loadout-card,
+body .loadout-list .loadout-card {
+  width: auto !important;
+  max-width: 226px !important;
+  height: 140px !important;
+  min-height: 140px !important;
+  padding: 14px !important;
+  border-radius: 12px !important;
+  background: rgb(27, 29, 36) !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease, transform 0.15s ease !important;
+}
+body .info-modal .loadout-card:hover,
+body .info-modal-body .loadout-list .loadout-card:hover,
+body .loadout-list .loadout-card:hover {
+  background-color: rgb(31, 33, 41) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2807 */
+
+/* CSFLOAT-1:1 PARITY ship #2808 — slot card NAME typography.
+   csfloat measured: .item-name on a card — 13px / 400, color rgb(255,255,255),
+   single-line ellipsis, line-height ~15px. The overview card title is heavier
+   (display name, 15-16px / 600). sboxmarket .loadout-card-name was 45px tall
+   block — much too big. Pull down to 15px / 600 white, single line ellipsis. */
+body .info-modal .loadout-card .loadout-card-name,
+body .loadout-list .loadout-card .loadout-card-name {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 18px !important;
+  height: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 0 6px !important;
+  padding: 0 !important;
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2808 */
+
+/* CSFLOAT-1:1 PARITY ship #2809 — slot card META row (heart count + price).
+   csfloat measured: meta strip uses small muted secondary text — ~12px / 500,
+   color rgb(158, 167, 177), inline row with separators. sboxmarket
+   .loadout-card-meta was 30px tall. Keep on a single 18px-tall row, 12px font,
+   muted color, gap 8px. Price gets the mono treatment via the grid-price font. */
+body .info-modal .loadout-card .loadout-card-meta,
+body .loadout-list .loadout-card .loadout-card-meta {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 18px !important;
+  height: 18px !important;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2809 */
+
+/* CSFLOAT-1:1 PARITY ship #2810 — slot card OWNER row.
+   csfloat measured: card author row is muted small text — 11-12px / 400 muted
+   color, with the author name slightly highlighted. sboxmarket
+   .loadout-card-owner was 30px tall. Compress to a single 16px-tall line of
+   12px / 400 secondary muted text, pinned to bottom via auto top-margin. */
+body .info-modal .loadout-card .loadout-card-owner,
+body .loadout-list .loadout-card .loadout-card-owner {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+  height: 16px !important;
+  margin: auto 0 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2810 */
+
+/* CSFLOAT-1:1 PARITY ship #2811 — slot card SHARE icon button (top-right).
+   csfloat measured: card-level icon-only chips — 30x30, bg rgba(30,32,38,.55),
+   border-radius 6px, padding 4px 8px, mat-icon 20px. Floats top-right of card.
+   sboxmarket .loadout-card-share was 56x45 wide block at bottom-left.
+   Reposition to absolute top-right, 30x30, square chip with translucent bg. */
+body .info-modal .loadout-card .loadout-card-share,
+body .loadout-list .loadout-card .loadout-card-share {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  background: rgba(30, 32, 38, 0.55) !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  box-shadow: none !important;
+}
+body .info-modal .loadout-card .loadout-card-share:hover,
+body .loadout-list .loadout-card .loadout-card-share:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .info-modal .loadout-card .loadout-card-share .material-icons,
+body .info-modal .loadout-card .loadout-card-share i,
+body .loadout-list .loadout-card .loadout-card-share .material-icons,
+body .loadout-list .loadout-card .loadout-card-share i {
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2811 */
+
+/* CSFLOAT-1:1 PARITY ship #3100 — /item breadcrumb top-of-page typography parity.
+   csfloat renders the breadcrumb at 12px Roboto with ~0.005em letter-spacing,
+   ink-3 color, with a slim 6px gap between segments. Our existing rule
+   (ship #13 in cycle 31) used 11px mono with 0.04em letter-spacing — too
+   tight + chrome-y vs csfloat's calmer Roboto chain. Snap to csfloat metrics. */
+body .modal-breadcrumb,
+body .item-modal-breadcrumb,
+body .info-modal-breadcrumb {
+  font-family: "Roboto", "Geist", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  letter-spacing: 0.005em !important;
+  font-weight: 400 !important;
+  color: var(--ink-3) !important;
+  gap: 6px !important;
+  line-height: 1.4 !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3100 */
+
+/* CSFLOAT-1:1 PARITY ship #3101 — breadcrumb separator (›) chevron color + size parity.
+   csfloat uses the U+203A single right angle quote at the same 12px size as the
+   surrounding link text in --ink-4 (most-muted ink). We had it bumped to 12px
+   AND ink-4 already, but the separator was getting auto-margin from the parent
+   gap, leaving inconsistent visual rhythm. Lock margin to 0 and inherit size. */
+body .modal-breadcrumb-sep,
+body .item-modal-breadcrumb .sep,
+body .info-modal-breadcrumb .sep {
+  font-size: 12px !important;
+  color: var(--ink-4) !important;
+  margin: 0 !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3101 */
+
+/* CSFLOAT-1:1 PARITY ship #3102 — breadcrumb link hover/state parity.
+   csfloat breadcrumb crumbs become full --ink (white) on hover with NO
+   underline (the color shift is the affordance). Our previous rule added
+   underline + 2px offset on hover — that's our editorial-link pattern,
+   not csfloat's chrome pattern. Drop the underline; keep the color shift. */
+body .modal-breadcrumb-link,
+body .item-modal-breadcrumb a,
+body .info-modal-breadcrumb a {
+  color: var(--ink-3) !important;
+  text-decoration: none !important;
+  transition: color 120ms ease !important;
+  cursor: pointer !important;
+}
+body .modal-breadcrumb-link:hover,
+body .item-modal-breadcrumb a:hover,
+body .info-modal-breadcrumb a:hover {
+  color: var(--ink) !important;
+  text-decoration: none !important;
+}
+body .modal-breadcrumb-cur,
+body .item-modal-breadcrumb .current,
+body .info-modal-breadcrumb .current {
+  color: var(--ink) !important;
+  font-weight: 400 !important;
+  cursor: default !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3102 */
+
+/* CSFLOAT-1:1 PARITY ship #3103 — "You might also like" similar items rail card geometry.
+   csfloat's similar rail uses ~150px wide cards (smaller than the main grid 232px),
+   1px var(--line) border, 8px border-radius, var(--bg-1) surface. Each card has
+   a square 150x150 thumb, then 8px 10px name (12px / 500wt) and 0 10px 8px price
+   (mono / 12px / 600wt). Tighten our existing similar-card spec to match. */
+body .similar-strip > .similar-card,
+body .similar-strip .similar-card {
+  flex: 0 0 150px !important;
+  width: 150px !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease !important;
+  text-decoration: none !important;
+}
+body .similar-strip > .similar-card:hover,
+body .similar-strip .similar-card:hover {
+  border-color: var(--line-2) !important;
+  background: var(--bg-2) !important;
+  transform: translateY(-1px) !important;
+}
+body .similar-strip .similar-thumb {
+  aspect-ratio: 1 / 1 !important;
+  background: var(--bg-2) !important;
+  border-bottom: 1px solid var(--line) !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 6px !important;
+}
+body .similar-strip .similar-thumb img {
+  width: 80% !important;
+  height: 80% !important;
+  object-fit: contain !important;
+}
+body .similar-strip .similar-name {
+  padding: 8px 10px 2px !important;
+  font-family: "Roboto", "Geist", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.005em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.35 !important;
+}
+body .similar-strip .similar-price {
+  padding: 0 10px 8px !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+  line-height: 1.35 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3103 */
+
+/* CSFLOAT-1:1 PARITY ship #3104 — "You might also like" section heading parity.
+   csfloat uses a Roboto 14px / 600wt heading "You might also like" left-aligned
+   above the rail with a 12px bottom margin and a 4px CTA-blue dot ornament to
+   the left at 8px gap. Our section-title-dot is already in the markup; tighten
+   the typography to match csfloat's compact rail header (was 16px Fraunces). */
+body .similar-strip,
+body .modal-content .similar-strip {
+  display: flex !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  padding: 4px 0 8px 0 !important;
+  margin: 0 !important;
+  scroll-snap-type: none !important;
+}
+body .similar-strip::-webkit-scrollbar { display: none !important; }
+body .modal-content > div > .modal-section-title {
+  font-family: "Roboto", "Geist", system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.005em !important;
+  margin: 0 0 12px 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-style: normal !important;
+}
+body .modal-content > div > .modal-section-title .section-title-dot {
+  width: 4px !important;
+  height: 4px !important;
+  background: var(--cta) !important;
+  border-radius: 50% !important;
+  flex: 0 0 4px !important;
+  display: inline-block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3104 */
+
+
+
+/* CSFLOAT-1:1 PARITY ship #2606 — watchlist filter pills (All / Price drops).
+   Measure: csfloat tab pills above the watchlist grid use Roboto 13px/500
+   uppercase letter-spacing 0.5px, color rgb(158,167,177) inactive,
+   rgb(255,255,255) active with a 2px solid rgb(35,123,255) underline at
+   the bottom (4px below text), 12px gap between tabs, padding 10px 0
+   (no horizontal padding so the underline runs the text width only).
+   Pre-fix: sbox `.offer-tab` pills on /watchlist used the editorial
+   color tokens and a slightly different hover state. This restores
+   csfloat's exact text-to-underline pill spec for the watchlist tab strip. */
+.watchlist-filter-pills .offer-tab {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 10px 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  cursor: pointer !important;
+  transition: color 140ms ease, border-color 140ms ease !important;
+}
+.watchlist-filter-pills .offer-tab:hover {
+  color: rgb(220, 226, 232) !important;
+}
+.watchlist-filter-pills .offer-tab.active {
+  color: rgb(255, 255, 255) !important;
+  border-bottom-color: rgb(35, 123, 255) !important;
+}
+.watchlist-filter-pills .offer-tab .filter-count {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 10px !important;
+  padding: 1px 7px !important;
+  margin-left: 6px !important;
+  vertical-align: 1px !important;
+}
+.watchlist-filter-pills .offer-tab.active .filter-count {
+  background: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(120, 178, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2606 */
+
+/* CSFLOAT-1:1 PARITY ship #2607 — alert-hit chip + price-delta badge.
+   Measure: csfloat alert-hit chip = Roboto 10px/700 uppercase, letter-
+   spacing 0.14em, padding 3px 9px, full-pill border-radius (999px),
+   accent-blue rgba(35,123,255,0.16) bg with rgba(35,123,255,0.32)
+   hairline, color rgb(120,178,255). Price-drop badge .watchlist-delta.drop
+   = green rgb(78,219,141) on rgba(78,219,141,0.10). Rise = red
+   rgb(232,84,84) on rgba(232,84,84,0.10). Pre-fix: sbox used --ink/--up/
+   --down vars that resolve to flat editorial off-white — wrong tint. */
+.watchlist-alert-hit {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  line-height: 14px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  padding: 3px 9px !important;
+  background: rgba(35, 123, 255, 0.16) !important;
+  border: 1px solid rgba(35, 123, 255, 0.32) !important;
+  border-radius: 999px !important;
+  color: rgb(120, 178, 255) !important;
+  z-index: 2 !important;
+}
+.watchlist-delta {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  font-family: "Roboto Mono", ui-monospace, monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 14px !important;
+  letter-spacing: 0.04em !important;
+  padding: 3px 8px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 999px !important;
+  color: rgb(158, 167, 177) !important;
+  z-index: 2 !important;
+}
+.watchlist-delta.drop {
+  color: rgb(78, 219, 141) !important;
+  background: rgba(78, 219, 141, 0.10) !important;
+  border-color: rgba(78, 219, 141, 0.28) !important;
+}
+.watchlist-delta.rise {
+  color: rgb(232, 84, 84) !important;
+  background: rgba(232, 84, 84, 0.10) !important;
+  border-color: rgba(232, 84, 84, 0.28) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2607 */
+
+/* CSFLOAT-1:1 PARITY ship #2608 — set-price-alert button + edit form.
+   Measure: csfloat alert-bar renders as a full-width 32px row docked
+   under each watchlist card with hairline rgba(255,255,255,0.08) top
+   border, bg rgba(255,255,255,0.02). The Set price alert button uses
+   Roboto 11px/500 csfloat-blue rgb(35,123,255), no border, no padding
+   pill — plain text-link spec. When SET, shows target price as
+   "Alert at target" in the same blue, weight 600. Pre-fix: sbox
+   .watchlist-alert-btn used pill chrome (border + padding 5px 12px).
+   The alert-edit input measures 28px tall, 6px radius, rgba(255,255,255,0.04)
+   bg, rgba(255,255,255,0.10) border. */
+.watchlist-alert-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  margin: 0 !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  min-height: 32px !important;
+}
+.watchlist-alert-btn {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2px !important;
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 4px 8px !important;
+  cursor: pointer !important;
+  transition: color 140ms ease !important;
+}
+.watchlist-alert-btn:hover {
+  background: transparent !important;
+  color: rgb(80, 150, 255) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+.watchlist-alert-btn.set {
+  color: rgb(120, 178, 255) !important;
+  font-weight: 600 !important;
+}
+.watchlist-alert-btn.set:hover {
+  color: rgb(160, 200, 255) !important;
+}
+.watchlist-alert-edit {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+.watchlist-alert-edit input[type="number"] {
+  width: 110px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: "Roboto Mono", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  outline: 0 !important;
+}
+.watchlist-alert-edit input[type="number"]:focus {
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  background: rgba(35, 123, 255, 0.06) !important;
+}
+.watchlist-alert-edit .btn.btn-accent {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  border-radius: 6px !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.watchlist-alert-edit .btn.btn-ghost {
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2608 */
+
+/* CSFLOAT-1:1 PARITY ship #2609 — empty state on /watchlist results.
+   Measure: csfloat empty state uses a centered column, 64px tall icon
+   pill (rgba(255,255,255,0.04) bg with rgba(255,255,255,0.08) hairline),
+   14px gap, body text Roboto 14px/400 line-height 1.5 rgb(158,167,177)
+   max-width 360px. CTA Clear filters = ghost button Roboto 12px/500
+   1px hairline rgba(255,255,255,0.12), padding 7px 14px, 8px radius.
+   Pre-fix: sbox .empty-inline used 26px icon + 14px text in editorial
+   density — too small for the page-level empty. */
+#watchlist-results.empty-inline {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 14px !important;
+  padding: 80px 24px !important;
+  margin: 0 !important;
+  text-align: center !important;
+  min-height: 320px !important;
+}
+#watchlist-results.empty-inline .empty-icon {
+  width: 64px !important;
+  height: 64px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 50% !important;
+  color: rgba(255, 255, 255, 0.32) !important;
+  margin: 0 0 6px 0 !important;
+}
+#watchlist-results.empty-inline .empty-icon .material-symbols-rounded {
+  font-size: 32px !important;
+  color: rgba(255, 255, 255, 0.32) !important;
+}
+#watchlist-results.empty-inline > div:not(.empty-icon) {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: rgb(158, 167, 177) !important;
+  max-width: 360px !important;
+  margin: 0 !important;
+}
+#watchlist-results.empty-inline .btn.btn-ghost {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.3px !important;
+  color: rgb(220, 226, 232) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  padding: 7px 14px !important;
+  margin-top: 10px !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+#watchlist-results.empty-inline .btn.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2609 */
+
+/* CSFLOAT-1:1 PARITY ship #2610 — toolbar above watchlist grid (sort
+   select + clear-all + add-all-to-cart row).
+   Measure: csfloat watchlist toolbar = 44px tall flex row, 16px gap,
+   bottom-aligned hairline rgba(255,255,255,0.08), bg transparent.
+   Sort select = 28px tall, 12.5px Roboto, rgba(255,255,255,0.04) bg,
+   rgba(255,255,255,0.10) border, 6px radius, 28px right padding for
+   chevron. Clear all button = danger-ghost 11px/600 uppercase,
+   rgb(232,84,84) text, 1px hairline rgba(232,84,84,0.32), 6px radius
+   with rgba(232,84,84,0.06) hover bg. Add all to cart button = ghost
+   11px/600 uppercase accent-blue rgb(35,123,255), 1px hairline
+   rgba(35,123,255,0.32), 6px radius. Pre-fix: the inline style override
+   was forcing 6px 12px / 13px which broke the spec. */
+.watchlist-filter-pills {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  margin: 0 0 16px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.watchlist-filter-pills > .sort-select {
+  height: 28px !important;
+  padding: 0 28px 0 10px !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  color: rgb(220, 226, 232) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  outline: 0 !important;
+}
+.watchlist-filter-pills > .sort-select:hover {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.watchlist-filter-pills > .sort-select:focus-visible {
+  border-color: rgba(35, 123, 255, 0.55) !important;
+}
+.watchlist-filter-pills > .btn.btn-ghost {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border: 1px solid rgba(35, 123, 255, 0.32) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+.watchlist-filter-pills > .btn.btn-ghost:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+}
+.watchlist-filter-pills > .btn-danger-ghost {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(232, 84, 84) !important;
+  background: transparent !important;
+  border: 1px solid rgba(232, 84, 84, 0.32) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+.watchlist-filter-pills > .btn-danger-ghost:hover {
+  background: rgba(232, 84, 84, 0.08) !important;
+  border-color: rgba(232, 84, 84, 0.55) !important;
+  color: rgb(255, 100, 100) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2610 */
+
+/* CSFLOAT-1:1 PARITY ship #2611 — watchlist grid + card spacing tune.
+   Measure: csfloat watchlist grid uses 16px gap (not 12px from
+   editorial density) between cards. Each card = 200px min, auto-fill,
+   1px hairline rgba(255,255,255,0.08) border, 8px radius. The alert
+   bar at the card foot tucks against the card bottom with no gap (it
+   is inside the card chrome). Pre-fix: sbox used 12px gap from
+   .listing-grid base which was too tight at the page-level scope.
+   Also: ensure the wrapper position:relative so absolute-positioned
+   .watchlist-delta and .watchlist-alert-hit anchor to the card, not
+   a stray ancestor. */
+#watchlist-results.listing-grid {
+  gap: 16px !important;
+  padding: 4px 0 !important;
+}
+#watchlist-results.listing-grid > div {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  transition: border-color 140ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+#watchlist-results.listing-grid > div:hover {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  transform: translateY(-1px) !important;
+}
+#watchlist-results.listing-grid > div > .grid-card,
+#watchlist-results.listing-grid > div > .listing-card {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+#watchlist-results.listing-grid > div > .watchlist-alert-bar {
+  margin-top: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2611 */
