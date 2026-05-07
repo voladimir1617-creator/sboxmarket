@@ -141329,3 +141329,103 @@ input[name="deposit-amount"]:focus,
   border-color: rgba(77,200,255,0.22) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5504 */
+
+/* CSFLOAT-1:1 PARITY ship #5505 — wallet filter chips row above tx list.
+   csfloat chip: 30px h, 0 13px pad, radius 999px, 12.5px/600, neutral inactive
+   (rgba(255,255,255,0.05) bg, rgba(255,255,255,0.6) text, no border) /
+   blue active (#237bff bg, #fff text). Row gap 8px, vertical pad 12px 0.
+   Pre measured: 32h, 0 12, 12/500, 1px-blue-border inactive (wrong). */
+.wallet-tx-filter-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 12px 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.wallet-tx-filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 30px !important;
+  padding: 0 13px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  background: rgba(255,255,255,0.05) !important;
+  color: rgba(255,255,255,0.6) !important;
+  border: 1px solid transparent !important;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+.wallet-tx-filter-chip:hover {
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(255,255,255,0.85) !important;
+  border-color: transparent !important;
+}
+.wallet-tx-filter-chip.active,
+.wallet-tx-filter-chip[aria-selected="true"] {
+  background: #237bff !important;
+  color: #fff !important;
+  border-color: #237bff !important;
+  box-shadow: none !important;
+}
+.wallet-tx-filter-chip.active:hover {
+  background: #1f6fe6 !important;
+  color: #fff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5505 */
+
+/* CSFLOAT-1:1 PARITY ship #5506 — wallet primary tabs (Deposit / Withdraw / History).
+   csfloat tab: 13px/600, ls 0.3px, padding 14px 18px, h 44px, color
+   rgba(255,255,255,0.6) inactive / #fff active with 2px #237bff under-bar.
+   Tabs container: gap 0, border-bottom rgba(255,255,255,0.08).
+   Pre measured: 14/700, ls normal, h 38, gap 4 — all wrong. */
+.wallet-tabs {
+  display: flex !important;
+  gap: 0 !important;
+  align-items: stretch !important;
+  height: 44px !important;
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  background: transparent !important;
+}
+.wallet-tabs button,
+.wallet-tabs > a,
+.wallet-tabs .tab {
+  position: relative !important;
+  height: 44px !important;
+  padding: 0 18px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  text-transform: none !important;
+  color: rgba(255,255,255,0.6) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  cursor: pointer !important;
+  transition: color 140ms ease, border-color 140ms ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.wallet-tabs button:hover,
+.wallet-tabs > a:hover {
+  color: rgba(255,255,255,0.92) !important;
+  background: transparent !important;
+}
+.wallet-tabs button.active,
+.wallet-tabs button[aria-selected="true"],
+.wallet-tabs > a.active,
+.wallet-tabs > a[aria-current="page"],
+.wallet-tabs .tab.active {
+  color: #fff !important;
+  background: transparent !important;
+  border-bottom: 2px solid #237bff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5506 */
