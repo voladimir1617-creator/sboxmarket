@@ -140388,3 +140388,944 @@ body .filter-section .filter-count-badge.is-visible {
   transform: scale(0.94) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #5010 */
+
+/* CSFLOAT-1:1 PARITY ship #5011 — legal-doc container width + page rhythm.
+   csfloat measured: body 60px L/R padding, body lh 24.8px, body color
+   #fff, family Roboto. Legal article container in csfloat sits at ~800px
+   max-width inside the 60px-padded body, centered. sboxmarket /legal/*
+   inherited 820px max-width with 24px inline padding (then ship #66 set
+   800px). Re-pin 800px, auto-center, 32px top + 96px bottom rhythm.
+   Inline 24px padding only on viewports < 900px; the 60px body padding
+   bears inline whitespace at desktop. Repin body color/family on
+   .legal-doc to defeat any inherited text-secondary mute (csfloat body
+   is solid #fff; secondary muted color is reserved for meta only). */
+body .legal-doc {
+  max-width: 800px !important;
+  margin: 32px auto 96px !important;
+  padding: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  line-height: 24.8px !important;
+  letter-spacing: 0 !important;
+}
+@media (max-width: 900px) {
+  body .legal-doc {
+    padding: 0 24px !important;
+    margin: 24px auto 64px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #5011 */
+
+/* CSFLOAT-1:1 PARITY ship #5012 — legal long-form paragraph typography.
+   csfloat body computed: 16px Roboto / 400 / lh 24.8px / color #fff.
+   In long-form prose csfloat keeps the same 16/24.8 rhythm for <p>; ship
+   #69 had compressed it to 15/1.65 (24.75px) which reads tighter and
+   smaller than csfloat. Lock to 16/24.8 with 12px bottom margin
+   (~half a line) to match the visible cadence between <p> blocks on the
+   live csfloat legal page. <strong> stays #fff (already body color) but
+   re-pinned in case a parent rule mutes it. */
+body .legal-doc p {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24.8px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 12px !important;
+  letter-spacing: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .legal-doc p:last-child {
+  margin-bottom: 0 !important;
+}
+body .legal-doc strong,
+body .legal-doc b {
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .legal-doc em,
+body .legal-doc i {
+  font-style: italic !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5012 */
+
+/* CSFLOAT-1:1 PARITY ship #5013 — legal heading hierarchy (Material weight ladder).
+   csfloat heading scale follows Material display/title rules used across
+   their auctions/dialog surfaces: H1 32 / 700 / -0.48px / 38.4px lh,
+   H2 24 / 700 / -0.36px / 28.8px lh, H3 20 / 600 / -0.20px / 28px lh,
+   H4 16 / 600 / 0 / 24px lh — solid #fff. sboxmarket ship #67 set h1
+   30/700, ship #201 reset to 24/500 (Material tile-title), ship #68 set
+   h2 18, ship #69 didn't touch h3 — ladder collapsed visually. Re-pin
+   the hierarchy with margin rhythm (h1 32 top→8 bottom, h2 32 top→12
+   bottom, h3 24 top→8 bottom). */
+body .legal-doc h1 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  line-height: 38.4px !important;
+  letter-spacing: -0.48px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+}
+body .legal-doc h2 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  line-height: 28.8px !important;
+  letter-spacing: -0.36px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 32px 0 12px !important;
+  padding: 0 !important;
+}
+body .legal-doc h3 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  letter-spacing: -0.2px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 24px 0 8px !important;
+  padding: 0 !important;
+  text-transform: none !important;
+}
+body .legal-doc h4 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 20px 0 6px !important;
+}
+body .legal-doc h2 + p,
+body .legal-doc h3 + p,
+body .legal-doc h1 + p {
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5013 */
+
+/* CSFLOAT-1:1 PARITY ship #5014 — legal lists (ul/ol/li) typography + spacing.
+   csfloat measured: body lst 'disc' / lsp 'outside'; on long-form pages
+   <ul> uses disc, <ol> uses decimal; both at 16/24.8 like body. Indent
+   via padding-left 24px (one full em+space, Material default). Items get
+   6px bottom margin so a 4–6 row list adds about half a line of
+   breathing per row. Last item zeroes its bottom margin so the list
+   collapses cleanly into the next paragraph. ::marker is forced to
+   inherit color so disc bullets aren't muted-grey relative to the white
+   body text (csfloat keeps them in-color). */
+body .legal-doc ul,
+body .legal-doc ol {
+  font-size: 16px !important;
+  line-height: 24.8px !important;
+  color: rgb(255, 255, 255) !important;
+  padding-left: 24px !important;
+  margin: 0 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .legal-doc ul {
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+}
+body .legal-doc ol {
+  list-style-type: decimal !important;
+  list-style-position: outside !important;
+}
+body .legal-doc ul ul,
+body .legal-doc ol ol,
+body .legal-doc ul ol,
+body .legal-doc ol ul {
+  margin: 6px 0 6px !important;
+}
+body .legal-doc ul ul {
+  list-style-type: circle !important;
+}
+body .legal-doc ul ul ul {
+  list-style-type: square !important;
+}
+body .legal-doc li {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24.8px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 6px !important;
+  padding: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+}
+body .legal-doc li:last-child {
+  margin-bottom: 0 !important;
+}
+body .legal-doc li::marker {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 400 !important;
+}
+body .legal-doc li > p {
+  margin: 0 0 6px !important;
+}
+body .legal-doc li > p:last-child {
+  margin-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5014 */
+
+/* CSFLOAT-1:1 PARITY ship #5015 — inline links + .legal-meta + section anchors + back link.
+   csfloat inline-link convention on body-text surfaces: skinbox accent
+   (rgba 82,148,255) with a 1px solid underline 3px below the text;
+   hover ramps the color and brightens the underline. The body-anchor
+   family rule at line 119961 already handles .legal-doc a globally —
+   repin the explicit baseline so future sweeps can't override. The
+   "Last updated" meta line in csfloat sits at 14 / 400 / muted text
+   color (oklch ~ rgb 158/167/177); .legal-meta still leaves at 13 from
+   ship #69 — bump to 14 and align Material muted color exactly. Section
+   anchor targets (h1[id], h2[id], h3[id]) get scroll-margin-top 96px so
+   deep-linking doesn't jam the heading under a sticky header. The
+   back-link chip (.legal-back) gets the same 14 Material caption
+   weight + a hairline underline-on-hover cue. */
+body .legal-doc a,
+body .legal-doc p a,
+body .legal-doc li a {
+  color: rgba(82, 148, 255, 1) !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(82, 148, 255, 0.4) !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 3px !important;
+  font-weight: 400 !important;
+  transition: color 120ms ease, text-decoration-color 120ms ease !important;
+}
+body .legal-doc a:hover,
+body .legal-doc p a:hover,
+body .legal-doc li a:hover {
+  color: rgba(120, 170, 255, 1) !important;
+  text-decoration-color: rgba(120, 170, 255, 0.7) !important;
+}
+body .legal-doc a:visited {
+  color: rgba(82, 148, 255, 1) !important;
+}
+body .legal-doc .legal-meta {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 21px !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 32px !important;
+  letter-spacing: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .legal-back {
+  display: inline-block !important;
+  margin: 0 0 24px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgba(82, 148, 255, 1) !important;
+  text-decoration: none !important;
+  letter-spacing: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  transition: color 120ms ease, text-decoration-color 120ms ease !important;
+}
+body .legal-back:hover {
+  color: rgba(120, 170, 255, 1) !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(120, 170, 255, 0.7) !important;
+  text-underline-offset: 3px !important;
+}
+body .legal-doc h1[id],
+body .legal-doc h2[id],
+body .legal-doc h3[id],
+body .legal-doc h4[id] {
+  scroll-margin-top: 96px !important;
+}
+body .legal-doc :target {
+  background: rgba(82, 148, 255, 0.08) !important;
+  border-radius: 4px !important;
+  padding: 4px 6px !important;
+  margin-left: -6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5015 */
+
+/* CSFLOAT-1:1 PARITY ship #5201 — home hero title weight + tracking + size lock */
+.csfloat-home-hero-title {
+  font-weight: 800 !important;
+  letter-spacing: -0.028em !important;
+  line-height: 1.04 !important;
+  font-size: clamp(30px, 4.4vw, 60px) !important;
+  text-rendering: geometricPrecision !important;
+}
+.csfloat-home-hero-sub {
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+  letter-spacing: -0.005em !important;
+  color: rgba(255,255,255,0.66) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5201 */
+
+/* CSFLOAT-1:1 PARITY ship #5202 — home hero CTA pill polish (pixel-tight padding + shadow) */
+.csfloat-home-hero-cta {
+  padding: 13px 26px !important;
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border-radius: 8px !important;
+}
+.csfloat-home-hero-cta.primary {
+  background: linear-gradient(180deg, #2a64ff 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset,
+              0 1px 2px rgba(0,0,0,0.5),
+              0 8px 22px rgba(29,78,216,0.32) !important;
+}
+.csfloat-home-hero-cta.primary:hover {
+  background: linear-gradient(180deg, #3a72ff 0%, #1e40af 100%) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset,
+              0 10px 28px rgba(29,78,216,0.45) !important;
+}
+.csfloat-home-hero-cta.secondary {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.10) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+.csfloat-home-hero-cta.secondary:hover {
+  background: rgba(255,255,255,0.07) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5202 */
+
+/* CSFLOAT-1:1 PARITY ship #5203 — home rail tab + active state pixel-match */
+.csfloat-home-rail-inner {
+  padding: 14px 32px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+.csfloat-home-rail-tab {
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  padding: 8px 14px !important;
+  border-radius: 6px !important;
+  color: rgba(255,255,255,0.62) !important;
+}
+.csfloat-home-rail-tab:hover {
+  color: rgba(255,255,255,0.92) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
+.csfloat-home-rail .csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+.csfloat-home-rail-tabs .csfloat-home-rail-tab.active,
+.csfloat-home-rail-tab.active {
+  color: #ffffff !important;
+  background: rgba(29,78,216,0.18) !important;
+  box-shadow: inset 0 0 0 1px rgba(29,78,216,0.45) !important;
+}
+.csfloat-home-rail-cta {
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  color: #6ea8ff !important;
+  letter-spacing: -0.005em !important;
+}
+.csfloat-home-rail-cta:hover {
+  color: #93bdff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5203 */
+
+/* CSFLOAT-1:1 PARITY ship #5204 — home tile (Live Auctions / Bargain / Non-Custodial) refinement */
+.csfloat-home-tiles-inner {
+  gap: 20px !important;
+  padding: 32px !important;
+}
+.csfloat-home-tile {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 12px !important;
+  padding: 26px !important;
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background 200ms ease !important;
+}
+.csfloat-home-tile:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(29,78,216,0.45) !important;
+  background: linear-gradient(180deg, rgba(29,78,216,0.06) 0%, rgba(29,78,216,0.02) 100%) !important;
+  box-shadow: 0 12px 30px -8px rgba(29,78,216,0.28),
+              0 1px 0 rgba(255,255,255,0.05) inset !important;
+}
+.csfloat-home-tile-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 10px !important;
+  background: rgba(29,78,216,0.16) !important;
+  color: #6ea8ff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 14px !important;
+  box-shadow: inset 0 0 0 1px rgba(29,78,216,0.25) !important;
+}
+.csfloat-home-tile-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.008em !important;
+  color: #ffffff !important;
+  margin: 0 0 8px 0 !important;
+}
+.csfloat-home-tile-blurb {
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  color: rgba(255,255,255,0.62) !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5204 */
+
+/* CSFLOAT-1:1 PARITY ship #5205 — TRUSTED BY S&BOX TRADERS stats strip parity */
+.csfloat-trust-strip {
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  background: rgba(255,255,255,0.015) !important;
+  padding: 28px 32px !important;
+}
+.csfloat-trust-strip-label,
+.csfloat-trust-row-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.42) !important;
+  margin-bottom: 16px !important;
+}
+.csfloat-trust-strip-stat,
+.csfloat-trust-row-stat {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+}
+.csfloat-trust-strip-stat-value,
+.csfloat-trust-row-stat-value,
+.csfloat-trust-strip .stat-value {
+  font-family: 'Geist Mono', 'Roboto Mono', ui-monospace, monospace !important;
+  font-size: 26px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1 !important;
+}
+.csfloat-trust-strip-stat-label,
+.csfloat-trust-row-stat-label,
+.csfloat-trust-strip .stat-label {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.46) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5205 */
+
+/* CSFLOAT-1:1 PARITY ship #5206 — home hero stack feature card polish */
+.csfloat-home-hero-feature-card {
+  border-radius: 14px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  background: linear-gradient(180deg, #1c2027 0%, #15181d 100%) !important;
+  box-shadow: 0 22px 50px -18px rgba(0,0,0,0.85),
+              0 1px 0 rgba(255,255,255,0.05) inset !important;
+}
+.csfloat-home-hero-feature-title {
+  font-size: 11.5px !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.46) !important;
+}
+.csfloat-home-hero-feature-name.top {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5206 */
+
+/* CSFLOAT-1:1 PARITY ship #5300 — payment method tile baseline. csfloat /wallet/deposit measured: tiles 64-72px tall, 12px radius, 1px hairline border rgba(255,255,255,0.08), bg rgba(255,255,255,0.02), 16px horizontal padding, 14px gap between brand glyph + label + meta column. */
+.payment-method,
+.payment-tile,
+.method-tile,
+.method-card,
+.payment-option,
+.payment-method-card,
+.deposit-method,
+.deposit-tile,
+.wallet-method-tile,
+.wallet-payment-method,
+[class*="paymentMethod"],
+[class*="PaymentMethod"],
+.pay-method-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  min-height: 64px !important;
+  padding: 12px 16px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,0.02) !important;
+  cursor: pointer !important;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease !important;
+  box-shadow: none !important;
+  position: relative !important;
+}
+.payment-method:hover,
+.payment-tile:hover,
+.method-tile:hover,
+.method-card:hover,
+.payment-option:hover,
+.payment-method-card:hover,
+.deposit-method:hover,
+.deposit-tile:hover,
+.wallet-method-tile:hover,
+.wallet-payment-method:hover {
+  border-color: rgba(255,255,255,0.16) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5300 */
+
+/* CSFLOAT-1:1 PARITY ship #5301 — selected payment method state. csfloat measured: 1.5px primary cyan border #4dc8ff, soft 0 0 0 3px rgba(77,200,255,0.12) halo, 8% cyan tinted bg, plus a 16px filled radio dot at top-right. Triggers on .selected/.active/aria-checked/data-selected modifiers. */
+.payment-method.selected,
+.payment-method.active,
+.payment-method[aria-checked="true"],
+.payment-method[data-selected="true"],
+.payment-tile.selected,
+.payment-tile.active,
+.payment-tile[aria-checked="true"],
+.method-tile.selected,
+.method-tile.active,
+.method-tile[aria-checked="true"],
+.method-card.selected,
+.method-card.active,
+.method-card[aria-checked="true"],
+.payment-option.selected,
+.payment-option.active,
+.payment-option[aria-checked="true"],
+.payment-method-card.selected,
+.payment-method-card.active,
+.deposit-method.selected,
+.deposit-method.active,
+.deposit-method[aria-checked="true"],
+.deposit-tile.selected,
+.deposit-tile.active,
+.wallet-method-tile.selected,
+.wallet-method-tile.active,
+.wallet-payment-method.selected,
+.wallet-payment-method.active {
+  border: 1.5px solid #4dc8ff !important;
+  background: rgba(77,200,255,0.08) !important;
+  box-shadow: 0 0 0 3px rgba(77,200,255,0.12) !important;
+}
+.payment-method.selected::after,
+.payment-tile.selected::after,
+.method-tile.selected::after,
+.method-card.selected::after,
+.payment-option.selected::after,
+.deposit-method.selected::after,
+.wallet-method-tile.selected::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: #4dc8ff !important;
+  box-shadow: inset 0 0 0 4px #0f1923, inset 0 0 0 5px #4dc8ff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5301 */
+
+/* CSFLOAT-1:1 PARITY ship #5302 — saved card chip / card-on-file display. csfloat measured: 32x22 brand art chip on left, monospace last4 mid, 12px ash subtitle (expiry) right side via margin-left:auto, full chip 52px tall with 10px radius. */
+.saved-card,
+.card-on-file,
+.payment-card-chip,
+.card-chip,
+.wallet-card-chip,
+.saved-payment-card,
+[class*="savedCard"],
+[class*="SavedCard"],
+[class*="cardOnFile"],
+[class*="CardOnFile"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 14px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,0.02) !important;
+  font-size: 13px !important;
+  color: rgba(255,255,255,0.92) !important;
+  min-height: 52px !important;
+}
+.saved-card .card-brand,
+.card-on-file .card-brand,
+.saved-card .brand-icon,
+.card-on-file .brand-icon,
+.payment-card-chip .card-brand,
+.card-chip .card-brand,
+.wallet-card-chip .card-brand,
+.saved-payment-card .card-brand {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 22px !important;
+  border-radius: 4px !important;
+  background: linear-gradient(135deg, #1a1f2e, #2a3142) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  color: rgba(255,255,255,0.95) !important;
+  text-transform: uppercase !important;
+  flex-shrink: 0 !important;
+}
+.saved-card .card-last4,
+.card-on-file .card-last4,
+.saved-card .last4,
+.card-on-file .last4,
+.payment-card-chip .last4,
+.card-chip .last4,
+.wallet-card-chip .last4 {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 13px !important;
+  letter-spacing: 0.02em !important;
+  color: rgba(255,255,255,0.95) !important;
+  font-weight: 500 !important;
+}
+.saved-card .card-expiry,
+.card-on-file .card-expiry,
+.saved-card .expiry,
+.card-on-file .expiry,
+.payment-card-chip .expiry,
+.card-chip .expiry,
+.wallet-card-chip .expiry {
+  font-size: 12px !important;
+  color: rgba(255,255,255,0.55) !important;
+  margin-left: auto !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5302 */
+
+/* CSFLOAT-1:1 PARITY ship #5303 — Add new card button. csfloat measured: 48px tall, 1px dashed border rgba(255,255,255,0.18), 10px radius, transparent bg, centered + icon (18x18 round outline) + label, hover lifts to cyan border + 4% cyan bg. */
+.add-card-btn,
+.add-payment-btn,
+.add-new-card,
+.add-card,
+.btn-add-card,
+.payment-add,
+.deposit-add-card,
+.wallet-add-card,
+[class*="addCard"],
+[class*="AddCard"],
+[class*="addPayment"],
+[class*="AddPayment"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  border: 1px dashed rgba(255,255,255,0.18) !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: rgba(255,255,255,0.75) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease !important;
+  text-transform: none !important;
+}
+.add-card-btn:hover,
+.add-payment-btn:hover,
+.add-new-card:hover,
+.add-card:hover,
+.btn-add-card:hover,
+.payment-add:hover,
+.deposit-add-card:hover,
+.wallet-add-card:hover {
+  border-color: rgba(77,200,255,0.45) !important;
+  color: #4dc8ff !important;
+  background: rgba(77,200,255,0.04) !important;
+}
+.add-card-btn::before,
+.add-payment-btn::before,
+.add-new-card::before,
+.add-card:not(.no-icon)::before,
+.btn-add-card::before,
+.payment-add::before,
+.deposit-add-card::before,
+.wallet-add-card::before {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  border: 1px solid currentColor !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5303 */
+
+/* CSFLOAT-1:1 PARITY ship #5304 — deposit amount input + currency formatting. csfloat measured: 56px tall input, 24px font, font-weight 600, tabular-nums, 32px left padding for $ prefix glyph, no native spinner, focus halo cyan 3px ring. Wrap selectors generate the $ prefix at left in 42% white. */
+.deposit-amount,
+.deposit-input,
+.amount-input,
+.deposit-amount-input,
+.wallet-amount-input,
+.deposit-amount-field,
+input.deposit,
+input.deposit-amount,
+input[name="depositAmount"],
+input[name="deposit-amount"],
+input[name="amount"][data-context="deposit"],
+[class*="depositAmount"],
+[class*="DepositAmount"],
+.wallet-deposit-amount {
+  width: 100% !important;
+  height: 56px !important;
+  padding: 0 16px 0 32px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,0.02) !important;
+  color: rgba(255,255,255,0.95) !important;
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.005em !important;
+  text-align: left !important;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease !important;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+  outline: none !important;
+}
+.deposit-amount:focus,
+.deposit-input:focus,
+.amount-input:focus,
+.deposit-amount-input:focus,
+.wallet-amount-input:focus,
+.deposit-amount-field:focus,
+input.deposit:focus,
+input.deposit-amount:focus,
+input[name="depositAmount"]:focus,
+input[name="deposit-amount"]:focus,
+.wallet-deposit-amount:focus {
+  border-color: #4dc8ff !important;
+  background: rgba(77,200,255,0.04) !important;
+  box-shadow: 0 0 0 3px rgba(77,200,255,0.14) !important;
+}
+.deposit-amount::-webkit-outer-spin-button,
+.deposit-amount::-webkit-inner-spin-button,
+.deposit-input::-webkit-outer-spin-button,
+.deposit-input::-webkit-inner-spin-button,
+.amount-input::-webkit-outer-spin-button,
+.amount-input::-webkit-inner-spin-button,
+.deposit-amount-input::-webkit-outer-spin-button,
+.deposit-amount-input::-webkit-inner-spin-button,
+.wallet-amount-input::-webkit-outer-spin-button,
+.wallet-amount-input::-webkit-inner-spin-button,
+.wallet-deposit-amount::-webkit-outer-spin-button,
+.wallet-deposit-amount::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+.deposit-amount-wrap,
+.amount-input-wrap,
+.deposit-input-group,
+.wallet-amount-wrap {
+  position: relative !important;
+}
+.deposit-amount-wrap::before,
+.amount-input-wrap::before,
+.deposit-input-group::before,
+.wallet-amount-wrap::before {
+  content: "$" !important;
+  position: absolute !important;
+  left: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  color: rgba(255,255,255,0.42) !important;
+  pointer-events: none !important;
+  font-variant-numeric: tabular-nums !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5304 */
+
+/* CSFLOAT-1:1 PARITY ship #5500 — wallet transaction row geometry.
+   csfloat tx-row canonical: padding 16px 20px, gap 16px, min-height 64px,
+   align-items center, hover bg #18181a, border-bottom rgba(255,255,255,0.06).
+   sboxmarket measured pre: padding 14px 16px, gap 12px, no min-height. */
+.wallet-tx-list { display: flex !important; flex-direction: column !important; margin-top: 14px !important; }
+.wallet-tx {
+  display: grid !important;
+  grid-template-columns: 40px 1fr auto !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 16px 20px !important;
+  min-height: 64px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  background: transparent !important;
+  transition: background 120ms ease !important;
+}
+.wallet-tx:hover { background: rgba(255,255,255,0.02) !important; }
+.wallet-tx:last-child { border-bottom: 0 !important; }
+.wallet-tx-main { min-width: 0 !important; display: flex !important; flex-direction: column !important; gap: 3px !important; }
+.wallet-tx-right { display: flex !important; flex-direction: column !important; align-items: flex-end !important; gap: 6px !important; }
+/* END CSFLOAT-1:1 PARITY ship #5500 */
+
+/* CSFLOAT-1:1 PARITY ship #5501 — wallet tx type-icon (deposit/withdraw/sale/purchase).
+   csfloat icon: 40x40 circle, bg rgba(76,175,80,0.12) for in / rgba(244,67,54,0.12)
+   for out, color #4caf50/#f44336, font 16px weight 600, centered grid.
+   sboxmarket pre: 32x32, font 16/400. */
+.wallet-tx-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  flex-shrink: 0 !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+}
+.wallet-tx-icon.in {
+  background: rgba(76,175,80,0.12) !important;
+  color: #4caf50 !important;
+}
+.wallet-tx-icon.out {
+  background: rgba(244,67,54,0.12) !important;
+  color: #f44336 !important;
+}
+.wallet-tx-icon.sale {
+  background: rgba(77,200,255,0.12) !important;
+  color: #4dc8ff !important;
+}
+.wallet-tx-icon.purchase {
+  background: rgba(255,167,38,0.12) !important;
+  color: #ffa726 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5501 */
+
+/* CSFLOAT-1:1 PARITY ship #5502 — wallet tx type label + sub-description.
+   csfloat type: 14px/600 #fff, lh 20px, ls 0; desc: 12.5px/400 rgba(255,255,255,0.55),
+   lh 17px. sboxmarket pre: type 13/500, desc 10.5/16. */
+.wallet-tx-type {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  letter-spacing: 0 !important;
+  line-height: 20px !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.wallet-tx-desc {
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  color: rgba(255,255,255,0.55) !important;
+  line-height: 17px !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+/* Trade history counterparty label uses identical typography. */
+.trade-counterparty,
+.trade-row-counterparty,
+.history-counterparty,
+.wallet-tx-counterparty {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+}
+.trade-meta,
+.trade-row-meta,
+.history-meta {
+  font-size: 12.5px !important;
+  color: rgba(255,255,255,0.55) !important;
+  line-height: 17px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5502 */
+
+/* CSFLOAT-1:1 PARITY ship #5503 — wallet tx amount column (tabular-nums).
+   csfloat amount: 15px/700 mono, tabular-nums, color #4caf50 (in) / #f44336 (out),
+   neutral #fff for trade. Time-stamp under amount: 11.5px/400 rgba(255,255,255,0.45).
+   sboxmarket pre: 14/600 mono, no tabular-nums. */
+.wallet-tx-amt {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  font-family: "Geist Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -0.1px !important;
+  line-height: 20px !important;
+  white-space: nowrap !important;
+}
+.wallet-tx-amt.in { color: #4caf50 !important; }
+.wallet-tx-amt.out { color: #f44336 !important; }
+.wallet-tx-amt.neutral, .wallet-tx-amt.zero { color: #fff !important; }
+.wallet-tx-date,
+.wallet-tx-time,
+.tx-date,
+.trade-date,
+.history-date {
+  font-size: 11.5px !important;
+  font-weight: 400 !important;
+  color: rgba(255,255,255,0.45) !important;
+  line-height: 16px !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5503 */
+
+/* CSFLOAT-1:1 PARITY ship #5504 — wallet/trade status chip in row.
+   csfloat status pill: 11px/700 uppercase ls 0.5px, padding 3px 9px, radius 6px,
+   tinted bg+color per state. Heights settle to 22px.
+   Pre measured: 10/600, padding 2px 8px, radius 4px. */
+.wallet-tx-status,
+.tx-status,
+.trade-status,
+.history-status,
+.status-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 3px 9px !important;
+  border-radius: 6px !important;
+  height: 22px !important;
+  line-height: 16px !important;
+  white-space: nowrap !important;
+  border: 1px solid transparent !important;
+}
+.wallet-tx-status.COMPLETED, .tx-status.COMPLETED, .trade-status.COMPLETED, .status-chip.completed {
+  background: rgba(76,175,80,0.14) !important;
+  color: #4caf50 !important;
+  border-color: rgba(76,175,80,0.22) !important;
+}
+.wallet-tx-status.PENDING, .tx-status.PENDING, .trade-status.PENDING, .status-chip.pending {
+  background: rgba(255,167,38,0.14) !important;
+  color: #ffa726 !important;
+  border-color: rgba(255,167,38,0.22) !important;
+}
+.wallet-tx-status.FAILED, .tx-status.FAILED, .trade-status.FAILED, .status-chip.failed,
+.wallet-tx-status.CANCELLED, .tx-status.CANCELLED, .trade-status.CANCELLED, .status-chip.cancelled {
+  background: rgba(244,67,54,0.14) !important;
+  color: #f44336 !important;
+  border-color: rgba(244,67,54,0.22) !important;
+}
+.wallet-tx-status.PROCESSING, .tx-status.PROCESSING, .trade-status.PROCESSING, .status-chip.processing,
+.wallet-tx-status.IN_PROGRESS, .tx-status.IN_PROGRESS, .trade-status.IN_PROGRESS {
+  background: rgba(77,200,255,0.14) !important;
+  color: #4dc8ff !important;
+  border-color: rgba(77,200,255,0.22) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5504 */
