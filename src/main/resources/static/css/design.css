@@ -129407,6 +129407,244 @@ body .csfloat-home-hero-stack .csfloat-home-hero-feature-stub.stack-rear {
 }
 /* END CSFLOAT-1:1 PARITY ship #1395 */
 
+/* CSFLOAT-1:1 PARITY ship #1396 — .results-meta normalized to csfloat strip
+   csfloat shows the listings count as a thin strip above the grid: no card
+   chrome, plain text, ~13px, slightly muted. Localhost was wrapping it in a
+   card with rounded top corners and a border. Strip it back to a flat row
+   that sits flush above the grid. Measured: csfloat row no background,
+   no border, padding 10px 0. */
+.results-meta {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 10px 2px !important;
+  margin: 12px 0 8px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255,255,255,0.62) !important;
+  letter-spacing: 0 !important;
+  line-height: 1.5 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.results-meta strong,
+.results-meta b {
+  color: rgba(255,255,255,0.96) !important;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* Avoid top-rounded card seam when grid follows directly */
+.results-meta + .listing-grid,
+.results-meta + div > .listing-grid,
+.results-meta + div > .listing-table {
+  margin-top: 0 !important;
+  border-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1396 */
+
+/* CSFLOAT-1:1 PARITY ship #1397 — .active-filters bar tightened to csfloat
+   Above-grid removable chips row. csfloat: 6px gap, slim vertical padding,
+   no bottom border (sits cleanly above the grid). */
+.active-filters {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 0 10px !important;
+  margin: 0 0 4px !important;
+  border-bottom: 0 !important;
+}
+.active-filters:empty { display: none !important; }
+/* END CSFLOAT-1:1 PARITY ship #1397 */
+
+/* CSFLOAT-1:1 PARITY ship #1398 — removable .filter-chip in .active-filters
+   csfloat removable chip: 28px tall pill, 1px solid hairline, 12px text,
+   includes a "x" remove glyph. Tighten metrics + add fallback "x" affordance
+   so chip looks removable even if JSX skips the icon. */
+.active-filters .filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  padding: 0 10px 0 12px !important;
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 999px !important;
+  color: rgba(255,255,255,0.88) !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.active-filters .filter-chip:hover {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+  color: #fff !important;
+}
+.active-filters .filter-chip:focus-visible {
+  outline: 2px solid rgba(30, 144, 255, 0.55) !important;
+  outline-offset: 2px !important;
+}
+.active-filters .filter-chip:active { transform: translateY(0.5px) !important; }
+.active-filters .filter-chip strong {
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+.active-filters .filter-chip svg {
+  width: 12px !important;
+  height: 12px !important;
+  opacity: 0.7 !important;
+}
+.active-filters .filter-chip:hover svg { opacity: 1 !important; }
+/* Append a remove glyph affordance when icon is missing. */
+.active-filters .filter-chip:not(.clear-all):not(:has(svg))::after {
+  content: "x";
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.55;
+  margin-left: 2px;
+  transition: opacity 120ms ease;
+}
+.active-filters .filter-chip:not(.clear-all):not(:has(svg)):hover::after { opacity: 1; }
+/* END CSFLOAT-1:1 PARITY ship #1398 */
+
+/* CSFLOAT-1:1 PARITY ship #1399 — "Clear all filters" link in active-filters
+   csfloat: ghost text-link button, no border, mono uppercase 11px, fades to
+   white on hover. */
+.active-filters .clear-all,
+.active-filters .filter-chip.clear-all {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  margin-left: 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: rgba(255,255,255,0.50) !important;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: color 120ms ease !important;
+}
+.active-filters .clear-all:hover,
+.active-filters .filter-chip.clear-all:hover {
+  color: #fff !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 3px !important;
+}
+.active-filters .filter-chip.clear-all::after { content: none !important; }
+/* END CSFLOAT-1:1 PARITY ship #1399 */
+
+/* CSFLOAT-1:1 PARITY ship #1400 — pagination footer (Prev / 1 2 3 ... / Next)
+   csfloat market grid uses a centered paginator below the grid: round-square
+   buttons (32x32, 8px radius), hairline border, mono numerals, tabular-nums.
+   The active page is solid (csfloat blue), inactive are ghost. Applied to
+   any pagination wrapper class so the look is consistent. */
+.pagination,
+nav.pagination,
+.market-pagination,
+.listing-pagination,
+.results-pagination {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin: 24px 0 16px !important;
+  padding: 8px 0 !important;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.pagination button,
+.pagination a,
+.market-pagination button,
+.market-pagination a,
+.listing-pagination button,
+.listing-pagination a,
+.results-pagination button,
+.results-pagination a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 8px !important;
+  color: rgba(255,255,255,0.78) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease !important;
+}
+.pagination button:hover:not(:disabled):not(.active),
+.pagination a:hover:not(.active),
+.market-pagination button:hover:not(:disabled):not(.active),
+.market-pagination a:hover:not(.active) {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+  color: #fff !important;
+}
+.pagination button.active,
+.pagination a.active,
+.pagination button[aria-current="page"],
+.market-pagination button.active,
+.market-pagination a.active,
+.market-pagination button[aria-current="page"] {
+  background: #1E90FF !important;
+  border-color: #1E90FF !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+.pagination button:disabled,
+.pagination a[aria-disabled="true"],
+.market-pagination button:disabled,
+.market-pagination a[aria-disabled="true"] {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+.pagination button.prev, .pagination button.next,
+.pagination .pagination-prev, .pagination .pagination-next,
+.market-pagination .prev, .market-pagination .next {
+  min-width: 36px !important;
+  padding: 0 10px !important;
+  color: rgba(255,255,255,0.7) !important;
+}
+.pagination .ellipsis,
+.market-pagination .ellipsis {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 24px !important;
+  height: 32px !important;
+  color: rgba(255,255,255,0.45) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  letter-spacing: 1px !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1400 */
+
 /* CSFLOAT-1:1 PARITY ship #1396
    Measured csfloat: nav buttons (.mat-mdc-button) outline 3px, border-radius 8px,
    visible only on keyboard. Match for our nav-link / nav-icon-btn focus ring. */
