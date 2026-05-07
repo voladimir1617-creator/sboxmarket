@@ -143607,3 +143607,465 @@ body .nav-right .user-chip-name {
   color: rgb(232, 234, 240) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #6315 */
+
+/* CSFLOAT-1:1 PARITY ship #6700 - Toolbar refresh button base: csfloat polishes its 36x36 icon button with oklch hover/active surfaces, 1px subtle border, 0.18s ease transitions. Match the surface treatment 1:1. */
+.toolbar .toolbar-refresh {
+  width: 36px !important;
+  height: 36px !important;
+  background-color: oklch(0.2 0.009 260) !important;
+  color: oklch(0.8 0.01 260) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  border-radius: 6px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex-shrink: 0 !important;
+}
+.toolbar .toolbar-refresh:hover {
+  background-color: oklch(0.235 0.011 260) !important;
+  border-color: rgba(193, 206, 255, 0.22) !important;
+  color: oklch(0.92 0.012 260) !important;
+}
+.toolbar .toolbar-refresh:active {
+  background-color: oklch(0.175 0.009 260) !important;
+  transform: scale(0.96) !important;
+}
+.toolbar .toolbar-refresh:focus-visible {
+  outline: 2px solid rgba(120, 168, 255, 0.55) !important;
+  outline-offset: 2px !important;
+}
+.toolbar .toolbar-refresh:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6700 */
+
+/* CSFLOAT-1:1 PARITY ship #6701 - Refresh icon glyph spin state: csfloat spins arrow-circle at 0.9s linear infinite while in-flight via [data-refreshing] / .is-refreshing. Match exact 16x16 SVG sizing with 1.8 stroke and provide the keyframe + hover micro-rotate. */
+.toolbar .toolbar-refresh svg {
+  width: 16px !important;
+  height: 16px !important;
+  stroke: currentColor !important;
+  stroke-width: 1.8 !important;
+  fill: none !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  display: block !important;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.toolbar .toolbar-refresh:hover svg {
+  transform: rotate(-12deg) !important;
+}
+@keyframes csfloatRefreshSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.toolbar .toolbar-refresh[data-refreshing="true"] svg,
+.toolbar .toolbar-refresh.is-refreshing svg {
+  animation: csfloatRefreshSpin 0.9s linear infinite !important;
+  transform: none !important;
+}
+.toolbar .toolbar-refresh[data-refreshing="true"],
+.toolbar .toolbar-refresh.is-refreshing {
+  pointer-events: none !important;
+  color: oklch(0.85 0.05 240) !important;
+  border-color: rgba(120, 168, 255, 0.32) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6701 */
+
+/* CSFLOAT-1:1 PARITY ship #6702 - Last-updated chip "Updated 12s ago": 11.5px medium-weight muted chip with 5px green dot, 24px tall, oklch muted text, tabular nums. Spec for .toolbar-last-updated / [data-last-updated]. */
+.toolbar .toolbar-last-updated,
+.toolbar [data-last-updated] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 24px !important;
+  padding: 0 6px !important;
+  margin-left: 4px !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: oklch(0.62 0.012 260) !important;
+  letter-spacing: 0.005em !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  user-select: none !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+.toolbar .toolbar-last-updated::before,
+.toolbar [data-last-updated]::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 5px !important;
+  height: 5px !important;
+  border-radius: 50% !important;
+  background-color: oklch(0.7 0.13 145) !important;
+  box-shadow: 0 0 6px oklch(0.7 0.13 145 / 0.45) !important;
+  flex-shrink: 0 !important;
+  margin-right: 2px !important;
+}
+.toolbar .toolbar-last-updated.is-stale,
+.toolbar [data-last-updated][data-stale="true"] {
+  color: oklch(0.55 0.012 260) !important;
+}
+.toolbar .toolbar-last-updated.is-stale::before,
+.toolbar [data-last-updated][data-stale="true"]::before {
+  background-color: oklch(0.65 0.13 70) !important;
+  box-shadow: 0 0 6px oklch(0.65 0.13 70 / 0.45) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6702 */
+
+/* CSFLOAT-1:1 PARITY ship #6703 - Live activity ticker strip: 28px-tall horizontal marquee, rgba(27,29,36,0.8) bg, 1px subtle bottom border, 12px text, oklch muted text, fade-edge masks, 36s linear infinite scroll, hover-pause. */
+.activity-ticker,
+.toolbar-ticker,
+[data-activity-ticker] {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  height: 28px !important;
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.06) !important;
+  overflow: hidden !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  color: oklch(0.72 0.011 260) !important;
+  user-select: none !important;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 64px, #000 calc(100% - 64px), transparent) !important;
+          mask-image: linear-gradient(to right, transparent, #000 64px, #000 calc(100% - 64px), transparent) !important;
+}
+.activity-ticker .ticker-track,
+.toolbar-ticker .ticker-track,
+[data-activity-ticker] .ticker-track {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 28px !important;
+  padding-left: 100% !important;
+  white-space: nowrap !important;
+  animation: csfloatTickerScroll 36s linear infinite !important;
+  will-change: transform !important;
+}
+.activity-ticker:hover .ticker-track,
+.toolbar-ticker:hover .ticker-track,
+[data-activity-ticker]:hover .ticker-track {
+  animation-play-state: paused !important;
+}
+.activity-ticker .ticker-item,
+.toolbar-ticker .ticker-item,
+[data-activity-ticker] .ticker-item {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: oklch(0.78 0.011 260) !important;
+  letter-spacing: 0.005em !important;
+}
+.activity-ticker .ticker-item .ticker-dot,
+.toolbar-ticker .ticker-item .ticker-dot,
+[data-activity-ticker] .ticker-item .ticker-dot {
+  width: 4px !important;
+  height: 4px !important;
+  border-radius: 50% !important;
+  background-color: oklch(0.7 0.13 145) !important;
+  flex-shrink: 0 !important;
+}
+.activity-ticker .ticker-item.is-sale .ticker-dot,
+.toolbar-ticker .ticker-item.is-sale .ticker-dot,
+[data-activity-ticker] .ticker-item[data-kind="sale"] .ticker-dot {
+  background-color: oklch(0.7 0.13 145) !important;
+}
+.activity-ticker .ticker-item.is-listing .ticker-dot,
+.toolbar-ticker .ticker-item.is-listing .ticker-dot,
+[data-activity-ticker] .ticker-item[data-kind="listing"] .ticker-dot {
+  background-color: oklch(0.72 0.13 240) !important;
+}
+.activity-ticker .ticker-item.is-bid .ticker-dot,
+.toolbar-ticker .ticker-item.is-bid .ticker-dot,
+[data-activity-ticker] .ticker-item[data-kind="bid"] .ticker-dot {
+  background-color: oklch(0.72 0.13 30) !important;
+}
+.activity-ticker .ticker-item .ticker-name,
+.toolbar-ticker .ticker-item .ticker-name,
+[data-activity-ticker] .ticker-item .ticker-name {
+  color: oklch(0.92 0.011 260) !important;
+  font-weight: 500 !important;
+}
+.activity-ticker .ticker-item .ticker-amount,
+.toolbar-ticker .ticker-item .ticker-amount,
+[data-activity-ticker] .ticker-item .ticker-amount {
+  font-variant-numeric: tabular-nums !important;
+  color: oklch(0.95 0.011 260) !important;
+  font-weight: 600 !important;
+}
+.activity-ticker .ticker-item .ticker-time,
+.toolbar-ticker .ticker-item .ticker-time,
+[data-activity-ticker] .ticker-item .ticker-time {
+  color: oklch(0.55 0.012 260) !important;
+  font-size: 11px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+@keyframes csfloatTickerScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+/* END CSFLOAT-1:1 PARITY ship #6703 */
+
+/* CSFLOAT-1:1 PARITY ship #6704 - Online/offline status indicator: 8px dot with 1.6s pulse, oklch green online / amber reconnecting / red offline, optional 11.5px uppercase letterspaced label. */
+.connection-status,
+.toolbar-status,
+[data-connection-status] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 24px !important;
+  padding: 0 8px 0 6px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  color: oklch(0.78 0.011 260) !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  user-select: none !important;
+  background: transparent !important;
+  border-radius: 6px !important;
+}
+.connection-status::before,
+.toolbar-status::before,
+[data-connection-status]::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background-color: oklch(0.7 0.13 145) !important;
+  box-shadow: 0 0 0 0 oklch(0.7 0.13 145 / 0.55) !important;
+  animation: csfloatStatusPulse 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+  flex-shrink: 0 !important;
+}
+.connection-status.is-online::before,
+.toolbar-status.is-online::before,
+[data-connection-status][data-state="online"]::before {
+  background-color: oklch(0.7 0.13 145) !important;
+  box-shadow: 0 0 0 0 oklch(0.7 0.13 145 / 0.55) !important;
+}
+.connection-status.is-reconnecting,
+.toolbar-status.is-reconnecting,
+[data-connection-status][data-state="reconnecting"] {
+  color: oklch(0.78 0.13 70) !important;
+}
+.connection-status.is-reconnecting::before,
+.toolbar-status.is-reconnecting::before,
+[data-connection-status][data-state="reconnecting"]::before {
+  background-color: oklch(0.72 0.13 70) !important;
+  box-shadow: 0 0 0 0 oklch(0.72 0.13 70 / 0.55) !important;
+  animation-duration: 0.9s !important;
+}
+.connection-status.is-offline,
+.toolbar-status.is-offline,
+[data-connection-status][data-state="offline"] {
+  color: oklch(0.74 0.13 28) !important;
+}
+.connection-status.is-offline::before,
+.toolbar-status.is-offline::before,
+[data-connection-status][data-state="offline"]::before {
+  background-color: oklch(0.66 0.16 28) !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+@keyframes csfloatStatusPulse {
+  0%   { box-shadow: 0 0 0 0 oklch(0.7 0.13 145 / 0.45); opacity: 1; }
+  70%  { box-shadow: 0 0 0 6px oklch(0.7 0.13 145 / 0); opacity: 0.85; }
+  100% { box-shadow: 0 0 0 0 oklch(0.7 0.13 145 / 0); opacity: 1; }
+}
+/* END CSFLOAT-1:1 PARITY ship #6704 */
+
+/* CSFLOAT-1:1 PARITY ship #6705 - Auto-refresh toggle: 36px-tall pill toggle paired with the refresh button, label + 26x14 track switch, oklch off-state, oklch green on-state, 0.18s ease, 10px knob. */
+.auto-refresh-toggle,
+.toolbar-auto-refresh,
+[data-auto-refresh] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  background-color: oklch(0.2 0.009 260) !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  border-radius: 6px !important;
+  color: oklch(0.78 0.011 260) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex-shrink: 0 !important;
+}
+.auto-refresh-toggle:hover,
+.toolbar-auto-refresh:hover,
+[data-auto-refresh]:hover {
+  background-color: oklch(0.235 0.011 260) !important;
+  border-color: rgba(193, 206, 255, 0.22) !important;
+  color: oklch(0.92 0.012 260) !important;
+}
+.auto-refresh-toggle .switch-track,
+.toolbar-auto-refresh .switch-track,
+[data-auto-refresh] .switch-track {
+  position: relative !important;
+  display: inline-block !important;
+  width: 26px !important;
+  height: 14px !important;
+  background-color: oklch(0.28 0.009 260) !important;
+  border-radius: 999px !important;
+  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex-shrink: 0 !important;
+}
+.auto-refresh-toggle .switch-track::after,
+.toolbar-auto-refresh .switch-track::after,
+[data-auto-refresh] .switch-track::after {
+  content: '' !important;
+  position: absolute !important;
+  left: 2px !important;
+  top: 2px !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background-color: oklch(0.78 0.011 260) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.auto-refresh-toggle.is-on .switch-track,
+.toolbar-auto-refresh.is-on .switch-track,
+[data-auto-refresh][data-on="true"] .switch-track,
+[data-auto-refresh][aria-pressed="true"] .switch-track {
+  background-color: oklch(0.55 0.13 145) !important;
+}
+.auto-refresh-toggle.is-on .switch-track::after,
+.toolbar-auto-refresh.is-on .switch-track::after,
+[data-auto-refresh][data-on="true"] .switch-track::after,
+[data-auto-refresh][aria-pressed="true"] .switch-track::after {
+  transform: translateX(12px) !important;
+  background-color: oklch(0.97 0.011 145) !important;
+}
+.auto-refresh-toggle.is-on,
+.toolbar-auto-refresh.is-on,
+[data-auto-refresh][data-on="true"],
+[data-auto-refresh][aria-pressed="true"] {
+  color: oklch(0.92 0.05 145) !important;
+  border-color: rgba(110, 200, 150, 0.28) !important;
+}
+.auto-refresh-toggle:focus-visible,
+.toolbar-auto-refresh:focus-visible,
+[data-auto-refresh]:focus-visible {
+  outline: 2px solid rgba(120, 168, 255, 0.55) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6705 */
+
+/* CSFLOAT-1:1 PARITY ship #6505 — Currency picker panel (.nav-picker-panel)
+   width + name truncation. Measured live: panel renders at 208px wide and
+   currency names like "Canadian Dollar" / "Australian Dollar" overflow into
+   "Canadian Do…" inside a fixed 48h row with flag(22w) + code(28w) + name + check.
+   csfloat fits these names at this width by allowing the .nav-picker-name to
+   take all remaining flex space with min-width:0 + ellipsis. Lock the fit. */
+body .nav-picker-panel {
+  width: 208px !important;
+  min-width: 208px !important;
+}
+body .nav-picker-panel .nav-picker-row {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+body .nav-picker-panel .nav-picker-row .nav-picker-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6505 */
+
+/* CSFLOAT-1:1 PARITY ship #6506 — Currency picker .nav-picker-flag column.
+   csfloat reserves a fixed-width gutter for the symbol so 1-char ($, €, £, ¥)
+   and 2-char (C$, A$, R$) flags all align the code chip column at the same x.
+   Measured: flag width 22px, font 14px/500, color #fff at 92% opacity, centered.
+   Lock min-width and centering so the code column never shifts. */
+body .nav-picker-panel .nav-picker-flag {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  flex: 0 0 22px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6506 */
+
+/* CSFLOAT-1:1 PARITY ship #6507 — Currency picker .nav-picker-code chip.
+   csfloat sets the 3-letter code to 11px / 700 / letter-spacing 0.44px / oklch
+   warm-near-white (0.97 0.006 90) — appears as a small uppercase pill beside
+   the symbol. We were rendering it without an explicit min-width so EUR/GBP
+   shifted vs USD. Lock font + width so the .nav-picker-name column starts at
+   the same x for every row. */
+body .nav-picker-panel .nav-picker-code {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.44px !important;
+  text-transform: uppercase !important;
+  color: oklch(0.97 0.006 90) !important;
+  min-width: 28px !important;
+  flex: 0 0 28px !important;
+  display: inline-block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6507 */
+
+/* CSFLOAT-1:1 PARITY ship #6508 — Currency picker .nav-picker-name muted
+   secondary token. csfloat renders the long-form name in a desaturated
+   foreground oklch(0.8 0.01 260) at 12px / 500 — definitively secondary
+   compared to the bold uppercase code. We were inheriting body color #fff
+   which made code+name visually flat. Lock the secondary token. */
+body .nav-picker-panel .nav-picker-name {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: oklch(0.8 0.01 260) !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6508 */
+
+/* CSFLOAT-1:1 PARITY ship #6509 — Currency picker active-row check icon
+   alignment + size. csfloat renders the "check" material symbol at 14px
+   (inline style hint exists) flushed to the row's right edge with margin-left
+   auto, color #fff. Our row was leaving the icon at 24px (default Material
+   Symbols cap) which broke the 48px row vertical rhythm and pushed the name.
+   Lock to 14px and right-align via auto margin. */
+body .nav-picker-panel .nav-picker-row.active .material-symbols-rounded,
+body .nav-picker-panel .nav-picker-row.active .mi {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: rgb(255, 255, 255) !important;
+  margin-left: auto !important;
+  flex: 0 0 14px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6509 */
