@@ -151822,3 +151822,128 @@ button.btn-copy:not(.failed) .icon-error,
   transform: translateX(-50%) translateY(0) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9905 */
+
+/* CSFLOAT-1:1 PARITY ship #10200 - Active filter chip pill chrome.
+   Match csfloat's mat-button-toggle visual language for the only chip-like
+   surface they ship: h=32px, bg rgba(193,206,255,0.04), radius 4px,
+   horizontal padding 12px, font-size 16px / weight 400. */
+.cf-active-chips .cf-ac,
+.cf-ac {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 4px 0 12px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.10) !important;
+  border-radius: 4px !important;
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10200 */
+
+/* CSFLOAT-1:1 PARITY ship #10201 - Active filter chip remove (X) button.
+   Csfloat keeps remove affordances minimal and color-neutral; X turns
+   accent-blue on hover, matching their primary interaction tint. */
+.cf-active-chips .cf-ac button,
+.cf-ac button {
+  width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  margin-left: 2px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 3px !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: color 120ms ease, background 120ms ease !important;
+}
+.cf-active-chips .cf-ac button:hover,
+.cf-ac button:hover {
+  color: #4a90ff !important;
+  background: rgba(74, 144, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10201 */
+
+/* CSFLOAT-1:1 PARITY ship #10202 - Active filter chip hover state.
+   On hover, the chip gains the same elevated alpha that csfloat's
+   selected mat-button-toggle uses (rgba 193,206,255 ~0.08). */
+.cf-active-chips .cf-ac:hover,
+.cf-ac:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(193, 206, 255, 0.18) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10202 */
+
+/* CSFLOAT-1:1 PARITY ship #10203 - Active filter chip strip layout +
+   slide-in/out animation. Strip uses 8px gap to match csfloat's
+   inter-toggle spacing; chips animate from -8px translateX with a
+   140ms ease curve consistent with csfloat's standard transitions. */
+.cf-active-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+.cf-active-chips .cf-ac,
+.cf-ac {
+  animation: cf-ac-slide-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+}
+.cf-active-chips .cf-ac.removing,
+.cf-ac.removing {
+  animation: cf-ac-slide-out 140ms cubic-bezier(0.4, 0, 1, 1) both !important;
+  pointer-events: none !important;
+}
+@keyframes cf-ac-slide-in {
+  from { opacity: 0; transform: translateX(-8px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes cf-ac-slide-out {
+  from { opacity: 1; transform: translateX(0) scale(1); max-width: 200px; }
+  to   { opacity: 0; transform: translateX(8px) scale(0.92); max-width: 0; padding-left: 0; padding-right: 0; margin-right: -8px; border-width: 0; }
+}
+/* END CSFLOAT-1:1 PARITY ship #10203 */
+
+/* CSFLOAT-1:1 PARITY ship #10204 - "Clear all filters" trailing button.
+   Sized identically to chips (32px tall) but visually demoted via
+   transparent background + dashed-equivalent border alpha; hover lifts
+   to csfloat's danger-red tint (used by their cancel-listing button). */
+.cf-active-chips .cf-clear-all,
+.cf-ac.cf-clear-all,
+.cf-clear-all-filters {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: transparent !important;
+  border: 1px solid rgba(193, 206, 255, 0.06) !important;
+  border-radius: 4px !important;
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.50) !important;
+  cursor: pointer !important;
+  margin-left: 2px !important;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease !important;
+}
+.cf-active-chips .cf-clear-all:hover,
+.cf-ac.cf-clear-all:hover,
+.cf-clear-all-filters:hover {
+  color: #ff5a6f !important;
+  background: rgba(255, 90, 111, 0.06) !important;
+  border-color: rgba(255, 90, 111, 0.20) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10204 */
