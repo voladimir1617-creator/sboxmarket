@@ -148310,3 +148310,299 @@ button.db-load-more.is-loading::after {
   margin-left: 6px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #8513 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9006 — profile activity row layout
+   csfloat /me activity row is dense: 56px row height, 32px circular
+     icon column, 1fr title/meta column, auto amount column. Roboto
+     14px / 500 title, Roboto 12px / 400 meta in ink-3, mono 13px / 600
+     amount right-aligned. Row gap 8px between rows (not 4px), padding
+     12px 16px, background rgb(24, 27, 32), border 1px solid
+     rgba(255,255,255,0.06), radius 8px. Hover lifts background to
+     rgb(28, 31, 37) and border to rgba(255,255,255,0.1).
+   sboxmarket: had gap 4px / pad 10px 12px / 32px icon — bump padding
+     and gap to match csfloat's denser-but-breathing baseline.
+   ===================================================================== */
+.csfloat-profile-activity {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 16px 0 !important;
+}
+.csfloat-profile-activity-row {
+  display: grid !important;
+  grid-template-columns: 32px 1fr auto !important;
+  gap: 14px !important;
+  padding: 12px 16px !important;
+  background: rgb(24, 27, 32) !important;
+  background-color: rgb(24, 27, 32) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  align-items: center !important;
+  min-height: 56px !important;
+  transition: border-color 120ms ease, background-color 120ms ease !important;
+}
+.csfloat-profile-activity-row:hover {
+  background: rgb(28, 31, 37) !important;
+  background-color: rgb(28, 31, 37) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+.csfloat-profile-activity-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+}
+.csfloat-profile-activity-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(229, 231, 235) !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.csfloat-profile-activity-meta {
+  font-family: "Roboto Mono", ui-monospace, monospace !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: rgba(229, 231, 235, 0.55) !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.01em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9006 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9007 — event-type icon palette
+   csfloat distinguishes activity events by hue:
+     sale       → green  bg rgba(34, 197, 94, 0.14), border 0.32, color rgb(74, 222, 128)
+     purchase   → blue   bg rgba(59, 130, 246, 0.14), border 0.32, color rgb(96, 165, 250)
+     list       → amber  bg rgba(245, 158, 11, 0.14), border 0.32, color rgb(251, 191, 36)
+     relist     → violet bg rgba(168, 85, 247, 0.14), border 0.32, color rgb(192, 132, 252)
+     cancel     → red    bg rgba(239, 68, 68, 0.14),  border 0.32, color rgb(248, 113, 113)
+   Icon fills use the Material Symbols Rounded icon at 18px / fill 1.
+   sboxmarket: had only sale/purchase/list using oklch — pin to csfloat's
+     RGB tints and add relist+cancel slots.
+   ===================================================================== */
+.csfloat-profile-activity-icon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(229, 231, 235, 0.7) !important;
+  font-size: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+.csfloat-profile-activity-icon .mi,
+.csfloat-profile-activity-icon .material-symbols-rounded {
+  font-size: 18px !important;
+  font-variation-settings: 'FILL' 1, 'wght' 500 !important;
+}
+.csfloat-profile-activity-icon.sale {
+  color: rgb(74, 222, 128) !important;
+  background: rgba(34, 197, 94, 0.14) !important;
+  background-color: rgba(34, 197, 94, 0.14) !important;
+  border-color: rgba(34, 197, 94, 0.32) !important;
+}
+.csfloat-profile-activity-icon.purchase {
+  color: rgb(96, 165, 250) !important;
+  background: rgba(59, 130, 246, 0.14) !important;
+  background-color: rgba(59, 130, 246, 0.14) !important;
+  border-color: rgba(59, 130, 246, 0.32) !important;
+}
+.csfloat-profile-activity-icon.list,
+.csfloat-profile-activity-icon.listed {
+  color: rgb(251, 191, 36) !important;
+  background: rgba(245, 158, 11, 0.14) !important;
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(245, 158, 11, 0.32) !important;
+}
+.csfloat-profile-activity-icon.relist,
+.csfloat-profile-activity-icon.relisted {
+  color: rgb(192, 132, 252) !important;
+  background: rgba(168, 85, 247, 0.14) !important;
+  background-color: rgba(168, 85, 247, 0.14) !important;
+  border-color: rgba(168, 85, 247, 0.32) !important;
+}
+.csfloat-profile-activity-icon.cancel,
+.csfloat-profile-activity-icon.cancelled {
+  color: rgb(248, 113, 113) !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  background-color: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.32) !important;
+}
+.csfloat-profile-activity-amount {
+  font-family: "Roboto Mono", ui-monospace, monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: rgb(229, 231, 235) !important;
+  font-variant-numeric: tabular-nums !important;
+  text-align: right !important;
+  letter-spacing: -0.01em !important;
+  white-space: nowrap !important;
+}
+.csfloat-profile-activity-amount.positive { color: rgb(74, 222, 128) !important; }
+.csfloat-profile-activity-amount.negative { color: rgb(248, 113, 113) !important; }
+/* END CSFLOAT-1:1 PARITY ship #9007 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9008 — day-group separator header
+   csfloat groups activity rows by day with a sticky-feeling caption:
+     "Today" / "Yesterday" / "May 4, 2026" rendered as Roboto 11px /
+     600 / 0.08em letter-spacing / uppercase / color rgba(229,231,235,0.45).
+     Padded 8px 4px, sits above the first row of its group with no
+     border. Spacing between group cap and first row 4px; spacing
+     between previous group's last row and next cap is 16px.
+   ===================================================================== */
+.csfloat-profile-activity-day,
+.csfloat-profile-activity-group-cap {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(229, 231, 235, 0.45) !important;
+  padding: 8px 4px 4px !important;
+  margin-top: 16px !important;
+  background: transparent !important;
+  border: 0 none !important;
+}
+.csfloat-profile-activity-day:first-child,
+.csfloat-profile-activity-group-cap:first-child {
+  margin-top: 0 !important;
+  padding-top: 4px !important;
+}
+.csfloat-profile-activity-day + .csfloat-profile-activity-row,
+.csfloat-profile-activity-group-cap + .csfloat-profile-activity-row {
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9008 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9009 — "Load more" button parity
+   csfloat activity feed footer button:
+     full-width, height 40px, bg rgba(255,255,255,0.04), border 1px
+     solid rgba(255,255,255,0.08), border-radius 8px, color rgb(229,
+     231,235), Roboto 13px / 500. Hover bg rgba(255,255,255,0.07),
+     border rgba(255,255,255,0.14). Active bg rgba(255,255,255,0.1).
+     Center-aligned text, no uppercase, letter-spacing normal.
+     Sits 16px below last row.
+   ===================================================================== */
+.csfloat-profile-activity-load-more,
+.csfloat-profile-activity .load-more-btn,
+.csfloat-profile-activity-loadmore {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 40px !important;
+  margin-top: 16px !important;
+  padding: 0 16px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgb(229, 231, 235) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, border-color 120ms ease !important;
+}
+.csfloat-profile-activity-load-more:hover,
+.csfloat-profile-activity .load-more-btn:hover,
+.csfloat-profile-activity-loadmore:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+.csfloat-profile-activity-load-more:active,
+.csfloat-profile-activity .load-more-btn:active,
+.csfloat-profile-activity-loadmore:active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+.csfloat-profile-activity-load-more:disabled,
+.csfloat-profile-activity .load-more-btn:disabled,
+.csfloat-profile-activity-loadmore:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9009 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #9010 — empty activity state
+   csfloat empty state: centered column, 64px circular outlined inbox
+     icon (border 1.5px rgba(255,255,255,0.12), color rgba(229,231,235,
+     0.4), bg transparent), Roboto 16px / 500 title color rgb(229,231,
+     235), Roboto 13px / 400 subtitle color rgba(229,231,235,0.55).
+     Vertical padding 64px 24px, max-width 360px, gap 12px between
+     icon + title + subtitle. NO accent button — the empty state is
+     informational only on profile activity.
+   ===================================================================== */
+.csfloat-profile-activity-empty,
+.csfloat-profile-activity .empty-state {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  padding: 64px 24px !important;
+  margin: 0 auto !important;
+  max-width: 360px !important;
+  text-align: center !important;
+  background: transparent !important;
+  border: 0 none !important;
+}
+.csfloat-profile-activity-empty-icon,
+.csfloat-profile-activity .empty-state .empty-icon {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgba(229, 231, 235, 0.4) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 28px !important;
+  margin-bottom: 0 !important;
+}
+.csfloat-profile-activity-empty-icon .mi,
+.csfloat-profile-activity-empty-icon .material-symbols-rounded {
+  font-size: 28px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400 !important;
+}
+.csfloat-profile-activity-empty-title,
+.csfloat-profile-activity .empty-state h3,
+.csfloat-profile-activity .empty-state .empty-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: rgb(229, 231, 235) !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+.csfloat-profile-activity-empty-text,
+.csfloat-profile-activity .empty-state p,
+.csfloat-profile-activity .empty-state .empty-subtitle {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(229, 231, 235, 0.55) !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9010 */
