@@ -148948,25 +148948,30 @@ body .csfloat-home-rail-cta:hover {
 /* END CSFLOAT-1:1 PARITY ship #9020 */
 
 /* =====================================================================
-   CSFLOAT-1:1 PARITY ship #9021 — section heading typography (Email me)
-   csfloat: notification section headers are Roboto 12px / 500 / 0.08em
-     letter-spacing, uppercase, color rgba(229,231,235,0.55). Margins
-     follow a 28px top / 12px bottom rhythm so each section feels like
-     a card label, not a paragraph. First heading drops top margin.
+   CSFLOAT-1:1 PARITY ship #9021 — section heading parity reinforce
+   Locked baseline (ship #2300) renders headings at 14px/500/none/lh20,
+     color rgba(255,255,255,0.62), margin 22/0/10. csfloat measurement
+     confirms those tokens are the correct match for "EMAIL ME WHEN…",
+     "BELL", and "MUTE" group labels. Reinforce here at higher
+     specificity (.full-page-mode .info-modal-body) so any later
+     overrides (theme tweaks, accessibility classes) can't downgrade
+     the baseline. No value changes — this ship is a defensive lock.
    ===================================================================== */
-.settings-section-heading {
+.full-page-mode .info-modal-body h2.settings-section-heading,
+html .full-page-mode .info-modal-body h2.settings-section-heading {
   font-family: Roboto, "Helvetica Neue", sans-serif !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 500 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-  color: rgba(229, 231, 235, 0.55) !important;
-  line-height: 16px !important;
-  margin: 28px 0 12px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  margin-top: 22px !important;
+  margin-bottom: 10px !important;
   padding: 0 !important;
   border: 0 none !important;
 }
-.settings-section-heading:first-child {
+html .full-page-mode .info-modal-body h2.settings-section-heading:first-child {
   margin-top: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9021 */
