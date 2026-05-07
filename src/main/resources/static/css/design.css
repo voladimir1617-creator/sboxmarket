@@ -137845,3 +137845,544 @@ button[data-copy*="trade"]:hover {
   margin-bottom: 4px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #4105 */
+
+/* CSFLOAT-1:1 PARITY ship #3900 — Item page demand chips (Standard / Off-Market / Limited)
+   Measured on csfloat /item/<id>: 22px tall, 0 10px padding, 10px Geist 600
+   letterspaced caps, 999px radius, 1px line border, faint tinted fill per
+   demand state. Standard = neutral; Off-Market = amber; Limited = red. */
+.modal-demand-chip,
+.demand-chip,
+.csfloat-demand-chip,
+.item-demand-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  background: rgba(255,255,255,0.04) !important;
+  color: rgb(160, 168, 178) !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.modal-demand-chip.standard,
+.demand-chip.standard,
+.csfloat-demand-chip.standard,
+.item-demand-chip.standard,
+[data-demand="standard"].modal-demand-chip,
+[data-demand="standard"].demand-chip {
+  color: rgb(180, 188, 198) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  background: rgba(255,255,255,0.04) !important;
+}
+.modal-demand-chip.off-market,
+.modal-demand-chip.offmarket,
+.demand-chip.off-market,
+.csfloat-demand-chip.off-market,
+.item-demand-chip.off-market,
+[data-demand="off-market"].modal-demand-chip,
+[data-demand="off-market"].demand-chip {
+  color: rgb(232, 185, 96) !important;
+  border-color: rgba(232, 185, 96, 0.36) !important;
+  background: rgba(232, 185, 96, 0.10) !important;
+}
+.modal-demand-chip.limited,
+.demand-chip.limited,
+.csfloat-demand-chip.limited,
+.item-demand-chip.limited,
+[data-demand="limited"].modal-demand-chip,
+[data-demand="limited"].demand-chip {
+  color: rgb(248, 113, 113) !important;
+  border-color: rgba(248, 113, 113, 0.40) !important;
+  background: rgba(248, 113, 113, 0.10) !important;
+}
+.modal-demand-chip > .material-symbols-rounded,
+.demand-chip > .material-symbols-rounded {
+  font-size: 12px !important;
+  font-variation-settings: "opsz" 24, "FILL" 1, "wght" 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3900 */
+
+/* CSFLOAT-1:1 PARITY ship #3901 — Good Deal / Hot Item indicator chips
+   22px pill, 0 10px padding, 10px Geist 700 caps, mono tnum percentage.
+   Good-deal = green; Hot-item = amber. */
+.good-deal-chip,
+.csfloat-good-deal-chip,
+.item-good-deal-chip,
+.deal-indicator,
+[data-deal="good"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-radius: 999px !important;
+  color: rgb(110, 214, 144) !important;
+  background: rgba(34, 197, 94, 0.13) !important;
+  border: 1px solid rgba(34, 197, 94, 0.36) !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.hot-item-chip,
+.csfloat-hot-item-chip,
+.item-hot-item-chip,
+.hot-indicator,
+[data-deal="hot"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-radius: 999px !important;
+  color: rgb(232, 185, 96) !important;
+  background: rgba(232, 185, 96, 0.13) !important;
+  border: 1px solid rgba(232, 185, 96, 0.40) !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.good-deal-chip > .material-symbols-rounded,
+.hot-item-chip > .material-symbols-rounded {
+  font-size: 12px !important;
+  font-variation-settings: "opsz" 24, "FILL" 1, "wght" 600 !important;
+}
+.good-deal-chip-pct,
+.hot-item-chip-pct,
+.deal-indicator-pct {
+  font-family: var(--mono) !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3901 */
+
+/* CSFLOAT-1:1 PARITY ship #3902 — "N in stock" stock-count chip
+   22px high, 0 10px padding, 1px line, mono tabular num integer, smaller
+   "in stock" suffix in ink-3, baseline aligned. */
+.stock-chip,
+.in-stock-chip,
+.item-stock-chip,
+.csfloat-stock-chip,
+[data-stock-chip] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  letter-spacing: -0.005em !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  background: rgba(255,255,255,0.04) !important;
+  color: rgb(180, 188, 198) !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.stock-chip-num,
+.in-stock-chip-num,
+.csfloat-stock-chip-num {
+  font-family: var(--mono) !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-weight: 700 !important;
+  color: rgb(225, 230, 238) !important;
+}
+.stock-chip-suffix,
+.in-stock-chip-suffix,
+.csfloat-stock-chip-suffix {
+  font-size: 10px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgb(140, 148, 158) !important;
+  font-weight: 500 !important;
+}
+.stock-chip > .material-symbols-rounded,
+.in-stock-chip > .material-symbols-rounded {
+  font-size: 12px !important;
+  font-variation-settings: "opsz" 24, "FILL" 0, "wght" 400 !important;
+  color: rgb(160, 168, 178) !important;
+}
+.stock-chip.low,
+.in-stock-chip.low {
+  color: rgb(232, 185, 96) !important;
+  border-color: rgba(232, 185, 96, 0.36) !important;
+  background: rgba(232, 185, 96, 0.10) !important;
+}
+.stock-chip.low .stock-chip-num { color: rgb(232, 185, 96) !important; }
+/* END CSFLOAT-1:1 PARITY ship #3902 */
+
+/* CSFLOAT-1:1 PARITY ship #3903 — Verified seller badge (item page)
+   14px solid CTA blue circle with 8px filled check inside, inline-baseline
+   beside seller name; sized to match name x-height. */
+.seller-verified,
+.verified-seller,
+.item-verified-badge,
+.csfloat-verified,
+.csfloat-hero-stack-verified,
+.csfloat-grid-card-online .verified,
+.csfloat-profile-head-name-verified,
+.csfloat-cmp-badge.is-verified,
+.csfloat-trader-avatar-badge.verified,
+[data-verified="true"] .verified-mark,
+.seller-name + .verified,
+.modal-seller-name + .verified {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  border: 0 !important;
+  padding: 0 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.seller-verified .material-symbols-rounded,
+.verified-seller .material-symbols-rounded,
+.item-verified-badge .material-symbols-rounded,
+.csfloat-verified .material-symbols-rounded,
+.csfloat-hero-stack-verified .material-symbols-rounded,
+.csfloat-grid-card-online .verified .material-symbols-rounded,
+.csfloat-profile-head-name-verified .material-symbols-rounded {
+  font-size: 10px !important;
+  font-variation-settings: "opsz" 24, "FILL" 1, "wght" 700 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.seller-verified.big,
+.verified-seller.big,
+.item-verified-badge.big {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 11px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3903 */
+
+/* CSFLOAT-1:1 PARITY ship #3904 — Online status dot + tooltip
+   8px dot, online green with 6px halo; offline = neutral, no halo.
+   Tooltip: 11px Geist on bg-2 line border, 6px 8px padding, 4px tail. */
+.online-status-dot,
+.status-dot,
+.online-dot,
+.csfloat-hero-stack-online-dot,
+.csfloat-grid-card-online .dot,
+[data-online="true"] .status-dot,
+[data-status-dot] {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: rgb(74, 207, 136) !important;
+  box-shadow: 0 0 6px rgba(74, 207, 136, 0.55) !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+  position: relative !important;
+}
+.online-status-dot.offline,
+.status-dot.offline,
+.online-dot.offline,
+.csfloat-grid-card-online .dot.offline,
+[data-online="false"] .status-dot {
+  background: rgb(110, 118, 128) !important;
+  box-shadow: none !important;
+}
+.online-status-dot.away,
+.status-dot.away {
+  background: rgb(232, 185, 96) !important;
+  box-shadow: 0 0 6px rgba(232, 185, 96, 0.50) !important;
+}
+.online-status-tooltip,
+.status-dot-tooltip,
+.online-dot-tooltip,
+[role="tooltip"][data-online-tooltip] {
+  position: absolute !important;
+  bottom: calc(100% + 6px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  padding: 6px 8px !important;
+  background: rgb(20, 24, 30) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 6px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(225, 230, 238) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  z-index: 100 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+}
+.online-status-tooltip::after,
+.status-dot-tooltip::after,
+.online-dot-tooltip::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  border: 4px solid transparent !important;
+  border-top-color: rgb(20, 24, 30) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3904 */
+
+/* CSFLOAT-1:1 PARITY ship #3905 — Trade-lock countdown chip
+   Amber 22px pill with mono `Xd Yh` countdown + lock icon; subdued line +
+   faint amber fill. Mono tabular for the number; uppercase ".d / .h" suffix. */
+.trade-lock-chip,
+.tradelock-chip,
+.item-trade-lock,
+.csfloat-trade-lock,
+[data-trade-lock] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  letter-spacing: -0.005em !important;
+  border-radius: 999px !important;
+  color: rgb(232, 185, 96) !important;
+  background: rgba(232, 185, 96, 0.10) !important;
+  border: 1px solid rgba(232, 185, 96, 0.36) !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.trade-lock-chip > .material-symbols-rounded,
+.tradelock-chip > .material-symbols-rounded,
+.item-trade-lock > .material-symbols-rounded {
+  font-size: 12px !important;
+  font-variation-settings: "opsz" 24, "FILL" 1, "wght" 500 !important;
+  color: rgb(232, 185, 96) !important;
+}
+.trade-lock-chip-num,
+.tradelock-chip-num,
+.item-trade-lock-num {
+  font-family: var(--mono) !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+.trade-lock-chip-unit,
+.tradelock-chip-unit,
+.item-trade-lock-unit {
+  font-size: 10px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgb(190, 150, 80) !important;
+  font-weight: 500 !important;
+  margin-left: -1px !important;
+}
+.trade-lock-chip.expired,
+.tradelock-chip.expired {
+  color: rgb(248, 113, 113) !important;
+  background: rgba(248, 113, 113, 0.10) !important;
+  border-color: rgba(248, 113, 113, 0.40) !important;
+}
+.trade-lock-chip.expired > .material-symbols-rounded,
+.trade-lock-chip.expired .trade-lock-chip-num,
+.trade-lock-chip.expired .trade-lock-chip-unit { color: inherit !important; }
+/* END CSFLOAT-1:1 PARITY ship #3905 */
+
+/* CSFLOAT-1:1 PARITY ship #3906 — View-count display ("142 views")
+   ink-3 11px Geist with mono tabular num for integer + 12px eye glyph,
+   6px gap, no chrome (lives inline in the meta row). */
+.item-view-count,
+.view-count,
+.views-display,
+.grid-views,
+.csfloat-view-count,
+[data-view-count] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  letter-spacing: -0.005em !important;
+  color: rgb(160, 168, 178) !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+.item-view-count > .material-symbols-rounded,
+.view-count > .material-symbols-rounded,
+.views-display > .material-symbols-rounded,
+.grid-views > .material-symbols-rounded {
+  font-size: 12px !important;
+  font-variation-settings: "opsz" 24, "FILL" 0, "wght" 400 !important;
+  color: rgb(140, 148, 158) !important;
+}
+.item-view-count-num,
+.view-count-num,
+.views-display-num,
+.grid-views-num {
+  font-family: var(--mono) !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-weight: 600 !important;
+  color: rgb(200, 208, 218) !important;
+  letter-spacing: 0 !important;
+}
+.item-view-count-label,
+.view-count-label,
+.views-display-label,
+.grid-views-label {
+  font-size: 10px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgb(140, 148, 158) !important;
+  font-weight: 500 !important;
+}
+.item-view-count.compact,
+.view-count.compact,
+.grid-views.compact {
+  font-size: 10px !important;
+  gap: 4px !important;
+}
+.item-view-count.compact > .material-symbols-rounded,
+.view-count.compact > .material-symbols-rounded { font-size: 11px !important; }
+/* END CSFLOAT-1:1 PARITY ship #3906 */
+
+/* CSFLOAT-1:1 PARITY ship #4200 — 1920px+ wide-desktop grid parity.
+   Measured csfloat at 1920 viewport: 12 cards/row, cardWidth 227px,
+   gap 15px, parent grid width 1435 starting x=425 (sidebar 350px wide
+   at x=60 ends at x=410, then 15px gap to grid). Localhost was clamping
+   to 4 cols at this width — bump to 12 columns with 15px gap when both
+   sidebar and feed have full room (>=1920). Also pin the .layout shell
+   max-width to match csfloat container so the gutter math is correct. */
+@media (min-width: 1920px) {
+  .listing-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    gap: 15px !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    max-width: 1800px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    gap: 15px !important;
+  }
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    width: 350px !important;
+    flex: 0 0 350px !important;
+    min-width: 350px !important;
+    max-width: 350px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4200 */
+
+/* CSFLOAT-1:1 PARITY ship #4201 — 1280px sidebar-collapse breakpoint.
+   Measured csfloat at 1280 viewport: 4 cards/row, cardWidth 250px,
+   gap 15px, parent grid 1160 with 60px outer margins each side, sidebar
+   IS HIDDEN at this width. Match: hide sidebar between 1024-1599, pin
+   grid to 4 cols at 15px gap, and use 1160 inner width with 60px outer
+   gutters. */
+@media (min-width: 1280px) and (max-width: 1599px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: none !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+    max-width: 1160px !important;
+    padding-left: 60px !important;
+    padding-right: 60px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .listing-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 15px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4201 */
+
+/* CSFLOAT-1:1 PARITY ship #4202 — 1024px tablet-landscape grid parity.
+   Measured csfloat at 1024 viewport: 5 cards/row, cardWidth 250px,
+   gap 20px, parent grid ~973 with ~15/36 outer margins, sidebar HIDDEN.
+   Pin to 5 cols at 20px gap with 24px outer gutters. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: none !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+  .listing-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 20px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4202 */
+
+/* CSFLOAT-1:1 PARITY ship #4203 — 768px tablet-portrait grid parity.
+   Measured csfloat at 768: 3 cards/row standard at this breakpoint.
+   Pin to 3 cols with 16px gap and 16px outer gutters. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: none !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .listing-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 16px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4203 */
+
+/* CSFLOAT-1:1 PARITY ship #4204 — 480px small-mobile grid parity.
+   Measured csfloat at <768 mobile: 2 cards/row standard. Pin localhost
+   to 2 cols at 10px gap with 12px outer gutters in the 480-767 range. */
+@media (min-width: 480px) and (max-width: 767px) {
+  main.layout > .sidebar,
+  main.layout > aside.sidebar {
+    display: none !important;
+  }
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #4204 */
