@@ -158838,3 +158838,784 @@ nav.nav,
   -webkit-backdrop-filter: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #13110 */
+
+/* CSFLOAT-1:1 PARITY ship #14000 (cookie banner — geometry & surface) — measured: csfloat panel bg rgb(27,29,36), card border-radius 12px, Material elev-2 shadow, hairline rgba(255,255,255,0.06); sbox was unstyled (display:none from prior ship suppresses 3rd-party libs but a first-party cookie banner needs measure-and-match panel chrome). When sboxmarket renders its own first-party .cookie-banner (i.e. NOT the suppressed selectors above), paint it like a csfloat mat-card pinned to viewport bottom. */
+html body .cookie-banner.cookie-banner-firstparty,
+html body div.cookie-banner[data-firstparty="true"],
+html body div.cookie-banner.is-firstparty {
+  position: fixed !important;
+  bottom: 16px !important;
+  left: 16px !important;
+  right: 16px !important;
+  max-width: 720px !important;
+  margin: 0 auto !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  color: rgb(255, 255, 255) !important;
+  z-index: 1100 !important;
+  transform: translateZ(0) !important;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14000 */
+
+/* CSFLOAT-1:1 PARITY ship #14001 (cookie banner — inner padding & flex layout) — measured: csfloat mat-card-content padding 16px 24px, gap 16px between text + actions row; sbox was unspecified. */
+html body .cookie-banner.cookie-banner-firstparty .cookie-banner-inner,
+html body div.cookie-banner[data-firstparty="true"] .cookie-banner-inner,
+html body div.cookie-banner.is-firstparty .cookie-banner-inner {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 16px 24px !important;
+  position: relative !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14001 */
+
+/* CSFLOAT-1:1 PARITY ship #14002 (cookie banner — body text typography) — measured: csfloat secondary text fontSize 16px, lineHeight 21px, color rgb(158,167,177), fontWeight 500, family Roboto/Helvetica Neue/sans-serif; sbox was inheriting whatever default applied. */
+html body .cookie-banner.cookie-banner-firstparty .cookie-banner-text,
+html body .cookie-banner.cookie-banner-firstparty p,
+html body div.cookie-banner[data-firstparty="true"] .cookie-banner-text,
+html body div.cookie-banner.is-firstparty .cookie-banner-text {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  line-height: 21px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+  flex: 1 1 280px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14002 */
+
+/* CSFLOAT-1:1 PARITY ship #14003 (cookie banner — primary Accept button — Material raised) — measured: csfloat mat-mdc-raised-button background rgb(35,123,255), color #fff, padding 13px 30px, borderRadius 8px, fontSize 15px, fontFamily Roboto, shadow Material elev-2, transition box-shadow 280ms cubic-bezier(0.4,0,0.2,1); sbox was unstyled. */
+html body .cookie-banner .cookie-accept,
+html body .cookie-banner button.cookie-accept,
+html body .cookie-banner .cookie-accept-all,
+html body .cookie-banner button[data-action="accept"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 13px 30px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .cookie-banner .cookie-accept:hover,
+html body .cookie-banner button.cookie-accept:hover,
+html body .cookie-banner .cookie-accept-all:hover,
+html body .cookie-banner button[data-action="accept"]:hover {
+  background-color: rgb(35, 123, 255) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px, rgba(0, 0, 0, 0.14) 0px 4px 5px 0px, rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14003 */
+
+/* CSFLOAT-1:1 PARITY ship #14004 (cookie banner — secondary Reject + Manage buttons — Material outlined) — measured: csfloat mat-mdc-outlined-button background transparent, border 1px solid rgba(255,255,255,0.12), color rgba(255,255,255,0.38), borderRadius 8px, fontSize 14px, fontWeight 500, padding 0 10px (height ~36px); sbox was unstyled. */
+html body .cookie-banner .cookie-reject,
+html body .cookie-banner .cookie-manage,
+html body .cookie-banner button.cookie-reject,
+html body .cookie-banner button.cookie-manage,
+html body .cookie-banner button[data-action="reject"],
+html body .cookie-banner button[data-action="manage"],
+html body .cookie-banner a.cookie-manage {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .cookie-banner .cookie-reject:hover,
+html body .cookie-banner .cookie-manage:hover,
+html body .cookie-banner button.cookie-reject:hover,
+html body .cookie-banner button.cookie-manage:hover,
+html body .cookie-banner button[data-action="reject"]:hover,
+html body .cookie-banner button[data-action="manage"]:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14004 */
+
+/* CSFLOAT-1:1 PARITY ship #14005 (cookie banner — actions row layout) — measured: csfloat mat-card-actions display flex, gap 8px between buttons, no padding, flex-end alignment; sbox was unspecified. */
+html body .cookie-banner .cookie-banner-actions,
+html body .cookie-banner .cookie-actions,
+html body div.cookie-banner[data-firstparty="true"] .cookie-banner-actions,
+html body div.cookie-banner.is-firstparty .cookie-banner-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex: 0 1 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14005 */
+
+/* CSFLOAT-1:1 PARITY ship #14006 (cookie banner — close X icon button) — measured: csfloat mat-mdc-icon-button width/height 40px, borderRadius 50%, color rgb(158,167,177), bg transparent, hover bg rgba(255,255,255,0.04); sbox was unstyled. */
+html body .cookie-banner .cookie-close,
+html body .cookie-banner button.cookie-close,
+html body .cookie-banner button[aria-label="Close"],
+html body .cookie-banner button[data-action="close"] {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .cookie-banner .cookie-close:hover,
+html body .cookie-banner button.cookie-close:hover,
+html body .cookie-banner button[aria-label="Close"]:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14006 */
+
+/* CSFLOAT-1:1 PARITY ship #14100 (skeleton — base block bg + radius)
+   measured: csfloat does NOT ship a `.skeleton` class; its loading UI is
+   `mat-progress-bar` (4px tall, brand rgb(35,123,255) on rgba(35,123,255,0.25)
+   buffer). For the equivalent "block" skeleton (used by sboxmarket while data
+   loads), match csfloat's surface-on-panel tonal contrast: panel is
+   rgb(27,29,36) and a quiet skeleton block reads as rgba(255,255,255,0.06)
+   over it (same 6% white wash csfloat uses on hairlines/inactive chips).
+   Border-radius mirrors csfloat's mat-card child surfaces: 8px for blocks,
+   4px for inline lines (Material's small radius). sbox previously had
+   bg rgba(255,255,255,0.06) which is correct — keep it but pin via !important
+   so downstream rules can't drift it. */
+html body .skeleton,
+html body .skeleton-card,
+html body .skeleton-thumb,
+html body .skeleton-line,
+html body .skeleton-body,
+html body [class*="skeleton-"]:not([class*="skeleton-loader-wrap"]) {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  display: block !important;
+  position: relative !important;
+  overflow: hidden !important;
+  /* establish the base stack — shimmer overlay is added on the
+     ::after pseudo in the next ship to keep the brand tint visible */
+  color: transparent !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14100 */
+
+/* CSFLOAT-1:1 PARITY ship #14101 (skeleton — shimmer animation, csfloat-toned)
+   measured: csfloat's mat-progress-bar uses a 2-second translate sweep at
+   cubic-bezier(.4,0,.6,1) (Material indeterminate). For block skeletons we
+   reproduce that cadence with a 200% gradient sweep: 1800ms is the
+   Material-2 indeterminate buffer cycle; we keep linear timing for
+   continuous motion (csfloat's progress bar uses ease-in-out for the bar
+   itself but the buffer dots loop linearly). Highlight band uses
+   rgba(255,255,255,0.12) — slightly brighter than the 0.06 base, matching
+   csfloat's hover/active surface lifts. We layer via ::after so the base
+   color stays visible at the gradient's transparent stops. */
+@keyframes csfloat-skeleton-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+html body .skeleton::after,
+html body .skeleton-card::after,
+html body .skeleton-thumb::after,
+html body .skeleton-line::after,
+html body .skeleton-body::after,
+html body [class*="skeleton-"]:not([class*="skeleton-loader-wrap"])::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0) 100%
+  ) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  animation: csfloat-skeleton-sweep 1800ms linear infinite !important;
+  pointer-events: none !important;
+  /* defeat any inherited transform from base block */
+  transform: translateX(-100%);
+  will-change: transform !important;
+}
+/* Also kill the legacy gradient on the base element so we don't double-paint
+   (sbox had `linear-gradient` on the element itself which conflicts with the
+   ::after sweep) */
+html body .skeleton,
+html body .skeleton-card,
+html body .skeleton-thumb,
+html body .skeleton-line,
+html body .skeleton-body,
+html body [class*="skeleton-"]:not([class*="skeleton-loader-wrap"]) {
+  background-image: none !important;
+  animation: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14101 */
+
+/* CSFLOAT-1:1 PARITY ship #14102 (skeleton-card variant — item card placeholder)
+   measured: csfloat item-card box is 227.5px wide x 394.625px tall on /search;
+   the visual chrome is a mat-card raised — bg rgb(27,29,36), border-radius
+   12px, no border, padding 0, internal layout has thumb area top + body.
+   For sboxmarket's `.skeleton-card` we use 12px radius (matches mat-card),
+   keep aspect proportional (sbox already sets height: 280px; respect that
+   but allow auto when consumer sizes via inline style). Min-height ensures
+   a placeholder isn't collapsed when consumer omits dimensions. */
+html body .skeleton-card {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  min-height: 120px !important;
+  width: 100% !important;
+  /* don't force a fixed height — let consumer's inline width/height drive
+     so a 227.5x394 csfloat-style card slot can be rendered verbatim */
+}
+/* When card is inside a grid that also paints chrome, drop the inner
+   chrome to avoid stacking */
+html body .skeleton-card.skeleton-card-flat {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14102 */
+
+/* CSFLOAT-1:1 PARITY ship #14103 (skeleton-line variant — text placeholder)
+   measured: csfloat's body text inside item-card is 13px line-height ~18px;
+   FloatDB rows have 14px text @ line-height 20px. For text-line skeletons we
+   want a band that reads as a single line: 12px tall is too thin (1.4mm@96dpi
+   reads as a hairline) — Material's spec for text placeholders is .75em → on
+   csfloat's 14px base that's 10.5px. Keep 12px (Sbox default) for now but
+   pin border-radius to 4px (csfloat's small-radius token) and tighten margin
+   to 6px so stacked lines match csfloat row-rhythm of 6px gaps. */
+html body .skeleton-line {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  height: 12px !important;
+  width: 100% !important;
+  display: block !important;
+}
+/* Stacked lines: small gap between sibling lines */
+html body .skeleton-line + .skeleton-line {
+  margin-top: 6px !important;
+}
+/* Variant heights for headings vs body */
+html body .skeleton-line.skeleton-line-sm { height: 10px !important; }
+html body .skeleton-line.skeleton-line-md { height: 14px !important; }
+html body .skeleton-line.skeleton-line-lg { height: 18px !important; }
+html body .skeleton-line.skeleton-line-xl { height: 24px !important; }
+/* END CSFLOAT-1:1 PARITY ship #14103 */
+
+/* CSFLOAT-1:1 PARITY ship #14104 (skeleton-avatar variant — circle placeholder)
+   measured: csfloat's user avatar in headers + profile rail is a 40px round
+   image (32px in compact rows, 64px on profile hero). For avatar/profile
+   skeletons we ship a circle variant. Default 40px matches the chip avatar
+   used in csfloat's right-cluster. Border-radius 50% guarantees a circle
+   regardless of consumer width/height. */
+html body .skeleton-avatar,
+html body .skeleton-circle,
+html body .skeleton-profile-pic,
+html body .skeleton-thumb.skeleton-thumb-circle {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 50% !important;
+  width: 40px !important;
+  height: 40px !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+html body .skeleton-avatar.skeleton-avatar-sm,
+html body .skeleton-circle.skeleton-circle-sm { width: 24px !important; height: 24px !important; }
+html body .skeleton-avatar.skeleton-avatar-md,
+html body .skeleton-circle.skeleton-circle-md { width: 32px !important; height: 32px !important; }
+html body .skeleton-avatar.skeleton-avatar-lg,
+html body .skeleton-circle.skeleton-circle-lg { width: 64px !important; height: 64px !important; }
+/* END CSFLOAT-1:1 PARITY ship #14104 */
+
+/* CSFLOAT-1:1 PARITY ship #14105 (skeleton — prefers-reduced-motion respect)
+   measured: csfloat's mat-progress-bar honors @media (prefers-reduced-motion)
+   via Angular Material's `_mat-animation-noopable` class — when the user has
+   reduced-motion set, the indeterminate animation is dropped entirely and
+   the bar shows a static buffer. Mirror that for skeletons: kill the sweep
+   animation and just show the muted base block. This is also the WCAG 2.3.3
+   recommendation for non-essential motion. */
+@media (prefers-reduced-motion: reduce) {
+  html body .skeleton::after,
+  html body .skeleton-card::after,
+  html body .skeleton-thumb::after,
+  html body .skeleton-line::after,
+  html body .skeleton-body::after,
+  html body .skeleton-avatar::after,
+  html body .skeleton-circle::after,
+  html body [class*="skeleton-"]:not([class*="skeleton-loader-wrap"])::after {
+    animation: none !important;
+    background-image: none !important;
+    /* keep a tiny static highlight so the block doesn't read as "broken"
+       — 4% white wash matches csfloat's at-rest hairline */
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    transform: none !important;
+  }
+  html body .skeleton,
+  html body .skeleton-card,
+  html body .skeleton-thumb,
+  html body .skeleton-line,
+  html body .skeleton-body,
+  html body .skeleton-avatar,
+  html body .skeleton-circle,
+  html body [class*="skeleton-"]:not([class*="skeleton-loader-wrap"]) {
+    animation: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #14105 */
+
+/* CSFLOAT-1:1 PARITY ship #14200 (watchlist row — container geometry)
+   csfloat measured on /db tbody tr (canonical list-row primitive since
+   /watchlist is anon-locked): row height 62px, bg rgb(27, 29, 36)
+   (panel token), font-family Roboto/14px, color rgb(255,255,255).
+   sboxmarket has no .watchlist-row primitive (it renders cards in
+   .listing-grid), so this rule defines the row chrome a row-mode
+   watchlist would use. Shipping as override-ready selectors so a
+   future row-mode toggle inherits the exact csfloat shell. */
+.watchlist-row {
+  height: 62px !important;
+  min-height: 62px !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  display: grid !important;
+  grid-template-columns: 65px 220px 132px 1fr 89px 120px !important;
+  align-items: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14200 */
+
+/* CSFLOAT-1:1 PARITY ship #14201 (watchlist row — thumbnail size)
+   csfloat measured: tbody td:nth-child(2) img is 66x50 (the skin
+   thumbnail cell). sboxmarket .row-thumb should match so a
+   row-layout watchlist matches the /db list-row primitive byte
+   for byte. */
+.watchlist-row .row-thumb,
+.watchlist-row img.row-thumb {
+  width: 66px !important;
+  height: 50px !important;
+  min-width: 66px !important;
+  flex: 0 0 66px !important;
+  object-fit: contain !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: inline-block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14201 */
+
+/* CSFLOAT-1:1 PARITY ship #14202 (watchlist row — name+condition typography)
+   csfloat measured: name cell is 14px Roboto wt 400 color rgb(255,255,255)
+   left-aligned with 0px 3px cell padding. Condition glyph (FN/MW/FT/WW/BS)
+   inherits the same 14px weight 400 white. No bold, no smallcaps, no
+   spacing tricks — pure measure-and-match. */
+.watchlist-row .row-name {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  text-align: left !important;
+  padding: 0 3px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.watchlist-row .row-condition {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+  padding: 0 3px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14202 */
+
+/* CSFLOAT-1:1 PARITY ship #14203 (watchlist row — price column alignment)
+   csfloat measured: price cells (3rd, 4th positions) use textAlign
+   center, color rgb(255,255,255), 14px Roboto wt 400, padding 0 3px.
+   Target-price cell uses muted ink-2 rgb(158,167,177). The brand-blue
+   accent (rgb(35,123,255)) is reserved for hover highlights only. */
+.watchlist-row .row-price {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  text-align: center !important;
+  padding: 0 3px !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+}
+.watchlist-row .row-target {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+  padding: 0 3px !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14203 */
+
+/* CSFLOAT-1:1 PARITY ship #14204 (watchlist row — hairline divider between rows)
+   csfloat measured on /db: rows have border-bottom 0px none, gap 0,
+   borderCollapse separate, borderSpacing 0. csfloat does NOT paint
+   a visible divider between data rows — they are separated only by the
+   shared panel bg. The 1px hairline (rgba(255,255,255,0.06)) lives at
+   the table-section boundary (thead to tbody, last row to footer), not
+   between every row. Mirror that exactly: NO between-row borders. */
+.watchlist-row {
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  box-shadow: none !important;
+}
+.watchlist-row + .watchlist-row {
+  border-top: 0 !important;
+}
+.watchlist-list,
+.watchlist-rows {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.watchlist-list .watchlist-row:last-child,
+.watchlist-rows .watchlist-row:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14204 */
+
+/* CSFLOAT-1:1 PARITY ship #14205 (watchlist row — hover-visible action button)
+   csfloat measured: rows expose action affordances on hover (delete
+   plus edit). Action buttons stay invisible (opacity 0) at rest and
+   fade in on row hover via transition opacity 150ms cubic-bezier(0.4,
+   0, 0.2, 1). Button itself: 28px square, no border, transparent bg,
+   ink-2 icon (rgb(158,167,177)), brand blue (rgb(35,123,255)) on
+   hover, no shift on hover (no transform). */
+.watchlist-row .row-action {
+  opacity: 0 !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              background 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.watchlist-row:hover .row-action,
+.watchlist-row:focus-within .row-action {
+  opacity: 1 !important;
+}
+.watchlist-row .row-action:hover {
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+}
+.watchlist-row:hover {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14205 */
+
+/* CSFLOAT-1:1 PARITY ship #14206 (watchlist row — sticky header geometry)
+   csfloat measured on /db thead th: height 48px, padding 0 16px,
+   font-size 14px wt 500, color rgb(158,167,177) (ink-2), letter-spacing
+   0.42px, bg rgba(193,206,255,0.04), border-bottom 1px solid
+   rgba(0,0,0,0) (transparent — no visible divider). Header is NOT
+   sticky on /db (position static, top auto, z-index auto). Mirror
+   exactly: no position sticky, no shadow, no transform. */
+.watchlist-header,
+.watchlist-row-header {
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0) !important;
+  border-top: 0 !important;
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
+  box-shadow: none !important;
+  display: grid !important;
+  grid-template-columns: 65px 220px 132px 1fr 89px 120px !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14206 */
+
+/* CSFLOAT-1:1 PARITY ship #14207 (watchlist row — alternating-row tint)
+   csfloat measured on /db: row1 bg rgb(27,29,36), row2 bg rgb(27,29,36),
+   row3 bg rgb(27,29,36) — NO alternating-row tint. csfloat uses uniform
+   panel bg across every data row. Mirror that: kill any zebra-striping
+   that may have crept in via nth-child rules elsewhere in design.css. */
+.watchlist-row,
+.watchlist-row:nth-child(odd),
+.watchlist-row:nth-child(even),
+.watchlist-list .watchlist-row:nth-child(odd),
+.watchlist-list .watchlist-row:nth-child(even),
+.watchlist-rows .watchlist-row:nth-child(odd),
+.watchlist-rows .watchlist-row:nth-child(even) {
+  background: rgb(27, 29, 36) !important;
+}
+.watchlist-row:hover,
+.watchlist-list .watchlist-row:nth-child(odd):hover,
+.watchlist-list .watchlist-row:nth-child(even):hover,
+.watchlist-rows .watchlist-row:nth-child(odd):hover,
+.watchlist-rows .watchlist-row:nth-child(even):hover {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14207 */
+
+/* CSFLOAT-1:1 PARITY ship #14500 (signin button base - geometry/typography lock) - measured: csfloat width=133.67px padding=13px 30px height=40px font=15px/700 Roboto bg=rgb(35,123,255) radius=8px shadow=Material elev-2, sbox was 238px wide with multi-property transition */
+html body nav.nav .steam-btn,
+html body .toolbar .steam-btn,
+html body button.steam-btn {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  background-image: none !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  padding: 13px 30px !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  min-width: 64px !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: default !important;
+  outline: 0 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  position: relative !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+              rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+              rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+html body nav.nav .steam-btn .steam-btn-text,
+html body button.steam-btn .steam-btn-text {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+  text-transform: none !important;
+  color: inherit !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14500 */
+
+/* CSFLOAT-1:1 PARITY ship #14501 (signin button hover - Material elev-4 shadow + 8% white overlay, NO transform, NO opacity dim) - measured: csfloat hover keeps bg same, only shadow lifts and a translucent overlay layer adds; sbox was using opacity:0.78 + translateY(-1px) which Material doesn't do */
+html body nav.nav .steam-btn:hover,
+html body .toolbar .steam-btn:hover,
+html body button.steam-btn:hover {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  background-image: linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: transparent !important;
+  border: 0 none !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+              rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+              rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14501 */
+
+/* CSFLOAT-1:1 PARITY ship #14502 (signin button focus-visible - Material focus uses 24% white overlay, no outline ring) - measured: Material design tokens use a translucent overlay rather than a separate focus ring on raised buttons */
+html body nav.nav .steam-btn:focus-visible,
+html body .toolbar .steam-btn:focus-visible,
+html body button.steam-btn:focus-visible,
+html body nav.nav .steam-btn.cdk-focused,
+html body button.steam-btn.cdk-focused {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  background-image: linear-gradient(0deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.24)) !important;
+  color: rgb(255, 255, 255) !important;
+  outline: 0 none !important;
+  border: 0 none !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+              rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+              rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+  transform: none !important;
+  filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14502 */
+
+/* CSFLOAT-1:1 PARITY ship #14503 (signin button :active press - Material elev-8 shadow + 32% white overlay; NO scale/translate) - measured: csfloat presses elevate further per Material spec, sbox was using translateY(1px) which is not Material */
+html body nav.nav .steam-btn:active,
+html body .toolbar .steam-btn:active,
+html body button.steam-btn:active,
+html body nav.nav .steam-btn.mat-mdc-button-base.mdc-ripple-upgraded--background-focused,
+html body button.steam-btn[aria-pressed="true"] {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  background-image: linear-gradient(0deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.32)) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+              rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+              rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14503 */
+
+/* CSFLOAT-1:1 PARITY ship #14504 (signin button persistent ripple layer + disabled state - Material wraps content in a ripple span; sboxmarket has no native popover on csfloat - clicking redirects to steamcommunity.com/openid - so no popover override is fabricated, but ripple layering and disabled visuals matter) - measured: csfloat .mdc-button__ripple is positioned absolute filling button, transparent until interaction; disabled is white@12 bg, white@50 text */
+html body nav.nav .steam-btn::before,
+html body .toolbar .steam-btn::before,
+html body button.steam-btn::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 8px !important;
+  background-color: transparent !important;
+  pointer-events: none !important;
+  transition: opacity 150ms linear !important;
+  opacity: 0 !important;
+  z-index: 0 !important;
+}
+html body nav.nav .steam-btn > *,
+html body .toolbar .steam-btn > *,
+html body button.steam-btn > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+html body nav.nav .steam-btn:disabled,
+html body .toolbar .steam-btn:disabled,
+html body button.steam-btn:disabled,
+html body nav.nav .steam-btn[disabled],
+html body button.steam-btn[disabled] {
+  background: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-image: none !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14504 */
+
+/* CSFLOAT-1:1 PARITY ship #14505 (Steam logo placement / sizing inside signin button) - measured: csfloat svg=20x20 viewBox=0 0 20 20 fill=white, icon left of text with 8px gap, no margin; lock the icon wrapper and svg to exact csfloat geometry */
+html body nav.nav .steam-btn .steam-btn-icon,
+html body .toolbar .steam-btn .steam-btn-icon,
+html body button.steam-btn .steam-btn-icon {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  flex: 0 0 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body nav.nav .steam-btn .steam-btn-icon svg,
+html body .toolbar .steam-btn .steam-btn-icon svg,
+html body button.steam-btn .steam-btn-icon svg,
+html body nav.nav .steam-btn > svg,
+html body button.steam-btn > svg {
+  width: 20px !important;
+  height: 20px !important;
+  display: block !important;
+  fill: rgb(255, 255, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+  vertical-align: middle !important;
+}
+html body nav.nav .steam-btn .steam-btn-icon svg path,
+html body .toolbar .steam-btn .steam-btn-icon svg path,
+html body button.steam-btn .steam-btn-icon svg path,
+html body nav.nav .steam-btn > svg path,
+html body button.steam-btn > svg path {
+  fill: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14505 */
