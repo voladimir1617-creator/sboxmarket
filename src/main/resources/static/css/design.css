@@ -140147,3 +140147,244 @@ body .filter-section .filter-count-badge.is-visible {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #4805 */
+
+/* CSFLOAT-1:1 PARITY ship #5006 — item page main image container measure-and-match.
+   csfloat /item/<id>: left panel image area is ~480px min-height with a soft
+   radial-gradient blue glow centered behind the weapon, no border, slightly
+   rounded corners, dark base, flat (no shadow on container). */
+.csfloat-gallery-main {
+  background: radial-gradient(ellipse 60% 55% at 50% 50%,
+    rgba(80, 120, 200, 0.18) 0%,
+    rgba(60, 100, 180, 0.10) 35%,
+    rgba(20, 24, 40, 0.95) 75%,
+    rgba(12, 14, 22, 1) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-radius: 12px !important;
+  padding: 32px !important;
+  position: relative !important;
+  min-height: 480px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02) !important;
+}
+.csfloat-gallery-main img {
+  max-width: 92% !important;
+  max-height: 420px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.55))
+          drop-shadow(0 4px 12px rgba(80, 120, 200, 0.15)) !important;
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  will-change: transform !important;
+}
+.csfloat-gallery-main:hover img {
+  transform: scale(1.03) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5006 */
+
+/* CSFLOAT-1:1 PARITY ship #5007 — magnifier zoom button bottom-right of image.
+   csfloat: 36x36 dark glass button with magnifier glyph, always visible (not
+   hover-gated), positioned 14px from bottom-right edge of container. */
+.csfloat-gallery-main-zoom {
+  position: absolute !important;
+  bottom: 14px !important;
+  right: 14px !important;
+  top: auto !important;
+  left: auto !important;
+  width: 36px !important;
+  height: 36px !important;
+  background: rgba(20, 24, 32, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 8px !important;
+  color: rgba(220, 226, 240, 0.92) !important;
+  font-size: 15px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: zoom-in !important;
+  backdrop-filter: blur(8px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+  opacity: 1 !important;
+  transition: background 180ms ease, border-color 180ms ease,
+              color 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  z-index: 5 !important;
+}
+.csfloat-gallery-main-zoom:hover,
+.csfloat-gallery-main:hover .csfloat-gallery-main-zoom {
+  background: rgba(40, 48, 64, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  transform: scale(1.06) !important;
+  opacity: 1 !important;
+}
+.csfloat-gallery-main-zoom:active {
+  transform: scale(0.96) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5007 */
+
+/* CSFLOAT-1:1 PARITY ship #5008 — STANDARD/OFF-MARKET tag chip overlay top-left.
+   csfloat: small uppercase chip ~10px font, subtle background, 8px from
+   container top-left, padding 4px 10px, letter-spacing for tracker effect. */
+.csfloat-gallery-main .item-tag-overlay,
+.csfloat-gallery-main .csfloat-tag-chip,
+.csfloat-gallery-main .gallery-tag,
+.csfloat-gallery-main [class*="tag-overlay"],
+.csfloat-gallery-main [class*="rarity-tag"],
+.csfloat-gallery-main [data-tag] {
+  position: absolute !important;
+  top: 12px !important;
+  left: 12px !important;
+  padding: 4px 10px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  background: rgba(20, 24, 32, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 4px !important;
+  color: rgba(220, 226, 240, 0.92) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  line-height: 1.4 !important;
+  z-index: 4 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+.csfloat-gallery-main .item-tag-overlay.standard,
+.csfloat-gallery-main [data-tag="standard"] {
+  color: rgba(180, 190, 210, 0.95) !important;
+  background: rgba(35, 40, 52, 0.72) !important;
+}
+.csfloat-gallery-main .item-tag-overlay.off-market,
+.csfloat-gallery-main [data-tag="off-market"] {
+  color: rgba(255, 180, 90, 0.95) !important;
+  border-color: rgba(255, 180, 90, 0.22) !important;
+  background: rgba(60, 35, 12, 0.72) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5008 */
+
+/* CSFLOAT-1:1 PARITY ship #5009 — thumbnail strip below main image.
+   csfloat: row of 56x56 thumbnails, gap 6px, pill-rounded, bg slightly darker
+   than container, active outline in cta blue, smooth hover lift. */
+.csfloat-gallery-thumbs {
+  display: flex !important;
+  gap: 6px !important;
+  overflow-x: auto !important;
+  padding: 6px 2px 8px !important;
+  margin-top: 10px !important;
+  scrollbar-width: thin !important;
+}
+.csfloat-gallery-thumbs::-webkit-scrollbar { height: 4px !important; }
+.csfloat-gallery-thumbs::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-radius: 2px !important;
+}
+.csfloat-gallery-thumbs::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.csfloat-gallery-thumb {
+  width: 56px !important;
+  height: 56px !important;
+  flex-shrink: 0 !important;
+  background: radial-gradient(ellipse 70% 65% at 50% 50%,
+    rgba(80, 120, 200, 0.10) 0%,
+    rgba(20, 24, 40, 0.95) 80%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px !important;
+  transition: border-color 160ms ease,
+              transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 160ms ease !important;
+  position: relative !important;
+}
+.csfloat-gallery-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+.csfloat-gallery-thumb.active {
+  border-color: rgba(91, 140, 255, 0.95) !important;
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.55),
+              0 4px 12px rgba(91, 140, 255, 0.18) !important;
+}
+.csfloat-gallery-thumb img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4)) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5009 */
+
+/* CSFLOAT-1:1 PARITY ship #5010 — click-to-zoom lightbox modal polish.
+   csfloat: deep blur+darken backdrop, image centered with soft shadow, close
+   button top-right of modal, 200ms fade-in + 240ms scale-in animation. */
+@keyframes csfloat-zoom-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes csfloat-zoom-scale-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1.00); }
+}
+.csfloat-zoom-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(8, 10, 16, 0.88) !important;
+  backdrop-filter: blur(10px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+  z-index: 9800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 32px !important;
+  animation: csfloat-zoom-fade-in 200ms ease !important;
+}
+.csfloat-zoom-modal {
+  position: relative !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  animation: csfloat-zoom-scale-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.csfloat-zoom-modal img {
+  max-width: 100% !important;
+  max-height: 90vh !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 16px 48px rgba(0, 0, 0, 0.7))
+          drop-shadow(0 6px 18px rgba(80, 120, 200, 0.18)) !important;
+  border-radius: 8px !important;
+}
+.csfloat-zoom-modal-close {
+  position: absolute !important;
+  top: -14px !important;
+  right: -14px !important;
+  width: 38px !important;
+  height: 38px !important;
+  background: rgba(20, 24, 32, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 50% !important;
+  color: rgba(220, 226, 240, 0.95) !important;
+  font-size: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background 160ms ease, transform 160ms ease,
+              border-color 160ms ease !important;
+  z-index: 1 !important;
+}
+.csfloat-zoom-modal-close:hover {
+  background: rgba(40, 48, 64, 1) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  transform: scale(1.08) rotate(90deg) !important;
+}
+.csfloat-zoom-modal-close:active {
+  transform: scale(0.94) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #5010 */
