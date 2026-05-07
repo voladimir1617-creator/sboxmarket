@@ -155346,3 +155346,284 @@ body .sort-picker-row.active .material-icon:last-child {
   color: var(--accent) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11905 */
+
+/* CSFLOAT-1:1 PARITY ship #12000 — Steam OAuth "Redirecting to Steam" full-page overlay (csfloat: bg rgb(21,23,28), centered) */
+body .sb-oauth-overlay,
+body .steam-redirect-overlay,
+body #sb-steam-redirect {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 24px !important;
+  background-color: rgb(21, 23, 28) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+  animation: sbOauthFadeIn 220ms cubic-bezier(0.4, 0, 0.2, 1) both !important;
+}
+body .sb-oauth-overlay .sb-oauth-title,
+body .steam-redirect-overlay .sb-oauth-title {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  margin: 0 !important;
+}
+body .sb-oauth-overlay .sb-oauth-sub,
+body .steam-redirect-overlay .sb-oauth-sub {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  letter-spacing: 0.25px !important;
+  margin: 0 !important;
+}
+@keyframes sbOauthFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* END CSFLOAT-1:1 PARITY ship #12000 */
+
+/* CSFLOAT-1:1 PARITY ship #12001 — Steam OAuth "Authenticating..." MD3 indeterminate circular spinner (csfloat: 48px, accent-blue stroke) */
+body .sb-oauth-overlay .sb-oauth-spinner,
+body .steam-redirect-overlay .sb-oauth-spinner,
+body .sb-auth-spinner,
+body #sb-steam-redirect .sb-oauth-spinner {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  border: 4px solid rgba(94, 168, 255, 0.18) !important;
+  border-top-color: rgb(94, 168, 255) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  animation: sbOauthSpin 1100ms linear infinite !important;
+  display: block !important;
+  flex: 0 0 auto !important;
+}
+body .sb-oauth-overlay .sb-oauth-spinner.sm,
+body .sb-auth-spinner.sm {
+  width: 32px !important;
+  height: 32px !important;
+  border-width: 3px !important;
+}
+body .sb-oauth-overlay .sb-oauth-spinner.lg,
+body .sb-auth-spinner.lg {
+  width: 64px !important;
+  height: 64px !important;
+  border-width: 5px !important;
+}
+@keyframes sbOauthSpin {
+  to { transform: rotate(360deg); }
+}
+/* END CSFLOAT-1:1 PARITY ship #12001 */
+
+/* CSFLOAT-1:1 PARITY ship #12002 — Steam OAuth auth-failed error card (csfloat: max-w 420, brd 8, surface bg, red accent) */
+body .sb-oauth-error,
+body .sb-auth-error,
+body .steam-auth-failed {
+  max-width: 420px !important;
+  width: calc(100% - 32px) !important;
+  margin: 0 auto !important;
+  padding: 28px 32px !important;
+  border-radius: 8px !important;
+  background-color: rgb(28, 31, 38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+body .sb-oauth-error .sb-oauth-error-icon,
+body .sb-auth-error .sb-oauth-error-icon {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: rgb(244, 67, 54) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 28px !important;
+  line-height: 1 !important;
+  flex: 0 0 auto !important;
+}
+body .sb-oauth-error .sb-oauth-error-title,
+body .sb-auth-error .sb-oauth-error-title {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  margin: 0 !important;
+}
+body .sb-oauth-error .sb-oauth-error-msg,
+body .sb-auth-error .sb-oauth-error-msg {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  letter-spacing: 0.25px !important;
+  margin: 0 !important;
+}
+body .sb-oauth-error .sb-oauth-retry,
+body .sb-auth-error .sb-oauth-retry {
+  margin-top: 8px !important;
+  height: 40px !important;
+  padding: 0 24px !important;
+  border-radius: 8px !important;
+  background-color: rgb(94, 168, 255) !important;
+  color: rgb(0, 0, 0) !important;
+  border: 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, transform 90ms ease !important;
+}
+body .sb-oauth-error .sb-oauth-retry:hover,
+body .sb-auth-error .sb-oauth-retry:hover {
+  background-color: rgb(120, 184, 255) !important;
+}
+body .sb-oauth-error .sb-oauth-retry:active,
+body .sb-auth-error .sb-oauth-retry:active {
+  transform: translateY(1px) !important;
+  background-color: rgb(78, 152, 240) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12002 */
+
+/* CSFLOAT-1:1 PARITY ship #12003 — Steam OAuth auth-success welcome card (csfloat: green accent chip + name) */
+body .sb-oauth-success,
+body .sb-auth-success,
+body .steam-auth-welcome {
+  max-width: 420px !important;
+  width: calc(100% - 32px) !important;
+  margin: 0 auto !important;
+  padding: 28px 32px !important;
+  border-radius: 8px !important;
+  background-color: rgb(28, 31, 38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 14px !important;
+  animation: sbOauthSuccessIn 320ms cubic-bezier(0.4, 0, 0.2, 1) both !important;
+}
+body .sb-oauth-success .sb-oauth-success-icon,
+body .sb-auth-success .sb-oauth-success-icon {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  background-color: rgba(76, 175, 80, 0.14) !important;
+  color: rgb(76, 175, 80) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 30px !important;
+  line-height: 1 !important;
+  flex: 0 0 auto !important;
+}
+body .sb-oauth-success .sb-oauth-success-title,
+body .sb-auth-success .sb-oauth-success-title {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  margin: 0 !important;
+}
+body .sb-oauth-success .sb-oauth-success-name,
+body .sb-auth-success .sb-oauth-success-name {
+  font-size: 14px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  letter-spacing: 0.25px !important;
+  margin: 0 !important;
+}
+body .sb-oauth-success .sb-oauth-success-name strong,
+body .sb-auth-success .sb-oauth-success-name strong {
+  color: rgb(94, 168, 255) !important;
+  font-weight: 500 !important;
+}
+@keyframes sbOauthSuccessIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* END CSFLOAT-1:1 PARITY ship #12003 */
+
+/* CSFLOAT-1:1 PARITY ship #12004 — Steam OAuth Steam-logo brandmark in redirect overlay (csfloat: 32px, white tint) */
+body .sb-oauth-overlay .sb-oauth-steam-mark,
+body .steam-redirect-overlay .sb-oauth-steam-mark {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, rgb(40, 51, 67) 0%, rgb(20, 27, 38) 100%) !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  margin-right: 8px !important;
+  vertical-align: middle !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  flex: 0 0 auto !important;
+}
+body .sb-oauth-overlay .sb-oauth-row,
+body .steam-redirect-overlay .sb-oauth-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12004 */
+
+/* CSFLOAT-1:1 PARITY ship #12005 — generic loading spinner global geometry lock (csfloat: 32px MD3 ring, 3.6px stroke, 1.1s linear) */
+body .spinner,
+body .loading-spinner,
+body .sb-loading-spinner,
+body [data-spinner] {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  border: 3.6px solid rgba(94, 168, 255, 0.18) !important;
+  border-top-color: rgb(94, 168, 255) !important;
+  background: transparent !important;
+  animation: sbOauthSpin 1100ms linear infinite !important;
+  box-shadow: none !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+body .spinner.spinner-sm { width: 20px !important; height: 20px !important; border-width: 2.4px !important; }
+body .spinner.spinner-lg { width: 48px !important; height: 48px !important; border-width: 4.5px !important; }
+body .spinner.spinner-xl { width: 64px !important; height: 64px !important; border-width: 5.5px !important; }
+/* END CSFLOAT-1:1 PARITY ship #12005 */
+
+/* CSFLOAT-1:1 PARITY ship #12006 — Steam OAuth callback overlay backdrop dim + blur (csfloat: 8px backdrop blur over content) */
+body .sb-oauth-overlay::before,
+body .steam-redirect-overlay::before,
+body #sb-steam-redirect::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background-color: rgba(21, 23, 28, 0.88) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(120%) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+}
+body .sb-oauth-overlay > *,
+body .steam-redirect-overlay > *,
+body #sb-steam-redirect > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12006 */
