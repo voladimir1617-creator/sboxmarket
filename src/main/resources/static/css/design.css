@@ -135196,3 +135196,212 @@ body .wallet-tx-filter-chip[disabled] {
   cursor: default !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2905 */
+
+/* CSFLOAT-1:1 PARITY ship #3105 — /offers .item-name + .item-sub typography parity */
+body .offer-row .item-name {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: -0.005em !important;
+  line-height: 20px !important;
+}
+body .offer-row .item-sub {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+  line-height: 16px !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3105 */
+
+/* CSFLOAT-1:1 PARITY ship #3106 — /offers price column parity */
+body .offer-row .offer-amt,
+body .offer-row [class*="offer-amt"] {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(35, 123, 255) !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .offer-row .offer-price {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  text-decoration: line-through !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .offer-row .offer-pct {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: rgb(64, 200, 140) !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3106 */
+
+/* CSFLOAT-1:1 PARITY ship #3107 — /offers .offer-actions button parity */
+body .offer-row .offer-actions {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+body .offer-row .offer-actions .btn,
+body .offer-row .offer-actions button {
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+  min-width: auto !important;
+  line-height: 1 !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .offer-row .offer-actions .btn-success,
+body .offer-row .offer-actions .btn.btn-success {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+}
+body .offer-row .offer-actions .btn-success:hover {
+  background: rgb(58, 138, 255) !important;
+  border-color: rgb(58, 138, 255) !important;
+}
+body .offer-row .offer-actions .btn-danger,
+body .offer-row .offer-actions .btn.btn-danger {
+  background: transparent !important;
+  color: rgb(220, 90, 90) !important;
+  border: 1px solid rgb(220, 90, 90) !important;
+}
+body .offer-row .offer-actions .btn-danger:hover {
+  background: rgba(220, 90, 90, 0.10) !important;
+  border-color: rgb(232, 110, 110) !important;
+  color: rgb(232, 110, 110) !important;
+}
+body .offer-row .offer-actions .btn-ghost,
+body .offer-row .offer-actions .btn.btn-ghost {
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgb(50, 52, 62) !important;
+}
+body .offer-row .offer-actions .btn-ghost:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgb(70, 72, 82) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3107 */
+
+/* CSFLOAT-1:1 PARITY ship #3108 — /offers .offer-tabs parity */
+body main .offer-tabs,
+body #sandbox-main .offer-tabs,
+body .offers-page .offer-tabs {
+  display: flex !important;
+  gap: 4px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgb(38, 40, 48) !important;
+  margin-bottom: 18px !important;
+  align-items: stretch !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+body main .offer-tabs::-webkit-scrollbar,
+body #sandbox-main .offer-tabs::-webkit-scrollbar,
+body .offers-page .offer-tabs::-webkit-scrollbar {
+  display: none !important;
+}
+body main .offer-tabs > button,
+body main .offer-tabs > a,
+body #sandbox-main .offer-tabs > button,
+body .offers-page .offer-tabs > button {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  margin-bottom: -1px !important;
+  cursor: pointer !important;
+  transition: color 140ms ease, border-color 140ms ease !important;
+  white-space: nowrap !important;
+}
+body main .offer-tabs > button:hover,
+body main .offer-tabs > a:hover,
+body #sandbox-main .offer-tabs > button:hover,
+body .offers-page .offer-tabs > button:hover {
+  color: rgb(255, 255, 255) !important;
+}
+body main .offer-tabs > button.active,
+body main .offer-tabs > a.active,
+body main .offer-tabs > button[aria-selected="true"],
+body #sandbox-main .offer-tabs > button.active,
+body .offers-page .offer-tabs > button.active {
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border-bottom-color: rgb(35, 123, 255) !important;
+  font-weight: 600 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3108 */
+
+/* CSFLOAT-1:1 PARITY ship #3109 — /offers .offer-state chip + .item-thumb parity */
+body .offer-row .offer-state {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  line-height: 1 !important;
+  min-height: 22px !important;
+  background: rgba(220, 90, 90, 0.10) !important;
+  color: rgb(220, 90, 90) !important;
+  border: 1px solid rgba(220, 90, 90, 0.30) !important;
+}
+body .offer-row .offer-state.accepted,
+body .offer-row .offer-state[data-state="accepted"],
+body .offer-row .offer-state[data-status="ACCEPTED"] {
+  background: rgba(64, 200, 140, 0.10) !important;
+  color: rgb(64, 200, 140) !important;
+  border-color: rgba(64, 200, 140, 0.30) !important;
+}
+body .offer-row .offer-state.pending,
+body .offer-row .offer-state[data-state="pending"],
+body .offer-row .offer-state[data-status="PENDING"] {
+  background: rgba(255, 193, 7, 0.10) !important;
+  color: rgb(255, 193, 7) !important;
+  border-color: rgba(255, 193, 7, 0.30) !important;
+}
+body .offer-row .item-thumb {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  background: rgb(20, 22, 28) !important;
+  border: 1px solid rgb(38, 40, 48) !important;
+  display: grid !important;
+  place-items: center !important;
+}
+body .offer-row .item-thumb img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3109 */
