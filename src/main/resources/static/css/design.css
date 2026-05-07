@@ -136216,3 +136216,447 @@ body .chart-wrap svg.chart circle[r="5"] {
   stroke-width: 2 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3404 */
+
+/* CSFLOAT-1:1 PARITY ship #3500 — /notifications row layout
+   csfloat measured: notification rows are flex-row, align-items center,
+   12px gap, 14/20 vertical-horizontal padding, 56px min-height, 14px
+   Roboto body, 1px border-bottom rgba(255,255,255,0.07). The row is
+   one continuous strip — no inner gap, no card chrome.
+   Our .notif-feed-row was grid 32px/1fr/auto with 10/14 padding and
+   align:start, which rendered titles flush-top and left a dead band
+   below the time label. Re-spec to flex + center align so the unread
+   dot, icon, text, time, and X button all sit on the same baseline.
+   Also drop the inner border-radius — csfloat rows are flush. */
+body .notif-feed-row,
+body .full-page-mode .notif-feed-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 14px 20px !important;
+  min-height: 56px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: background 120ms ease !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  color: rgb(255, 255, 255) !important;
+  position: relative !important;
+}
+body .notif-feed-row:hover,
+body .full-page-mode .notif-feed-row:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body .notif-feed-row:last-child,
+body .full-page-mode .notif-feed-row:last-child {
+  border-bottom: 0 !important;
+}
+@media (max-width: 480px) {
+  body .notif-feed-row,
+  body .full-page-mode .notif-feed-row {
+    padding: 12px 16px !important;
+    min-height: 52px !important;
+    gap: 10px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #3500 */
+
+/* CSFLOAT-1:1 PARITY ship #3501 — /notifications row icon, title, body, time
+   csfloat measured: avatar/icon is 36x36, 8px radius, rgba(255,255,255,0.06)
+   bg, 1px border rgba(193,206,255,0.07), centered glyph in
+   rgba(255,255,255,0.7). Row title is 14/20 Roboto 500 white. Row body
+   text is 13/18 Roboto 400 rgba(158,167,177,0.95). Timestamp is 12px
+   Roboto 400 rgba(158,167,177,0.7), right-aligned, no monospace.
+   Pre-fix on sboxmarket: icon was 32px square w/ var(--bg-2) bg + var
+   (--line) border (looked too small + low-contrast); title was 13/1.35
+   weight 500 var(--ink) (size mismatch + line-height tight); body
+   inherited the row's color (no muted tone); time was monospace
+   10px (csfloat uses sans 12px). */
+body .notif-feed-icon,
+body .full-page-mode .notif-feed-icon {
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+body .notif-feed-icon .material-symbols-rounded,
+body .notif-feed-icon .mi,
+body .full-page-mode .notif-feed-icon .material-symbols-rounded,
+body .full-page-mode .notif-feed-icon .mi {
+  font-size: 18px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+body .notif-feed-title,
+body .full-page-mode .notif-feed-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin: 0 0 2px !important;
+}
+body .notif-feed-body,
+body .full-page-mode .notif-feed-body {
+  /* Pre-fix: this selector also matched the OUTER .notif-feed scroll
+     container (max-height 480/overflow auto), making the inner row
+     body inherit those constraints. Scope here is a row child only —
+     guarded by parenthood under .notif-feed-row. */
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 400 !important;
+  color: rgba(158, 167, 177, 0.95) !important;
+  letter-spacing: 0 !important;
+  margin: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+body .notif-feed-row .notif-feed-body,
+body .full-page-mode .notif-feed-row .notif-feed-body {
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
+}
+body .notif-feed-time,
+body .full-page-mode .notif-feed-time {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 400 !important;
+  color: rgba(158, 167, 177, 0.7) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3501 */
+
+/* CSFLOAT-1:1 PARITY ship #3502 — /notifications unread dot + row tint
+   csfloat measured: unread row gets a flat rgba(35,123,255,0.06)
+   background overlay (no border-glow, no shadow), and the unread dot
+   is an 8x8 #237bff circle, positioned to the right of the time label
+   in a fixed 8px column on the row's right edge. There is NO ::before
+   stripe, NO inner box shadow.
+   Pre-fix: our .notif-feed-row.unread mixed two paths — the v504 .csfloat-
+   notif-row.unread::before stripe and the .notif-feed-dot. Lock both
+   to csfloat spec (kill the stripe, recolor + resize the dot). */
+body .notif-feed-row.unread,
+body .full-page-mode .notif-feed-row.unread {
+  background: rgba(35, 123, 255, 0.06) !important;
+}
+body .notif-feed-row.unread:hover,
+body .full-page-mode .notif-feed-row.unread:hover {
+  background: rgba(35, 123, 255, 0.10) !important;
+}
+body .notif-feed-row.unread::before,
+body .full-page-mode .notif-feed-row.unread::before {
+  /* Kill the v504 left-edge stripe — csfloat uses the row tint + the
+     trailing dot, no left rule. */
+  content: none !important;
+  display: none !important;
+}
+body .notif-feed-dot,
+body .full-page-mode .notif-feed-dot {
+  width: 8px !important;
+  height: 8px !important;
+  flex: 0 0 8px !important;
+  border-radius: 50% !important;
+  background: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.18) !important;
+  margin-left: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3502 */
+
+/* CSFLOAT-1:1 PARITY ship #3503 — /notifications day-group header
+   ("Today" / "Yesterday" / "Last week" / dated label).
+   csfloat measured: section header is 12/16 Roboto 500 uppercase
+   rgba(158,167,177,0.7), letter-spacing 0.06em (NOT the heavier 0.14em
+   our editorial mono uses), padded 16/20 top with 8px bottom, no
+   border, no background.
+   Pre-fix: our .notif-feed-day was monospace 10px / 0.14em / var(--ink-4),
+   18px x-padding mismatch and visually disconnected from the row's
+   20px x-padding (rows misaligned with the day label). */
+body .notif-feed-day,
+body .full-page-mode .notif-feed-day {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgba(158, 167, 177, 0.7) !important;
+  padding: 16px 20px 8px !important;
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0 !important;
+}
+body .notif-feed-day:first-child,
+body .full-page-mode .notif-feed-day:first-child {
+  /* First group's leading padding is tighter — sits flush under the
+     filter row separator. csfloat lops 8px off the top of the first. */
+  padding-top: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3503 */
+
+/* CSFLOAT-1:1 PARITY ship #3504 — /notifications filter tabs (All / Unread)
+   + filter chip row (Trades / Auctions / Offers / Matches / Wallet / Other).
+   csfloat measured: pill tabs are 32px tall, 14px Roboto 500, padding
+   0 14px, radius 999px, gap 8px between pills. Active pill: bg
+   rgba(35,123,255,0.15), color #237bff, no border. Inactive: bg
+   transparent, color rgba(255,255,255,0.7), 1px border rgba(193,206,255,
+   0.10). Hover: bg rgba(255,255,255,0.04).
+   The .filter-count badge inside is 11px monospace digit count
+   rgba(158,167,177,0.7) with 6px left margin (already wired in JS).
+   Pre-fix: our .offer-tab is the editorial underlined tab (no pill
+   shape, font 13/600, 0 14 padding, bottom border on active). Wrong
+   chrome for this row. The .wallet-tx-filter-chip type chips are the
+   correct base — extend them to match notifications spec. */
+body .notif-feed ~ * .offer-tab,
+body .notifications-page .offer-tab,
+body .full-page-mode .offer-tab[onclick*="ALL"],
+body .full-page-mode .offer-tab[onclick*="UNREAD"] {
+  /* Targets unstable — csfloat-modals.js mounts these inside the InfoModal
+     above the .notif-feed. Use the more reliable scoping below. */
+}
+/* Modal-scoped: any .offer-tab that lives inside the InfoModal that
+   ALSO contains a .notif-feed gets the pill treatment. */
+body .modal:has(.notif-feed) .offer-tab,
+body .full-page-mode:has(.notif-feed) .offer-tab,
+body :has(> .notif-feed) ~ * .offer-tab,
+body .notif-feed-day ~ * .offer-tab {
+  /* Above selectors are progressive enhancements; the load-bearing
+     rule is the one below that just nukes the underline + adopts pill. */
+}
+body .modal-body .offer-tab,
+body .full-page-mode .offer-tab {
+  height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(193, 206, 255, 0.10) !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease !important;
+}
+body .modal-body .offer-tab::after,
+body .full-page-mode .offer-tab::after {
+  /* Kill the editorial underline scribe csfloat-modals doesn't use. */
+  content: none !important;
+  display: none !important;
+}
+body .modal-body .offer-tab:hover,
+body .full-page-mode .offer-tab:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(193, 206, 255, 0.16) !important;
+}
+body .modal-body .offer-tab.active,
+body .full-page-mode .offer-tab.active {
+  background: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+  border-color: transparent !important;
+  font-weight: 500 !important;
+}
+body .modal-body .offer-tab .filter-count,
+body .full-page-mode .offer-tab .filter-count,
+body .modal-body .offer-tab .tab-badge,
+body .full-page-mode .offer-tab .tab-badge {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(158, 167, 177, 0.7) !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  letter-spacing: 0 !important;
+  margin-left: 6px !important;
+  min-width: 0 !important;
+}
+body .modal-body .offer-tab.active .filter-count,
+body .full-page-mode .offer-tab.active .filter-count,
+body .modal-body .offer-tab.active .tab-badge,
+body .full-page-mode .offer-tab.active .tab-badge {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3504 */
+
+/* CSFLOAT-1:1 PARITY ship #3505 — /notifications header buttons
+   ("Mark all read" + "Clear read" + per-row × delete + — mark-unread).
+   csfloat measured: header utility buttons (Mark all read, Clear) are
+   32px tall, 12px Roboto 500 white-70%, transparent bg, 1px border
+   rgba(193,206,255,0.10), 8px radius, padding 0 12px, gap 0. Hover:
+   color white, border rgba(193,206,255,0.16). Per-row icon-only
+   buttons (× and —) are 28x28, transparent, 0.45 opacity, 13px glyph,
+   no border; opacity → 0.9 on hover.
+   Pre-fix: our .btn.btn-ghost utility button on top right was using
+   the JS-supplied `style.padding=6px 12px / fontSize: 11` (tight) and
+   our per-row icon buttons used `padding 4px 8px` w/o a fixed square
+   (collision with row baseline). Lock both. */
+body .modal-body .notif-feed ~ *,
+body .full-page-mode .notif-feed ~ * {
+  /* no-op anchor for the rules below */
+}
+/* Top-of-page utility row buttons: target only the buttons that sit
+   in the same flex-bar as the .offer-tab notification filters. The
+   JS gives them style.border + 6px/12px padding inline; override. */
+body .modal-body .offer-tab + div + button.btn-ghost,
+body .modal-body .offer-tab ~ button.btn-ghost,
+body .full-page-mode .offer-tab + div + button.btn-ghost,
+body .full-page-mode .offer-tab ~ button.btn-ghost {
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(193, 206, 255, 0.10) !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease !important;
+  white-space: nowrap !important;
+}
+body .modal-body .offer-tab ~ button.btn-ghost:hover,
+body .full-page-mode .offer-tab ~ button.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(193, 206, 255, 0.16) !important;
+}
+/* Per-row × and — icon-buttons inside .notif-feed-row: targets the
+   inline-styled .btn.btn-ghost the JS appends after the time. Match
+   csfloat's 28px square, 13px glyph, 0.45 → 0.9 opacity ramp. */
+body .notif-feed-row > button.btn-ghost,
+body .full-page-mode .notif-feed-row > button.btn-ghost {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 4px !important;
+  opacity: 0.45 !important;
+  cursor: pointer !important;
+  transition: background 100ms ease, color 100ms ease, opacity 100ms ease, border-color 100ms ease !important;
+}
+body .notif-feed-row > button.btn-ghost:hover,
+body .full-page-mode .notif-feed-row > button.btn-ghost:hover {
+  opacity: 0.9 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(193, 206, 255, 0.10) !important;
+}
+/* When the row is unread, the trailing dot is the only "marker" and
+   the X delete button sits inline beside it. Bump the dot's left
+   gap so it doesn't kiss the X. */
+body .notif-feed-row .notif-feed-dot + button.btn-ghost,
+body .full-page-mode .notif-feed-row .notif-feed-dot + button.btn-ghost {
+  margin-left: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3505 */
+
+/* CSFLOAT-1:1 PARITY ship #3506 — /notifications empty state
+   csfloat shows a centered icon + headline + sub + CTAs, all stacked.
+   Measured: the icon-glyph chip is 56x56 rounded-12 rgba(255,255,255,0.04)
+   centered in a 96px tall column with 16px bottom margin. Headline is
+   16/24 Roboto 600 white, sub is 14/20 white-70 max-width 380px, CTAs
+   are pill buttons (use existing csfloat-btn parity). The whole block
+   sits 48px below the filter row.
+   Pre-fix: our .empty-inline used the editorial mono headline (10px
+   / 0.14em / 60px-tall icon w/ var(--bg-2) chrome — too small + too
+   low-contrast in this dark theme) and the inline-styled headline
+   was 15/600/var(--text-primary) (off-spec). */
+body .modal-body .empty-inline,
+body .full-page-mode .empty-inline {
+  text-align: center !important;
+  padding: 48px 24px 56px !important;
+  margin: 0 auto !important;
+  max-width: 480px !important;
+}
+body .modal-body .empty-inline .empty-icon,
+body .full-page-mode .empty-inline .empty-icon {
+  width: 56px !important;
+  height: 56px !important;
+  margin: 0 auto 16px !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 0 !important;
+}
+body .modal-body .empty-inline .empty-icon .material-symbols-rounded,
+body .modal-body .empty-inline .empty-icon .mi,
+body .full-page-mode .empty-inline .empty-icon .material-symbols-rounded,
+body .full-page-mode .empty-inline .empty-icon .mi {
+  font-size: 26px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+body .modal-body .empty-inline > div:not(.empty-icon),
+body .full-page-mode .empty-inline > div:not(.empty-icon) {
+  /* The JS layers a 15/600 headline div, then a 13/secondary sub,
+     then a flex CTA row. Lock the typography on each. */
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+body .modal-body .empty-inline > div:nth-of-type(2),
+body .full-page-mode .empty-inline > div:nth-of-type(2) {
+  /* The headline div ("Quiet so far") — JS sets fontSize 15 / 600.
+     Override to 16/24/600 white. */
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 8px !important;
+}
+body .modal-body .empty-inline > div:nth-of-type(3),
+body .full-page-mode .empty-inline > div:nth-of-type(3) {
+  /* The sub div — JS sets 13 / secondary / max-width 420 / lh 1.55.
+     Bump to 14/20 white-70%, max 380. */
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  max-width: 380px !important;
+  margin: 0 auto 24px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3506 */
