@@ -158548,3 +158548,293 @@ body .modal.item-page .item-tab-content.entering {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #13105 */
+/* CSFLOAT-1:1 PARITY ship #13200 — search history recent-row clock icon parity
+   csfloat recent-search rows show a small clock-style mark in the leading
+   slot at 16x16 with Material rounded font, color rgb(158,167,177), 14px
+   icon size, with 10px right gap to the query text. sboxmarket painted the
+   '⟲' glyph using whatever ambient body font + color was present; the
+   character read as ~13px gray. Pin the leading icon slot to csfloat's
+   neutral-meta token so it sits flush with the row rhythm, and fix its
+   width so the row text always lines up at the same x. */
+body .search-suggest-row.recent .search-suggest-recent-icon {
+  flex: 0 0 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  margin-right: 10px !important;
+  opacity: 1 !important;
+  font-family: "Material Symbols Rounded", "Material Icons", Roboto, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13200 */
+/* CSFLOAT-1:1 PARITY ship #13201 — recent-search row layout parity
+   csfloat row layout is flex / align-items center / 10px gap between
+   icon, query text, and forget-X. Row height is exactly 32px with
+   8px vertical padding (effective 16px content height + 16px padding).
+   sboxmarket .search-suggest-row.recent inherited the generic 8px 10px
+   padding from .search-suggest-row but had no explicit gap, so the
+   inner span(text) sat right against the leading icon. Pin the row
+   to csfloat's recent-row layout box. */
+body .search-suggest-row.recent {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  min-height: 32px !important;
+  padding: 8px 10px !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+}
+body .search-suggest-row.recent > span:nth-child(2) {
+  flex: 1 1 auto !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgb(207, 213, 219) !important;
+  line-height: 18px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+body .search-suggest-row.recent:hover > span:nth-child(2) {
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13201 */
+/* CSFLOAT-1:1 PARITY ship #13202 — recent-search forget-X button parity
+   csfloat per-row remove button sits at the trailing edge as a 20x20
+   ghost button rendering an X glyph, color rgb(158,167,177), no border,
+   no background. On hover the bg becomes rgba(255,255,255,0.06) with
+   color rgb(255,255,255) — the same overlay pattern used elsewhere in
+   the spotlight overlay. sboxmarket .search-suggest-forget had inherited
+   button defaults: blue border, padded chrome, contrast-eating "✕".
+   Strip to a flush ghost icon button. */
+body .search-suggest-row .search-suggest-forget {
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin-left: 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .search-suggest-row .search-suggest-forget:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .search-suggest-row .search-suggest-forget:focus-visible {
+  outline: 2px solid rgba(64, 169, 255, 0.6) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13202 */
+/* CSFLOAT-1:1 PARITY ship #13203 — heading-row "Clear all" link parity
+   csfloat treats the inline "Clear" affordance in the recent-searches
+   header as a low-noise text link, not a button: Roboto 11px / 600,
+   uppercase, letter-spacing 0.06em, color rgb(158,167,177), no border,
+   no background, no padding. Hover lifts color to rgb(255,255,255).
+   sboxmarket inline-styled the Clear-all button with fontSize 10 / 700
+   opacity 0.7 — drift from the neutral-meta pattern used everywhere
+   else in the overlay. Pin to csfloat label spec. */
+body .search-suggest-heading .search-suggest-forget {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 2px 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  line-height: 16px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .search-suggest-heading .search-suggest-forget:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13203 */
+/* CSFLOAT-1:1 PARITY ship #13204 — recent-row separator pattern parity
+   csfloat does NOT paint inter-row borders inside the spotlight overlay —
+   row separation comes purely from the hover/sel overlay vs neutral.
+   sboxmarket's stacked .search-suggest-row.recent had inherited 1px
+   bottom borders from a generic dropdown row reset that lived earlier
+   in the cascade. Strip them so the recent-list reads as a single
+   continuous overlay surface, matching csfloat's flat-list density. */
+body .search-suggest .search-suggest-row.recent {
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  box-shadow: none !important;
+}
+body .search-suggest .search-suggest-row.recent + .search-suggest-row.recent {
+  margin-top: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13204 */
+/* CSFLOAT-1:1 PARITY ship #13205 — recent-empty-state typography parity
+   csfloat shows "No recent searches" as a single Roboto 13px / 400 line
+   in color rgb(158,167,177), centered, with 16px top/bottom padding —
+   the same neutral-meta voice used for any "no data" affordance in the
+   spotlight overlay. sboxmarket has no explicit empty-state styling for
+   the recent block (it's hidden when length===0) but renders nearby
+   "no results" text inconsistently styled. Add a forward-compatible
+   .search-suggest-empty class that matches csfloat's empty-state spec
+   so future empty-states inherit the right voice automatically. */
+body .search-suggest .search-suggest-empty {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 18px !important;
+  text-align: center !important;
+  padding: 16px 12px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13205 */
+
+
+/* CSFLOAT-1:1 PARITY ship #13106
+   csfloat measure-and-match: their .header-container is `position: sticky;
+   top: 0; height: 70px; background: transparent; box-shadow: none;
+   border-bottom: 0; backdrop-filter: none` and STAYS that way at any scrollY
+   (verified by scrolling to 1200 and observing zero visual delta). sboxmarket
+   ships a phantom scroll shadow at line 14374-14376 — `nav.is-scrolled
+   { box-shadow: 0 4px 12px rgba(0,0,0,0.3); }`. Kill it. csfloat does not. */
+nav.nav.is-scrolled,
+.nav.is-scrolled,
+nav.nav[data-scrolled="true"],
+.nav[data-scrolled] {
+  box-shadow: none !important;
+  border-bottom: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13106 */
+
+/* CSFLOAT-1:1 PARITY ship #13107
+   csfloat measure-and-match: their nav height is 70px AT ALL SCROLL POSITIONS
+   — there is no condensed/compact state. Verified: `.header-container`
+   offsetHeight = 70 at scrollY=0, still 70 at scrollY=1200. sboxmarket has
+   --nav-h=70 baseline but multiple sites in the codebase shrink the nav on
+   scroll. Pin it at 70px regardless of any `is-scrolled` / `compact` /
+   `condensed` class to match csfloat. */
+nav.nav.is-scrolled,
+.nav.is-scrolled,
+nav.nav.is-compact,
+.nav.is-compact,
+nav.nav.is-condensed,
+.nav.is-condensed {
+  height: 70px !important;
+  min-height: 70px !important;
+  max-height: 70px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13107 */
+
+/* CSFLOAT-1:1 PARITY ship #13108
+   csfloat measure-and-match: there is NO top route-loading progress bar.
+   Searched DOM at scrollY=0 and scrollY=1200 — zero <mat-progress-bar> /
+   [role=progressbar] / [class*=progress] elements positioned within the top
+   80px of the viewport with width >500px. sboxmarket may render
+   `.csfloat-scroll-progress` (line 26147) — hide it. */
+.csfloat-scroll-progress,
+.csfloat-scroll-progress-bar,
+.scroll-progress,
+.route-progress,
+.page-progress-bar,
+.top-progress-bar,
+[data-role="route-progress"] {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13108 */
+
+/* CSFLOAT-1:1 PARITY ship #13109
+   csfloat measure-and-match: their .scroll-to-top-btn is 40x40, fixed,
+   bottom 25px, right 25px, background rgb(27,29,36), border-radius 50%
+   (mdc-icon-button). sboxmarket has 42x42 at bottom 24px right 24px with
+   transparent background. Bring sboxmarket FAB to csfloat measurements. */
+button.scroll-top-button,
+button.scroll-to-top-btn,
+button[data-role="scroll-top"],
+.csfloat-scroll-top-btn,
+body button.scroll-top-button {
+  position: fixed !important;
+  bottom: 25px !important;
+  right: 25px !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  background: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 100 !important;
+  color: rgb(187, 191, 200) !important;
+  cursor: pointer !important;
+  transition: background 200ms ease, transform 200ms ease !important;
+}
+button.scroll-top-button:hover,
+button.scroll-to-top-btn:hover,
+.csfloat-scroll-top-btn:hover {
+  background: rgb(35, 38, 46) !important;
+}
+button.scroll-top-button > .material-symbols-rounded,
+button.scroll-top-button > .mi,
+button.scroll-to-top-btn > .material-symbols-rounded,
+button.scroll-to-top-btn > .mi,
+button.scroll-top-button > svg,
+button.scroll-to-top-btn > svg {
+  font-size: 20px !important;
+  line-height: 1 !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13109 */
+
+/* CSFLOAT-1:1 PARITY ship #13110
+   csfloat measure-and-match: their `.header-container` has `border-bottom:
+   0px none` and `box-shadow: none` and `backdrop-filter: none` at every
+   scroll position. sboxmarket should match: the static (non-scrolled) nav
+   must NOT paint a hairline divider, must NOT paint a shadow, must NOT
+   paint a backdrop blur. We do NOT change the nav fill itself (rgb(21,23,28))
+   because the page bg under sboxmarket is darker than csfloat's, so going
+   transparent would cause text-on-bg contrast loss — measure-and-match
+   intent is a visual match to csfloat's appearance. Strip the chrome only. */
+nav.nav,
+.nav {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13110 */
