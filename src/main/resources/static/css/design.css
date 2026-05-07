@@ -130366,3 +130366,205 @@ div[style*="background: var(--bg-secondary)"][style*="borderRadius"] {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #1420 */
+
+/* CSFLOAT-1:1 PARITY ship #1421 — rarity color stripe TOP + BOTTOM of card image
+   Measured csfloat .image .container computed: linear-gradient(rgba(27,29,36,0) 20%,
+   rarity@0.32 100%) — gradient fades from transparent at top to rarity tint at bottom.
+   Sample card showed rgba(136,71,255,0.32) (Restricted purple). The visual rarity
+   "stripe" is the bottom-fade gradient PLUS the rarity-glyph text. To strengthen
+   thumbnail-only rarity legibility on sboxmarket, add a 2px solid hairline at the
+   very TOP of .grid-thumb (::after) and a 2px inset bottom band via box-shadow.
+   Standard=#3b82f6 blue, Off-Market=#e8b960 gold, Limited=#eb4b4b red. Existing
+   #1390 already covered the bottom gradient — this layer adds the bookend hairlines. */
+.grid-card .grid-thumb::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  height: 2px !important;
+  background-color: #3b82f6 !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  display: block !important;
+  width: auto !important;
+  border-radius: 0 !important;
+}
+.grid-card:has(.rarity-Off-Market) .grid-thumb::after,
+.grid-card:has(.grid-rarity.offmarket) .grid-thumb::after {
+  background-color: #e8b960 !important;
+}
+.grid-card:has(.rarity-Limited) .grid-thumb::after,
+.grid-card:has(.grid-rarity.limited) .grid-thumb::after {
+  background-color: #eb4b4b !important;
+}
+.grid-card .grid-thumb {
+  box-shadow: inset 0 -2px 0 0 rgba(59, 130, 246, 0.85) !important;
+}
+.grid-card:has(.rarity-Off-Market) .grid-thumb,
+.grid-card:has(.grid-rarity.offmarket) .grid-thumb {
+  box-shadow: inset 0 -2px 0 0 rgba(232, 185, 96, 0.85) !important;
+}
+.grid-card:has(.rarity-Limited) .grid-thumb,
+.grid-card:has(.grid-rarity.limited) .grid-thumb {
+  box-shadow: inset 0 -2px 0 0 rgba(235, 75, 75, 0.85) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1421 */
+
+/* CSFLOAT-1:1 PARITY ship #1422 — price chip parity (size + weight + USD pill)
+   Measured csfloat .price element: font-size 18px, font-weight 500, color #ffffff,
+   line-height normal, letter-spacing normal. Existing ship #1392 set 22px/700 — too
+   big and too bold vs csfloat. csfloat shows the green "$" cue via a sibling
+   <app-price-icon> badge element, not via ::first-letter on the price text. Replace
+   with proper 18px/500 price + a tight green pill on .grid-price-usd. */
+.grid-card .grid-price {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+  color: rgb(255, 255, 255) !important;
+}
+.grid-card .grid-price::first-letter {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+.grid-card .grid-price-usd {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  margin-left: 0 !important;
+  background-color: rgba(106, 197, 134, 0.18) !important;
+  color: rgb(106, 197, 134) !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  vertical-align: middle !important;
+  align-self: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1422 */
+
+/* CSFLOAT-1:1 PARITY ship #1423 — listed-time stripe parity at card bottom
+   Measured csfloat .seller-details-wrapper: w 200, h 18, font 12px ink-3 (no
+   border-top — visual divider is the .float-bar above it). sboxmarket has no
+   float-bar separator above .grid-status, so keep the hairline (existing #1393)
+   but lock geometry to exact csfloat values: 8/8 spacing, 12px/18px text,
+   rgb(158,167,177), full-width row at min 26px high. */
+.grid-card .grid-status {
+  margin: 8px 0 0 !important;
+  padding: 8px 0 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+  color: rgb(158, 167, 177) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-weight: 500 !important;
+  width: 100% !important;
+  min-height: 26px !important;
+}
+.grid-card .grid-status-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background-color: rgb(120, 130, 142) !important;
+  display: inline-block !important;
+  flex: 0 0 6px !important;
+}
+.grid-card .grid-status-dot.online {
+  background-color: rgb(74, 222, 128) !important;
+  box-shadow: 0 0 4px rgba(74, 222, 128, 0.6) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1423 */
+
+/* CSFLOAT-1:1 PARITY ship #1424 — watch (heart) + cart icon-stack top-right of card
+   Measured csfloat .top-right-container: w 57.75, h 30, gap 5px, abs top:5 right:5.
+   Each child is a ~26.5x30 PILL (border-radius 20px, NOT 28x28 circle).
+   Bg rgba(30,32,38,0.55), color rgb(158,167,177). Existing ship #1395 had 28x28
+   circles offset 6/40 — wrong shape and wrong spacing. Update to true csfloat
+   26.5x30 pills, gap 5, top:5 right:5, ink-3 icon color. */
+.grid-card .grid-star,
+.grid-card .grid-cart-btn {
+  position: absolute !important;
+  width: 26.5px !important;
+  height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  border: none !important;
+  border-radius: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  z-index: 3 !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  padding: 0 !important;
+  top: 5px !important;
+}
+.grid-card .grid-star {
+  right: 5px !important;
+}
+.grid-card .grid-cart-btn {
+  right: 36.5px !important;
+}
+.grid-card .grid-star.on {
+  background-color: rgba(235, 75, 75, 0.85) !important;
+  color: #fff !important;
+}
+.grid-card .grid-cart-btn.in {
+  background-color: rgba(74, 222, 128, 0.85) !important;
+  color: #0b1220 !important;
+}
+.grid-card .grid-star:hover,
+.grid-card .grid-cart-btn:hover {
+  background-color: rgba(40, 44, 52, 0.85) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1424 */
+
+/* CSFLOAT-1:1 PARITY ship #1425 — magnifier zoom button bottom-right of card image
+   Measured csfloat .detail-buttons .action: w 38, h 30, bg rgba(30,32,38,0.55),
+   border-radius 20px (PILL not 4px square), color rgb(158,167,177), 20x20 icon.
+   Existing ship #1391 had 30x30 br:4 — wrong shape and wrong color. Update
+   .grid-zoom to true csfloat geometry: 38x30 pill with ink-3 icon. */
+.grid-card .grid-zoom {
+  position: absolute !important;
+  right: 5px !important;
+  bottom: 5px !important;
+  width: 38px !important;
+  height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  border: none !important;
+  border-radius: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  pointer-events: none !important;
+  z-index: 3 !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  padding: 0 !important;
+}
+.grid-card .grid-zoom svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+.grid-card:hover .grid-zoom {
+  background-color: rgba(40, 44, 52, 0.75) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1425 */
