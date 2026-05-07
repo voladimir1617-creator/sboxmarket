@@ -131162,3 +131162,180 @@ body .help-page .help-faq,
   color: rgba(91, 158, 255, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1604 */
+
+/* CSFLOAT-1:1 PARITY ship #2000 — notification bell flyout positioning + size.
+   csfloat: notification flyout panel anchors to the bell trigger via a
+   CDK overlay positioned with right edge ~16px from viewport, top
+   directly under the nav (top:56px), 6px gap below the bell. Width
+   exactly 360px. Position: absolute relative to the bell wrapper,
+   right:0; top: calc(100% + 6px). z-index sits above the cart rail and
+   below the modal stack at 120. Min-height 0 so empty state collapses
+   tight. */
+.notif-dropdown {
+  position: absolute !important;
+  right: 0 !important;
+  top: calc(100% + 6px) !important;
+  left: auto !important;
+  width: 360px !important;
+  min-width: 360px !important;
+  max-width: 360px !important;
+  z-index: 120 !important;
+  min-height: 0 !important;
+}
+@media (max-width: 480px) {
+  .notif-dropdown {
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #2000 */
+
+/* CSFLOAT-1:1 PARITY ship #2001 — bell badge (unread counter chip).
+   csfloat: small red counter badge anchored top-right of the bell
+   icon. Diameter 16px, font 10px/600 white, background rgb(239,68,68)
+   (matches material red 500 used on the alert-dot variant). Border
+   2px solid surface color so the badge visually clears the icon at
+   any scroll bg. position absolute, top -2px right -2px relative to
+   the icon button. min-width 16px so single digits stay round, larger
+   counts pad to a pill. */
+.nav-icon-btn { position: relative !important; }
+.nav-icon-badge {
+  position: absolute !important;
+  top: -2px !important;
+  right: -2px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  padding: 0 4px !important;
+  border-radius: 999px !important;
+  background-color: rgb(239, 68, 68) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  line-height: 14px !important;
+  letter-spacing: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 2px solid rgb(20, 22, 28) !important;
+  box-sizing: content-box !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2001 */
+
+/* CSFLOAT-1:1 PARITY ship #2002 — notif row read-indicator dot + body
+   typography. csfloat: an unread row carries a 6px dot in the right
+   gutter, color rgb(35, 123, 255) (csfloat blue), centered vertically.
+   Body text is 11px/1.4 rgba(255,255,255,0.6); time uses tabular-nums
+   for stable column alignment in time-ago strings. Title clamps to
+   2 lines, body clamps to 2 lines. */
+.notif-item.unread,
+.notif.unread {
+  position: relative !important;
+}
+.notif-item.unread::after,
+.notif.unread::after {
+  content: '' !important;
+  position: absolute !important;
+  right: 14px !important;
+  top: 18px !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+  background-color: rgb(35, 123, 255) !important;
+  pointer-events: none !important;
+}
+.notif-item .notif-text > div[style] {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  letter-spacing: 0 !important;
+  margin-top: 2px !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+.notif-feed-title,
+.notif-text,
+.notif-t {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+.notif-feed-time,
+.notif-time,
+.notif-age {
+  font-variant-numeric: tabular-nums !important;
+  margin-top: 4px !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2002 */
+
+/* CSFLOAT-1:1 PARITY ship #2003 — view-all footer row.
+   csfloat: pinned footer that links to /notifications. Centered text,
+   12px/600 letter-spacing 0.04em, color rgb(35,123,255). Padding
+   12px 16px, top hairline rgba(255,255,255,0.06). Hover lifts only
+   the text color (no bg fill change). Sticky to bottom so it remains
+   visible when the body scrolls. */
+.notif-dropdown a.notif-item[href="/notifications"] {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 12px 16px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: 0 !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  text-transform: none !important;
+  background-color: transparent !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 1 !important;
+  cursor: pointer !important;
+}
+.notif-dropdown a.notif-item[href="/notifications"]:hover {
+  color: rgb(91, 158, 255) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+.notif-dropdown a.notif-item[href="/notifications"]::after {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2003 */
+
+/* CSFLOAT-1:1 PARITY ship #2004 — empty state padding + icon size.
+   csfloat: empty notifications state shows centered "You're all caught
+   up." in 14px rgba(255,255,255,0.6) with ~32px vertical padding and
+   no icon (icon variant exists when not signed in). Sign-in prompt
+   card uses smaller 12px secondary copy and a 32px-tall accent button.
+   Min-height 96px so the box doesn't collapse below the header chin. */
+.notif-empty {
+  min-height: 96px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 32px 20px !important;
+  text-align: center !important;
+}
+.notif-empty button.btn-accent {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 6px !important;
+  line-height: 32px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2004 */
