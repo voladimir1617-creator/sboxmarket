@@ -151947,3 +151947,263 @@ button.btn-copy:not(.failed) .icon-error,
   border-color: rgba(255, 90, 111, 0.20) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #10204 */
+
+/* CSFLOAT-1:1 PARITY ship #10400 - slot picker dialog container.
+   csfloat opens an inline picker with crisp 1px hairline border, 6px radius,
+   tight 8px inner padding, panel background slightly elevated above the
+   loadout-slot canvas, no overflow:hidden so the focus ring on the filter
+   input isn't clipped at the rounded corner. */
+.loadout-picker {
+  border: 1px solid var(--line) !important;
+  border-radius: 6px !important;
+  background: var(--bg-1) !important;
+  padding: 8px !important;
+  overflow: visible !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25) !important;
+}
+.loadout-picker > .price-input {
+  height: 30px !important;
+  padding: 0 10px !important;
+  font: 500 12.5px/1 'Inter', 'Roboto', system-ui, sans-serif !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 4px !important;
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.005em !important;
+  width: 100% !important;
+  margin-bottom: 6px !important;
+  outline: none !important;
+  transition: border-color 120ms ease, background 120ms ease !important;
+}
+.loadout-picker > .price-input:focus {
+  border-color: var(--ink-4) !important;
+  background: var(--bg-1) !important;
+}
+.loadout-picker > .price-input::placeholder {
+  color: var(--ink-4) !important;
+  font-style: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10400 */
+
+/* CSFLOAT-1:1 PARITY ship #10401 - slot picker scrollable list region.
+   csfloat caps the list at ~280px so the popover doesn't push the grid
+   off-screen, with a thin 6px scrollbar styled to the rail and 4px inset
+   for a subtle gutter. Hairline divider above the first row to detach
+   from the filter input, no horizontal scroll. */
+.loadout-picker-list {
+  max-height: 280px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border-top: 1px solid var(--line) !important;
+  margin-top: 0 !important;
+  padding-top: 2px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--line-2) transparent !important;
+}
+.loadout-picker-list::-webkit-scrollbar { width: 6px !important; }
+.loadout-picker-list::-webkit-scrollbar-track { background: transparent !important; }
+.loadout-picker-list::-webkit-scrollbar-thumb {
+  background: var(--line-2) !important;
+  border-radius: 3px !important;
+}
+.loadout-picker-list::-webkit-scrollbar-thumb:hover { background: var(--ink-4) !important; }
+/* END CSFLOAT-1:1 PARITY ship #10401 */
+
+/* CSFLOAT-1:1 PARITY ship #10402 - slot picker row layout.
+   csfloat row is exactly 32px tall with align-center, 36px icon column,
+   1fr name, auto price. Row hairline at rgba(255,255,255,0.04), last-row
+   no border. Hover state shifts background to bg-2 and lifts the price
+   color to ink for legibility. Cursor pointer, no transform. */
+.loadout-picker-item {
+  display: grid !important;
+  grid-template-columns: 36px 1fr auto !important;
+  gap: 10px !important;
+  align-items: center !important;
+  padding: 6px 10px !important;
+  min-height: 32px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  cursor: pointer !important;
+  transition: background 110ms ease, color 110ms ease !important;
+  border-radius: 0 !important;
+}
+.loadout-picker-list .loadout-picker-item:last-child {
+  border-bottom: 0 !important;
+}
+.loadout-picker-item:hover {
+  background: var(--bg-2) !important;
+}
+.loadout-picker-item:focus-visible {
+  outline: 1px solid var(--ink-4) !important;
+  outline-offset: -1px !important;
+  background: var(--bg-2) !important;
+}
+.loadout-picker-item > span:nth-child(1) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  background: var(--bg) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink-2) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+.loadout-picker-item > span:nth-child(2) {
+  font: 500 12px/1.3 'Inter', 'Roboto', system-ui, sans-serif !important;
+  letter-spacing: -0.005em !important;
+  color: var(--ink) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0 !important;
+}
+.loadout-picker-item > span:nth-child(3) {
+  font: 600 11px/1.2 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  color: var(--accent) !important;
+  letter-spacing: -0.005em !important;
+  padding-left: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10402 */
+
+/* CSFLOAT-1:1 PARITY ship #10403 - slot picker "+ Add" trigger and footer
+   Cancel button. csfloat trigger is a 28px tall ghost with dashed 1px
+   border, 4px radius, mono-cased text 10px tracking 0.12em. Footer
+   Cancel matches the trigger geometry but is solid-bg variant. */
+.loadout-add-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  background: var(--bg-1) !important;
+  border: 1px dashed var(--line-2) !important;
+  border-radius: 4px !important;
+  color: var(--ink-3) !important;
+  font: 500 10px/1 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: color 110ms ease, border-color 110ms ease, background 110ms ease !important;
+}
+.loadout-add-btn:hover {
+  color: var(--ink) !important;
+  border-color: var(--ink-4) !important;
+  background: var(--bg-2) !important;
+}
+.loadout-add-btn:focus-visible {
+  outline: 1px solid var(--ink-4) !important;
+  outline-offset: 2px !important;
+}
+.loadout-picker > .loadout-add-btn {
+  display: flex !important;
+  width: 100% !important;
+  margin-top: 8px !important;
+  border-style: solid !important;
+  border-color: var(--line) !important;
+}
+.loadout-picker > .loadout-add-btn:hover {
+  border-color: var(--line-2) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10403 */
+
+/* CSFLOAT-1:1 PARITY ship #10404 - empty-slot host bounds + empty-list state.
+   csfloat empty slot has 96px min-height to match a filled slot, the picker
+   inside fills with a 0 minimum. When the filtered list is empty we still
+   want to show the input + cancel button without the list collapsing —
+   guarantee a 32px stub so the popover doesn't snap shut. */
+.loadout-slot-empty {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin-top: auto !important;
+  font-family: var(--mono) !important;
+  font-style: normal !important;
+  font-size: 12px !important;
+  color: var(--ink-4) !important;
+}
+.loadout-slot-empty:has(> .loadout-picker) {
+  min-height: 0 !important;
+}
+.loadout-slot:has(> .loadout-slot-empty > .loadout-picker) {
+  min-height: 96px !important;
+  padding: 10px !important;
+  border-style: solid !important;
+  border-color: var(--line-2) !important;
+  background: var(--bg) !important;
+}
+.loadout-picker-list:empty {
+  min-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font: 500 11px/1 'Inter', 'Roboto', system-ui, sans-serif !important;
+  color: var(--ink-4) !important;
+  letter-spacing: -0.005em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10404 */
+
+/* CSFLOAT-1:1 PARITY ship #9409 - Confirm panel surface specificity bump
+   Earlier .cart-confirm-panel rules at body-prefix specificity (lines
+   135426, 139488, 139694) outrank my flat ship #9404. Re-issue the
+   panel chrome at body+attr specificity so this ship lands the receipt-
+   panel surface tokens (bg, shadow) cleanly. Property values mirror the
+   csfloat info-modal measurement: bg oklch(0.2 0.009 260), br 12px,
+   border oklch(0.36 0.014 260), shadow two-tier dark drop. */
+body .cart-confirm-panel,
+body .cart-confirm-panel[class] {
+  background: oklch(0.2 0.009 260) !important;
+  background-color: oklch(0.2 0.009 260) !important;
+  border: 1px solid oklch(0.36 0.014 260) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4),
+              0 8px 24px -8px rgba(0, 0, 0, 0.3) !important;
+}
+body .cart-confirm-title {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .cart-confirm-sub {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  line-height: 1.5 !important;
+}
+body .cart-confirm-row {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid oklch(0.27 0.011 260) !important;
+}
+body .cart-confirm-total {
+  border-top: 1px solid oklch(0.36 0.014 260) !important;
+}
+body .cart-confirm-total-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .cart-confirm-total-hint {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  line-height: 1.5 !important;
+}
+body .cart-confirm-total-amt {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9409 */
