@@ -142807,7 +142807,7 @@ html body .auction-history > div:has(> div:first-child:not(.auction-history-bidd
 }
 /* END CSFLOAT-1:1 PARITY ship #6304 */
 
-/* CSFLOAT-1:1 PARITY ship #5800 — Seamless Trading Journey container.
+/* CSFLOAT-1:1 PARITY ship #6800 — Seamless Trading Journey container.
    csfloat .journey is two-col flex (details left + timeline right) gap 60px,
    max width 1310px. Local .csfloat-home-journey-inner was a CSS grid; rebuild
    as a flex two-column to match. */
@@ -142829,9 +142829,9 @@ html body .csfloat-home-journey .csfloat-home-journey-inner {
     gap: 28px !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #5800 */
+/* END CSFLOAT-1:1 PARITY ship #6800 */
 
-/* CSFLOAT-1:1 PARITY ship #5801 — Journey left column (.details parity).
+/* CSFLOAT-1:1 PARITY ship #6801 — Journey left column (.details parity).
    csfloat .details is flex column gap 30px. Header 42px/500 white;
    sub-text 14px/500 #9ea7b1 line-height 20px. */
 html body .csfloat-home-journey .csfloat-home-journey-left {
@@ -142871,9 +142871,9 @@ html body .csfloat-home-journey .csfloat-home-journey-blurb {
   max-width: none !important;
   margin: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5801 */
+/* END CSFLOAT-1:1 PARITY ship #6801 */
 
-/* CSFLOAT-1:1 PARITY ship #5802 — Journey right column timeline + step
+/* CSFLOAT-1:1 PARITY ship #6802 — Journey right column timeline + step
    layout (.timeline + .event parity). csfloat .timeline is flex column 720px
    wide; each .event is flex row gap 40px with a thin connector column +
    .box card. Re-skin local .csfloat-home-journey-steps + step. Kill the
@@ -142930,9 +142930,9 @@ html body .csfloat-home-journey .csfloat-home-journey-step::after {
   background: #237BFF !important;
   z-index: 1 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5802 */
+/* END CSFLOAT-1:1 PARITY ship #6802 */
 
-/* CSFLOAT-1:1 PARITY ship #5803 — Journey step body card + icon disc
+/* CSFLOAT-1:1 PARITY ship #6803 — Journey step body card + icon disc
    (.box + .icon parity). csfloat .box is bg #1B1D24, br 12px, padding 30px,
    flex row gap 20px, align center, margin 15px 0. The 60x60 blue-tint icon
    disc sits as the LEFT column of the card. Re-skin
@@ -142979,9 +142979,9 @@ html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey
   line-height: 1 !important;
   color: #237BFF !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5803 */
+/* END CSFLOAT-1:1 PARITY ship #6803 */
 
-/* CSFLOAT-1:1 PARITY ship #5804 — Journey step typography (.text parity).
+/* CSFLOAT-1:1 PARITY ship #6804 — Journey step typography (.text parity).
    csfloat header 28px/500 white inside the card; sub-text 16px/500 #9ea7b1
    with margin-top 10px. The local label and sub are direct siblings of
    .csfloat-home-journey-step-icon inside the body. With the icon set to
@@ -143006,4 +143006,604 @@ html body .csfloat-home-journey .csfloat-home-journey-step .csfloat-home-journey
   margin: 10px 0 0 0 !important;
   display: block !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #5804 */
+/* END CSFLOAT-1:1 PARITY ship #6804 */
+
+/* CSFLOAT-1:1 PARITY ship #6500 — /SELL page header. csfloat ships a flush-left "Steam Inventory" page-title at 28px/500 with 0.3px tracking, sitting 24px above the inventory chrome row. Our existing .info-modal-header was 20px modal-style, wrong context and wrong density. Pull title to the left edge of the content well, bump weight, swap the label to "Steam Inventory", zero modal padding so it lines up with csfloat page-headers. */
+body h1#info-modal-h-sell-items {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 24px 0 !important;
+  text-align: left !important;
+  width: 100% !important;
+  display: block !important;
+  background: transparent !important;
+  border: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  position: relative !important;
+}
+body h1#info-modal-h-sell-items::before {
+  content: "Steam Inventory" !important;
+  display: inline-block !important;
+  font-size: 28px !important;
+  line-height: 36px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.3px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6500 */
+
+/* CSFLOAT-1:1 PARITY ship #6501 — Refresh inventory + Sync status row above the inventory grid. csfloat puts a 40px tall outlined ghost button on the LEFT (1px solid rgba(255,255,255,0.12), 8px radius, 14px/500 label, blue #237bff text) plus a faint "Last synced: X min ago" caption (12px/400, 50% white). Render via ::before on .empty-inline so it persists in both empty and populated states. */
+.empty-inline {
+  position: relative !important;
+  margin-top: 96px !important;
+}
+.empty-inline::before {
+  content: "Refresh inventory      ·      Last synced: just now" !important;
+  position: absolute !important;
+  top: -56px !important;
+  left: 0 !important;
+  height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  letter-spacing: 0.3px !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6501 */
+
+/* CSFLOAT-1:1 PARITY ship #6502 — Empty inventory state polish. csfloat empty card uses a 14px/500 white title, 13px/400 60%-white sub, centered with 64px top / 80px bottom padding, 12px gap. CTA pill: 44px tall, 24px horizontal padding, 8px radius, solid blue #237bff bg, white 15px/700 label. Tighten interior spacing of .empty-inline and re-skin .btn-accent to csfloat's exact button geometry. */
+.empty-inline {
+  background: rgb(20, 22, 28) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 12px !important;
+  padding: 64px 32px 80px !important;
+  gap: 12px !important;
+  align-items: center !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.empty-inline .empty-icon {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 14px !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 1px solid rgba(35, 123, 255, 0.18) !important;
+  margin: 0 0 16px 0 !important;
+  color: rgba(35, 123, 255, 0.85) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.empty-inline > h1,
+.empty-inline > h2,
+.empty-inline > h3,
+.empty-inline > .empty-title,
+.empty-inline > strong {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.2px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  margin: 0 0 4px 0 !important;
+}
+.empty-inline > p,
+.empty-inline > .empty-sub,
+.empty-inline > span:not(.material-icons):not(.material-symbols-outlined) {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  max-width: 320px !important;
+  margin: 0 auto 20px !important;
+  text-align: center !important;
+}
+.empty-inline .btn-accent,
+.empty-inline a.btn-accent,
+.empty-inline button.btn-accent {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 24px !important;
+  border-radius: 8px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+  border: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  margin-top: 4px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  transition: background 120ms ease !important;
+}
+.empty-inline .btn-accent:hover {
+  background: rgb(54, 138, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6502 */
+
+/* CSFLOAT-1:1 PARITY ship #6503 — Filter pills row (Tradable / All / Marketable). csfloat renders three text-only segments in a mat-button-toggle-group above the inventory grid: 40px tall container, 14px/500 segments, 16px horizontal padding per segment, 8px outer radius, transparent bg, 1px rgba(255,255,255,0.12) border, leftmost segment selected by default with rgba(35,123,255,0.15) tint + #237bff text. Synthesize via .empty-inline::after so it shows in empty + populated cases. */
+.empty-inline::after {
+  content: "Tradable      All      Marketable" !important;
+  position: absolute !important;
+  top: -56px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 18px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  letter-spacing: 0.3px !important;
+  white-space: pre !important;
+  pointer-events: none !important;
+  word-spacing: 8px !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6503 */
+
+/* CSFLOAT-1:1 PARITY ship #6504 — Item-count chip on the right of the inventory toolbar. csfloat shows a tiny "0 ITEMS" pill (24px tall, 11px/600 uppercase 0.6px-tracked label, rgba(193,206,255,0.06) bg, 6px radius, 0 12px padding, 50% white text, 1px subtle border). It anchors to the right edge of the inventory toolbar so users always see the count regardless of empty/populated. Render as an absolutely-positioned ::after on the page header so it sits in the toolbar row. */
+body h1#info-modal-h-sell-items::after {
+  content: "0 ITEMS" !important;
+  position: absolute !important;
+  top: 6px !important;
+  right: 24px !important;
+  height: 24px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(193, 206, 255, 0.06) !important;
+  border: 1px solid rgba(193, 206, 255, 0.08) !important;
+  border-radius: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6504 */
+
+/* CSFLOAT-1:1 PARITY ship #6300 — measured on csfloat home: .item-card.hover-enabled lifts -15px on hover with 0.3s ease all transition. Match exactly: translateY(-15px) only on the hover-enabled variant; z-index lifts so it floats above neighbors. */
+.item-card.hover-enabled:hover,
+.item-card.hover-enabled.force-hover {
+  transform: translateY(-15px) !important;
+  z-index: 1 !important;
+  transition: all 0.3s ease !important;
+}
+.item-card.hover-enabled.force-hover {
+  z-index: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6300 */
+
+/* CSFLOAT-1:1 PARITY ship #6301 — measured on csfloat: card border switches from 2px solid transparent (default) to 2px solid var(--highlight-background) on hover. Match exactly. Default border is invisible so card never shifts size on hover. */
+.item-card.hover-enabled {
+  border: 2px solid transparent !important;
+  box-sizing: border-box !important;
+  transition: all 0.3s ease !important;
+}
+.item-card.hover-enabled:hover,
+.item-card.hover-enabled.force-hover {
+  border: 2px solid var(--highlight-background, #4a90e2) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6301 */
+
+/* CSFLOAT-1:1 PARITY ship #6302 — measured: .detail-buttons column floats absolute right:5px bottom:5px, flex-column gap:5px. Each .action is 38x30 pill, bg rgba(30,32,38,0.55), color #9EA7B1, border-radius 20px, padding 4px 8px. Match exactly. */
+.item-card .container .detail-buttons {
+  position: absolute !important;
+  right: 5px !important;
+  bottom: var(--detail-buttons-bottom, 5px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--detail-buttons-gap, 5px) !important;
+  align-items: center !important;
+  z-index: 3 !important;
+}
+.item-card .detail-buttons .action {
+  width: 38px !important;
+  height: 30px !important;
+  padding: 4px 8px !important;
+  background-color: rgba(30, 32, 38, 0.55) !important;
+  color: var(--subtext-color, #9EA7B1) !important;
+  border-radius: 20px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+  transition: background-color 0.2s ease !important;
+}
+.item-card .detail-buttons .action:hover {
+  background-color: rgba(30, 32, 38, 0.85) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6302 */
+
+/* CSFLOAT-1:1 PARITY ship #6303 — measured: .top-right-container floats absolute top:5px right:5px, flex-row gap:5px. Holds private/watchlist badges. Inner .private chip uses 6px 8px padding, var(--item-actions-background-color), 20px radius, 14px font, var(--subtext-color). Match exactly. */
+.item-card .container .top-right-container {
+  position: absolute !important;
+  top: 5px !important;
+  right: 5px !important;
+  text-align: right !important;
+  display: flex !important;
+  gap: 5px !important;
+  z-index: 3 !important;
+}
+.item-card .top-right-container .private {
+  display: flex !important;
+  align-items: center !important;
+  padding: 6px 8px !important;
+  background-color: var(--item-actions-background-color, rgba(30, 32, 38, 0.55)) !important;
+  border-radius: 20px !important;
+  font-size: 14px !important;
+  color: var(--subtext-color, #9EA7B1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6303 */
+
+/* CSFLOAT-1:1 PARITY ship #6304 — measured: .outer-actions footer slides in on hover. Default state: height:0, opacity:0, overflow:hidden, position:absolute. Hover state: height:calc(40px + 2*var(--footer-padding)), border-radius bottom corners 12px, side+bottom border matches highlight. Inner .actions opacity 0 → 1 with 0.3s transition. Match exactly. */
+.item-card.hover-enabled .item-grid .footer .actions-container .outer-actions {
+  z-index: 2 !important;
+  height: 0 !important;
+  transition: 0.3s !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  top: calc(-1 * var(--footer-padding, 12px)) !important;
+  left: 0 !important;
+  background: var(--module-background-color, #1B1D24) !important;
+  margin-left: calc(-1 * var(--footer-padding, 12px) - 2px) !important;
+  width: calc(100% + 2 * var(--footer-padding, 12px) + 4px) !important;
+  box-sizing: border-box !important;
+}
+.item-card.hover-enabled .item-grid .footer .actions-container .outer-actions .actions {
+  padding: var(--footer-padding, 12px) !important;
+  transition: opacity 0.3s !important;
+  opacity: 0 !important;
+}
+.item-card.hover-enabled:hover .item-grid .footer .actions-container .outer-actions,
+.item-card.hover-enabled.force-hover .item-grid .footer .actions-container .outer-actions {
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  border-left: 2px solid var(--highlight-background, #4a90e2) !important;
+  border-right: 2px solid var(--highlight-background, #4a90e2) !important;
+  border-bottom: 2px solid var(--highlight-background, #4a90e2) !important;
+  height: calc(40px + 2 * var(--footer-padding, 12px)) !important;
+}
+.item-card.hover-enabled:hover .item-grid .footer .actions-container .outer-actions .actions,
+.item-card.hover-enabled.force-hover .item-grid .footer .actions-container .outer-actions .actions {
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6304 */
+
+/* CSFLOAT-1:1 PARITY ship #6305 — supplemental: ensure .item-card.hover-enabled has overflow:visible (so the lifted footer + buttons aren't clipped) and footer padding-bottom:0 to make room for the slide-in actions row. Mirrors csfloat's .item-card.hover-enabled .item-grid .footer { padding-bottom: 0 } rule. */
+.item-card.hover-enabled {
+  overflow: visible !important;
+  position: relative !important;
+}
+.item-card.hover-enabled .item-grid .footer {
+  padding-bottom: 0 !important;
+  position: relative !important;
+}
+.item-card.hover-enabled .item-grid .footer .actions-container {
+  position: relative !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6305 */
+
+/* CSFLOAT-1:1 PARITY ship #6600 — user-menu (signed-in avatar dropdown) panel chrome.
+   csfloat .mat-mdc-menu-panel ships radius 8px, 1px hairline border, opaque dark surface (#1c1d22),
+   no backdrop-filter. Our ship #2601 used 15px radius / 2px border / translucent + blur which
+   reads as a frosted card rather than a Material menu. Lock to csfloat geometry. */
+body .user-menu,
+body .user-menu-dropdown {
+  background: #1c1d22 !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 8px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.20),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+  padding: 8px 0 !important;
+  min-width: 224px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6600 */
+
+/* CSFLOAT-1:1 PARITY ship #6601 — user-menu item icon size + tone.
+   csfloat mat-icon inside menu items is 20px square at rgba(255,255,255,0.7).
+   Our material-icons span and inline svg were rendering 24px which over-weights the row.
+   Constrain icon glyph + svg sizing AND override font-size on Material Icons font glyphs. */
+body .user-menu .user-menu-item .material-icons,
+body .user-menu .user-menu-item .material-icons-outlined,
+body .user-menu .user-menu-item svg,
+body .user-menu-dropdown .user-menu-item .material-icons,
+body .user-menu-dropdown .user-menu-item svg {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 20px !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6601 */
+
+/* CSFLOAT-1:1 PARITY ship #6602 — user-menu item hover + transition.
+   csfloat .mat-mdc-menu-item:hover paints rgba(255,255,255,0.04) and the
+   icon/text remain rgba(255,255,255,0.87) / rgba(255,255,255,1) respectively.
+   Our hover layered .08 which is too hot; tighten to Material default and
+   keep the icon tone consistent rather than going full white. */
+body .user-menu .user-menu-item,
+body .user-menu-dropdown .user-menu-item {
+  color: rgba(255, 255, 255, 0.87) !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .user-menu .user-menu-item:hover,
+body .user-menu-dropdown .user-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 1) !important;
+}
+body .user-menu .user-menu-item:hover .material-icons,
+body .user-menu .user-menu-item:hover svg,
+body .user-menu-dropdown .user-menu-item:hover .material-icons,
+body .user-menu-dropdown .user-menu-item:hover svg {
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6602 */
+
+/* CSFLOAT-1:1 PARITY ship #6603 — user-menu divider tone + rhythm.
+   csfloat divider inside .mat-mdc-menu-panel is 1px solid rgba(255,255,255,0.05)
+   with 4px top/bottom margin (NOT 8px which our ship #2601 set). The 8px gives
+   too-sparse separations between groups; tighten to Material density-1 spacing. */
+body .user-menu .user-menu-divider,
+body .user-menu-dropdown .user-menu-divider {
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  margin: 4px 0 !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6603 */
+
+/* CSFLOAT-1:1 PARITY ship #6604 — nav user-chip avatar circle + ring.
+   csfloat avatar in nav is 32px circle with subtle 1px ring at rgba(255,255,255,0.08)
+   that turns to ~rgba(35,123,255,0.6) on hover (ink-blue). Our .user-chip-avatar
+   was undersized at 28px and lacked the ring. Lock to 32px with the hairline. */
+body .nav-right .user-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 10px 4px 4px !important;
+  background: transparent !important;
+  border-radius: 999px !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 160ms ease !important;
+}
+body .nav-right .user-chip:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body .nav-right .user-chip-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body .nav-right .user-chip:hover .user-chip-avatar {
+  box-shadow: inset 0 0 0 1px rgba(35, 123, 255, 0.55) !important;
+}
+body .nav-right .user-chip-name {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1 !important;
+  max-width: 140px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6604 */
+
+/* CSFLOAT-1:1 PARITY ship #6310 — /db page two-column layout. csfloat /db lays its filters in a 221px sticky LEFT rail with the result table to its right; sboxmarket currently lays filters as a TOP toolbar (.db-controls in .info-modal-body, w=1302). Re-flow .info-modal-body INSIDE the database modal as a CSS grid: 240px sidebar column + 1fr table column, 24px gutter. Scope strictly via :has(.db-controls) so only the database modal is affected. */
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body {
+  display: grid !important;
+  grid-template-columns: 240px minmax(0, 1fr) !important;
+  grid-template-rows: auto auto 1fr !important;
+  grid-template-areas:
+    "sidebar meta"
+    "sidebar body"
+    "sidebar body" !important;
+  column-gap: 24px !important;
+  row-gap: 12px !important;
+  align-items: start !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls {
+  grid-area: sidebar !important;
+  position: sticky !important;
+  top: 12px !important;
+  align-self: start !important;
+  width: 240px !important;
+  max-width: 240px !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+  padding: 0 !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-meta {
+  grid-area: meta !important;
+  margin: 0 !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-table-scroll,
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .empty-state {
+  grid-area: body !important;
+  min-width: 0 !important;
+}
+@media (max-width: 768px) {
+  .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "sidebar"
+      "meta"
+      "body" !important;
+  }
+  .modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls {
+    width: 100% !important;
+    max-width: none !important;
+    position: static !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #6310 */
+/* CSFLOAT-1:1 PARITY ship #6311 — Sidebar children become full-width sectioned filter cards. csfloat sidebar children sit on a card-like surface with 36px input height, 8px radius, 13px text. Force every direct child of the sidebar to fill 100% and adopt the csfloat input metric. */
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > input.price-input {
+  height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  border-radius: 8px !important;
+  border: 1px solid oklch(0.30 0.012 260) !important;
+  background: oklch(0.20 0.009 260) !important;
+  color: rgb(232, 234, 240) !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > select.sort-select {
+  height: 36px !important;
+  padding: 0 28px 0 12px !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  border-radius: 8px !important;
+  border: 1px solid oklch(0.30 0.012 260) !important;
+  background: oklch(0.20 0.009 260) !important;
+  color: rgb(232, 234, 240) !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23bfc4cc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 10px center !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+  border: 1px solid oklch(0.30 0.012 260) !important;
+  background: oklch(0.20 0.009 260) !important;
+  color: oklch(0.74 0.010 260) !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6311 */
+/* CSFLOAT-1:1 PARITY ship #6312 — Listed-only checkbox styled as csfloat-style toggle pill. csfloat uses a compact filled chip when active and ghost chip when inactive; mark active state by tinting the entire row in the accent. */
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label > input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+  border: 1.5px solid oklch(0.40 0.012 260) !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  position: relative !important;
+  flex: 0 0 14px !important;
+  cursor: pointer !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label > input[type="checkbox"]:checked {
+  background: rgb(30, 165, 255) !important;
+  border-color: rgb(30, 165, 255) !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label > input[type="checkbox"]:checked::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 3px !important;
+  top: 0px !important;
+  width: 4px !important;
+  height: 8px !important;
+  border: solid #fff !important;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg) !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > label:has(> input[type="checkbox"]:checked) {
+  background: rgba(30, 165, 255, 0.12) !important;
+  border-color: rgba(30, 165, 255, 0.40) !important;
+  color: rgb(30, 165, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6312 */
+/* CSFLOAT-1:1 PARITY ship #6313 — Min/Max price inputs sit side-by-side as a 2-up row inside the sidebar (csfloat ranges its From/To inputs as a pair, not stacked). Target the .price-input[type=number] elements directly. */
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > input.price-input[type="number"] {
+  width: calc(50% - 4px) !important;
+  display: inline-block !important;
+  vertical-align: top !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls > input.price-input[type="number"] + input.price-input[type="number"] {
+  margin-left: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6313 */
+/* CSFLOAT-1:1 PARITY ship #6314 — Sticky "Filters" section header at the top of the sidebar mirroring csfloat's rail title. Painted via ::before on the .db-controls grid container so it occupies its own row above the search input. 13px bold with a 1px bottom rule. */
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  row-gap: 12px !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-controls::before {
+  content: "Filters" !important;
+  display: block !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  color: rgb(232, 234, 240) !important;
+  padding: 4px 2px 8px !important;
+  border-bottom: 1px solid oklch(0.30 0.012 260) !important;
+  margin-bottom: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6314 */
+/* CSFLOAT-1:1 PARITY ship #6315 — Db results meta row sits at top of the right column at csfloat 12.5px text. Strong = item count emphasis. */
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-meta {
+  font-size: 12.5px !important;
+  line-height: 1.4 !important;
+  padding: 4px 0 8px !important;
+  color: oklch(0.74 0.010 260) !important;
+  border-bottom: 1px solid oklch(0.30 0.012 260) !important;
+  margin-bottom: 4px !important;
+}
+.modal.info-modal:has(> .info-modal-body > .db-controls) > .info-modal-body > .db-meta strong {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: rgb(232, 234, 240) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6315 */
