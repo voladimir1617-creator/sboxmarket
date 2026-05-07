@@ -156977,3 +156977,812 @@ body .modal-seller-info .modal-seller-sales {
   font-feature-settings: "tnum" 1, "lnum" 1 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #12615 */
+
+/* CSFLOAT-1:1 PARITY ship #12700 — Item page tab strip container (csfloat: full-width strip below title, 48px tall, 1px bottom border) */
+body .item-page .item-tabs,
+body .item-page .item-tab-bar,
+body .item-page .tab-strip,
+body .modal.item-page .item-tabs,
+body .modal.item-page .item-tab-bar,
+body .modal.item-page .tab-strip {
+  display: flex !important;
+  align-items: stretch !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  width: 100% !important;
+  margin: 24px 0 0 0 !important;
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent !important;
+  position: relative !important;
+  gap: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+body .item-page .item-tabs::-webkit-scrollbar,
+body .item-page .item-tab-bar::-webkit-scrollbar,
+body .item-page .tab-strip::-webkit-scrollbar,
+body .modal.item-page .item-tabs::-webkit-scrollbar,
+body .modal.item-page .item-tab-bar::-webkit-scrollbar,
+body .modal.item-page .tab-strip::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12700 */
+
+/* CSFLOAT-1:1 PARITY ship #12701 — Item page tab buttons (csfloat: 14px medium, 24px horizontal padding, 0.62 alpha inactive, 1 alpha active) */
+body .item-page .item-tabs .tab,
+body .item-page .item-tab-bar .tab,
+body .item-page .tab-strip .tab,
+body .item-page .item-tabs button[role="tab"],
+body .item-page .item-tab-bar button[role="tab"],
+body .item-page .tab-strip button[role="tab"],
+body .modal.item-page .item-tabs .tab,
+body .modal.item-page .item-tab-bar .tab,
+body .modal.item-page .tab-strip .tab,
+body .modal.item-page .item-tabs button[role="tab"],
+body .modal.item-page .item-tab-bar button[role="tab"],
+body .modal.item-page .tab-strip button[role="tab"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 24px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.01em !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: color 160ms ease, background-color 160ms ease !important;
+  text-transform: none !important;
+  outline: none !important;
+}
+body .item-page .item-tabs .tab:hover,
+body .item-page .item-tab-bar .tab:hover,
+body .item-page .tab-strip .tab:hover,
+body .item-page .item-tabs button[role="tab"]:hover,
+body .item-page .item-tab-bar button[role="tab"]:hover,
+body .item-page .tab-strip button[role="tab"]:hover,
+body .modal.item-page .item-tabs .tab:hover,
+body .modal.item-page .item-tab-bar .tab:hover,
+body .modal.item-page .tab-strip .tab:hover,
+body .modal.item-page .item-tabs button[role="tab"]:hover,
+body .modal.item-page .item-tab-bar button[role="tab"]:hover,
+body .modal.item-page .tab-strip button[role="tab"]:hover {
+  color: rgba(255, 255, 255, 0.86) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+body .item-page .item-tabs .tab.active,
+body .item-page .item-tab-bar .tab.active,
+body .item-page .tab-strip .tab.active,
+body .item-page .item-tabs .tab[aria-selected="true"],
+body .item-page .item-tab-bar .tab[aria-selected="true"],
+body .item-page .tab-strip .tab[aria-selected="true"],
+body .item-page .item-tabs button[role="tab"][aria-selected="true"],
+body .item-page .item-tab-bar button[role="tab"][aria-selected="true"],
+body .item-page .tab-strip button[role="tab"][aria-selected="true"],
+body .modal.item-page .item-tabs .tab.active,
+body .modal.item-page .item-tab-bar .tab.active,
+body .modal.item-page .tab-strip .tab.active,
+body .modal.item-page .item-tabs .tab[aria-selected="true"],
+body .modal.item-page .item-tab-bar .tab[aria-selected="true"],
+body .modal.item-page .tab-strip .tab[aria-selected="true"],
+body .modal.item-page .item-tabs button[role="tab"][aria-selected="true"],
+body .modal.item-page .item-tab-bar button[role="tab"][aria-selected="true"],
+body .modal.item-page .tab-strip button[role="tab"][aria-selected="true"] {
+  color: rgba(255, 255, 255, 1) !important;
+  font-weight: 600 !important;
+}
+body .item-page .item-tabs .tab:focus-visible,
+body .item-page .item-tab-bar .tab:focus-visible,
+body .item-page .tab-strip .tab:focus-visible,
+body .modal.item-page .item-tabs .tab:focus-visible,
+body .modal.item-page .item-tab-bar .tab:focus-visible,
+body .modal.item-page .tab-strip .tab:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(116, 175, 255, 0.42) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12701 */
+
+/* CSFLOAT-1:1 PARITY ship #12702 — Active tab underline indicator (csfloat: 2px accent bar, 180ms cubic-bezier slide) */
+body .item-page .item-tabs .tab::after,
+body .item-page .item-tab-bar .tab::after,
+body .item-page .tab-strip .tab::after,
+body .item-page .item-tabs button[role="tab"]::after,
+body .item-page .item-tab-bar button[role="tab"]::after,
+body .item-page .tab-strip button[role="tab"]::after,
+body .modal.item-page .item-tabs .tab::after,
+body .modal.item-page .item-tab-bar .tab::after,
+body .modal.item-page .tab-strip .tab::after,
+body .modal.item-page .item-tabs button[role="tab"]::after,
+body .modal.item-page .item-tab-bar button[role="tab"]::after,
+body .modal.item-page .tab-strip button[role="tab"]::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 16px !important;
+  right: 16px !important;
+  bottom: -1px !important;
+  height: 2px !important;
+  border-radius: 1px 1px 0 0 !important;
+  background: linear-gradient(90deg, #74afff 0%, #5b9cff 100%) !important;
+  transform: scaleX(0) !important;
+  transform-origin: center bottom !important;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 120ms ease !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+body .item-page .item-tabs .tab.active::after,
+body .item-page .item-tab-bar .tab.active::after,
+body .item-page .tab-strip .tab.active::after,
+body .item-page .item-tabs .tab[aria-selected="true"]::after,
+body .item-page .item-tab-bar .tab[aria-selected="true"]::after,
+body .item-page .tab-strip .tab[aria-selected="true"]::after,
+body .item-page .item-tabs button[role="tab"][aria-selected="true"]::after,
+body .item-page .item-tab-bar button[role="tab"][aria-selected="true"]::after,
+body .item-page .tab-strip button[role="tab"][aria-selected="true"]::after,
+body .modal.item-page .item-tabs .tab.active::after,
+body .modal.item-page .item-tab-bar .tab.active::after,
+body .modal.item-page .tab-strip .tab.active::after,
+body .modal.item-page .item-tabs .tab[aria-selected="true"]::after,
+body .modal.item-page .item-tab-bar .tab[aria-selected="true"]::after,
+body .modal.item-page .tab-strip .tab[aria-selected="true"]::after,
+body .modal.item-page .item-tabs button[role="tab"][aria-selected="true"]::after,
+body .modal.item-page .item-tab-bar button[role="tab"][aria-selected="true"]::after,
+body .modal.item-page .tab-strip button[role="tab"][aria-selected="true"]::after {
+  transform: scaleX(1) !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12702 */
+
+/* CSFLOAT-1:1 PARITY ship #12703 — Tab badge counter pill (csfloat: 18px tall pill with count, 6px left margin, 11px bold) */
+body .item-page .item-tabs .tab .tab-badge,
+body .item-page .item-tab-bar .tab .tab-badge,
+body .item-page .tab-strip .tab .tab-badge,
+body .item-page .item-tabs .tab .tab-count,
+body .item-page .item-tab-bar .tab .tab-count,
+body .item-page .tab-strip .tab .tab-count,
+body .item-page .item-tabs .tab .badge,
+body .item-page .item-tab-bar .tab .badge,
+body .item-page .tab-strip .tab .badge,
+body .modal.item-page .item-tabs .tab .tab-badge,
+body .modal.item-page .item-tab-bar .tab .tab-badge,
+body .modal.item-page .tab-strip .tab .tab-badge,
+body .modal.item-page .item-tabs .tab .tab-count,
+body .modal.item-page .item-tab-bar .tab .tab-count,
+body .modal.item-page .tab-strip .tab .tab-count,
+body .modal.item-page .item-tabs .tab .badge,
+body .modal.item-page .item-tab-bar .tab .badge,
+body .modal.item-page .tab-strip .tab .badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 6px !important;
+  margin-left: 6px !important;
+  border-radius: 9px !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  letter-spacing: 0 !important;
+  transition: background-color 160ms ease, color 160ms ease !important;
+  vertical-align: middle !important;
+}
+body .item-page .item-tabs .tab.active .tab-badge,
+body .item-page .item-tab-bar .tab.active .tab-badge,
+body .item-page .tab-strip .tab.active .tab-badge,
+body .item-page .item-tabs .tab.active .tab-count,
+body .item-page .item-tab-bar .tab.active .tab-count,
+body .item-page .tab-strip .tab.active .tab-count,
+body .item-page .item-tabs .tab.active .badge,
+body .item-page .item-tab-bar .tab.active .badge,
+body .item-page .tab-strip .tab.active .badge,
+body .item-page .item-tabs .tab[aria-selected="true"] .tab-badge,
+body .item-page .item-tab-bar .tab[aria-selected="true"] .tab-badge,
+body .item-page .tab-strip .tab[aria-selected="true"] .tab-badge,
+body .item-page .item-tabs .tab[aria-selected="true"] .badge,
+body .item-page .item-tab-bar .tab[aria-selected="true"] .badge,
+body .item-page .tab-strip .tab[aria-selected="true"] .badge,
+body .modal.item-page .item-tabs .tab.active .tab-badge,
+body .modal.item-page .item-tab-bar .tab.active .tab-badge,
+body .modal.item-page .tab-strip .tab.active .tab-badge,
+body .modal.item-page .item-tabs .tab.active .tab-count,
+body .modal.item-page .item-tab-bar .tab.active .tab-count,
+body .modal.item-page .tab-strip .tab.active .tab-count,
+body .modal.item-page .item-tabs .tab.active .badge,
+body .modal.item-page .item-tab-bar .tab.active .badge,
+body .modal.item-page .tab-strip .tab.active .badge,
+body .modal.item-page .item-tabs .tab[aria-selected="true"] .tab-badge,
+body .modal.item-page .item-tab-bar .tab[aria-selected="true"] .tab-badge,
+body .modal.item-page .tab-strip .tab[aria-selected="true"] .tab-badge,
+body .modal.item-page .item-tabs .tab[aria-selected="true"] .badge,
+body .modal.item-page .item-tab-bar .tab[aria-selected="true"] .badge,
+body .modal.item-page .tab-strip .tab[aria-selected="true"] .badge {
+  background-color: rgba(116, 175, 255, 0.16) !important;
+  color: #74afff !important;
+}
+body .item-page .item-tabs .tab:hover .tab-badge,
+body .item-page .item-tab-bar .tab:hover .tab-badge,
+body .item-page .tab-strip .tab:hover .tab-badge,
+body .item-page .item-tabs .tab:hover .badge,
+body .item-page .item-tab-bar .tab:hover .badge,
+body .item-page .tab-strip .tab:hover .badge,
+body .modal.item-page .item-tabs .tab:hover .tab-badge,
+body .modal.item-page .item-tab-bar .tab:hover .tab-badge,
+body .modal.item-page .tab-strip .tab:hover .tab-badge,
+body .modal.item-page .item-tabs .tab:hover .badge,
+body .modal.item-page .item-tab-bar .tab:hover .badge,
+body .modal.item-page .tab-strip .tab:hover .badge {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12703 */
+
+/* CSFLOAT-1:1 PARITY ship #12704 — Tab content panel swap fade animation (csfloat: 140ms opacity + translateY for inactive to active) */
+body .item-page .tab-panel,
+body .item-page .tab-content,
+body .item-page [role="tabpanel"],
+body .modal.item-page .tab-panel,
+body .modal.item-page .tab-content,
+body .modal.item-page [role="tabpanel"] {
+  display: block !important;
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 140ms ease-out, transform 140ms ease-out !important;
+  will-change: opacity, transform !important;
+}
+body .item-page .tab-panel[hidden],
+body .item-page .tab-content[hidden],
+body .item-page [role="tabpanel"][hidden],
+body .item-page .tab-panel:not(.active),
+body .item-page .tab-content:not(.active),
+body .modal.item-page .tab-panel[hidden],
+body .modal.item-page .tab-content[hidden],
+body .modal.item-page [role="tabpanel"][hidden],
+body .modal.item-page .tab-panel:not(.active),
+body .modal.item-page .tab-content:not(.active) {
+  display: none !important;
+  opacity: 0 !important;
+  transform: translateY(4px) !important;
+  pointer-events: none !important;
+}
+body .item-page .tab-panel.entering,
+body .item-page .tab-content.entering,
+body .modal.item-page .tab-panel.entering,
+body .modal.item-page .tab-content.entering {
+  opacity: 0 !important;
+  transform: translateY(4px) !important;
+  animation: csfloat-tab-fade-in 140ms ease-out forwards !important;
+}
+@keyframes csfloat-tab-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body .item-page .tab-panel,
+  body .item-page .tab-content,
+  body .modal.item-page .tab-panel,
+  body .modal.item-page .tab-content {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12704 */
+
+/* CSFLOAT-1:1 PARITY ship #12705 — Mobile-collapsed tab dropdown (csfloat: max-width 720px, full-width select-style trigger replaces strip) */
+@media (max-width: 720px) {
+  body .item-page .item-tabs,
+  body .item-page .item-tab-bar,
+  body .item-page .tab-strip,
+  body .modal.item-page .item-tabs,
+  body .modal.item-page .item-tab-bar,
+  body .modal.item-page .tab-strip {
+    height: auto !important;
+    min-height: 44px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 0 !important;
+  }
+  body .item-page .item-tabs.is-mobile-collapsed,
+  body .item-page .item-tab-bar.is-mobile-collapsed,
+  body .item-page .tab-strip.is-mobile-collapsed,
+  body .modal.item-page .item-tabs.is-mobile-collapsed,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed,
+  body .modal.item-page .tab-strip.is-mobile-collapsed {
+    display: block !important;
+    height: 44px !important;
+    overflow: visible !important;
+  }
+  body .item-page .item-tabs.is-mobile-collapsed .tab,
+  body .item-page .item-tab-bar.is-mobile-collapsed .tab,
+  body .item-page .tab-strip.is-mobile-collapsed .tab,
+  body .modal.item-page .item-tabs.is-mobile-collapsed .tab,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed .tab,
+  body .modal.item-page .tab-strip.is-mobile-collapsed .tab {
+    display: none !important;
+  }
+  body .item-page .item-tabs.is-mobile-collapsed .tab.active,
+  body .item-page .item-tab-bar.is-mobile-collapsed .tab.active,
+  body .item-page .tab-strip.is-mobile-collapsed .tab.active,
+  body .item-page .item-tabs.is-mobile-collapsed .tab[aria-selected="true"],
+  body .item-page .item-tab-bar.is-mobile-collapsed .tab[aria-selected="true"],
+  body .item-page .tab-strip.is-mobile-collapsed .tab[aria-selected="true"],
+  body .modal.item-page .item-tabs.is-mobile-collapsed .tab.active,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed .tab.active,
+  body .modal.item-page .tab-strip.is-mobile-collapsed .tab.active,
+  body .modal.item-page .item-tabs.is-mobile-collapsed .tab[aria-selected="true"],
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed .tab[aria-selected="true"],
+  body .modal.item-page .tab-strip.is-mobile-collapsed .tab[aria-selected="true"] {
+    display: flex !important;
+    width: 100% !important;
+    height: 44px !important;
+    padding: 0 16px !important;
+    justify-content: space-between !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    border-radius: 8px !important;
+  }
+  body .item-page .item-tabs.is-mobile-collapsed .tab.active::after,
+  body .item-page .item-tab-bar.is-mobile-collapsed .tab.active::after,
+  body .item-page .tab-strip.is-mobile-collapsed .tab.active::after,
+  body .item-page .item-tabs.is-mobile-collapsed .tab[aria-selected="true"]::after,
+  body .item-page .item-tab-bar.is-mobile-collapsed .tab[aria-selected="true"]::after,
+  body .item-page .tab-strip.is-mobile-collapsed .tab[aria-selected="true"]::after,
+  body .modal.item-page .item-tabs.is-mobile-collapsed .tab.active::after,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed .tab.active::after,
+  body .modal.item-page .tab-strip.is-mobile-collapsed .tab.active::after,
+  body .modal.item-page .item-tabs.is-mobile-collapsed .tab[aria-selected="true"]::after,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed .tab[aria-selected="true"]::after,
+  body .modal.item-page .tab-strip.is-mobile-collapsed .tab[aria-selected="true"]::after {
+    display: none !important;
+  }
+  body .item-page .item-tabs.is-mobile-collapsed.is-open .tab,
+  body .item-page .item-tab-bar.is-mobile-collapsed.is-open .tab,
+  body .item-page .tab-strip.is-mobile-collapsed.is-open .tab,
+  body .modal.item-page .item-tabs.is-mobile-collapsed.is-open .tab,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed.is-open .tab,
+  body .modal.item-page .tab-strip.is-mobile-collapsed.is-open .tab {
+    display: flex !important;
+    width: 100% !important;
+    height: 44px !important;
+    padding: 0 16px !important;
+    justify-content: space-between !important;
+    border-radius: 0 !important;
+    background: var(--surface-2, #16181c) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+  body .item-page .item-tabs.is-mobile-collapsed.is-open,
+  body .item-page .item-tab-bar.is-mobile-collapsed.is-open,
+  body .item-page .tab-strip.is-mobile-collapsed.is-open,
+  body .modal.item-page .item-tabs.is-mobile-collapsed.is-open,
+  body .modal.item-page .item-tab-bar.is-mobile-collapsed.is-open,
+  body .modal.item-page .tab-strip.is-mobile-collapsed.is-open {
+    height: auto !important;
+    background: var(--surface-2, #16181c) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32) !important;
+    z-index: 20 !important;
+    position: relative !important;
+  }
+  body .item-page .item-tabs .tab,
+  body .item-page .item-tab-bar .tab,
+  body .item-page .tab-strip .tab,
+  body .modal.item-page .item-tabs .tab,
+  body .modal.item-page .item-tab-bar .tab,
+  body .modal.item-page .tab-strip .tab {
+    padding: 0 16px !important;
+    font-size: 13px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #12705 */
+
+/* CSFLOAT-1:1 PARITY ship #12800 — nav z-index baseline.
+   Measured on csfloat: .header-container { z-index: 999 }, but our nav
+   is configured as a sticky bar (not a fullscreen-portal nav like csfloat's
+   header-container). Per the project z-ladder spec: nav = 50. Locks
+   nav.nav at the spec value so backdrops/modals always cover it. Also
+   pin position:sticky + top:0 so the nav can never be over-positioned
+   by another rule. */
+nav.nav,
+header.nav,
+.site-nav.nav,
+body > nav.nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12800 */
+
+/* CSFLOAT-1:1 PARITY ship #12801 — sticky-band z-index 998.
+   csfloat's drawer mask sits at 998 (.p-drawer-mask). Our equivalent
+   for sticky overlays — secondary sub-nav stickies, fee bar, sticky
+   filter sidebars, sticky cart summary — must sit above content but
+   ALWAYS below modals. Promotes those stickies to the 998 tier so they
+   render above the page nav (50) yet remain behind modal-backdrop (1000+). */
+.cf-feebar,
+.db-toolbar.is-stuck,
+.fee-bar.is-stuck,
+.sticky-band,
+.sticky-summary.is-stuck,
+.sticky-filters.is-stuck,
+.sticky-actions.is-stuck,
+.sticky-checkout-bar,
+[data-sticky-overlay="true"] {
+  z-index: 998 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12801 */
+
+/* CSFLOAT-1:1 PARITY ship #12802 — modal stack z-index 1000.
+   csfloat's CDK overlay container defaults to z-index 1000 and the
+   Material dialog backdrop renders at 1000. Promotes ALL of our
+   modal backdrops + panels to that exact value so they reliably cover
+   sticky bars (998) and the nav (50). Includes legacy aliases scattered
+   across the codebase. The panel itself sits 1 above the backdrop so
+   the dim layer is always behind the dialog body. */
+.modal-backdrop,
+.cart-confirm-backdrop,
+.shortcuts-backdrop,
+.info-modal-backdrop,
+.csfloat-dialog-backdrop,
+.csfloat-zoom-modal-backdrop,
+.share-modal-backdrop,
+.confirm-modal-backdrop,
+.app-modal-backdrop,
+[data-modal-backdrop="true"] {
+  z-index: 1000 !important;
+}
+.modal-panel,
+.cart-confirm-panel,
+.shortcuts-panel,
+.info-modal-panel,
+.csfloat-dialog-panel,
+.csfloat-zoom-modal-panel,
+.share-modal-panel,
+.confirm-modal-panel,
+.app-modal-panel,
+[data-modal-panel="true"] {
+  z-index: 1001 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12802 */
+
+/* CSFLOAT-1:1 PARITY ship #12803 — toast z-index 1100.
+   Toasts must always render above modals (csfloat's mat-mdc-snack-bar
+   sits above CDK overlays via the snackbar container). We set our
+   notification/toast layers to 1100 so a toast triggered while a modal
+   is open is still readable. Includes the wrappers + portals. */
+.toast,
+.toast-container,
+.toast-portal,
+.notif-toast,
+.snackbar,
+.snackbar-container,
+.app-toast,
+[data-toast="true"],
+[data-toast-portal="true"] {
+  z-index: 1100 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12803 */
+
+/* CSFLOAT-1:1 PARITY ship #12804 — tooltip z-index 1200.
+   Tooltips must always render above toasts (otherwise a tooltip
+   anchored on a toast button is occluded). csfloat tooltips render
+   inside the CDK overlay at the topmost overlay layer. Set to 1200
+   to sit above modals (1000), modal panels (1001), and toasts (1100).
+   Includes our custom tooltip layers + the sparkline tooltip. */
+.tooltip,
+.app-tooltip,
+.csfloat-tooltip,
+.sparkline-tooltip,
+[role="tooltip"],
+[data-tooltip-portal="true"] {
+  z-index: 1200 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12804 */
+
+/* CSFLOAT-1:1 PARITY ship #12805 — nested modal stacking + drawer + page-blocker.
+   When a confirm dialog opens over an edit modal (e.g. unsaved-changes
+   prompt over the edit listing modal), the nested backdrop must:
+     1. Sit ABOVE the original modal panel (1001) — use 1010
+     2. Be slightly less opaque than the root backdrop so the user
+        can still see the modal underneath dimmed (parity with csfloat
+        which uses a graduated CDK overlay backdrop scheme)
+     3. The nested panel itself sits at 1011 — exactly above its backdrop.
+   The data-nested-level attribute promotes stacked modals deterministically.
+   Drawer overlays (drawer above modal) get 1020 / 1019 — drawer is
+   above modals but stays under toasts (1100) and tooltips (1200).
+   Page-blocking overlay sits at 999 — above sticky (998), below modal (1000)
+   so a modal can dismiss the page guard. */
+.modal-backdrop[data-nested-level="2"],
+[data-modal-backdrop="true"][data-nested-level="2"],
+.confirm-over-modal-backdrop {
+  z-index: 1010 !important;
+  background: color-mix(in oklab, #000 55%, transparent) !important;
+}
+.modal-panel[data-nested-level="2"],
+[data-modal-panel="true"][data-nested-level="2"],
+.confirm-over-modal-panel {
+  z-index: 1011 !important;
+}
+.modal-backdrop ~ .modal-backdrop,
+.modal-backdrop ~ .cart-confirm-backdrop,
+.modal-backdrop ~ .shortcuts-backdrop,
+.cart-confirm-backdrop ~ .modal-backdrop,
+.shortcuts-backdrop ~ .modal-backdrop {
+  z-index: 1010 !important;
+  background: color-mix(in oklab, #000 55%, transparent) !important;
+}
+.modal-panel ~ .modal-panel,
+.modal-panel ~ .cart-confirm-panel,
+.cart-confirm-panel ~ .modal-panel {
+  z-index: 1011 !important;
+}
+.drawer,
+.app-drawer,
+.csfloat-drawer,
+[data-drawer="true"] {
+  z-index: 1020 !important;
+}
+.drawer-backdrop,
+.app-drawer-backdrop,
+.csfloat-drawer-backdrop,
+[data-drawer-backdrop="true"] {
+  z-index: 1019 !important;
+}
+.page-blocking-overlay,
+.route-blocker,
+.app-route-overlay,
+[data-page-blocking="true"] {
+  z-index: 999 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12805 */
+
+/* CSFLOAT-1:1 PARITY ship #13000 — /db item-detail variant tab strip
+   ====================================================================
+   csfloat renders the Standard / StatTrak / Souvenir variant strip as a
+   single horizontal pill row sitting directly above the listing block,
+   measured at 8px gap, 10px 14px padding, 32px nominal height with a
+   12px label. Mirror the strip baseline so per-rarity tabs on s&box
+   inherit the same rhythm before per-tab styling overrides land.        */
+.csfloat-variant-tabs,
+.variant-tabs,
+.db-variant-tabs,
+.csfloat-rarity-tabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 0 16px 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+  border: 0 !important;
+}
+@media (max-width: 720px) {
+  .csfloat-variant-tabs,
+  .variant-tabs,
+  .db-variant-tabs,
+  .csfloat-rarity-tabs {
+    gap: 6px !important;
+    margin-bottom: 12px !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .csfloat-variant-tabs::-webkit-scrollbar,
+  .variant-tabs::-webkit-scrollbar,
+  .db-variant-tabs::-webkit-scrollbar,
+  .csfloat-rarity-tabs::-webkit-scrollbar { display: none !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #13000 */
+
+/* CSFLOAT-1:1 PARITY ship #13001 — variant tab pill style (resting)
+   ====================================================================
+   Each pill on csfloat sits on a near-#1f2228 surface with a 1px
+   hairline (oklch 0.27), 8px radius, ink-3 label, tabular numerics for
+   counts. Cursor hint included so per-rarity buttons stay tactile even
+   when their parent suppressed defaults.                                */
+.csfloat-variant-tab,
+.variant-tab,
+.db-variant-tab,
+.csfloat-rarity-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 14px !important;
+  min-height: 32px !important;
+  border: 1px solid var(--line, #2a2d33) !important;
+  background: var(--bg-2, #1f2228) !important;
+  color: var(--ink-3, #9aa0a8) !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  font-variant-numeric: tabular-nums !important;
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease !important;
+  white-space: nowrap !important;
+}
+.csfloat-variant-tab:hover,
+.variant-tab:hover,
+.db-variant-tab:hover,
+.csfloat-rarity-tab:hover {
+  color: var(--ink, #ffffff) !important;
+  border-color: var(--line-2, #383c44) !important;
+  background: color-mix(in oklab, var(--bg-2, #1f2228) 80%, var(--ink, #ffffff) 4%) !important;
+}
+.csfloat-variant-tab:focus-visible,
+.variant-tab:focus-visible,
+.db-variant-tab:focus-visible,
+.csfloat-rarity-tab:focus-visible {
+  outline: 2px solid var(--blue, #5d8df6) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13001 */
+
+/* CSFLOAT-1:1 PARITY ship #13002 — active variant highlight
+   ====================================================================
+   csfloat marks the active variant with white ink + a 1px blue hairline
+   plus a soft tinted bg (~12% blue mix on top of bg-2) and a faint blue
+   inset glow. Chip stays the same size to avoid layout shift; rely on
+   color + inset only.                                                    */
+.csfloat-variant-tab.active,
+.csfloat-variant-tab[aria-selected="true"],
+.csfloat-variant-tab[data-active="true"],
+.variant-tab.active,
+.variant-tab[aria-selected="true"],
+.variant-tab[data-active="true"],
+.db-variant-tab.active,
+.db-variant-tab[aria-selected="true"],
+.db-variant-tab[data-active="true"],
+.csfloat-rarity-tab.active,
+.csfloat-rarity-tab[aria-selected="true"],
+.csfloat-rarity-tab[data-active="true"] {
+  color: var(--ink, #ffffff) !important;
+  border-color: color-mix(in oklab, var(--blue, #5d8df6) 55%, var(--line, #2a2d33)) !important;
+  background: color-mix(in oklab, var(--bg-2, #1f2228) 88%, var(--blue, #5d8df6) 12%) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--blue, #5d8df6) 18%, transparent),
+    0 1px 0 0 rgba(0, 0, 0, 0.18) !important;
+  font-weight: 600 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13002 */
+
+/* CSFLOAT-1:1 PARITY ship #13003 — variant-icon (StatTrak orange,
+   Souvenir yellow) color anchors
+   ====================================================================
+   csfloat tints the leading variant icon with the canonical valve
+   palette: StatTrak #cf6a32 (orange), Souvenir #ffd700 (yellow). The
+   inline icon scales with the label (10px gives a square that pairs
+   with a 12px label without baseline drift).                            */
+.csfloat-variant-tab .variant-icon,
+.variant-tab .variant-icon,
+.db-variant-tab .variant-icon,
+.csfloat-rarity-tab .variant-icon,
+.csfloat-variant-tab > svg,
+.variant-tab > svg,
+.db-variant-tab > svg,
+.csfloat-rarity-tab > svg {
+  width: 10px !important;
+  height: 10px !important;
+  flex: 0 0 auto !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+.csfloat-variant-tab[data-variant="stattrak"],
+.variant-tab[data-variant="stattrak"],
+.db-variant-tab[data-variant="stattrak"],
+.csfloat-rarity-tab[data-variant="stattrak"],
+.csfloat-variant-tab.is-stattrak,
+.variant-tab.is-stattrak {
+  color: #cf6a32 !important;
+}
+.csfloat-variant-tab[data-variant="stattrak"] .variant-icon,
+.variant-tab[data-variant="stattrak"] .variant-icon,
+.db-variant-tab[data-variant="stattrak"] .variant-icon,
+.csfloat-rarity-tab[data-variant="stattrak"] .variant-icon,
+.csfloat-variant-tab.is-stattrak .variant-icon,
+.variant-tab.is-stattrak .variant-icon,
+.csfloat-variant-tab[data-variant="stattrak"] > svg,
+.variant-tab[data-variant="stattrak"] > svg {
+  color: #cf6a32 !important;
+  fill: currentColor !important;
+}
+.csfloat-variant-tab[data-variant="souvenir"],
+.variant-tab[data-variant="souvenir"],
+.db-variant-tab[data-variant="souvenir"],
+.csfloat-rarity-tab[data-variant="souvenir"],
+.csfloat-variant-tab.is-souvenir,
+.variant-tab.is-souvenir {
+  color: #ffd700 !important;
+}
+.csfloat-variant-tab[data-variant="souvenir"] .variant-icon,
+.variant-tab[data-variant="souvenir"] .variant-icon,
+.db-variant-tab[data-variant="souvenir"] .variant-icon,
+.csfloat-rarity-tab[data-variant="souvenir"] .variant-icon,
+.csfloat-variant-tab.is-souvenir .variant-icon,
+.variant-tab.is-souvenir .variant-icon,
+.csfloat-variant-tab[data-variant="souvenir"] > svg,
+.variant-tab[data-variant="souvenir"] > svg {
+  color: #ffd700 !important;
+  fill: currentColor !important;
+}
+.csfloat-variant-tab[data-variant="stattrak"].active,
+.csfloat-variant-tab[data-variant="stattrak"][aria-selected="true"],
+.variant-tab[data-variant="stattrak"].active,
+.variant-tab[data-variant="stattrak"][aria-selected="true"],
+.csfloat-variant-tab.is-stattrak.active,
+.variant-tab.is-stattrak.active {
+  border-color: color-mix(in oklab, #cf6a32 55%, var(--line, #2a2d33)) !important;
+  background: color-mix(in oklab, var(--bg-2, #1f2228) 86%, #cf6a32 14%) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, #cf6a32 22%, transparent),
+    0 1px 0 0 rgba(0, 0, 0, 0.18) !important;
+}
+.csfloat-variant-tab[data-variant="souvenir"].active,
+.csfloat-variant-tab[data-variant="souvenir"][aria-selected="true"],
+.variant-tab[data-variant="souvenir"].active,
+.variant-tab[data-variant="souvenir"][aria-selected="true"],
+.csfloat-variant-tab.is-souvenir.active,
+.variant-tab.is-souvenir.active {
+  border-color: color-mix(in oklab, #ffd700 55%, var(--line, #2a2d33)) !important;
+  background: color-mix(in oklab, var(--bg-2, #1f2228) 86%, #ffd700 14%) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, #ffd700 22%, transparent),
+    0 1px 0 0 rgba(0, 0, 0, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13003 */
+
+/* CSFLOAT-1:1 PARITY ship #13004 — variant tab content swap fade
+   ====================================================================
+   csfloat applies a 140ms ease-out cross-fade between variant panes so
+   the listings table doesn't pop when the user toggles. Uses a tiny
+   opacity + 4px translate dip (no layout reflow because content keeps
+   its cell). Reduced-motion users get an immediate swap, no animation. */
+@keyframes csfloat-variant-pane-in {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.csfloat-variant-pane,
+.variant-pane,
+.db-variant-pane,
+.csfloat-rarity-pane {
+  animation: csfloat-variant-pane-in 140ms ease-out !important;
+  will-change: opacity, transform !important;
+}
+.csfloat-variant-pane[hidden],
+.variant-pane[hidden],
+.db-variant-pane[hidden],
+.csfloat-rarity-pane[hidden] {
+  display: none !important;
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .csfloat-variant-pane,
+  .variant-pane,
+  .db-variant-pane,
+  .csfloat-rarity-pane {
+    animation: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #13004 */
