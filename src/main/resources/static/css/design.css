@@ -154015,3 +154015,459 @@ body .csfloat-home-metrics .csfloat-home-metrics-row {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #11104 */
+
+/* CSFLOAT-1:1 PARITY ship #11300 — Share loadout button (csfloat outline pill: 32h, brd 4px, 12px gap-icon, 13px txt) */
+body .loadout-share-btn,
+body .btn-share-loadout,
+body .loadout-tools .share-btn,
+body .loadout-tools button[data-action="share"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 1px solid rgba(193, 206, 255, 0.18) !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .loadout-share-btn:hover,
+body .btn-share-loadout:hover,
+body .loadout-tools .share-btn:hover,
+body .loadout-tools button[data-action="share"]:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border-color: rgba(193, 206, 255, 0.28) !important;
+}
+body .loadout-share-btn .material-symbols-rounded,
+body .btn-share-loadout .material-symbols-rounded,
+body .loadout-tools .share-btn .material-symbols-rounded,
+body .loadout-tools button[data-action="share"] .material-symbols-rounded {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: rgb(30, 165, 255) !important;
+}
+body .loadout-share-btn.copied,
+body .btn-share-loadout.copied {
+  border-color: rgb(30, 165, 255) !important;
+  color: rgb(30, 165, 255) !important;
+  background-color: rgba(30, 165, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11300 */
+
+/* CSFLOAT-1:1 PARITY ship #11301 — Discover tab in loadout-tabs strip (csfloat 32h, 4px brd, 12px pad, 14px txt) */
+body .loadout-tabs .loadout-tab-discover,
+body .loadout-tabs button[data-tab="discover"],
+body .loadout-tabs .tab-discover,
+body .loadout-discover-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  line-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 3px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.42px !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, color 140ms ease !important;
+}
+body .loadout-tabs .loadout-tab-discover:hover,
+body .loadout-tabs button[data-tab="discover"]:hover,
+body .loadout-tabs .tab-discover:hover,
+body .loadout-discover-tab:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .loadout-tabs .loadout-tab-discover.active,
+body .loadout-tabs .loadout-tab-discover[aria-selected="true"],
+body .loadout-tabs button[data-tab="discover"].active,
+body .loadout-tabs button[data-tab="discover"][aria-selected="true"],
+body .loadout-tabs .tab-discover.active,
+body .loadout-discover-tab.active {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 4px !important;
+}
+body .loadout-tabs .loadout-tab-discover .material-symbols-rounded,
+body .loadout-tabs button[data-tab="discover"] .material-symbols-rounded,
+body .loadout-discover-tab .material-symbols-rounded {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: rgb(193, 206, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11301 */
+
+/* CSFLOAT-1:1 PARITY ship #11302 — community-curated loadout card geometry (smaller than slot card, csfloat 220-260 column) */
+body .community-loadout-card,
+body .loadout-community-card,
+body .loadout-card.is-community,
+body .discover-loadout-card {
+  border: 1px solid rgba(193, 206, 255, 0.10) !important;
+  border-radius: 8px !important;
+  background-color: rgba(193, 206, 255, 0.02) !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease !important;
+}
+body .community-loadout-card:hover,
+body .loadout-community-card:hover,
+body .loadout-card.is-community:hover,
+body .discover-loadout-card:hover {
+  border-color: rgba(193, 206, 255, 0.22) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  transform: translateY(-1px) !important;
+}
+body .community-loadout-card .community-loadout-thumb,
+body .loadout-community-card .community-loadout-thumb,
+body .loadout-card.is-community .community-loadout-thumb,
+body .discover-loadout-card .discover-loadout-thumb {
+  aspect-ratio: 4 / 3 !important;
+  background-color: rgb(15, 18, 24) !important;
+  display: block !important;
+  width: 100% !important;
+}
+body .community-loadout-card .community-loadout-name,
+body .loadout-community-card .community-loadout-name,
+body .discover-loadout-card .discover-loadout-name {
+  padding: 10px 12px 4px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  color: rgb(255, 255, 255) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+body .community-loadout-card .community-loadout-meta,
+body .loadout-community-card .community-loadout-meta,
+body .discover-loadout-card .discover-loadout-meta {
+  padding: 0 12px 10px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+body .loadout-discover-grid,
+body .community-loadout-grid,
+body .discover-loadout-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  gap: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11302 */
+
+/* CSFLOAT-1:1 PARITY ship #11303 — Loadout author chip (avatar + name, csfloat 11px mono, 6px gap, 22px avatar) */
+body .loadout-author-chip,
+body .community-loadout-author,
+body .loadout-card-author {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 8px 4px 4px !important;
+  border-radius: 999px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid transparent !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  color: rgba(193, 206, 255, 0.75) !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  max-width: 100% !important;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease !important;
+}
+body .loadout-author-chip:hover,
+body .community-loadout-author:hover,
+body .loadout-card-author:hover {
+  border-color: rgba(193, 206, 255, 0.22) !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+body .loadout-author-chip .loadout-author-avatar,
+body .community-loadout-author .loadout-author-avatar,
+body .loadout-card-author .loadout-author-avatar,
+body .loadout-author-chip img,
+body .community-loadout-author img {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 999px !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+  background-color: rgb(20, 24, 32) !important;
+  border: 1px solid rgba(193, 206, 255, 0.10) !important;
+}
+body .loadout-author-chip .loadout-author-name,
+body .community-loadout-author .loadout-author-name,
+body .loadout-card-author .loadout-author-name {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 140px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11303 */
+
+/* CSFLOAT-1:1 PARITY ship #11304 — Like / Save community-loadout buttons (icon-pill 28h, 4px brd, 14px icon, count 11px mono) */
+body .loadout-like-btn,
+body .loadout-save-btn,
+body .community-loadout-like,
+body .community-loadout-save,
+body .btn-loadout-like,
+body .btn-loadout-save {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  background: transparent !important;
+  border: 1px solid rgba(193, 206, 255, 0.14) !important;
+  border-radius: 4px !important;
+  color: rgba(193, 206, 255, 0.75) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .loadout-like-btn:hover,
+body .community-loadout-like:hover,
+body .btn-loadout-like:hover {
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: rgb(239, 68, 68) !important;
+  background-color: rgba(239, 68, 68, 0.06) !important;
+}
+body .loadout-save-btn:hover,
+body .community-loadout-save:hover,
+body .btn-loadout-save:hover {
+  border-color: rgba(30, 165, 255, 0.45) !important;
+  color: rgb(30, 165, 255) !important;
+  background-color: rgba(30, 165, 255, 0.06) !important;
+}
+body .loadout-like-btn.is-active,
+body .loadout-like-btn[aria-pressed="true"],
+body .community-loadout-like.is-active,
+body .btn-loadout-like.is-active {
+  border-color: rgb(239, 68, 68) !important;
+  color: rgb(239, 68, 68) !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+body .loadout-save-btn.is-active,
+body .loadout-save-btn[aria-pressed="true"],
+body .community-loadout-save.is-active,
+body .btn-loadout-save.is-active {
+  border-color: rgb(30, 165, 255) !important;
+  color: rgb(30, 165, 255) !important;
+  background-color: rgba(30, 165, 255, 0.08) !important;
+}
+body .loadout-like-btn .material-symbols-rounded,
+body .loadout-save-btn .material-symbols-rounded,
+body .community-loadout-like .material-symbols-rounded,
+body .community-loadout-save .material-symbols-rounded,
+body .btn-loadout-like .material-symbols-rounded,
+body .btn-loadout-save .material-symbols-rounded {
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+body .loadout-like-btn .like-count,
+body .loadout-save-btn .save-count,
+body .community-loadout-like .like-count,
+body .community-loadout-save .save-count {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11304 */
+
+/* CSFLOAT-1:1 PARITY ship #11400 — Buy-order create form shell parity.
+   Measured csfloat /buy-orders create modal: form panel uses 24px padding,
+   16px section gap, 1px border at white/0.07 alpha, 8px radius, deeper
+   bg-2 surface for the elevated form wrapper. Existing rule sets 20px /
+   14px / r-md (10px) / bg-1 — bumps to csfloat metrics. */
+body .buyorder-form {
+  padding: 24px !important;
+  gap: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 8px !important;
+  background: rgb(27, 29, 36) !important;
+  margin-bottom: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11400 */
+
+/* CSFLOAT-1:1 PARITY ship #11401 — Buy-order picked-item card parity.
+   Measured csfloat: the locked-in item card uses 14px 16px padding,
+   12px gap, 1px border at white/0.10 alpha, 6px radius, slightly
+   tinted accent strip on left edge (3px) signaling "this is your
+   target". Existing .buyorder-picked uses padding 14px and gap 12px
+   already; we tighten the border, add the accent strip, swap to
+   csfloat panel surface. */
+body .buyorder-picked {
+  padding: 14px 16px !important;
+  gap: 12px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  border-left: 3px solid rgb(30, 165, 255) !important;
+  align-items: center !important;
+}
+body .buyorder-picked .db-thumb {
+  border-radius: 4px !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  flex: 0 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11401 */
+
+/* CSFLOAT-1:1 PARITY ship #11402 — Buy-order form labels & inputs parity.
+   Measured csfloat: form labels render in 11px Roboto, 600 weight, 0.08em
+   tracking, uppercase, white at 0.55 alpha, 8px below-margin. Inputs
+   render at 14px / 500 weight, 12px 14px padding, 1px border at white/0.10,
+   6px radius, with focus ring in accent blue. The wallet-* base classes
+   are reused but the form context tightens the typography. */
+body .buyorder-form .wallet-input-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin-bottom: 8px !important;
+  margin-top: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+body .buyorder-form .wallet-amount-input,
+body .buyorder-form .price-input {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  padding: 0 14px !important;
+  height: 40px !important;
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  width: 100% !important;
+  transition: border-color 120ms ease, box-shadow 120ms ease !important;
+}
+body .buyorder-form .wallet-amount-input:hover,
+body .buyorder-form .price-input:hover {
+  border-color: rgba(255, 255, 255, 0.20) !important;
+}
+body .buyorder-form .wallet-amount-input:focus,
+body .buyorder-form .price-input:focus {
+  border-color: rgb(30, 165, 255) !important;
+  box-shadow: 0 0 0 3px rgba(30, 165, 255, 0.15) !important;
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11402 */
+
+/* CSFLOAT-1:1 PARITY ship #11403 — Buy-order help-text + projected-queue
+   chip parity. Measured csfloat: secondary help text below inputs renders
+   at 12px / 400 / Roboto / line-height 1.5 / 0.62 alpha white, 6px
+   above-margin. Queue-position chip renders as a 26px-tall pill with
+   8px 12px padding, 5px radius, 11px / 600 type, status-aware fg color
+   (green/amber/muted), surface from white/0.04. */
+body .buyorder-form > div[style*="font-size: 11px"][style*="margin-top: 4px"],
+body .buyorder-form > div[style*="font-size:11px"][style*="margin-top:4px"] {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  line-height: 1.5 !important;
+  margin-top: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+body .buyorder-form > div[style*="At this price"],
+body .buyorder-form > div[title*="match engine"][style*="display: inline-block"],
+body .buyorder-form > div[style*="display: inline-block"][style*="border-radius: 6px"] {
+  padding: 6px 12px !important;
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  margin-top: 10px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  height: 26px !important;
+  line-height: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11403 */
+
+/* CSFLOAT-1:1 PARITY ship #11404 — Buy-order Place-Order CTA + Change-item
+   button parity. Measured csfloat primary submit: full-width 44px tall
+   button, 8px radius, blue accent fill, 15px / 700 / 0 letter-spacing,
+   12px above-margin to separate from inputs. Change-item ghost: 28px
+   tall pill, 0 12px padding, 12px / 600 type, 5px radius, white/0.10
+   border, hover lifts to white/0.18. */
+body .buyorder-form .wallet-submit {
+  width: 100% !important;
+  height: 44px !important;
+  background: rgb(30, 165, 255) !important;
+  border: 1px solid rgb(30, 165, 255) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  margin-top: 12px !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, transform 120ms ease, opacity 120ms ease !important;
+}
+body .buyorder-form .wallet-submit:hover:not(:disabled) {
+  background: rgb(54, 178, 255) !important;
+  border-color: rgb(54, 178, 255) !important;
+  transform: none !important;
+  filter: none !important;
+}
+body .buyorder-form .wallet-submit:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+body .buyorder-picked .btn-ghost {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  cursor: pointer !important;
+  transition: border-color 120ms ease, background 120ms ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+}
+body .buyorder-picked .btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11404 */
