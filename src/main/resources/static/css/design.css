@@ -132320,7 +132320,7 @@ body:has(.steam-oauth-loading),
 body:has(.signin-loading-overlay) {
   overflow: hidden !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2110 */
+/* END CSFLOAT-1:1 PARITY ship #2115 */
 
 /* CSFLOAT-1:1 PARITY ship #2200 — Price Range section header.
    Measured on csfloat /search: title "Price" is 12px / weight 700 /
@@ -133160,3 +133160,235 @@ h2.settings-section-heading:first-child,
   padding-top: 18px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2305 */
+
+/* CSFLOAT-1:1 PARITY ship #2400 — /changelog page bg + container.
+   Measure: csfloat body bg = rgb(21,23,28), Roboto inherited, page
+   max 940px. Pre-fix sbox /changelog had max 820px. Pin csfloat
+   tokens explicitly so the page chrome aligns with /faq/db pages. */
+body:has(main.changelog) {
+  background: rgb(21, 23, 28) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+main.changelog {
+  max-width: 940px !important;
+  margin: 40px auto 80px !important;
+  padding: 0 24px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2400 */
+
+/* CSFLOAT-1:1 PARITY ship #2401 — changelog H1 title typography.
+   Measure: csfloat top-level page titles are Roboto 28px/700/-0.5px
+   on white. Pre-fix sbox h1 used -0.42px (close, off by 0.08px).
+   Pin exact csfloat letter-spacing + lh 34px. */
+.changelog h1 {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.5px !important;
+  line-height: 34px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 8px 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2401 */
+
+/* CSFLOAT-1:1 PARITY ship #2402 — changelog intro paragraph.
+   Measure: csfloat <p> on /faq = Roboto 14px/500/lh 18px in
+   rgb(158,167,177). Pre-fix sbox .changelog-intro was 12px Arial in
+   rgb(233,233,233) — wrong family + size + tone. Pin csfloat's exact
+   body-paragraph spec. */
+.changelog-intro {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 32px 0 !important;
+  padding: 0 !important;
+  letter-spacing: normal !important;
+}
+.changelog-intro code {
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.changelog-intro a {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2402 */
+
+/* CSFLOAT-1:1 PARITY ship #2403 — release-section divider between entries.
+   Measure: csfloat row dividers + button outlines = exactly
+   rgba(255,255,255,0.12) at 1px solid. Pre-fix sbox .changelog-entry
+   used 0.06 (too faint, half of csfloat's contrast). Pin 0.12 line
+   weight + symmetric vertical rhythm. */
+.changelog-entry {
+  margin: 0 0 40px 0 !important;
+  padding: 0 0 24px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  display: block !important;
+}
+.changelog-entry:last-child {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2403 */
+
+/* CSFLOAT-1:1 PARITY ship #2404 — release date eyebrow.
+   Measure: csfloat label-eyebrows = Roboto 12px/600/uppercase in
+   rgb(158,167,177) with 0.6px letter-spacing. Pre-fix sbox
+   .changelog-date was 11px Geist in csfloat-blue. Eyebrows should be
+   muted — accent is reserved for action affordances. Pin csfloat
+   eyebrow spec. */
+.changelog-date {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.6px !important;
+  line-height: 16px !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2404 */
+
+/* CSFLOAT-1:1 PARITY ship #2405 — release title typography.
+   Measure: csfloat H2-equivalent section headers = Roboto 18px/600
+   on white with -0.3px letter-spacing. Pre-fix sbox .changelog-title
+   was 18px/600 (good) with -0.27px (close). Pin exact csfloat token. */
+.changelog-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.3px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 8px 0 16px 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2405 */
+
+/* CSFLOAT-1:1 PARITY ship #2406 — release body list items.
+   Measure: csfloat body <p> = Roboto 14px/500/lh 18px in
+   rgb(158,167,177). Pre-fix sbox .changelog-list li was 12px Arial in
+   rgb(233,233,233) — wrong family + size + tone. Pin csfloat body
+   spec; bullets removed (csfloat uses block paragraphs, not bullets). */
+.changelog-list {
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+  display: block !important;
+}
+.changelog-list li {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 12px 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  list-style: none !important;
+}
+.changelog-list li:last-child {
+  margin-bottom: 0 !important;
+}
+.changelog-list li code {
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.changelog-list li strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+}
+.changelog-list li a {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2406 */
+
+/* CSFLOAT-1:1 PARITY ship #2407 — tag chips (FEATURE / FIX / SECURITY / POLISH).
+   Measure: csfloat chips = Roboto 11px/600 with 8px radius, hairline
+   rgba(255,255,255,0.12) border, padding 2px 8px, uppercase. Pre-fix
+   sbox tags = 9px JetBrains Mono with 3px colored left-stripe
+   (editorial pattern, not csfloat). Strip stripe; restore csfloat's
+   flat hairline chip with category encoded as text-color tint only. */
+.changelog-tag {
+  display: inline-block !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  padding: 2px 8px !important;
+  margin: 0 8px 0 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  vertical-align: 2px !important;
+}
+.changelog-tag.feature {
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.24) !important;
+}
+.changelog-tag.fix {
+  color: rgb(232, 185, 96) !important;
+  background: rgba(232, 185, 96, 0.08) !important;
+  border-color: rgba(232, 185, 96, 0.24) !important;
+}
+.changelog-tag.security {
+  color: rgb(235, 75, 75) !important;
+  background: rgba(235, 87, 87, 0.05) !important;
+  border-color: rgba(235, 75, 75, 0.24) !important;
+}
+.changelog-tag.polish {
+  color: rgb(158, 167, 177) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2407 */
+
+/* CSFLOAT-1:1 PARITY ship #2408 — back-to-app link as plain text link.
+   Measure: csfloat in-page back/nav links = Roboto 14px/500 plain
+   text in csfloat-blue rgb(35,123,255), no border, no padding pill.
+   Pre-fix sbox .changelog-back was hijacked by .btn pill chrome
+   (5px 10px / 6px radius / 13px Geist Mono uppercase). Restore
+   csfloat plain-text link spec. */
+.changelog-back {
+  display: inline-block !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  line-height: 20px !important;
+  text-transform: none !important;
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 24px 0 !important;
+  text-decoration: none !important;
+}
+.changelog-back:hover {
+  color: rgb(80, 150, 255) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2408 */
