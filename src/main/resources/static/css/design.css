@@ -142404,3 +142404,206 @@ div[class*="ConsentBanner" i] {
   left: -99999px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #6005 */
+
+/* CSFLOAT-1:1 PARITY ship #6200 — Auction bid-history container: csfloat uses 1px border, 6px radius, 0 background (transparent), no card surround. Override our card-style wrapper with the flat list look. */
+html body .auction-history {
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  overflow: hidden !important;
+  margin-top: 12px !important;
+}
+html body .auction-history > div {
+  display: grid !important;
+  grid-template-columns: 1fr 56px auto 88px !important;
+  gap: 12px !important;
+  align-items: center !important;
+  padding: 9px 14px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+  font-size: 12px !important;
+  min-height: 38px !important;
+  transition: background 120ms ease !important;
+}
+html body .auction-history > div:hover {
+  background: rgba(255,255,255,0.02) !important;
+}
+html body .auction-history > div:last-child {
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6200 */
+
+/* CSFLOAT-1:1 PARITY ship #6201 — Bid-history bidder cell: csfloat 12.5px medium-weight name, 28px avatar circle inline-style. Tighten the typography + inline avatar look. */
+html body .auction-history .auction-history-bidder {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: rgba(255,255,255,0.92) !important;
+  letter-spacing: -0.005em !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+html body .auction-history > div.you .auction-history-bidder {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+html body .auction-history-you-tag {
+  font-family: var(--mono) !important;
+  font-size: 8.5px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: #0a0a0a !important;
+  background: #ffffff !important;
+  padding: 2px 5px !important;
+  border-radius: 3px !important;
+  font-weight: 700 !important;
+  margin-left: 4px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6201 */
+
+/* CSFLOAT-1:1 PARITY ship #6202 — Bid-history kind chip + amount + time: csfloat shows tiny uppercase MANUAL/AUTO chip, mono right-aligned amount, mono dimmed timestamp. */
+html body .auction-history-kind {
+  font-family: var(--mono) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.46) !important;
+  padding: 2px 5px !important;
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 3px !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  line-height: 1.4 !important;
+  justify-self: start !important;
+}
+html body .auction-history-amt {
+  font-family: var(--mono) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.01em !important;
+  font-variant-numeric: tabular-nums !important;
+  text-align: right !important;
+  justify-self: end !important;
+}
+html body .auction-history > div.you .auction-history-amt {
+  color: var(--up, #4ade80) !important;
+}
+html body .auction-history-time {
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  color: rgba(255,255,255,0.42) !important;
+  letter-spacing: 0.02em !important;
+  text-align: right !important;
+  justify-self: end !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6202 */
+
+/* CSFLOAT-1:1 PARITY ship #6203 — Bid-history "you" row tint + status banners (winning/losing/outbid): csfloat uses subtle 6% green/red tint with 1px matching border, 12/13px copy, 36px row height. */
+html body .auction-history > div.you {
+  background: rgba(74,222,128,0.05) !important;
+  border-bottom-color: rgba(74,222,128,0.10) !important;
+}
+html body .auction-history > div.you:hover {
+  background: rgba(74,222,128,0.07) !important;
+}
+html body .auction-status-banner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 14px !important;
+  border-radius: 6px !important;
+  margin-bottom: 12px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  background: rgba(255,255,255,0.02) !important;
+}
+html body .auction-status-banner.winning {
+  background: rgba(74,222,128,0.06) !important;
+  border-color: rgba(74,222,128,0.22) !important;
+  color: rgba(255,255,255,0.95) !important;
+}
+html body .auction-status-banner.losing {
+  background: rgba(248,113,113,0.06) !important;
+  border-color: rgba(248,113,113,0.22) !important;
+  color: rgba(255,255,255,0.95) !important;
+}
+html body .auction-status-banner strong {
+  font-weight: 600 !important;
+  color: #ffffff !important;
+}
+html body .auction-status-icon {
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .auction-status-banner.losing .auction-status-icon {
+  color: #f87171 !important;
+}
+html body .auction-status-banner.winning .auction-status-icon {
+  color: #4ade80 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6203 */
+
+/* CSFLOAT-1:1 PARITY ship #6204 — Bid-history section title + show-all toggle button: csfloat uses 11px uppercase letterspaced section title with dot, 11.5px ghost button bottom for "show all". */
+html body .auction-history .modal-section-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.13em !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.62) !important;
+  margin: 14px 0 10px !important;
+  padding: 0 !important;
+}
+html body .auction-history .modal-section-title .section-title-dot {
+  width: 4px !important;
+  height: 4px !important;
+  border-radius: 50% !important;
+  background: var(--up, #4ade80) !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 0 6px color-mix(in oklab, var(--up, #4ade80) 60%, transparent) !important;
+}
+html body .auction-history > button.btn.btn-ghost {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 32px !important;
+  margin-top: 0 !important;
+  padding: 0 12px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255,255,255,0.05) !important;
+  border-radius: 0 !important;
+  background: rgba(255,255,255,0.015) !important;
+  color: rgba(255,255,255,0.62) !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, color 120ms ease !important;
+}
+html body .auction-history > button.btn.btn-ghost:hover {
+  background: rgba(255,255,255,0.04) !important;
+  color: #ffffff !important;
+}
+/* Bid progression sparkline panel — csfloat tightens to 8/10px label, 6px radius */
+html body .auction-history > div[style*="Bid progression"],
+html body .auction-history > div:has(> div:first-child:not(.auction-history-bidder)) {
+  /* fallback selector for the inline-styled sparkline wrapper */
+}
+/* END CSFLOAT-1:1 PARITY ship #6204 */
