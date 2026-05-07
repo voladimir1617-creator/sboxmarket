@@ -159619,3 +159619,160 @@ html body button.steam-btn > svg path {
   fill: rgb(255, 255, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #14505 */
+
+/* CSFLOAT-1:1 PARITY ship #14600 (toggle switch — track unchecked bg + border)
+   measured csfloat: bg rgba(255,255,255,0.16), border 1px solid rgba(255,255,255,0.12),
+   width 36px, height 20px, border-radius 10px, transition 200ms.
+   sbox was: bg rgba(255,255,255,0.18), border 0px none, border-radius 999px, transition 0.18s. */
+html body .toggle-switch,
+html body .toggle-switch.off,
+html body [role="switch"]:not([aria-checked="true"]),
+html body .csfloat-toggle:not(.on),
+html body .slide-toggle:not(.on),
+html body .mat-mdc-slide-toggle:not(.mat-mdc-slide-toggle-checked) .mdc-switch {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  width: 36px !important;
+  height: 20px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  cursor: pointer !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14600 */
+
+/* CSFLOAT-1:1 PARITY ship #14601 (toggle switch — track checked bg + border)
+   measured csfloat: on bg rgb(35,123,255) (#237bff brand selected-track-color token);
+   border-color matches bg; transition 200ms.
+   sbox was: rgb(64, 160, 254). Aligning to canonical brand token. */
+html body .toggle-switch.on,
+html body [role="switch"][aria-checked="true"],
+html body .csfloat-toggle.on,
+html body .slide-toggle.on,
+html body input[type="checkbox"][role="switch"]:checked,
+html body .mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked .mdc-switch,
+html body .mat-mdc-slide-toggle .mdc-switch.mdc-switch--selected {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14601 */
+
+/* CSFLOAT-1:1 PARITY ship #14602 (toggle switch — thumb geometry: size, position, transform)
+   measured csfloat (Material tokens): handle-width 20px, handle-height 20px, handle-shape 10px,
+   selected-handle-size 20px, pressed-handle-size 20px. State-layer-size 40px.
+   sbox was: 14x14 off / 16x16 on, transform matrix(1,0,0,1,16,0) at left:1px (asymmetric).
+   Aligning thumb to a single 16x16 white circle that translates 16px between off/on within
+   the 36x20 (1px-bordered) track — 16+1+1+16 = 34, fits with 1px gap each side. */
+html body .toggle-switch::before,
+html body [role="switch"]::before,
+html body .csfloat-toggle::before,
+html body .slide-toggle::before {
+  content: "" !important;
+  position: absolute !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: rgb(255, 255, 255) !important;
+  background-color: rgb(255, 255, 255) !important;
+  top: 1px !important;
+  left: 1px !important;
+  transition: transform 75ms cubic-bezier(0.4, 0, 0.6, 1), background-color 75ms cubic-bezier(0.4, 0, 0.6, 1) !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+}
+html body .toggle-switch.off::before,
+html body .toggle-switch:not(.on)::before,
+html body [role="switch"][aria-checked="false"]::before,
+html body .csfloat-toggle:not(.on)::before {
+  transform: translateX(0) !important;
+}
+html body .toggle-switch.on::before,
+html body [role="switch"][aria-checked="true"]::before,
+html body .csfloat-toggle.on::before,
+html body .slide-toggle.on::before {
+  transform: translateX(16px) !important;
+}
+html body .toggle-switch::after,
+html body [role="switch"]::after,
+html body .csfloat-toggle::after,
+html body .slide-toggle::after {
+  display: none !important;
+  content: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14602 */
+
+/* CSFLOAT-1:1 PARITY ship #14603 (toggle switch — thumb elevation shadow)
+   measured csfloat (Material elevation level 1, mat-slide-toggle-handle-elevation-shadow):
+   0px 2px 1px -1px rgba(0,0,0,.2), 0px 1px 1px 0px rgba(0,0,0,.14), 0px 1px 3px 0px rgba(0,0,0,.12).
+   sbox was: rgba(0,0,0,0.4) 0 1px 2px 0 (single-stop, too dark).
+   Aligning to canonical 3-layer Material shadow. */
+html body .toggle-switch::before,
+html body [role="switch"]::before,
+html body .csfloat-toggle::before,
+html body .slide-toggle::before {
+  box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14603 */
+
+/* CSFLOAT-1:1 PARITY ship #14604 (toggle switch — focus ring / state layer)
+   measured csfloat (Material): state-layer-size 40px, focus-state-layer-opacity .12,
+   selected-focus-state-layer-color #237bff, label-focus-overlay rgba(255,255,255,.12).
+   sbox had: no focus styling at all (default outline only).
+   Aligning: 2px brand outline at .38 alpha + 4px diffuse glow at .12 (no layout shift). */
+html body .toggle-switch:focus-visible,
+html body [role="switch"]:focus-visible,
+html body .csfloat-toggle:focus-visible,
+html body .slide-toggle:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.38) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(35, 123, 255, 0.12) !important;
+}
+html body .toggle-switch:focus:not(:focus-visible),
+html body [role="switch"]:focus:not(:focus-visible),
+html body .csfloat-toggle:focus:not(:focus-visible),
+html body .slide-toggle:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14604 */
+
+/* CSFLOAT-1:1 PARITY ship #14605 (toggle switch — disabled state)
+   measured csfloat (Material tokens): disabled-track-opacity .12,
+   disabled-handle-opacity .38, disabled-unselected-track-outline-color transparent,
+   pointer-events: none, cursor: default.
+   sbox was: bg rgba(255,255,255,0.16), opacity 1, cursor pointer (broken).
+   Aligning to Material disabled spec. */
+html body .toggle-switch.disabled,
+html body .toggle-switch[disabled],
+html body .toggle-switch[aria-disabled="true"],
+html body [role="switch"][aria-disabled="true"],
+html body [role="switch"][disabled],
+html body .csfloat-toggle.disabled,
+html body .slide-toggle.disabled,
+html body .mat-mdc-slide-toggle.mat-disabled .mdc-switch,
+html body .mat-mdc-slide-toggle .mdc-switch--disabled {
+  opacity: 0.38 !important;
+  cursor: default !important;
+  pointer-events: none !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: transparent !important;
+}
+html body .toggle-switch.disabled::before,
+html body .toggle-switch[disabled]::before,
+html body [role="switch"][aria-disabled="true"]::before,
+html body [role="switch"][disabled]::before,
+html body .csfloat-toggle.disabled::before,
+html body .slide-toggle.disabled::before {
+  opacity: 0.38 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #14605 */
