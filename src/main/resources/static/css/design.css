@@ -158112,3 +158112,439 @@ input.is-valid:focus {
   box-shadow: 0 0 0 3px hsl(0 70% 60% / 0.15) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #13009 */
+
+/* CSFLOAT-1:1 PARITY ship #13100 — Item page tab strip container v2 (csfloat: 48px tall strip below title, 1px bottom border, scroll-snap horizontal) */
+body .item-page .item-tabs.v13100,
+body .item-page .item-tab-bar.v13100,
+body .item-page .tab-strip.v13100,
+body .item-page nav.tab-strip,
+body .item-page .item-detail-tabs,
+body .modal.item-page nav.tab-strip,
+body .modal.item-page .item-detail-tabs {
+  display: flex !important;
+  align-items: stretch !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  width: 100% !important;
+  margin: 24px 0 0 0 !important;
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent !important;
+  position: relative !important;
+  gap: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scroll-snap-type: x proximity !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+body .item-page nav.tab-strip::-webkit-scrollbar,
+body .item-page .item-detail-tabs::-webkit-scrollbar,
+body .modal.item-page nav.tab-strip::-webkit-scrollbar,
+body .modal.item-page .item-detail-tabs::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13100 */
+
+/* CSFLOAT-1:1 PARITY ship #13101 — Item page tab buttons v2 (csfloat: 14/500/24px-pad, 0.62 alpha inactive, 1.0 alpha active) */
+body .item-page nav.tab-strip > a,
+body .item-page nav.tab-strip > button,
+body .item-page .item-detail-tabs > a,
+body .item-page .item-detail-tabs > button,
+body .modal.item-page nav.tab-strip > a,
+body .modal.item-page nav.tab-strip > button,
+body .modal.item-page .item-detail-tabs > a,
+body .modal.item-page .item-detail-tabs > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 24px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.01em !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  position: relative !important;
+  scroll-snap-align: start !important;
+  text-decoration: none !important;
+  transition: color 160ms ease, background-color 160ms ease !important;
+  text-transform: none !important;
+  outline: none !important;
+}
+body .item-page nav.tab-strip > a:hover,
+body .item-page nav.tab-strip > button:hover,
+body .item-page .item-detail-tabs > a:hover,
+body .item-page .item-detail-tabs > button:hover,
+body .modal.item-page nav.tab-strip > a:hover,
+body .modal.item-page nav.tab-strip > button:hover,
+body .modal.item-page .item-detail-tabs > a:hover,
+body .modal.item-page .item-detail-tabs > button:hover {
+  color: rgba(255, 255, 255, 0.86) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+body .item-page nav.tab-strip > a.active,
+body .item-page nav.tab-strip > button.active,
+body .item-page .item-detail-tabs > a.active,
+body .item-page .item-detail-tabs > button.active,
+body .item-page nav.tab-strip > a[aria-selected="true"],
+body .item-page nav.tab-strip > button[aria-selected="true"],
+body .item-page .item-detail-tabs > a[aria-selected="true"],
+body .item-page .item-detail-tabs > button[aria-selected="true"],
+body .modal.item-page nav.tab-strip > a.active,
+body .modal.item-page nav.tab-strip > button.active,
+body .modal.item-page .item-detail-tabs > a.active,
+body .modal.item-page .item-detail-tabs > button.active,
+body .modal.item-page nav.tab-strip > a[aria-selected="true"],
+body .modal.item-page nav.tab-strip > button[aria-selected="true"],
+body .modal.item-page .item-detail-tabs > a[aria-selected="true"],
+body .modal.item-page .item-detail-tabs > button[aria-selected="true"] {
+  color: rgba(255, 255, 255, 1) !important;
+  font-weight: 600 !important;
+}
+body .item-page nav.tab-strip > a:focus-visible,
+body .item-page nav.tab-strip > button:focus-visible,
+body .item-page .item-detail-tabs > a:focus-visible,
+body .item-page .item-detail-tabs > button:focus-visible,
+body .modal.item-page nav.tab-strip > a:focus-visible,
+body .modal.item-page nav.tab-strip > button:focus-visible,
+body .modal.item-page .item-detail-tabs > a:focus-visible,
+body .modal.item-page .item-detail-tabs > button:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(116, 175, 255, 0.42) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13101 */
+
+/* CSFLOAT-1:1 PARITY ship #13102 — Active tab underline v2 (csfloat: 2px gradient bar, 180ms ease slide-in from collapsed center) */
+body .item-page nav.tab-strip > a::after,
+body .item-page nav.tab-strip > button::after,
+body .item-page .item-detail-tabs > a::after,
+body .item-page .item-detail-tabs > button::after,
+body .modal.item-page nav.tab-strip > a::after,
+body .modal.item-page nav.tab-strip > button::after,
+body .modal.item-page .item-detail-tabs > a::after,
+body .modal.item-page .item-detail-tabs > button::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 16px !important;
+  right: 16px !important;
+  bottom: -1px !important;
+  height: 2px !important;
+  border-radius: 1px 1px 0 0 !important;
+  background: linear-gradient(90deg, #74afff 0%, #5b9cff 100%) !important;
+  transform: scaleX(0) !important;
+  transform-origin: center bottom !important;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 120ms ease !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+body .item-page nav.tab-strip > a.active::after,
+body .item-page nav.tab-strip > button.active::after,
+body .item-page .item-detail-tabs > a.active::after,
+body .item-page .item-detail-tabs > button.active::after,
+body .item-page nav.tab-strip > a[aria-selected="true"]::after,
+body .item-page nav.tab-strip > button[aria-selected="true"]::after,
+body .item-page .item-detail-tabs > a[aria-selected="true"]::after,
+body .item-page .item-detail-tabs > button[aria-selected="true"]::after,
+body .modal.item-page nav.tab-strip > a.active::after,
+body .modal.item-page nav.tab-strip > button.active::after,
+body .modal.item-page .item-detail-tabs > a.active::after,
+body .modal.item-page .item-detail-tabs > button.active::after,
+body .modal.item-page nav.tab-strip > a[aria-selected="true"]::after,
+body .modal.item-page nav.tab-strip > button[aria-selected="true"]::after,
+body .modal.item-page .item-detail-tabs > a[aria-selected="true"]::after,
+body .modal.item-page .item-detail-tabs > button[aria-selected="true"]::after {
+  transform: scaleX(1) !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13102 */
+
+/* CSFLOAT-1:1 PARITY ship #13103 — Tab badge counter pill v2 (csfloat: 18px tall pill, tnum, 11/600, accent-tinted on active) */
+body .item-page nav.tab-strip > a > .tab-badge,
+body .item-page nav.tab-strip > button > .tab-badge,
+body .item-page .item-detail-tabs > a > .tab-badge,
+body .item-page .item-detail-tabs > button > .tab-badge,
+body .item-page nav.tab-strip > a > .tab-count,
+body .item-page nav.tab-strip > button > .tab-count,
+body .item-page .item-detail-tabs > a > .tab-count,
+body .item-page .item-detail-tabs > button > .tab-count,
+body .item-page nav.tab-strip > a > .badge,
+body .item-page nav.tab-strip > button > .badge,
+body .item-page .item-detail-tabs > a > .badge,
+body .item-page .item-detail-tabs > button > .badge,
+body .modal.item-page nav.tab-strip > a > .tab-badge,
+body .modal.item-page nav.tab-strip > button > .tab-badge,
+body .modal.item-page .item-detail-tabs > a > .tab-badge,
+body .modal.item-page .item-detail-tabs > button > .tab-badge,
+body .modal.item-page nav.tab-strip > a > .tab-count,
+body .modal.item-page nav.tab-strip > button > .tab-count,
+body .modal.item-page .item-detail-tabs > a > .tab-count,
+body .modal.item-page .item-detail-tabs > button > .tab-count,
+body .modal.item-page nav.tab-strip > a > .badge,
+body .modal.item-page nav.tab-strip > button > .badge,
+body .modal.item-page .item-detail-tabs > a > .badge,
+body .modal.item-page .item-detail-tabs > button > .badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 6px !important;
+  margin-left: 6px !important;
+  border-radius: 9px !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  letter-spacing: 0 !important;
+  transition: background-color 160ms ease, color 160ms ease !important;
+  vertical-align: middle !important;
+}
+body .item-page nav.tab-strip > a.active > .tab-badge,
+body .item-page nav.tab-strip > button.active > .tab-badge,
+body .item-page .item-detail-tabs > a.active > .tab-badge,
+body .item-page .item-detail-tabs > button.active > .tab-badge,
+body .item-page nav.tab-strip > a.active > .badge,
+body .item-page nav.tab-strip > button.active > .badge,
+body .item-page .item-detail-tabs > a.active > .badge,
+body .item-page .item-detail-tabs > button.active > .badge,
+body .item-page nav.tab-strip > a[aria-selected="true"] > .tab-badge,
+body .item-page nav.tab-strip > button[aria-selected="true"] > .tab-badge,
+body .item-page .item-detail-tabs > a[aria-selected="true"] > .tab-badge,
+body .item-page .item-detail-tabs > button[aria-selected="true"] > .tab-badge,
+body .item-page nav.tab-strip > a[aria-selected="true"] > .badge,
+body .item-page nav.tab-strip > button[aria-selected="true"] > .badge,
+body .item-page .item-detail-tabs > a[aria-selected="true"] > .badge,
+body .item-page .item-detail-tabs > button[aria-selected="true"] > .badge,
+body .modal.item-page nav.tab-strip > a.active > .tab-badge,
+body .modal.item-page nav.tab-strip > button.active > .tab-badge,
+body .modal.item-page .item-detail-tabs > a.active > .tab-badge,
+body .modal.item-page .item-detail-tabs > button.active > .tab-badge,
+body .modal.item-page nav.tab-strip > a.active > .badge,
+body .modal.item-page nav.tab-strip > button.active > .badge,
+body .modal.item-page .item-detail-tabs > a.active > .badge,
+body .modal.item-page .item-detail-tabs > button.active > .badge,
+body .modal.item-page nav.tab-strip > a[aria-selected="true"] > .tab-badge,
+body .modal.item-page nav.tab-strip > button[aria-selected="true"] > .tab-badge,
+body .modal.item-page .item-detail-tabs > a[aria-selected="true"] > .tab-badge,
+body .modal.item-page .item-detail-tabs > button[aria-selected="true"] > .tab-badge,
+body .modal.item-page nav.tab-strip > a[aria-selected="true"] > .badge,
+body .modal.item-page nav.tab-strip > button[aria-selected="true"] > .badge,
+body .modal.item-page .item-detail-tabs > a[aria-selected="true"] > .badge,
+body .modal.item-page .item-detail-tabs > button[aria-selected="true"] > .badge {
+  background-color: rgba(116, 175, 255, 0.16) !important;
+  color: #74afff !important;
+}
+body .item-page nav.tab-strip > a:hover > .tab-badge,
+body .item-page nav.tab-strip > button:hover > .tab-badge,
+body .item-page .item-detail-tabs > a:hover > .tab-badge,
+body .item-page .item-detail-tabs > button:hover > .tab-badge,
+body .item-page nav.tab-strip > a:hover > .badge,
+body .item-page nav.tab-strip > button:hover > .badge,
+body .item-page .item-detail-tabs > a:hover > .badge,
+body .item-page .item-detail-tabs > button:hover > .badge,
+body .modal.item-page nav.tab-strip > a:hover > .tab-badge,
+body .modal.item-page nav.tab-strip > button:hover > .tab-badge,
+body .modal.item-page .item-detail-tabs > a:hover > .tab-badge,
+body .modal.item-page .item-detail-tabs > button:hover > .tab-badge,
+body .modal.item-page nav.tab-strip > a:hover > .badge,
+body .modal.item-page nav.tab-strip > button:hover > .badge,
+body .modal.item-page .item-detail-tabs > a:hover > .badge,
+body .modal.item-page .item-detail-tabs > button:hover > .badge {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13103 */
+
+/* CSFLOAT-1:1 PARITY ship #13104 — Tab content panel swap fade animation v2 (csfloat: 140ms opacity + 4px translateY for entering panels) */
+body .item-page .tab-panel.v13104,
+body .item-page .item-tab-content,
+body .item-page main[role="tabpanel"],
+body .modal.item-page .item-tab-content,
+body .modal.item-page main[role="tabpanel"] {
+  display: block !important;
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 140ms ease-out, transform 140ms ease-out !important;
+  will-change: opacity, transform !important;
+}
+body .item-page .item-tab-content[hidden],
+body .item-page main[role="tabpanel"][hidden],
+body .modal.item-page .item-tab-content[hidden],
+body .modal.item-page main[role="tabpanel"][hidden] {
+  display: none !important;
+  opacity: 0 !important;
+  transform: translateY(4px) !important;
+  pointer-events: none !important;
+}
+body .item-page .item-tab-content.entering,
+body .modal.item-page .item-tab-content.entering {
+  opacity: 0 !important;
+  transform: translateY(4px) !important;
+  animation: csfloat-tab-fade-in-13104 140ms ease-out forwards !important;
+}
+@keyframes csfloat-tab-fade-in-13104 {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body .item-page .item-tab-content,
+  body .modal.item-page .item-tab-content {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #13104 */
+
+/* CSFLOAT-1:1 PARITY ship #13105 — Mobile-collapsed tab dropdown v2 (csfloat: max-width 720px collapses strip to active-only trigger with chevron) */
+@media (max-width: 720px) {
+  body .item-page nav.tab-strip,
+  body .item-page .item-detail-tabs,
+  body .modal.item-page nav.tab-strip,
+  body .modal.item-page .item-detail-tabs {
+    height: auto !important;
+    min-height: 44px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 0 !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed,
+  body .item-page .item-detail-tabs.is-mobile-collapsed,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed {
+    display: block !important;
+    height: 44px !important;
+    overflow: visible !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    position: relative !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed > a,
+  body .item-page nav.tab-strip.is-mobile-collapsed > button,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > a,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > button,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > a,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > button,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > a,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > button {
+    display: none !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed > a.active,
+  body .item-page nav.tab-strip.is-mobile-collapsed > button.active,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > a.active,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > button.active,
+  body .item-page nav.tab-strip.is-mobile-collapsed > a[aria-selected="true"],
+  body .item-page nav.tab-strip.is-mobile-collapsed > button[aria-selected="true"],
+  body .item-page .item-detail-tabs.is-mobile-collapsed > a[aria-selected="true"],
+  body .item-page .item-detail-tabs.is-mobile-collapsed > button[aria-selected="true"],
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > a.active,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > button.active,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > a.active,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > button.active,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > a[aria-selected="true"],
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > button[aria-selected="true"],
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > a[aria-selected="true"],
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > button[aria-selected="true"] {
+    display: flex !important;
+    width: 100% !important;
+    height: 42px !important;
+    padding: 0 16px 0 16px !important;
+    justify-content: space-between !important;
+    background: transparent !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed > a.active::before,
+  body .item-page nav.tab-strip.is-mobile-collapsed > button.active::before,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > a.active::before,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > button.active::before,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > a.active::before,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > button.active::before,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > a.active::before,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > button.active::before {
+    content: "" !important;
+    position: absolute !important;
+    right: 14px !important;
+    top: 50% !important;
+    width: 8px !important;
+    height: 8px !important;
+    border-right: 1.5px solid rgba(255, 255, 255, 0.62) !important;
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.62) !important;
+    transform: translateY(-65%) rotate(45deg) !important;
+    transition: transform 160ms ease !important;
+    pointer-events: none !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed.is-open > a.active::before,
+  body .item-page nav.tab-strip.is-mobile-collapsed.is-open > button.active::before,
+  body .item-page .item-detail-tabs.is-mobile-collapsed.is-open > a.active::before,
+  body .item-page .item-detail-tabs.is-mobile-collapsed.is-open > button.active::before,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed.is-open > a.active::before,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed.is-open > button.active::before,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed.is-open > a.active::before,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed.is-open > button.active::before {
+    transform: translateY(-25%) rotate(-135deg) !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed > a.active::after,
+  body .item-page nav.tab-strip.is-mobile-collapsed > button.active::after,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > a.active::after,
+  body .item-page .item-detail-tabs.is-mobile-collapsed > button.active::after,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > a.active::after,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed > button.active::after,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > a.active::after,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed > button.active::after {
+    display: none !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed.is-open > a,
+  body .item-page nav.tab-strip.is-mobile-collapsed.is-open > button,
+  body .item-page .item-detail-tabs.is-mobile-collapsed.is-open > a,
+  body .item-page .item-detail-tabs.is-mobile-collapsed.is-open > button,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed.is-open > a,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed.is-open > button,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed.is-open > a,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed.is-open > button {
+    display: flex !important;
+    width: 100% !important;
+    height: 42px !important;
+    padding: 0 16px !important;
+    justify-content: space-between !important;
+    border-radius: 0 !important;
+    background: var(--surface-2, #16181c) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+  body .item-page nav.tab-strip.is-mobile-collapsed.is-open,
+  body .item-page .item-detail-tabs.is-mobile-collapsed.is-open,
+  body .modal.item-page nav.tab-strip.is-mobile-collapsed.is-open,
+  body .modal.item-page .item-detail-tabs.is-mobile-collapsed.is-open {
+    height: auto !important;
+    background: var(--surface-2, #16181c) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32) !important;
+    z-index: 20 !important;
+    position: relative !important;
+  }
+  body .item-page nav.tab-strip > a,
+  body .item-page nav.tab-strip > button,
+  body .item-page .item-detail-tabs > a,
+  body .item-page .item-detail-tabs > button,
+  body .modal.item-page nav.tab-strip > a,
+  body .modal.item-page nav.tab-strip > button,
+  body .modal.item-page .item-detail-tabs > a,
+  body .modal.item-page .item-detail-tabs > button {
+    padding: 0 16px !important;
+    font-size: 13px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #13105 */
