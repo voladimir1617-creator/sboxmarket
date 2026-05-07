@@ -131712,7 +131712,7 @@ button.auction-autobid,
 /* END CSFLOAT-1:1 PARITY ship #2110 */
 
 /* ─────────────────────────────────────────────────────────────
-   CSFLOAT-1:1 PARITY ship #2106 — Steam button (.steam-btn)
+   CSFLOAT-1:1 PARITY ship #2111 — Steam button (.steam-btn)
    Match exact csfloat measurements:
    bg rgb(35,123,255), radius 8px, padding 13px 30px,
    font 15px/700 Roboto, gap 8px, h40, icon 20x20
@@ -131776,10 +131776,10 @@ button.steam-btn svg,
   height: 20px !important;
   fill: currentColor !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2106 */
+/* END CSFLOAT-1:1 PARITY ship #2111 */
 
 /* ─────────────────────────────────────────────────────────────
-   CSFLOAT-1:1 PARITY ship #2107 — Pre-signin modal
+   CSFLOAT-1:1 PARITY ship #2112 — Pre-signin modal
    Match csfloat sign-in chrome: rounded contained dialog,
    accent-blue submit button (Steam color), tighter typography.
    ───────────────────────────────────────────────────────────── */
@@ -131964,10 +131964,10 @@ button.steam-btn svg,
   max-width: 340px !important;
   align-self: center !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2107 */
+/* END CSFLOAT-1:1 PARITY ship #2112 */
 
 /* ─────────────────────────────────────────────────────────────
-   CSFLOAT-1:1 PARITY ship #2108 — Sign-in info-modal panel
+   CSFLOAT-1:1 PARITY ship #2113 — Sign-in info-modal panel
    The "Sign in required" inline modal that appears on /sell,
    /watchlist, etc. when the user is logged out. Keep csfloat
    sign-in chrome scale.
@@ -132081,10 +132081,10 @@ button.steam-btn svg,
   place-items: center !important;
   padding: 4vh 16px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2108 */
+/* END CSFLOAT-1:1 PARITY ship #2113 */
 
 /* ─────────────────────────────────────────────────────────────
-   CSFLOAT-1:1 PARITY ship #2109 — Trade-URL setup walkthrough modal
+   CSFLOAT-1:1 PARITY ship #2114 — Trade-URL setup walkthrough modal
    The 3-step (Open Steam → Copy URL → Paste) flow modal styling.
    ───────────────────────────────────────────────────────────── */
 .modal.trade-url-setup,
@@ -132238,10 +132238,10 @@ button.steam-btn svg,
   background: rgba(255, 255, 255, 0.04) !important;
   color: rgb(255, 255, 255) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2109 */
+/* END CSFLOAT-1:1 PARITY ship #2114 */
 
 /* ─────────────────────────────────────────────────────────────
-   CSFLOAT-1:1 PARITY ship #2110 — Steam OAuth loading overlay
+   CSFLOAT-1:1 PARITY ship #2115 — Steam OAuth loading overlay
    Full-screen blur + centered spinner shown during the Steam
    OpenID redirect handoff so users get visual feedback.
    ───────────────────────────────────────────────────────────── */
@@ -132321,3 +132321,842 @@ body:has(.signin-loading-overlay) {
   overflow: hidden !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2110 */
+
+/* CSFLOAT-1:1 PARITY ship #2200 — Price Range section header.
+   Measured on csfloat /search: title "Price" is 12px / weight 700 /
+   #fff with the section row 27px tall. Match it exactly. */
+.sidebar .filter-section > .filter-title,
+.filter-section > .filter-title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 14px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2200 */
+
+/* CSFLOAT-1:1 PARITY ship #2201 — Min / Max input wrappers.
+   csfloat .mat-mdc-text-field-wrapper measured: width 150px,
+   height 36px, bg rgba(193,206,255,0.04), border-radius 6px,
+   padding 0 10px, no border. Two inputs sit at x=80 and x=240,
+   so the gap between them is exactly 10px. Input text itself is
+   16px/24px Roboto / #fff with no border. */
+.sidebar .price-inputs,
+.filter-section .price-inputs {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+  margin-top: 6px !important;
+  margin-bottom: 12px !important;
+}
+.sidebar .price-input,
+.filter-section .price-input {
+  height: 36px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 0 10px !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 16px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.sidebar .price-input::placeholder,
+.filter-section .price-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+.sidebar .price-input:focus,
+.filter-section .price-input:focus {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2201 */
+
+/* CSFLOAT-1:1 PARITY ship #2202 — Quick-select chip row.
+   csfloat metrics: font-size 12px / weight 400 / colour
+   rgb(158,167,177); padding 5px; border-radius 12px;
+   background rgba(193,206,255,0.04); 1px transparent border so
+   the active state can swap colour without size jumping. Total
+   pill height collapses to 26px including borders. Row hugs
+   the section width (310px on csfloat) so children flex 1:1. */
+.sidebar .price-chips,
+.filter-section .price-chips {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+.sidebar .price-chip,
+.filter-section .price-chip {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 26px !important;
+  padding: 5px !important;
+  border-radius: 12px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid transparent !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 14px !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+.sidebar .price-chip:hover,
+.filter-section .price-chip:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2202 */
+
+/* CSFLOAT-1:1 PARITY ship #2203 — Active price chip.
+   csfloat highlights the active range with a subtle white border
+   and the muted-blue tint kept; the text flips to white. We use a
+   thin solid 1px border so the chip doesn't grow on toggle (the
+   default state already reserves the 1px slot via transparent). */
+.sidebar .price-chip.active,
+.filter-section .price-chip.active {
+  background: rgba(193, 206, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+.sidebar .price-chip.active:hover,
+.filter-section .price-chip.active:hover {
+  background: rgba(193, 206, 255, 0.16) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2203 */
+
+/* CSFLOAT-1:1 PARITY ship #2204 — Number-input spinner cleanup
+   and section paddings. csfloat uses type=text exactly to avoid
+   default spin buttons; we keep type=text in our JSX but force the
+   appearance off in case any browser wraps a number input. The
+   filter-section padding is also reset to 0 inside .sidebar so the
+   gap math (12px / 16px) lines up with the divider rule. */
+.sidebar .price-input::-webkit-outer-spin-button,
+.sidebar .price-input::-webkit-inner-spin-button,
+.filter-section .price-input::-webkit-outer-spin-button,
+.filter-section .price-input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+.sidebar .price-input,
+.filter-section .price-input {
+  -moz-appearance: textfield !important;
+}
+.sidebar .filter-section + .filter-divider,
+.filter-section + .filter-divider {
+  margin: 16px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2204 */
+
+/* CSFLOAT-1:1 PARITY ship #2205 -- /db sortable header arrow indicator
+   csfloat headers carry a Material arrow_upward / arrow_downward glyph
+   when active, plus a faint hover-only unfold_more glyph when inactive.
+   The active label drops to brand-blue. Header row goes sticky inside
+   .db-table-scroll so labels remain visible while paging through 25
+   rows. Caret 14px, vertical-align -2px to optical-center on cap line. */
+.db-table thead th {
+  cursor: pointer !important;
+  user-select: none !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  background: #1f2228 !important;
+  border-bottom: 1px solid #2a2d34 !important;
+  transition: color 120ms ease, background 120ms ease !important;
+}
+.db-table thead th:hover { color: #e6e8ec !important; background: #22262d !important; }
+.db-table thead th[aria-sort="ascending"],
+.db-table thead th[aria-sort="descending"],
+.db-table thead th.sort-active { color: #1ea5ff !important; }
+.db-table thead th[aria-sort="ascending"]::after,
+.db-table thead th.sort-asc::after {
+  content: "arrow_upward";
+  font-family: "Material Symbols Rounded";
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  margin-left: 4px;
+  vertical-align: -2px;
+  display: inline-block;
+  font-variation-settings: "FILL" 0, "wght" 600;
+}
+.db-table thead th[aria-sort="descending"]::after,
+.db-table thead th.sort-desc::after {
+  content: "arrow_downward";
+  font-family: "Material Symbols Rounded";
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  margin-left: 4px;
+  vertical-align: -2px;
+  display: inline-block;
+  font-variation-settings: "FILL" 0, "wght" 600;
+}
+.db-table thead th:not([aria-sort])::after {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  vertical-align: -2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.db-table thead th:not([aria-sort]):hover::after {
+  content: "unfold_more";
+  font-family: "Material Symbols Rounded";
+  font-size: 14px;
+  color: #6a7180;
+  opacity: 1;
+}
+/* END CSFLOAT-1:1 PARITY ship #2205 */
+
+/* CSFLOAT-1:1 PARITY ship #2206 -- /db row hover state pixel match
+   csfloat row hover is two-layer: bg brightens by ~6% to #22262d and a
+   3px left accent stripe in brand-blue paints in via inset box-shadow
+   (single-value, s+box-CSS safe) so the row does not shift. Cursor
+   stays pointer because the entire row opens the item detail. The
+   thumbnail picks up a subtle blue ring at 35% alpha to bind the click
+   target. 140ms ease feels intentional without lagging mouse traces. */
+.db-table tbody tr.db-row {
+  cursor: pointer !important;
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease !important;
+  position: relative !important;
+}
+.db-table tbody tr.db-row:hover {
+  background: #22262d !important;
+  box-shadow: inset 3px 0 0 0 #1ea5ff !important;
+}
+.db-table tbody tr.db-row:hover .db-name { color: #e6e8ec !important; }
+.db-table tbody tr.db-row:hover .db-thumb {
+  box-shadow: 0 0 0 1px rgba(30,165,255,0.35) !important;
+}
+.db-table tbody tr.db-row:active {
+  background: #1c2026 !important;
+  transform: translateY(0.5px) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .db-table tbody tr.db-row { transition: none !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #2206 */
+
+/* CSFLOAT-1:1 PARITY ship #2207 -- /db expand-row inline detail state
+   csfloat shows a vertical accent + slightly lifted bg on the open
+   row and reveals a sibling detail row beneath. Sboxmarket /db opens
+   a full modal on row click, but for users who click and release
+   before the modal mounts (slow connection) we paint the same pressed
+   / expanded state on the row so the click registers visually. State
+   class .db-row.is-open is the contract; JS toggles it for the 200ms
+   transition window. Sibling .db-row-detail hidden by default and
+   table-row revealed when the trigger row carries .is-open. */
+.db-table tbody tr.db-row.is-open,
+.db-table tbody tr.db-row[aria-expanded="true"] {
+  background: #22262d !important;
+  box-shadow: inset 3px 0 0 0 #1ea5ff, inset 0 -1px 0 0 #2a2d34 !important;
+}
+.db-table tbody tr.db-row.is-open .db-name,
+.db-table tbody tr.db-row[aria-expanded="true"] .db-name {
+  color: #1ea5ff !important;
+}
+.db-table tbody tr.db-row.is-open + tr.db-row-detail,
+.db-table tbody tr.db-row[aria-expanded="true"] + tr.db-row-detail {
+  display: table-row !important;
+  background: #1a1d23 !important;
+  border-bottom: 1px solid #2a2d34 !important;
+}
+.db-table tbody tr.db-row-detail { display: none; }
+.db-table tbody tr.db-row-detail > td {
+  padding: 16px 20px !important;
+  border-bottom: 1px solid #2a2d34 !important;
+  font-size: 12px;
+  color: #b6bcc8;
+  background: #1a1d23 !important;
+}
+.db-table tbody tr.db-row-detail .row-detail-loading {
+  display: inline-block;
+  width: 120px;
+  height: 12px;
+  background: linear-gradient(90deg, #1f2228 0%, #2a2d34 50%, #1f2228 100%);
+  background-size: 200% 100%;
+  animation: dbRowDetailShim 1.4s ease-in-out infinite;
+  border-radius: 3px;
+}
+@keyframes dbRowDetailShim {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .db-table tbody tr.db-row-detail .row-detail-loading { animation: none; }
+}
+/* END CSFLOAT-1:1 PARITY ship #2207 */
+
+/* CSFLOAT-1:1 PARITY ship #2208 -- /db item-name cell typography lock
+   csfloat item cell: 48px square thumb on the left, 12px gap, then a
+   2-line stack: title 13px / 500 with #e6e8ec ink, plus a 10px mono
+   sub-line in #6a7180. The right values lived at line 5409+ already
+   but were being overridden on tablet widths because the parent
+   .db-row grid template kicked in at 1100px and shrank the thumb.
+   Lock the cell layout regardless of breakpoint so the 48 / 12 / 13 /
+   10 rhythm survives every media query. */
+.db-table tbody td .db-item-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+.db-table tbody td .db-item-cell > .db-thumb {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 8px !important;
+  flex: 0 0 48px !important;
+  background: #14161b !important;
+  overflow: hidden !important;
+  transition: box-shadow 140ms ease !important;
+}
+.db-table tbody td .db-item-cell > .db-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+.db-table tbody td .db-item-cell > div:not(.db-thumb) {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 2px !important;
+}
+.db-table tbody td .db-name,
+.db-table tbody td a.db-name {
+  display: block !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #e6e8ec !important;
+  letter-spacing: -0.005em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-decoration: none !important;
+  max-width: 100% !important;
+}
+.db-table tbody td a.db-name:hover { color: #1ea5ff !important; text-decoration: none !important; }
+.db-table tbody td .db-sub {
+  font-family: Geist Mono, Roboto Mono, ui-monospace, monospace !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  color: #6a7180 !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2208 */
+
+/* CSFLOAT-1:1 PARITY ship #2209 -- /db price cell with delta chip
+   csfloat shows the floor price as a 13px tabular-num value plus an
+   optional 11px delta chip (%) on the line below or inline. Green
+   chip = above 24h average, red chip = below. Sboxmarket renders
+   just the floor today, but we ship the chip styles now so when
+   api.js starts returning priceDelta the chip lights up without
+   further CSS work. Chip leads with a 4px coloured dot (csfloat
+   parity); tabular-num prevents jitter when sorting. */
+.db-table tbody td.right.db-mono.accent {
+  font-family: Geist Mono, Roboto Mono, ui-monospace, monospace !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -0.01em !important;
+  color: #f3f4f6 !important;
+  text-align: right !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  padding-right: 14px !important;
+}
+.db-table tbody td.right.db-mono.accent .price-delta {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  margin-left: 6px !important;
+  padding: 1px 6px !important;
+  font-family: Geist Mono, Roboto Mono, ui-monospace, monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  border-radius: 4px !important;
+  vertical-align: 1px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.db-table tbody td.right.db-mono.accent .price-delta.up {
+  color: #34c184 !important;
+  background: rgba(52,193,132,0.10) !important;
+  border: 1px solid rgba(52,193,132,0.20) !important;
+}
+.db-table tbody td.right.db-mono.accent .price-delta.down {
+  color: #ef5350 !important;
+  background: rgba(239,83,80,0.10) !important;
+  border: 1px solid rgba(239,83,80,0.20) !important;
+}
+.db-table tbody td.right.db-mono.accent .price-delta.flat {
+  color: #6a7180 !important;
+  background: rgba(106,113,128,0.10) !important;
+  border: 1px solid rgba(106,113,128,0.20) !important;
+}
+.db-table tbody td.right.db-mono.accent .price-delta::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.db-table tbody td.right.db-mono.accent .price-sub {
+  display: block !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: #6a7180 !important;
+  margin-top: 1px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2209 */
+
+/* CSFLOAT-1:1 PARITY ship #2210 -- /db mobile-collapse table behavior
+   csfloat collapses the table into a vertical card stack <600px so the
+   item title + price stay readable without horizontal scroll. We had
+   most of this at 5429+ but the sort caret shipped earlier was showing
+   on mobile (where the head is hidden, but th::after still fires
+   inside hidden thead, costing layout). Plus the mobile floor price
+   needed the price-delta chip restyled so it fits on one line under
+   the item name and the watch column drops to a 36px tap target
+   instead of the 44px desktop target. */
+@media (max-width: 600px) {
+  .db-table thead { display: none !important; }
+  .db-table thead th::after { display: none !important; content: none !important; }
+  .db-table tbody tr.db-row {
+    display: grid !important;
+    grid-template-columns: 56px 1fr auto !important;
+    gap: 6px 12px !important;
+    padding: 12px 14px !important;
+    align-items: center !important;
+    border-bottom: 1px solid #2a2d34 !important;
+    box-shadow: none !important;
+  }
+  .db-table tbody tr.db-row:hover {
+    background: #22262d !important;
+    box-shadow: inset 3px 0 0 0 #1ea5ff !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(1) { display: none !important; }
+  .db-table tbody tr.db-row > td:nth-child(2) {
+    grid-column: 1 / 3 !important;
+    grid-row: 1 / 3 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-item-cell > .db-thumb {
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-name { font-size: 13px !important; }
+  .db-table tbody tr.db-row > td:nth-child(2) .db-sub { font-size: 10px !important; }
+  .db-table tbody tr.db-row > td:nth-child(3),
+  .db-table tbody tr.db-row > td:nth-child(4) { display: none !important; }
+  .db-table tbody tr.db-row > td:nth-child(5),
+  .db-table tbody tr.db-row > td:nth-child(6),
+  .db-table tbody tr.db-row > td:nth-child(7) {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    font-size: 10px !important;
+    color: #6a7180 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    display: inline !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(8) {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: right !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(8) .price-delta {
+    margin-left: 0 !important;
+    margin-top: 2px !important;
+    display: inline-flex !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(8) .price-sub { display: none !important; }
+  .db-table tbody tr.db-row > td:nth-child(9) {
+    grid-column: 3 !important;
+    grid-row: 2 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: right !important;
+  }
+  .db-table tbody tr.db-row > td:nth-child(9) .db-row-star {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .db-table tbody tr.db-row-detail > td {
+    padding: 12px 14px !important;
+    font-size: 11px !important;
+  }
+  .db-pager {
+    flex-direction: row !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 16px 8px !important;
+    font-size: 11px !important;
+  }
+  .db-pager .btn { height: 32px !important; padding: 0 12px !important; font-size: 11px !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #2210 */
+
+/* CSFLOAT-1:1 PARITY ship #2300 — /settings section heading typography.
+   sboxmarket was 22px / 700 / uppercase / -0.44px tracking which read
+   as a banner. csfloat reference is sentence-case 14px / 500 / muted
+   grey - it groups the form rather than shouting. We pin those tokens
+   with !important so neither earlier mono-uppercase rules nor
+   .full-page-mode overrides re-promote the heading. */
+h2.settings-section-heading,
+.info-modal-body h2.settings-section-heading,
+.full-page-mode .info-modal-body h2.settings-section-heading {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  margin-top: 22px !important;
+  margin-bottom: 10px !important;
+  padding: 0 !important;
+}
+h2.settings-section-heading:first-child,
+.info-modal-body h2.settings-section-heading:first-child {
+  margin-top: 0 !important;
+}
+.settings-row + h2.settings-section-heading {
+  margin-top: 24px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2300 */
+
+/* CSFLOAT-1:1 PARITY ship #2301 — /settings row layout (label/sublabel
+   left, control right, hairline divider). csfloat presents each setting
+   as a flex row with `justify-content: space-between` and a thin
+   rgba(255,255,255,0.06) bottom border, label/sublabel column on the
+   left, control aligned right. The current sboxmarket grid layout
+   collapsed when the right control was wider (chip cluster). Switching
+   to flex-row matches csfloat exactly while staying responsive on
+   narrow viewports. */
+.settings-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+  padding: 14px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+.settings-row > div:first-child {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+.settings-row > *:last-child {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+}
+.settings-row .settings-label,
+.settings-row > div > .settings-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  letter-spacing: 0 !important;
+  line-height: 20px !important;
+  margin: 0 0 2px !important;
+  text-transform: none !important;
+}
+.settings-row .settings-sublabel,
+.settings-row > div > .settings-sublabel {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  line-height: 16px !important;
+  letter-spacing: 0 !important;
+  margin: 0 !important;
+  max-width: 520px !important;
+}
+@media (max-width: 720px) {
+  .settings-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .settings-row > *:last-child {
+    margin-left: 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #2301 */
+
+/* CSFLOAT-1:1 PARITY ship #2302 — /settings toggle switch (Material-style
+   pill with thumb). csfloat reference is a 36x20 pill track with a 14px
+   thumb, rgba(255,255,255,0.18) off / #237BFF on. Off-state thumb sits
+   on the left at 3px inset; on-state slides 16px right. The current
+   sboxmarket toggle was sized inconsistently across the stylesheet
+   (38/22, 32/18, 30/16). Pin every variant in the /settings context to
+   csfloat's 36x20 with the brand blue accent, scoped to .settings-row
+   so the wallet hero and other site toggles aren't disturbed. */
+.settings-row .toggle-switch,
+.info-modal-body .settings-row .toggle-switch {
+  width: 36px !important;
+  height: 20px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border: 0 !important;
+  padding: 0 !important;
+  position: relative !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+  display: inline-block !important;
+}
+.settings-row .toggle-switch::after,
+.settings-row .toggle-switch::before,
+.info-modal-body .settings-row .toggle-switch::after,
+.info-modal-body .settings-row .toggle-switch::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+  margin: 0 !important;
+}
+.settings-row .toggle-switch.off,
+.info-modal-body .settings-row .toggle-switch.off {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+.settings-row .toggle-switch.off::after,
+.settings-row .toggle-switch.off::before,
+.info-modal-body .settings-row .toggle-switch.off::after,
+.info-modal-body .settings-row .toggle-switch.off::before {
+  transform: translateX(0) !important;
+}
+.settings-row .toggle-switch:not(.off),
+.settings-row .toggle-switch.on,
+.info-modal-body .settings-row .toggle-switch:not(.off),
+.info-modal-body .settings-row .toggle-switch.on {
+  background: #237bff !important;
+}
+.settings-row .toggle-switch:not(.off)::after,
+.settings-row .toggle-switch:not(.off)::before,
+.settings-row .toggle-switch.on::after,
+.settings-row .toggle-switch.on::before,
+.info-modal-body .settings-row .toggle-switch:not(.off)::after,
+.info-modal-body .settings-row .toggle-switch:not(.off)::before,
+.info-modal-body .settings-row .toggle-switch.on::after,
+.info-modal-body .settings-row .toggle-switch.on::before {
+  transform: translateX(16px) !important;
+}
+.settings-row .toggle-switch:hover,
+.info-modal-body .settings-row .toggle-switch:hover {
+  filter: brightness(1.08) !important;
+}
+.settings-row .toggle-switch:focus-visible,
+.info-modal-body .settings-row .toggle-switch:focus-visible {
+  outline: 2px solid #237bff !important;
+  outline-offset: 3px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2302 */
+
+/* CSFLOAT-1:1 PARITY ship #2303 — /settings select + input fields
+   (currency picker, trade-url surface). csfloat reference: thin 32px
+   pill, rgba(255,255,255,0.04) fill, 1px rgba(255,255,255,0.08) border,
+   12px / weight 500 white text, custom chevron caret tinted to match
+   muted text. Width hugs content so the right-aligned column doesn't
+   blow out the row. The current sboxmarket select was inheriting
+   .sort-select sizing that rendered taller than csfloat's compact
+   form-field pill. */
+.settings-row select,
+.settings-row .sort-select,
+.settings-row input[type="text"],
+.settings-row input[type="email"],
+.settings-row input[type="url"],
+.settings-row input[type="number"] {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 28px 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  letter-spacing: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  cursor: pointer !important;
+  transition: background-color 160ms ease, border-color 160ms ease !important;
+}
+.settings-row select,
+.settings-row .sort-select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M3 4.5l3 3 3-3' stroke='rgba(255,255,255,0.55)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 10px center !important;
+}
+.settings-row select:hover,
+.settings-row input[type="text"]:hover,
+.settings-row input[type="email"]:hover,
+.settings-row input[type="url"]:hover,
+.settings-row input[type="number"]:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+.settings-row select:focus,
+.settings-row select:focus-visible,
+.settings-row input:focus,
+.settings-row input:focus-visible {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+}
+.settings-row select option {
+  background: #1a1d23 !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2303 */
+
+/* CSFLOAT-1:1 PARITY ship #2304 — /settings notification chip cluster
+   (Mute notification types: TRADES/AUCTIONS/OFFERS chips). csfloat
+   reference uses 24px pill chips with subtle surface fill + 1px
+   border; the active variant gets a brand-blue tint. Re-tune the
+   SETTINGS-context instance so chips match the surrounding 32px
+   row controls. Inverted semantics (.active = audible) carry over
+   from the existing component contract in modals.js. */
+.settings-row .wallet-tx-filter-chip {
+  height: 24px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 22px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+.settings-row .wallet-tx-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.settings-row .wallet-tx-filter-chip.active {
+  background: rgba(35, 123, 255, 0.15) !important;
+  border-color: rgba(35, 123, 255, 0.45) !important;
+  color: #b6d2ff !important;
+}
+.settings-row .wallet-tx-filter-chip.active:hover {
+  background: rgba(35, 123, 255, 0.22) !important;
+  border-color: rgba(35, 123, 255, 0.7) !important;
+}
+.settings-row > div:last-child[style*="flex-wrap"],
+.settings-row > div:last-child[style*="flexWrap"] {
+  gap: 6px !important;
+  justify-content: flex-end !important;
+  max-width: 360px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2304 */
+
+/* CSFLOAT-1:1 PARITY ship #2305 — /settings footer button rows for the
+   Local data and Account & data sections (Reset / Clear / Manage / Export).
+   csfloat reference: quiet secondary button - flat surface pill with
+   1px hairline border, 12px sentence-case text, 32px height. The
+   existing inline style props in modals.js set fontSize:11 + padding:8
+   14 which read taller than csfloat's compact 32px row. Override the
+   inline styles so footer buttons match the rest of the form. The
+   .btn-danger-ghost variant gets a softer rose tint to telegraph
+   destructive action without screaming. */
+.info-modal-body .btn.btn-ghost[style*="border: 1px solid var(--border)"],
+.info-modal-body a.btn.btn-ghost[style*="border: 1px solid var(--border)"],
+.info-modal-body button.btn.btn-ghost[style*="border: 1px solid var(--border)"] {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 32px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-decoration: none !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+.info-modal-body .btn.btn-ghost[style*="border: 1px solid var(--border)"]:hover,
+.info-modal-body a.btn.btn-ghost[style*="border: 1px solid var(--border)"]:hover,
+.info-modal-body button.btn.btn-ghost[style*="border: 1px solid var(--border)"]:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+}
+.info-modal-body button.btn-danger-ghost {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 32px !important;
+  border-radius: 6px !important;
+  background: rgba(244, 71, 71, 0.06) !important;
+  border: 1px solid rgba(244, 71, 71, 0.28) !important;
+  color: #ff7d7d !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+.info-modal-body button.btn-danger-ghost:hover {
+  background: rgba(244, 71, 71, 0.12) !important;
+  border-color: rgba(244, 71, 71, 0.55) !important;
+  color: #ff9c9c !important;
+}
+.info-modal-body div[style*="margin-top: 24px"][style*="border-top"],
+.info-modal-body div[style*="marginTop: 24"][style*="borderTop"] {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+  padding-top: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2305 */
