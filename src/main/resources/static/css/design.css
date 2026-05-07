@@ -133393,6 +133393,209 @@ main.changelog {
 }
 /* END CSFLOAT-1:1 PARITY ship #2408 */
 
+/* CSFLOAT-1:1 PARITY ship #2500 — profile hero container.
+   Measure: csfloat profile hero = flat row, 24px vertical padding,
+   1px hairline rgba(255,255,255,0.08) bottom border (no full
+   bordered card), 16px gap from avatar to text block, no rounded
+   panel chrome around the hero. Pre-fix sbox .profile-hero =
+   bordered card with 28px padding all sides + 10px radius +
+   var(--bg-1) panel — too heavy vs csfloat's lightweight stripe.
+   Strip panel; restore csfloat lightweight hero stripe. */
+.profile-hero {
+  display: grid !important;
+  grid-template-columns: 96px 1fr auto !important;
+  gap: 20px !important;
+  align-items: center !important;
+  padding: 24px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  margin-bottom: 24px !important;
+}
+.profile-hero-split {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2500 */
+
+/* CSFLOAT-1:1 PARITY ship #2501 — profile avatar.
+   Measure: csfloat profile avatar = 96x96 round (50% radius),
+   2px solid rgba(255,255,255,0.12) ring, no inner gradient fill,
+   solid bg-2 fallback. Pre-fix sbox .profile-avatar = 120x120
+   square w/ 10px radius (var(--r-md)) and a 135deg linear-gradient
+   fill — neither size, shape, nor fill match csfloat. Force round
+   96px ring + flat bg per csfloat spec. */
+.profile-avatar {
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: 50% !important;
+  background: rgb(36, 41, 50) !important;
+  border: 2px solid rgba(255, 255, 255, 0.12) !important;
+  display: grid !important;
+  place-items: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 32px !important;
+  color: rgb(255, 255, 255) !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  font-variation-settings: normal !important;
+}
+.profile-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2501 */
+
+/* CSFLOAT-1:1 PARITY ship #2502 — profile display name.
+   Measure: csfloat display name = Roboto 22px/600,
+   white rgb(255,255,255), letter-spacing normal, line-height
+   28px, no italic / no opsz axis, 6px bottom margin. Pre-fix
+   sbox .profile-name = Fraunces serif, weight 360, clamp 28-40px,
+   -0.025em letter-spacing, opsz 144 + SOFT 20 axes — full
+   editorial display face, completely off-spec for csfloat's
+   utilitarian sans. Restore csfloat name. */
+.profile-name {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  line-height: 28px !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  margin: 0 0 6px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2502 */
+
+/* CSFLOAT-1:1 PARITY ship #2503 — profile id / handle and meta links.
+   Measure: csfloat handle row = Roboto 13px/400 in muted
+   rgb(158,167,177), letter-spacing normal, no monospace.
+   Profile-link anchors = Roboto 13px/500 csfloat-blue
+   rgb(35,123,255) plain text (no underline until hover), 4px
+   gap. Pre-fix sbox .profile-id / .profile-link both used
+   var(--mono) Geist Mono with 0.04em tracking — code-feel, not
+   csfloat's text-feel. Restore csfloat sans + blue link. */
+.profile-id {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 18px !important;
+}
+.profile-id span[style*="JetBrains"] {
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  color: rgb(200, 207, 215) !important;
+}
+.profile-link {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+.profile-link:hover {
+  color: rgb(80, 150, 255) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+  text-decoration-color: rgb(80, 150, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2503 */
+
+/* CSFLOAT-1:1 PARITY ship #2504 — profile stats row + earnings panel.
+   Measure: csfloat stats panel = single bordered card with 8px
+   radius, hairline rgba(255,255,255,0.08) border, NO interior 1px
+   gridlines (sbox uses --line gap-tinted background trick to fake
+   gridlines — csfloat just spaces stats with internal padding,
+   no visible dividers). Stat label = Roboto 11px/500 uppercase
+   muted, stat val = Roboto 20px/700 white. Earnings val = Roboto
+   16px/600. Pre-fix sbox uses Geist Mono 10px labels w/ 0.14em
+   tracking + 22px Geist Mono vals — code-feel; csfloat is sans
+   throughout. Strip mono; restore csfloat sans across stats +
+   earnings, kill internal gridlines. */
+.profile-stats {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  gap: 0 !important;
+  margin-bottom: 24px !important;
+  background: rgb(28, 33, 41) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+.profile-stat {
+  padding: 16px 20px !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.profile-stat:last-child { border-right: 0 !important; }
+.profile-stat-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+}
+.profile-stat-val {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 28px !important;
+}
+.profile-earnings {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  background: rgb(28, 33, 41) !important;
+  overflow: hidden !important;
+  margin-bottom: 16px !important;
+}
+.profile-earnings-head {
+  padding: 14px 18px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.profile-earnings-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  text-transform: uppercase !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+}
+.profile-earnings-row {
+  padding: 10px 18px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.profile-earnings-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(158, 167, 177) !important;
+}
+.profile-earnings-val {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2504 */
+
 /* CSFLOAT-1:1 PARITY ship #2400 — .nav-picker-panel (USD/EN dropdown)
    measured tokens. csfloat .themed-menu panel:
      bg rgba(21,23,28,0.8); border 2px solid rgba(193,206,255,0.07);

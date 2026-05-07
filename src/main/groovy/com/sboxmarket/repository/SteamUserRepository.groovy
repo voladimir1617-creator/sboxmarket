@@ -157,4 +157,19 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
         ORDER BY u.id ASC
     """)
     List<Long> findActiveUserIds(Pageable page)
+
+    /** Bulk presence lookup (V61). Returns `[userId, lastSeenAt]` pairs
+     *  for the given ids — drives `Listing.sellerLastSeenAt` decoration
+     *  on every list endpoint without per-row hits. Empty input → empty
+     *  output (caller short-circuits). Indexed by PK. */
+    @Query("SELECT u.id, u.lastSeenAt FROM SteamUser u WHERE u.id IN :ids")
+    List<Object[]> findLastSeenAtByIds(@Param('ids') Collection<Long> ids)
+
+    /** Single-user lastSeenAt persist (PresenceFilter throttle path).
+     *  Bulk UPDATE so we don't load the full SteamUser row just to
+     *  bump one timestamp on every authenticated request. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE SteamUser u SET u.lastSeenAt = :ts WHERE u.id = :id")
+    int updateLastSeenAt(@Param('id') Long id, @Param('ts') Long timestamp)
 }

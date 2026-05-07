@@ -464,7 +464,10 @@ class WalletControllerSpec extends Specification {
         resp.headers.getFirst('Cache-Control') == 'no-store'
         resp.headers.getFirst('Content-Disposition')?.contains('attachment')
         resp.headers.getFirst('Content-Disposition')?.contains('.csv')
-        resp.body.startsWith('id,date,type,status,amount,currency,description,listingId,reference\n')
+        // Commit 5ade09d added a `# currency: USD` comment line ahead of
+        // the header row + renamed `amount` to `amount (USD)` so a CSV
+        // opened in a foreign locale carries the currency metadata.
+        resp.body.startsWith('# currency: USD\nid,date,type,status,amount (USD),currency,description,listingId,reference\n')
         resp.body.contains('DEPOSIT')
         resp.body.contains('25.00')
     }

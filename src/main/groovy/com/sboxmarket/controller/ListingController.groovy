@@ -709,6 +709,37 @@ class ListingController {
                 l.sellerReviewCount  = (s.count as Number)?.intValue()
             }
         }
+        // V61 — same single-pass decoration for `sellerLastSeenAt`. Bulk
+        // SELECT covers every distinct seller in this list so the whole
+        // marketplace grid lights up real "Online now" presence dots
+        // without a per-row hit. Null sellerUserId rows (system seed
+        // listings) keep the deterministic-seed fallback on the client.
+        decorateWithSellerLastSeen(rows, sellerIds)
+    }
+
+    /** V61 — bulk-attach `sellerLastSeenAt` (epoch ms) onto every listing
+     *  that has a non-null sellerUserId. Single SELECT against
+     *  steam_users by PK. Silent no-op on empty input or when the
+     *  steamUserRepository bean isn't registered (test contexts). The
+     *  ~private overload accepts the already-computed sellerIds set so
+     *  decorateWithSellerRating doesn't recompute it. */
+    private void decorateWithSellerLastSeen(List<Listing> rows, Set<Long> sellerIds = null) {
+        if (rows == null || rows.isEmpty() || steamUserRepository == null) return
+        def ids = sellerIds ?: rows.collect { it.sellerUserId }.findAll { it != null }.toSet()
+        if (ids.isEmpty()) return
+        def pairs = steamUserRepository.findLastSeenAtByIds(ids as Collection<Long>)
+        if (pairs == null || pairs.isEmpty()) return
+        Map<Long, Long> byId = [:]
+        pairs.each { Object[] p ->
+            if (p?.length >= 2 && p[0] != null) {
+                byId[(Long) p[0]] = p[1] == null ? null : ((Number) p[1]).longValue()
+            }
+        }
+        rows.each { l ->
+            if (l.sellerUserId != null) {
+                l.sellerLastSeenAt = byId[l.sellerUserId]
+            }
+        }
     }
 
     /** Top sellers rail — aggregates sold counts and surfaces the most

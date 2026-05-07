@@ -43,6 +43,15 @@ class SteamUser {
     @Column
     Long lastSyncedAt
 
+    /** Bumped by PresenceFilter on every authenticated request, throttled
+     *  to one DB write per 60 seconds per user. Drives real "Online now"
+     *  presence dots on listing cards, stall pages, and rails — replaces
+     *  the deterministic-seed fallback shipped before V61. Null on
+     *  accounts that haven't loaded a page since the column was added
+     *  (backfilled from lastLoginAt during migration). Indexed. */
+    @Column(name = 'last_seen_at')
+    Long lastSeenAt
+
     /** Cached count of Steam-inventory items the user owns for the s&box appid. */
     @Column
     Integer steamInventorySize

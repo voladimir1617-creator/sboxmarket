@@ -216,13 +216,35 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
       const { toggleReviewHelpful } = await import('./api.js');
       const res = await toggleReviewHelpful(review.id);
       if (res && (res.error || res.code)) {
+        // Pre-fix: silent revert. User saw the count flip then snap
+        // back with no explanation when the server rejected (e.g.
+        // banned, rate-limited, network blip). Now: revert + toast
+        // so the user understands the click didn't land.
         setHasVoted(prevVoted);
         setHelpfulCount(prevCount);
+        try {
+          window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+            text: res.message || res.error || 'Could not record your helpful vote — try again.',
+            kind: 'err'
+          }}));
+        } catch (_) {}
         return;
       }
       // Replace optimistic figures with server's authoritative values.
       if (typeof res?.helpfulCount === 'number') setHelpfulCount(res.helpfulCount);
       if (typeof res?.viewerHasVoted === 'boolean') setHasVoted(res.viewerHasVoted);
+    } catch (e) {
+      // Network / fetch failure path — toggleReviewHelpful's safeJson
+      // wrapper returns null on network errors, but a bare throw
+      // (CORS, AbortController) lands here. Same revert + toast.
+      setHasVoted(prevVoted);
+      setHelpfulCount(prevCount);
+      try {
+        window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+          text: 'Could not reach the server — your helpful vote was not recorded.',
+          kind: 'err'
+        }}));
+      } catch (_) {}
     } finally { setVoteBusy(false); }
   };
   const submit = async (clear = false) => {
@@ -4815,6 +4837,23 @@ export function App() {
     setTimeout(() => setToast(null), 4500);
   };
 
+  // V61 ship #47 — global `sb:toast` event bus. Any nested component
+  // that doesn't have direct access to `setToast` can dispatch
+  // `window.dispatchEvent(new CustomEvent('sb:toast', { detail: { text, kind } }))`
+  // and the App-level toast slot picks it up. Used by StallReviewRow's
+  // helpful-vote handler so a server-rejected vote surfaces a real
+  // error toast instead of silently snapping back. Same pattern can
+  // extend to any future cross-component handler that needs feedback.
+  useEffect(() => {
+    const onToast = (e) => {
+      const text = e?.detail?.text;
+      const kind = e?.detail?.kind || 'ok';
+      if (typeof text === 'string' && text.length > 0) showToast(text, kind);
+    };
+    window.addEventListener('sb:toast', onToast);
+    return () => window.removeEventListener('sb:toast', onToast);
+  }, []);
+
   // Session-expired broadcast from the api.js write wrapper. When any
   // write op hits a 401 it dispatches `sb:session-expired`; the App flips
   // `me` back to null so the nav avatar returns to the "Sign in with
@@ -6067,7 +6106,12 @@ export function App() {
                      state) — see GridCard's status row for the same logic. */
                   (() => {
                     const seed = top.sellerUserId ? Number(String(top.sellerUserId).slice(-6)) || 0 : (top.id || 0);
-                    const isOnline = (seed % 5) < 2;
+                    // V61 — real presence from sellerLastSeenAt; seed
+                    // fallback only when the listing has no real seller.
+                    const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
+                    const isOnline = top.sellerLastSeenAt
+                      ? (Date.now() - Number(top.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
+                      : (seed % 5) < 2;
                     const views = 100 + (seed % 700); // 100-799 stable
                     return h('div', { className: 'csfloat-home-hero-feature-statusrow' },
                       h('span', { className: `csfloat-home-hero-feature-dot${isOnline ? ' online' : ''}` }),
@@ -6182,19 +6226,20 @@ export function App() {
             const avg = Number(l.item.avgPrice || l.item.storePrice || 0);
             const price = Number(l.price || 0);
             const pct = (avg > 0 && price > 0) ? Math.round(((price - avg) / avg) * 100) : null;
-            // Listings payload doesn't expose a `seller.online` field — the
-            // pre-fix `l.seller && l.seller.online === true` predicate always
-            // resolved to false and every preview card showed "Offline".
-            // Mirror the deterministic-seed pattern used by GridCard (cards.js)
-            // and the home hero card so the status row stays visually
-            // consistent with the rails on either side. 2-in-5 sellers read
-            // as Online; the seed is sticky per sellerUserId so reloads stay
-            // stable. Real presence comes when the backend exposes a Steam
-            // last-seen-recency field on the listing payload.
+            // V61 ship: real presence from `l.sellerLastSeenAt` (epoch
+            // ms), bumped by PresenceFilter on every authenticated
+            // request. Falls back to the deterministic-seed pattern
+            // when sellerLastSeenAt is null (system seed listings) so
+            // those rows stay visually consistent with the rails on
+            // either side. 15-minute Online window — same threshold as
+            // the GridCard status row in cards.js.
+            const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
             const onlineSeed = l.sellerUserId
               ? Number(String(l.sellerUserId).slice(-6)) || 0
               : (l.id || 0);
-            const isOnline = (onlineSeed % 5) < 2;
+            const isOnline = l.sellerLastSeenAt
+              ? (Date.now() - Number(l.sellerLastSeenAt)) < PRESENCE_WINDOW_MS
+              : (onlineSeed % 5) < 2;
             return h('a', {
               key: l.id,
               className: 'csfloat-home-preview-card rarity-' + rarityClass,

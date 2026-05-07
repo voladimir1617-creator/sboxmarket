@@ -220,14 +220,23 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // identical so the grid card looks csfloat-shaped at a glance.
       h(FloatBar, { rarity: item.rarity, listingId: listing.id }),
       // CSFloat-1:1 seller status row — mirrors csfloat's "● Online ✓"
-      // line on every card. We have no real online-status backend yet,
-      // so the indicator is derived deterministically from sellerUserId
-      // (mod 5 → 40% online, 60% offline); same seller always reads the
-      // same state so the row stays consistent across reloads. The
-      // verified-check renders when sellerReviewCount >= 5.
+      // line on every card. V61 ship: real presence comes from
+      // `listing.sellerLastSeenAt` (epoch ms), bumped by PresenceFilter
+      // on every authenticated request — a seller who's actively
+      // browsing in the last 15 minutes reads as Online. Null
+      // (system seed listings, sellerUserId === null) falls back to
+      // the deterministic-seed pattern so the row stays consistent
+      // across reloads for those rows. The verified-check renders
+      // when sellerReviewCount >= 5.
       (() => {
-        const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
-        const isOnline = (seed % 5) < 2;
+        const PRESENCE_WINDOW_MS = 15 * 60 * 1000;
+        let isOnline;
+        if (listing.sellerLastSeenAt) {
+          isOnline = (Date.now() - Number(listing.sellerLastSeenAt)) < PRESENCE_WINDOW_MS;
+        } else {
+          const seed = listing.sellerUserId ? Number(String(listing.sellerUserId).slice(-6)) || 0 : (listing.id || 0);
+          isOnline = (seed % 5) < 2;
+        }
         const isVerified = (listing.sellerReviewCount || 0) >= 5;
         // Operator audit (batch 1149): clarify the Online/Offline pill —
         // it tracks SELLER PRESENCE (whether the lister is currently

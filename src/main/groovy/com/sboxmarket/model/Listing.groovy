@@ -151,4 +151,14 @@ class Listing {
 
     @Transient
     Integer sellerReviewCount
+
+    /** Seller's epoch-ms `lastSeenAt`, attached at serialization time by
+     *  ListingController#decorateWithSellerLastSeen so the marketplace
+     *  can render real "Online now" presence dots. Null when sellerUserId
+     *  is null (system listings) or the seller has never loaded a page
+     *  since V61 deployed. The frontend treats `now - sellerLastSeenAt
+     *  < 15 min` as Online, otherwise Offline; null falls back to the
+     *  deterministic-seed pattern shipped before V61. Not persisted. */
+    @Transient
+    Long sellerLastSeenAt
 }

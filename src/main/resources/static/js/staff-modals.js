@@ -675,15 +675,56 @@ function AdminAnnouncementsTab() {
       }
       setMessage(''); setHours('');
       await load();
+      // Pre-fix: silent on success — form cleared, list refreshed, but
+      // no confirmation that the banner went live sitewide. Staff with
+      // multiple similar entries had to scroll the list to confirm the
+      // post landed. Surface a toast so the action reads as real.
+      try {
+        window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+          text: hours
+            ? `Banner posted — auto-expires in ${hours}h.`
+            : 'Banner posted — live sitewide until manually deactivated.',
+          kind: 'ok'
+        }}));
+      } catch (_) {}
     } finally { setBusy(false); }
   };
   const deactivate = async (id) => {
     const csrf = (document.cookie.match(/sbox_csrf=([^;]+)/) || [])[1];
-    await fetch(`/api/admin/announcements/${id}`, {
-      method: 'DELETE',
-      credentials: 'same-origin',
-      headers: csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}
-    });
+    try {
+      const r = await fetch(`/api/admin/announcements/${id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}
+      });
+      if (!r.ok) {
+        // Pre-fix: bare fetch with no status check. A 401/403/500 left
+        // the row visible AND `await load()` repainted it identically
+        // — staff thought the banner was gone when it was still live
+        // sitewide. Surface a real toast so the failure is obvious.
+        const j = await r.json().catch(() => ({}));
+        try {
+          window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+            text: `Could not deactivate banner — ${j.message || j.error || `HTTP ${r.status}`}`,
+            kind: 'err'
+          }}));
+        } catch (_) {}
+      } else {
+        try {
+          window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+            text: 'Banner deactivated — no longer shown sitewide.',
+            kind: 'ok'
+          }}));
+        } catch (_) {}
+      }
+    } catch (e) {
+      try {
+        window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+          text: 'Could not reach the server — banner was not deactivated.',
+          kind: 'err'
+        }}));
+      } catch (_) {}
+    }
     await load();
   };
   const live = rows.filter(r => r.active && (!r.expiresAt || r.expiresAt > Date.now()));
@@ -1418,6 +1459,10 @@ function AdminTradesTab() {
     if (res && (res.error || res.code)) { toast(res.message || res.error, 'err'); return; }
     const msgs = await fetchTradeMessages(tradeId);
     setChatThreads(prev => ({ ...prev, [tradeId]: msgs }));
+    // Pre-fix: silent on success — staff saw the row vanish from chat but
+    // had no confirmation that the audit-log write landed. Surface a toast
+    // so admin actions consistently report outcome.
+    toast(`Message #${msgId} redacted from trade #${tradeId}.`, 'ok');
   };
 
   const load = useCallback(async () => { setRows(null); setRows(await adminTrades(filter)); }, [filter]);
