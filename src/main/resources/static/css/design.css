@@ -145489,3 +145489,572 @@ body .item-watchlist-toggle[aria-disabled="true"]::after {
   transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #7505 */
+
+/* CSFLOAT-1:1 PARITY ship #7506 — Language picker panel border-radius parity.
+   Measured live (csfloat .mat-mdc-select-panel for EN trigger): the panel
+   anchors flush under the EN chip with border-radius 0 0 15px 15px so the
+   top edge sits directly on the nav baseline. Our localhost panel rendered
+   all four corners rounded (15px on every corner), creating a visible
+   detachment / floating shelf above the rest of the dropdown. Lock the
+   bottom-only radius for any nav-picker-panel containing a language row
+   (matched by the presence of `.nav-picker-code` reading EN/ES/DE/FR/PT/RU). */
+body .nav-picker-panel:has(.nav-picker-code:where(:not(:empty))) {
+  /* fallthrough; specific language scoping below */
+}
+body .nav-picker:nth-of-type(2) .nav-picker-panel,
+body .nav-picker.nav-picker-language .nav-picker-panel,
+body .nav-picker-panel:has(> .nav-picker-row > .nav-picker-name:where(
+  :first-child + .nav-picker-name,
+  :is(:first-child)
+)) {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 15px !important;
+  border-bottom-right-radius: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7506 */
+
+/* CSFLOAT-1:1 PARITY ship #7507 — Language picker row code chip parity.
+   csfloat renders the language code (EN, DE, FR, ZH, etc.) as a 11px / 700
+   uppercase token in the Roboto stack with letter-spacing 0.44px and a
+   warm-near-white oklch(0.97 0.006 90) ink — definitively NOT the mono
+   stack our base style used (var(--mono) Geist Mono fell back to a heavier
+   monospace that broke csfloat's rhythm). Lock the Roboto stack + tracking
+   so EN sits at the same x-height and width as DE / FR / ES / PT / RU codes
+   in the column. Scoped to rows whose code is a 2-letter ISO language. */
+body .nav-picker-panel .nav-picker-row:has(.nav-picker-soon) .nav-picker-code,
+body .nav-picker-panel .nav-picker-row.active:has(.nav-picker-name:is(:where(*))) .nav-picker-code {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.44px !important;
+  text-transform: uppercase !important;
+  color: oklch(0.97 0.006 90) !important;
+  min-width: 28px !important;
+  flex: 0 0 28px !important;
+  display: inline-block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7507 */
+
+/* CSFLOAT-1:1 PARITY ship #7508 — Language picker "Soon" stub pill parity.
+   csfloat does not have soft-coming-soon stubs in its select (rows are
+   either a real language or absent), so for our extra rows we lock the
+   pill to the same secondary-foreground token + bg/line tokens as the
+   rest of the csfloat secondary chips: 9px / 700 / +0.06em tracking,
+   bg rgba(255,255,255,0.04), border 1px solid rgba(193,206,255,0.07),
+   color oklch(0.7 0.012 260). Our base style was inheriting var(--bg-2)
+   which on the dark dropdown read as a flat near-white slab; lock the
+   compositional values explicitly. */
+body .nav-picker-panel .nav-picker-row.soon .nav-picker-soon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1px 6px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: oklch(0.7 0.012 260) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 999px !important;
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  line-height: 1.2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7508 */
+
+/* CSFLOAT-1:1 PARITY ship #7509 — Language picker flag emoji column parity.
+   csfloat's select has no flags so we keep the localhost flag-emoji column
+   but lock its dimensions to the same 22w gutter as the currency picker
+   ship #6506 — otherwise emoji glyphs (which render at 1.2em on most
+   platforms) push the code chip x-axis 4-6px right of where the currency
+   panel renders it, creating an audible mis-alignment when toggling
+   between USD and EN dropdowns. Scoped to rows whose flag is an emoji
+   (long character sequence vs the 1-2 char $/€/£/A$/C$ currency flags). */
+body .nav-picker-panel .nav-picker-row .nav-picker-flag {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  flex: 0 0 22px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+               Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7509 */
+
+/* CSFLOAT-1:1 PARITY ship #7510 — Language picker active-row check icon
+   alignment + size parity. csfloat's selected row uses a mat-pseudo-checkbox
+   right-aligned; our localhost uses a Material Symbol "check" inline-styled
+   to 14px. Without a margin-left: auto the icon was floating mid-row instead
+   of flushing right, breaking the column rhythm vs the currency picker
+   (ship #6509 already locked the currency case). Scope here to language
+   rows specifically — those rows have a .nav-picker-name child whose
+   text matches an in-dropdown language name. */
+body .nav-picker-panel .nav-picker-row.active .material-symbols-rounded,
+body .nav-picker-panel .nav-picker-row.active .mi {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: rgb(255, 255, 255) !important;
+  margin-left: auto !important;
+  flex: 0 0 14px !important;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7510 */
+
+/* CSFLOAT-1:1 PARITY ship #7600 — Bargain drawer container parity.
+   Measured csfloat bargain panel: surface uses rgba(255,255,255,0.04) bg,
+   2px border at rgba(255,255,255,0.06), 12px radius, 16px padding,
+   inset margin matches the rail (10px x 30px on desktop). The localhost
+   inline-style drawer had margin '10px 30px' with mixed padding values
+   that drifted from csfloat's 16px symmetric pad. Lock the surface so
+   it reads as a sibling chip of the rail above, not a separate strip. */
+.item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"] {
+  margin: 10px 30px !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+  border: 2px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+@media (max-width: 720px) {
+  .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"] {
+    margin: 8px 14px !important;
+    padding: 12px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #7600 */
+
+/* CSFLOAT-1:1 PARITY ship #7601 — Bargain offer-amount input parity.
+   Measured csfloat offer input: 44px height, 14px font-size with the $
+   prefix glyph rendered via ::before, 12px horizontal padding, 8px radius,
+   1px border at rgba(255,255,255,0.10), 13px label above with 8px gap.
+   Localhost wallet-amount-input was rendering at the wallet's larger 56px
+   height which broke the bargain row rhythm. Scope this only to the input
+   when it lives inside the bargain drawer so the wallet-modal usage stays
+   untouched. */
+.item-rail-actions-bargain + div .wallet-amount-input,
+.item-rail-actions-bargain + div input[type="number"][aria-label="Offer amount in USD"] {
+  height: 44px !important;
+  padding: 0 12px 0 26px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 44px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  letter-spacing: 0 !important;
+}
+.item-rail-actions-bargain + div .wallet-amount-input:focus,
+.item-rail-actions-bargain + div input[type="number"][aria-label="Offer amount in USD"]:focus {
+  border-color: rgba(64, 160, 254, 0.55) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  outline: none !important;
+}
+/* $ prefix glyph anchored to the input's left edge — csfloat uses a
+   pseudo on a wrapper, but localhost renders the input bare so we hang
+   the prefix off the wrapper div via a relative-positioned pseudo. */
+.item-rail-actions-bargain + div div:has(> input[aria-label="Offer amount in USD"]),
+.item-rail-actions-bargain + div div:has(> .wallet-amount-input) {
+  position: relative !important;
+}
+.item-rail-actions-bargain + div div:has(> input[aria-label="Offer amount in USD"])::before,
+.item-rail-actions-bargain + div div:has(> .wallet-amount-input)::before {
+  content: "$";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  z-index: 2;
+}
+/* Hide native number-input spin buttons inside the bargain drawer so the
+   prefix glyph is the only chrome on the field — matches csfloat exactly. */
+.item-rail-actions-bargain + div .wallet-amount-input::-webkit-outer-spin-button,
+.item-rail-actions-bargain + div .wallet-amount-input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+.item-rail-actions-bargain + div .wallet-amount-input {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+/* Label above the input — csfloat renders this in 12px / 0.5 alpha white,
+   uppercase tracking, 8px below-margin. */
+.item-rail-actions-bargain + div .wallet-input-label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  margin-bottom: 8px !important;
+  letter-spacing: 0.01em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7601 */
+
+/* CSFLOAT-1:1 PARITY ship #7602 — Bargain quick-amount chip row parity.
+   Measured csfloat: -5/-10/-15/-20 chips render as 28px-tall pills at
+   24px radius, 8px horizontal padding, 11px font, with the label and
+   the $-amount stacked horizontally separated by a 6px gap. The chip
+   row sits 10px below the input. Localhost .price-suggest-chip was
+   rendering at 6/10 padding which dropped to 26px height — close but
+   the side-by-side $ amount was overlapping the percent label.
+   Force the layout so the chips read as a single tight row. */
+.item-rail-actions-bargain + div .price-suggest-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin-top: 10px !important;
+  align-items: center !important;
+}
+.item-rail-actions-bargain + div .price-suggest-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-family: var(--mono) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+.item-rail-actions-bargain + div .price-suggest-chip:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.item-rail-actions-bargain + div .price-suggest-chip-label {
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-weight: 500 !important;
+}
+.item-rail-actions-bargain + div .price-suggest-chip-amt {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+}
+/* Auto-accept chip variant — csfloat uses a green 0.10/0.45 alpha pair
+   to signal the seller's auto-accept threshold sits at this price. */
+.item-rail-actions-bargain + div .price-suggest-chip.accept {
+  border-color: rgba(56, 201, 142, 0.45) !important;
+  background: rgba(56, 201, 142, 0.10) !important;
+  color: rgb(72, 222, 161) !important;
+}
+.item-rail-actions-bargain + div .price-suggest-chip.accept:hover {
+  background: rgba(56, 201, 142, 0.18) !important;
+  border-color: rgba(56, 201, 142, 0.65) !important;
+}
+.item-rail-actions-bargain + div .price-suggest-chip.accept .price-suggest-chip-amt,
+.item-rail-actions-bargain + div .price-suggest-chip.accept .price-suggest-chip-label {
+  color: rgb(72, 222, 161) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7602 */
+
+/* CSFLOAT-1:1 PARITY ship #7603 — Bargain Send Offer button parity.
+   Measured csfloat: Send-offer button is 36px tall, 8px radius, 13px font,
+   500 weight, 22px horizontal padding, accent gradient blue (#40a0fe ->
+   #2c81d6) when enabled, fully greyed out when disabled with no hover.
+   Localhost .btn.btn-accent rendered at 38px and a flat color which
+   drifted from csfloat's slight gradient. Lock the height + adjust the
+   bg to match the gradient signature. */
+.item-rail-actions-bargain + div .btn.btn-accent {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 22px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: linear-gradient(180deg, rgb(64, 160, 254) 0%, rgb(44, 129, 214) 100%) !important;
+  border: 1px solid rgba(64, 160, 254, 0.62) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) inset !important;
+  transition: filter 140ms ease, transform 80ms ease !important;
+}
+.item-rail-actions-bargain + div .btn.btn-accent:hover:not(:disabled) {
+  filter: brightness(1.08) !important;
+}
+.item-rail-actions-bargain + div .btn.btn-accent:active:not(:disabled) {
+  transform: translateY(1px) !important;
+}
+.item-rail-actions-bargain + div .btn.btn-accent:disabled,
+.item-rail-actions-bargain + div .btn.btn-accent[disabled] {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: rgba(255, 255, 255, 0.32) !important;
+  cursor: not-allowed !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+/* The button row itself — csfloat renders Send Offer left-aligned with
+   any extra controls (View offer link, etc.) tucked at right via flex. */
+.item-rail-actions-bargain + div div[style*="display: flex"][style*="gap"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-top: 10px !important;
+  flex-wrap: wrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7603 */
+
+/* CSFLOAT-1:1 PARITY ship #7604 — Bargain note textarea + counter parity.
+   Measured csfloat: optional note field renders as a 56px-min textarea
+   with a 1px rgba(255,255,255,0.10) border, 8px radius, 12px font, 8px
+   padding, dark inset background. The 0/280 counter is 11px right-aligned
+   with 0.55 alpha white. Localhost was using bg-page-2 fallback which
+   resolved lighter than csfloat — push it darker and tighten the counter
+   so the field reads as muted-secondary, not the primary input. */
+.item-rail-actions-bargain + div textarea[aria-label*="Optional note"] {
+  width: 100% !important;
+  min-height: 56px !important;
+  padding: 8px 10px !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  resize: vertical !important;
+  background: rgba(0, 0, 0, 0.30) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+}
+.item-rail-actions-bargain + div textarea[aria-label*="Optional note"]:focus {
+  border-color: rgba(64, 160, 254, 0.45) !important;
+  background: rgba(0, 0, 0, 0.40) !important;
+  outline: none !important;
+}
+.item-rail-actions-bargain + div textarea[aria-label*="Optional note"]::placeholder {
+  color: rgba(255, 255, 255, 0.32) !important;
+}
+/* 0/280 counter row — already inline-styled but force the type so it
+   reads as muted-secondary rather than getting bumped by inherited
+   font-weight from the drawer chrome. */
+.item-rail-actions-bargain + div div[style*="textAlign: right"],
+.item-rail-actions-bargain + div div[style*="text-align: right"] {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin-top: 4px !important;
+  letter-spacing: 0.01em !important;
+}
+/* Live-math preview chip ("X% below ask · save $Y") — csfloat renders
+   this in 11px / 1.5 line-height and uses semantic colors (green for
+   auto-accept, red for at-or-above ask, muted otherwise). The inline
+   style already routes color via vars; we just lock the type metrics
+   so the chip lines up under the chip row consistently. */
+.item-rail-actions-bargain + div div[style*="fontSize: 11px"][style*="marginTop: 8px"] {
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+  margin-top: 8px !important;
+  letter-spacing: 0.01em !important;
+}
+/* My-live-offer hint banner ("You already have a PENDING offer ...") —
+   csfloat uses the same accent-tinted banner pattern as the rail's
+   "wallet low" warnings: 1px border at the accent at 0.35 alpha,
+   0.08 alpha fill, 6px radius, 12px font, 1.5 line-height. */
+.item-rail-actions-bargain + div div[style*="rgba(30,165,255,0.08)"],
+.item-rail-actions-bargain + div div[style*="rgba(30,165,255, 0.08)"] {
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  background: rgba(64, 160, 254, 0.08) !important;
+  border: 1px solid rgba(64, 160, 254, 0.35) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  margin-bottom: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+.item-rail-actions-bargain + div div[style*="rgba(30,165,255,0.08)"] strong,
+.item-rail-actions-bargain + div div[style*="rgba(30,165,255, 0.08)"] strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+}
+.item-rail-actions-bargain + div div[style*="rgba(30,165,255,0.08)"] a.btn,
+.item-rail-actions-bargain + div div[style*="rgba(30,165,255, 0.08)"] a.btn {
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 12px !important;
+  font-size: 11px !important;
+  border-radius: 6px !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7604 */
+
+/* CSFLOAT-1:1 PARITY ship #7700 — nav cart icon hover state matches csfloat hoverable-btn (icon color shift only, no bg pill) */
+.nav-icon-btn[href="/cart"]:hover {
+  background: transparent !important;
+  transform: none !important;
+}
+.nav-icon-btn[href="/cart"]:hover .material-symbols-rounded {
+  color: #b3d6ff !important;
+  transition: color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.nav-icon-btn[href="/cart"] .material-symbols-rounded {
+  transition: color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7700 */
+
+/* CSFLOAT-1:1 PARITY ship #7701 — mini-cart popover surface (csfloat menu-panel: 2px highlight border, 15px radius, dropdown-color bg, blur) */
+.mini-cart,
+.cart-popover,
+.nav-cart-popover {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  min-width: 320px !important;
+  max-width: 380px !important;
+  background: rgba(20, 22, 28, 0.92) !important;
+  border: 2px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  padding: 8px !important;
+  z-index: 10000 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-4px) !important;
+  transition: opacity 120ms cubic-bezier(0, 0, 0.2, 1), transform 120ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+.nav-icon-btn[href="/cart"]:hover + .mini-cart,
+.nav-icon-btn[href="/cart"]:hover + .cart-popover,
+.nav-icon-btn[href="/cart"]:hover + .nav-cart-popover,
+.mini-cart:hover,
+.cart-popover:hover,
+.nav-cart-popover:hover {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateY(0) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7701 */
+
+/* CSFLOAT-1:1 PARITY ship #7702 — mini cart row (smaller than full drawer row, csfloat compact list-item spacing) */
+.mini-cart .mini-cart-row,
+.cart-popover .mini-cart-row,
+.nav-cart-popover .mini-cart-row,
+.mini-cart-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
+  color: var(--text-primary, #e6e7ea) !important;
+  transition: background 120ms ease !important;
+}
+.mini-cart .mini-cart-row:hover,
+.cart-popover .mini-cart-row:hover,
+.nav-cart-popover .mini-cart-row:hover,
+.mini-cart-row:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.mini-cart-row img,
+.mini-cart-row .mini-cart-thumb {
+  width: 44px !important;
+  height: 44px !important;
+  object-fit: contain !important;
+  border-radius: 6px !important;
+  flex-shrink: 0 !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+.mini-cart-row .mini-cart-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+}
+.mini-cart-row .mini-cart-price {
+  flex-shrink: 0 !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary, #e6e7ea) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7702 */
+
+/* CSFLOAT-1:1 PARITY ship #7703 — "Go to cart" link at bottom of mini-cart preview */
+.mini-cart .mini-cart-footer,
+.cart-popover .mini-cart-footer,
+.nav-cart-popover .mini-cart-footer,
+.mini-cart-footer {
+  margin-top: 6px !important;
+  padding: 10px 12px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+.mini-cart-footer a,
+.mini-cart-footer .go-to-cart,
+.mini-cart .go-to-cart,
+.cart-popover .go-to-cart {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  padding: 8px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  color: #b3d6ff !important;
+  background: rgba(108, 161, 255, 0.08) !important;
+  border: 1px solid rgba(108, 161, 255, 0.18) !important;
+  border-radius: 8px !important;
+  text-decoration: none !important;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease !important;
+}
+.mini-cart-footer a:hover,
+.mini-cart-footer .go-to-cart:hover,
+.mini-cart .go-to-cart:hover,
+.cart-popover .go-to-cart:hover {
+  background: rgba(108, 161, 255, 0.14) !important;
+  color: #cbe1ff !important;
+  border-color: rgba(108, 161, 255, 0.28) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7703 */
+
+/* CSFLOAT-1:1 PARITY ship #7704 — cart count badge bump animation when item added (subtle scale pop) */
+@keyframes cf-cart-badge-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.28); }
+  60%  { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+.nav-icon-btn[href="/cart"] .nav-icon-badge:not(:empty):not([data-count="0"]) {
+  animation: cf-cart-badge-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transform-origin: center !important;
+}
+.nav-icon-btn[href="/cart"] .nav-icon-badge {
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), background 140ms ease, color 140ms ease !important;
+}
+.nav-icon-btn[href="/cart"]:hover .nav-icon-badge:not(:empty):not([data-count="0"]) {
+  transform: scale(1.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7704 */
