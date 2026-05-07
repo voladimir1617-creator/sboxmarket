@@ -151143,3 +151143,682 @@ input.csfloat-export-filename:focus-visible {
   color: rgb(35, 123, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9805 */
+
+/* CSFLOAT-1:1 PARITY ship #9408 - Receipt panel selector specificity bump
+   Some properties from earlier .cart-summary rules persist because the
+   later (downstream) sibling-combinator rule .cart-summary > * + * (line
+   ~15194) has higher specificity than my flat .cart-summary !important
+   ship for the box-model props it shares. Bump the receipt-panel selector
+   to body-prefixed so subsequent specificity ties resolve to mine. Same
+   property values as ship #9400 - just locked harder. */
+body .cart-summary,
+body .cart-summary[class] {
+  background: oklch(0.2 0.009 260) !important;
+  background-color: oklch(0.2 0.009 260) !important;
+  border: 1px solid oklch(0.36 0.014 260) !important;
+  border-radius: 12px !important;
+  padding: 22px 22px 18px !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4) !important;
+}
+body .cart-summary-row,
+body .cart-summary-row[class] {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  padding: 6px 0 !important;
+}
+body .cart-summary-row .mono {
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 13px !important;
+}
+body .cart-summary-total {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  margin-top: 6px !important;
+  padding: 12px 0 4px !important;
+  border-top: 1px solid oklch(0.36 0.014 260) !important;
+}
+body .cart-summary-total .mono {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9408 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #10100 - Copy-link "Copied!" toast
+   Csfloat uses Angular Material's mat-mdc-snack-bar for the
+   "Copied!" confirmation when the share/copy URL action fires.
+   Measured tokens (matched against csfloat snackbar default):
+     container bg: rgb(50, 50, 50)        (MDC dark surface)
+     text color:  rgb(255, 255, 255) 0.87 alpha
+     font: 14px/20px Roboto, weight 400
+     border-radius: 4px
+     padding: 14px 16px (single-line) / 14px 24px (action-line)
+     min-height: 48px
+     box-shadow: 0 3px 5px -1px rgba(0,0,0,0.2),
+                 0 6px 10px 0 rgba(0,0,0,0.14),
+                 0 1px 18px 0 rgba(0,0,0,0.12)
+     position: fixed bottom 24, centered or left:24 on desktop
+   ============================================================ */
+.copy-toast,
+.toast-copy,
+.copied-toast,
+[data-toast="copy"],
+.snackbar-copy {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 24px !important;
+  transform: translateX(-50%) !important;
+  min-height: 48px !important;
+  max-width: 568px !important;
+  min-width: 288px !important;
+  padding: 14px 16px !important;
+  background: rgb(50, 50, 50) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0178571em !important;
+  border-radius: 4px !important;
+  border: 0 !important;
+  box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.2),
+              0 6px 10px 0 rgba(0, 0, 0, 0.14),
+              0 1px 18px 0 rgba(0, 0, 0, 0.12) !important;
+  z-index: 1000 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  pointer-events: auto !important;
+}
+.copy-toast.show,
+.toast-copy.show,
+.copied-toast.show,
+.snackbar-copy.show,
+.copy-toast[data-show="true"] {
+  animation: csfloat-snackbar-in 195ms cubic-bezier(0, 0, 0.2, 1) forwards !important;
+}
+.copy-toast.hide,
+.toast-copy.hide,
+.copied-toast.hide,
+.snackbar-copy.hide {
+  animation: csfloat-snackbar-out 195ms cubic-bezier(0.4, 0, 1, 1) forwards !important;
+}
+@keyframes csfloat-snackbar-in {
+  from { transform: translate(-50%, 100%); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+@keyframes csfloat-snackbar-out {
+  from { transform: translate(-50%, 0);    opacity: 1; }
+  to   { transform: translate(-50%, 100%); opacity: 0; }
+}
+@media (max-width: 599px) {
+  .copy-toast,
+  .toast-copy,
+  .copied-toast,
+  .snackbar-copy {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 8px !important;
+    transform: none !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #10100 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #10101 - Copy-icon swap (clipboard
+   to check). Csfloat swaps the clipboard glyph for a check
+   icon on successful copy and reverts after ~1.5s. Tokens:
+     idle icon: 20px, color rgba(255,255,255,0.55), 200ms ease
+     success icon: 20px, color #1ed760 (csfloat success green)
+     button hover: color rgb(255,255,255), bg rgba(255,255,255,0.04)
+     button active: scale(0.96)
+   The button itself is 32x32 with border-radius 6px.
+   ============================================================ */
+button.copy-link-btn,
+button.copy-url-btn,
+button.btn-copy,
+.share-row button.copy-icon,
+[data-action="copy"] {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  cursor: pointer !important;
+  transition: color 200ms ease,
+              background-color 200ms ease,
+              transform 120ms ease !important;
+}
+button.copy-link-btn:hover,
+button.copy-url-btn:hover,
+button.btn-copy:hover,
+.share-row button.copy-icon:hover,
+[data-action="copy"]:hover {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+button.copy-link-btn:active,
+button.copy-url-btn:active,
+button.btn-copy:active,
+[data-action="copy"]:active {
+  transform: scale(0.96) !important;
+}
+button.copy-link-btn .icon,
+button.copy-url-btn .icon,
+button.btn-copy .icon,
+[data-action="copy"] .icon,
+button.copy-link-btn svg,
+button.copy-url-btn svg,
+button.btn-copy svg,
+[data-action="copy"] svg {
+  width: 20px !important;
+  height: 20px !important;
+  display: block !important;
+  transition: opacity 160ms ease, transform 160ms ease !important;
+}
+button.copy-link-btn.copied,
+button.copy-url-btn.copied,
+button.btn-copy.copied,
+[data-action="copy"][data-copied="true"],
+.copy-success {
+  color: rgb(30, 215, 96) !important;
+}
+button.copy-link-btn.copied:hover,
+button.copy-url-btn.copied:hover,
+button.btn-copy.copied:hover,
+[data-action="copy"][data-copied="true"]:hover {
+  color: rgb(30, 215, 96) !important;
+  background: rgba(30, 215, 96, 0.08) !important;
+}
+button.copy-link-btn.copied .icon-clipboard,
+button.copy-url-btn.copied .icon-clipboard,
+button.btn-copy.copied .icon-clipboard,
+[data-action="copy"][data-copied="true"] .icon-clipboard { display: none !important; }
+button.copy-link-btn:not(.copied) .icon-check,
+button.copy-url-btn:not(.copied) .icon-check,
+button.btn-copy:not(.copied) .icon-check,
+[data-action="copy"]:not([data-copied="true"]) .icon-check { display: none !important; }
+button.copy-link-btn.copied .icon-check,
+button.copy-url-btn.copied .icon-check,
+button.btn-copy.copied .icon-check,
+[data-action="copy"][data-copied="true"] .icon-check {
+  display: block !important;
+  animation: csfloat-copy-pop 240ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+@keyframes csfloat-copy-pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+/* END CSFLOAT-1:1 PARITY ship #10101 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #10102 - Inline copy success
+   indicator. When the copy is "inline" (next to a value like
+   "Item ID 853838048272987791"), csfloat renders a small green
+   checkmark + "Copied" text inline beside the value.
+   Pill spec: padding 2px 6px, br 4px,
+              bg rgba(30,215,96,0.10), color rgb(30,215,96),
+              font 11px/14px weight 600, letter-spacing .02em,
+              uppercase, gap 4px, opacity-fade 160ms.
+   ============================================================ */
+.copy-inline,
+.copy-success-inline,
+[data-copy-feedback="inline"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 2px 6px !important;
+  margin-left: 8px !important;
+  background: rgba(30, 215, 96, 0.10) !important;
+  color: rgb(30, 215, 96) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 14px !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase !important;
+  opacity: 0 !important;
+  transform: translateY(2px) !important;
+  pointer-events: none !important;
+  transition: opacity 160ms ease, transform 160ms ease !important;
+}
+.copy-inline.show,
+.copy-success-inline.show,
+[data-copy-feedback="inline"][data-show="true"] {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+.copy-inline svg,
+.copy-success-inline svg,
+[data-copy-feedback="inline"] svg {
+  width: 12px !important;
+  height: 12px !important;
+  flex: 0 0 12px !important;
+  stroke: currentColor !important;
+  stroke-width: 2.5 !important;
+  fill: none !important;
+}
+.copyable-row,
+.copy-pair {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+}
+.copyable-row .copy-icon,
+.copy-pair .copy-icon {
+  width: 14px !important;
+  height: 14px !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  transition: color 150ms ease !important;
+  flex: 0 0 14px !important;
+}
+.copyable-row:hover .copy-icon,
+.copy-pair:hover .copy-icon {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10102 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #10103 - Hover tooltip "Click to
+   copy". Csfloat uses Angular Material matTooltip for the
+   pre-copy hint. Default mat-tooltip tokens:
+     bg: rgba(97, 97, 97, 0.9)
+     color: rgb(255, 255, 255)
+     font: 12px / 16 line-height / weight 500
+     padding: 6px 8px (min-h 24)
+     border-radius: 4px
+     max-width: 200px
+     fade-in: 150ms cubic-bezier(0,0,0.2,1)
+   ============================================================ */
+.copy-tooltip,
+.click-to-copy-tooltip {
+  position: absolute !important;
+  bottom: calc(100% + 8px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  padding: 6px 8px !important;
+  min-height: 24px !important;
+  max-width: 200px !important;
+  background: rgba(97, 97, 97, 0.9) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.025em !important;
+  border-radius: 4px !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transition: opacity 150ms cubic-bezier(0, 0, 0.2, 1) 0ms !important;
+  z-index: 1100 !important;
+}
+[data-tooltip="copy"] {
+  position: relative !important;
+}
+[data-tooltip="copy"]::after {
+  content: attr(data-tooltip-text) !important;
+  position: absolute !important;
+  bottom: calc(100% + 8px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  padding: 6px 8px !important;
+  min-height: 24px !important;
+  max-width: 200px !important;
+  background: rgba(97, 97, 97, 0.9) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.025em !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transition: opacity 150ms cubic-bezier(0, 0, 0.2, 1) 0ms !important;
+  z-index: 1100 !important;
+}
+[data-tooltip="copy"]:hover::after,
+[data-tooltip="copy"]:focus-visible::after,
+.copy-tooltip.show,
+.click-to-copy-tooltip.show {
+  opacity: 1 !important;
+}
+[data-tooltip="copy"]:hover,
+.copyable:hover,
+.copy-pair:hover {
+  cursor: pointer !important;
+}
+[data-tooltip="copy"][data-copied="true"]::after,
+.copyable.copied:hover::after {
+  opacity: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10103 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #10104 - Failed-copy error variant.
+   On clipboard API failure (insecure context, permission denied)
+   csfloat shows the same snackbar shell tinted red with the
+   error icon. Spec:
+     bg: rgb(176, 0, 32)  (Material dark error)
+     color: rgb(255, 255, 255)
+     duration: extended to 5s
+     "Try again" action button: color rgb(255, 138, 128)
+     letter-spacing: 0.0892857em on action label, uppercase, 14/500
+   ============================================================ */
+.copy-toast.error,
+.toast-copy.error,
+.copied-toast.error,
+.snackbar-copy.error,
+[data-toast="copy"][data-state="error"] {
+  background: rgb(176, 0, 32) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.copy-toast.error .toast-icon,
+.toast-copy.error .toast-icon,
+.copied-toast.error .toast-icon,
+[data-toast="copy"][data-state="error"] .toast-icon {
+  color: rgb(255, 255, 255) !important;
+  width: 20px !important;
+  height: 20px !important;
+  flex: 0 0 20px !important;
+}
+.copy-toast.error .toast-action,
+.toast-copy.error .toast-action,
+.copied-toast.error .toast-action,
+[data-toast="copy"][data-state="error"] .toast-action {
+  margin-left: auto !important;
+  padding: 0 8px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgb(255, 138, 128) !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background-color 150ms ease !important;
+}
+.copy-toast.error .toast-action:hover,
+.toast-copy.error .toast-action:hover,
+.copied-toast.error .toast-action:hover,
+[data-toast="copy"][data-state="error"] .toast-action:hover {
+  background: rgba(255, 138, 128, 0.08) !important;
+}
+.copy-inline.error,
+.copy-success-inline.error,
+[data-copy-feedback="inline"][data-state="error"] {
+  background: rgba(255, 82, 82, 0.10) !important;
+  color: rgb(255, 82, 82) !important;
+}
+button.copy-link-btn.failed,
+button.copy-url-btn.failed,
+button.btn-copy.failed,
+[data-action="copy"][data-failed="true"],
+.copy-failed {
+  color: rgb(255, 82, 82) !important;
+}
+button.copy-link-btn.failed:hover,
+button.copy-url-btn.failed:hover,
+button.btn-copy.failed:hover,
+[data-action="copy"][data-failed="true"]:hover {
+  background: rgba(255, 82, 82, 0.08) !important;
+}
+button.copy-link-btn.failed .icon-clipboard,
+button.copy-url-btn.failed .icon-clipboard,
+button.btn-copy.failed .icon-clipboard,
+[data-action="copy"][data-failed="true"] .icon-clipboard { display: none !important; }
+button.copy-link-btn.failed .icon-error,
+button.copy-url-btn.failed .icon-error,
+button.btn-copy.failed .icon-error,
+[data-action="copy"][data-failed="true"] .icon-error {
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+  animation: csfloat-copy-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97) !important;
+}
+@keyframes csfloat-copy-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-2px); }
+  40%      { transform: translateX(2px); }
+  60%      { transform: translateX(-1px); }
+  80%      { transform: translateX(1px); }
+}
+button.copy-link-btn:not(.failed) .icon-error,
+button.copy-url-btn:not(.failed) .icon-error,
+button.btn-copy:not(.failed) .icon-error,
+[data-action="copy"]:not([data-failed="true"]) .icon-error { display: none !important; }
+/* END CSFLOAT-1:1 PARITY ship #10104 */
+
+/* CSFLOAT-1:1 PARITY ship #9901 - /db row hover preview tooltip popup chrome.
+   csfloat shows a large floating preview when hovering a database row. The
+   surface is 320px wide on rgb(28,30,36) bg, 1px hairline rgba(255,255,255,0.08),
+   8px radius, drop-shadow 0 12px 36px rgba(0,0,0,0.55), 14px padding. Local
+   .csfloat-hover-preview is too narrow (240px) and uses a softer shadow that
+   doesn't read against the dense table behind it. Lock the popup chrome to
+   csfloat metrics specifically when it's invoked from a /db row. */
+.info-modal:has(.db-table) .csfloat-hover-preview,
+.info-modal:has(.db-controls) .csfloat-hover-preview,
+.db-row .csfloat-hover-preview,
+.db-row-preview {
+  width: 320px !important;
+  background: rgb(28, 30, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55) !important;
+  padding: 14px !important;
+  z-index: 9500 !important;
+  font-family: 'Inter', 'Roboto', system-ui, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9901 */
+
+/* CSFLOAT-1:1 PARITY ship #9902 - /db row preview large item image area.
+   csfloat preview tooltip header includes a 120px-tall full-width skin image
+   panel with a subtle gradient (top rgba(255,255,255,0.04) to bottom
+   rgba(0,0,0,0.20)), 6px radius, 8px inner padding. Image is object-fit
+   contain. Local .csfloat-hover-preview-header has no large image slot.
+   Add an explicit .csfloat-hover-preview-image / .db-row-preview-image rule. */
+.info-modal:has(.db-table) .csfloat-hover-preview .csfloat-hover-preview-image,
+.info-modal:has(.db-controls) .csfloat-hover-preview .csfloat-hover-preview-image,
+.db-row .csfloat-hover-preview .csfloat-hover-preview-image,
+.db-row-preview-image {
+  width: 100% !important;
+  height: 120px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.20) 100%) !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px !important;
+  margin-bottom: 10px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+.info-modal:has(.db-table) .csfloat-hover-preview .csfloat-hover-preview-image img,
+.info-modal:has(.db-controls) .csfloat-hover-preview .csfloat-hover-preview-image img,
+.db-row .csfloat-hover-preview .csfloat-hover-preview-image img,
+.db-row-preview-image img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9902 */
+
+/* CSFLOAT-1:1 PARITY ship #9903 - /db row preview quick-stats grid inside
+   tooltip. csfloat shows a 2-column label/value grid (Float, Rank, Volume,
+   Price). Label is 9px uppercase 0.06em tracked rgba 0.42, value is 12px
+   monospace tabular rgb(255,255,255). 8px row-gap / 10px column-gap, with
+   a 1px hairline divider and 10px top-padding above the grid. Lock the
+   spacing and typography inside the /db scope. */
+.info-modal:has(.db-table) .csfloat-hover-preview .csfloat-hover-preview-stats,
+.info-modal:has(.db-controls) .csfloat-hover-preview .csfloat-hover-preview-stats,
+.db-row .csfloat-hover-preview .csfloat-hover-preview-stats,
+.db-row-preview-stats {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px 10px !important;
+  margin-top: 10px !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.info-modal:has(.db-table) .csfloat-hover-preview .csfloat-hover-preview-stat-label,
+.info-modal:has(.db-controls) .csfloat-hover-preview .csfloat-hover-preview-stat-label,
+.db-row .csfloat-hover-preview .csfloat-hover-preview-stat-label,
+.db-row-preview-stat-label {
+  font: 600 9px/1.1 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: rgba(255, 255, 255, 0.42) !important;
+  margin-bottom: 2px !important;
+}
+.info-modal:has(.db-table) .csfloat-hover-preview .csfloat-hover-preview-stat-value,
+.info-modal:has(.db-controls) .csfloat-hover-preview .csfloat-hover-preview-stat-value,
+.db-row .csfloat-hover-preview .csfloat-hover-preview-stat-value,
+.db-row-preview-stat-value {
+  font: 600 12px/1.2 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: -0.005em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9903 */
+
+/* CSFLOAT-1:1 PARITY ship #9904 - /db row preview "Click for full details"
+   hint footer. csfloat preview pop ends with a hairline-separated 11px
+   centered line of muted text "Click for full details" at rgba(255,255,255,0.55),
+   10px top margin / 8px top padding above a hairline divider. Add an explicit
+   .db-row-preview-hint rule and a fallback ::after for tooltips that don't
+   render the hint markup so every /db row preview ends with the prompt. */
+.info-modal:has(.db-table) .csfloat-hover-preview .db-row-preview-hint,
+.info-modal:has(.db-controls) .csfloat-hover-preview .db-row-preview-hint,
+.db-row .csfloat-hover-preview .db-row-preview-hint,
+.db-row-preview-hint {
+  display: block !important;
+  margin-top: 10px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  text-align: center !important;
+  font: 500 11px/1.3 'Inter', 'Roboto', system-ui, sans-serif !important;
+  letter-spacing: -0.005em !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview:not(:has(.db-row-preview-hint))::after,
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview:not(:has(.db-row-preview-hint))::after,
+.db-row > .csfloat-hover-preview:not(:has(.db-row-preview-hint))::after,
+.db-row > .db-row-preview:not(:has(.db-row-preview-hint))::after {
+  content: 'Click for full details' !important;
+  display: block !important;
+  margin-top: 10px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  text-align: center !important;
+  font: 500 11px/1.3 'Inter', 'Roboto', system-ui, sans-serif !important;
+  letter-spacing: -0.005em !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9904 */
+
+/* CSFLOAT-1:1 PARITY ship #9905 - /db row preview tooltip positioning logic.
+   csfloat anchors the preview popup to the right of the row (not above) with a
+   12px gap, vertically centered against the trigger. When it would overflow the
+   right viewport edge it flips to the left side; on a vertically-tight scroll
+   (top or bottom of the viewport) it falls back to above/below the row. Default
+   .csfloat-hover-preview today positions above with translateX(-50%) which
+   covers the row content. Pin to the right side of the anchored row, vertically
+   centered, plus support [data-side="left|above|below"] flip variants. */
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview,
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview,
+.db-row > .csfloat-hover-preview,
+.db-row > .db-row-preview {
+  position: absolute !important;
+  bottom: auto !important;
+  top: 50% !important;
+  left: calc(100% + 12px) !important;
+  right: auto !important;
+  transform: translateY(-50%) translateX(4px) !important;
+  pointer-events: none !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview.visible,
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview.visible,
+.db-row > .csfloat-hover-preview.visible,
+.db-row > .db-row-preview.visible {
+  transform: translateY(-50%) translateX(0) !important;
+  pointer-events: auto !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview[data-side="left"],
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview[data-side="left"],
+.db-row > .csfloat-hover-preview[data-side="left"],
+.db-row > .db-row-preview[data-side="left"] {
+  left: auto !important;
+  right: calc(100% + 12px) !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) translateX(-4px) !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview[data-side="left"].visible,
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview[data-side="left"].visible,
+.db-row > .csfloat-hover-preview[data-side="left"].visible,
+.db-row > .db-row-preview[data-side="left"].visible {
+  transform: translateY(-50%) translateX(0) !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview[data-side="above"],
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview[data-side="above"],
+.db-row > .csfloat-hover-preview[data-side="above"],
+.db-row > .db-row-preview[data-side="above"] {
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: calc(100% + 8px) !important;
+  transform: translateX(-50%) translateY(4px) !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview[data-side="above"].visible,
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview[data-side="above"].visible,
+.db-row > .csfloat-hover-preview[data-side="above"].visible,
+.db-row > .db-row-preview[data-side="above"].visible {
+  transform: translateX(-50%) translateY(0) !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview[data-side="below"],
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview[data-side="below"],
+.db-row > .csfloat-hover-preview[data-side="below"],
+.db-row > .db-row-preview[data-side="below"] {
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  top: calc(100% + 8px) !important;
+  transform: translateX(-50%) translateY(-4px) !important;
+}
+.info-modal:has(.db-table) .db-row .csfloat-hover-preview[data-side="below"].visible,
+.info-modal:has(.db-controls) .db-row .csfloat-hover-preview[data-side="below"].visible,
+.db-row > .csfloat-hover-preview[data-side="below"].visible,
+.db-row > .db-row-preview[data-side="below"].visible {
+  transform: translateX(-50%) translateY(0) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9905 */
