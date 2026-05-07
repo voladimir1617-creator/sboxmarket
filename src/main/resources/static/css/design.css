@@ -143200,7 +143200,7 @@ body h1#info-modal-h-sell-items::after {
 }
 /* END CSFLOAT-1:1 PARITY ship #6900 */
 
-/* CSFLOAT-1:1 PARITY ship #6301 — measured on csfloat: card border switches from 2px solid transparent (default) to 2px solid var(--highlight-background) on hover. Match exactly. Default border is invisible so card never shifts size on hover. */
+/* CSFLOAT-1:1 PARITY ship #6901 — measured on csfloat: card border switches from 2px solid transparent (default) to 2px solid var(--highlight-background) on hover. Match exactly. Default border is invisible so card never shifts size on hover. */
 .item-card.hover-enabled {
   border: 2px solid transparent !important;
   box-sizing: border-box !important;
@@ -143210,9 +143210,9 @@ body h1#info-modal-h-sell-items::after {
 .item-card.hover-enabled.force-hover {
   border: 2px solid var(--highlight-background, #4a90e2) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #6301 */
+/* END CSFLOAT-1:1 PARITY ship #6901 */
 
-/* CSFLOAT-1:1 PARITY ship #6302 — measured: .detail-buttons column floats absolute right:5px bottom:5px, flex-column gap:5px. Each .action is 38x30 pill, bg rgba(30,32,38,0.55), color #9EA7B1, border-radius 20px, padding 4px 8px. Match exactly. */
+/* CSFLOAT-1:1 PARITY ship #6902 — measured: .detail-buttons column floats absolute right:5px bottom:5px, flex-column gap:5px. Each .action is 38x30 pill, bg rgba(30,32,38,0.55), color #9EA7B1, border-radius 20px, padding 4px 8px. Match exactly. */
 .item-card .container .detail-buttons {
   position: absolute !important;
   right: 5px !important;
@@ -143241,9 +143241,9 @@ body h1#info-modal-h-sell-items::after {
 .item-card .detail-buttons .action:hover {
   background-color: rgba(30, 32, 38, 0.85) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #6302 */
+/* END CSFLOAT-1:1 PARITY ship #6902 */
 
-/* CSFLOAT-1:1 PARITY ship #6303 — measured: .top-right-container floats absolute top:5px right:5px, flex-row gap:5px. Holds private/watchlist badges. Inner .private chip uses 6px 8px padding, var(--item-actions-background-color), 20px radius, 14px font, var(--subtext-color). Match exactly. */
+/* CSFLOAT-1:1 PARITY ship #6903 — measured: .top-right-container floats absolute top:5px right:5px, flex-row gap:5px. Holds private/watchlist badges. Inner .private chip uses 6px 8px padding, var(--item-actions-background-color), 20px radius, 14px font, var(--subtext-color). Match exactly. */
 .item-card .container .top-right-container {
   position: absolute !important;
   top: 5px !important;
@@ -143262,7 +143262,7 @@ body h1#info-modal-h-sell-items::after {
   font-size: 14px !important;
   color: var(--subtext-color, #9EA7B1) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #6303 */
+/* END CSFLOAT-1:1 PARITY ship #6903 */
 
 /* CSFLOAT-1:1 PARITY ship #6304 — measured: .outer-actions footer slides in on hover. Default state: height:0, opacity:0, overflow:hidden, position:absolute. Hover state: height:calc(40px + 2*var(--footer-padding)), border-radius bottom corners 12px, side+bottom border matches highlight. Inner .actions opacity 0 → 1 with 0.3s transition. Match exactly. */
 .item-card.hover-enabled .item-grid .footer .actions-container .outer-actions {
