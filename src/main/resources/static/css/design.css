@@ -133596,7 +133596,7 @@ main.changelog {
 }
 /* END CSFLOAT-1:1 PARITY ship #2504 */
 
-/* CSFLOAT-1:1 PARITY ship #2400 — .nav-picker-panel (USD/EN dropdown)
+/* CSFLOAT-1:1 PARITY ship #2600 — .nav-picker-panel (USD/EN dropdown)
    measured tokens. csfloat .themed-menu panel:
      bg rgba(21,23,28,0.8); border 2px solid rgba(193,206,255,0.07);
      border-radius 15px; backdrop-filter blur(10px);
@@ -133638,9 +133638,9 @@ body .nav-picker-panel .nav-picker-row.active {
   background: rgba(255, 255, 255, 0.12) !important;
   color: rgb(255, 255, 255) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2400 */
+/* END CSFLOAT-1:1 PARITY ship #2600 */
 
-/* CSFLOAT-1:1 PARITY ship #2401 — .user-menu (signed-in avatar dropdown)
+/* CSFLOAT-1:1 PARITY ship #2601 — .user-menu (signed-in avatar dropdown)
    parity. csfloat themed-menu tokens identical to nav-picker; sboxmarket
    user-menu was at radius var(--r-md) ~10px / border 1px / padding 6px.
    Match the same panel chrome and item rhythm. */
@@ -133684,9 +133684,9 @@ body .user-menu .user-menu-divider {
   margin: 8px 0 !important;
   background: rgba(193, 206, 255, 0.07) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2401 */
+/* END CSFLOAT-1:1 PARITY ship #2601 */
 
-/* CSFLOAT-1:1 PARITY ship #2402 — .sort-picker dropdown panel parity.
+/* CSFLOAT-1:1 PARITY ship #2602 — .sort-picker dropdown panel parity.
    Sort dropdown on /market shares the menu motif. csfloat-style panel
    chrome but keeps min-width tied to chip. */
 body .sort-picker-panel,
@@ -133720,9 +133720,9 @@ body .sort-picker .sort-picker-pop > *:hover {
   color: rgb(255, 255, 255) !important;
   border-radius: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2402 */
+/* END CSFLOAT-1:1 PARITY ship #2602 */
 
-/* CSFLOAT-1:1 PARITY ship #2403 — Mobile filters bottom-sheet (.sidebar
+/* CSFLOAT-1:1 PARITY ship #2603 — Mobile filters bottom-sheet (.sidebar
    .mobile-drawer-open) chrome parity. csfloat mobile drawers use
    the same translucent themed-menu panel tokens at the top edge.
    Existing rule used --bg-1 / --line; bring it to the measured
@@ -133753,9 +133753,9 @@ body .sort-picker .sort-picker-pop > *:hover {
     margin: 8px auto 12px !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #2403 */
+/* END CSFLOAT-1:1 PARITY ship #2603 */
 
-/* CSFLOAT-1:1 PARITY ship #2404 — Mobile hamburger / nav drawer
+/* CSFLOAT-1:1 PARITY ship #2604 — Mobile hamburger / nav drawer
    parity. Slide-in nav and hamburger dropdown share themed-menu
    panel tokens. Apply to common class names so whichever the JSX
    uses gets the chrome. */
@@ -133835,9 +133835,9 @@ body .sort-picker .sort-picker-pop > *:hover {
     color: rgb(255, 255, 255) !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #2404 */
+/* END CSFLOAT-1:1 PARITY ship #2604 */
 
-/* CSFLOAT-1:1 PARITY ship #2405 — Generic dropdown overlay panels
+/* CSFLOAT-1:1 PARITY ship #2605 — Generic dropdown overlay panels
    (any class containing "dropdown" / "menu-panel" / "popover" inside
    the nav region) — match themed-menu chrome. Defensive selector
    list so any submenu inherits csfloat tokens without per-class CSS. */
@@ -133915,4 +133915,4 @@ body header .submenu > button:hover {
   background: rgba(255, 255, 255, 0.08) !important;
   color: rgb(255, 255, 255) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #2405 */
+/* END CSFLOAT-1:1 PARITY ship #2605 */
