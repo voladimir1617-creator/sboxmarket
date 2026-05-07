@@ -154774,3 +154774,575 @@ body .nav-picker-chip:active {
   transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1), background-color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11604 */
+
+/* CSFLOAT-1:1 PARITY ship #11405 — Buy-order queue chip + wallet-error
+   width parity. Measured csfloat: chip hugs content (max-content), does
+   not stretch full-row. The .buyorder-form is a flex column, so all
+   inline children stretch unless align-self:flex-start. The chip is the
+   only direct div child with display:inline-block in its inline style;
+   target it via the style attribute substring match. Also normalizes
+   wallet-error contrast inside the form panel. */
+body .buyorder-form > div[style*="display: inline-block"],
+body .buyorder-form > div[style*="display:inline-block"] {
+  align-self: flex-start !important;
+  width: auto !important;
+  max-width: max-content !important;
+}
+body .buyorder-form .wallet-error {
+  background: rgba(248, 113, 113, 0.08) !important;
+  border: 1px solid rgba(248, 113, 113, 0.30) !important;
+  border-radius: 6px !important;
+  color: rgb(248, 113, 113) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 8px 12px !important;
+  margin-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11405 */
+
+/* CSFLOAT-1:1 PARITY ship #11900 — bulk-action sticky bar surface + radius/border match csfloat
+   measured: csfloat body bg rgb(21,23,28); --dropdown-color rgba(21,23,28,0.8);
+   Material toolbars use 4px radius; bulk bars in csfloat use the surface tone with a 1px outline-variant. */
+body .csfloat-bulk-bar,
+body div[class*="csfloat-bulk"] {
+  background: rgba(21, 23, 28, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  padding: 10px 16px !important;
+  gap: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(10px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11900 */
+
+/* CSFLOAT-1:1 PARITY ship #11901 — bulk-bar typography to csfloat Roboto stack
+   measured: csfloat body uses Roboto, "Helvetica Neue", sans-serif. Subtext color #9ea7b1.
+   Count text in bulk bar should be 14px / 500 weight (Material body), not 12px mono. */
+body .csfloat-bulk-bar,
+body .csfloat-bulk-bar-count,
+body .csfloat-bulk-bar-action,
+body div[class*="csfloat-bulk"] span,
+body div[class*="csfloat-bulk"] button {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .csfloat-bulk-bar-count,
+body div[class*="csfloat-bulk"] > span:first-of-type {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0107142857em !important;
+  color: #9ea7b1 !important;
+}
+body .csfloat-bulk-bar-count strong,
+body div[class*="csfloat-bulk"] b {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11901 */
+
+/* CSFLOAT-1:1 PARITY ship #11902 — primary CTA ("List N @ $...") matches mat-mdc-raised-button
+   measured: 36px height, 0 16px padding, font 14px / 500 Roboto, letter-spacing 1.25px,
+   text-transform UPPERCASE, 4px radius, indigo primary #3f51b5, white ink, elevation shadow. */
+body div[style*="sticky"] button.btn-accent,
+body div[class*="csfloat-bulk"] button.btn-accent {
+  background: #3f51b5 !important;
+  color: #fff !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: uppercase !important;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,0.2), 0 2px 2px 0 rgba(0,0,0,0.14), 0 1px 5px 0 rgba(0,0,0,0.12) !important;
+  transition: background 120ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body div[style*="sticky"] button.btn-accent:hover,
+body div[class*="csfloat-bulk"] button.btn-accent:hover {
+  background: #4a5cc1 !important;
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12) !important;
+}
+body div[style*="sticky"] button.btn-accent:disabled,
+body div[class*="csfloat-bulk"] button.btn-accent:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11902 */
+
+/* CSFLOAT-1:1 PARITY ship #11903 — secondary "Clear" link matches mat-mdc-button (text button)
+   measured: transparent bg, primary-tinted hover layer (opacity 0.08), 36px height,
+   Roboto 14px/500 uppercase, no border, 4px radius. */
+body div[style*="sticky"] button.btn-ghost,
+body div[class*="csfloat-bulk"] button.btn-ghost,
+body .csfloat-bulk-bar-action {
+  background: transparent !important;
+  color: #fff !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body div[style*="sticky"] button.btn-ghost:hover,
+body div[class*="csfloat-bulk"] button.btn-ghost:hover,
+body .csfloat-bulk-bar-action:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: transparent !important;
+}
+body .csfloat-bulk-bar-action.danger {
+  color: #f44336 !important;
+  border-color: transparent !important;
+}
+body .csfloat-bulk-bar-action.danger:hover {
+  background: rgba(244, 67, 54, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11903 */
+
+/* CSFLOAT-1:1 PARITY ship #11904 — bulk price/auto-accept inputs match mat-mdc-form-field
+   measured csfloat inputs: 40px height, 4px radius, 1px outline rgba(255,255,255,0.12),
+   12px horizontal padding, Roboto 14px/400, focus ring uses indigo #3f51b5 2px outline. */
+body div[style*="sticky"] input.wallet-amount-input,
+body div[class*="csfloat-bulk"] input.wallet-amount-input {
+  height: 36px !important;
+  padding: 0 12px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 4px !important;
+  color: #fff !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.0107142857em !important;
+  transition: border-color 120ms cubic-bezier(0.4, 0, 0.2, 1), background-color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+}
+body div[style*="sticky"] input.wallet-amount-input:hover,
+body div[class*="csfloat-bulk"] input.wallet-amount-input:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+body div[style*="sticky"] input.wallet-amount-input:focus,
+body div[class*="csfloat-bulk"] input.wallet-amount-input:focus {
+  outline: none !important;
+  border-color: #3f51b5 !important;
+  box-shadow: 0 0 0 1px #3f51b5 !important;
+}
+body div[style*="sticky"] input.wallet-amount-input::placeholder,
+body div[class*="csfloat-bulk"] input.wallet-amount-input::placeholder {
+  color: #9ea7b1 !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11904 */
+
+/* CSFLOAT-1:1 PARITY ship #11905 — sticky bar vertical alignment + dot separator polish
+   measured: csfloat sticky bars use align-items:center, single row at desktop, 12px gaps,
+   the small "·" separators are #9ea7b1, 14px (not 11px). */
+body div[style*="sticky"][style*="rgba(30, 165, 255"],
+body div[style*="sticky"][style*="rgba(30,165,255"] {
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 16px !important;
+  background: rgba(21, 23, 28, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  margin-bottom: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(10px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+}
+body div[style*="sticky"][style*="rgba(30, 165, 255"] > span,
+body div[style*="sticky"][style*="rgba(30,165,255"] > span {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  color: #9ea7b1 !important;
+  letter-spacing: 0.0107142857em !important;
+}
+body div[style*="sticky"][style*="rgba(30, 165, 255"] > span b,
+body div[style*="sticky"][style*="rgba(30,165,255"] > span b {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11905 */
+
+
+/* CSFLOAT-1:1 PARITY ship #11811 — mobile bottom sticky CTA bar on /item (Buy now / Add to cart) */
+@media (max-width: 480px) {
+  body .item-page .buy-actions,
+  body .item-page .item-actions,
+  body .item-page .csfloat-listing-actions,
+  body app-item-page .buy-actions,
+  body app-item-page .item-actions,
+  body app-item-page .csfloat-listing-actions {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 53px !important;
+    margin: 0 !important;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    background-color: rgba(15, 18, 26, 0.96) !important;
+    border-top: 1px solid rgba(193, 206, 255, 0.06) !important;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.32) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    z-index: 996 !important;
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+  }
+  body .item-page .buy-actions > *,
+  body .item-page .item-actions > *,
+  body app-item-page .buy-actions > *,
+  body app-item-page .item-actions > * {
+    flex: 1 1 0 !important;
+    min-height: 44px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11811 */
+
+/* CSFLOAT-1:1 PARITY ship #11812 — bottom-padding spacer on /item to prevent the sticky CTA bar from covering content */
+@media (max-width: 480px) {
+  body .item-page,
+  body app-item-page,
+  body main:has(.buy-now-btn),
+  body main:has(app-item-page) {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11812 */
+
+/* CSFLOAT-1:1 PARITY ship #11813 — mobile bottom sticky checkout summary on /cart */
+@media (max-width: 480px) {
+  body .cart-summary,
+  body app-cart-page .cart-summary,
+  body .cart-page .cart-summary {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 53px !important;
+    margin: 0 !important;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    background-color: rgba(15, 18, 26, 0.97) !important;
+    border: 1px solid rgba(193, 206, 255, 0.06) !important;
+    border-bottom: 0 !important;
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.36) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    z-index: 996 !important;
+  }
+  body .cart-summary .cart-summary-actions {
+    margin-top: 8px !important;
+  }
+  body .cart-summary .cart-summary-actions .btn,
+  body .cart-summary-checkout-btn {
+    min-height: 44px !important;
+    width: 100% !important;
+  }
+  body .cart-page,
+  body app-cart-page {
+    padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11813 */
+
+/* CSFLOAT-1:1 PARITY ship #11814 — mobile filter button float (bottom-right circular FAB) */
+@media (max-width: 480px) {
+  body .mobile-filters-fab {
+    position: fixed !important;
+    right: 16px !important;
+    bottom: calc(69px + env(safe-area-inset-bottom, 0px)) !important;
+    left: auto !important;
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: rgb(0, 121, 255) !important;
+    color: #fff !important;
+    border: 0 !important;
+    box-shadow: 0 6px 16px rgba(0, 121, 255, 0.32), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 995 !important;
+    font-size: 0 !important;
+  }
+  body .mobile-filters-fab .material-icon,
+  body .mobile-filters-fab .material-symbols-outlined {
+    color: #fff !important;
+    font-size: 26px !important;
+    line-height: 1 !important;
+  }
+  body .mobile-filters-fab > span:not(.material-icon):not(.material-symbols-outlined),
+  body .mobile-filters-fab > .label {
+    display: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11814 */
+
+/* CSFLOAT-1:1 PARITY ship #11815 — iOS safe-area-inset bottom padding on bottom nav + content body */
+@media (max-width: 480px) {
+  body app-nav-tabs,
+  body APP-NAV-TABS {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    height: calc(53px + env(safe-area-inset-bottom, 0px)) !important;
+    box-sizing: border-box !important;
+    background-color: rgba(15, 18, 26, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-top: 1px solid rgba(193, 206, 255, 0.06) !important;
+  }
+  body main,
+  body .app-main,
+  body .page,
+  body .page-content {
+    padding-bottom: calc(53px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11815 */
+
+/* CSFLOAT-1:1 PARITY ship #11901 — /db sortable column header arrow base.
+   csfloat uses Angular Material mat-sort-header where every sortable th gets
+   cursor:pointer, a tiny arrow glyph slot reserved on the right of the
+   label, and a 200ms color transition between idle and active states. We
+   mirror that on .db-table thead th: reserve a 14px arrow slot via padding,
+   render an idle triangle glyph at low opacity using ::after, and lift to
+   full opacity on hover. Right-aligned columns (Supply, Sold, Views, Floor)
+   flip the slot to the LEFT so the arrow does not push the number off the
+   cell edge. Idle/desc/asc states keyed off [aria-sort] which the JS will
+   set; default shows a faded chevron acting as the affordance hint. The
+   last column (Watch toggle) is excluded since it is not sortable. */
+body .db-table thead th {
+  cursor: pointer !important;
+  user-select: none !important;
+  position: relative !important;
+  padding-right: 26px !important;
+  transition: color 160ms ease, background-color 160ms ease !important;
+}
+body .db-table thead th.right,
+body .db-table thead th.num {
+  padding-right: 12px !important;
+  padding-left: 26px !important;
+}
+body .db-table thead th::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  right: 10px !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-left: 4px solid transparent !important;
+  border-right: 4px solid transparent !important;
+  border-bottom: 5px solid currentColor !important;
+  opacity: 0 !important;
+  transform: translateY(-50%) !important;
+  transition: opacity 160ms ease, transform 160ms ease, border-bottom-color 160ms ease, border-top-color 160ms ease !important;
+  pointer-events: none !important;
+}
+body .db-table thead th.right::after,
+body .db-table thead th.num::after {
+  right: auto !important;
+  left: 10px !important;
+}
+body .db-table thead th:hover {
+  color: var(--ink) !important;
+  background: color-mix(in oklab, var(--bg-2) 60%, var(--bg-3) 40%) !important;
+}
+body .db-table thead th:hover::after {
+  opacity: 0.55 !important;
+}
+body .db-table thead th[aria-disabled="true"],
+body .db-table thead th.no-sort,
+body .db-table thead th:last-child {
+  cursor: default !important;
+  padding-right: 12px !important;
+  padding-left: 12px !important;
+}
+body .db-table thead th[aria-disabled="true"]::after,
+body .db-table thead th.no-sort::after,
+body .db-table thead th:last-child::after {
+  display: none !important;
+}
+body .db-table thead th[aria-disabled="true"]:hover,
+body .db-table thead th.no-sort:hover,
+body .db-table thead th:last-child:hover {
+  background: var(--bg-2) !important;
+  color: var(--ink-3) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11901 */
+
+/* CSFLOAT-1:1 PARITY ship #11902 — /db active sort indicator (asc/desc).
+   When [aria-sort="ascending"] the arrow points up, down for descending.
+   Active header text snaps to full --ink, arrow opacity to 1.0, and the
+   header background gets a subtle 6% accent tint matching the csfloat
+   "this column is sorted" affordance. The arrow uses borders to draw a
+   triangle so it scales crisply at any zoom and inherits color from
+   currentColor — no SVG/font dependency. */
+body .db-table thead th[aria-sort="ascending"],
+body .db-table thead th[aria-sort="descending"] {
+  color: var(--ink) !important;
+  background: color-mix(in oklab, var(--bg-2) 78%, var(--accent) 22%) !important;
+}
+body .db-table thead th[aria-sort="ascending"]::after {
+  opacity: 1 !important;
+  border-bottom: 5px solid currentColor !important;
+  border-top: 0 solid transparent !important;
+  transform: translateY(-50%) !important;
+}
+body .db-table thead th[aria-sort="descending"]::after {
+  opacity: 1 !important;
+  border-top: 5px solid currentColor !important;
+  border-bottom: 0 solid transparent !important;
+  border-left: 4px solid transparent !important;
+  border-right: 4px solid transparent !important;
+  transform: translateY(-50%) !important;
+}
+body .db-table thead th[aria-sort="ascending"]:hover,
+body .db-table thead th[aria-sort="descending"]:hover {
+  background: color-mix(in oklab, var(--bg-2) 64%, var(--accent) 36%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11902 */
+
+/* CSFLOAT-1:1 PARITY ship #11903 — /db active-column body cell tint.
+   csfloat tints every td in the sorted column with a 3% accent overlay
+   so the user can trace the sort criterion all the way down the table.
+   We use :has() to detect which thead column carries [aria-sort] and
+   paint the matching :nth-child td. Coverage spans columns 1-8 (column 9
+   is the non-sortable Watch toggle). */
+body .db-table:has(thead th:nth-child(1)[aria-sort]) tbody td:nth-child(1),
+body .db-table:has(thead th:nth-child(2)[aria-sort]) tbody td:nth-child(2),
+body .db-table:has(thead th:nth-child(3)[aria-sort]) tbody td:nth-child(3),
+body .db-table:has(thead th:nth-child(4)[aria-sort]) tbody td:nth-child(4),
+body .db-table:has(thead th:nth-child(5)[aria-sort]) tbody td:nth-child(5),
+body .db-table:has(thead th:nth-child(6)[aria-sort]) tbody td:nth-child(6),
+body .db-table:has(thead th:nth-child(7)[aria-sort]) tbody td:nth-child(7),
+body .db-table:has(thead th:nth-child(8)[aria-sort]) tbody td:nth-child(8) {
+  background: color-mix(in oklab, transparent 96%, var(--accent) 4%) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11903 */
+
+/* CSFLOAT-1:1 PARITY ship #11904 — sort-direction click-cycle visual feedback.
+   The csfloat mat-sort-header cycles asc -> desc -> none on each click, with
+   a 140ms fade between glyph orientations. The transform/opacity transitions
+   on ::after handle that, but we add a subtle press-down animation on
+   :active so the click registers visually even before the new sort state
+   propagates. Also covers focus-visible outline so keyboard users can see
+   which header is targeted before pressing Enter/Space. */
+body .db-table thead th:active::after {
+  transform: translateY(-50%) scale(0.85) !important;
+  opacity: 0.85 !important;
+  transition: transform 80ms ease, opacity 80ms ease !important;
+}
+body .db-table thead th:active {
+  background: color-mix(in oklab, var(--bg-2) 50%, var(--bg-3) 50%) !important;
+}
+body .db-table thead th:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
+  z-index: 1 !important;
+}
+body .db-table thead th[aria-sort="ascending"]:active::after,
+body .db-table thead th[aria-sort="descending"]:active::after {
+  transform: translateY(-50%) scale(0.9) !important;
+  opacity: 1 !important;
+}
+@keyframes db-sort-bump {
+  0%   { transform: translateY(-50%) scale(0.7); opacity: 0; }
+  60%  { transform: translateY(-50%) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-50%) scale(1); opacity: 1; }
+}
+body .db-table thead th[aria-sort="ascending"]::after,
+body .db-table thead th[aria-sort="descending"]::after {
+  animation: db-sort-bump 220ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11904 */
+
+/* CSFLOAT-1:1 PARITY ship #11905 — Sort-by dropdown alternative polish.
+   csfloat exposes a chip-style Sort by select to the left of the table on
+   narrow viewports + as an a11y fallback for users who can not easily
+   click th headers. We already have .sort-picker-chip; bring it into pixel
+   parity: 32px height, 12px horizontal pad, 8px gap between icon + label
+   + caret, --line idle border, ink-2 label color. Active/open state lifts
+   to ink and accent border. Panel shows underneath with a 10ms-delayed
+   fade so the click feels deliberate. */
+body .sort-picker-chip {
+  height: 32px !important;
+  padding: 0 12px !important;
+  gap: 8px !important;
+  border: 1px solid var(--line) !important;
+  background: var(--bg-2) !important;
+  color: var(--ink-2) !important;
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, transform 80ms ease !important;
+}
+body .sort-picker-chip:hover {
+  border-color: var(--line-2) !important;
+  background: color-mix(in oklab, var(--bg-2) 70%, var(--bg-3) 30%) !important;
+  color: var(--ink) !important;
+}
+body .sort-picker.open .sort-picker-chip {
+  border-color: var(--accent) !important;
+  background: color-mix(in oklab, var(--bg-2) 88%, var(--accent) 12%) !important;
+  color: var(--ink) !important;
+}
+body .sort-picker-chip:active {
+  transform: translateY(0.5px) !important;
+}
+body .sort-picker-caret {
+  font-size: 10px !important;
+  line-height: 1 !important;
+  color: var(--ink-3) !important;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms ease !important;
+}
+body .sort-picker.open .sort-picker-caret {
+  transform: rotate(180deg) !important;
+  color: var(--ink) !important;
+}
+body .sort-picker-panel {
+  margin-top: 6px !important;
+  padding: 4px !important;
+  background: var(--bg-2) !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45), 0 2px 6px -2px rgba(0, 0, 0, 0.3) !important;
+  animation: db-sort-panel-fade 140ms ease 10ms backwards !important;
+}
+@keyframes db-sort-panel-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+body .sort-picker-row {
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
+  font-size: 12.5px !important;
+  color: var(--ink-2) !important;
+  gap: 8px !important;
+  transition: background-color 100ms ease, color 100ms ease !important;
+}
+body .sort-picker-row:hover {
+  background: color-mix(in oklab, var(--bg-2) 72%, var(--bg-3) 28%) !important;
+  color: var(--ink) !important;
+}
+body .sort-picker-row.active {
+  background: color-mix(in oklab, var(--bg-2) 78%, var(--accent) 22%) !important;
+  color: var(--ink) !important;
+  font-weight: 500 !important;
+}
+body .sort-picker-row.active .material-icon:last-child {
+  color: var(--accent) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11905 */
