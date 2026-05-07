@@ -133916,3 +133916,265 @@ body header .submenu > button:hover {
   color: rgb(255, 255, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2605 */
+
+/* CSFLOAT-1:1 PARITY ship #2700 — rail header eyebrow.
+   Measure: csfloat rail headers (Top Deals / Just Listed / Recently
+   Viewed / Auctions Ending Soon) = Roboto 11px/500 uppercase
+   letter-spacing 0.16em, ink-3 muted gray rgb(158,167,177), 14px
+   margin-bottom from the track. Pre-fix sbox heads inherit local
+   .top-deals-head etc., but lose the spec when re-skinned by other
+   rules. Lock the spec verbatim. */
+body .recently-viewed-head,
+body .top-deals-head,
+body .just-listed-head,
+body .just-sold-head,
+body .auctions-ending-soon-head,
+body .trending-rail-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 0 14px 0 !important;
+  padding: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+}
+body .recently-viewed-head > span:nth-child(2),
+body .top-deals-head > span:nth-child(2),
+body .just-listed-head > span:nth-child(2),
+body .just-sold-head > span:nth-child(2),
+body .auctions-ending-soon-head > span:nth-child(2),
+body .trending-rail-head > span:nth-child(2) {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 20px !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2700 */
+
+/* CSFLOAT-1:1 PARITY ship #2701 — rail "View all" CTA.
+   Measure: csfloat rail-end "View all" links = Roboto 12px/500
+   csfloat-blue rgb(35,123,255), no underline at rest, ink underline
+   on hover, sit on right via margin-left:auto. Pre-fix sbox heads
+   missed the explicit ml:auto + the brand blue. */
+body .recently-viewed-cta,
+body .top-deals-cta,
+body .just-listed-cta,
+body .just-sold-cta,
+body .auctions-ending-soon-cta,
+body .trending-rail-cta,
+body .csfloat-home-rail-cta,
+body .rail-view-all,
+body .rail-cta {
+  margin-left: auto !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+body .recently-viewed-cta:hover,
+body .top-deals-cta:hover,
+body .just-listed-cta:hover,
+body .just-sold-cta:hover,
+body .auctions-ending-soon-cta:hover,
+body .trending-rail-cta:hover,
+body .csfloat-home-rail-cta:hover,
+body .rail-view-all:hover,
+body .rail-cta:hover {
+  color: rgb(80, 150, 255) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2701 */
+
+/* CSFLOAT-1:1 PARITY ship #2702 — recently-viewed rail container.
+   Measure: csfloat rail row max-width = 1440px content-width with
+   24px horizontal padding, 40px vertical breathing on each side,
+   12px gap between cards, hidden scrollbar with x-proximity snap.
+   Lock the spec verbatim, no Docker. */
+body .recently-viewed,
+body .top-deals-rail,
+body .just-listed-rail,
+body .just-sold-rail,
+body .auctions-ending-soon,
+body .trending-rail {
+  max-width: 1440px !important;
+  margin: 40px auto !important;
+  padding: 0 24px !important;
+}
+body .recently-viewed-rail,
+body .top-deals-track,
+body .just-listed-track,
+body .just-sold-track,
+body .auctions-ending-soon-rail,
+body .trending-rail-track {
+  display: flex !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  scroll-snap-type: x proximity !important;
+  scroll-padding-left: 2px !important;
+  padding: 2px 2px 8px !important;
+}
+body .recently-viewed-rail::-webkit-scrollbar,
+body .top-deals-track::-webkit-scrollbar,
+body .just-listed-track::-webkit-scrollbar,
+body .just-sold-track::-webkit-scrollbar,
+body .auctions-ending-soon-rail::-webkit-scrollbar,
+body .trending-rail-track::-webkit-scrollbar {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2702 */
+
+/* CSFLOAT-1:1 PARITY ship #2703 — rail item card geometry.
+   Measure: csfloat rail card = 180px fixed width, hairline
+   rgba(255,255,255,0.08) border, 8px radius, bg-1 panel
+   rgb(28,30,36), 12px inner padding, 220ms cubic-bezier hover
+   lift (-2px) plus csfloat-blue 35% mix border on hover. */
+body .recently-viewed-card,
+body .top-deal-card,
+body .just-listed-card,
+body .just-sold-card,
+body .auctions-ending-soon-card,
+body .trending-rail-card,
+body .rail-card {
+  flex: 0 0 180px !important;
+  width: 180px !important;
+  background: rgb(28, 30, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  scroll-snap-align: start !important;
+  text-decoration: none !important;
+  color: inherit !important;
+  cursor: pointer !important;
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    box-shadow 180ms ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+body .recently-viewed-card:hover,
+body .top-deal-card:hover,
+body .just-listed-card:hover,
+body .just-sold-card:hover,
+body .auctions-ending-soon-card:hover,
+body .trending-rail-card:hover,
+body .rail-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(35, 123, 255, 0.35) !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(35, 123, 255, 0.18) inset !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2703 */
+
+/* CSFLOAT-1:1 PARITY ship #2704 — stall hero strip.
+   Measure: csfloat seller-stall hero = single horizontal row,
+   72px avatar circle on the left, name in Roboto 20px/600 white,
+   meta caption in Roboto 12px/400 ink-3 rgb(158,167,177), 16px
+   gap between rows, 24px container padding, hairline bottom
+   divider rgba(255,255,255,0.06) before list. Pre-fix locally
+   the .stall-hero used custom sizing — bring to spec. */
+body .stall-hero {
+  display: grid !important;
+  grid-template-columns: 88px 1fr auto !important;
+  grid-template-rows: auto auto !important;
+  column-gap: 18px !important;
+  row-gap: 8px !important;
+  align-items: center !important;
+  padding: 24px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 0 !important;
+  margin: 0 0 24px 0 !important;
+}
+body .stall-hero .stall-avatar {
+  grid-row: 1 / 3 !important;
+  width: 88px !important;
+  height: 88px !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  overflow: hidden !important;
+}
+body .stall-hero .stall-name {
+  grid-column: 2 / 3 !important;
+  grid-row: 1 / 2 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  letter-spacing: -0.01em !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+}
+body .stall-hero .stall-meta {
+  grid-column: 2 / 3 !important;
+  grid-row: 2 / 3 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2704 */
+
+/* CSFLOAT-1:1 PARITY ship #2705 — just-sold/just-listed status dot.
+   Measure: csfloat live-pulse dot = 8x8 px, brand blue
+   rgb(35,123,255), no border, 18% mix halo via box-shadow
+   (0 0 0 3px rgba(35,123,255,0.18)). Distinguishes "live data"
+   rails from static count rails. */
+body .just-sold-dot,
+body .just-listed-dot,
+body .auctions-ending-soon-dot,
+body .trending-rail-dot,
+body .rail-live-dot {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+  flex-shrink: 0 !important;
+}
+body .just-sold-count,
+body .just-listed-count,
+body .auctions-ending-soon-count,
+body .trending-rail-count,
+body .rail-count {
+  margin-left: auto !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: rgb(110, 118, 128) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2705 */
