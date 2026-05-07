@@ -138386,3 +138386,772 @@ button[data-copy*="trade"]:hover {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #4204 */
+
+/* CSFLOAT-1:1 PARITY ship #4400 - Snackbar / Alert banner surface
+   csfloat MDC snackbar surface: bg rgb(66, 66, 66), color #fff,
+   border-radius 4px, min-width 344px, max-width 672px, shadow
+   0 3px 5px -1px rgba(0,0,0,0.2), 0 6px 10px 0 rgba(0,0,0,0.14),
+   0 1px 18px 0 rgba(0,0,0,0.12). Label/content padding 14px 16px,
+   font-size 14px, line-height 20px, letter-spacing 0.25px. */
+body .alert,
+body .toast,
+body .snackbar,
+body .banner,
+body [role="alert"],
+body .mdc-snackbar__surface,
+body .mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  background: rgb(66, 66, 66) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 4px !important;
+  min-width: 344px !important;
+  max-width: 672px !important;
+  box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.2), 0 6px 10px 0 rgba(0, 0, 0, 0.14), 0 1px 18px 0 rgba(0, 0, 0, 0.12) !important;
+  border: 0 !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+body .alert > *,
+body .toast > *,
+body .snackbar > *,
+body .banner > *,
+body [role="alert"] > *,
+body .mat-mdc-snack-bar-label,
+body .mdc-snackbar__label {
+  padding: 14px 16px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4400 */
+
+/* CSFLOAT-1:1 PARITY ship #4401 - Alert variants (info / success / warning / error)
+   csfloat keeps the snackbar dark (rgb(66,66,66)) and tints meaning via
+   the action button / left-rail accent. Inline alerts use a 4px left
+   stripe over the same dark surface. */
+body .alert-info,
+body .alert.info,
+body [role="alert"].info,
+body .banner.info {
+  border-left: 4px solid rgb(35, 123, 255) !important;
+  background: rgb(66, 66, 66) !important;
+}
+body .alert-success,
+body .alert.success,
+body [role="alert"].success,
+body .banner.success {
+  border-left: 4px solid rgb(76, 175, 80) !important;
+  background: rgb(66, 66, 66) !important;
+}
+body .alert-warning,
+body .alert.warning,
+body [role="alert"].warning,
+body .banner.warning {
+  border-left: 4px solid rgb(255, 152, 0) !important;
+  background: rgb(66, 66, 66) !important;
+}
+body .alert-error,
+body .alert.error,
+body .alert-danger,
+body .alert.danger,
+body [role="alert"].error,
+body .banner.error {
+  border-left: 4px solid rgb(244, 67, 54) !important;
+  background: rgb(66, 66, 66) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4401 */
+
+/* CSFLOAT-1:1 PARITY ship #4402 - Snackbar dismiss / close X
+   csfloat MDC snackbar dismiss button: 36x36 hit target, transparent
+   bg, rgba(255,255,255,0.7) icon, hover rgba(255,255,255,0.04)
+   state layer, 50% radius. */
+body .alert .close,
+body .alert .alert-close,
+body .toast .close,
+body .banner .close,
+body [role="alert"] .close,
+body .mat-mdc-snack-bar-container .mat-mdc-icon-button,
+body .snackbar .dismiss {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  padding: 6px !important;
+  margin: 0 -8px 0 8px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .alert .close:hover,
+body .alert .alert-close:hover,
+body .toast .close:hover,
+body .banner .close:hover,
+body [role="alert"] .close:hover,
+body .mat-mdc-snack-bar-container .mat-mdc-icon-button:hover,
+body .snackbar .dismiss:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4402 */
+
+/* CSFLOAT-1:1 PARITY ship #4403 - Confirmation dialog surface
+   csfloat MDC dialog: bg #1f1f1f, color #fff, border-radius 4px,
+   min-width 280px, max-width 560px, padding 0, shadow
+   0 11px 15px -7px rgba(0,0,0,0.2), 0 24px 38px 3px rgba(0,0,0,0.14),
+   0 9px 46px 8px rgba(0,0,0,0.12). Title 20px / 32px / 500.
+   Content 14px / 20px / 0.25px / rgba(255,255,255,0.6). */
+body .modal,
+body .dialog,
+body .confirm-dialog,
+body [role="dialog"],
+body .mat-mdc-dialog-surface,
+body .mat-mdc-dialog-container .mat-mdc-dialog-surface {
+  background: rgb(31, 31, 31) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 4px !important;
+  min-width: 280px !important;
+  max-width: 560px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  overflow: hidden !important;
+}
+body .modal-title,
+body .dialog-title,
+body [role="dialog"] > h1,
+body [role="dialog"] > h2,
+body .mat-mdc-dialog-title {
+  display: block !important;
+  margin: 0 !important;
+  padding: 24px 24px 9px 24px !important;
+  font-size: 20px !important;
+  line-height: 32px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .modal-body,
+body .dialog-content,
+body .modal-content,
+body .mat-mdc-dialog-content {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 24px 20px 24px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+body .modal-actions,
+body .dialog-actions,
+body .modal-footer,
+body .mat-mdc-dialog-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  min-height: 52px !important;
+  border-top: 0 !important;
+  background: transparent !important;
+}
+body .cdk-overlay-dark-backdrop,
+body .modal-backdrop,
+body .dialog-backdrop {
+  background: rgba(0, 0, 0, 0.32) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4403 */
+
+/* CSFLOAT-1:1 PARITY ship #4404 - Inline form warning callout
+   csfloat warning callouts inside forms: subtle dark surface
+   rgba(255,152,0,0.08), 1px border rgba(255,152,0,0.4), 4px radius,
+   12px 16px padding, 13px / 18px / 400 / rgba(255,255,255,0.85).
+   Icon column 20px wide, gap 12px. Error variant uses red, info uses blue. */
+body .form-warning,
+body .inline-warning,
+body .form-callout,
+body .callout-warning,
+body .alert-inline {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 12px 16px !important;
+  margin: 8px 0 !important;
+  border-radius: 4px !important;
+  background: rgba(255, 152, 0, 0.08) !important;
+  border: 1px solid rgba(255, 152, 0, 0.4) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  letter-spacing: 0.16px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+body .form-warning::before,
+body .inline-warning::before,
+body .callout-warning::before,
+body .alert-inline.warning::before {
+  content: "warning" !important;
+  font-family: "Material Icons", "Material Symbols Outlined", sans-serif !important;
+  font-size: 20px !important;
+  line-height: 18px !important;
+  color: rgb(255, 152, 0) !important;
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 18px !important;
+  font-feature-settings: "liga" !important;
+}
+body .form-error-callout,
+body .callout-error,
+body .alert-inline.error,
+body .alert-inline.danger {
+  background: rgba(244, 67, 54, 0.08) !important;
+  border: 1px solid rgba(244, 67, 54, 0.4) !important;
+}
+body .form-error-callout::before,
+body .callout-error::before,
+body .alert-inline.error::before {
+  content: "error" !important;
+  color: rgb(244, 67, 54) !important;
+  font-family: "Material Icons", "Material Symbols Outlined", sans-serif !important;
+  font-size: 20px !important;
+  line-height: 18px !important;
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 18px !important;
+  font-feature-settings: "liga" !important;
+}
+body .form-info-callout,
+body .callout-info,
+body .alert-inline.info {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 1px solid rgba(35, 123, 255, 0.4) !important;
+}
+body .form-info-callout::before,
+body .callout-info::before,
+body .alert-inline.info::before {
+  content: "info" !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: "Material Icons", "Material Symbols Outlined", sans-serif !important;
+  font-size: 20px !important;
+  line-height: 18px !important;
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 18px !important;
+  font-feature-settings: "liga" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4404 */
+
+/* CSFLOAT-1:1 PARITY ship #4405 - Dialog action buttons (ghost cancel / primary / danger)
+   csfloat MDC dialog buttons: 36px tall, padding 0 12px, border-radius 4px,
+   font-size 14px, line-height 36px, font-weight 500, letter-spacing 0.0892857em,
+   text-transform uppercase. Cancel: text button (transparent bg, primary color
+   on hover state layer rgba(35,123,255,0.04)). Confirm primary: bg
+   rgb(35,123,255). Danger: bg rgb(244,67,54). All non-uppercase variants force
+   uppercase to match MDC. */
+body .modal-actions button,
+body .dialog-actions button,
+body .modal-footer button,
+body .mat-mdc-dialog-actions button {
+  height: 36px !important;
+  min-width: 64px !important;
+  padding: 0 12px !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  line-height: 36px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: uppercase !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .modal-actions .btn-cancel,
+body .dialog-actions .btn-cancel,
+body .modal-actions button.cancel,
+body .dialog-actions button.cancel,
+body .modal-actions button[data-action="cancel"],
+body .dialog-actions button[data-action="cancel"] {
+  background: transparent !important;
+  color: rgb(35, 123, 255) !important;
+}
+body .modal-actions .btn-cancel:hover,
+body .dialog-actions .btn-cancel:hover,
+body .modal-actions button.cancel:hover,
+body .dialog-actions button.cancel:hover {
+  background: rgba(35, 123, 255, 0.04) !important;
+}
+body .modal-actions .btn-primary,
+body .dialog-actions .btn-primary,
+body .modal-actions button.confirm,
+body .dialog-actions button.confirm,
+body .modal-actions button[type="submit"],
+body .dialog-actions button[type="submit"] {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .modal-actions .btn-primary:hover,
+body .dialog-actions .btn-primary:hover,
+body .modal-actions button.confirm:hover,
+body .dialog-actions button.confirm:hover,
+body .modal-actions button[type="submit"]:hover,
+body .dialog-actions button[type="submit"]:hover {
+  background: rgb(56, 138, 255) !important;
+}
+body .modal-actions .btn-danger,
+body .dialog-actions .btn-danger,
+body .modal-actions .btn-destructive,
+body .dialog-actions .btn-destructive,
+body .modal-actions button.danger,
+body .dialog-actions button.danger,
+body .modal-actions button.delete,
+body .dialog-actions button.delete,
+body button.btn-danger,
+body button.btn-destructive,
+body .btn.btn-danger {
+  background: rgb(244, 67, 54) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .modal-actions .btn-danger:hover,
+body .dialog-actions .btn-danger:hover,
+body .modal-actions button.danger:hover,
+body .dialog-actions button.danger:hover,
+body button.btn-danger:hover,
+body .btn.btn-danger:hover {
+  background: rgb(229, 57, 53) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4405 */
+
+/* CSFLOAT-1:1 PARITY ship #3907 — defeat 32px min-height tap-target normalizer
+   for the new chip family (#3900-3906). The chips are 22px on csfloat; we keep
+   the parent row's tap-target via padding, not the pill itself. */
+body .modal-demand-chip,
+body .demand-chip,
+body .csfloat-demand-chip,
+body .item-demand-chip,
+body .good-deal-chip,
+body .csfloat-good-deal-chip,
+body .item-good-deal-chip,
+body .deal-indicator,
+body .hot-item-chip,
+body .csfloat-hot-item-chip,
+body .item-hot-item-chip,
+body .hot-indicator,
+body .stock-chip,
+body .in-stock-chip,
+body .item-stock-chip,
+body .csfloat-stock-chip,
+body .trade-lock-chip,
+body .tradelock-chip,
+body .item-trade-lock,
+body .csfloat-trade-lock {
+  min-height: 22px !important;
+  height: 22px !important;
+  line-height: 1 !important;
+}
+body .seller-verified,
+body .verified-seller,
+body .item-verified-badge,
+body .csfloat-verified,
+body .csfloat-hero-stack-verified {
+  min-height: 14px !important;
+  height: 14px !important;
+  line-height: 1 !important;
+}
+body .online-status-dot,
+body .status-dot,
+body .online-dot {
+  min-height: 8px !important;
+  height: 8px !important;
+  line-height: 1 !important;
+}
+body .item-view-count,
+body .view-count,
+body .views-display {
+  min-height: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3907 */
+
+/* CSFLOAT-1:1 PARITY ship #4600 — Share modal panel container */
+.share-modal,
+.share-dialog,
+.csfloat-share-modal,
+.share-modal-panel,
+.modal-share,
+[data-share-modal] {
+  width: min(480px, calc(100vw - 32px)) !important;
+  max-width: 480px !important;
+  background: rgb(20, 24, 30) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55) !important;
+  padding: 24px !important;
+  color: rgb(232, 236, 242) !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  letter-spacing: -0.005em !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  position: relative !important;
+}
+.share-modal-overlay,
+.share-dialog-overlay,
+.modal-share-overlay {
+  background: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4600 */
+
+/* CSFLOAT-1:1 PARITY ship #4601 — Share modal heading "Share to..." */
+.share-modal-title,
+.share-dialog-title,
+.share-modal h2,
+.share-modal h3,
+.share-dialog h2,
+.share-dialog h3,
+.share-modal-heading,
+[data-share-modal] .modal-title {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.01em !important;
+  color: rgb(240, 244, 250) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.share-modal-subtitle,
+.share-dialog-subtitle {
+  font-size: 13px !important;
+  color: rgb(160, 168, 178) !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+  letter-spacing: -0.005em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4601 */
+
+/* CSFLOAT-1:1 PARITY ship #4602 — Close X button (top right) */
+.share-modal-close,
+.share-dialog-close,
+.share-modal .close-btn,
+.share-modal .modal-close,
+.share-dialog .close-btn,
+.share-dialog .modal-close,
+[data-share-close] {
+  position: absolute !important;
+  top: 16px !important;
+  right: 16px !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  color: rgb(160, 168, 178) !important;
+  cursor: pointer !important;
+  transition: color 0.12s ease, background 0.12s ease !important;
+}
+.share-modal-close:hover,
+.share-dialog-close:hover,
+.share-modal .close-btn:hover,
+.share-dialog .close-btn:hover {
+  color: rgb(240, 244, 250) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+.share-modal-close > .material-symbols-rounded,
+.share-modal-close > svg,
+.share-dialog-close > .material-symbols-rounded,
+.share-dialog-close > svg {
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  font-variation-settings: "opsz" 24, "FILL" 0, "wght" 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4602 */
+
+/* CSFLOAT-1:1 PARITY ship #4603 — Image preview thumbnail */
+.share-modal-preview,
+.share-dialog-preview,
+.share-preview-thumb,
+.share-modal .preview-image,
+[data-share-preview] {
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: 8px !important;
+  background: rgb(28, 32, 38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+.share-modal-preview > img,
+.share-dialog-preview > img,
+.share-preview-thumb > img,
+.share-modal .preview-image > img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+.share-modal-preview-row,
+.share-dialog-preview-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+.share-modal-preview-meta,
+.share-dialog-preview-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+.share-modal-preview-name,
+.share-dialog-preview-name {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(232, 236, 242) !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.005em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.share-modal-preview-sub,
+.share-dialog-preview-sub {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(160, 168, 178) !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.005em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4603 */
+
+/* CSFLOAT-1:1 PARITY ship #4604 — Copy link URL field + Copy button */
+.share-modal-url-row,
+.share-dialog-url-row,
+.share-copy-row,
+.share-modal .url-row,
+[data-share-url-row] {
+  display: flex !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  height: 40px !important;
+  background: rgb(28, 32, 38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  transition: border-color 0.15s ease !important;
+}
+.share-modal-url-row:focus-within,
+.share-dialog-url-row:focus-within,
+.share-copy-row:focus-within {
+  border-color: rgba(110, 168, 254, 0.40) !important;
+}
+.share-modal-url-input,
+.share-dialog-url-input,
+.share-copy-input,
+.share-modal input[type="text"],
+.share-modal input[type="url"],
+.share-dialog input[type="text"],
+.share-dialog input[type="url"] {
+  flex: 1 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  font-family: var(--mono), 'JetBrains Mono', 'Geist Mono', monospace !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(200, 208, 218) !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+.share-modal-url-input::selection,
+.share-dialog-url-input::selection,
+.share-copy-input::selection {
+  background: rgba(110, 168, 254, 0.30) !important;
+  color: rgb(240, 244, 250) !important;
+}
+.share-modal-copy-btn,
+.share-dialog-copy-btn,
+.share-copy-btn,
+.share-modal .copy-btn,
+.share-dialog .copy-btn,
+[data-share-copy] {
+  height: 100% !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 0 !important;
+  color: rgb(232, 236, 242) !important;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease, color 0.12s ease !important;
+  white-space: nowrap !important;
+}
+.share-modal-copy-btn:hover,
+.share-dialog-copy-btn:hover,
+.share-copy-btn:hover {
+  background: rgba(110, 168, 254, 0.12) !important;
+  color: rgb(170, 200, 254) !important;
+}
+.share-modal-copy-btn.copied,
+.share-dialog-copy-btn.copied,
+.share-copy-btn.copied {
+  background: rgba(74, 222, 128, 0.14) !important;
+  color: rgb(134, 239, 172) !important;
+}
+.share-modal-copy-btn > .material-symbols-rounded,
+.share-dialog-copy-btn > .material-symbols-rounded,
+.share-copy-btn > .material-symbols-rounded {
+  font-size: 14px !important;
+  font-variation-settings: "opsz" 24, "FILL" 0, "wght" 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4604 */
+
+/* CSFLOAT-1:1 PARITY ship #4605 — Social share button row (X, Reddit, Discord) */
+.share-modal-social-row,
+.share-dialog-social-row,
+.share-social-row,
+.share-modal .social-row,
+[data-share-social-row] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  margin-top: 4px !important;
+}
+.share-social-btn,
+.share-modal-social-btn,
+.share-dialog-social-btn,
+.share-modal .social-btn,
+[data-share-social] {
+  width: 40px !important;
+  height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 999px !important;
+  color: rgb(200, 208, 218) !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease !important;
+  text-decoration: none !important;
+}
+.share-social-btn:hover,
+.share-modal-social-btn:hover,
+.share-dialog-social-btn:hover,
+.share-modal .social-btn:hover {
+  transform: translateY(-1px) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgb(240, 244, 250) !important;
+}
+.share-social-btn > svg,
+.share-social-btn > .material-symbols-rounded,
+.share-social-btn > i,
+.share-modal-social-btn > svg,
+.share-modal-social-btn > .material-symbols-rounded {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  display: block !important;
+}
+.share-social-btn.share-x,
+.share-social-btn.x,
+.share-social-btn.twitter,
+[data-share-social="x"],
+[data-share-social="twitter"] {
+  --share-brand: rgb(229, 231, 235);
+}
+.share-social-btn.share-x:hover,
+.share-social-btn.x:hover,
+.share-social-btn.twitter:hover,
+[data-share-social="x"]:hover,
+[data-share-social="twitter"]:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.share-social-btn.share-reddit,
+.share-social-btn.reddit,
+[data-share-social="reddit"] {
+  --share-brand: rgb(255, 69, 0);
+}
+.share-social-btn.share-reddit:hover,
+.share-social-btn.reddit:hover,
+[data-share-social="reddit"]:hover {
+  background: rgba(255, 69, 0, 0.14) !important;
+  border-color: rgba(255, 69, 0, 0.40) !important;
+  color: rgb(255, 110, 50) !important;
+}
+.share-social-btn.share-discord,
+.share-social-btn.discord,
+[data-share-social="discord"] {
+  --share-brand: rgb(88, 101, 242);
+}
+.share-social-btn.share-discord:hover,
+.share-social-btn.discord:hover,
+[data-share-social="discord"]:hover {
+  background: rgba(88, 101, 242, 0.14) !important;
+  border-color: rgba(88, 101, 242, 0.40) !important;
+  color: rgb(120, 134, 255) !important;
+}
+.share-social-label,
+.share-social-btn + .share-social-label {
+  font-size: 10px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgb(140, 148, 158) !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #4605 */
