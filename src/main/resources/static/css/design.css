@@ -131339,3 +131339,985 @@ body .help-page .help-faq,
   line-height: 32px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2004 */
+
+/* CSFLOAT-1:1 PARITY ship #2100 — sell page inventory grid sizing.
+   csfloat /sell renders the picker grid at ~6 columns on a 1200-1400px
+   container, with cards sized ~178-188px wide and a 12px gutter between
+   cards. sboxmarket's existing `.inventory-grid` uses minmax(180px,1fr)
+   gap 10px, which is close but not identical: at the same viewport
+   csfloat fits MORE cards (smaller min) and uses slightly larger gaps,
+   making the grid feel airier rather than packed.
+   Match by lowering the minmax floor to 168px and raising the gap to
+   12px. The auto-fill behavior is preserved so narrow viewports still
+   wrap cleanly to 2-3 columns. */
+.inventory-grid {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)) !important;
+  gap: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2100 */
+
+/* CSFLOAT-1:1 PARITY ship #2101 — inventory item card chrome.
+   csfloat picker cards use a darker (#15171c) base with a 4px outer
+   radius (mat-card default = 4px), and a hairline outline that thickens
+   on hover. The earlier ship #1309 painted `.inventory-item` with
+   rgb(27,29,36) + 8px radius via `body .inventory-item` — close, but
+   the surface still reads slightly cooler than csfloat and the corners
+   are 2px too round. Use the same `body` prefix to win specificity and
+   land the darker (#15171c) base + 6px radius + accent-tinted hover
+   outline that csfloat uses for click affordance. */
+body .inventory-item {
+  background: #15171c !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+}
+body .inventory-item:hover {
+  border-color: rgba(110, 168, 254, 0.35) !important;
+  background: #181b21 !important;
+  transform: translateY(-1px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2101 */
+
+/* CSFLOAT-1:1 PARITY ship #2102 — inventory item internals (thumb /
+   name / floor). csfloat's per-card typography reads:
+     - Name line: 13px, weight 500, color #d8dde6, ellipsis, pad 8/10/2.
+     - Floor line: 12px, weight 400, color #9ea7b1, pad 0/10/8.
+   The earlier ship #1309 set both lines to 13px white via `body .` —
+   that flattens the visual hierarchy (floor reads as loud as the name).
+   Use the same `body` prefix to override and re-introduce the muted
+   floor color + smaller font that csfloat uses, keeping the name as
+   the primary read. Padding adjusted to match the reference's 2px gap
+   between name and floor (instead of zero). */
+body .inventory-name {
+  padding: 8px 10px 2px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #d8dde6 !important;
+  line-height: 18px !important;
+}
+body .inventory-floor {
+  padding: 0 10px 8px !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: #9ea7b1 !important;
+  line-height: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2102 */
+
+/* CSFLOAT-1:1 PARITY ship #2103 — filter pills + search input row.
+   csfloat's pickers position the rarity chips inline with the search
+   input on a single row; the row sits in a 40px-tall flex container
+   with 8px gaps. The chip itself uses 28px height, 0 12px padding,
+   12px text. Search input takes the remainder of the row at 34px tall.
+   sboxmarket uses `.wallet-tx-filter-chip` for the pills and
+   `.sell-filter-search` for the search; the pills currently render at
+   bigger heights and the search runs at full width on its own line.
+   Anchor both to csfloat's 28-34px scale and 8px gap so the row feels
+   compact and aligned with the rest of the marketplace toolbars. */
+.sell-filter-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+}
+.sell-filter-bar .wallet-tx-filter-chip {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 14px !important;
+  line-height: 1 !important;
+}
+.sell-filter-bar .sell-filter-search {
+  height: 34px !important;
+  min-width: 200px !important;
+  flex: 1 1 200px !important;
+}
+.sell-filter-bar .sell-filter-search input {
+  font-size: 13px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.sell-filter-bar .sell-filter-search input::placeholder {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2103 */
+
+/* CSFLOAT-1:1 PARITY ship #2104 — selected (bulk-list) inventory item
+   styling. csfloat uses an accent-colored 2px outline with a soft glow
+   and a faint accent tint over the card body when an inventory tile is
+   in a "selected" state (multi-select for offers / bulk-list etc.).
+   sboxmarket's `.bulk-selected` modifier currently relies on an inline
+   `outline: 2px solid var(--accent)` which renders as a hard rectangle
+   without the surrounding glow.
+   Wrap the inline outline with a matching glow ring + a subtle accent
+   wash, and make the accent stick on hover so the selection state isn't
+   visually overridden when the user mouses over a selected tile. */
+body .inventory-item.bulk-selected {
+  outline: 2px solid #237bff !important;
+  outline-offset: 2px !important;
+  box-shadow:
+    0 0 0 1px rgba(35, 123, 255, 0.4),
+    0 0 18px rgba(35, 123, 255, 0.25) !important;
+  background:
+    linear-gradient(180deg, rgba(35, 123, 255, 0.08), rgba(35, 123, 255, 0.04)),
+    #15171c !important;
+  border-color: rgba(35, 123, 255, 0.5) !important;
+}
+body .inventory-item.bulk-selected:hover {
+  border-color: rgba(35, 123, 255, 0.7) !important;
+  background:
+    linear-gradient(180deg, rgba(35, 123, 255, 0.12), rgba(35, 123, 255, 0.06)),
+    #181b21 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2104 */
+
+/* CSFLOAT-1:1 PARITY ship #2105 — bulk-list floating toolbar at the
+   bottom of the picker. csfloat anchors the equivalent action bar at
+   the bottom edge of the modal, full-width, with a panel background
+   (rgba(21,23,28,0.9)), a hairline top border, and 14px vertical
+   padding. The price field reads 12-13px / weight 500, the primary CTA
+   is the brand blue at 32-34px tall with bold copy.
+   sboxmarket's bulk row currently sits inline with the grid (no anchor)
+   and the inline button paddings (6px 14px / 12px font) are smaller
+   than the reference primary CTA. Anchor the row visually with a
+   sticky-style top border + panel background and bring the inline
+   button to csfloat's 32px height + 13px / 700 typography so the
+   "List N @ $X" CTA looks committal rather than secondary. */
+.sell-bulk-bar,
+.sell-filter-bar + div[style*="bulk"],
+.inventory-grid + .sell-bulk-bar,
+[class*="bulk-toolbar"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 14px !important;
+  background: rgba(21, 23, 28, 0.92) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  margin-top: 12px !important;
+}
+.sell-bulk-bar .btn.btn-accent,
+[class*="bulk-toolbar"] .btn.btn-accent {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+}
+.sell-bulk-bar .btn.btn-ghost,
+[class*="bulk-toolbar"] .btn.btn-ghost {
+  height: 32px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2105 */
+
+/* CSFLOAT-1:1 PARITY ship #2106 — auction-card countdown row matches csfloat 14px text + blue timer */
+.grid-card .auction-countdown,
+.csfloat-grid-card .auction-countdown,
+.csfloat-band-card .auction-countdown,
+.market-grid .auction-countdown,
+.auctions-ending-soon-rail .auction-countdown {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: var(--mono) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--cta) !important;
+  font-feature-settings: 'tnum' 1 !important;
+}
+.grid-card .auction-countdown::before,
+.csfloat-grid-card .auction-countdown::before,
+.csfloat-band-card .auction-countdown::before,
+.market-grid .auction-countdown::before,
+.auctions-ending-soon-rail .auction-countdown::before {
+  content: 'Expires in';
+  display: inline-block;
+  margin-right: 4px;
+  color: var(--ink);
+  font-weight: 400;
+  font-family: var(--ui);
+}
+.grid-card .auction-countdown.ending,
+.csfloat-grid-card .auction-countdown.ending,
+.csfloat-band-card .auction-countdown.ending,
+.market-grid .auction-countdown.ending,
+.auctions-ending-soon-rail .auction-countdown.ending {
+  color: var(--down) !important;
+}
+.grid-card .auction-countdown.ended,
+.csfloat-grid-card .auction-countdown.ended,
+.csfloat-band-card .auction-countdown.ended,
+.market-grid .auction-countdown.ended,
+.auctions-ending-soon-rail .auction-countdown.ended {
+  color: var(--ink-3) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2106 */
+
+/* CSFLOAT-1:1 PARITY ship #2107 — bid CTA button matches csfloat 88x40 / 8px radius / 14px / 500 */
+.auction-bid-form button,
+.auction-bid-form button[type="submit"],
+button.auction-bid-submit,
+.modal-card-footer .btn-bid,
+.auction-panel button.btn,
+.auction-panel button.btn-accent,
+.auction-panel .auction-bid-form button {
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  font-family: var(--ui) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+  line-height: 40px !important;
+  white-space: nowrap !important;
+}
+.auction-bid-form .auction-autobid,
+.auction-bid-form button.auction-autobid,
+button.auction-autobid,
+.auction-bid-form .btn.btn-ghost,
+.auction-bid-form button[data-kind="auto"] {
+  min-height: 34px !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  padding: 0 10px !important;
+  line-height: 34px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2107 */
+
+/* CSFLOAT-1:1 PARITY ship #2108 — "No Bids" placeholder uses 22px display weight to match csfloat */
+.auction-no-bids,
+.grid-no-bids,
+.csfloat-grid-card .no-bids,
+.csfloat-band-card .no-bids,
+.grid-card .no-bids,
+.auction-bid.no-bids,
+.auction-bid[data-empty="true"] {
+  font-family: var(--mono) !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--ink) !important;
+  text-transform: none !important;
+  line-height: 1.1 !important;
+}
+.grid-price[data-empty="true"],
+.csfloat-grid-card .grid-price[data-empty="true"],
+.csfloat-band-card .grid-price[data-empty="true"] {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  font-family: var(--mono) !important;
+  letter-spacing: -0.01em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2108 */
+
+/* CSFLOAT-1:1 PARITY ship #2109 — auction badge / live chip matches csfloat understated style */
+.grid-auction-badge,
+.csfloat-grid-card .auction-badge,
+.csfloat-band-card .auction-badge {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  height: 22px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  font-family: var(--ui) !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+.grid-auction-tag {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+}
+.grid-auction-badge .auction-countdown-dot {
+  width: 6px !important;
+  height: 6px !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2109 */
+
+/* CSFLOAT-1:1 PARITY ship #2110 — bid panel header alignment matches csfloat (mat-card 12px / bg #1B1D24) */
+.auction-panel {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+.auction-panel .auction-header {
+  padding: 18px 20px !important;
+  border-bottom: 1px solid var(--line) !important;
+  margin-bottom: 0 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+}
+.auction-panel .auction-label {
+  font-family: var(--mono) !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-4) !important;
+  margin-bottom: 4px !important;
+}
+.auction-panel .auction-bid {
+  font-family: var(--mono) !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+}
+.auction-panel .auction-timer {
+  font-family: var(--mono) !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: var(--cta) !important;
+  letter-spacing: -0.01em !important;
+  font-feature-settings: 'tnum' 1 !important;
+  line-height: 1.1 !important;
+}
+.auction-panel .auction-timer.urgent {
+  color: var(--down) !important;
+}
+.auction-panel .auction-bid-form {
+  margin: 16px 20px 20px !important;
+  padding: 12px 14px !important;
+  border-radius: 10px !important;
+  background: var(--bg) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2110 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #2106 — Steam button (.steam-btn)
+   Match exact csfloat measurements:
+   bg rgb(35,123,255), radius 8px, padding 13px 30px,
+   font 15px/700 Roboto, gap 8px, h40, icon 20x20
+   MD elevation boxShadow.
+   ───────────────────────────────────────────────────────────── */
+button.steam-btn,
+.steam-btn {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 13px 30px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0 0 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: filter 140ms ease, box-shadow 140ms ease !important;
+}
+button.steam-btn:hover,
+.steam-btn:hover {
+  filter: brightness(1.06) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+}
+button.steam-btn:active,
+.steam-btn:active {
+  filter: brightness(0.94) !important;
+}
+button.steam-btn .steam-btn-icon,
+.steam-btn .steam-btn-icon,
+button.steam-btn > div:first-child,
+.steam-btn > div:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+button.steam-btn svg,
+.steam-btn svg {
+  width: 20px !important;
+  height: 20px !important;
+  fill: currentColor !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2106 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #2107 — Pre-signin modal
+   Match csfloat sign-in chrome: rounded contained dialog,
+   accent-blue submit button (Steam color), tighter typography.
+   ───────────────────────────────────────────────────────────── */
+.modal.presignin-modal,
+.presignin-modal {
+  width: min(440px, 100%) !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.4) 0px 24px 48px -12px,
+    rgba(0, 0, 0, 0.3) 0px 8px 24px -8px !important;
+  padding: 36px 32px 28px !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  position: relative !important;
+}
+.presignin-inner {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: center !important;
+}
+.presignin-logo {
+  width: 56px !important;
+  height: 56px !important;
+  margin: 0 auto 6px !important;
+  display: grid !important;
+  place-items: center !important;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.4)) !important;
+}
+.presignin-logo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+.presignin-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+.presignin-sub {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: normal !important;
+  text-align: center !important;
+  margin: 0 !important;
+  max-width: 340px !important;
+}
+.presignin-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: left !important;
+  align-self: stretch !important;
+  margin: 4px 0 0 0 !important;
+}
+.presignin-input {
+  width: 100% !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+  background: rgb(15, 17, 21) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  outline: none !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease !important;
+  box-sizing: border-box !important;
+}
+.presignin-input:focus {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+}
+.presignin-check {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  color: rgb(158, 167, 177) !important;
+  align-self: flex-start !important;
+  text-align: left !important;
+}
+.presignin-check input {
+  accent-color: rgb(35, 123, 255) !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin-top: 2px !important;
+  flex: 0 0 auto !important;
+}
+.presignin-check a {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+.presignin-check a:hover {
+  text-decoration: underline !important;
+}
+.presignin-error {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: rgb(244, 67, 54) !important;
+  padding: 9px 12px !important;
+  background: rgba(244, 67, 54, 0.08) !important;
+  border: 1px solid rgba(244, 67, 54, 0.32) !important;
+  border-radius: 6px !important;
+  text-align: center !important;
+  margin: 0 !important;
+}
+.presignin-submit {
+  width: 100% !important;
+  height: 44px !important;
+  background: rgb(35, 123, 255) !important;
+  background-image: none !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: filter 140ms ease, box-shadow 140ms ease !important;
+  margin-top: 4px !important;
+}
+.presignin-submit:hover {
+  filter: brightness(1.06) !important;
+  transform: none !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+}
+.presignin-submit .steam-btn-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+}
+.presignin-submit svg {
+  width: 20px !important;
+  height: 20px !important;
+  fill: currentColor !important;
+}
+.presignin-footnote {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: rgb(108, 117, 127) !important;
+  text-align: center !important;
+  margin-top: 4px !important;
+  max-width: 340px !important;
+  align-self: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2107 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #2108 — Sign-in info-modal panel
+   The "Sign in required" inline modal that appears on /sell,
+   /watchlist, etc. when the user is logged out. Keep csfloat
+   sign-in chrome scale.
+   ───────────────────────────────────────────────────────────── */
+.info-modal:has(button.btn-accent),
+.modal.info-modal:has(button.btn-accent) {
+  width: min(440px, 100%) !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.4) 0px 24px 48px -12px,
+    rgba(0, 0, 0, 0.3) 0px 8px 24px -8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.info-modal .info-modal-header {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 20px 24px 12px !important;
+  margin: 0 !important;
+  border-bottom: 0 !important;
+  text-align: center !important;
+  display: block !important;
+  line-height: 1.25 !important;
+  position: relative !important;
+}
+.info-modal .info-modal-header::after {
+  display: none !important;
+}
+.info-modal .info-modal-body {
+  padding: 8px 24px 28px !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 1.5 !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+}
+.info-modal .info-modal-body .empty-inline {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 4px !important;
+}
+.info-modal .info-modal-body .empty-icon {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 16px !important;
+  margin: 4px auto 14px !important;
+  background: rgba(35, 123, 255, 0.10) !important;
+  border: 1px solid rgba(35, 123, 255, 0.22) !important;
+  color: rgb(35, 123, 255) !important;
+  display: grid !important;
+  place-items: center !important;
+}
+.info-modal .info-modal-body .empty-icon svg {
+  width: 30px !important;
+  height: 30px !important;
+}
+.info-modal .info-modal-body .btn.btn-accent {
+  width: 100% !important;
+  max-width: 320px !important;
+  margin: 18px auto 0 !important;
+  height: 44px !important;
+  background: rgb(35, 123, 255) !important;
+  background-image: none !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  line-height: 1 !important;
+  padding: 0 22px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+.info-modal .info-modal-body .btn.btn-accent:hover {
+  filter: brightness(1.06) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+}
+/* Modal-backdrop must be a fixed overlay so the dialog actually
+   centers when this is the only thing on the page (eg /sell while
+   logged out). Defensive override in case page-level wrappers
+   knock the position off. */
+.modal-backdrop:has(.info-modal),
+.modal-backdrop:has(.presignin-modal) {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 200 !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(8px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.1) !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 4vh 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2108 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #2109 — Trade-URL setup walkthrough modal
+   The 3-step (Open Steam → Copy URL → Paste) flow modal styling.
+   ───────────────────────────────────────────────────────────── */
+.modal.trade-url-setup,
+.trade-url-setup,
+.modal.tradeurl-setup,
+.tradeurl-setup,
+.modal:has(.tradeurl-step),
+.modal:has([data-tradeurl-step]) {
+  width: min(520px, 100%) !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.4) 0px 24px 48px -12px,
+    rgba(0, 0, 0, 0.3) 0px 8px 24px -8px !important;
+  overflow: hidden !important;
+}
+.tradeurl-step,
+[data-tradeurl-step] {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 14px !important;
+  padding: 16px 22px !important;
+  border-bottom: 1px solid var(--line) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.tradeurl-step:last-child,
+[data-tradeurl-step]:last-child {
+  border-bottom: 0 !important;
+}
+.tradeurl-step-num {
+  flex: 0 0 auto !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+  border: 1px solid rgba(35, 123, 255, 0.32) !important;
+  color: rgb(35, 123, 255) !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+}
+.tradeurl-step-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+.tradeurl-step-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 4px !important;
+  line-height: 1.3 !important;
+  letter-spacing: normal !important;
+}
+.tradeurl-step-text,
+.tradeurl-step-body p {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+  letter-spacing: normal !important;
+}
+.tradeurl-step-link,
+.tradeurl-step a,
+.tradeurl-step .btn-link {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+}
+.tradeurl-step-link:hover,
+.tradeurl-step a:hover,
+.tradeurl-step .btn-link:hover {
+  text-decoration: underline !important;
+}
+.tradeurl-input {
+  width: 100% !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+  margin-top: 8px !important;
+  background: rgb(15, 17, 21) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: "Roboto Mono", ui-monospace, monospace !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease !important;
+}
+.tradeurl-input:focus {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+}
+.tradeurl-actions {
+  padding: 16px 22px !important;
+  border-top: 1px solid var(--line) !important;
+  display: flex !important;
+  gap: 10px !important;
+  justify-content: flex-end !important;
+  background: var(--bg) !important;
+}
+.tradeurl-actions .btn-accent,
+.tradeurl-actions .btn-primary {
+  height: 40px !important;
+  padding: 0 22px !important;
+  background: rgb(35, 123, 255) !important;
+  background-image: none !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+.tradeurl-actions .btn-accent:hover,
+.tradeurl-actions .btn-primary:hover {
+  filter: brightness(1.06) !important;
+}
+.tradeurl-actions .btn-ghost {
+  height: 40px !important;
+  padding: 0 18px !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+}
+.tradeurl-actions .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2109 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #2110 — Steam OAuth loading overlay
+   Full-screen blur + centered spinner shown during the Steam
+   OpenID redirect handoff so users get visual feedback.
+   ───────────────────────────────────────────────────────────── */
+.oauth-loading,
+.steam-oauth-loading,
+.signin-loading-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(15, 17, 21, 0.78) !important;
+  backdrop-filter: blur(10px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.1) !important;
+  display: grid !important;
+  place-items: center !important;
+  animation: oauth-loading-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+@keyframes oauth-loading-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.oauth-loading-card,
+.steam-oauth-loading > div,
+.signin-loading-overlay > div,
+.oauth-loading > div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  padding: 32px 40px !important;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.4) 0px 24px 48px -12px,
+    rgba(0, 0, 0, 0.3) 0px 8px 24px -8px !important;
+  min-width: 280px !important;
+  text-align: center !important;
+}
+.oauth-loading-spinner {
+  display: block !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  border: 3px solid rgba(255, 255, 255, 0.10) !important;
+  border-top-color: rgb(35, 123, 255) !important;
+  animation: oauth-spin 800ms linear infinite !important;
+}
+@keyframes oauth-spin {
+  to { transform: rotate(360deg); }
+}
+.oauth-loading-text,
+.oauth-loading > div > p {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+.oauth-loading-sub,
+.oauth-loading > div > small {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: normal !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+/* Body lock while OAuth handoff is showing — prevents
+   stray background scroll from peeking past the blur. */
+body:has(.oauth-loading),
+body:has(.steam-oauth-loading),
+body:has(.signin-loading-overlay) {
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2110 */
