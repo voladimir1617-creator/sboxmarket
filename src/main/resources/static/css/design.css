@@ -148312,6 +148312,183 @@ button.db-load-more.is-loading::after {
 /* END CSFLOAT-1:1 PARITY ship #8513 */
 
 /* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8800 — chart range pill row container.
+   csfloat range tabs row (.mat-button-toggle-group surrounding 7D/1M/3M/
+   1Y/ALL) measured: display flex, gap 0, no border, no background, no
+   border-radius wrapping (each pill carries its own radius), justify
+   flex-end aligned to chart top-right, margin-left auto, line-height 1.
+   sboxmarket .chart-range was: inline-flex with 1px solid border around
+   the entire group + bg + radius + overflow hidden — visually a "segmented
+   control" rather than the floating pill row csfloat ships. Strip the
+   wrapper chrome so individual pills can carry the active highlight.
+   ===================================================================== */
+.modal.item-page .chart-range,
+.chart-card .chart-range,
+.chart-range {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  border: 0 none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  margin-left: auto !important;
+  line-height: 1 !important;
+}
+/* Strip the inherited inter-button divider that .chart-range button got
+   from the segmented-control look — csfloat pills float independently. */
+.modal.item-page .chart-range button,
+.chart-card .chart-range button,
+.chart-range button,
+.chart-range .chart-range-btn {
+  border-right: 0 none !important;
+  border-left: 0 none !important;
+  border-top: 0 none !important;
+  border-bottom: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8800 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8801 — chart range pill spacing/gap.
+   csfloat measured spacing between pills: 4px gap (margin between pills),
+   first pill margin-left 0, last pill margin-right 0. Each pill is its own
+   click target with full padding, no shared border or divider line.
+   sboxmarket previously joined pills with border-right dividers (segmented
+   look). Pin the inter-pill gap so click targets stay visually distinct.
+   ===================================================================== */
+.modal.item-page .chart-range > *,
+.chart-card .chart-range > *,
+.chart-range > *,
+.chart-range .chart-range-btn {
+  margin: 0 !important;
+}
+.modal.item-page .chart-range > * + *,
+.chart-card .chart-range > * + *,
+.chart-range > * + *,
+.chart-range .chart-range-btn + .chart-range-btn {
+  margin-left: 4px !important;
+}
+/* Hover lift — subtle ink-1 → ink + bg fade matches csfloat. */
+.modal.item-page .chart-range-btn:hover:not(.active):not(.is-disabled):not(:disabled),
+.chart-range .chart-range-btn:hover:not(.active):not(.is-disabled):not(:disabled),
+.chart-range button:hover:not(.active):not(.on):not(.is-disabled):not(:disabled) {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(193, 206, 255, 0.025) !important;
+  transition: color 140ms ease, background 140ms ease !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8801 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8802 — active pill highlight refinement.
+   csfloat active pill measured: background rgba(193,206,255,0.04), color
+   rgb(255,255,255), border-radius 6px, padding 6px 12px, font-weight 500
+   (NOT 600 — csfloat keeps the same weight as inactive, only color +
+   subtle bg differentiate). Prior ship #32 set the base; this ship adds
+   the subtle text-shadow csfloat uses + box-shadow inset 0 0 0 1px
+   transparent (no border ring) so layout doesn't shift on active toggle.
+   ===================================================================== */
+.modal.item-page .chart-range-btn.active,
+.chart-card .chart-range-btn.active,
+.chart-range .chart-range-btn.active,
+.chart-range button.active,
+.chart-range button.on {
+  font-weight: 500 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: inset 0 0 0 1px transparent !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  transition: background 160ms ease, color 160ms ease !important;
+}
+/* Make sure the inactive pill matches the same height / box so active
+   pill highlight doesn't reflow the row. */
+.modal.item-page .chart-range-btn,
+.chart-card .chart-range-btn,
+.chart-range .chart-range-btn,
+.chart-range button {
+  box-sizing: border-box !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8802 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8803 — chart range pill typography lock.
+   csfloat range tabs (1d/7d/30d/1y/ALL) measured: font-family Roboto,
+   "Helvetica Neue", sans-serif (NOT mono), font-size 14px, font-weight
+   500, color rgb(158, 167, 177) inactive / rgb(255, 255, 255) active,
+   text-transform none, letter-spacing normal (~0px), line-height 1,
+   no underline. Previously a hover state still toggled mono via
+   .chart-range button — pin Roboto here so the cascade doesn't fall
+   back to var(--mono).
+   ===================================================================== */
+.modal.item-page .chart-range button,
+.modal.item-page .chart-range-btn,
+.chart-card .chart-range button,
+.chart-card .chart-range-btn,
+.chart-range button,
+.chart-range .chart-range-btn {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+}
+.modal.item-page .chart-range button:not(.active):not(.on):not(.is-disabled):not(:disabled),
+.chart-range .chart-range-btn:not(.active):not(.on):not(.is-disabled):not(:disabled),
+.chart-range button:not(.active):not(.on):not(.is-disabled):not(:disabled) {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8803 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #8804 — currency unit display below chart.
+   csfloat shows "USD" (or active currency) muted under the chart, right
+   aligned, font-size 11px, font-weight 500, color rgb(158, 167, 177),
+   margin-top 6px, letter-spacing 0.04em, text-transform uppercase.
+   sboxmarket emits the unit as .chart-currency (inline span). Pin the
+   typography + alignment so it sits flush with the chart's right edge
+   matching csfloat's sub-axis label.
+   ===================================================================== */
+.modal.item-page .chart-currency,
+.chart-card .chart-currency,
+.chart-currency,
+.chart-card .chart-axis-unit,
+.chart-axis-unit,
+.chart-card .chart-unit-label,
+.chart-unit-label {
+  display: block !important;
+  text-align: right !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  margin-top: 6px !important;
+  margin-bottom: 0 !important;
+  line-height: 1.2 !important;
+  opacity: 1 !important;
+}
+/* If the currency label is rendered as a sibling of the chart canvas
+   inside .chart-card, ensure the parent uses block flow so the label
+   actually stacks below rather than collapsing into the canvas row. */
+.chart-card .chart-currency,
+.chart-card .chart-axis-unit,
+.chart-card .chart-unit-label {
+  width: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #8804 */
+
+
+/* =====================================================================
    CSFLOAT-1:1 PARITY ship #9006 — profile activity row layout
    csfloat /me activity row is dense: 56px row height, 32px circular
      icon column, 1fr title/meta column, auto amount column. Roboto
