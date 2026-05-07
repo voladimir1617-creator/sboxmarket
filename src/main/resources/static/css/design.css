@@ -154553,3 +154553,19 @@ body .steam-btn:active:not(:disabled) {
   transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 80ms cubic-bezier(0.4, 0, 0.2, 1), filter 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #11602 */
+
+/* CSFLOAT-1:1 PARITY ship #11603 — hover color transition timing standard (csfloat: 140ms cubic-bezier(.4,0,.2,1) for color/bg/border) */
+body a,
+body .csfloat-link,
+body .nav-picker-chip,
+body .csfloat-home-rail-tab,
+body .csfloat-card-action,
+body .csfloat-card-cta-hint,
+body .csfloat-card-hint,
+body .csfloat-tab,
+body .csfloat-chip,
+body .filter-chip,
+body .chip {
+  transition: color 140ms cubic-bezier(0.4, 0, 0.2, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11603 */
