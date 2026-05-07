@@ -156737,3 +156737,243 @@ body .modal-seller-info .modal-seller-sales {
   line-height: 1 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #12610 */
+
+/* CSFLOAT-1:1 PARITY ship #12611 — converted-price chip "≈ €5.45".
+   csfloat shows the user's display-currency equivalent next to USD on
+   cards/items as a low-emphasis approximate value. Anchor token "≈" sits
+   3px in front of the number; both share JetBrains Mono so the digit
+   metrics line up with the USD price above them. Color = ink-3 so the
+   chip doesn't compete with the USD anchor. */
+.converted-price,
+.price-converted,
+.fx-equivalent,
+.wallet-amount-fx-hint,
+.price-row .converted,
+.item-price .converted {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: var(--ink-3, rgba(255, 255, 255, 0.45)) !important;
+  letter-spacing: 0.01em !important;
+  font-variant-numeric: tabular-nums !important;
+  margin-top: 2px !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+.converted-price::before,
+.price-converted::before,
+.fx-equivalent::before {
+  content: "≈" !important;
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-weight: 400 !important;
+  color: var(--ink-3, rgba(255, 255, 255, 0.4)) !important;
+  margin-right: 1px !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+.wallet-amount-fx-hint {
+  margin-top: 4px !important;
+  font-size: 11px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12611 */
+
+/* CSFLOAT-1:1 PARITY ship #12612 — USD-anchored price badge.
+   When a non-USD currency is selected, csfloat keeps the USD price as the
+   primary anchor and adds a tiny "USD" subscript next to the dollar sign
+   so users know the canonical price unit isn't their display currency.
+   Subscript is uppercase, 9px, ink-3, vertically centered against the
+   numeric baseline via translateY. */
+.usd-anchor,
+.price-usd-anchor,
+.price[data-anchor="USD"]::after,
+.item-price[data-anchor="USD"]::after {
+  display: inline-block !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  color: var(--ink-3, rgba(255, 255, 255, 0.42)) !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  vertical-align: baseline !important;
+  margin-left: 4px !important;
+  padding: 2px 5px !important;
+  border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.08)) !important;
+  border-radius: 4px !important;
+  background: var(--bg-2, rgba(255, 255, 255, 0.025)) !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  white-space: nowrap !important;
+}
+.price[data-anchor="USD"]::after,
+.item-price[data-anchor="USD"]::after {
+  content: "USD" !important;
+}
+.usd-anchor:empty::before {
+  content: "USD" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12612 */
+
+/* CSFLOAT-1:1 PARITY ship #12613 — hover-to-see-conversion tooltip.
+   csfloat reveals a small float-tooltip on hover of the converted-price
+   chip explaining the rate source ("FX rate sourced from ECB; updated
+   hourly"). Pure CSS implementation via title-attribute fallback +
+   custom .fx-tooltip class for Reactified richer content. Tooltip uses
+   bg-1 + border-soft, 8px corner radius, fades in on hover after 180ms
+   delay so accidental hovers don't flash it. */
+.converted-price[title],
+.price-converted[title],
+.fx-equivalent[title],
+.wallet-amount-fx-hint[title] {
+  cursor: help !important;
+  position: relative !important;
+}
+.converted-price:hover,
+.price-converted:hover,
+.fx-equivalent:hover,
+.wallet-amount-fx-hint:hover {
+  color: var(--ink-2, rgba(255, 255, 255, 0.72)) !important;
+  transition: color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.fx-tooltip,
+.converted-price > .fx-tooltip,
+.fx-equivalent > .fx-tooltip {
+  position: absolute !important;
+  bottom: calc(100% + 6px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(4px) !important;
+  background: var(--bg-1, rgba(20, 20, 22, 0.96)) !important;
+  border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  color: var(--ink, rgba(255, 255, 255, 0.92)) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  z-index: 9999 !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.25) !important;
+  transition: opacity 180ms cubic-bezier(0.4, 0, 0.2, 1) 180ms,
+              transform 180ms cubic-bezier(0.4, 0, 0.2, 1) 180ms !important;
+}
+.fx-tooltip::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  border: 5px solid transparent !important;
+  border-top-color: var(--bg-1, rgba(20, 20, 22, 0.96)) !important;
+}
+.converted-price:hover > .fx-tooltip,
+.fx-equivalent:hover > .fx-tooltip,
+.price-converted:hover > .fx-tooltip {
+  opacity: 1 !important;
+  transform: translateX(-50%) translateY(0) !important;
+  pointer-events: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12613 */
+
+/* CSFLOAT-1:1 PARITY ship #12614 — FX-rate-as-of timestamp.
+   csfloat surfaces the freshness of FX data inside the wallet/checkout
+   ("Rates as of 14:32 UTC"). Pinned to ink-3, JetBrains Mono so digit
+   widths are consistent; clock glyph (◷) sits at -2px relative to text
+   baseline. Stand-alone class so any wallet-style modal can render it. */
+.fx-as-of,
+.fx-timestamp,
+.fx-rate-timestamp,
+.wallet-fx-asof {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: var(--ink-3, rgba(255, 255, 255, 0.42)) !important;
+  letter-spacing: 0.02em !important;
+  margin-top: 6px !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+  user-select: text !important;
+}
+.fx-as-of::before,
+.fx-timestamp::before,
+.fx-rate-timestamp::before,
+.wallet-fx-asof::before {
+  content: "◷" !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  color: var(--ink-3, rgba(255, 255, 255, 0.4)) !important;
+  margin-right: 1px !important;
+  position: relative !important;
+  top: -0.5px !important;
+}
+.fx-as-of[data-stale="true"],
+.fx-timestamp[data-stale="true"] {
+  color: var(--warn, #d4a04a) !important;
+}
+.fx-as-of[data-stale="true"]::before,
+.fx-timestamp[data-stale="true"]::before {
+  color: var(--warn, #d4a04a) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12614 */
+
+/* CSFLOAT-1:1 PARITY ship #12615 — currency-symbol prefix/suffix consistency.
+   csfloat keeps a strict rule: prefix-style symbols ($, €, £, ¥) hug the
+   first digit with zero gap; suffix-style codes (CHF, kr, zł) get a
+   single 0.18em space before them. Cards/items currently inconsistent.
+   This block normalizes via .price-symbol-prefix / .price-symbol-suffix
+   wrapper classes so wherever JS wraps the symbol, it renders identically. */
+.price-symbol-prefix,
+.price > .symbol-prefix,
+.item-price > .symbol-prefix,
+.converted-price > .symbol-prefix {
+  display: inline-block !important;
+  margin-right: 0 !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+}
+.price-symbol-suffix,
+.price > .symbol-suffix,
+.item-price > .symbol-suffix,
+.converted-price > .symbol-suffix {
+  display: inline-block !important;
+  margin-left: 0.18em !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.02em !important;
+  font-size: 0.92em !important;
+  color: inherit !important;
+  opacity: 0.92 !important;
+}
+/* Multi-character symbols (CA$, A$, R$) need a 1px gap so the C/A/R
+   doesn't visually fuse with the $ next to the digits. */
+.price[data-symbol="CA$"] > .symbol-prefix,
+.price[data-symbol="A$"] > .symbol-prefix,
+.price[data-symbol="R$"] > .symbol-prefix,
+.converted-price[data-symbol="CA$"] > .symbol-prefix,
+.converted-price[data-symbol="A$"] > .symbol-prefix,
+.converted-price[data-symbol="R$"] > .symbol-prefix {
+  margin-right: 1px !important;
+  letter-spacing: -0.01em !important;
+}
+/* JPY: csfloat strips decimals — enforce numeric-block kerning so digits
+   stay tabular even at larger font sizes used on item-detail pages. */
+.price[data-currency="JPY"],
+.converted-price[data-currency="JPY"] {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12615 */
