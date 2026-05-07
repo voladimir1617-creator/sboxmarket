@@ -130568,3 +130568,17 @@ div[style*="background: var(--bg-secondary)"][style*="borderRadius"] {
   color: rgba(255, 255, 255, 0.95) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1425 */
+
+/* CSFLOAT-1:1 PARITY ship #1426 - FAQ accordion item container */
+.help-faq, .help-faq-row {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+.help-faq-row { margin: 0 0 20px !important; }
+.help-faq { margin: 0 !important; }
+.help-faq-row:last-child { margin-bottom: 0 !important; }
+/* END CSFLOAT-1:1 PARITY ship #1426 */
