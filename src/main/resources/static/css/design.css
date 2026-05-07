@@ -130114,3 +130114,255 @@ label:has(> input[type="radio"] + *) {
   display: block !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #1410 */
+
+/* CSFLOAT-1:1 PARITY ship #1411 — 4-col search grid at desktop (>=1280)
+   Measured csfloat at 1440 viewport: item-grid emits 4 cards per row at
+   228px wide with 14.5px column gap. Localhost listing-grid was rendering
+   only 3 columns at 285px because its minmax was 220 with 18px gap. Force
+   4-column grid + 14px gap at desktop widths so card sizing matches. */
+@media (min-width: 1280px) {
+  .listing-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #1411 */
+
+/* CSFLOAT-1:1 PARITY ship #1412 — sidebar→content gap parity
+   Measured csfloat: sidebar right=410 → grid left=425 = 15px gap.
+   Measured localhost: sidebar right=434 → grid left=454 = 20px gap.
+   Reduce the .layout grid gap so the rail and feed sit closer. */
+@media (min-width: 1024px) {
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    gap: 15px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #1412 */
+
+/* CSFLOAT-1:1 PARITY ship #1413 — main shell horizontal gutters parity
+   Measured csfloat: .container w=1320 starts at x=60 (60px outer gutter
+   each side at 1440 viewport). Localhost: main.layout has padding 24/24
+   plus narrower max-width — produces 1310 inner width with asymmetric
+   margins. Switch to padding:0 + max-width 1320 + auto-center so we
+   match the csfloat outer gutter exactly. */
+@media (min-width: 1280px) {
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    max-width: 1320px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #1413 */
+
+/* CSFLOAT-1:1 PARITY ship #1414 — /db page hero header parity
+   csfloat /db shows a 220px tall hero band with "float Database" wordmark
+   + "1.8B+ Skins indexed" stat + a wide blue "Search on Database" CTA card.
+   Localhost /db ships only an `<h2 class="info-modal-header">Database · N
+   indexed</h2>`. Match csfloat scale: pump the heading to 32px / 700, give
+   it a hairline-bottom band, and increase the breathing room. */
+.info-modal-header,
+h2.info-modal-header {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.15 !important;
+  color: #fff !important;
+  padding: 24px 0 16px !important;
+  margin: 0 0 18px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+}
+.info-modal-header + * {
+  margin-top: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1414 */
+
+/* CSFLOAT-1:1 PARITY ship #1415 — sidebar width parity at desktop
+   Measured csfloat: filter sidebar w=350. Localhost matches at 350. But
+   the .layout grid template uses an explicit pixel sidebar that needs to
+   be locked to 350 at desktop so combining ships #1412 + #1413 + #1411
+   yields exact 4-col card geometry: 1320 - 350 - 15 = 955 grid w; with
+   3×14 gap → 4×228.25 cards. */
+@media (min-width: 1280px) {
+  main.layout:has(> .sidebar),
+  main.layout:has(> aside.sidebar) {
+    grid-template-columns: 350px minmax(0, 1fr) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #1415 */
+
+/* CSFLOAT-1:1 PARITY ship #1416 — Share button parity in item rail
+   Measured csfloat: share button uses .mdc-button radix → border-radius: 8px,
+   font-weight: 500, padding: 0 12px (Material Design density),
+   font-size: 13px, height: 30px (compact variant), border: none, ghost background.
+   Localhost rendered the share btn with .btn.btn-ghost which had inconsistent
+   13px radius and 11px font; tighten to 8px radius + 500 weight + 13px font
+   + 30px height to match csfloat exactly. */
+.item-share-row,
+.item-rail .item-share-row {
+  display: inline-flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+.item-share-row .btn.btn-ghost,
+.item-rail-actions ~ * .btn.btn-ghost[title="Share this item"],
+button.btn.btn-ghost[title="Share this item"] {
+  height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.02em !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--ink-2) !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+button.btn.btn-ghost[title="Share this item"]:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: var(--ink) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1416 */
+
+/* CSFLOAT-1:1 PARITY ship #1417 — Bargain rail button radius + height parity
+   Measured csfloat: Buy now and Bargain are TWIN buttons placed side-by-side
+   in a 2-column grid, each rendering at 8px radius, 36px height, font-weight 500,
+   font-size 13px. Localhost was rendering .item-rail-actions-bargain at 20px
+   radius (pill) and 34px height — visually disconnected from the .item-rail-actions
+   row above. Force 8px radius, 36px height, and align to the buy-button family
+   so the pair reads as a single action group. */
+.item-rail-actions-bargain,
+button.item-rail-actions-bargain {
+  border-radius: 8px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.01em !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  border: 1px solid rgba(64, 160, 254, 0.32) !important;
+  background: rgba(64, 160, 254, 0.10) !important;
+  color: #40a0fe !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+.item-rail-actions-bargain:hover,
+button.item-rail-actions-bargain:hover {
+  background: rgba(64, 160, 254, 0.18) !important;
+  border-color: rgba(64, 160, 254, 0.55) !important;
+}
+.item-rail-actions-cart,
+button.item-rail-actions-cart {
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1417 */
+
+/* CSFLOAT-1:1 PARITY ship #1418 — Buy+Bargain row layout parity
+   Measured csfloat hero card: Buy now and Bargain are placed in a 2-column
+   grid (1fr 1fr) directly below the price chip, each ~140px wide at the hero
+   card; in the right rail of /item it expands to fill the rail in the same
+   2-column grid. Localhost had buy + cart in row-1 and bargain spanning the
+   full width below — visually unbalanced. Force the rail to render Buy and
+   Bargain side-by-side with cart slotted next to buy. */
+.item-rail-actions {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+  width: 100% !important;
+}
+.item-rail-actions-buy {
+  height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.item-rail-actions-cart {
+  height: 36px !important;
+  padding: 0 14px !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+}
+/* Bargain renders on its own row directly under Buy + Cart, full width — same
+   pattern as csfloat hero card on narrower viewports. */
+.item-rail-actions-bargain {
+  width: 100% !important;
+  margin-top: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1418 */
+
+/* CSFLOAT-1:1 PARITY ship #1419 — Modal panel surface parity
+   Measured csfloat: .blurred-dialog-container .mat-mdc-dialog-container has
+   border-radius: 12px, border: 2px solid var(--highlight-background),
+   backdrop-filter: blur(16px); .mdc-dialog__surface inherits the same radius.
+   Localhost .modal had border-radius var(--r-md) which resolves to 14px and a
+   1px border — close but visibly off when stacked next to a csfloat tab.
+   Lock to 12px radius and 2px border. */
+.modal-backdrop {
+  backdrop-filter: blur(16px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.1) !important;
+}
+.modal,
+.modal.lg,
+.modal.large,
+.modal.sm,
+.modal.small {
+  border-radius: 12px !important;
+  border: 2px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* csfloat dialog has zero outer shadow — the 16px backdrop blur is the only
+   depth signal. Strip the localhost shadow-2 so the modal silhouette matches. */
+.modal {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45),
+              0 24px 64px rgba(0, 0, 0, 0.35) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #1419 */
+
+/* CSFLOAT-1:1 PARITY ship #1420 — inline Offer/Bargain drawer surface parity
+   Measured csfloat: when Bargain is open the inline drawer that hosts the
+   amount input + Send button uses the same chrome as a dialog: 12px radius,
+   2px border, var(--highlight-background-minimal) background, 14px padding
+   on desktop, 12px on mobile. Localhost was rendering this drawer with
+   border-radius 8 and no border which read as a flat strip. Tighten so the
+   drawer reads as a sibling of the modal surface. */
+.item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"],
+div[style*="background: var(--bg-secondary)"][style*="borderRadius"] {
+  border-radius: 12px !important;
+  border: 2px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 14px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+/* Send Offer / Cancel buttons inside the drawer match the same 8px radius +
+   500 weight as Buy/Bargain in the rail above. */
+.item-rail-actions-bargain + div .btn.btn-accent,
+.item-rail-actions-bargain + div .btn.btn-ghost {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+}
+@media (max-width: 640px) {
+  .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"] {
+    padding: 12px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #1420 */
