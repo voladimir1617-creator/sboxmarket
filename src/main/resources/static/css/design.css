@@ -135582,3 +135582,275 @@ body .csfloat-cart-row-img {
   background: rgba(193, 206, 255, 0.04) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #3208 */
+
+/* CSFLOAT-1:1 PARITY ship #3300 — item right-rail Buy + Cart row sizing parity.
+   Measure (csfloat /item rail): Buy now button 40px tall, font-size 12px/500,
+   font Roboto, padding 0 10px, border-radius 8px. Cart icon button 44px wide
+   x 40px tall, filled blue rgb(35,123,255) with white icon. Rail is grid
+   1fr auto with 8px gap. Local was rendering Buy at 36px / 13px. Force the
+   row to 40px height + 12px font + 8px radius across the pair. */
+.item-rail-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 44px !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+  width: 100% !important;
+}
+body .item-rail-actions-buy,
+body button.item-rail-actions-buy {
+  height: 40px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transition: background 140ms ease, box-shadow 140ms ease !important;
+}
+body .item-rail-actions-buy:hover:not(:disabled),
+body button.item-rail-actions-buy:hover:not(:disabled) {
+  background: rgb(63, 142, 255) !important;
+  box-shadow: 0 2px 6px rgba(35, 123, 255, 0.30) !important;
+}
+body .item-rail-actions-buy:disabled,
+body button.item-rail-actions-buy:disabled {
+  background: rgba(35, 123, 255, 0.45) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  cursor: not-allowed !important;
+}
+body .item-rail-actions-cart,
+body button.item-rail-actions-cart {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+}
+body .item-rail-actions-cart:hover:not(:disabled),
+body button.item-rail-actions-cart:hover:not(:disabled) {
+  background: rgba(193, 206, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+body .item-rail-actions-cart .material-icons,
+body .item-rail-actions-cart .material-icons-outlined,
+body .item-rail-actions-cart svg {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3300 */
+
+/* CSFLOAT-1:1 PARITY ship #3301 — Bargain button parity.
+   Measure (csfloat /item Bargain): 40px tall, font 12px/500 Roboto, radius 8px,
+   padding 0 10px, bg rgba(193, 206, 255, 0.04), border 1px solid
+   rgba(255,255,255,0.12), color rgba(255,255,255,0.85) when active. Sits
+   directly below the Buy/Cart row at 100% width with 8px top margin. Local
+   #1417 had radius 8 + 36px height + blue ghost — height/font wrong. Override. */
+body .item-rail-actions-bargain,
+body button.item-rail-actions-bargain {
+  width: 100% !important;
+  height: 40px !important;
+  margin-top: 8px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .item-rail-actions-bargain:hover,
+body button.item-rail-actions-bargain:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .item-rail-actions-bargain .material-icons,
+body .item-rail-actions-bargain .material-icons-outlined {
+  font-size: 16px !important;
+  color: inherit !important;
+}
+body .item-rail-actions-bargain:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3301 */
+
+/* CSFLOAT-1:1 PARITY ship #3302 — watchlist heart button on item-rail parity.
+   Measure (csfloat /item watchlist toggle): 36x36 square, 8px radius, bg
+   rgba(193,206,255,0.04), border 1px solid rgba(255,255,255,0.10), heart icon
+   18px in rgb(158,167,177) when off / rgb(35,123,255) when active. Sits at
+   the same rail level as the Steam Market external link. Local rendered the
+   heart at variable size — pin to 36/36 with the same hover treatment. */
+body .item-rail-watchlist,
+body .item-watchlist-toggle,
+body button.item-watchlist-toggle,
+body .item-rail .btn[title*="Watchlist" i],
+body .item-rail .btn[aria-label*="watchlist" i],
+body .item-rail-actions ~ button[aria-label*="watchlist" i] {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .item-rail-watchlist:hover,
+body .item-watchlist-toggle:hover,
+body button.item-watchlist-toggle:hover,
+body .item-rail .btn[title*="Watchlist" i]:hover,
+body .item-rail .btn[aria-label*="watchlist" i]:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgb(220, 226, 232) !important;
+}
+body .item-rail-watchlist.active,
+body .item-watchlist-toggle.active,
+body .item-watchlist-toggle[aria-pressed="true"],
+body .item-rail .btn[aria-pressed="true"] {
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.40) !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+}
+body .item-rail-watchlist .material-icons,
+body .item-watchlist-toggle .material-icons,
+body .item-rail-watchlist svg,
+body .item-watchlist-toggle svg {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3302 */
+
+/* CSFLOAT-1:1 PARITY ship #3303 — Steam Market external link parity.
+   Measure (csfloat /item "↗ View on Steam"): font 10px/500, color
+   rgba(158,167,177,0.95), letter-spacing 0.3px, no underline, the chevron is
+   inline as plain ↗ glyph. The CTA-style Steam Market button (when present in
+   the rail) is 36x36 square, same chrome as the watchlist heart, but the
+   icon color stays neutral grey instead of the watchlist red. Local was
+   rendering anchor with default underline + accent color — strip and align
+   to the modal-stat-val sibling so the row reads as a single chip. */
+body a[href*="steamcommunity.com/market"],
+body .modal-stat-val a[href*="steamcommunity.com/market"] {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+body .modal-stat-box a[href*="steamcommunity.com/market"] > div:last-child {
+  font-size: 10px !important;
+  letter-spacing: 0.3px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 2px !important;
+  font-weight: 400 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  transition: color 140ms ease !important;
+}
+body .modal-stat-box a[href*="steamcommunity.com/market"]:hover > div:last-child {
+  color: rgb(220, 226, 232) !important;
+}
+/* External-link variant button (when csfloat puts a Steam-icon square next
+   to the watchlist heart) — match the watchlist square chrome. */
+body .item-rail a[href*="steamcommunity.com"],
+body .item-rail-actions ~ a[href*="steamcommunity.com/market"] {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  color: rgb(158, 167, 177) !important;
+  text-decoration: none !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .item-rail a[href*="steamcommunity.com"]:hover,
+body .item-rail-actions ~ a[href*="steamcommunity.com/market"]:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgb(220, 226, 232) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #3303 */
+
+/* CSFLOAT-1:1 PARITY ship #3304 — right-rail sticky behavior parity.
+   Measure (csfloat /item .item-rail wrapper): position: sticky, top: 24px,
+   align-self: flex-start so the rail sticks to the viewport top while the
+   left column (gallery + price chart + recent sales) scrolls. Local rail
+   scrolled with the page (no sticky). Add sticky pinning at the rail
+   container level. The grid parent is .item-modal-grid / .item-page-grid
+   with display:grid; the rail wrapper is the SECOND child of that grid.
+   Use a generous selector net to catch the various wrappers used across
+   the modal/page modes. Bottom-anchor variant for short rails: max-height
+   fallback to viewport so the sticky doesn't poke past the page footer. */
+body .modal.item-page .item-rail,
+body .modal.item-page > .item-rail,
+body .modal.item-page .modal-grid > :nth-child(2),
+body .modal.item-page .item-modal-grid > :nth-child(2),
+body .modal.item-page .item-rail-wrap,
+body .modal.item-page > .modal-body > .item-rail,
+body .site-root.full-page-mode .item-rail,
+body .site-root.full-page-mode .modal.item-page .item-rail {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 24px !important;
+  align-self: flex-start !important;
+  max-height: calc(100vh - 48px) !important;
+  overflow: visible !important;
+  z-index: 1 !important;
+}
+/* Ensure the parent grid does not clip the sticky child. overflow:hidden on
+   any ancestor breaks position:sticky silently — explicit overflow:visible
+   on the grid wrapper. */
+body .modal.item-page .modal-grid,
+body .modal.item-page .item-modal-grid,
+body .modal.item-page > .modal-body {
+  overflow: visible !important;
+}
+@media (max-width: 900px) {
+  /* Below tablet, the rail stacks below the gallery — drop sticky so it
+     doesn't pin to the top awkwardly when the user is scrolling the long
+     mobile single-column layout. */
+  body .modal.item-page .item-rail,
+  body .modal.item-page .modal-grid > :nth-child(2),
+  body .modal.item-page .item-modal-grid > :nth-child(2) {
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #3304 */
