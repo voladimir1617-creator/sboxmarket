@@ -157786,3 +157786,329 @@ body > nav.nav {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #13004 */
+
+/* CSFLOAT-1:1 PARITY ship #13005 — Native number input spinner removal.
+   csfloat measure: input[type="number"] in mat-mdc fields renders zero
+   intrinsic spinner glyph in WebKit/Blink (appearance:none on host +
+   ::-webkit-outer/inner-spin-button display:none collapses both arrows).
+   Firefox uses -moz-appearance:textfield to strip them. Without this the
+   browser default UI ticks (up/down arrows) bleed past csfloat's 8px
+   trailing pad and break right-edge alignment of currency suffixes.
+   Apply universally so any input[type=number] in sboxmarket — including
+   future deposit/bid/sell/quantity — never paints native chrome. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+/* Defensive: any input that ought to be numeric (decimal/numeric inputmode)
+   shouldn't expose a visible step UI either, even if the author left it as
+   type=text. csfloat consistently strips. */
+input[inputmode="numeric"]::-webkit-outer-spin-button,
+input[inputmode="numeric"]::-webkit-inner-spin-button,
+input[inputmode="decimal"]::-webkit-outer-spin-button,
+input[inputmode="decimal"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13005 */
+
+/* CSFLOAT-1:1 PARITY ship #13006 — Tabular-nums on numeric inputs.
+   csfloat measure: every numeric host (price min/max, quantity, deposit
+   amount, bid amount) advertises font-variant-numeric: tabular-nums so
+   that the column width of digits 0-9 is identical. Without this, a "1"
+   compacts vs a "0", and the trailing-currency-suffix offset twitches as
+   the user types. Mirror across number/numeric-mode inputs and explicit
+   "amount"/"price"/"bid"/"qty" classed inputs. Pair with lnum so digits
+   stay non-oldstyle even when host font is a humanist (Inter has both). */
+input[type="number"],
+input[inputmode="numeric"],
+input[inputmode="decimal"],
+input.amount,
+input.amount-input,
+input.price-input,
+input.bid-input,
+input.qty-input,
+input.quantity-input,
+input.numeric,
+input[name="price"],
+input[name="amount"],
+input[name="bid"],
+input[name="quantity"],
+input[name="qty"],
+input[data-numeric] {
+  font-variant-numeric: tabular-nums lining-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+  -webkit-font-feature-settings: "tnum" 1, "lnum" 1 !important;
+}
+/* Containers that wrap a numeric value display (cart sums, quantity
+   stepper read-out) — propagate tabular-nums to inherited text. */
+.amount-display,
+.numeric-display,
+.tnum-input,
+.csfloat-numeric-host {
+  font-variant-numeric: tabular-nums lining-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13006 */
+
+/* CSFLOAT-1:1 PARITY ship #13007 — Currency-prefix input alignment.
+   csfloat measure: when an input is preceded by a "$" / "€" / "£" prefix
+   sigil, the sigil sits inside the field box (not the placeholder slot)
+   at left:12px, vertically centered, and the input's text starts at
+   padding-left:24px so the digit's left edge aligns with the right edge
+   of the sigil + 4px gap. Sigil itself is rgba(255,255,255,.5) so the
+   user's typed digits (ink-1, opacity 1) read as the primary token.
+   Wrappers must be position:relative; sigil position:absolute. Symmetric
+   suffix variant for trailing currency (".00 USD" tail). */
+.input-currency-wrap,
+.currency-input-wrap,
+.prefix-input,
+.csfloat-currency-input {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+.input-currency-wrap > input,
+.currency-input-wrap > input,
+.prefix-input > input,
+.csfloat-currency-input > input {
+  padding-left: 24px !important;
+  text-align: left !important;
+}
+.input-currency-wrap > .currency-prefix,
+.currency-input-wrap > .currency-prefix,
+.prefix-input > .prefix-sigil,
+.csfloat-currency-input > .currency-prefix {
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  pointer-events: none !important;
+  font-variant-numeric: tabular-nums !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  z-index: 1 !important;
+}
+/* Suffix variant ("USD" / "EUR" trail). csfloat: 12px from right edge,
+   ink-3 muted. Reserve right padding so digit can't collide. */
+.input-currency-wrap > input.has-suffix,
+.currency-input-wrap > input.has-suffix,
+.csfloat-currency-input > input.has-suffix {
+  padding-right: 44px !important;
+}
+.input-currency-wrap > .currency-suffix,
+.currency-input-wrap > .currency-suffix,
+.csfloat-currency-input > .currency-suffix {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  pointer-events: none !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13007 */
+
+/* CSFLOAT-1:1 PARITY ship #13008 — Custom numeric step buttons (- input +).
+   csfloat measure: quantity/qty stepper renders as a 3-cell horizontal
+   strip — a 28x28 [-] button, the input center cell with no border on
+   the touching sides, and a 28x28 [+] button. Border 1px ink-1/8 wraps
+   the entire group with border-radius:8px (outer corners only — the
+   buttons knock out their inner corners). Buttons hover to ink-1/12,
+   active to ink-1/16. Disabled state drops opacity to .35 and removes
+   pointer cursor. Input center cell is centered text-align with no
+   internal border. This block styles the standard csfloat stepper
+   markup: .num-stepper > [.num-step--dec, input, .num-step--inc]. */
+.num-stepper,
+.qty-stepper,
+.csfloat-num-stepper {
+  display: inline-flex !important;
+  align-items: stretch !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  height: 32px !important;
+  isolation: isolate !important;
+}
+.num-stepper > button,
+.num-stepper > .num-step,
+.qty-stepper > button,
+.qty-stepper > .num-step,
+.csfloat-num-stepper > button,
+.csfloat-num-stepper > .num-step {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 100% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: background-color 120ms ease, color 120ms ease !important;
+  padding: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.num-stepper > button:hover,
+.num-stepper > .num-step:hover,
+.qty-stepper > button:hover,
+.csfloat-num-stepper > button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+.num-stepper > button:active,
+.num-stepper > .num-step:active,
+.qty-stepper > button:active,
+.csfloat-num-stepper > button:active {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+.num-stepper > button:disabled,
+.num-stepper > .num-step[disabled],
+.qty-stepper > button:disabled,
+.csfloat-num-stepper > button:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  background: transparent !important;
+}
+.num-stepper > input,
+.qty-stepper > input,
+.csfloat-num-stepper > input {
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 100% !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  text-align: center !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums lining-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+  padding: 0 4px !important;
+  outline: 0 !important;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+.num-stepper > input:focus,
+.qty-stepper > input:focus,
+.csfloat-num-stepper > input:focus {
+  outline: 0 !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.num-stepper:focus-within,
+.qty-stepper:focus-within,
+.csfloat-num-stepper:focus-within {
+  border-color: rgba(93, 141, 246, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(93, 141, 246, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13008 */
+
+/* CSFLOAT-1:1 PARITY ship #13009 — Min/max validation states.
+   csfloat measure: when a numeric input violates min/max (or :invalid
+   per HTML constraint), the field paints a 1px solid hsl(0 70% 60%)
+   border and a 3px focus halo at hsl(0 70% 60% / .15). Helper-text
+   beneath the field flips to the same red and stays at 12px. Valid /
+   accepted state mirrors with green hsl(140 60% 55%). aria-invalid
+   acts as an explicit override (Angular sets it). Don't paint the red
+   ring while the field is empty + untouched (csfloat skips initial
+   eager errors) — gate on :user-invalid where supported, with a
+   :placeholder-shown safety fallback for browsers that don't yet ship
+   :user-invalid. */
+input[type="number"]:invalid:not(:placeholder-shown),
+input[type="number"][aria-invalid="true"],
+input[inputmode="numeric"][aria-invalid="true"],
+input[inputmode="decimal"][aria-invalid="true"],
+input.is-invalid,
+input.amount-input:invalid:not(:placeholder-shown),
+input.price-input:invalid:not(:placeholder-shown) {
+  border-color: hsl(0 70% 60%) !important;
+  color: hsl(0 70% 75%) !important;
+  caret-color: hsl(0 70% 60%) !important;
+}
+input[type="number"]:invalid:not(:placeholder-shown):focus,
+input[type="number"][aria-invalid="true"]:focus,
+input.is-invalid:focus,
+input.amount-input:invalid:not(:placeholder-shown):focus,
+input.price-input:invalid:not(:placeholder-shown):focus {
+  border-color: hsl(0 70% 60%) !important;
+  box-shadow: 0 0 0 3px hsl(0 70% 60% / 0.15) !important;
+  outline: 0 !important;
+}
+/* Valid/accepted state */
+input[type="number"][aria-invalid="false"]:not(:placeholder-shown),
+input.is-valid,
+input.amount-input.is-valid,
+input.price-input.is-valid {
+  border-color: hsl(140 55% 50%) !important;
+}
+input[type="number"][aria-invalid="false"]:not(:placeholder-shown):focus,
+input.is-valid:focus {
+  border-color: hsl(140 55% 50%) !important;
+  box-shadow: 0 0 0 3px hsl(140 55% 50% / 0.15) !important;
+  outline: 0 !important;
+}
+/* Helper text + error message coloring */
+.input-error,
+.field-error,
+.error-text,
+.csfloat-input-error,
+.mat-mdc-form-field-error {
+  color: hsl(0 70% 65%) !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  margin-top: 4px !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: -0.005em !important;
+}
+.input-helper.is-error,
+.field-helper.is-error {
+  color: hsl(0 70% 65%) !important;
+}
+.input-success,
+.field-success,
+.success-text,
+.csfloat-input-success {
+  color: hsl(140 55% 60%) !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  margin-top: 4px !important;
+}
+/* Min/max ranged state on a stepper */
+.num-stepper.is-invalid,
+.qty-stepper.is-invalid,
+.csfloat-num-stepper.is-invalid {
+  border-color: hsl(0 70% 60%) !important;
+}
+.num-stepper.is-invalid:focus-within,
+.qty-stepper.is-invalid:focus-within,
+.csfloat-num-stepper.is-invalid:focus-within {
+  border-color: hsl(0 70% 60%) !important;
+  box-shadow: 0 0 0 3px hsl(0 70% 60% / 0.15) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #13009 */
