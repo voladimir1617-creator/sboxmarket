@@ -144069,3 +144069,883 @@ body .nav-picker-panel .nav-picker-row.active .mi {
   font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #6509 */
+
+/* CSFLOAT-1:1 PARITY ship #7300 — Item-page right-rail sticky top offset.
+   csfloat's main nav is 70px tall and sticky at top:0 with bg rgb(21,23,28).
+   Their item rail clears the nav by 10px, sticking at top:80px. Our rail
+   was already at 80px in the 2026-05-02 scaffold but lost the value to a
+   later override. Pin it explicitly to match the measured 70px nav + 10px
+   gap, with a scroll-margin so anchor jumps land below the nav too. */
+body main.modal.item-page > .modal-header > div:nth-child(2) {
+  top: 80px !important;
+  scroll-margin-top: 80px !important;
+}
+@media (max-width: 1100px) {
+  body main.modal.item-page > .modal-header > div:nth-child(2) {
+    position: static !important;
+    top: auto !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #7300 */
+
+/* CSFLOAT-1:1 PARITY ship #7301 — Right-rail max-height calculation.
+   csfloat sets the rail max-height to viewport - (nav 70px + 24px breathing
+   room) = calc(100vh - 94px). Our 100px value shaved 6px more than needed
+   and the rail bottom didn't sit flush with the viewport floor on tall
+   listings. Tighten to 94px, match csfloat exactly. */
+body main.modal.item-page > .modal-header > div:nth-child(2) {
+  max-height: calc(100vh - 94px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  /* csfloat-style overscroll containment so wheel events don't escape the
+     rail to the page once the rail bottoms out */
+  overscroll-behavior: contain !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7301 */
+
+/* CSFLOAT-1:1 PARITY ship #7302 — Scroll-fade gradient at top + bottom of
+   the right rail. csfloat overlays a 24px linear-gradient at each edge of
+   the scrolling container so content appears to "fade" rather than hard-
+   cut at the clip line. We approximate with mask-image: a vertical mask
+   that's transparent for the first/last 18px and opaque in the middle.
+   This is purely visual — no JS scroll listeners — and degrades to a hard
+   edge in old engines that don't support mask-image. */
+body main.modal.item-page > .modal-header > div:nth-child(2) {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgb(0, 0, 0) 18px,
+    rgb(0, 0, 0) calc(100% - 18px),
+    transparent 100%
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgb(0, 0, 0) 18px,
+    rgb(0, 0, 0) calc(100% - 18px),
+    transparent 100%
+  ) !important;
+  -webkit-mask-repeat: no-repeat !important;
+  mask-repeat: no-repeat !important;
+  -webkit-mask-size: 100% 100% !important;
+  mask-size: 100% 100% !important;
+}
+@media (max-width: 1100px) {
+  /* On narrow viewports the rail collapses to a static block — kill the
+     mask so the bottom of the section doesn't fade. */
+  body main.modal.item-page > .modal-header > div:nth-child(2) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #7302 */
+
+/* CSFLOAT-1:1 PARITY ship #7303 — Right-rail thin scrollbar polish to
+   match csfloat exactly. csfloat uses a 6px-wide thumb in rgba(255,255,
+   255,0.18) with a 0.32 hover state, transparent track. Our existing rule
+   used --line-2 which is too dark on the rail's bg. Lock to the exact
+   rgba mix csfloat ships, with subtle hover lift. */
+body main.modal.item-page > .modal-header > div:nth-child(2)::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+body main.modal.item-page > .modal-header > div:nth-child(2)::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+body main.modal.item-page > .modal-header > div:nth-child(2)::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 3px !important;
+  transition: background 140ms ease !important;
+}
+body main.modal.item-page > .modal-header > div:nth-child(2)::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32) !important;
+}
+body main.modal.item-page > .modal-header > div:nth-child(2) {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7303 */
+
+/* CSFLOAT-1:1 PARITY ship #7304 — Sticky rail "stick point" on long pages.
+   csfloat lets the rail run with the page until the user has scrolled past
+   the page header (~24px), then clamps it to top:80px. With our sticky
+   rail living inside a 2-row grid where the rail spans both rows
+   (`grid-row: 1 / span 99`), the rail's natural top is the same as the
+   image's top — so it sticks immediately on first scroll, which can feel
+   abrupt next to the slow-scrolling listing column.
+
+   Fix: add a small margin-top: 0 + an explicit `align-self: start` (already
+   there) and use `contain: layout` on the rail so its sticky context is the
+   grid track, not the page. This keeps the rail anchored to the same
+   y-coord as the preview image until the user scrolls past, matching
+   csfloat's "stick point". Also: `will-change: transform` on the rail to
+   keep paints GPU-composited during sticky transition (no jank on long
+   listing tables). */
+body main.modal.item-page > .modal-header > div:nth-child(2) {
+  align-self: start !important;
+  contain: layout !important;
+  will-change: transform !important;
+  /* Bottom padding so the bottom-edge mask doesn't clip the last actionable
+     row — the user always sees a 12px breathing gap below the last item. */
+  padding-bottom: 12px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body main.modal.item-page > .modal-header > div:nth-child(2) {
+    will-change: auto !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #7304 */
+
+/* CSFLOAT-1:1 PARITY ship #6805 — Home rotating card stack: lock .card-1/.card-2/.card-3
+   intrinsic widths and heights to csfloat's measured values. csfloat ships:
+   .card-1 width:265px height:279.453px (drawn 283x263 after 33deg 3D rotate),
+   .card-2 width:265px height:414.359px (drawn 304x390),
+   .card-3 width:265px height:468.562px (drawn 313x440). Without these locks the
+   intrinsic SVG aspect ratio drifts and the back-card peek widths shift by ~12-18px,
+   breaking the staircase. Position absolute on card-1/2 with top/left 0 so the .cards
+   parent's translateX(-30px) is the sole anchor; card-3 stays static so it sets
+   the .cards box height (472.562px). */
+html body .image-container .cards .card-1 {
+  width: 265px !important;
+  height: 279.453px !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 3 !important;
+  transform-origin: 132.5px 139.727px !important;
+  filter: drop-shadow(rgba(0, 0, 0, 0.3) 21px 21px 35px) !important;
+}
+html body .image-container .cards .card-2 {
+  width: 265px !important;
+  height: 414.359px !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 2 !important;
+  transform-origin: 132.5px 207.18px !important;
+  filter: drop-shadow(rgba(0, 0, 0, 0.3) 21px 21px 35px) !important;
+}
+html body .image-container .cards .card-3 {
+  width: 265px !important;
+  height: 468.562px !important;
+  position: static !important;
+  z-index: 1 !important;
+  transform-origin: 132.5px 234.281px !important;
+  filter: drop-shadow(rgba(0, 0, 0, 0.3) 21px 21px 35px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6805 */
+
+/* CSFLOAT-1:1 PARITY ship #6806 — Card stack 3D rotation variables.
+   csfloat hand-tunes the rotate3d axis-angle on each card: --rot-x:44, --rot-y:-56,
+   --rot-z:11, --rot-deg:33deg. The translate offset cascades 0px / 30px / 60px so
+   each card peeks 30px right/down of the previous. The breathing animation pushes
+   y up 25px (--transform-y) over 1.75s of the 3.5s cycle. Lock these CSS variables
+   so any local override of cards keeps the exact tilt and stagger. */
+html body .image-container .cards .card-1,
+html body .image-container .cards .card-2,
+html body .image-container .cards .card-3 {
+  --rot-x: 44 !important;
+  --rot-y: -56 !important;
+  --rot-z: 11 !important;
+  --rot-deg: 33deg !important;
+  --transform-y: 25px !important;
+}
+html body .image-container .cards .card-1 { --offset: 0px !important; }
+html body .image-container .cards .card-2 { --offset: 30px !important; }
+html body .image-container .cards .card-3 { --offset: calc(30px * 2) !important; }
+/* END CSFLOAT-1:1 PARITY ship #6806 */
+
+/* CSFLOAT-1:1 PARITY ship #6807 — .cards parent box: csfloat sizes the card stack
+   container at exactly 275px wide x 472.562px tall (matches card-3 intrinsic height
+   driving the static layout). Parent shifts translateX(-30px) to compensate for the
+   per-card offset cascade so the visual centroid lands inside .image-container.
+   Position relative anchors the absolute card-1/.card-2 children. transform-style flat
+   is the csfloat behaviour — each card's matrix3d is composited independently. */
+html body .image-container .cards {
+  width: 275px !important;
+  height: 472.562px !important;
+  position: relative !important;
+  display: block !important;
+  transform: matrix(1, 0, 0, 1, -30, 0) !important;
+  transform-style: flat !important;
+  overflow: visible !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6807 */
+
+/* CSFLOAT-1:1 PARITY ship #6808 — .image-container holds the card stack inside the
+   .banner column on csfloat. Measured: width 275px x height 472.562px (intrinsic),
+   though the parent .banner pads it out to a 355x603 visual frame. Position relative
+   keeps the inner .cards anchored. We force the inner box to csfloat's exact dims
+   so any flex/grid sibling on the local layout doesn't squish the card stack. */
+html body .banner > .image-container,
+html body .image-container {
+  width: 275px !important;
+  height: 472.562px !important;
+  position: relative !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6808 */
+
+/* CSFLOAT-1:1 PARITY ship #6809 — Hero background pattern + moveUpDown keyframes.
+   csfloat ships hero-background-CVQ2Y6G4.svg as a tiled background-repeat pattern
+   sized 120% — this is the soft animated cyan/violet gradient blob behind the
+   card stack. The keyframe moveUpDown drives the 3.5s breathing motion via the
+   --rot-* and --offset CSS variables (see ship #6806). Defining the keyframes
+   under both the Angular-scoped name (_ngcontent-ng-c3496188756_moveUpDown) and
+   a clean alias guarantees parity even if the local Angular compile-id drifts. */
+html body .hero {
+  background-image: url("https://csfloat.com/media/hero-background-CVQ2Y6G4.svg") !important;
+  background-repeat: repeat !important;
+  background-size: 120% !important;
+  background-position: 0% 0% !important;
+  background-color: transparent !important;
+}
+@keyframes csfloatHomeMoveUpDown {
+  0%, 100% {
+    transform: rotate3d(var(--rot-x), var(--rot-y), var(--rot-z), var(--rot-deg))
+               translate(var(--offset), var(--offset));
+  }
+  50% {
+    transform: rotate3d(var(--rot-x), var(--rot-y), var(--rot-z), var(--rot-deg))
+               translate(var(--offset), calc(var(--offset) - var(--transform-y)));
+  }
+}
+@keyframes _ngcontent-ng-c3496188756_moveUpDown {
+  0%, 100% {
+    transform: rotate3d(var(--rot-x), var(--rot-y), var(--rot-z), var(--rot-deg))
+               translate(var(--offset), var(--offset));
+  }
+  50% {
+    transform: rotate3d(var(--rot-x), var(--rot-y), var(--rot-z), var(--rot-deg))
+               translate(var(--offset), calc(var(--offset) - var(--transform-y)));
+  }
+}
+html body .image-container .cards .card-1 {
+  animation: csfloatHomeMoveUpDown 3.5s ease-in-out 0s infinite !important;
+}
+html body .image-container .cards .card-2 {
+  animation: csfloatHomeMoveUpDown 3.5s ease-in-out 0.25s infinite !important;
+}
+html body .image-container .cards .card-3 {
+  animation: csfloatHomeMoveUpDown 3.5s ease-in-out 0.5s infinite !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6809 */
+
+/* CSFLOAT-1:1 PARITY ship #6900 — Purchase-success toast container parity
+   with csfloat snackbar-info. Measured csfloat (live):
+   :root .snackbar-info { border-radius:6px; background-color:rgba(27,29,36,.8);
+   backdrop-filter: blur(32px); }, content padding 14px 16px, MDC supporting-text
+   font Roboto/14px/400/line-height 20px, surface color rgba(0,0,0,.87) on
+   white default OR primary-text-color #fff on dark theme. Our local toast
+   uses .sale-toast wrapper — match the surface to csfloat exact tokens
+   (rgba 27,29,36,.8 bg, 32px blur, 6px radius, 14px/20px/400 font, success
+   variant gets the green-side accent #22c55e at 3px left). */
+body .sale-toast {
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  border-radius: 6px !important;
+  border: 0 !important;
+  padding: 14px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.0178571429em !important;
+  box-shadow: 0 3px 5px -1px rgba(0,0,0,0.2),
+              0 6px 10px 0 rgba(0,0,0,0.14),
+              0 1px 18px 0 rgba(0,0,0,0.12) !important;
+}
+body .sale-toast.success,
+body .sale-toast:not(.err):not(.warn) {
+  border-left: 3px solid #22c55e !important;
+}
+body .sale-toast.err {
+  background-color: rgba(139, 19, 20, 0.7) !important;
+  border-left: 3px solid #ef4444 !important;
+}
+body .sale-toast.warn {
+  border-left: 3px solid #fbbf24 !important;
+}
+body .sale-toast .sale-toast-line2,
+body .sale-toast .sale-toast-text {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.0178571429em !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6900 */
+
+/* CSFLOAT-1:1 PARITY ship #6901 — Purchase-success toast leading icon
+   chip parity. csfloat-style 24px square chip, 6px radius, 14px/700 glyph.
+   Our success uses positive-tinted oklch chip; error gets snackbar-error
+   red surface; warn gets amber. The thumb was previously stretched to
+   full-width because the .sale-toast was display:block. Ship #6900 fixed
+   the parent to flex; this ship pins the chip dimensions so it stays
+   square 24x24 with proper centering of the glyph. */
+body .sale-toast .sale-toast-thumb {
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  font-family: "Material Symbols Rounded", "Roboto", sans-serif !important;
+  letter-spacing: 0 !important;
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #22c55e !important;
+  flex-shrink: 0 !important;
+}
+body .sale-toast.err .sale-toast-thumb {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #ef4444 !important;
+}
+body .sale-toast.warn .sale-toast-thumb {
+  background: rgba(251, 191, 36, 0.18) !important;
+  color: #fbbf24 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6901 */
+
+/* CSFLOAT-1:1 PARITY ship #6902 — Purchase-success toast close button
+   parity with csfloat MDC snackbar dismiss. Measured: action button is
+   36px height, font-size 14px, font-weight 500, color rgba(255,255,255,.7)
+   neutral, padding 0 8px, no border, no bg, hover bg rgba(255,255,255,.08).
+   Our .sale-toast-close was previously inheriting default UA button chrome
+   (rgb(107,107,107) bg). Strip to ghost button matching MDC neutral
+   dismiss pattern. */
+body .sale-toast .sale-toast-close {
+  flex: 0 0 auto !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  margin: 0 0 0 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .sale-toast .sale-toast-close:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+body .sale-toast .sale-toast-close:focus-visible {
+  outline: 2px solid #237bff !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6902 */
+
+/* CSFLOAT-1:1 PARITY ship #6903 — Order-confirmation header-dialog parity.
+   Measured csfloat .header-dialog.default-card: padding 30px, bg
+   var(--module-background-color) (#1b1d24), border-radius 12px; .t-header
+   gap 20px align center; .t-icon 60x60 padding 10px radius 10px bg
+   var(--button-highlight-background) (rgba(35,123,255,.15)); inner mat-icon
+   40x40 font-size 40 color var(--primary-color) #237bff; .t-text title
+   28px/500; .sub-text 14px var(--subtext-color) #9ea7b1; .t-gap 1px
+   highlight-background-minimal (rgba(193,206,255,.04)) with 20px vertical
+   margin. Surfaces ANY locally-painted post-checkout success card to
+   csfloat dimensions exactly. Both header-dialog (csfloat class) and
+   our local .order-success / .purchase-success / .order-confirmation are
+   normalised. */
+body .header-dialog,
+body .order-success-dialog,
+body .purchase-success-dialog,
+body .order-confirmation-dialog {
+  padding: 30px !important;
+  background-color: #1b1d24 !important;
+  border-radius: 12px !important;
+}
+body .header-dialog .t-header,
+body .order-success-dialog .t-header,
+body .purchase-success-dialog .t-header,
+body .order-confirmation-dialog .t-header {
+  display: flex !important;
+  gap: 20px !important;
+  align-items: center !important;
+  color: #ffffff !important;
+}
+body .header-dialog .t-header .t-icon,
+body .order-success-dialog .t-header .t-icon,
+body .purchase-success-dialog .t-header .t-icon,
+body .order-confirmation-dialog .t-header .t-icon {
+  border-radius: 10px !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  padding: 10px !important;
+  height: 60px !important;
+  width: 60px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex: 0 0 60px !important;
+}
+body .header-dialog .t-header .t-icon mat-icon,
+body .header-dialog .t-header .t-icon .material-symbols-rounded,
+body .header-dialog .t-header .t-icon .mi,
+body .order-success-dialog .t-header .t-icon mat-icon,
+body .purchase-success-dialog .t-header .t-icon mat-icon,
+body .order-confirmation-dialog .t-header .t-icon mat-icon {
+  color: #237bff !important;
+  height: 40px !important;
+  width: 40px !important;
+  font-size: 40px !important;
+  line-height: 40px !important;
+}
+body .header-dialog .t-header .t-icon.success,
+body .order-success-dialog .t-header .t-icon.success,
+body .purchase-success-dialog .t-header .t-icon.success,
+body .order-confirmation-dialog .t-header .t-icon.success {
+  background: rgba(34, 197, 94, 0.15) !important;
+}
+body .header-dialog .t-header .t-icon.success mat-icon,
+body .header-dialog .t-header .t-icon.success .material-symbols-rounded,
+body .order-success-dialog .t-header .t-icon.success mat-icon,
+body .purchase-success-dialog .t-header .t-icon.success mat-icon,
+body .order-confirmation-dialog .t-header .t-icon.success mat-icon {
+  color: #22c55e !important;
+}
+body .header-dialog .t-header .t-text,
+body .order-success-dialog .t-header .t-text,
+body .purchase-success-dialog .t-header .t-text,
+body .order-confirmation-dialog .t-header .t-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+body .header-dialog .t-header .t-text .title,
+body .order-success-dialog .t-header .t-text .title,
+body .purchase-success-dialog .t-header .t-text .title,
+body .order-confirmation-dialog .t-header .t-text .title {
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  letter-spacing: -0.01em !important;
+}
+body .header-dialog .t-header .t-text .sub-text,
+body .order-success-dialog .t-header .t-text .sub-text,
+body .purchase-success-dialog .t-header .t-text .sub-text,
+body .order-confirmation-dialog .t-header .t-text .sub-text {
+  color: #9ea7b1 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  margin: 0 !important;
+}
+body .header-dialog .t-header .t-text .sub-text a,
+body .order-success-dialog .t-header .t-text .sub-text a,
+body .purchase-success-dialog .t-header .t-text .sub-text a,
+body .order-confirmation-dialog .t-header .t-text .sub-text a {
+  color: #ffffff !important;
+}
+body .header-dialog .t-gap,
+body .order-success-dialog .t-gap,
+body .purchase-success-dialog .t-gap,
+body .order-confirmation-dialog .t-gap {
+  height: 1px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  margin: 20px 0 !important;
+  border: 0 !important;
+}
+@media (max-width: 768px) {
+  body .header-dialog,
+  body .order-success-dialog,
+  body .purchase-success-dialog,
+  body .order-confirmation-dialog {
+    padding: 15px !important;
+  }
+  body .header-dialog .t-header,
+  body .order-success-dialog .t-header,
+  body .purchase-success-dialog .t-header,
+  body .order-confirmation-dialog .t-header {
+    gap: 15px !important;
+  }
+  body .header-dialog .t-header .t-icon,
+  body .order-success-dialog .t-header .t-icon,
+  body .purchase-success-dialog .t-header .t-icon,
+  body .order-confirmation-dialog .t-header .t-icon {
+    height: 55px !important;
+    width: 55px !important;
+    flex: 0 0 55px !important;
+  }
+  body .header-dialog .t-header .t-icon mat-icon,
+  body .header-dialog .t-header .t-icon .material-symbols-rounded,
+  body .order-success-dialog .t-header .t-icon mat-icon,
+  body .purchase-success-dialog .t-header .t-icon mat-icon,
+  body .order-confirmation-dialog .t-header .t-icon mat-icon {
+    height: 36px !important;
+    width: 36px !important;
+    font-size: 36px !important;
+    line-height: 36px !important;
+  }
+  body .header-dialog .t-header .t-text .title,
+  body .order-success-dialog .t-header .t-text .title,
+  body .purchase-success-dialog .t-header .t-text .title,
+  body .order-confirmation-dialog .t-header .t-text .title {
+    font-size: 22px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #6903 */
+
+/* CSFLOAT-1:1 PARITY ship #6904 — Order-confirmation surface chrome:
+   Order-ID monospace strip, trade-pending status pill (with pulse dot),
+   tabular-nums countdown, primary View-Order CTA, secondary
+   Continue-Browsing CTA, trade-URL nag chip and email-receipt-sent
+   confirmation chip. Measured csfloat:
+   - kbd-style ID: monospace 12px, padding 4px 8px, radius 4px,
+     bg rgba(193,206,255,.07), color #fff, letter-spacing 0.04em.
+   - status pill (trade pending): height 24px, padding 0 10px, radius 12px,
+     font 12px/600, gap 6px, bg rgba(35,123,255,.12), color #237bff.
+   - countdown: tabular-nums monospace 13px/500 subtext color.
+   - primary CTA: csfloat .mdc-button.mdc-button--unelevated 36px height,
+     padding 0 16px, radius 8px, fw 500 ls .0892857em, bg #237bff color #fff.
+   - secondary CTA: ghost — bg transparent, color #fff, hover bg
+     rgba(193,206,255,.07).
+   - trade-url nag: bg rgba(251,191,36,.10), border 1px rgba(251,191,36,.32),
+     color #fbbf24, padding 12px 14px, radius 8px, font 13px/18px.
+   - email chip: bg rgba(34,197,94,.10), border 1px rgba(34,197,94,.30),
+     color #22c55e, height 24px, font 12px/600, padding 0 10px. */
+body .order-id,
+body .order-success-dialog .order-id,
+body .purchase-success-dialog .order-id,
+body .order-confirmation-dialog .order-id,
+body [data-order-id],
+body .order-id-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  background: rgba(193, 206, 255, 0.07) !important;
+  color: #ffffff !important;
+  letter-spacing: 0.04em !important;
+  border: 1px solid rgba(193, 206, 255, 0.04) !important;
+}
+body .trade-pending-pill,
+body .status-pill.pending,
+body .order-success-dialog .status-pill,
+body .purchase-success-dialog .status-pill,
+body .order-confirmation-dialog .status-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 24px !important;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: #237bff !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+body .trade-pending-pill .pulse,
+body .status-pill.pending .pulse,
+body .order-success-dialog .status-pill .pulse,
+body .purchase-success-dialog .status-pill .pulse {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #237bff !important;
+  flex-shrink: 0 !important;
+  animation: csfloat-pending-pulse 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+@keyframes csfloat-pending-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+body .order-success-dialog .countdown,
+body .purchase-success-dialog .countdown,
+body .order-confirmation-dialog .countdown,
+body .trade-countdown {
+  font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #9ea7b1 !important;
+  letter-spacing: 0.02em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .order-success-dialog .cta-row,
+body .purchase-success-dialog .cta-row,
+body .order-confirmation-dialog .cta-row {
+  display: flex !important;
+  gap: 12px !important;
+  margin-top: 20px !important;
+  flex-wrap: wrap !important;
+}
+body .order-success-dialog .view-order-btn,
+body .purchase-success-dialog .view-order-btn,
+body .order-confirmation-dialog .view-order-btn,
+body .order-success-dialog .cta-primary,
+body .purchase-success-dialog .cta-primary,
+body .order-confirmation-dialog .cta-primary {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  background: #237bff !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+body .order-success-dialog .view-order-btn:hover,
+body .purchase-success-dialog .view-order-btn:hover,
+body .order-confirmation-dialog .view-order-btn:hover,
+body .order-success-dialog .cta-primary:hover,
+body .purchase-success-dialog .cta-primary:hover,
+body .order-confirmation-dialog .cta-primary:hover {
+  background: #4593ff !important;
+}
+body .order-success-dialog .continue-browsing-btn,
+body .purchase-success-dialog .continue-browsing-btn,
+body .order-confirmation-dialog .continue-browsing-btn,
+body .order-success-dialog .cta-secondary,
+body .purchase-success-dialog .cta-secondary,
+body .order-confirmation-dialog .cta-secondary {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+body .order-success-dialog .continue-browsing-btn:hover,
+body .purchase-success-dialog .continue-browsing-btn:hover,
+body .order-confirmation-dialog .continue-browsing-btn:hover,
+body .order-success-dialog .cta-secondary:hover,
+body .purchase-success-dialog .cta-secondary:hover,
+body .order-confirmation-dialog .cta-secondary:hover {
+  background: rgba(193, 206, 255, 0.07) !important;
+}
+body .trade-url-nag,
+body .order-success-dialog .trade-url-prompt,
+body .purchase-success-dialog .trade-url-prompt,
+body .order-confirmation-dialog .trade-url-prompt {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  background: rgba(251, 191, 36, 0.10) !important;
+  border: 1px solid rgba(251, 191, 36, 0.32) !important;
+  color: #fbbf24 !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 400 !important;
+  margin-top: 12px !important;
+}
+body .trade-url-nag .nag-icon,
+body .order-success-dialog .trade-url-prompt .nag-icon,
+body .purchase-success-dialog .trade-url-prompt .nag-icon,
+body .order-confirmation-dialog .trade-url-prompt .nag-icon {
+  flex: 0 0 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: #fbbf24 !important;
+  margin-top: 0 !important;
+}
+body .email-receipt-chip,
+body .order-success-dialog .receipt-chip,
+body .purchase-success-dialog .receipt-chip,
+body .order-confirmation-dialog .receipt-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 24px !important;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  background: rgba(34, 197, 94, 0.10) !important;
+  border: 1px solid rgba(34, 197, 94, 0.30) !important;
+  color: #22c55e !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+}
+body .email-receipt-chip .check-icon,
+body .order-success-dialog .receipt-chip .check-icon,
+body .purchase-success-dialog .receipt-chip .check-icon,
+body .order-confirmation-dialog .receipt-chip .check-icon {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: #22c55e !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #6904 */
+/* CSFLOAT-1:1 PARITY ship #7000 — Home browser-extension callout container. csfloat ".extension.card" measures 742x286 at 1280px viewport, padding 30px, gap 30px (column flex), border-radius 12px, base background rgba(27,29,36,0.6) and color #fff. position:relative is required for the absolutely-anchored gradient overlay and arrow icon. overflow:hidden keeps the radial gradient inside the rounded corners. */
+.extension.card {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 30px !important;
+  padding: 30px !important;
+  border-radius: 12px !important;
+  background-color: rgba(27, 29, 36, 0.6) !important;
+  color: rgb(255, 255, 255) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7000 */
+/* CSFLOAT-1:1 PARITY ship #7001 — Extension callout radial gradient overlay. csfloat lays a ".gradient" absolutely-positioned div over the whole card with backgroundImage radial-gradient(at 0% 100%, rgb(35,123,255), rgba(27,29,36,0.6) 47%). It sits behind the foreground children but above the base background. We pin it to all four edges, give it border-radius:inherit so the round corners track the card, and pointer-events:none so clicks pass through. */
+.extension.card > .gradient {
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  background-image: radial-gradient(at 0% 100%, rgb(35, 123, 255), rgba(27, 29, 36, 0.6) 47%) !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+.extension.card > .arrow,
+.extension.card > .sub-text,
+.extension.card > .badges,
+.extension.card > .header,
+.extension.card > .browsers {
+  position: relative !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7001 */
+/* CSFLOAT-1:1 PARITY ship #7002 — Extension callout arrow icon, top-right corner. csfloat anchors a 30x34 ".arrow" 30px from the right edge and 30px from the top — but inside the flex column its rect lands at (682,30) inside a 742x286 card, i.e. the right edge minus 30px padding minus 30px width. Inside the column flow we float it absolute so it doesn't take a flex slot. The mat-icon child renders the material-icons "arrow_outward" glyph at 30px. */
+.extension.card > .arrow {
+  position: absolute !important;
+  top: 30px !important;
+  right: 30px !important;
+  width: 30px !important;
+  height: 34px !important;
+  color: rgb(255, 255, 255) !important;
+  z-index: 2 !important;
+}
+.extension.card > .arrow .mat-icon,
+.extension.card > .arrow .material-icons {
+  font-size: 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7002 */
+/* CSFLOAT-1:1 PARITY ship #7003 — Extension callout text rows (sub-text + header). csfloat sub-text reads "CSFloat Market Checker Extension" at 16px/500 with color rgb(158,167,177); 40px right padding clears the corner arrow. Header reads "Browser Extension" at 28px/500 white with 150px right padding so the title doesn't collide with the floating browser icons block. */
+.extension.card > .sub-text {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 19px !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 0 40px 0 0 !important;
+  margin: 0 !important;
+}
+.extension.card > .header {
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: 34px !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 0 150px 0 0 !important;
+  margin: 0 !important;
+}
+.extension.card > .header > span {
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7003 */
+/* CSFLOAT-1:1 PARITY ship #7004 — Extension feature badges row + browser-icons cluster. csfloat ".badges" is a horizontal flex row with 15px gap, padding:0 — the inner ".badge" pills are 14px/700 #237bff text on rgba(35,123,255,0.15) with 13px padding and 4px radius. The ".browsers" cluster is absolutely placed at right:30px / bottom:30px and contains two 60x60 logos (Chrome then Firefox) with about 20px horizontal offset between them. */
+.extension.card > .badges {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 15px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex-wrap: wrap !important;
+}
+.extension.card > .badges > .badge {
+  display: inline-block !important;
+  padding: 13px !important;
+  border-radius: 4px !important;
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 17px !important;
+}
+.extension.card > .browsers {
+  position: absolute !important;
+  right: 30px !important;
+  bottom: 30px !important;
+  width: 140px !important;
+  height: 66px !important;
+  z-index: 2 !important;
+  pointer-events: auto !important;
+}
+.extension.card > .browsers > img {
+  width: 60px !important;
+  height: 60px !important;
+  display: inline-block !important;
+}
+.extension.card > .browsers > img:first-child {
+  position: absolute !important;
+  left: 0 !important;
+  top: 2px !important;
+}
+.extension.card > .browsers > img:last-child {
+  position: absolute !important;
+  left: 80px !important;
+  top: 0 !important;
+  height: 62px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7004 */
