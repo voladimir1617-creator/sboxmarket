@@ -152207,3 +152207,202 @@ body .cart-confirm-total-amt {
   text-shadow: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9409 */
+
+/* CSFLOAT-1:1 PARITY ship #10300 — per-row rarity chip base.
+   csfloat /db row chips: 11px monospaced uppercase letters,
+   3px x 8px padding, 4px radius, alpha-tinted bg, ~32px wide
+   for one-word labels, sits flush in cell with no border. We
+   target both the existing .rarity-badge (used in DatabaseModal)
+   and the new .cf-rarity-chip alias so CSS hits both. */
+.db-table .rarity-badge,
+.cf-rarity-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  border-radius: 4px !important;
+  font-family: var(--mono, "Roboto Mono", "SF Mono", Consolas, monospace) !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  border-left: 0 !important;
+  cursor: default !important;
+  user-select: none !important;
+  position: relative !important;
+  vertical-align: middle !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  background: rgba(193, 206, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10300 */
+
+/* CSFLOAT-1:1 PARITY ship #10301 — rarity tier color tokens.
+   Three tiers map to csfloat's restraint: Standard = neutral,
+   Off-Market = amber-on-amber-tint, Limited = blue-on-blue-tint.
+   Alpha 12% bg + ~100% saturated label keeps every chip readable
+   on both bg-1 and bg-2 rows without borders. */
+.db-table .rarity-badge.rarity-Standard,
+.cf-rarity-chip.rarity-Standard {
+  background: rgba(193, 206, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+.db-table .rarity-badge.rarity-Off-Market,
+.cf-rarity-chip.rarity-Off-Market {
+  background: rgba(232, 185, 96, 0.12) !important;
+  color: rgb(232, 185, 96) !important;
+  padding-left: 8px !important;
+}
+.db-table .rarity-badge.rarity-Limited,
+.cf-rarity-chip.rarity-Limited {
+  background: rgba(91, 150, 255, 0.12) !important;
+  color: rgb(122, 168, 255) !important;
+  padding-left: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10301 */
+
+/* CSFLOAT-1:1 PARITY ship #10302 — rarity legend container.
+   Sits below db-meta and above the table. Horizontal flex row,
+   8px gaps, 12px vertical breathing space, label + 3 buttons.
+   Wraps gracefully on narrow viewports. Matches csfloat's
+   filter-row spacing (16px gap) but compressed to 12px because
+   we have only 3 tier buttons, not the full filter set. */
+.cf-rarity-legend {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  margin: 0 0 12px 0 !important;
+  border-radius: 6px !important;
+  background: rgba(193, 206, 255, 0.03) !important;
+  border: 1px solid rgba(193, 206, 255, 0.06) !important;
+}
+.cf-rarity-legend-label {
+  font-family: var(--mono, "Roboto Mono", "SF Mono", Consolas, monospace) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  color: rgba(255, 255, 255, 0.50) !important;
+  margin-right: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10302 */
+
+/* CSFLOAT-1:1 PARITY ship #10303 — rarity legend swatches.
+   Each tier is a button: 7px circular swatch + tier name.
+   Hover brightens swatch + bg, active state drops a subtle
+   inset ring matching the tier's accent color. csfloat parity:
+   their /search rarity-row uses 6px swatches at 32px row height,
+   matched here. */
+.cf-rarity-legend-item {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  border: 1px solid rgba(193, 206, 255, 0.08) !important;
+  font-family: var(--mono, "Roboto Mono", "SF Mono", Consolas, monospace) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  color: rgba(255, 255, 255, 0.70) !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+.cf-rarity-legend-item:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+  border-color: rgba(193, 206, 255, 0.16) !important;
+  color: rgba(255, 255, 255, 0.90) !important;
+}
+.cf-rarity-legend-item.active {
+  background: rgba(91, 150, 255, 0.10) !important;
+  border-color: rgba(91, 150, 255, 0.40) !important;
+  color: rgb(122, 168, 255) !important;
+}
+.cf-rarity-swatch {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+}
+.cf-rarity-swatch.rarity-Standard {
+  background: rgb(158, 167, 177) !important;
+  box-shadow: 0 0 0 1px rgba(158, 167, 177, 0.30) !important;
+}
+.cf-rarity-swatch.rarity-Off-Market {
+  background: rgb(232, 185, 96) !important;
+  box-shadow: 0 0 0 1px rgba(232, 185, 96, 0.30) !important;
+}
+.cf-rarity-swatch.rarity-Limited {
+  background: rgb(91, 150, 255) !important;
+  box-shadow: 0 0 0 1px rgba(91, 150, 255, 0.30) !important;
+}
+.cf-rarity-legend-item.rarity-Off-Market.active {
+  background: rgba(232, 185, 96, 0.10) !important;
+  border-color: rgba(232, 185, 96, 0.40) !important;
+  color: rgb(232, 185, 96) !important;
+}
+.cf-rarity-legend-item.rarity-Standard.active {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(193, 206, 255, 0.30) !important;
+  color: rgba(255, 255, 255, 0.90) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10303 */
+
+/* CSFLOAT-1:1 PARITY ship #10304 — rarity hover tooltip.
+   Per-row chip + legend item lifts a 11px monospaced
+   tooltip on hover. Uses the same dark-popover treatment
+   csfloat uses for their condition-letter tooltips: solid
+   bg #2a2e35, white-90 text, 4px radius, 6px padding, no
+   arrow, fades in 120ms. Keeps the native title="" as a
+   fallback for keyboard users / screen readers. */
+.cf-rarity-legend-item[title]::after,
+.db-table .rarity-badge[title]::after,
+.cf-rarity-chip[title]::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: rgb(42, 46, 53);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--mono, "Roboto Mono", "SF Mono", Consolas, monospace);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 500;
+  line-height: 1.35;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  max-width: 280px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 120ms ease, transform 120ms ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.40);
+}
+.cf-rarity-legend-item {
+  position: relative !important;
+}
+.cf-rarity-legend-item[title]:hover::after,
+.db-table .rarity-badge[title]:hover::after,
+.cf-rarity-chip[title]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-1px);
+}
+/* END CSFLOAT-1:1 PARITY ship #10304 */
