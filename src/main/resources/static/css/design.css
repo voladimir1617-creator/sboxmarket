@@ -153016,3 +153016,796 @@ button[data-action="refund"]:hover {
 .admin-stat-card-delta.down,
 .csfloat-admin-stat-card-delta.down { color: var(--down) !important; }
 /* END CSFLOAT-1:1 PARITY ship #10704 */
+
+/* CSFLOAT-1:1 PARITY ship #10800 - /watchlist sort-select height bump.
+   csfloat .sort .mat-mdc-text-field-wrapper measured: height 38px,
+   padding 0 16px, bg rgba(193,206,255,0.04), 6px radius, no border,
+   Roboto 16px/400/#fff, chevron 12px right 14px.
+   sbox baseline (ship #45 at line 123229): height 36px — 2px short of
+   csfloat. Lock the watchlist-route + modal-context selects to 38px to
+   match csfloat exactly without disturbing other pages.
+   ====================================================================== */
+.modal.info-modal .sort-select,
+.site-root.full-page-mode .sort-select {
+  height: 38px !important;
+  padding: 0 38px 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px 12px !important;
+  outline: none !important;
+}
+.modal.info-modal .sort-select:hover,
+.site-root.full-page-mode .sort-select:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+.modal.info-modal .sort-select:focus-visible,
+.site-root.full-page-mode .sort-select:focus-visible {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10800 */
+
+/* CSFLOAT-1:1 PARITY ship #10801 - /watchlist filter pill row (offer-tab).
+   csfloat .mat-button-toggle-group baseline: pills sit horizontal with
+   6px gap, 8px radius, 36px height, Roboto 500/15px, padding 0 14px.
+   Active pill = #237bff bg + #fff text; inactive = transparent + #c1ceff
+   at 0.6 opacity rest, rgba(255,255,255,0.04) hover.
+   sbox baseline: .offer-tab uses bottom-border underline pattern. Re-skin
+   ONLY when row is parent role=tablist with aria-label="Watchlist filter"
+   so other tab pages stay untouched.
+   ====================================================================== */
+[role="tablist"][aria-label="Watchlist filter"] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 14px !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] .offer-tab {
+  height: 36px !important;
+  padding: 0 14px !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: rgba(193, 206, 255, 0.6) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  transition: background 140ms ease, color 140ms ease !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] .offer-tab::after {
+  display: none !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] .offer-tab:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] .offer-tab.active {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border-bottom: 0 none !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] .offer-tab.active .filter-count,
+[role="tablist"][aria-label="Watchlist filter"] .offer-tab .filter-count {
+  font-weight: 700 !important;
+  opacity: 0.85 !important;
+  margin-left: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10801 */
+
+/* CSFLOAT-1:1 PARITY ship #10802 - per-row inline alert bar + button.
+   csfloat alert chip: pill height 28px, 6px radius, Roboto 12px/500,
+   padding 0 12px, transparent bg, 1px solid rgba(255,255,255,0.12),
+   color rgba(255,255,255,0.78). Hover = rgba(35,123,255,0.10) bg +
+   accent-blue border + #237bff text. "Set" state mirrors hover.
+   sbox baseline (line 5953): generic 5px 12px / 12px / 500 / line-2
+   border. Lock chip geometry exactly to match csfloat — fixed height,
+   accent-blue interactive states, monoline border.
+   ====================================================================== */
+.watchlist-alert-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 0 !important;
+  margin: 8px 0 0 !important;
+  background: transparent !important;
+  border: 0 none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+}
+.watchlist-alert-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.25px !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+.watchlist-alert-btn:hover {
+  background: rgba(35, 123, 255, 0.10) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.watchlist-alert-btn.set {
+  background: rgba(35, 123, 255, 0.12) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.watchlist-alert-edit {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 none !important;
+}
+.watchlist-alert-edit input {
+  height: 28px !important;
+  padding: 0 8px !important;
+  border-radius: 6px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  width: 84px !important;
+  outline: none !important;
+}
+.watchlist-alert-edit input:focus {
+  border-color: rgba(35, 123, 255, 0.7) !important;
+  background: rgba(35, 123, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10802 */
+
+/* CSFLOAT-1:1 PARITY ship #10803 - alert-hit overlay badge.
+   csfloat fired-alert ribbon on a card: 24px tall pill with green
+   accent (#22c55e) at 0.18 opacity, 6px radius, Roboto 700/10px caps,
+   0 8px padding, positioned absolute top 12 left 12 over the card.
+   sbox baseline (line 5944): generic muted bg-2 + line-2 border, no
+   accent color, 3px 8px padding. Re-skin to match csfloat's green-fire
+   convention so the user instantly spots a triggered alert.
+   ====================================================================== */
+.watchlist-alert-hit {
+  position: absolute !important;
+  top: 12px !important;
+  left: 12px !important;
+  z-index: 3 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 24px !important;
+  padding: 0 8px !important;
+  background: rgba(34, 197, 94, 0.18) !important;
+  border: 1px solid rgba(34, 197, 94, 0.55) !important;
+  border-radius: 6px !important;
+  color: rgb(74, 222, 128) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10803 */
+
+/* CSFLOAT-1:1 PARITY ship #10804 - watchlist-delta price-drop badge.
+   csfloat per-card delta chip (overlayed): absolute top 12 right 12,
+   24px tall pill, directional color (green drop / red rise), 6px radius,
+   JetBrains Mono 700/11px numerals, 0 8px pad. Drop bg
+   rgba(34,197,94,0.16) + text #4ade80; rise bg rgba(239,68,68,0.16) +
+   text #f87171. Backdrop-filter 6px blur survives over light skins.
+   sbox baseline (line 5963): generic mono 11px ink-3 with up/down color
+   tokens but no chip chrome — just floating text on the card.
+   ====================================================================== */
+.watchlist-delta {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  z-index: 3 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 24px !important;
+  padding: 0 8px !important;
+  border-radius: 6px !important;
+  background: rgba(15, 20, 36, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  backdrop-filter: blur(6px) !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  white-space: nowrap !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+.watchlist-delta.drop,
+.watchlist-delta.down {
+  background: rgba(34, 197, 94, 0.16) !important;
+  border-color: rgba(34, 197, 94, 0.45) !important;
+  color: rgb(74, 222, 128) !important;
+}
+.watchlist-delta.rise,
+.watchlist-delta.up {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: rgb(248, 113, 113) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10804 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10800 - sell-auction setup label typography.
+   Sboxmarket sell-modal labels (.wallet-input-label) measured 16px Roboto
+   regular, 0.5px tracking, 6px below - that reads as body copy, not as
+   a form-row label. csfloat's auction setup uses a tighter caps-style
+   label: 11px / 600 / 0.4em uppercase tracking / muted ink, sitting 8px
+   above the field. Apply only when the label is inside the auction
+   setup block (sell modal scoping via .info-modal :has(.offer-tab) so
+   it only retrofits the sell-flow form, not other surfaces). High spec
+   so the broad #42 default loses to it.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label,
+.info-modal:has(.offer-tab[title*="Auction"]) .form-label,
+.info-modal:has(.offer-tab[title*="Auction"]) .input-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 14px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  letter-spacing: 0.4em !important;
+  text-transform: uppercase !important;
+  margin: 0 0 8px 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10800 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10801 - auction listing-type pill toggle.
+   Sboxmarket .offer-tab default style is an underline tab (border-bottom
+   2px on .active). csfloat's sell-modal Buy-Now / Auction toggle is a
+   segmented pill: 36px tall, 8px radius, neutral bg for inactive, blue-
+   filled bg + white text for active, no underline. Scope to the sell
+   form so we don't affect other tab strips (profile, wallet, etc.).
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"]) .offer-tab,
+.info-modal:has(.offer-tab[title*="flat price"]) .offer-tab {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  margin-bottom: 0 !important;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .offer-tab:hover,
+.info-modal:has(.offer-tab[title*="flat price"]) .offer-tab:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .offer-tab.active,
+.info-modal:has(.offer-tab[title*="flat price"]) .offer-tab.active {
+  background: var(--csfloat-blue, #1f7be3) !important;
+  color: #ffffff !important;
+  border-color: var(--csfloat-blue, #1f7be3) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10801 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10802 - duration-picker active chip state.
+   The duration row reuses .price-suggest-chip + .active. Measured chip
+   active vs inactive: identical (bg/border/color all the same) - so the
+   user can't see which duration is selected. csfloat fills the active
+   chip with the blue accent. Scope to chips inside the sell modal so we
+   don't repaint every chip on the page.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"]) .price-suggest-chip.active,
+.info-modal:has(.offer-tab[title*="flat price"]) .price-suggest-chip.active {
+  background: var(--csfloat-blue, #1f7be3) !important;
+  border-color: var(--csfloat-blue, #1f7be3) !important;
+  color: #ffffff !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .price-suggest-chip.active .price-suggest-chip-label,
+.info-modal:has(.offer-tab[title*="Auction"]) .price-suggest-chip.active .price-suggest-chip-amt,
+.info-modal:has(.offer-tab[title*="flat price"]) .price-suggest-chip.active .price-suggest-chip-label,
+.info-modal:has(.offer-tab[title*="flat price"]) .price-suggest-chip.active .price-suggest-chip-amt {
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10802 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10803 - duration chip dimensions.
+   Measured chip: 31px tall, 11px/regular text. csfloat's duration chip
+   is 30px tall but uses 12px / 600 type with 14px h-pad - denser, more
+   legible. Bring sboxmarket's duration chips up to that spec without
+   touching unrelated chip rows (Floor / Steam etc on the price-suggest
+   row, which keep their existing 11px style).
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"]) .price-suggest-chip,
+.info-modal:has(.offer-tab[title*="flat price"]) .price-suggest-chip {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  border-radius: 999px !important;
+  letter-spacing: 0.1px !important;
+}
+/* The price-suggest-row sits below the bid input and uses the chip
+   class for Floor / Steam / median etc. Those carry .price-suggest-chip-
+   label + -amt inner spans, which the duration chips don't. Restore
+   the 11px / regular weight only on chips that actually have label+amt
+   children, so Floor / Steam keep csfloat's small-print look. */
+.info-modal:has(.offer-tab[title*="Auction"]) .price-suggest-row .price-suggest-chip:has(.price-suggest-chip-label),
+.info-modal:has(.offer-tab[title*="flat price"]) .price-suggest-row .price-suggest-chip:has(.price-suggest-chip-label) {
+  height: auto !important;
+  min-height: 28px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10803 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10804 - bid/buy-now currency input.
+   Measured .wallet-amount-input: 56px tall, 24px text, 16px right pad,
+   32px left pad (room for $ glyph). Border 1px rgba 0.08 - too pale.
+   csfloat's amount input uses a 1px solid rgba 0.16 border, 6px radius,
+   and a slightly heavier focus ring. Tighten the resting border + add
+   the focus state, scoped to the auction setup block so we don't redo
+   every wallet input on the platform.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-amount-input,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-amount-input {
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-amount-input:hover,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-amount-input:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-amount-input:focus,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-amount-input:focus,
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-amount-input:focus-visible,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-amount-input:focus-visible {
+  border-color: var(--csfloat-blue, #1f7be3) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(31, 123, 227, 0.18) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10804 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #10805 - auction setup vertical rhythm.
+   The form is built with inline marginBottom: 14 on each row. csfloat
+   uses 18px between sections (label-block + control) and 6px between a
+   label and its control. Bumping section gap from 14 -> 18 closes the
+   visible compression between Listing-type / Auction-duration / Buy-now
+   ceiling / Starting-bid blocks. Re-target the inline-styled wrapper
+   div directly: it has style="margin-bottom: 14px" set via JSX, so use
+   attribute substring match to find it inside the sell modal only.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"]) [style*="margin-bottom: 14"],
+.info-modal:has(.offer-tab[title*="flat price"]) [style*="margin-bottom: 14"],
+.info-modal:has(.offer-tab[title*="Auction"]) [style*="marginBottom: 14"],
+.info-modal:has(.offer-tab[title*="flat price"]) [style*="marginBottom: 14"] {
+  margin-bottom: 18px !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) [style*="margin-top: 12"],
+.info-modal:has(.offer-tab[title*="flat price"]) [style*="margin-top: 12"],
+.info-modal:has(.offer-tab[title*="Auction"]) [style*="marginTop: 12"],
+.info-modal:has(.offer-tab[title*="flat price"]) [style*="marginTop: 12"] {
+  margin-top: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10805 */
+
+/* CSFLOAT-1:1 PARITY ship #11000 — sale toast: pin canonical Material Design metrics */
+body .sale-toast,
+body .toast-stack > .sale-toast,
+body .toasts-container > .sale-toast,
+body .sale-toasts > .sale-toast {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  padding: 14px 16px !important;
+  border-radius: 6px !important;
+  min-width: 344px !important;
+  max-width: 672px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  color: rgb(255, 255, 255) !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 5px -1px,
+    rgba(0, 0, 0, 0.14) 0px 6px 10px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 18px 0px !important;
+  border: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+body .sale-toast.success,
+body .sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.info):not(.purchase):not(.listing):not(.live):not(.bid):not(.outbid) {
+  background-color: rgba(31, 110, 60, 0.7) !important;
+  border-left: 3px solid rgb(34, 197, 94) !important;
+}
+body .sale-toast.err,
+body .sale-toast.error {
+  background-color: rgba(139, 19, 20, 0.7) !important;
+  border-left: 3px solid rgb(239, 68, 68) !important;
+}
+body .sale-toast.warn,
+body .sale-toast.warning {
+  background-color: rgba(176, 113, 24, 0.75) !important;
+  border-left: 3px solid rgb(251, 191, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11000 */
+
+/* CSFLOAT-1:1 PARITY ship #11001 — toast stack: bottom-center MD3 placement */
+body .sale-toasts,
+body .toasts-container,
+body .toast-stack {
+  position: fixed !important;
+  inset: auto auto 24px 50% !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  flex-direction: column-reverse !important;
+  align-items: center !important;
+  gap: 8px !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  width: max-content !important;
+  max-width: 672px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  list-style: none !important;
+}
+body .sale-toasts > *,
+body .toasts-container > *,
+body .toast-stack > * {
+  pointer-events: auto !important;
+  width: max-content !important;
+  min-width: 344px !important;
+  max-width: 672px !important;
+}
+@media (max-width: 720px) {
+  body .sale-toasts,
+  body .toasts-container,
+  body .toast-stack {
+    inset: auto 8px 16px !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    align-items: stretch !important;
+  }
+  body .sale-toasts > *,
+  body .toasts-container > *,
+  body .toast-stack > * {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11001 */
+
+/* CSFLOAT-1:1 PARITY ship #11002 — toast thumb/icon: 24px material symbol chip */
+body .sale-toast .sale-toast-thumb {
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 6px !important;
+  border: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: "Material Symbols Rounded", Roboto, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: rgb(34, 197, 94) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+body .sale-toast .sale-toast-thumb img,
+body .sale-toast .sale-toast-thumb svg {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+body .sale-toast.err .sale-toast-thumb,
+body .sale-toast.error .sale-toast-thumb,
+body .sale-toast.outbid .sale-toast-thumb {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: rgb(239, 68, 68) !important;
+}
+body .sale-toast.warn .sale-toast-thumb,
+body .sale-toast.warning .sale-toast-thumb {
+  background: rgba(251, 191, 36, 0.18) !important;
+  color: rgb(251, 191, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11002 */
+
+/* CSFLOAT-1:1 PARITY ship #11003 — toast body text + secondary line */
+body .sale-toast .sale-toast-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+body .sale-toast .sale-toast-text,
+body .sale-toast .sale-toast-line1,
+body .sale-toast .sale-toast-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+}
+body .sale-toast .sale-toast-line2,
+body .sale-toast .sale-toast-sub,
+body .sale-toast .sale-toast-desc {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11003 */
+
+/* CSFLOAT-1:1 PARITY ship #11004 — toast CTA: MD action button (uppercase, blue) */
+body .sale-toast .sale-toast-cta,
+body .sale-toast .toast-cta,
+body .sale-toast .toast-action,
+body .sale-toast .snack-action,
+body .sale-toast a.sale-toast-link {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 1.25px !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .sale-toast .sale-toast-cta:hover,
+body .sale-toast .toast-cta:hover,
+body .sale-toast .toast-action:hover,
+body .sale-toast .snack-action:hover,
+body .sale-toast a.sale-toast-link:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+body .sale-toast .sale-toast-cta:focus-visible,
+body .sale-toast .toast-cta:focus-visible,
+body .sale-toast .toast-action:focus-visible,
+body .sale-toast a.sale-toast-link:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 1px !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11004 */
+
+/* CSFLOAT-1:1 PARITY ship #11005 — toast close button: 28px square ghost */
+body .sale-toast .sale-toast-close {
+  flex: 0 0 auto !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  margin: 0 0 0 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857em !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .sale-toast .sale-toast-close:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .sale-toast .sale-toast-close:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11005 */
+
+/* CSFLOAT-1:1 PARITY ship #11006 — toast progress bar (4s linear bottom rail) */
+body .sale-toast::after,
+body .toast::after,
+body .snackbar::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  width: 100% !important;
+  transform-origin: left center !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  animation: csfloat-toast-progress 4s linear forwards !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+body .sale-toast.success::after { background: rgba(170, 255, 200, 0.7) !important; }
+body .sale-toast.err::after,
+body .sale-toast.error::after,
+body .sale-toast.outbid::after { background: rgba(255, 180, 180, 0.7) !important; }
+body .sale-toast.warn::after,
+body .sale-toast.warning::after { background: rgba(255, 220, 160, 0.7) !important; }
+body .sale-toast:hover::after,
+body .toast:hover::after,
+body .sale-toast.toast-paused::after { animation-play-state: paused !important; }
+body .sale-toast.persistent::after,
+body .sale-toast.no-progress::after { display: none !important; }
+@keyframes csfloat-toast-progress {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+/* END CSFLOAT-1:1 PARITY ship #11006 */
+
+/* CSFLOAT-1:1 PARITY ship #11007 — toast enter/leave animations (MD timing curves) */
+@keyframes csfloat-snackbar-enter {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes csfloat-snackbar-leave {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(8px); }
+}
+body .sale-toast,
+body .toast,
+body .snackbar {
+  transition:
+    transform 150ms cubic-bezier(0, 0, 0.2, 1),
+    opacity 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+  will-change: transform, opacity !important;
+}
+body .sale-toast:not(.toast-out):not(.is-leaving),
+body .toast.toast-in,
+body .snackbar.snackbar-open {
+  animation: csfloat-snackbar-enter 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+body .sale-toast.toast-out,
+body .sale-toast.is-leaving,
+body .toast.toast-leave,
+body .toast.exiting,
+body .snackbar.snackbar-leaving {
+  animation: csfloat-snackbar-leave 75ms cubic-bezier(0.4, 0, 1, 1) forwards !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body .sale-toast,
+  body .toast,
+  body .snackbar {
+    animation: none !important;
+    transition: opacity 100ms linear !important;
+  }
+  body .sale-toast::after,
+  body .toast::after,
+  body .snackbar::after {
+    animation: none !important;
+    display: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #11007 */
+
+/* CSFLOAT-1:1 PARITY ship #11008 — info/purchase/listing/bid: blue accent variants */
+body .sale-toast.info,
+body .sale-toast.purchase,
+body .sale-toast.listing,
+body .sale-toast.live,
+body .sale-toast.bid {
+  background-color: rgba(20, 56, 110, 0.7) !important;
+  border-left: 3px solid rgb(35, 123, 255) !important;
+}
+body .sale-toast.info .sale-toast-thumb,
+body .sale-toast.purchase .sale-toast-thumb,
+body .sale-toast.listing .sale-toast-thumb,
+body .sale-toast.live .sale-toast-thumb,
+body .sale-toast.bid .sale-toast-thumb {
+  background: rgba(35, 123, 255, 0.18) !important;
+  color: rgb(35, 123, 255) !important;
+}
+body .sale-toast.info::after,
+body .sale-toast.purchase::after,
+body .sale-toast.listing::after,
+body .sale-toast.live::after,
+body .sale-toast.bid::after {
+  background: rgba(170, 200, 255, 0.7) !important;
+}
+body .sale-toast.outbid {
+  background-color: rgba(139, 19, 20, 0.7) !important;
+  border-left: 3px solid rgb(239, 68, 68) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11008 */
+
+/* CSFLOAT-1:1 PARITY ship #11009 — Material Symbols chip glyph fallback for icons */
+body .sale-toast .sale-toast-thumb::before {
+  font-family: "Material Symbols Rounded", Roboto, sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+body .sale-toast.success .sale-toast-thumb:empty::before { content: "check" !important; }
+body .sale-toast.err .sale-toast-thumb:empty::before,
+body .sale-toast.error .sale-toast-thumb:empty::before { content: "close" !important; }
+body .sale-toast.warn .sale-toast-thumb:empty::before,
+body .sale-toast.warning .sale-toast-thumb:empty::before { content: "warning" !important; }
+body .sale-toast.info .sale-toast-thumb:empty::before,
+body .sale-toast.purchase .sale-toast-thumb:empty::before { content: "shopping_bag" !important; }
+body .sale-toast.listing .sale-toast-thumb:empty::before,
+body .sale-toast.live .sale-toast-thumb:empty::before { content: "sell" !important; }
+body .sale-toast.bid .sale-toast-thumb:empty::before { content: "gavel" !important; }
+body .sale-toast.outbid .sale-toast-thumb:empty::before { content: "trending_down" !important; }
+/* END CSFLOAT-1:1 PARITY ship #11009 */
