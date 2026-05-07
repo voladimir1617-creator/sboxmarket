@@ -146058,3 +146058,133 @@ body .nav-picker-panel .nav-picker-row.active .mi {
   transform: scale(1.06) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #7704 */
+
+/* CSFLOAT-1:1 PARITY ship #7900 — nav search wrap container (csfloat: 310x44, radius 6px, bg rgba(193,206,255,0.04), pl 16) */
+.toolbar .search-wrap {
+  width: 310px !important;
+  max-width: 310px !important;
+  min-width: 0 !important;
+  flex: 0 0 310px !important;
+  height: 44px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  padding: 0 0 0 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  position: relative !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7900 */
+
+/* CSFLOAT-1:1 PARITY ship #7901 — nav search input (transparent, 16px font, no border, pl for icon, pr for kbd) */
+.toolbar .search-wrap .search-input {
+  width: 100% !important;
+  height: 44px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 36px 0 23px !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: #ffffff !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+}
+.toolbar .search-wrap .search-input::placeholder {
+  color: #9EA7B1 !important;
+  opacity: 1 !important;
+  font-size: 16px !important;
+  letter-spacing: 0.5px !important;
+}
+.toolbar .search-wrap .search-input:focus {
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7901 */
+
+/* CSFLOAT-1:1 PARITY ship #7902 — nav search icon prefix (csfloat: 15x16 svg, color #9EA7B1, margin 0 3px 0 -3px) */
+.toolbar .search-wrap .search-icon {
+  position: absolute !important;
+  left: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 15px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #9EA7B1 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+.toolbar .search-wrap .search-icon svg {
+  width: 15px !important;
+  height: 16px !important;
+  color: #9EA7B1 !important;
+  stroke: #9EA7B1 !important;
+  fill: none !important;
+}
+.toolbar .search-wrap .search-icon svg circle,
+.toolbar .search-wrap .search-icon svg path {
+  stroke: #9EA7B1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7902 */
+
+/* CSFLOAT-1:1 PARITY ship #7903 — nav kbd "/" hint chip (csfloat round-square: 22x22, radius 6, border 1px rgba(158,167,177,0.15), bg rgba(193,206,255,0.04), color #9EA7B1, 14px) */
+.toolbar .search-wrap .search-kbd {
+  position: absolute !important;
+  right: 11px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(158, 167, 177, 0.15) !important;
+  border-radius: 6px !important;
+  color: #9EA7B1 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+/* csfloat keeps the "/" chip visible while focused — only hide once user types */
+.toolbar .search-wrap:focus-within .search-kbd { display: inline-flex !important; }
+.toolbar .search-wrap .search-input:not(:placeholder-shown) ~ .search-kbd,
+.toolbar .search-wrap.has-value .search-kbd { display: none !important; }
+/* END CSFLOAT-1:1 PARITY ship #7903 */
+
+/* CSFLOAT-1:1 PARITY ship #7904 — nav search focus state (csfloat: no outer focus ring; subtle bg deepen on focus) */
+.toolbar .search-wrap:focus-within {
+  background: rgba(193, 206, 255, 0.06) !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.toolbar .search-wrap:focus-within .search-input,
+.toolbar .search-wrap .search-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+.toolbar .search-wrap:hover {
+  background: rgba(193, 206, 255, 0.05) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #7904 */
