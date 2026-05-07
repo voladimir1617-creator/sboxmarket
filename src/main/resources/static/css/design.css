@@ -150814,3 +150814,332 @@ body footer.site-footer .site-footer-bottom .site-footer-meta > span:not(.dot) {
   border-radius: 8px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #10006 */
+
+/* CSFLOAT-1:1 PARITY ship #9800 - Export ghost button (csfloat secondary action chip parity)
+   Reference (csfloat /db, /sell, /wallet table headers): tinted-blue ghost chip at 32px tall,
+   rgba(35,123,255,0.15) bg, rgb(35,123,255) text, 8px radius, 0 14px padding, Roboto 13px/500,
+   text-transform none, letter-spacing normal, gap 6px to icon, no border, hover lifts to 0.22 alpha. */
+.csfloat-export-ghost-btn,
+button.csfloat-export-ghost-btn,
+a.csfloat-export-ghost-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  padding: 0 14px !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, color 120ms ease !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+.csfloat-export-ghost-btn:hover,
+button.csfloat-export-ghost-btn:hover,
+a.csfloat-export-ghost-btn:hover {
+  background: rgba(35, 123, 255, 0.22) !important;
+  background-color: rgba(35, 123, 255, 0.22) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.csfloat-export-ghost-btn:focus-visible,
+button.csfloat-export-ghost-btn:focus-visible,
+a.csfloat-export-ghost-btn:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.55) !important;
+  outline-offset: 2px !important;
+}
+.csfloat-export-ghost-btn[disabled],
+button.csfloat-export-ghost-btn[disabled] {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9800 */
+
+/* CSFLOAT-1:1 PARITY ship #9801 - Download icon (Material download 18px, csfloat sizing)
+   Reference: csfloat uses Material download glyph at 18px sitting flush in 32px ghost chips,
+   currentColor so it inherits the chip blue. The icon is a flex item with no margin - gap on
+   the parent .csfloat-export-ghost-btn provides the 6px spacing. */
+.csfloat-export-ghost-btn .csfloat-download-icon,
+.csfloat-download-icon {
+  display: inline-block !important;
+  width: 18px !important;
+  height: 18px !important;
+  flex: 0 0 18px !important;
+  font-size: 18px !important;
+  line-height: 18px !important;
+  color: currentColor !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  vertical-align: middle !important;
+  margin: 0 !important;
+}
+.csfloat-export-ghost-btn .csfloat-download-icon svg,
+.csfloat-download-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  display: block !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+.csfloat-export-ghost-btn .csfloat-download-icon::before,
+.csfloat-download-icon.is-unicode::before {
+  content: "\2913" !important;
+  font-family: "Material Icons", "Material Symbols Outlined", inherit !important;
+  font-size: 18px !important;
+  line-height: 18px !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9801 */
+
+/* CSFLOAT-1:1 PARITY ship #9802 - Export menu popover (CSV / JSON / PDF)
+   Reference: csfloat mat-menu panel - surface bg #1d2329, 1px solid rgba(255,255,255,0.06),
+   8px radius, overlay shadow, 8px inner padding, 220px min width, Roboto 14px/500 rows
+   with 36px height, 12px horizontal padding, 10px gap between icon and label. */
+.csfloat-export-menu {
+  background: #1d2329 !important;
+  background-color: #1d2329 !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42) !important;
+  padding: 8px !important;
+  min-width: 220px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  list-style: none !important;
+  margin: 0 !important;
+}
+.csfloat-export-menu .csfloat-export-menu-item,
+.csfloat-export-menu li > button,
+.csfloat-export-menu li > a {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: background-color 100ms ease !important;
+}
+.csfloat-export-menu .csfloat-export-menu-item:hover,
+.csfloat-export-menu li > button:hover,
+.csfloat-export-menu li > a:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+.csfloat-export-menu .csfloat-export-menu-item .csfloat-export-menu-format-icon {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
+  text-align: center !important;
+  color: rgba(35, 123, 255, 0.9) !important;
+}
+.csfloat-export-menu .csfloat-export-menu-divider {
+  height: 1px !important;
+  margin: 6px 4px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9802 */
+
+/* CSFLOAT-1:1 PARITY ship #9803 - Filename input (csfloat .mat-form-field outline parity)
+   Reference: outlined input, 36px height, 1px solid rgba(255,255,255,0.12), 8px radius, 0 12px
+   padding, Roboto 14px/400, color #e5e7eb, placeholder rgba(255,255,255,0.4), focus border
+   rgb(35,123,255) and 0 0 0 1px rgba(35,123,255,0.45) glow. */
+.csfloat-export-filename,
+input.csfloat-export-filename {
+  display: block !important;
+  width: 100% !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  color: #e5e7eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: border-color 120ms ease, box-shadow 120ms ease !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+.csfloat-export-filename::placeholder,
+input.csfloat-export-filename::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
+}
+.csfloat-export-filename:hover,
+input.csfloat-export-filename:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+.csfloat-export-filename:focus,
+input.csfloat-export-filename:focus,
+.csfloat-export-filename:focus-visible,
+input.csfloat-export-filename:focus-visible {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.45) !important;
+}
+.csfloat-export-filename-label {
+  display: block !important;
+  margin: 0 0 6px 2px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9803 */
+
+/* CSFLOAT-1:1 PARITY ship #9804 - Date range filter row (From / To inputs)
+   Reference: two outlined inputs at 36px height side-by-side with 8px column gap, the
+   short separator dash uses rgba(255,255,255,0.4), labels above each field at 12px/500
+   rgba(255,255,255,0.6). */
+.csfloat-export-daterange {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  width: 100% !important;
+  margin: 8px 0 !important;
+}
+.csfloat-export-daterange .csfloat-export-daterange-field {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.csfloat-export-daterange .csfloat-export-daterange-field > label {
+  display: block !important;
+  margin: 0 0 6px 2px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.csfloat-export-daterange input[type="date"],
+.csfloat-export-daterange .csfloat-export-daterange-input {
+  width: 100% !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  color: #e5e7eb !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: border-color 120ms ease, box-shadow 120ms ease !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  color-scheme: dark !important;
+}
+.csfloat-export-daterange input[type="date"]:hover,
+.csfloat-export-daterange .csfloat-export-daterange-input:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+.csfloat-export-daterange input[type="date"]:focus,
+.csfloat-export-daterange .csfloat-export-daterange-input:focus,
+.csfloat-export-daterange input[type="date"]:focus-visible,
+.csfloat-export-daterange .csfloat-export-daterange-input:focus-visible {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.45) !important;
+}
+.csfloat-export-daterange .csfloat-export-daterange-sep {
+  align-self: center !important;
+  margin: 22px 0 0 0 !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  user-select: none !important;
+}
+.csfloat-export-daterange input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.6) !important;
+  cursor: pointer !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9804 */
+
+/* CSFLOAT-1:1 PARITY ship #9805 - "Generating..." loading state (csfloat inline progress parity)
+   Reference: when an export is being prepared the chip reads "Generating..." with a 14px
+   spinner before the text, 6px gap, the chip stays in tinted-blue but at 0.85 opacity so it
+   reads as in-progress. The spinner is a 2px-stroke circular indicator that rotates uniformly. */
+.csfloat-export-ghost-btn.is-generating,
+.csfloat-export-ghost-btn[data-generating="true"] {
+  pointer-events: none !important;
+  opacity: 0.85 !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.csfloat-export-ghost-btn.is-generating .csfloat-download-icon,
+.csfloat-export-ghost-btn[data-generating="true"] .csfloat-download-icon {
+  display: none !important;
+}
+.csfloat-export-ghost-btn.is-generating::before,
+.csfloat-export-ghost-btn[data-generating="true"]::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 14px !important;
+  margin-right: 6px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(35, 123, 255, 0.25) !important;
+  border-top-color: rgb(35, 123, 255) !important;
+  border-right-color: rgb(35, 123, 255) !important;
+  animation: csfloatExportSpin 1s linear infinite !important;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+}
+@keyframes csfloatExportSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.csfloat-export-generating-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #9805 */
