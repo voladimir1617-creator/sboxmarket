@@ -133392,3 +133392,324 @@ main.changelog {
   text-underline-offset: 2px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #2408 */
+
+/* CSFLOAT-1:1 PARITY ship #2400 — .nav-picker-panel (USD/EN dropdown)
+   measured tokens. csfloat .themed-menu panel:
+     bg rgba(21,23,28,0.8); border 2px solid rgba(193,206,255,0.07);
+     border-radius 15px; backdrop-filter blur(10px);
+     box-shadow 0 5px 5px -3px rgba(0,0,0,.2),
+                0 8px 10px 1px rgba(0,0,0,.14),
+                0 3px 14px 2px rgba(0,0,0,.12);
+   panel padding 0; content padding 8px 0; items 48h, padding 0 16px;
+   font 14px/24px Roboto; color #fff. We were at 220w / radius 10 /
+   border 1px / item 40h — now match exactly. */
+body .nav-picker-panel {
+  padding: 8px 0 !important;
+  background: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14) !important;
+  gap: 0 !important;
+  min-width: 208px !important;
+}
+body .nav-picker-panel .nav-picker-row {
+  height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  gap: 12px !important;
+}
+body .nav-picker-panel .nav-picker-row:hover:not(.soon) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 0 !important;
+}
+body .nav-picker-panel .nav-picker-row.active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2400 */
+
+/* CSFLOAT-1:1 PARITY ship #2401 — .user-menu (signed-in avatar dropdown)
+   parity. csfloat themed-menu tokens identical to nav-picker; sboxmarket
+   user-menu was at radius var(--r-md) ~10px / border 1px / padding 6px.
+   Match the same panel chrome and item rhythm. */
+body .user-menu,
+body .user-menu-dropdown {
+  padding: 8px 0 !important;
+  background: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14) !important;
+  min-width: 208px !important;
+}
+body .user-menu .user-menu-item,
+body .user-menu-dropdown .user-menu-item {
+  height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  gap: 12px !important;
+}
+body .user-menu .user-menu-item:hover,
+body .user-menu-dropdown .user-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 0 !important;
+}
+body .user-menu .user-menu-item svg,
+body .user-menu-dropdown .user-menu-item svg {
+  width: 20px !important;
+  height: 20px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+body .user-menu .user-menu-divider {
+  margin: 8px 0 !important;
+  background: rgba(193, 206, 255, 0.07) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2401 */
+
+/* CSFLOAT-1:1 PARITY ship #2402 — .sort-picker dropdown panel parity.
+   Sort dropdown on /market shares the menu motif. csfloat-style panel
+   chrome but keeps min-width tied to chip. */
+body .sort-picker-panel,
+body .sort-picker-menu,
+body .sort-picker .sort-picker-pop {
+  padding: 8px 0 !important;
+  background: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14) !important;
+}
+body .sort-picker-panel .sort-picker-row,
+body .sort-picker-menu .sort-picker-item,
+body .sort-picker .sort-picker-pop > * {
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .sort-picker-panel .sort-picker-row:hover,
+body .sort-picker-menu .sort-picker-item:hover,
+body .sort-picker .sort-picker-pop > *:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2402 */
+
+/* CSFLOAT-1:1 PARITY ship #2403 — Mobile filters bottom-sheet (.sidebar
+   .mobile-drawer-open) chrome parity. csfloat mobile drawers use
+   the same translucent themed-menu panel tokens at the top edge.
+   Existing rule used --bg-1 / --line; bring it to the measured
+   tokens with rounded top corners only. */
+@media (max-width: 768px) {
+  body .layout > .sidebar.mobile-drawer-open,
+  body .filters-drawer,
+  body .mobile-filters-drawer {
+    background: rgba(21, 23, 28, 0.95) !important;
+    border-top: 2px solid rgba(193, 206, 255, 0.07) !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-top-left-radius: 15px !important;
+    border-top-right-radius: 15px !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow:
+      0 -5px 5px -3px rgba(0, 0, 0, 0.2),
+      0 -8px 10px 1px rgba(0, 0, 0, 0.14) !important;
+  }
+  body .layout > .sidebar.mobile-drawer-open::before,
+  body .filters-drawer-handle {
+    width: 36px !important;
+    height: 4px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-radius: 2px !important;
+    margin: 8px auto 12px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #2403 */
+
+/* CSFLOAT-1:1 PARITY ship #2404 — Mobile hamburger / nav drawer
+   parity. Slide-in nav and hamburger dropdown share themed-menu
+   panel tokens. Apply to common class names so whichever the JSX
+   uses gets the chrome. */
+@media (max-width: 768px) {
+  body .mobile-nav-drawer,
+  body .nav-mobile-drawer,
+  body .nav-drawer,
+  body .hamburger-menu,
+  body .hamburger-dropdown,
+  body .mobile-menu-panel {
+    background: rgba(21, 23, 28, 0.95) !important;
+    border: 2px solid rgba(193, 206, 255, 0.07) !important;
+    border-radius: 15px !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow:
+      0 5px 5px -3px rgba(0, 0, 0, 0.2),
+      0 8px 10px 1px rgba(0, 0, 0, 0.14) !important;
+    padding: 8px 0 !important;
+  }
+  body .mobile-nav-drawer a,
+  body .mobile-nav-drawer button,
+  body .nav-mobile-drawer a,
+  body .nav-mobile-drawer button,
+  body .hamburger-menu a,
+  body .hamburger-menu button,
+  body .hamburger-dropdown a,
+  body .hamburger-dropdown button,
+  body .mobile-menu-panel a,
+  body .mobile-menu-panel button {
+    height: 48px !important;
+    padding: 0 16px !important;
+    border-radius: 0 !important;
+    font-family: Roboto, "Helvetica Neue", sans-serif !important;
+    font-size: 14px !important;
+    line-height: 24px !important;
+    color: rgb(255, 255, 255) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  body .mobile-nav-drawer a:hover,
+  body .mobile-nav-drawer button:hover,
+  body .nav-mobile-drawer a:hover,
+  body .nav-mobile-drawer button:hover,
+  body .hamburger-menu a:hover,
+  body .hamburger-menu button:hover,
+  body .hamburger-dropdown a:hover,
+  body .hamburger-dropdown button:hover,
+  body .mobile-menu-panel a:hover,
+  body .mobile-menu-panel button:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: rgb(255, 255, 255) !important;
+  }
+  /* Hamburger trigger button itself — 24x24 burger icon, 40x40 hit
+     area, 8px gap to siblings, transparent until hover. */
+  body .nav-hamburger,
+  body .hamburger-btn,
+  body button.hamburger {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 8px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: background 120ms ease, color 120ms ease !important;
+  }
+  body .nav-hamburger:hover,
+  body .hamburger-btn:hover,
+  body button.hamburger:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: rgb(255, 255, 255) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #2404 */
+
+/* CSFLOAT-1:1 PARITY ship #2405 — Generic dropdown overlay panels
+   (any class containing "dropdown" / "menu-panel" / "popover" inside
+   the nav region) — match themed-menu chrome. Defensive selector
+   list so any submenu inherits csfloat tokens without per-class CSS. */
+body nav .dropdown-menu,
+body nav .menu-panel,
+body nav .popover,
+body nav .submenu,
+body .nav .dropdown-menu,
+body .nav .menu-panel,
+body .nav .popover,
+body .nav .submenu,
+body header .dropdown-menu,
+body header .menu-panel,
+body header .popover,
+body header .submenu {
+  background: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14) !important;
+  padding: 8px 0 !important;
+  min-width: 208px !important;
+}
+body nav .dropdown-menu > a,
+body nav .dropdown-menu > button,
+body nav .menu-panel > a,
+body nav .menu-panel > button,
+body nav .submenu > a,
+body nav .submenu > button,
+body .nav .dropdown-menu > a,
+body .nav .dropdown-menu > button,
+body .nav .menu-panel > a,
+body .nav .menu-panel > button,
+body .nav .submenu > a,
+body .nav .submenu > button,
+body header .dropdown-menu > a,
+body header .dropdown-menu > button,
+body header .menu-panel > a,
+body header .menu-panel > button,
+body header .submenu > a,
+body header .submenu > button {
+  height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  text-decoration: none !important;
+}
+body nav .dropdown-menu > a:hover,
+body nav .dropdown-menu > button:hover,
+body nav .menu-panel > a:hover,
+body nav .menu-panel > button:hover,
+body nav .submenu > a:hover,
+body nav .submenu > button:hover,
+body .nav .dropdown-menu > a:hover,
+body .nav .dropdown-menu > button:hover,
+body .nav .menu-panel > a:hover,
+body .nav .menu-panel > button:hover,
+body .nav .submenu > a:hover,
+body .nav .submenu > button:hover,
+body header .dropdown-menu > a:hover,
+body header .dropdown-menu > button:hover,
+body header .menu-panel > a:hover,
+body header .menu-panel > button:hover,
+body header .submenu > a:hover,
+body header .submenu > button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #2405 */
