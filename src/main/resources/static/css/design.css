@@ -150573,3 +150573,244 @@ body footer.site-footer .site-footer-bottom .site-footer-meta > span:not(.dot) {
   letter-spacing: 0.01em !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #9510 */
+
+
+/* CSFLOAT-1:1 PARITY ship #10001 - Sell modal panel surface
+   csfloat measured: body bg rgb(21,23,28). Modal panels in csfloat use a
+   slightly lighter charcoal with 8px radius (matches the .mat-dialog
+   shell). Sboxmarket .info-modal currently uses var(--bg-1) with
+   border-radius var(--r-md) - pin both to csfloat's exact 8px radius and
+   the rgb(28,30,38) modal surface. Width: csfloat uses 480-540px for
+   pricing dialogs - keep current min(520px,100%) which matches. */
+.info-modal:has(.price-suggest-row),
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) {
+  background: rgb(28, 30, 38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.65) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10001 */
+
+
+/* CSFLOAT-1:1 PARITY ship #10002 - Sell modal header typography
+   csfloat: dialog titles 20px/600 Roboto, lower-letter-spacing. Sboxmarket
+   uses a serif h1 at 22px/360 with negative letter-spacing - that's a
+   redesign for buy/wallet but doesn't match csfloat's sell dialog.
+   Match csfloat's sans-serif 20px/600 with subtle letter-spacing for the
+   sell pricing context only - scope by :has() so other modals stay. */
+.info-modal:has(.price-suggest-row) > .info-modal-header,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) > .info-modal-header {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 18px 24px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-variation-settings: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10002 */
+
+
+/* CSFLOAT-1:1 PARITY ship #10003 - Listing price input (large) + label
+   csfloat sell dialog: price input is the single largest field, ~22px
+   monospace digits, 14px vertical padding, focused border in csfloat
+   blue rgb(35,123,255). Sboxmarket .wallet-amount-input currently 18px/500
+   with var(--ink-4) focus border. Match csfloat: bump to 22px/600, switch
+   focus to csfloat blue, and tighten letter-spacing to match the dialog's
+   monospace numerics. Scoped to sell modal only. */
+.info-modal:has(.price-suggest-row) .wallet-amount-input,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .wallet-amount-input {
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  padding: 14px 16px !important;
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  transition: border-color 120ms ease, box-shadow 120ms ease !important;
+  width: 100% !important;
+}
+.info-modal:has(.price-suggest-row) .wallet-amount-input:focus,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .wallet-amount-input:focus {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.15) !important;
+  outline: none !important;
+}
+/* Wallet input label above price input - csfloat uses 11px uppercase
+   letter-spacing 0.08em mid-grey instead of sentence-case ink-3. */
+.info-modal:has(.price-suggest-row) .wallet-input-label,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .wallet-input-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin-bottom: 8px !important;
+  font-family: Roboto, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10003 */
+
+
+/* CSFLOAT-1:1 PARITY ship #10004 - Quick price chips (Floor / -5% / +5%)
+   csfloat: price-quick-chips are pill buttons with subtle border, 6px
+   radius (NOT 999px), height ~32px, 12px font, 8px gap between chips,
+   csfloat-blue tint background. Sboxmarket .price-suggest-chip uses
+   999px radius (full-pill) which reads as a tag, not a price-action.
+   Match csfloat: switch to 6px rounded rectangles, blue-tint surface,
+   tighten padding. */
+.info-modal:has(.price-suggest-row) .price-suggest-row,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .price-suggest-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+.info-modal:has(.price-suggest-row) .price-suggest-chip,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .price-suggest-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 1px solid rgba(35, 123, 255, 0.20) !important;
+  border-radius: 6px !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, border-color 120ms ease !important;
+}
+.info-modal:has(.price-suggest-row) .price-suggest-chip:hover,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .price-suggest-chip:hover {
+  background: rgba(35, 123, 255, 0.16) !important;
+  border-color: rgba(35, 123, 255, 0.40) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.info-modal:has(.price-suggest-row) .price-suggest-chip-label,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .price-suggest-chip-label {
+  font-weight: 500 !important;
+  opacity: 0.9 !important;
+}
+.info-modal:has(.price-suggest-row) .price-suggest-chip-amt,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .price-suggest-chip-amt {
+  font-family: "Roboto Mono", "JetBrains Mono", monospace !important;
+  font-weight: 700 !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10004 */
+
+
+/* CSFLOAT-1:1 PARITY ship #10005 - Fee breakdown grid + List Now CTA
+   csfloat: fee breakdown is a 2-col grid, label/value, monospace digits
+   on right column, single-pixel-divider border around the block, 6px
+   radius matching the input. List/Submit CTA is a full-width csfloat-blue
+   button at the bottom: 44px tall, 15px/700 white, 8px radius, no
+   uppercase. Sboxmarket has the breakdown block but uses var(--bg-elevated)
+   /var(--border) - pin to csfloat's exact dialog tones and tighten the
+   grid metrics to match. */
+.info-modal:has(.price-suggest-row) .info-modal-body > div[style*="grid-template-columns"],
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body > div[style*="grid-template-columns"] {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 6px !important;
+  padding: 12px 14px !important;
+  margin-top: 14px !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 13px !important;
+  row-gap: 6px !important;
+  column-gap: 16px !important;
+}
+.info-modal:has(.price-suggest-row) .info-modal-body > div[style*="grid-template-columns"] > div,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body > div[style*="grid-template-columns"] > div {
+  font-size: 13px !important;
+}
+/* Modal body padding - csfloat uses 20-24px around the dialog surface */
+.info-modal:has(.price-suggest-row) > .info-modal-body,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) > .info-modal-body {
+  padding: 20px 24px 24px !important;
+  background: rgb(28, 30, 38) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+/* The submit "List Now" button at the bottom - usually .modal-primary or
+   the trailing button inside .info-modal-body. Pin to csfloat's blue CTA
+   (rgb(35,123,255), white, 15px/700, 8px radius, 44px). */
+.info-modal:has(.price-suggest-row) .info-modal-body button.modal-primary,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body button.modal-primary {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 0 24px !important;
+  height: 44px !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  width: 100% !important;
+  margin-top: 16px !important;
+  cursor: pointer !important;
+  transition: background 120ms ease !important;
+}
+.info-modal:has(.price-suggest-row) .info-modal-body button.modal-primary:hover,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body button.modal-primary:hover {
+  background: rgb(28, 110, 235) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10005 */
+
+
+/* CSFLOAT-1:1 PARITY ship #10006 - Listing-type toggle (Buy Now / Auction)
+   csfloat: tab pills, segmented control feel - equal-width buttons in a
+   shared bg container with the active tab using csfloat blue background
+   and white text. Sboxmarket uses .offer-tab - currently styled as
+   ink-tone outline tabs. Convert to csfloat's filled segment style with
+   both tabs sharing a single rounded container. Also tighten the item
+   preview header gradient (was too heavy). */
+.info-modal:has(.price-suggest-row) .info-modal-body > div:has(> button.offer-tab),
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body > div:has(> button.offer-tab) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+  gap: 4px !important;
+  margin-bottom: 16px !important;
+}
+.info-modal:has(.price-suggest-row) .info-modal-body button.offer-tab,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body button.offer-tab {
+  flex: 1 !important;
+  height: 36px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-family: Roboto, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, color 120ms ease !important;
+}
+.info-modal:has(.price-suggest-row) .info-modal-body button.offer-tab:hover,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body button.offer-tab:hover {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.info-modal:has(.price-suggest-row) .info-modal-body button.offer-tab.active,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body button.offer-tab.active {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* Item preview header strip - image + name/category - csfloat uses
+   compact 96-120px square with subtle inset border. Sboxmarket already
+   does ~120px with a heavy radial gradient; lighten it. */
+.info-modal:has(.price-suggest-row) .info-modal-body > div[style*="display: flex"][style*="gap: 18px"] > div:first-child,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .info-modal-body > div[style*="display: flex"][style*="gap: 18px"] > div:first-child {
+  background: linear-gradient(180deg, rgba(35,123,255,0.08) 0%, rgba(35,123,255,0.02) 100%), rgb(21, 23, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #10006 */
