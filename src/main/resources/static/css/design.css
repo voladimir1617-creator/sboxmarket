@@ -147217,10 +147217,12 @@ item-card[data-loaded="true"],
   100% { opacity: 1; }
 }
 .grid-card .item-image,
+.grid-card img,
 .grid-card img.item-img,
 .grid-card .csfloat-img,
 .item-card img,
 item-card img,
+.csfloat-card img,
 .csfloat-band-card .item-image,
 .csfloat-hero-stack-img .item-image,
 .csfloat-card-image-fade-in {
