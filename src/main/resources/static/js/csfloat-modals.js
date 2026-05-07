@@ -213,6 +213,32 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
       h('strong', null, Number(data.total).toLocaleString()), ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
+    /* CSFLOAT-1:1 ship #10302 — rarity legend / key. Three tier swatches
+       laid out in csfloat's filter-row style. Each swatch carries a
+       title attr that drives the native tooltip explaining what that
+       tier means in s&box. Click filters the table to that rarity. */
+    h('div', {
+      className: 'cf-rarity-legend',
+      role: 'group',
+      'aria-label': 'Rarity tier legend'
+    },
+      h('span', { className: 'cf-rarity-legend-label' }, 'Rarity:'),
+      [
+        { v: 'Standard',   t: 'Standard — common items everyone can craft.' },
+        { v: 'Off-Market', t: 'Off-Market — scarce items not currently sold by Steam.' },
+        { v: 'Limited',    t: 'Limited — capped supply, hardest to find.' }
+      ].map(r => h('button', {
+        key: r.v,
+        type: 'button',
+        className: `cf-rarity-legend-item rarity-${r.v}` + (rarity === r.v ? ' active' : ''),
+        title: r.t,
+        'aria-pressed': rarity === r.v,
+        onClick: () => setRar(rarity === r.v ? 'All' : r.v)
+      },
+        h('span', { className: `cf-rarity-swatch rarity-${r.v}`, 'aria-hidden': 'true' }),
+        h('span', { className: 'cf-rarity-legend-name' }, r.v)
+      ))
+    ),
     loading
       /* Boss QA cycle 11 micro-polish — was a generic .spinner pulse, which
          left the database surface as a single dot in the middle of dark
