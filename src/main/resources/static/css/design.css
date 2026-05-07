@@ -153809,3 +153809,58 @@ body .sale-toast.live .sale-toast-thumb:empty::before { content: "sell" !importa
 body .sale-toast.bid .sale-toast-thumb:empty::before { content: "gavel" !important; }
 body .sale-toast.outbid .sale-toast-thumb:empty::before { content: "trending_down" !important; }
 /* END CSFLOAT-1:1 PARITY ship #11009 */
+
+/* CSFLOAT-1:1 PARITY ship #11010 — variant border-left override (overrides legacy success-fallback) */
+body .toast-stack .sale-toast.purchase,
+body .toasts-container .sale-toast.purchase,
+body .sale-toasts .sale-toast.purchase,
+body .sale-toast.sale-toast.purchase,
+body .toast-stack .sale-toast.listing,
+body .toasts-container .sale-toast.listing,
+body .sale-toasts .sale-toast.listing,
+body .sale-toast.sale-toast.listing,
+body .toast-stack .sale-toast.live,
+body .toasts-container .sale-toast.live,
+body .sale-toasts .sale-toast.live,
+body .sale-toast.sale-toast.live,
+body .toast-stack .sale-toast.bid,
+body .toasts-container .sale-toast.bid,
+body .sale-toasts .sale-toast.bid,
+body .sale-toast.sale-toast.bid,
+body .toast-stack .sale-toast.info,
+body .toasts-container .sale-toast.info,
+body .sale-toasts .sale-toast.info,
+body .sale-toast.sale-toast.info {
+  border-left: 3px solid rgb(35, 123, 255) !important;
+  background-color: rgba(20, 56, 110, 0.7) !important;
+}
+body .toast-stack .sale-toast.outbid,
+body .toasts-container .sale-toast.outbid,
+body .sale-toasts .sale-toast.outbid,
+body .sale-toast.sale-toast.outbid {
+  border-left: 3px solid rgb(239, 68, 68) !important;
+  background-color: rgba(139, 19, 20, 0.7) !important;
+}
+body .toast-stack .sale-toast.err,
+body .toasts-container .sale-toast.err,
+body .sale-toasts .sale-toast.err,
+body .sale-toast.sale-toast.err,
+body .toast-stack .sale-toast.error,
+body .toasts-container .sale-toast.error,
+body .sale-toasts .sale-toast.error,
+body .sale-toast.sale-toast.error {
+  border-left: 3px solid rgb(239, 68, 68) !important;
+  background-color: rgba(139, 19, 20, 0.7) !important;
+}
+body .toast-stack .sale-toast.warn,
+body .toasts-container .sale-toast.warn,
+body .sale-toasts .sale-toast.warn,
+body .sale-toast.sale-toast.warn,
+body .toast-stack .sale-toast.warning,
+body .toasts-container .sale-toast.warning,
+body .sale-toasts .sale-toast.warning,
+body .sale-toast.sale-toast.warning {
+  border-left: 3px solid rgb(251, 191, 36) !important;
+  background-color: rgba(176, 113, 24, 0.75) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #11010 */
