@@ -175347,3 +175347,1234 @@ html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.b
   opacity: 0.5 !important;
   cursor: not-allowed !important;
 }
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #126560-#126565 — wallet balance display
+   nav chip (.wallet-btn rendered in app.js:5497, app-header right side).
+
+   Surface: When signed-in, the nav exposes a pill-shaped wallet chip
+   that displays the current balance (e.g. "$24.18") next to a small
+   "$" icon-tile and a "Balance" / "Top up" label. Clicking the chip
+   navigates to /wallet. The chip swaps into a low-balance state
+   (label="Top up", icon="!", amber tint) when balance < $5.
+
+   Measured live on localhost:8082 with synthesized .wallet-btn probe:
+     box        107x36 (low-state 93x36) — geometry ship #100 ✓
+     bg         rgba(255,255,255,0.04) ✓
+     border     1px solid rgba(255,255,255,0.06) ✓
+     radius     999px ✓
+     amount     Geist Mono 13/600 tabular-nums color rgba 0.95 ✓
+     label      13/500 color rgba 0.6
+     icon-tile  18x18 br=4 1px solid rgba 0.12 ✓
+
+   Gaps measured vs csfloat parity spec (BG rgb(21,23,28), brand
+   rgb(35,123,255), Roboto Mono mono token, amber low-balance):
+     1. .low-balance modifier currently has ZERO matching rules — chip
+        is identical to normal in low-balance state. Lane spec:
+        amber-tinted icon + amber border + amber label.
+     2. Roboto Mono missing from amount font stack — operator's
+        canonical lane token says Roboto Mono for tabular-nums while
+        ship #100 uses platform mono only. Insert as fallback ahead
+        of the ui-monospace generic so where Roboto Mono is loaded
+        (csfloat-equivalent default) it wins.
+     3. Label optical weight too heavy at 13/500. csfloat secondary
+        captions in nav chips render at 11px/500 with +0.2 letter-
+        spacing for the small-caps-like quiet read.
+     4. Hover transition only tweens background-color — when amber
+        low-balance fades to brand on hover, border-color must also
+        tween, otherwise the border snaps.
+     5. Amount color drift — ship #100 sets rgba(255,255,255,0.95)
+        but csfloat actually pushes balance numerals to full
+        rgb(220,226,233) (ink-1) so it reads brighter than the
+        label. Ship a slight contrast bump.
+     6. Pending-dot ring uses inline `boxShadow:'0 0 0 2px var(--bg)'`
+        from app.js — the var(--bg) may resolve to fallback colors
+        outside the nav. Lock the chip-context CSS pseudo-style to
+        explicit rgb(21,23,28).
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #126560 (wallet nav chip — low-balance amber state)
+   The chip swaps to low-balance state (className adds " low-balance") when
+   wallet.balance < $5 (app.js:5481). Currently NO CSS targets this modifier
+   so the chip looks identical to the normal state — operator can't tell at
+   a glance the balance is low.
+
+   csfloat amber convention (also used in WalletModal pending-withdraw dot
+   at app.js:5493): #fbbf24 (Tailwind amber-400). Apply a quiet amber tint:
+   border + icon border + icon glyph color + label color all shift to amber
+   while the chip background stays neutral so the amber reads as a status
+   accent, not a full panel paint. */
+html body .wallet-btn.low-balance {
+  border-color: rgba(251, 191, 36, 0.45) !important;
+  background-color: rgba(251, 191, 36, 0.06) !important;
+}
+html body .wallet-btn.low-balance .wallet-btn-icon,
+html body .wallet-btn.low-balance .wallet-plus {
+  border-color: rgba(251, 191, 36, 0.55) !important;
+  color: rgb(251, 191, 36) !important;
+}
+html body .wallet-btn.low-balance .wallet-btn-label {
+  color: rgb(251, 191, 36) !important;
+}
+html body .wallet-btn.low-balance .wallet-btn-amt {
+  color: rgb(251, 191, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126560 */
+
+/* CSFLOAT-1:1 PARITY ship #126561 (wallet nav chip — Roboto Mono tabular-nums)
+   Lane token spec: "Roboto Mono for tabular-nums". Ship #100 set the chip
+   font stack to "Geist Mono", "JetBrains Mono", ui-monospace, monospace.
+   Insert "Roboto Mono" as the FIRST mono fallback so where the page has
+   Roboto Mono loaded (csfloat baseline) it wins, with Geist Mono retained
+   as the secondary so platforms without Roboto Mono fall back to the
+   visually equivalent Geist. tabular-nums and feature-settings 'tnum'
+   make sure individual digits stay column-aligned across re-renders. */
+html body .wallet-btn,
+html body .wallet-btn .wallet-btn-amt {
+  font-family: "Roboto Mono", "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126561 */
+
+/* CSFLOAT-1:1 PARITY ship #126562 (wallet nav chip — label optical weight)
+   Measured ship #100 sets .wallet-btn-label to 13/500. csfloat nav chip
+   secondary labels (e.g. "Balance", "Top up") render smaller and quieter:
+   11px/500 with +0.2 letter-spacing for the all-caps-feeling subtitle.
+   The amount stays at 13/600 so the visual hierarchy is amount > label
+   instead of the current amount == label which reads as duplicate
+   shouting. Drop label to 11px and bump letter-spacing slightly. */
+html body .wallet-btn .wallet-btn-label {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2px !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126562 */
+
+/* CSFLOAT-1:1 PARITY ship #126563 (wallet nav chip — hover transition)
+   Ship #100 sets `transition: background-color 140ms ease`. When the
+   low-balance modifier (#126560) is active, the border, icon-color, and
+   label-color all need to tween together when the user hovers. With
+   only background-color tweening, the amber border SNAPS instead of
+   fading. Lane canonical Material curve is cubic-bezier(0.4, 0, 0.2, 1)
+   at 150ms (matches the wallet preset chip ship #126541 transition
+   timing). Add border-color + color to the transition list. */
+html body .wallet-btn,
+html body .wallet-btn .wallet-btn-icon,
+html body .wallet-btn .wallet-plus,
+html body .wallet-btn .wallet-btn-label,
+html body .wallet-btn .wallet-btn-amt {
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126563 */
+
+/* CSFLOAT-1:1 PARITY ship #126564 (wallet nav chip — amount contrast bump)
+   Ship #100 set .wallet-btn-amt color to rgba(255,255,255,0.95). Lane spec
+   token "ink-1" for body-prominent text resolves to rgb(220,226,233) on
+   the panel rgb(27,29,36) substrate — brighter optical contrast than
+   rgba(255,255,255,0.95) which sits at ~242,242,242 effective. Push the
+   amount to the explicit ink-1 token so the balance numeral reads as the
+   most prominent piece of text in the chip, with the label sitting one
+   tier quieter. Hover state pushes one notch brighter to rgb(232,238,244)
+   for the implicit interactive cue. */
+html body .wallet-btn .wallet-btn-amt {
+  color: rgb(220, 226, 233) !important;
+}
+html body .wallet-btn:hover .wallet-btn-amt {
+  color: rgb(232, 238, 244) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126564 */
+
+/* CSFLOAT-1:1 PARITY ship #126565 (wallet nav chip — pending-dot ring lock)
+   The pending-money-flow indicator (app.js:5515) renders an inline-styled
+   <span> with `boxShadow:'0 0 0 2px var(--bg)'`. var(--bg) is reliable
+   inside .app-shell but if the chip is rendered into an alternate context
+   (e.g. floating preview overlay) the var resolves to inherited bg which
+   is wrong. Lock the dot-ring to explicit rgb(21,23,28) (lane BG token)
+   so the dot always reads as if punched through the chip surface back to
+   the page background — the visual punch-through is what makes the dot
+   look like a status indicator vs a paint blob.
+
+   Selector targets the inline-styled span via attribute selector matching
+   `aria-hidden="true"` + the boxShadow signature; safest is targeting the
+   pulsing pending dot by its position pattern (top:6 right:6, w/h 7px) — a
+   first-of-type span inside .wallet-btn that is aria-hidden. */
+html body .wallet-btn > span[aria-hidden="true"] {
+  box-shadow: 0 0 0 2px rgb(21, 23, 28) !important;
+}
+/* When the chip itself is in low-balance amber state, the pending dot
+   sits on top of an amber-tinted chip; the punch-through ring should
+   match the page BG (still rgb(21,23,28)) — confirm explicitly so the
+   ring color is not pulled into the amber tint by inheritance. */
+html body .wallet-btn.low-balance > span[aria-hidden="true"] {
+  box-shadow: 0 0 0 2px rgb(21, 23, 28) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126565 */
+
+/* CSFLOAT-1:1 PARITY ship #126680 — email-verify banner brand-tint parity.
+   Measure (csfloat.com main.js scoped CSS, --banner-info-background var):
+   when csfloat shows the unverified-email prompt it renders an info-typed
+   .banner.info inside app-banners with bg rgba(35,123,255,0.15) plus
+   backdrop-filter blur(10px). The local EmailVerifyNag mounts as
+   .announce-banner.sev-warn (app.js:518) — but csfloat treats the
+   email-verify prompt as an INFO action-required tone, not warn. Convert
+   the bg + accent rail to csfloat info-banner spec while keeping local
+   sev-warn class hook so React state stays untouched. Selector includes
+   :has(strong) so this ONLY narrows to the email-verify nag (which
+   embeds <strong>email</strong>) and never touches generic AnnouncementBanner
+   sev-warn renders. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) {
+  background: rgba(35, 123, 255, 0.15) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom-color: rgba(35, 123, 255, 0.36) !important;
+  border-left: 3px solid rgba(35, 123, 255, 0.92) !important;
+  padding-left: 21px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126680 */
+
+/* CSFLOAT-1:1 PARITY ship #126681 — email-verify banner primary-text color.
+   Measure (csfloat .banner.info .primary-text { color: var(--primary-color) }
+   = #237bff): the verify-email banner text in csfloat keeps the body copy
+   in --primary-text-color (#fff) but lifts the actionable strong/link to
+   the brand color. Local nag has the email <strong> embedded, plus a
+   "Confirm it" anchor. Tint both to brand-blue per csfloat. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text strong {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text a {
+  color: rgb(35, 123, 255) !important;
+  text-decoration-color: rgba(35, 123, 255, 0.6) !important;
+  text-underline-offset: 3px !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text a:hover {
+  text-decoration-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126681 */
+
+/* CSFLOAT-1:1 PARITY ship #126682 — email-verify banner icon brand color.
+   Measure (csfloat .banner.info svg { fill: var(--primary-color) }): info
+   banners color the leading svg icon brand-blue. Local renders a plain
+   ✉ glyph in .announce-banner-icon — currently inherits sev-warn amber
+   #e8b960. Override to brand-blue + lift weight a touch (csfloat icon is
+   ~16px in a 14px banner). */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-icon {
+  color: rgb(35, 123, 255) !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126682 */
+
+/* CSFLOAT-1:1 PARITY ship #126683 — email-verify resend button parity.
+   Measure (csfloat in-banner CTA, "Verify Now" / inline action): brand-tinted
+   bg rgba(35,123,255,0.12), brand text rgb(35,123,255), brand 1px border at
+   0.32 alpha, 6px radius, 4px 12px padding, 12px font, 600 weight. Local
+   .btn.btn-ghost inside the banner uses inline-style border:1px currentColor
+   plus 4px 10px / 11px which inherits banner ink color (currently subtext
+   gray) — kill the inheritance and pin to csfloat brand pill. Selector
+   targets the resend button via .btn.btn-ghost descendant of email-banner. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .btn.btn-ghost {
+  background: rgba(35, 123, 255, 0.12) !important;
+  border: 1px solid rgba(35, 123, 255, 0.32) !important;
+  color: rgb(35, 123, 255) !important;
+  border-radius: 6px !important;
+  padding: 4px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .btn.btn-ghost:hover {
+  background: rgba(35, 123, 255, 0.2) !important;
+  border-color: rgba(35, 123, 255, 0.6) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .btn.btn-ghost:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126683 */
+
+/* CSFLOAT-1:1 PARITY ship #126684 — email-verify banner close glyph parity.
+   Measure (csfloat .banners .banner .close .inner): 32px x 32px circle
+   (border-radius 100%) with bg rgba(0,0,0,0.1) and primary-text-color
+   glyph. Local close was bumped to 32x32 4px-square in ship #5003, but
+   csfloat's banner-close is specifically circular. Match the round form
+   on email-verify variant only (general announce-banner-close stays at
+   the existing 4px square that ship #5003 set for AnnouncementBanner). */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-close {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 100% !important;
+  background: rgba(0, 0, 0, 0.1) !important;
+  color: rgb(255, 255, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-close:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126684 */
+
+/* CSFLOAT-1:1 PARITY ship #126685 — email-verify banner type spec parity.
+   Measure (csfloat .banners .banner): 14px font, 700 weight, 0.04em
+   letter-spacing, 30px line-height, centered. Local .announce-banner is
+   500 weight / normal letter-spacing per ship #5001. The email-verify
+   variant is the closest analog to a csfloat info-banner — promote it to
+   csfloat banner type spec. Keep the body text :has-scoped so generic
+   AnnouncementBanner copy stays at sboxmarket's normal 500/0 metrics. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text {
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1.6 !important;
+  text-align: left !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text strong,
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text a {
+  letter-spacing: 0.04em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126685 */
+
+/* CSFLOAT-1:1 PARITY ship #126640 — /me/trades .trade-row outer grid layout
+   Lane spec: csfloat trade card renders as a 3-column horizontal layout —
+   left main column fills (1fr) with title + counterparty + status chip + phase
+   stepper; right side carries the price/date meta stack (auto); a third
+   column carries the action button cluster (auto). 16px column gap, items
+   start-aligned so a tall progress stepper doesn't centre the price block.
+   Sbox prior #1305 painted the card surface but left the legacy grid from
+   line 6982 (`.trade-list > div { grid-template-columns: 56px 1fr auto auto }`)
+   intact — that 4-column shape was authored for a thumbnail-first row that
+   the current modals.js no longer renders (the thumb now lives INSIDE the
+   .trade-title link). Override the row grid to the csfloat 3-column shape so
+   .trade-side and .trade-actions land on the right edge instead of squeezing
+   inside a phantom 56px gutter. */
+body .trade-list > .trade-row,
+body .trade-row {
+  display: grid !important;
+  grid-template-columns: 1fr auto auto !important;
+  column-gap: 16px !important;
+  row-gap: 0 !important;
+  align-items: start !important;
+  cursor: default !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126640 */
+
+/* CSFLOAT-1:1 PARITY ship #126641 — /me/trades .trade-main inner flex stack
+   Lane spec: csfloat trade card main column stacks title row → status chip →
+   phase stepper → counterparty link → optional note vertically with 8px
+   row gap (Material card-content rhythm). Sbox legacy `.trade-main` rule at
+   line 6982 inherits the 4-column grid that the row-level rule used —
+   re-purposed for the inner stack it forces children into rigid columns and
+   the status chip ends up beside the title rather than below it. Override
+   .trade-main to a vertical flex column with the csfloat 8px gap; clear
+   the legacy padding/border so the card surface from #1305 owns the chrome. */
+body .trade-row > .trade-main {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126641 */
+
+/* CSFLOAT-1:1 PARITY ship #126642 — /me/trades .trade-side meta stack rebuild
+   Lane spec: csfloat trade card right column is a flex column right-aligned
+   with 4px row gap — top line carries the price (white prominent), middle
+   the relative-time date (ink-2 small), bottom the copy trade-id chip
+   (mono ID + glyph). Sbox legacy `.trade-side` (line 6997) renders as an
+   uppercase mono PILL (display:inline-block, padding 2px 8px, bg-2 surface,
+   border, radius) — that styling was authored when trade-side held a single
+   "BUY"/"SELL" label, not a price/date/button stack. The modals.js wraps
+   three children inside .trade-side now, so the legacy pill collapses them
+   into a single inline strip. Strip the chip chrome, render as a flex
+   column with right-aligned text so the price reads as the primary number
+   and the trade-id chip floats below the date. */
+body .trade-row > .trade-side {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  min-width: 90px !important;
+}
+/* Strip the legacy buy/sell tinted variants — .trade-side no longer carries
+   the .buy / .sell class on this surface; the legacy variants would wash
+   the meta stack in green/red overlay if some legacy code adds them. */
+body .trade-row > .trade-side.buy,
+body .trade-row > .trade-side.sell {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126642 */
+
+/* CSFLOAT-1:1 PARITY ship #126643 — /me/trades .trade-price typography token
+   Lane spec: csfloat trade card price is Roboto 16/700 white — the prominent
+   number a user scans for value-at-stake. Sbox legacy `.trade-price` (line
+   7017) uses var(--mono) 15px/600 ink ($12.34 in monospace) — out of family
+   with csfloat's Roboto-everywhere ink palette and a touch under the csfloat
+   16px metric. Override to the csfloat token; preserve right-aligned in the
+   parent .trade-side flex column from ship #126642 so it sits flush with
+   the date and trade-id below. */
+body .trade-row > .trade-side > .trade-price,
+body .trade-row .trade-price {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 20px !important;
+  text-align: right !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126643 */
+
+/* CSFLOAT-1:1 PARITY ship #126644 — /me/trades .trade-date typography token
+   Lane spec: csfloat trade card relative-time line is Roboto 12/400 ink-2
+   rgb(158,167,177) sits 4px under the price as a quiet timestamp ("3h ago").
+   Sbox legacy `.trade-date` (shared rule with .trade-note, line 7013) uses
+   var(--mono) 10.5px ink-4 with 0.04em letter-spacing — too small, mono
+   diverges from csfloat row meta voice, and ink-4 is darker than csfloat's
+   ink-2. Pin to the csfloat token; preserve the right-align inherited from
+   .trade-side flex column. */
+body .trade-row > .trade-side > .trade-date,
+body .trade-row .trade-date {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+  text-align: right !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126644 */
+
+/* CSFLOAT-1:1 PARITY ship #126645 — /me/trades .trade-actions cluster + child .buy-btn
+   Lane spec: csfloat trade card action column is a vertical button cluster on
+   the right edge — primary actions are Material flat buttons at 32h, 0/12px
+   pad, brand bg rgb(35,123,255), Roboto 13/500 white text, 4px radius. Sbox
+   legacy `.trade-actions` (line 7035) is a horizontal flex with 6px gap;
+   children are .buy-btn instances styled by the global cart-row rules at
+   #122216 / #170993 which assume a CART line-item context and render as a
+   wide table CTA. Inside a trade card the actions are individual buttons
+   (Accept / Mark Sent / Confirm Receipt / Dispute) — render them as a
+   vertical column matching the price/date stack height, each button at the
+   csfloat Material brand-CTA token. Min-width 100 so "Mark Sent" and
+   "Confirm Receipt" labels don't squish. */
+body .trade-row > .trade-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  min-width: 100px !important;
+  padding: 0 !important;
+}
+body .trade-row > .trade-actions > .buy-btn,
+body .trade-row > .trade-actions > button.buy-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0107142857em !important;
+  line-height: 32px !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+  transition: background 140ms ease, box-shadow 140ms ease !important;
+}
+body .trade-row > .trade-actions > .buy-btn:hover,
+body .trade-row > .trade-actions > button.buy-btn:hover {
+  background: rgb(58, 137, 255) !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.2),
+    0 4px 5px 0 rgba(0, 0, 0, 0.14),
+    0 1px 10px 0 rgba(0, 0, 0, 0.12) !important;
+}
+body .trade-row > .trade-actions > .buy-btn:disabled,
+body .trade-row > .trade-actions > button.buy-btn:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126645 */
+
+/* CSFLOAT-1:1 PARITY ship #126620 (/watchlist sort select — 36h Material parity)
+   Lane spec: csfloat /watchlist sort dropdown sits at the right end of
+   the filter row at exactly 36px height, Roboto 13/500, 8px radius,
+   panel-tinted bg rgb(27,29,36), 1px hairline rgba(255,255,255,0.06),
+   ink-1 text rgb(255,255,255). sboxmarket WatchlistModal renders the
+   sort as a generic .sort-select sibling of [role=tablist]
+   [aria-label="Watchlist filter"]. Ship #45 baseline normalises
+   .sort-select height app-wide but renders at ~32px on this surface
+   (drift). Pin to Material 36h on this surface only via the role-tablist
+   sibling scope so other pages stay untouched. */
+[role="tablist"][aria-label="Watchlist filter"] ~ .sort-select,
+[role="tablist"][aria-label="Watchlist filter"] + .sort-select,
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .sort-select {
+  height: 36px !important;
+  min-height: 36px !important;
+  line-height: 36px !important;
+  padding: 0 30px 0 12px !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  outline: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] ~ .sort-select:hover,
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .sort-select:hover {
+  background-color: rgb(31, 33, 41) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] ~ .sort-select:focus-visible,
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .sort-select:focus-visible {
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126620 */
+
+/* CSFLOAT-1:1 PARITY ship #126621 (/watchlist filter chips — 32h hairline parity)
+   Lane spec: csfloat watchlist filter chips (Category + State rows
+   above the tabs) render at 32px height with a 1px hairline
+   rgba(255,255,255,0.06), 999px radius, Roboto 12/500, ink-2
+   rgb(158,167,177) rest text, white when active, panel-tinted bg
+   rgb(27,29,36) at rest, brand rgb(35,123,255) bg + white text when
+   active. sboxmarket .wallet-tx-filter-chip baseline (line 6307)
+   ships padding 5px 10px → ~26h, 12px text, transparent bg with
+   var(--line) border — drift by 6px on height + drift on bg.
+   Scope to the watchlist surface via .info-modal:has([role=tablist]
+   [aria-label=Watchlist filter]) so wallet/sell/profile chips stay
+   untouched. */
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .wallet-tx-filter-chip {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  line-height: 30px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 999px !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .wallet-tx-filter-chip:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .wallet-tx-filter-chip.active,
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .wallet-tx-filter-chip[aria-pressed="true"] {
+  background: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+}
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .wallet-tx-filter-chip:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126621 */
+
+/* CSFLOAT-1:1 PARITY ship #126622 (/watchlist mass-action toolbar — 36h pill parity)
+   Lane spec: csfloat right-side mass-action chips (e.g. "Add all to
+   cart", "Clear all") sit on the same 36h baseline as the sort select
+   so the row aligns to a single horizontal axis. Roboto 12/600 with
+   0.4px tracking + UPPERCASE for ghost variants, 8px radius, 1px
+   hairline matching the chip semantic (accent-blue for ghost, danger-
+   red for danger-ghost). sboxmarket inline-style baseline lands these
+   at padding 6px 12px / fontSize 11 → ~28h with no fixed height — drift
+   by 8px AND breaks the row alignment. Scope to the watchlist filter
+   row so other modal mass-action chips stay untouched. */
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) [role="tablist"][aria-label="Watchlist filter"] .btn.btn-ghost,
+[role="tablist"][aria-label="Watchlist filter"] > .btn.btn-ghost,
+[role="tablist"][aria-label="Watchlist filter"] ~ .btn.btn-ghost {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  line-height: 34px !important;
+  background: transparent !important;
+  border: 1px solid rgba(35, 123, 255, 0.32) !important;
+  border-radius: 8px !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease !important;
+  white-space: nowrap !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] > .btn.btn-ghost:hover,
+[role="tablist"][aria-label="Watchlist filter"] ~ .btn.btn-ghost:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] > .btn-danger-ghost,
+[role="tablist"][aria-label="Watchlist filter"] ~ .btn-danger-ghost {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  line-height: 34px !important;
+  background: transparent !important;
+  border: 1px solid rgba(232, 84, 84, 0.32) !important;
+  border-radius: 8px !important;
+  color: rgb(232, 84, 84) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+  white-space: nowrap !important;
+}
+[role="tablist"][aria-label="Watchlist filter"] > .btn-danger-ghost:hover,
+[role="tablist"][aria-label="Watchlist filter"] ~ .btn-danger-ghost:hover {
+  background: rgba(232, 84, 84, 0.08) !important;
+  border-color: rgba(232, 84, 84, 0.55) !important;
+  color: rgb(255, 100, 100) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126622 */
+
+/* CSFLOAT-1:1 PARITY ship #126623 (/watchlist modal title — Material 20/500 parity)
+   Lane spec: csfloat /watchlist page-header title is "Watchlist" + a
+   count chip. Typography is Roboto 20/500 white (not the editorial
+   serif sboxmarket InfoModal ships at 22/360 lookalike). The serif
+   reads like a magazine header on a Material surface — drifts the
+   modal away from the rest of csfloat's chrome. Scope the swap to
+   info-modal panels that contain the watchlist tablist so other
+   InfoModal headers (sell, profile, wallet) keep their existing
+   editorial display. */
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) > .info-modal-header,
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) > .info-modal-header > h1 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  line-height: 1.2 !important;
+  font-feature-settings: normal !important;
+}
+/* The header divider — csfloat uses a single hairline rgba(255,255,255,0.06)
+   so the title flows continuously into the filter row. */
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) > .info-modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  padding: 18px 24px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126623 */
+
+/* CSFLOAT-1:1 PARITY ship #126624 (/watchlist server-alert summary — panel parity)
+   Lane spec: csfloat alert-summary cards on the watchlist surface use
+   the canonical panel: bg rgb(27,29,36), 1px hairline rgba(255,255,255,
+   0.06), 8px radius, 12px 16px padding, 12px stack gap. The first row
+   (label + ACTIVE/FIRED count chips + Clear-fired CTA) renders at 13px
+   Roboto. sboxmarket inline-style baseline ships var(--bg-elevated)
+   bg + var(--border) (ok), 8px radius, 10px 14px padding, 12px font.
+   Re-pin paddings + typography to match csfloat's measured panel and
+   accent the count chips so ACTIVE = brand green, FIRED = amber
+   exactly like csfloat's status chip palette.
+   Scope: only when the alert summary div appears as a direct child of
+   the watchlist info-modal body. */
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .info-modal-body > div[style*="bg-elevated"],
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .info-modal-body > div:has(> div > span:first-child) {
+  /* No-op intent — selector pattern documents the surface; the sturdy
+     hook below uses the rgb token from the inline style so we only
+     style the alert summary, not arbitrary divs. */
+}
+/* Use a precise hook: the alert summary is the only direct child div
+   of the watchlist info-modal-body that contains a span with text
+   "Price alerts". Use :has() to scope to that exact subtree. */
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .info-modal-body > div:first-child:has(> div > span) {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  margin-bottom: 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(220, 226, 232) !important;
+}
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .info-modal-body > div:first-child:has(> div > span) > div:first-child {
+  gap: 12px !important;
+  align-items: center !important;
+  font-size: 13px !important;
+}
+.info-modal:has([role="tablist"][aria-label="Watchlist filter"]) .info-modal-body > div:first-child:has(> div > span) > div:first-child > span:first-child {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126624 */
+
+/* CSFLOAT-1:1 PARITY ship #126625 (/watchlist filter row container — alignment + gap parity)
+   Lane spec: csfloat watchlist filter row places the tab group on the
+   left, the sort dropdown immediately to its right, and the mass-action
+   chips pushed all the way to the right via flex-grow spacer. The row
+   itself sits 14px above the result grid with a single hairline divider
+   rgba(255,255,255,0.06) underneath. Items align center on a 36h
+   baseline so the tab pills + sort + action chips read as one
+   horizontally-aligned strip.
+   sboxmarket WatchlistModal renders the row inline as
+   `display:flex; alignItems:center; gap:10px; marginBottom:14;
+   flexWrap: wrap` (line 13143). The 10px gap is too loose for a
+   Material chip row (csfloat = 8px) and there's no underline divider.
+   Pin to a 8px gap and add the hairline divider so the row visually
+   anchors to a single bottom edge. */
+[role="tablist"][aria-label="Watchlist filter"] {
+  gap: 8px !important;
+  margin-bottom: 16px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  align-items: center !important;
+}
+/* Tighten gap between consecutive offer-tabs so the All/Drops pair
+   clusters together instead of spacing out at the row gap. */
+[role="tablist"][aria-label="Watchlist filter"] > .offer-tab + .offer-tab {
+  margin-left: -2px !important;
+}
+/* The flex-spacer div the JSX inserts at line 13203 — give it explicit
+   flex-grow so the mass-action chips actually push to the right edge
+   even on narrow viewports where wrap kicks in. */
+[role="tablist"][aria-label="Watchlist filter"] > div:not([class]):not([role]) {
+  flex: 1 1 auto !important;
+  min-width: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126625 */
+
+
+/* CSFLOAT-1:1 PARITY ship #126740 — wallet TX CSV-export anchor outlined-button parity.
+   Surface: ProfileModal -> Wallet tab -> filter row tail anchor
+   <a class="btn btn-ghost" href="/api/wallet/transactions.csv[?month=...]">⇣ CSV</a>
+   (modals.js ~line 5289-5303).
+   CSFloat measure (mat-mdc-outlined-button on csfloat.com home, 2026-05): 40h,
+   pad 0/10, 14px/500, border-radius 8px, hairline 1px solid rgba(255,255,255,0.12),
+   transition `border 0.28s cubic-bezier(0.4,0,0.2,1)`, transparent bg, ink-2 idle
+   text. Sboxmarket inline default is border 1px var(--border), pad 4/10, 11px —
+   too tight to read as a Material outlined export-CTA. Promote ONLY the wallet
+   variant via [href*="/api/wallet/transactions.csv"] so the buy-orders / trades /
+   offers / bids CSV anchors keep their existing geometry. */
+body a.btn.btn-ghost[href*="/api/wallet/transactions.csv"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: border-color 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex: 0 0 auto !important;
+}
+body a.btn.btn-ghost[href*="/api/wallet/transactions.csv"]:hover {
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body a.btn.btn-ghost[href*="/api/wallet/transactions.csv"]:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.6) !important;
+  outline-offset: 2px !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(35, 123, 255, 0.6) !important;
+}
+body a.btn.btn-ghost[href*="/api/wallet/transactions.csv"]:active {
+  background: rgba(255, 255, 255, 0.08) !important;
+  transform: translateY(1px) !important;
+  transition: transform 80ms ease-out, color 140ms ease, border-color 140ms ease, background-color 140ms ease !important;
+}
+/* Glyph (⇣) — give it a hair more presence so it reads as a download icon
+   beside the label, mirroring CSFloat's mat-icon (18px) inside outlined CTAs. */
+body a.btn.btn-ghost[href*="/api/wallet/transactions.csv"]::first-letter {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin-right: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126740 */
+
+/* CSFLOAT-1:1 PARITY ship #126741 — wallet TX filter row toolbar parity.
+   Surface: ProfileModal -> Wallet tab -> top filter row containing
+   .wallet-tx-filter-row + .sort-select (month) + .price-input (search) +
+   the .btn-ghost CSV anchor (modals.js ~line 5243-5304).
+   With ship #126740 promoting the CSV anchor to a 36h outlined CTA, the
+   sibling month-select and search-input also need 36h matching geometry so
+   the toolbar reads as one consistent strip (CSFloat orders/wallet toolbar:
+   uniform 36h controls, 8px radius, 1px hairline). The :has() guard scopes
+   the override to ONLY the row that contains the wallet CSV anchor — every
+   other usage of .sort-select / .price-input is unaffected. */
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > select.sort-select {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 28px 0 12px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: rgb(255, 255, 255) !important;
+  transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > select.sort-select:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > select.sort-select:focus {
+  border-color: rgba(35, 123, 255, 0.6) !important;
+  outline: none !important;
+}
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > input.price-input {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: rgb(255, 255, 255) !important;
+  transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > input.price-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+}
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > input.price-input:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+body div:has(> a.btn-ghost[href*="/api/wallet/transactions.csv"]) > input.price-input:focus {
+  border-color: rgba(35, 123, 255, 0.6) !important;
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126741 */
+
+
+/* ──────────────────────────────────────────────────────────────────────
+   Ship #126760 — Report-listing / Report-counterparty modal: CSFloat
+   parity pass for the mat-mdc-dialog primitives.
+
+   Surface this affects:
+   - ReportListingDrawer  (modals.js#2159) — buyer "Report this listing"
+   - ReportCounterpartyDrawer (modals.js#2375) — trade-row "Report" button
+   Both use `.cart-confirm-backdrop > .cart-confirm-panel` chrome with a
+   header (`.cart-confirm-title` + `.cart-confirm-sub`), a Reason `<select
+   class="price-input">`, a Details `<textarea class="price-input">`, and
+   a Cancel/Submit row using `.btn.btn-ghost` + `.btn.btn-accent`.
+
+   CSFloat ground truth (synthesized from Material 3 dialog tokens used
+   site-wide and measured here against an injected mat-mdc-dialog
+   replica — see lane note in commit body):
+     surface  bg rgb(27,29,36), radius 6px, padding 24px, elev-24 shadow
+     title    20/500/32 0.25px ls white
+     sub      14/400 1.5 ink-2 rgb(158,167,177) 12px ↓
+     fields   bg rgba(255,255,255,0.05), border 1px hairline, radius 4px,
+              14/400 white, height 36px (select), min-h 96px (textarea)
+     submit   bg rgb(235,75,76) (warn red — destructive: opens an
+              investigation), color white, height 36, radius 4, weight 500,
+              uppercase, ls 0.0892857143em, MDC elev-2 shadow
+     cancel   text-only ghost, color white, height 36, radius 4, weight
+              500, uppercase, ls 0.0892857143em, no border, no bg
+
+   Live sboxmarket measured deltas before this ship:
+     panel      bg 31,31,31 → wrong; radius 4px → wrong
+     select/ta  radius 8px → wrong; size 16 → too large for dialog body
+     submit     bg 29,78,216 (blue accent) → wrong colour for a destructive
+                action; radius 6px and height 38 → wrong material rhythm
+     cancel     showed a hairline border → wrong; should be naked text
+
+   The fixes below are scoped tightly: we target the report-modal markup
+   ONLY by `aria-label` prefix on the panel — `Report listing …` /
+   `Report counterparty …` — so the cart-confirm chrome used by other
+   confirmation drawers (Cart Checkout, Wallet Confirm, etc.) is left
+   alone. APPEND-only at end of design.css; !important wins the cascade
+   against the historical .cart-confirm-* rules above.
+   ────────────────────────────────────────────────────────────────────── */
+
+body .cart-confirm-panel[aria-label^="Report listing"],
+body .cart-confirm-panel[aria-label^="Report counterparty"] {
+  background: rgb(27,29,36) !important;
+  background-color: rgb(27,29,36) !important;
+  color: rgb(255,255,255) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  border-radius: 6px !important;
+  padding: 24px !important;
+  /* Keep Material elev-24 shadow stack — already inherited but pin it
+     here so future rule-order changes can't regress it. */
+  box-shadow: 0 11px 15px -7px rgba(0,0,0,0.2),
+              0 24px 38px 3px rgba(0,0,0,0.14),
+              0 9px 46px 8px rgba(0,0,0,0.12) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+/* Title — Material 3 headline-small spec: 20/500/32 with 0.25px ls. The
+   `.cart-confirm-title` rules at the top of design.css already use these
+   numbers; we re-pin them inside the report scope so any later
+   non-scoped ship that retunes confirm titles doesn't spill. We also
+   neutralise the historical 24/24/9 padding so the title sits flush
+   against the panel's own 24px box. */
+body .cart-confirm-panel[aria-label^="Report listing"] .cart-confirm-title,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .cart-confirm-title {
+  padding: 0 0 8px 0 !important;
+  margin: 0 0 4px 0 !important;
+  font: 500 20px/32px Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255,255,255) !important;
+}
+
+/* Sub — Material body-small: 12/400 1.5 with ink-2 colour. CSFloat caps
+   the dialog meta line at 12px, not 14, so the title gets the visual
+   weight. Reset historical 0/24/20 padding to match the panel's own
+   24px gutters. */
+body .cart-confirm-panel[aria-label^="Report listing"] .cart-confirm-sub,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .cart-confirm-sub {
+  padding: 0 !important;
+  margin: 0 0 18px 0 !important;
+  font: 400 12px/1.5 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  color: rgb(158,167,177) !important;
+  letter-spacing: 0 !important;
+}
+
+/* Reason <select> + Details <textarea> — both wear the .price-input
+   class. Inside the report scope we retune them to MDC outlined-field
+   shape: subtle fill, 1px hairline, 4px radius, 14px body. */
+body .cart-confirm-panel[aria-label^="Report listing"] select.price-input,
+body .cart-confirm-panel[aria-label^="Report listing"] textarea.price-input,
+body .cart-confirm-panel[aria-label^="Report counterparty"] select.price-input,
+body .cart-confirm-panel[aria-label^="Report counterparty"] textarea.price-input {
+  background: rgba(255,255,255,0.05) !important;
+  background-color: rgba(255,255,255,0.05) !important;
+  color: rgb(255,255,255) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  border-radius: 4px !important;
+  font: 400 14px/1.5 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+  padding: 10px 14px !important;
+}
+
+body .cart-confirm-panel[aria-label^="Report listing"] select.price-input,
+body .cart-confirm-panel[aria-label^="Report counterparty"] select.price-input {
+  height: 40px !important;
+  padding: 0 14px !important;
+}
+
+body .cart-confirm-panel[aria-label^="Report listing"] textarea.price-input,
+body .cart-confirm-panel[aria-label^="Report counterparty"] textarea.price-input {
+  min-height: 96px !important;
+  padding: 12px 14px !important;
+  resize: vertical !important;
+}
+
+/* Reason / Details labels (the inline-style 11px uppercase ALL-CAPS
+   rows above each field). The drawer renders them via inline style — we
+   override via the parent scope so the label rhythm matches the rest of
+   the dialog instead of the legacy chip-label idiom. */
+body .cart-confirm-panel[aria-label^="Report listing"] > div > div[style*="text-transform: uppercase"],
+body .cart-confirm-panel[aria-label^="Report counterparty"] > div[style*="text-transform: uppercase"] {
+  font-size: 12px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+  color: rgb(158,167,177) !important;
+}
+
+/* Footer button row — flush-right, 8px gap (Material spec) instead of
+   the 10px the drawer hard-codes inline. */
+body .cart-confirm-panel[aria-label^="Report listing"] > div > div[style*="justify-content: flex-end"],
+body .cart-confirm-panel[aria-label^="Report counterparty"] > div[style*="justify-content: flex-end"] {
+  gap: 8px !important;
+  padding-top: 8px !important;
+}
+
+/* Cancel — text-only ghost button per Material dialog spec. Strip the
+   inline 1px var(--border) outline the drawer hard-codes. */
+body .cart-confirm-panel[aria-label^="Report listing"] .btn.btn-ghost,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .btn.btn-ghost {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgb(255,255,255) !important;
+  border: 0 !important;
+  outline: none !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 4px !important;
+  font: 500 14px/1 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 1.25px !important;
+  text-transform: uppercase !important;
+  box-shadow: none !important;
+}
+
+body .cart-confirm-panel[aria-label^="Report listing"] .btn.btn-ghost:hover,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .btn.btn-ghost:hover {
+  background: rgba(255,255,255,0.06) !important;
+  background-color: rgba(255,255,255,0.06) !important;
+}
+
+/* Submit — destructive warn red. Filing a report opens a moderation
+   investigation, so CSFloat treats the CTA the same way Material warn
+   handles "delete" or "ban": Material elev-2 shadow stack for the
+   raised-button rhythm. The drawer paints `.btn.btn-accent` blue by
+   default; we re-paint inside the report scope only. */
+body .cart-confirm-panel[aria-label^="Report listing"] .btn.btn-accent,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .btn.btn-accent {
+  background: rgb(235,75,76) !important;
+  background-color: rgb(235,75,76) !important;
+  color: rgb(255,255,255) !important;
+  border: 0 !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 4px !important;
+  font: 500 14px/1 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 1.25px !important;
+  text-transform: uppercase !important;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,0.2),
+              0 2px 2px 0 rgba(0,0,0,0.14),
+              0 1px 5px 0 rgba(0,0,0,0.12) !important;
+}
+
+body .cart-confirm-panel[aria-label^="Report listing"] .btn.btn-accent:hover,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .btn.btn-accent:hover {
+  background: rgb(245,90,92) !important;
+  background-color: rgb(245,90,92) !important;
+  /* Material elev-4 on hover */
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2),
+              0 4px 5px 0 rgba(0,0,0,0.14),
+              0 1px 10px 0 rgba(0,0,0,0.12) !important;
+}
+
+body .cart-confirm-panel[aria-label^="Report listing"] .btn.btn-accent:disabled,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .btn.btn-accent:disabled {
+  background: rgba(235,75,76,0.5) !important;
+  background-color: rgba(235,75,76,0.5) !important;
+  color: rgba(255,255,255,0.7) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+
+/* Backdrop — slightly darken so the dialog floats above the page chrome
+   the way CSFloat's mat-overlay-pane does. The original cart-confirm
+   backdrop uses a lighter shade. Scope this to backdrops that wrap a
+   report panel so other confirm flows are untouched. */
+body .cart-confirm-backdrop:has(> .cart-confirm-panel[aria-label^="Report listing"]),
+body .cart-confirm-backdrop:has(> .cart-confirm-panel[aria-label^="Report counterparty"]) {
+  background: rgba(0,0,0,0.32) !important;
+  background-color: rgba(0,0,0,0.32) !important;
+}
+
+/* Inline error row (`.wallet-error`) inside a report dialog — keep the
+   destructive colour family but match the dialog's body-text size. */
+body .cart-confirm-panel[aria-label^="Report listing"] .wallet-error,
+body .cart-confirm-panel[aria-label^="Report counterparty"] .wallet-error {
+  font: 400 13px/1.4 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  color: rgb(235,75,76) !important;
+  background: rgba(235,75,76,0.08) !important;
+  border: 1px solid rgba(235,75,76,0.3) !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #126780
+   Lane: /settings — "Hide $ amounts" (mask-amounts) privacy row.
+   Measured against MDC mat-mdc-list-item primitives + csfloat
+   settings-row. csfloat uses 56-72h flex with title 14/500/0.92,
+   sub 12/16/0.5, hairline 0.06, toggle right-aligned, transition
+   150-300ms cubic-bezier(.4,0,.2,1).
+   ───────────────────────────────────────────────────────────── */
+
+/* ── ship #126780 — settings-row layout (Privacy section scope)
+   Use :has() to limit overrides to the Hide-$-amounts row so we
+   don't touch any other settings-row layouts. Pin two-column
+   flex with the toggle right-aligned, hairline divider, 56-72px
+   pad envelope (sub-label wrap can grow it). */
+body .settings-row:has(> div > .settings-label):has(.toggle-switch) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+  padding: 14px 0 !important;
+  min-height: 56px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body .settings-row:has(> div > .settings-label):has(.toggle-switch) > div:first-child {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+/* ── ship #126781 — label typography (mat-list-item primary text)
+   csfloat / Material Design uses 14/500/.92 with -0.05px tracking
+   for primary list text. Our 14/500/.92 is right; line-height was
+   20 (correct), letter-spacing was 'normal' (off). Add tracking
+   and lock a Geist stack. */
+body .settings-row:has(.toggle-switch) > div:first-child > .settings-label {
+  font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: -0.05px !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  margin-bottom: 2px !important;
+}
+
+/* ── ship #126782 — sub-label typography (mat-list-item secondary)
+   csfloat secondary text 12px/16/.5 with -0.02px tracking. Cap
+   width at 480px so the wrap matches CSFloat's 2-line max for
+   privacy-style descriptions. */
+body .settings-row:has(.toggle-switch) > div:first-child > .settings-sublabel {
+  font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: -0.02px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  margin-top: 0 !important;
+  max-width: 480px !important;
+}
+
+/* ── ship #126783 — toggle alignment cell + sizing parity
+   MDC slide-toggle track 36x20 (we're at 36x20 already), but we
+   lock right-alignment, vertical center, and the brand accent-on
+   color rgb(35,123,255) for the privacy lane. The ::after knob
+   slides 16px when on; current rule was correct, we re-pin it
+   with measured values to defend against earlier overrides
+   further down the cascade. */
+body .settings-row:has(.toggle-switch) > .toggle-switch {
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  width: 36px !important;
+  height: 20px !important;
+  border-radius: 999px !important;
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  position: relative !important;
+  cursor: pointer !important;
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .settings-row:has(.toggle-switch) > .toggle-switch::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 999px !important;
+  background-color: rgb(255, 255, 255) !important;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .settings-row:has(.toggle-switch) > .toggle-switch.on {
+  background-color: rgb(35, 123, 255) !important;
+}
+body .settings-row:has(.toggle-switch) > .toggle-switch.on::after {
+  transform: translateX(16px) !important;
+}
+
+/* ── ship #126784 — Privacy section heading (mat-mdc-subheader)
+   csfloat list subheader is 11px UPPERCASE letterspaced with 24px
+   top-pad off the previous block. Promote our 14/500/.62 to the
+   denser overline treatment specifically for the Privacy heading
+   so it reads as a section gutter, not just another row label. */
+body :is(.settings-section-heading, h2.settings-section-heading) {
+  font-family: Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  color: rgba(158, 167, 177, 0.85) !important;
+  margin: 24px 0 10px 0 !important;
+}
+body :is(.settings-section-heading, h2.settings-section-heading):first-child {
+  margin-top: 0 !important;
+}
+
+/* ── ship #126785 — masked-state preview chip (decoration)
+   When the toggle is ON, surface a small "$•••••" preview chip
+   to the left of the switch so the user can see what the rest
+   of the UI will look like before closing the modal. csfloat
+   uses an inline "value preview" pattern in this exact spot.
+   Off-state: chip is hidden by content:none on the .off
+   modifier on the switch itself. */
+body .settings-row:has(.toggle-switch:not(.off)) > .toggle-switch::before {
+  content: "$•••••" !important;
+  position: absolute !important;
+  right: calc(100% + 12px) !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  color: rgb(35, 123, 255) !important;
+  background-color: rgba(35, 123, 255, 0.08) !important;
+  border: 1px solid rgba(35, 123, 255, 0.22) !important;
+  border-radius: 999px !important;
+  padding: 3px 9px !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .settings-row:has(.toggle-switch.off) > .toggle-switch::before {
+  content: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126785 */
