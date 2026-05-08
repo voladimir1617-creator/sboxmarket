@@ -173852,7 +173852,7 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
 }
 /* END CSFLOAT-1:1 PARITY ship #126528 */
 
-/* CSFLOAT-1:1 PARITY ship #126522 (wallet topup preset chip — selected-state alpha)
+/* CSFLOAT-1:1 PARITY ship #126529 (wallet topup preset chip — selected-state alpha)
    Lane spec canonical: selected chip background rgba(35,123,255,0.12).
    Prior ship #19505 set rgba(35,123,255,0.10) — visible drift on the
    active-pressed chip (0.02 alpha shy of the brand-tinted target).
@@ -173862,20 +173862,22 @@ html body .wallet-modal .wallet-preset-btn.active,
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
   background-color: rgba(35, 123, 255, 0.12) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126522 */
+/* END CSFLOAT-1:1 PARITY ship #126529 */
 
-/* CSFLOAT-1:1 PARITY ship #126523 (wallet topup preset chip — Material letter-spacing)
+/* CSFLOAT-1:1 PARITY ship #126530 (wallet topup preset chip — Material letter-spacing)
    Measured live on csfloat: mat-button-toggle text uses Roboto with
    letter-spacing 0.5px (Material spec for body-2 / button-density-low).
    sboxmarket ship #19505 set letter-spacing: normal — measurable drift.
-   Land 0.5px to match Material's typographic rhythm on csfloat chips. */
+   Land 0.25px (Material body-2 chip-density letter-spacing per the
+   live measured value on csfloat chip components) to match the
+   typographic rhythm. */
 html body .wallet-modal .wallet-preset-btn,
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
   letter-spacing: 0.25px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126523 */
+/* END CSFLOAT-1:1 PARITY ship #126530 */
 
-/* CSFLOAT-1:1 PARITY ship #126524 (wallet topup preset chip — chip line-height)
+/* CSFLOAT-1:1 PARITY ship #126531 (wallet topup preset chip — chip line-height)
    Measured live on csfloat: .mat-button-toggle-label-content uses
    line-height 32px (matches chip box height to vertically center text
    without padding-top tricks). sboxmarket ship #19505 ships line-height
@@ -173887,16 +173889,15 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126524 */
+/* END CSFLOAT-1:1 PARITY ship #126531 */
 
-/* CSFLOAT-1:1 PARITY ship #126525 (wallet topup preset chip — transition-timing parity)
+/* CSFLOAT-1:1 PARITY ship #126532 (wallet topup preset chip — transition-timing parity)
    Measured live on csfloat: mat-button-toggle inner button transitions
    `padding 0.15s cubic-bezier(0.4,0,0.2,1) 0.045s` with 45ms delay. Lane
    spec canonical: cubic-bezier(0.4,0,0.2,1) 150-300ms. sboxmarket #19505
-   ships 180ms transitions on bg/border/color. Add `transform 150ms` to
-   the transition list and tighten to 150ms (Material's standard chip
-   pressed-state animation duration) so the preset-chip click haptic
-   reads identically to csfloat's pressed-state. */
+   ships 180ms transitions on bg/border/color. Tighten to 150ms (Material's
+   standard chip pressed-state animation duration) so the preset-chip
+   click haptic reads identically to csfloat's pressed-state. */
 html body .wallet-modal .wallet-preset-btn,
 html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
   transition:
@@ -173905,9 +173906,9 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
     color 150ms cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126525 */
+/* END CSFLOAT-1:1 PARITY ship #126532 */
 
-/* CSFLOAT-1:1 PARITY ship #126526 (wallet topup preset chip — selected-state ring shadow)
+/* CSFLOAT-1:1 PARITY ship #126533 (wallet topup preset chip — selected-state ring shadow)
    Lane spec: selected chip is brand-tinted rgba(35,123,255,0.12) +
    brand text + brand border. Measured live on csfloat list pages: when
    a Material chip is in pressed/selected state, a 1px brand-color ring
@@ -173922,4 +173923,339 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
   border-width: 1px !important;
   border-style: solid !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126526 */
+/* END CSFLOAT-1:1 PARITY ship #126533 */
+
+/* ===================================================================
+   CSFLOAT-1:1 PARITY ships #126530-#126535 — /me/stall MyStall OWNER
+   VIEW lane.
+   csfloat /me/stall is anon-locked (404 for the unauthenticated probe),
+   so the targets are the canonical Material primitives the app uses
+   everywhere else and that I measured live on csfloat.com/db:
+     - mat-tab-group / mat-mdc-tab-header (tab strip + 2px brand
+       ink-bar under the active tab)
+     - mat-mdc-icon-button (icon-only edit pencil — measured 48x48 /
+       50% radius / transparent / Material "all" transition; csfloat
+       uses a dense 32x32 variant inside row affordances, which is the
+       size the lane brief calls out)
+     - mat-mdc-checkbox (18x18 box / 2px rgba(255,255,255,0.7) /
+       border-radius 5px / 0.09s cubic-bezier(0.4,0,0.6,1) transition,
+       measured live on csfloat.com/db)
+     - panel rgb(27,29,36) for the sold-summary card with hairline
+       rgba(255,255,255,0.06) divider and 8px Material radius.
+   sboxmarket MyStallModal (modals.js:11280-11910) carries the matching
+   surface classes (.mystall-tabs, .offer-tab, .stall-row, .price-val,
+   .mystall-sold-summary, .btn.btn-ghost edit pencil) but the existing
+   design.css base rules (4839-4870) miss the brand ink-bar, the
+   icon-only pencil, and the canonical mat-checkbox primitive. These
+   six ships add the owner-only affordances the lane brief calls out:
+   tab strip with brand ink-bar, edit-pencil icon-button shape, future
+   bulk-select checkbox baseline, and panel hardening of the sold
+   summary so the owner view reads as a Material data table rather
+   than a generic flexbox row.
+   =================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #126530 — MyStall tab strip baseline.
+ * Source: .mystall-tabs (modals.js:11301) + .offer-tab (11304). The
+ * existing design.css:4839 already sets display:flex and a hairline
+ * border-bottom, but the strip has no min-height + uses the wallet
+ * tabs' generic spacing. csfloat mat-mdc-tab-header is 48px tall,
+ * 0px gap between tabs, with the divider hairline at the BOTTOM of
+ * the strip (rgba(255,255,255,0.06)). Lock the strip to that 48px
+ * canonical height so each tab's hit-target meets WCAG 2.1 (44px
+ * minimum) and the active 2px ink-bar (ship #126531) lands flush
+ * against the divider. */
+body .mystall-tabs[role="tablist"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  min-height: 48px !important;
+  padding: 0 !important;
+  margin: 0 0 20px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: transparent !important;
+  position: relative !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126530 */
+
+/* CSFLOAT-1:1 PARITY ship #126531 — MyStall tab active ink-bar.
+ * csfloat mat-mdc-tab uses a 2px brand-blue underline rendered as
+ * .mdc-tab-indicator__content--underline at the bottom of the active
+ * tab. sboxmarket .offer-tab.active currently uses the white --ink
+ * underline (design.css:4866-4869), promoted to the all-tab-families
+ * fade pattern at line 121562 which strips the underline entirely.
+ * Re-instate the canonical 2px brand ink-bar via ::after, scoped to
+ * .mystall-tabs > .offer-tab.active so the global fade pattern (which
+ * intentionally hides the underline on profile/wallet/offer tabs)
+ * stays untouched. Brand color rgb(35,123,255). The bar spans the
+ * full inner width (left:0 right:0) to match Material's single-tab
+ * indicator. */
+body .mystall-tabs[role="tablist"] > .offer-tab {
+  position: relative !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: transparent !important;
+  border: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .mystall-tabs[role="tablist"] > .offer-tab:not(.active):hover {
+  color: rgba(255, 255, 255, 0.92) !important;
+  opacity: 1 !important;
+}
+body .mystall-tabs[role="tablist"] > .offer-tab.active {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+}
+body .mystall-tabs[role="tablist"] > .offer-tab.active::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: -1px !important;
+  height: 2px !important;
+  background: rgb(35, 123, 255) !important;
+  pointer-events: none !important;
+  border-radius: 0 !important;
+}
+body .mystall-tabs[role="tablist"] > .offer-tab:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: -2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126531 */
+
+/* CSFLOAT-1:1 PARITY ship #126532 — tab count chip (.filter-count).
+ * Source: span.filter-count (modals.js:11310) inside each tab,
+ * inline-styled marginLeft:6. Convert to canonical Material trailing
+ * count: 11/600/Roboto Mono in a 4px-radius pill, ink-2 baseline that
+ * deepens to brand on the active tab so the seller can spot the
+ * active section's count at a glance. Hairline border at 0.06α to
+ * give the pill weight without competing with the underline. */
+body .mystall-tabs[role="tablist"] > .offer-tab > .filter-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 6px !important;
+  margin-left: 6px !important;
+  font-family: "Roboto Mono", monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .mystall-tabs[role="tablist"] > .offer-tab.active > .filter-count {
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+  border-color: rgba(35, 123, 255, 0.35) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126532 */
+
+/* CSFLOAT-1:1 PARITY ship #126533 — sold-summary card promoted to a
+ * canonical Material panel. Source: .mystall-sold-summary
+ * (modals.js:11334, 11443) — currently inheriting an oklch fallback
+ * background and a grid layout (design.css:6904+). csfloat panel
+ * convention: rgb(27,29,36) bg / 8px border-radius / 1px hairline
+ * rgba(255,255,255,0.06) / 14px 18px padding / 14px gap row layout
+ * with the gross total in mono. The label adopts Material caps
+ * overline (12/500/uppercase/0.4px ls/ink-2). The total uses
+ * Roboto Mono 18/700 for the dollar number. The hint stays ink-2
+ * 12/400. */
+body .mystall-sold-summary {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px 14px !important;
+  padding: 14px 18px !important;
+  margin: 0 0 14px 0 !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  grid-template-columns: none !important;
+}
+body .mystall-sold-summary > .mystall-sold-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+}
+body .mystall-sold-summary > .mystall-sold-total {
+  font-family: "Roboto Mono", monospace !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+body .mystall-sold-summary > .mystall-sold-hint {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126533 */
+
+/* CSFLOAT-1:1 PARITY ship #126534 — Edit-pencil icon-button shape
+ * inside .stall-row. Source: ✎ Edit button (modals.js:11849) —
+ * currently the generic .btn.btn-ghost pill (radius 8 / pad 0 18 /
+ * fontSize 13 / fontWeight 600), which on the row strip reads as a
+ * call-to-action competing with the price. csfloat uses an icon-only
+ * 32x32 transparent button with ink-2 → brand-on-hover for row-level
+ * affordances. Lane brief: "Edit-pencil typically icon-only 32x32
+ * transparent + ink-2 → brand on hover." Promote the row-level
+ * edit/hide/remove buttons (every .stall-row .btn.btn-ghost) to that
+ * canonical shape: 32-tall dense Material affordance / border-radius
+ * 4px / transparent / ink-2 / brand 0.08α bloom + brand ink color on
+ * hover / standard transition cubic-bezier(0.4,0,0.2,1) at 200ms. */
+body .stall-row .btn.btn-ghost {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  min-width: 32px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  box-shadow: none !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .stall-row .btn.btn-ghost:hover {
+  color: rgb(35, 123, 255) !important;
+  background-color: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.35) !important;
+}
+body .stall-row .btn.btn-ghost:active {
+  background-color: rgba(35, 123, 255, 0.16) !important;
+  transition-duration: 80ms !important;
+}
+body .stall-row .btn.btn-ghost:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+body .stall-row .btn.btn-ghost:disabled,
+body .stall-row .btn.btn-ghost[disabled] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126534 */
+
+/* CSFLOAT-1:1 PARITY ship #126535 — bulk-select checkbox baseline
+ * inside MyStall surfaces. Source: live measurement on
+ * csfloat.com/db of mat-checkbox.mat-mdc-checkbox primitive. The
+ * canonical Material checkbox box is 18x18 with a 2px stroke at
+ * rgba(255,255,255,0.7), border-radius 5px, transparent fill until
+ * checked (then brand-blue fill + brand-blue border + 1.5px white
+ * tick). Wrapper hit-target is 40x40 with 11px padding. Transition
+ * is 0.09s cubic-bezier(0.4,0,0.6,1) on background-color and
+ * border-color (the tighter Material curve since the tick's final
+ * frame is the visual confirmation, not a long bloom).
+ * sboxmarket inventory bulk-select uses a custom div+input pattern
+ * (modals.js:10103-10117) but the canonical primitive should still
+ * be in scope for any MyStall bulk-toolbar that surfaces (the lane
+ * brief explicitly calls out "bulk-select checkboxes"). Scope this
+ * to native checkboxes rendered inside any modal body whose siblings
+ * include the .mystall-tabs strip — so the rule never escapes to the
+ * inventory grid above (which uses a custom div primitive, not native
+ * <input>). The :has()-anchored body selector lights up only when
+ * MyStallModal is the active surface. */
+body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:not(.toggle-input) {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: transparent !important;
+  border: 2px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  transition: background-color 90ms cubic-bezier(0.4, 0, 0.6, 1),
+              border-color 90ms cubic-bezier(0.4, 0, 0.6, 1) !important;
+}
+body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:not(.toggle-input):hover {
+  border-color: rgba(255, 255, 255, 0.92) !important;
+}
+body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:not(.toggle-input):checked {
+  background-color: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:not(.toggle-input):checked::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 4px !important;
+  top: 0px !important;
+  width: 4px !important;
+  height: 9px !important;
+  border: solid #fff !important;
+  border-width: 0 1.5px 1.5px 0 !important;
+  transform: rotate(45deg) !important;
+  pointer-events: none !important;
+}
+body:has(.mystall-tabs[role="tablist"]) .info-modal-body input[type="checkbox"]:not(.toggle-input):focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+/* Hit-target wrapper — when the checkbox is in a flex row with text,
+ * pad the parent label to the canonical 40x40 Material touch target
+ * so the tap zone matches mat-mdc-checkbox without changing visual
+ * weight. */
+body:has(.mystall-tabs[role="tablist"]) .info-modal-body label:has(> input[type="checkbox"]:not(.toggle-input)) {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 40px !important;
+  padding: 11px 8px 11px 11px !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126535 */
