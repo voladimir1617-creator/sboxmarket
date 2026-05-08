@@ -164103,3 +164103,275 @@ html body .csfloat-home-faq-item[open] {
   border-color: rgba(193, 206, 255, 0.12) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #17605 */
+
+/* ─────────────────────────────────────────────────────────────────
+   AFFILIATE / REFERRAL PROGRAM PAGE (/affiliate)
+   csfloat reference: app-affiliate component (s2) — measured from
+   prod bundle main-SYE67SK5.js. csfloat layout uses .wrapper >
+   .container (max-width:1000px) with .banner, .promo (grid-areas:
+   description / about + requirements / apply), .affiliate (signed-in
+   only: code / payout / guide stat-boxes). All .card surfaces use
+   bg var(--module-background-color) rgb(27,29,36), border-radius
+   12px, padding 30px, fs 14px / lh 20px. .card .title is 20px/500.
+   .table is highlight-bg-minimal w/ 6px radius, 20px pad, header
+   16px/500, line lh 30px w/ 1px hairline divider.
+
+   sboxmarket /affiliate uses InfoModal shell + inline-styled
+   AffiliateModal body. Scope via :has(.affiliate-req-grid) so we
+   only touch the affiliate route, never other InfoModal surfaces.
+   ───────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #17900 (/affiliate hero — match csfloat .banner: 200px tall (mobile 120px), 12px radius, brand-tinted bg, centered title 42px/-0.02em letter-spacing) — measured: csfloat .banner height 200px / radius 12px / bg rgb(27,29,36) cover-svg, .banner .logo .text fs 42px ls -0.02em, sbox AffiliateModal hero was 32px 24px pad / 34px serif fs / 360 fw on plain bg-1 */
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child {
+  margin-bottom: 20px !important;
+  padding: 30px 24px !important;
+  border-radius: 12px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  text-align: center !important;
+  min-height: 160px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:first-child {
+  font-family: "Roboto Mono", monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 12px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:nth-child(2) {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 36px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+}
+@media (max-width: 736px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child {
+    min-height: 100px !important;
+    padding: 20px 16px !important;
+  }
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:nth-child(2) {
+    font-size: 24px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #17900 */
+
+/* CSFLOAT-1:1 PARITY ship #17901 (/affiliate description copy — match csfloat .card.description fs 14px / lh 20px / color rgb(158,167,177) ink-2, padding 30px to match csfloat .card 30px) — measured: csfloat .card padding 30px font-size 14px line-height 20px color subtext, sbox description was fs 14 / lh 1.6 / margin-bottom 24 with no card surface */
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(2) {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  margin-bottom: 20px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17901 */
+
+/* CSFLOAT-1:1 PARITY ship #17902 (/affiliate About + Requirements cards — match csfloat .card pattern: 30px pad / 12px radius / panel bg / 14px-20px copy, with 20px gap (csfloat .promo grid-gap), titles 20px/500 ink-1) — measured: csfloat .card padding 30px / fs 14 lh 20, .card .title fs 20 fw 500 mb 20 color primary-text, sbox cards were 16px pad / 10px radius / 14px title / different fs */
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) {
+  gap: 20px !important;
+  margin-bottom: 20px !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)) !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) > div {
+  padding: 30px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) > div > div:first-child {
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  margin-bottom: 20px !important;
+  font-size: 20px !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) > div > div:nth-child(2) {
+  font-size: 14px !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 20px !important;
+  margin-bottom: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17902 */
+
+/* CSFLOAT-1:1 PARITY ship #17903 (/affiliate requirements stat tiles — match csfloat .table line layout (flex space-between rows w/ hairline divider) instead of stat-tile grid — csfloat shows requirements as a table not a grid; soften the grid into vertical line rows with 30px line-height / 1px hairline / value right-aligned in brand color) — measured: csfloat .table .line lh 30px / fw 500 / border-bottom 1px highlight-bg / .value color primary, sbox .affiliate-req-grid was 5-up tile grid w/ icons */
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  padding: 20px !important;
+  grid-template-columns: none !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  text-align: left !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.06) !important;
+  border-radius: 0 !important;
+  line-height: 30px !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  color: rgb(255, 255, 255) !important;
+  min-height: 30px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat:last-child {
+  border-bottom: none !important;
+}
+/* hide the icon tile (csfloat table doesn't have icons) */
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat > div:first-child {
+  display: none !important;
+}
+/* re-style the value (≥5,000) as the brand-colored right-aligned value */
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat .stall-stat-val {
+  order: 3 !important;
+  margin-left: auto !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(35, 123, 255) !important;
+  text-align: right !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat .stall-stat-val > span {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  margin-right: 0 !important;
+}
+/* platform label (YouTube, X, etc.) — sit on left, white normal-case */
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat .stall-stat-label {
+  order: 1 !important;
+  margin-top: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* unit label (subscribers, followers) — sit between, muted */
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid > .affiliate-req-stat > div:last-child {
+  order: 2 !important;
+  margin-top: 0 !important;
+  margin-left: 8px !important;
+  font-size: 13px !important;
+  color: rgb(158, 167, 177) !important;
+  font-weight: 400 !important;
+  flex: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17903 */
+
+/* CSFLOAT-1:1 PARITY ship #17904 (/affiliate apply card — match csfloat .card.apply: 30px pad / 12px radius / panel bg, header fs 20/500 ink-1, actions 10px gap, button 40px tall pad 13/30 fw 700 brand bg) — measured: csfloat .apply .header fs 20 fw 500, .actions gap 10, mat-raised-button 40px tall, sbox apply card was 18px 20px pad / 10px radius / 14px header / inputs 12.5px */
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) {
+  padding: 30px !important;
+  border-radius: 12px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 20px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:first-child > div:first-child {
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 20px !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  margin-bottom: 4px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:first-child > div:nth-child(2) {
+  font-size: 14px !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 20px !important;
+  margin-top: 4px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:nth-child(2) {
+  display: flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) input.price-input {
+  width: 220px !important;
+  height: 40px !important;
+  font-size: 14px !important;
+  font-family: "Roboto Mono", monospace !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 0 14px !important;
+  letter-spacing: 0.5px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) a.btn.btn-accent {
+  height: 40px !important;
+  padding: 0 30px !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  line-height: 40px !important;
+  border-radius: 8px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) a.btn.btn-accent:hover {
+  background: rgb(50, 138, 255) !important;
+}
+@media (max-width: 500px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:nth-child(2) {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:nth-child(2) > * {
+    width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #17904 */
+
+/* CSFLOAT-1:1 PARITY ship #17905 (/affiliate modal shell width — match csfloat .container max-width 1000px so the affiliate page sits in a wider column than the default narrow info-modal; also tighten body padding to 0 so individual .card surfaces own all 30px padding internally per csfloat layout) — measured: csfloat .wrapper .container max-width 1000px, sbox .info-modal default narrow width was clipping the .promo two-up grid */
+html body .modal.info-modal:has(.affiliate-req-grid) {
+  max-width: 1000px !important;
+  width: 100% !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body {
+  padding: 0 24px 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-header {
+  /* csfloat doesn't render the H1 in-page — the route metadata sets the
+     <title> tag only and the .banner serves as the visual hero. Drop
+     the duplicated info-modal H1 since the .banner block already shows
+     "Affiliate Program" */
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17905 */
