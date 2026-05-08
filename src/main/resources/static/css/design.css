@@ -189269,3 +189269,374 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nt
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #128427 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #128430 (wallet-modal surface — REAL Material elev-24 dialog)
+   measured today on csfloat avatar -> Deposit dialog:
+     surface 950w x 666h (visible chrome), bg rgba(21,23,28,0.8),
+     br 12px, border 2px solid rgba(193,206,255,0.07),
+     box-shadow Material elevation-24:
+         rgba(0,0,0,0.2)  0 11px 15px -7px,
+         rgba(0,0,0,0.14) 0 24px 38px  3px,
+         rgba(0,0,0,0.12) 0  9px 46px  8px
+   sboxmarket .wallet-modal at line 5697 ships:
+     width 520px, var(--bg-1), 1px var(--line-2), var(--r-md) (=10px)
+   Differences vs REAL csfloat:
+     * width is 520 — REAL is 950 (almost double)
+     * bg is opaque var(--bg-1) — REAL is rgba(21,23,28,0.8) translucent
+     * border 1px line-2 — REAL is 2px tinted ink (rgba(193,206,255,0.07))
+     * radius 10 — REAL is 12
+     * NO shadow — REAL ships full mat-elev-z24
+   Override the surface to match. Done as html body lift over var(--bg-1)
+   token sites so existing rule (line 5697) keeps semantics.
+   ============================================================ */
+html body .wallet-modal {
+  width: min(950px, 100%) !important;
+  max-width: 950px !important;
+  background: rgba(21, 23, 28, 0.8) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0px 11px 15px -7px,
+    rgba(0, 0, 0, 0.14) 0px 24px 38px  3px,
+    rgba(0, 0, 0, 0.12) 0px  9px 46px  8px !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128430 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #128431 (wallet-step-num — REAL 36x36 column header)
+   measured: csfloat .step inside .stepper renders the numeral inside a
+   36x36 flex-column container (the column reaches full stepper height,
+   but the visible numeral sits at the top in a 36-square). active state
+   shows brand-blue rgb(35,123,255) fill + white text + no border;
+   inactive shows transparent bg + white text. NO border on EITHER state
+   in REAL csfloat — sboxmarket added a 1px hairline that doesn't exist
+   in the source.
+   sboxmarket ship #211 (line 126081) shipped 28x28 with 1px tinted
+   border — both wrong. Restore to REAL 36x36, drop the border, keep
+   the brand-blue active fill.
+   ============================================================ */
+html body .wallet-modal .wallet-step-num {
+  width: 36px !important;
+  height: 36px !important;
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .wallet-modal .wallet-step.active .wallet-step-num {
+  background: transparent !important;
+  color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+}
+html body .wallet-modal .wallet-step.done .wallet-step-num {
+  background: transparent !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128431 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #128432 (wallet-step-title — REAL 20/500/0.5px tracking)
+   measured: csfloat section title (e.g. "Credit/Debit Card", "Select
+   payment method") renders at:
+     fontSize 20px, fontWeight 500 (Roboto medium, NOT 700 bold),
+     letterSpacing 0.5px (POSITIVE 0.5, not negative -0.005em),
+     lineHeight 24px, color rgb(255,255,255).
+   sboxmarket ship #211 line 126100 shipped 20/700/-0.005em (heavier &
+   tighter than REAL csfloat). Match Roboto medium with the canonical
+   Material 0.5px positive tracking.
+   ============================================================ */
+html body .wallet-modal .wallet-step-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body .wallet-modal .wallet-step-subtitle {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+  color: rgba(193, 206, 255, 0.55) !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128432 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #128433 (wallet-amount-wrap — REAL no panel chrome)
+   measured: csfloat amount input wrapper is inline-flex with the $
+   prefix as a sibling text node and the <input> sitting flush. NO
+   background color, NO border, NO border-radius. The input is bare
+   typography on the dialog surface. inputWrap measured 270x70 inline-flex
+   column, but only because Material form-field puts the label/underline
+   vertically — none of that has a fill or border.
+   sboxmarket ship #212 line 126122 shipped:
+     bg rgb(27,29,36), 1px hairline, br 8, height 56 (panel chrome).
+   That is the OPPOSITE of REAL — strip everything to baseline.
+   ============================================================ */
+html body .wallet-modal .wallet-amount-wrap {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+html body .wallet-modal .wallet-amount-wrap:focus-within {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html body .wallet-modal .wallet-amount-prefix {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128433 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #128434 (wallet-amount-input-v2 — REAL 16/400/0.5)
+   measured: csfloat .mat-mdc-input-element renders at:
+     width 220px x 24px tall, fontSize 16, fontWeight 400 (regular),
+     lineHeight 24px, letterSpacing 0.5px, color rgb(255,255,255),
+     bg transparent, NO border (Material outline lives on form-field
+     wrapper, not the input). placeholder "0.00".
+   sboxmarket ship #212 line 126142 shipped 22/700/-0.005em (much
+   chunkier hero numeral). Match REAL Roboto-regular body-size that
+   sits inline with the $ prefix.
+   ============================================================ */
+html body .wallet-modal .wallet-amount-input-v2 {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.42) !important;
+  padding: 0 !important;
+  height: auto !important;
+  min-height: 24px !important;
+  outline: none !important;
+  width: auto !important;
+  min-width: 220px !important;
+}
+html body .wallet-modal .wallet-amount-input-v2:focus {
+  border-bottom-color: rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+}
+html body .wallet-modal .wallet-amount-input-v2::placeholder {
+  color: rgba(193, 206, 255, 0.42) !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128434 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #128435 (wallet-preset chips — REAL flat brand text)
+   measured: csfloat suggested-amount chips are NOT pills. Each is a
+   <div class="highlight-text">$25.00</div>:
+     fontSize 14px, fontWeight 700, color rgb(35,123,255) brand-blue,
+     bg transparent, border 0, padding 0, border-radius 0, cursor pointer.
+   The whole row is 5 chips in a single horizontal flow with ~110px
+   spacing. They read as inline brand-tinted bold-numeral text links —
+   NOT chip surfaces.
+   sboxmarket ship #213 line 126176 shipped pills (panel bg, 1px border,
+   999px radius, 32h, brand fill on .active). Strip the chip chrome and
+   render flat brand-blue text. Active state stays brand-blue (already
+   the default colour) but underlines.
+   ============================================================ */
+html body .wallet-modal .wallet-preset-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 24px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+html body .wallet-modal .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-row button {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  background: transparent !important;
+  color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  min-height: 24px !important;
+  line-height: 24px !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: opacity 120ms ease !important;
+}
+html body .wallet-modal .wallet-preset-btn:hover,
+html body .wallet-modal .wallet-preset-row button:hover {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(35, 123, 255) !important;
+  opacity: 0.85 !important;
+  text-decoration: underline !important;
+}
+html body .wallet-modal .wallet-preset-btn.active,
+html body .wallet-modal .wallet-preset-row button.active {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+}
+html body .wallet-modal .wallet-preset-btn:focus-visible,
+html body .wallet-modal .wallet-preset-row button:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128435 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128500-#128505 — HEADER LOGO ANCHOR GEOMETRY
+   csfloat.com header (live measured 2026-05-08 viewport 1440):
+     a.logo       — 40x40 hard-pinned, padding 0, no border-radius,
+                    no filter, no hover effect (cursor only)
+     img inside   — 40x40 flush (no inner padding shrink)
+     toolbar      — padding 15 uniform, flex gap 25 between siblings
+   sboxmarket old ship #9 fixed the OUTER 40-box but missed:
+     .nav-logo-icon kept 28x28 (with border-radius 6 + drop-shadow)
+     .nav-inner kept padding 18 + gap 16 (csfloat is 15 / 25)
+     no explicit no-effect hover lock
+   This batch APPENDS corrections — only geometry, NOT logo image
+   content. Sboxmarket retains its own original brand mark inside the
+   icon slot.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128500 — pin .nav-logo-icon to 40x40 flush
+   csfloat .logo > img is 40x40 with object-fit fill, sitting flush
+   inside the 40-box anchor (zero inner padding). Sbox .nav-logo-icon
+   was 28x28 — leaves 6px of empty padding on every side, making the
+   logo glyph look 30% smaller than csfloat's. Pin to 40x40 to match
+   the visual weight of the leftmost nav element.
+*/
+nav.nav .nav-logo .nav-logo-icon {
+  width: 40px !important;
+  height: 40px !important;
+}
+nav.nav .nav-logo .nav-logo-icon img,
+nav.nav .nav-logo .nav-logo-icon svg {
+  width: 40px !important;
+  height: 40px !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128500 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128501 — strip .nav-logo-icon border-radius
+   csfloat img inside .logo has computed border-radius 0px. Sbox icon
+   was 6px which clipped the corners of our isometric crate against
+   the dark nav. Strip to 0 so the crate's stroke renders intact.
+*/
+nav.nav .nav-logo .nav-logo-icon {
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128501 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128502 — strip .nav-logo-icon drop-shadow
+   csfloat .logo and its img both compute filter:none. Sbox .nav-logo-icon
+   was applying drop-shadow(oklch(0.55 0.18 250 / 0.4) 0 0 8px) which
+   produced an 8px blue halo around the crate that csfloat's flat logo
+   never has. Strip filter for parity.
+*/
+nav.nav .nav-logo .nav-logo-icon {
+  filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128502 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128503 — pin no-effect hover on .nav-logo
+   csfloat .logo computed transition is `all` but the anchor has NO
+   defined hover (no opacity dim, no background, no scale, no filter).
+   Cursor flips to pointer and that is it. Sbox .nav-logo inherited a
+   color/bg/border/opacity transition from the generic link surface —
+   on hover the icon's drop-shadow color would shift through the
+   transition, which csfloat never does. Lock the hover to a no-op
+   so we match csfloat's static-on-hover behavior exactly.
+*/
+nav.nav .nav-logo,
+nav.nav .nav-logo:hover,
+nav.nav .nav-logo:focus,
+nav.nav .nav-logo:focus-visible,
+nav.nav .nav-logo:active {
+  background: transparent !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+nav.nav .nav-logo:hover .nav-logo-icon,
+nav.nav .nav-logo:focus .nav-logo-icon,
+nav.nav .nav-logo:focus-visible .nav-logo-icon,
+nav.nav .nav-logo:active .nav-logo-icon {
+  filter: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128503 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128504 — toolbar inner padding 15 uniform
+   csfloat .toolbar uses padding:15px (uniform, all four edges). Sbox
+   .nav-inner uses padding:0 18px which leaves 18px on the left edge
+   instead of csfloat's 15. Pin .nav-inner padding to 15px uniform
+   for the leftmost-anchor positioning to match (logo lands at
+   container_left + 15 instead of container_left + 18).
+*/
+nav.nav .nav-inner {
+  padding: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128504 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128505 — toolbar flex gap 25
+   csfloat .toolbar uses gap:25px between flex children — the gap
+   between logo and the first nav route-button is exactly that 25.
+   Sbox .nav-inner uses gap:16px which collapses the logo→first-link
+   spacing to 28 (40 logo + ~16 gap minus inherited margin) instead
+   of csfloat's 25. Pin gap to 25 for parity with csfloat's nav rhythm.
+*/
+nav.nav .nav-inner {
+  gap: 25px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128505 */
