@@ -189015,7 +189015,7 @@ body .info-modal-body > .loadout-tabs > .btn.btn-accent:hover {
    ───────────────────────────────────────────────────────────────── */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128400 — /affiliate hero typography parity
+   CSFLOAT-1:1 PARITY ship #128420 — /affiliate hero typography parity
    Measured csfloat .banner: 200px tall fixed (NOT min-height 160), bg
    rgb(27,29,36), border-radius 12px, NO border, NO background-image.
    Inside, .banner .content (gap 40) hosts .logo + .text where .text
@@ -189061,10 +189061,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:fi
     line-height: 32px !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #128400 */
+/* END CSFLOAT-1:1 PARITY ship #128420 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128401 — /affiliate hero eyebrow as tinted pill
+   CSFLOAT-1:1 PARITY ship #128421 — /affiliate hero eyebrow as tinted pill
    Measured csfloat .banner .logo .float: 127w x 69h, padding 10px,
    border-radius 10.462px, bg rgba(193,206,255,0.04) (highlight-bg-minimal
    token at 4% alpha — the same as our hairline tint chip). The pill
@@ -189102,10 +189102,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:fi
     min-width: 0 !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #128401 */
+/* END CSFLOAT-1:1 PARITY ship #128421 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128402 — /affiliate description card no border
+   CSFLOAT-1:1 PARITY ship #128422 — /affiliate description card no border
    Measured csfloat .card.description: bg rgb(27,29,36), border-radius 12px,
    padding 30px, NO border (border 0px none). Sbox ship #17901 added
    1px solid rgba(255,255,255,0.06) hairline border around it — strip so
@@ -189118,10 +189118,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nt
   padding: 30px !important;
   margin-bottom: 20px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128402 */
+/* END CSFLOAT-1:1 PARITY ship #128422 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128403 — /affiliate promo 2-up grid (fixed cols)
+   CSFLOAT-1:1 PARITY ship #128423 — /affiliate promo 2-up grid (fixed cols)
    Measured csfloat .promo: display grid, grid-template-columns 490px 490px,
    gap 20. The .container is 1000px wide so the two cards consume 490+20+490.
    Sbox ship #17902 used minmax(360px,1fr) auto-fit which gives uneven sizes
@@ -189145,10 +189145,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nt
 html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) > div {
   border: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128403 */
+/* END CSFLOAT-1:1 PARITY ship #128423 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128404 — /affiliate apply card no border + button
+   CSFLOAT-1:1 PARITY ship #128424 — /affiliate apply card no border + button
    Measured csfloat .card.apply: bg rgb(27,29,36), 12 br, 30 pad, NO border.
    The Apply primary button is mat-mdc-raised with bg rgb(35,123,255) at
    36px height, padding 0 16, border-radius 8, font-size 14, font-weight 500
@@ -189179,10 +189179,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nt
 html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) a.btn.btn-accent:hover {
   background: rgb(58, 137, 255) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128404 */
+/* END CSFLOAT-1:1 PARITY ship #128424 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128405 — /affiliate apply email "input" → ghost btn
+   CSFLOAT-1:1 PARITY ship #128425 — /affiliate apply email "input" → ghost btn
    Measured csfloat .card.apply .actions: hosts a.email-btn (NOT an input)
    styled as mat-mdc-button-base unelevated: 238w x 36h, padding 0 16, bg
    rgba(193,206,255,0.04), color rgb(158,167,177) ink-2, font-size 14,
@@ -189223,10 +189223,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nt
   background: rgba(193, 206, 255, 0.07) !important;
   color: rgb(255, 255, 255) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128405 */
+/* END CSFLOAT-1:1 PARITY ship #128425 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128406 — /affiliate requirements .table chrome
+   CSFLOAT-1:1 PARITY ship #128426 — /affiliate requirements .table chrome
    Measured csfloat .card.requirements > .table: bg rgba(193,206,255,0.04),
    border-radius 6px (NOT 8 or 10), padding 20px, NO border. Inside, .header
    "Per Platform" 16/500 white margin-bottom 10. Sbox baseline (#17903)
@@ -189244,10 +189244,10 @@ html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid {
   padding: 20px !important;
   border: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128406 */
+/* END CSFLOAT-1:1 PARITY ship #128426 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128407 — /affiliate apply ".actions" gap parity
+   CSFLOAT-1:1 PARITY ship #128427 — /affiliate apply ".actions" gap parity
    Measured csfloat .card.apply > .actions: display flex, gap 10px between
    the email-btn ghost and the brand-blue Apply CTA. Sbox ship #17904
    pinned gap 8 inline (modals.js style attr) which the existing #17904
@@ -189268,4 +189268,4 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nt
     width: 100% !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #128407 */
+/* END CSFLOAT-1:1 PARITY ship #128427 */
