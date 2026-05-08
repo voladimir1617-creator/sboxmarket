@@ -195562,3 +195562,27 @@ html body .recent-sales-table .rs-price {
   min-width: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128785 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128891 — .nav-link horizontal pad restore.
+   Ship #128885 set .nav-link `padding: 0 !important` based on the
+   computed `padding` getter from csfloat's outer anchor. Re-measure
+   2026-05-08 shows the csfloat "Market" link pill is 67.2px wide for
+   ~47px of visible text — the missing 20px is horizontal padding that
+   Material injects via a mat-mdc-button class system that the simple
+   getComputedStyle('padding') call doesn't surface (it's on a CSS
+   custom property layer). Restore `padding: 0 10px` so the sboxmarket
+   .nav-link pill width matches csfloat exactly. The 25px flex gap on
+   .nav-links from ship #128884 STAYS as the inter-pill spacing — the
+   gap is outside the pill's padding box, not inside. */
+.nav-link,
+nav.nav .nav-link,
+.nav > .nav-links > .nav-link,
+.nav-inner > .nav-links > .nav-link {
+  padding: 0 10px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128891 */
+
