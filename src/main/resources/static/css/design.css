@@ -195448,3 +195448,117 @@ body .info-modal-backdrop {
 }
 
 /* END CSFLOAT-1:1 PARITY ship #129000 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128780 — .recent-sales-list::before sticky
+   z-index correction. Ship #19808 set the strip's z-index to 1, but
+   canonical csfloat .mat-mdc-header-row sits at z-index 2 (per
+   .tmp/csfloat-styles.css 2026-05-08). At z-index 1 a row's
+   :hover/:focus state-layer pseudo (which inherits z-index from its
+   row's stacking context, often z-index >= 1 in Material spec) can
+   visually overlap the sticky strip when scrolled into view. Bump to
+   2 so the header strip stays float-above any row state-layer. */
+html body html body .recent-sales-list::before {
+  z-index: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128780 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128781 — .recent-sales-list::before corner
+   radius parity to canonical csfloat .mat-mdc-header-row first/last
+   <th> spec:
+     th:first-child { border-top-left-radius: 10px (--header-border-radius) }
+     th:last-child  { border-top-right-radius: 10px }
+   sboxmarket renders the header strip as a single full-width pseudo
+   (no <th> tree to anchor first/last corners onto), so we apply both
+   top corners to the strip itself. Bottom corners stay square — the
+   strip is followed immediately by the body rows so the bottom edge
+   blends into the row hairline divider. This rounds the shoulder of
+   the popup table to match the canonical 10px radius csfloat ships. */
+html body html body .recent-sales-list::before {
+  border-top-left-radius: 10px !important;
+  border-top-right-radius: 10px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128781 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128782 — .recent-sales-row border-bottom
+   alpha-base parity. Shipped baseline (#1423 / #14704) used
+   rgba(255,255,255,0.06) — pure white at 0.06 alpha. Canonical csfloat
+   .mat-mdc-cell { border-color: var(--highlight-background-minimal) }
+   resolves to rgba(193,206,255,0.04) — cool blue at 0.04 alpha. The
+   per-row hairline divider should match the header strip tint shipped
+   in #19808 (which already uses rgba(193,206,255,0.04)) so the table
+   reads as a single tonal family rather than mixed warm/cool dividers.
+   Override with higher specificity to win against the prior ships. */
+html body html body .recent-sales-table .recent-sales-row,
+html body html body .recent-sales-list .recent-sales-row,
+html body html body .price-history-chart .recent-sales-row {
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128782 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128783 — .recent-sales-row last-child
+   border-bottom: none parity to canonical csfloat
+   .mat-mdc-row:last-of-type td:last-of-type { border: none }. Without
+   this, the bottom of the table double-strokes against the
+   .price-history-chart panel's own bottom hairline (shipped in #14700)
+   — two parallel hairlines visually thicken the bottom edge. Strip the
+   last row's bottom border so the popup table closes cleanly. */
+html body html body .recent-sales-table .recent-sales-row:last-child,
+html body html body .recent-sales-table .recent-sales-row:last-of-type,
+html body html body .recent-sales-list .recent-sales-row:last-child,
+html body html body .recent-sales-list .recent-sales-row:last-of-type,
+html body html body .price-history-chart .recent-sales-row:last-child,
+html body html body .price-history-chart .recent-sales-row:last-of-type {
+  border-bottom: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128783 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128784 — .recent-sales-row:hover background
+   tint parity to canonical csfloat Material .mat-mdc-row hover
+   state-layer. csfloat applies rgba(193,206,255,0.04) (the same tint as
+   the header strip + chip backgrounds) on row hover so the user can
+   anchor which row they're inspecting in a long scroll without changing
+   text rhythm or row height. sboxmarket .recent-sales-row had no hover
+   state today — rows blend together visually under the cursor. Add the
+   canonical hover tint. Cursor stays default (these are display rows,
+   not interactive). Transition for smooth hover-on/off rhythm. */
+html body html body .recent-sales-table .recent-sales-row:hover,
+html body html body .recent-sales-list .recent-sales-row:hover,
+html body html body .price-history-chart .recent-sales-row:hover {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  cursor: default !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128784 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128785 — .recent-sales-row cell text-wrap
+   defensive parity. Canonical csfloat .mat-mdc-cell on desktop renders
+   with `word-break: break-word` BUT the per-column 1fr widths in the
+   trade-history popup mean a long string in any column would force the
+   row to grow vertically and break the canonical 52px row height
+   shipped in #19809. Pin `white-space: nowrap` + `text-overflow: ellipsis`
+   + `overflow: hidden` on each cell so an unusually long value
+   ellipsises rather than wraps. This is a belt-and-suspenders for the
+   grid-template-columns 1fr/1fr/1fr/24px shipped in #14704 — without
+   the nowrap declaration a 25-character buyer-name string could break
+   the column rhythm. */
+html body .recent-sales-row .recent-sales-price,
+html body .recent-sales-row .recent-sales-time,
+html body .recent-sales-row .recent-sales-type,
+html body .recent-sales-table .rs-date,
+html body .recent-sales-table .rs-float,
+html body .recent-sales-table .rs-price {
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128785 */
