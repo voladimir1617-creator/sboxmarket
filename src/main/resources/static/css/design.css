@@ -195691,3 +195691,165 @@ html body html body .modal.item-page .recent-sales-table {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #128795 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128960 — cart Buy :hover overlay-only (real).
+   Measured live on csfloat's MDC raised-button. The brand-blue background
+   does NOT shift on hover — feedback is the .mat-mdc-button-persistent-
+   ripple::before overlay at white / 0.04 opacity plus the layered
+   hover-tier elevation shadow. UN-DO ship #128541's rgb(56,140,255) bg
+   shift (a +21 lightness bump) and instead paint the canonical 4% white
+   veil via a ::before pseudo so the rest background stays brand-blue.
+*/
+body .cart-confirm-actions .btn-accent:hover:not(:disabled) {
+  background: rgb(35, 123, 255) !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.20),
+    0 4px 5px 0   rgba(0, 0, 0, 0.14),
+    0 1px 10px 0  rgba(0, 0, 0, 0.12) !important;
+  filter: none !important;
+  transform: none !important;
+}
+body .cart-confirm-actions .btn-accent {
+  position: relative !important;
+}
+body .cart-confirm-actions .btn-accent::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  background: rgb(255, 255, 255) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  z-index: 1 !important;
+}
+body .cart-confirm-actions .btn-accent:hover:not(:disabled)::before {
+  opacity: 0.04 !important;
+}
+body .cart-confirm-actions .btn-accent > * {
+  position: relative !important;
+  z-index: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128960 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128961 — cart Buy :focus-visible overlay (real).
+   Measured live: --mat-button-protected-focus-state-layer-opacity = 0.12.
+   The MDC focus-indicator border itself is transparent on csfloat (they
+   don't override --mat-focus-indicator-border-color), so the visible
+   focus signal IS the persistent-ripple overlay bumped from 0.04 to 0.12.
+   No outline, no ring — just the deeper white veil + focus elevation.
+*/
+body .cart-confirm-actions .btn-accent:focus-visible:not(:disabled) {
+  background: rgb(35, 123, 255) !important;
+  outline: 0 !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.20),
+    0 4px 5px 0   rgba(0, 0, 0, 0.14),
+    0 1px 10px 0  rgba(0, 0, 0, 0.12) !important;
+}
+body .cart-confirm-actions .btn-accent:focus-visible:not(:disabled)::before {
+  opacity: 0.12 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128961 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128962 — cart Buy :active (pressed) state (real).
+   Measured live: --mat-button-protected-pressed-state-layer-opacity = 0.12,
+   pressed elevation jumps to the deepest MDC tier (5/8/3 px tier). No
+   transform, no scale — csfloat raised buttons don't translate on press.
+*/
+body .cart-confirm-actions .btn-accent:active:not(:disabled) {
+  background: rgb(35, 123, 255) !important;
+  transform: none !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.20),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+body .cart-confirm-actions .btn-accent:active:not(:disabled)::before {
+  opacity: 0.12 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128962 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128963 — cart Cancel (ghost) :hover overlay (real).
+   Measured live on csfloat nav text-button (mat-mdc-button, no raised
+   variant): the persistent-ripple::before paints white at 0.04 opacity
+   on hover, NOT a brand-tinted veil. Prior ship #128541 set ghost :hover
+   bg to rgba(35,123,255,0.08) — that's a brand-blue wash; the canonical
+   csfloat text-button uses the white state-layer the same as raised.
+   Re-pin to white-4% so the ghost button uses the same MDC overlay
+   semantics as the Buy button.
+*/
+body .cart-confirm-actions .btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(35, 123, 255) !important;
+}
+body .cart-confirm-actions .btn-ghost:focus-visible:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12) !important;
+  outline: 0 !important;
+  color: rgb(35, 123, 255) !important;
+}
+body .cart-confirm-actions .btn-ghost:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12) !important;
+  transform: none !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128963 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128964 — cart-confirm list scrollbar (real).
+   Measured live on csfloat global ::-webkit-scrollbar:
+     width 12px, track transparent / radius 8px,
+     thumb rgba(193,206,255,0.07) / radius 8px,
+     thumb:hover rgba(193,206,255,0.25).
+   The cart-confirm-list defaults to whatever scrollbar the host browser
+   ships, which on Chrome is the wide grey OS scrollbar. Pin the csfloat
+   tokens scoped to .cart-confirm-list so the modal body scrolls with
+   the canonical csfloat thin blue-violet thumb on transparent track.
+   Includes scrollbar-color fallback for Firefox (thumb / track).
+*/
+body .cart-confirm-list {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(193, 206, 255, 0.07) transparent !important;
+}
+body .cart-confirm-list::-webkit-scrollbar {
+  width: 12px !important;
+  background-color: transparent !important;
+}
+body .cart-confirm-list::-webkit-scrollbar-track {
+  background-color: transparent !important;
+  border-radius: 8px !important;
+}
+body .cart-confirm-list::-webkit-scrollbar-thumb {
+  background-color: rgba(193, 206, 255, 0.07) !important;
+  border-radius: 8px !important;
+}
+body .cart-confirm-list::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(193, 206, 255, 0.25) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128964 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128965 — cart Buy rest-state elevation (real).
+   Measured live --mat-button-protected-container-elevation-shadow:
+     0 3px 1px -2px rgba(0,0,0,.2),
+     0 2px 2px  0   rgba(0,0,0,.14),
+     0 1px 5px  0   rgba(0,0,0,.12)
+   The local .btn-accent uses a single flat drop shadow; csfloat layers
+   three (key + ambient + crisp). Pin the rest tier so the button has
+   the same depth as csfloat's live raised-button.
+*/
+body .cart-confirm-actions .btn-accent {
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.20),
+    0 2px 2px 0   rgba(0, 0, 0, 0.14),
+    0 1px 5px 0   rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128965 */
+
+
+/* ---------------
