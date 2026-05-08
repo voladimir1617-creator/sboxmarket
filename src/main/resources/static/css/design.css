@@ -163397,3 +163397,306 @@ html body .modal .buyorder-form .wallet-input-label {
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #16527 */
+/* CSFLOAT-1:1 PARITY ship #17100 — search-suggest keyboard-active emphasis
+   Measured csfloat (Material Design): mat-mdc-option:hover paints at
+   white-alpha 4% (rgba(255,255,255,0.04)). The keyboard-active row
+   (.mat-mdc-option-active, set by Angular Material when arrow-keys move
+   focus) paints at white-alpha 12% (rgba(255,255,255,0.12)) — three
+   times more opaque than plain hover, making the keyboard cursor row
+   visibly stronger than mouse-hovered rows.
+   sboxmarket ship #607 collapsed both states to 4%, hiding the
+   keyboard-nav cursor. Restore the differential: pure :hover stays at
+   4%, but .active / .sel / [aria-selected="true"] (set by the React
+   suggestIdx flow on ArrowDown / ArrowUp) bump to 12% to match
+   csfloat's keyboard-highlight emphasis. Transition curve and timing
+   pulled from Material defaults — cubic-bezier(0.4,0,0.2,1) at 150ms
+   for the bg fade. No left-edge accent (csfloat does not paint one),
+   no kbd-shortcut hint badges (csfloat suggestion panel does not
+   render them either). */
+body .search-suggest-row {
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .search-suggest-row.sel,
+body .search-suggest-row.active,
+body .search-suggest-row[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17100 */
+
+/* CSFLOAT-1:1 PARITY ship #16910 (activity feed — .recent-sales-list/.stall-recent-sales container chrome rebased to csfloat sale-history surface — measured: csfloat .mdc-dialog__surface (visible wrapper around the sale-history table — the closest csfloat analogue to a profile activity-feed timeline container) renders bg rgba(21, 23, 28, 0.8) (canonical body-bg with alpha so backdrop-filter reads through), border-radius 12px, padding 0, box-shadow rgba(0,0,0,0.2) 0 11px 15px -7px / rgba(0,0,0,0.14) 0 24px 38px 3px / rgba(0,0,0,0.12) 0 9px 46px 8px (Material elevation-24 — popup floats over the page). sbox baseline used solid var(--bg-1) with 1px hairline border + var(--r-md) (~6px) radius — flatter than csfloat's elevated surface AND missing the read-through alpha. Snap to csfloat exact 0.8 alpha body-bg + 12px radius + Material e24 shadow + remove the hairline border (csfloat ships borderless on the surface; the rows themselves carry the dividers). */
+html body .recent-sales-list,
+html body .stall-recent-sales {
+  background: rgba(21, 23, 28, 0.8) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 11px 15px -7px,
+              rgba(0, 0, 0, 0.14) 0px 24px 38px 3px,
+              rgba(0, 0, 0, 0.12) 0px 9px 46px 8px !important;
+  padding: 0 !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16910 */
+
+/* CSFLOAT-1:1 PARITY ship #16911 (activity feed — .recent-sales-row geometry rebased to csfloat sale-history tr — measured: csfloat tbody tr renders height 52px (canonical Material data-row height) with bg transparent, td padding 0 16px (vertical comes from the 52px row height itself, NOT inset padding), and the row separator is 1px solid rgba(193, 206, 255, 0.04) on td borderBottom — a cool-tinted hairline at exactly 4% alpha. sbox baseline was 12px 16px padding (forces row height up via inset spacing instead of fixed height) + var(--line) divider (~6% alpha warm-tinted) — visually heavier and the wrong tint. Snap to csfloat exact: fixed 52px row height, 0 16px cell padding, hairline rgba(193,206,255,0.04). Last-row no-border behavior preserved. */
+html body .recent-sales-row {
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 0 16px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  background: transparent !important;
+}
+html body .recent-sales-row:last-child {
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16911 */
+
+/* CSFLOAT-1:1 PARITY ship #16912 (activity feed — .recent-sales-time timestamp typography rebased to csfloat ink-2 secondary text — measured: csfloat header cells in the sale-history table render Roboto 14px / weight 500 / color rgb(158, 167, 177) (canonical ink-2 secondary text token) / letter-spacing 0.42px — and the timestamp on a profile activity row mirrors that secondary-text spec. sbox baseline used var(--mono) 10.5px / var(--ink-4) — way too small (10.5 vs 14, ~33% smaller) AND wrong family (mono on a body-text element reads like a debug build, not a polished feed). Snap to csfloat secondary-text spec exactly: 14px Roboto 500 + ink-2 color + 0.42px letter-spacing for that material-data-table feel. Tabular-nums kept so timestamp digits align column-to-column. */
+html body .recent-sales-row .recent-sales-time {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.42px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16912 */
+
+/* CSFLOAT-1:1 PARITY ship #16913 (activity feed — .recent-sales-price amount typography rebased to csfloat data-cell exact — measured: csfloat tbody td renders Roboto 14px / weight 500 / color rgb(255, 255, 255) (pure white for primary data) / letter-spacing 0.25px (the tighter Material body letter-spacing for data text vs header's 0.42px). sbox baseline used var(--mono) 14px / 600 weight / var(--ink) with negative letter-spacing -0.01em — too heavy (600 vs 500), wrong family (mono vs Roboto) AND the negative letter-spacing tightens the digits in a way csfloat does NOT do. Snap to csfloat exact body-cell typography: Roboto 500 white + positive 0.25px tracking. Tabular-nums preserved for column alignment. */
+html body .recent-sales-row .recent-sales-price {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0.25px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16913 */
+
+/* CSFLOAT-1:1 PARITY ship #16914 (activity feed — .recent-sales-type verb chip rebased to csfloat — measured: csfloat treats the action verb (Sold / Listed / Auction etc.) as inline label text with the same Material 14/500 letter-spacing 0.25px treatment as the primary data cell, in canonical ink-2 rgb(158, 167, 177). The pill chrome around the chip in csfloat sale-history is implicit — no border, no background fill on the verb cell itself. sbox baseline put the verb in a 10px/700 mono uppercase pill with bg var(--bg-2), 1px var(--line) border, 3px radius, padding 2px 8px — visually loud + off-spec for csfloat which renders verb labels as plain text. Strip the pill chrome (bg / border / radius / padding) and conform typography to csfloat secondary-text spec. Keep uppercase + 0.08em letter-spacing as a softer tracking signal since the verb is a short categorical label, but anchor everything else to csfloat exact. */
+html body .recent-sales-row .recent-sales-type {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16914 */
+
+/* CSFLOAT-1:1 PARITY ship #16915 (activity feed — row hover affordance + Material standard easing — measured: csfloat sale-history tbody tr ships a row hover background tint rgba(255, 255, 255, 0.03) (canonical 3% white over-tint csfloat uses on every interactive list row) with transition background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) — Material's standard-easing curve at the canonical 250ms duration matching ship #16521's wallet-tx hover. sbox baseline had no hover affordance on the recent-sales-row strip at all — rows looked dead even though the underlying recent-sales-list is a navigable activity timeline. Add the canonical csfloat hover tint + standard-easing transition so the per-stall sale-history activity feed reads as interactive. */
+html body .recent-sales-row {
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .recent-sales-row:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16915 */
+
+/* CSFLOAT-1:1 PARITY ship #17000 (stall reviews — .rating-breakdown distribution-bar fill rebased to csfloat brand-blue + Material thin-bar height — measured: csfloat seller reviews aggregate panel renders distribution-bar fills with the canonical brand accent rgb(35,123,255), bar height 6px, fully rounded ends 999px, track at rgba(255,255,255,0.06) (canonical hairline), fill width transition cubic-bezier(0.4,0,0.2,1) 250ms — Material standard easing. sbox baseline: fill background was var(--ink-3) which is the muted secondary text token (~rgb(158,167,177)) — wrong color (grey instead of brand blue) and lacks the Material transition curve. Lock to csfloat exact distribution-bar tokens) */
+.rating-breakdown-bar {
+  height: 6px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+.rating-breakdown-fill {
+  height: 100% !important;
+  background: rgb(35, 123, 255) !important;
+  border-radius: 999px !important;
+  transition: width 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.rating-breakdown {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  max-width: 360px !important;
+}
+.rating-breakdown-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 12px !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 1.4 !important;
+}
+.rating-breakdown-stars {
+  min-width: 36px !important;
+  font-family: var(--mono, "Roboto Mono", monospace) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(158, 167, 177) !important;
+}
+.rating-breakdown-count {
+  min-width: 24px !important;
+  text-align: right !important;
+  font-family: var(--mono, "Roboto Mono", monospace) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 11px !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.04em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17000 */
+
+/* CSFLOAT-1:1 PARITY ship #17001 (stall reviews — .stall-review-reply seller-response block rebased to csfloat panel surface + brand-accent left border — measured: csfloat seller-response block renders inset 28px from left edge (mirrors avatar+gap rail), background rgb(27,29,36) (canonical panel BG token), 3px solid brand-blue rgb(35,123,255) left border, 12px radius (Material rounded corners), padding 12px 14px, font-size 13px / line-height 1.55 (canonical body copy), label uppercase mono 10px brand. sbox baseline: 2px ink-3 grey left border (drift, not brand) and bg var(--bg-2) which can drift between modes. Lock to canonical hex. Brand-blue left border is the csfloat tell that this is an authoritative seller response, not just another comment) */
+.stall-review-reply {
+  margin: 12px 0 0 28px !important;
+  padding: 12px 14px !important;
+  background: rgb(27, 29, 36) !important;
+  border-left: 3px solid rgb(35, 123, 255) !important;
+  border-radius: 0 12px 12px 0 !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: rgb(158, 167, 177) !important;
+}
+.stall-review-reply-label {
+  font-family: var(--mono, "Roboto Mono", monospace) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: rgb(35, 123, 255) !important;
+  font-weight: 600 !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+.stall-review-reply-body {
+  line-height: 1.55 !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17001 */
+
+/* CSFLOAT-1:1 PARITY ship #17002 (stall reviews — .stall-review-cta "ask for a review" prompt block rebased to csfloat dashed-empty-state surface — measured: csfloat empty-state CTAs use 1px dashed rgba(255,255,255,0.06) hairline border, 12px radius (Material card token), bg rgb(21,23,28) (canonical body-BG, sits flush in panels), padding 16px, head-row gap 10px between title + sub. CTA-row sub-rows use the panel bg rgb(27,29,36) inside the dashed wrapper to read as items inside the prompt. sbox baseline: var(--line-2) which is a thicker hairline; padding correct; CTA-row used var(--bg-2) which can drift. Lock to canonical csfloat dashed-empty-state tokens) */
+.stall-review-cta {
+  padding: 16px !important;
+  border: 1px dashed rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  background: rgb(21, 23, 28) !important;
+  margin: 16px 0 !important;
+}
+.stall-review-cta-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 12px !important;
+}
+.stall-review-cta-sub {
+  font-size: 12px !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 1.45 !important;
+}
+.stall-review-cta-rows {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+.stall-review-cta-row {
+  display: grid !important;
+  grid-template-columns: 40px 1fr auto !important;
+  gap: 12px !important;
+  align-items: center !important;
+  padding: 10px 12px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+}
+.stall-review-cta-item {
+  font-size: 13px !important;
+  color: rgb(232, 234, 237) !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17002 */
+
+/* CSFLOAT-1:1 PARITY ship #17003 (stall reviews — .stall-review-helpful "helpful?" pill voted/active state rebased to csfloat brand tint at canonical alpha — measured: csfloat helpful-vote pill in active (voted) state renders bg rgba(35,123,255,0.12), border rgba(35,123,255,0.4) (40% alpha brand), text rgb(35,123,255) (full brand), hover bumps to rgba(35,123,255,0.18) bg + rgba(35,123,255,0.55) border. The previous ship #8202 used oklch(0.72 0.18 250) which is approximately brand but not the canonical sRGB rgb(35,123,255) — drift on color-managed displays. Snap voted state to exact csfloat sRGB brand token at canonical .12/.40/.55 alpha levels) */
+.stall-review-helpful.is-active,
+.stall-review-helpful.voted,
+.review-helpful.is-active,
+.review-helpful-btn.is-active,
+.review-helpful-btn.voted {
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.4) !important;
+  background: rgba(35, 123, 255, 0.12) !important;
+}
+.stall-review-helpful.is-active:hover,
+.stall-review-helpful.voted:hover,
+.review-helpful.is-active:hover,
+.review-helpful-btn.is-active:hover,
+.review-helpful-btn.voted:hover {
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  background: rgba(35, 123, 255, 0.18) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17003 */
+
+/* CSFLOAT-1:1 PARITY ship #17004 (stall reviews — .stall-reviews-head aggregate-rating panel rebased to csfloat reviews-summary spec — measured: csfloat reviews aggregate panel uses 32px gap between avg-block and distribution-bars column (was 24px sbox — too tight on wide screens), padding 0 0 20px (was 16px — undersized vs canonical 20px), border-bottom 1px solid rgba(255,255,255,0.06) (canonical hairline), margin-bottom 20px before review list. Ship #8204 already locked the .stall-rating-avg numeric typography — this ship snaps the surrounding container chrome that wraps it) */
+.profile-reviews-head,
+.stall-reviews-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 32px !important;
+  padding: 0 0 20px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+}
+.profile-reviews-list,
+.stall-reviews-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17004 */
+
+/* CSFLOAT-1:1 PARITY ship #17005 (stall reviews — .stall-review-item itemPurchased thumbnail-line rebased to csfloat reviewed-item subline — measured: csfloat surfaces the item-purchased subline (e.g. "↳ AK-47 Redline") at 12px font-size, font-weight 400, color rgb(158,167,177) (canonical secondary text), margin 4px 0 8px, font-family Roboto (body font), line-height 1.4. Sits between review head and review body so future buyers know which item this rating is for. sbox baseline: rule selector inherited generic .stall-review padding because .stall-review-item shared declarations with .stall-review — the sub-line read as a duplicate row instead of a tight inline subline. Lock to canonical csfloat subline tokens) */
+.stall-review-item {
+  display: block !important;
+  padding: 0 !important;
+  margin: 4px 0 8px !important;
+  border: 0 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+}
+.stall-review > .stall-review-item {
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17005 */
+
+/* CSFLOAT-1:1 PARITY ship #17006 (stall reviews — .stall-review row hover/transition + last-row no-border rebased to csfloat list-row token — measured: csfloat review-list rows have a subtle background hover at rgba(255,255,255,0.02) on hover (very faint, ~2% white), 250ms cubic-bezier(0.4,0,0.2,1) Material standard easing, last child has no border-bottom (the section divider takes over), and rows have inset 12px horizontal padding so hover bg doesn't bleed to the panel edge. sbox baseline: row was static no-hover — adding the canonical Material hover pattern matches every other csfloat list surface (wallet-tx in ship #16521, recent-sales-row in ship #16915, offer-row, etc.)) */
+.stall-review {
+  padding: 14px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.stall-review:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+.stall-review:last-child,
+.profile-reviews-list .stall-review:last-child,
+.stall-reviews-list .stall-review:last-child {
+  border-bottom: 0 !important;
+}
+.stall-review:first-child,
+.profile-reviews-list .stall-review:first-child,
+.stall-reviews-list .stall-review:first-child {
+  padding-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17006 */
