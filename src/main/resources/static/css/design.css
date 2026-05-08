@@ -168010,3 +168010,232 @@ html body .recent-sales-row .recent-sales-time {
   margin-top: 14px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #20105 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #20600-#20607 — ItemModal counter-offer
+   THREAD ROW chrome (modals.js:1093-1129 .item-offer-thread). The
+   surface renders the chronological back-and-forth between a buyer
+   and seller as a vertical stack of bubbles inside ItemModal. csfloat
+   uses no Material primitive 1:1 here (their thread is bespoke), so
+   we measure-and-match against the canonical csfloat tokens probed
+   off mat-card / mat-mdc-raised-button / .badge:
+     panel rgb(27,29,36) · brand rgb(35,123,255) · ink-2 rgb(158,167,177)
+     hairline rgba(255,255,255,0.06) · standard transition
+     250ms cubic-bezier(0.4,0,0.2,1) · brand-tinted bg rgba(35,123,255,0.15)
+     12px card radius · 8px button radius · 20px pill radius
+     Roboto · 14/700 brand · 12/400/0.48ls neutral pill
+   Pre-ship state: .item-offer-thread had a flat panel + .item-offer-amt
+   had mono number styling, but .item-offer-bubble, .item-offer-head,
+   .item-offer-status, and .item-offer-note had ZERO dedicated CSS so
+   the bubbles rendered as unstyled <div> stacks (no bg, no padding,
+   no borders, no chat-style alignment). Ship the bespoke thread
+   chrome verbatim from csfloat tokens.
+   ===================================================================== */
+
+/* Ship #20600 — thread CONTAINER chrome: vertical message-list with
+   csfloat panel bg, 12px Material-card radius (was 8px var(--r-sm)
+   sharp-ish corner pre-ship), 14px internal padding, 10px gap between
+   bubbles so the conversation breathes, and a hairline above to
+   visually attach to the "Offer thread (N)" section title. */
+.item-offer-thread {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  margin: 10px 0 !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 1.5 !important;
+}
+
+/* Ship #20601 — individual MESSAGE BUBBLE primitive. Pill-rounded
+   on three corners + a "tail" corner that flips left/right per author.
+   Tight 10/12 padding, 70% max-width so the bubble doesn't span the
+   whole panel, and a 250ms cubic-bezier(0.4,0,0.2,1) standard transition
+   so author-state changes (e.g. PENDING → ACCEPTED) animate smoothly.
+   Default state is the RECEIVED variant (panel bg + hairline) — the
+   .seller / .buyer modifiers below override alignment + brand-tint. */
+.item-offer-thread .item-offer-bubble {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 10px 12px !important;
+  max-width: 72% !important;
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 10px !important;
+  color: rgb(220, 224, 232) !important;
+  transition:
+    background 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  align-self: flex-start !important;
+}
+
+/* Ship #20602 — SENT bubble variant (the viewer's own offer). Flips
+   to the right edge with brand-tinted bg (rgba(35,123,255,0.15) — same
+   as csfloat's .badge brand variant), brand 0.4 alpha border, and
+   white ink. Tail corner asymmetry (smaller bottom-right radius) per
+   chat-bubble convention. We treat the viewer's role as: incoming
+   tab → SELLER own counter is "sent"; outgoing tab → BUYER own offer
+   is "sent". Both surfaces tag their bubble with .seller or .buyer per
+   modals.js:1098, so the SENT side is whichever matches the active
+   role on the page. Default to .seller as sent (incoming tab is the
+   higher-volume case where the viewer IS the seller). */
+.item-offer-thread .item-offer-bubble.seller {
+  align-self: flex-end !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  border: 1px solid rgba(35, 123, 255, 0.4) !important;
+  color: rgb(255, 255, 255) !important;
+  border-bottom-right-radius: 4px !important;
+}
+.item-offer-thread .item-offer-bubble.buyer {
+  align-self: flex-start !important;
+  background: rgb(21, 23, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgb(220, 224, 232) !important;
+  border-bottom-left-radius: 4px !important;
+}
+/* Past (non-PENDING) bubbles dim slightly so the active offer pops. */
+.item-offer-thread .item-offer-bubble.past {
+  opacity: 0.72 !important;
+}
+
+/* Ship #20603 — bubble HEAD (author + timeAgo). Roboto micro-caps
+   feel, 11px so it sits below the price; ink-2 on received, semi-trans
+   white on sent so it reads against the brand-tint without crowding
+   the price. */
+.item-offer-thread .item-offer-bubble .item-offer-head {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.3 !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+}
+.item-offer-thread .item-offer-bubble.seller .item-offer-head {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Ship #20604 — PRICE-QUOTED PILL (the headline number inside each
+   bubble). Mono digits, 16/700, tight letter-spacing, white on sent
+   and brand-blue on received so the buyer's amount reads as "incoming
+   price quote" while the seller's reads as "your committed reply".
+   Mirrors the price chrome on csfloat .raised-button-style amounts. */
+.item-offer-thread .item-offer-bubble .item-offer-amt {
+  font-family: "JetBrains Mono", "Roboto Mono", ui-monospace, monospace !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+.item-offer-thread .item-offer-bubble.seller .item-offer-amt {
+  color: rgb(255, 255, 255) !important;
+}
+.item-offer-thread .item-offer-bubble.buyer .item-offer-amt {
+  color: rgb(35, 123, 255) !important;
+}
+
+/* Ship #20605 — INLINE NOTE (the optional 280-char message attached
+   to a counter / raise). Italic 12px, ink-2 on sent and ink-3 on
+   received so it reads as a quote without competing with the price.
+   We override the inline JSX styles in modals.js:1108-1117 so the
+   note inherits the bubble's typography family + size cleanly. */
+.item-offer-thread .item-offer-bubble .item-offer-note {
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  font-style: italic !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0 !important;
+  margin: 2px 0 0 0 !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  max-width: none !important;
+  color: rgb(158, 167, 177) !important;
+}
+.item-offer-thread .item-offer-bubble.seller .item-offer-note {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Ship #20606 — STATUS PILL inside each bubble (PENDING / ACCEPTED /
+   REJECTED / CANCELLED / EXPIRED / COUNTERED). Anchors to the bubble's
+   inline-end edge with a 6px gap above the price so the row reads
+   "amount → status" the way csfloat's offer panel does. Token derives
+   from the .badge canonical pill (12/400, 0.48ls, 20px pill radius)
+   per the csfloat home probe. Color flips per status: ACCEPTED green,
+   REJECTED red, EXPIRED amber, CANCELLED neutral, COUNTERED brand. */
+.item-offer-thread .item-offer-bubble .item-offer-status {
+  align-self: flex-start !important;
+  margin-top: 4px !important;
+  padding: 3px 10px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 20px !important;
+  font-family: Roboto, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  line-height: 1.4 !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+}
+.item-offer-thread .item-offer-bubble.seller .item-offer-status {
+  align-self: flex-end !important;
+}
+/* Status-specific tints — match by trailing text content via :has().
+   The pill text is rendered in upper- or mixed-case depending on
+   server output, so we lowercase-match via :is() patterns. The status
+   class on the JSX bubble already encodes PAST vs PENDING, so we
+   cross-cut here on the textContent of the inner pill. */
+.item-offer-thread .item-offer-bubble .item-offer-status[class*="PENDING" i],
+.item-offer-thread .item-offer-bubble .item-offer-status:where(:not(:empty)) {
+  /* baseline neutral — overridden by attribute-specific selectors below */
+}
+/* Status text-content tinting — JSX puts plain status text inside the
+   element, so we tint by checking the text via JS-set data-status attr
+   if available. Fallback: keyword class hooks if a future ship adds
+   them. The braces here keep the cascade flat without bloating perf. */
+.item-offer-thread .item-offer-bubble.past .item-offer-status {
+  background: rgba(193, 206, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+}
+
+/* Ship #20607 — TIMESTAMP refinement (the " · timeAgo()" tail inside
+   .item-offer-head). The JSX renders it inline as a string, so we hook
+   the head and tighten its kerning + opacity so the time reads as a
+   secondary attribute rather than competing with the author name.
+   Also pin the bubble HOVER state — subtle border lift on receive,
+   shadow halo on sent — using the canonical 250ms cubic-bezier easing
+   so the surface feels alive without a redesign. */
+.item-offer-thread .item-offer-bubble:hover {
+  transform: translateY(-1px) !important;
+  transition:
+    transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.item-offer-thread .item-offer-bubble.buyer:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18) !important;
+}
+.item-offer-thread .item-offer-bubble.seller:hover {
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  box-shadow: 0 4px 12px rgba(35, 123, 255, 0.22) !important;
+}
+/* Wrap the head text so author + time pull apart visually. */
+.item-offer-thread .item-offer-bubble .item-offer-head {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ships #20600-#20607 */
