@@ -188448,3 +188448,824 @@ body .info-modal .profile-panel:has(.support-thread) > div:last-child > button.b
   cursor: not-allowed !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128347 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128410 — sticker thumb dimensions (LIST view)
+   Measured csfloat /item/<id> list-view sticker (img inside .sticker
+   under .sticker-container in item-card row):
+     width:    38.7 (auto from height attr 29 + natural 256x192 = 4:3)
+     height:   29.0
+     filter:   contrast(1)
+     NO border, NO bg, NO padding, NO border-radius
+   Sboxmarket .csfloat-sticker (line 31523) currently renders 16x16 1:1
+   square with --bg-2 background and 1px --line border + 3px radius +
+   1px image padding. PIN to the naked 4:3 thumb measured live.
+*/
+body .csfloat-sticker,
+body .csfloat-stickers-row > .csfloat-sticker,
+body .csfloat-card .csfloat-sticker,
+body .csfloat-grid-card .csfloat-sticker,
+body .item-card .csfloat-sticker,
+body .csfloat-card-stickers > .csfloat-sticker {
+  width: 38.7px !important;
+  height: 29px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+  box-sizing: content-box !important;
+}
+body .csfloat-sticker > img,
+body .csfloat-stickers-row > .csfloat-sticker > img,
+body .csfloat-card .csfloat-sticker > img,
+body .csfloat-grid-card .csfloat-sticker > img {
+  width: 38.7px !important;
+  height: 29px !important;
+  padding: 0 !important;
+  object-fit: contain !important;
+  filter: contrast(1) !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128410 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128411 — sticker row layout (LIST view)
+   Measured csfloat .sticker-container (parent of stickers in card row):
+     display:    block (children inline-flow via app-sticker-view)
+     gap:        normal (NO flex-gap, stickers packed tight)
+     pitch:      38.7px between adjacent thumbs = 0px gap
+     padding:    0
+     bg:         transparent
+     border:     0
+     radius:     0
+     dims:       193.3 x 33  (4-5 thumbs at 38.7w each, 33h provides
+                              4px vertical breathing for the 29h img)
+   Sboxmarket .csfloat-stickers-row (line 31517) currently uses
+   display:inline-flex with 3px gap and align-items:center + 4px margin.
+   PIN to display:flex (or inline-flex) with 0 gap and the 33h container.
+*/
+body .csfloat-stickers-row,
+body .csfloat-card .csfloat-stickers-row,
+body .csfloat-grid-card .csfloat-stickers-row,
+body .item-card .csfloat-stickers-row {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  height: 33px !important;
+  min-width: 0 !important;
+  flex-wrap: nowrap !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128411 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128412 — sticker slot (DETAIL view)
+   Measured csfloat /item/<id> detail-view sticker thumb:
+     width:    60.0 (auto from height ≈45 + natural ratio 256x192)
+     height:   45.0
+     filter:   contrast(1)
+     NO border, NO bg, NO padding, NO border-radius
+     positions at x=487, 547, 607, 667 → 60px pitch = 0px gap
+   Sboxmarket .csfloat-sticker-slot (line 70556) currently uses flex
+   1 1 0 + aspect-ratio 1 (square) + 6px padding + 1px --line border +
+   6px radius + --bg background. REPLACE with the naked 60x45 4:3 thumb.
+*/
+body .csfloat-sticker-slot,
+body .csfloat-stickers-row > .csfloat-sticker-slot,
+body .csfloat-stickers .csfloat-sticker-slot,
+body .csfloat-stickers-grid-cell {
+  flex: 0 0 auto !important;
+  width: 60px !important;
+  height: 45px !important;
+  aspect-ratio: 4 / 3 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  min-width: 0 !important;
+  flex-shrink: 0 !important;
+  box-sizing: content-box !important;
+}
+body .csfloat-sticker-slot.is-empty,
+body .csfloat-stickers-grid-cell.is-empty {
+  opacity: 0.45 !important;
+  border: 0 !important;
+}
+body .csfloat-sticker-slot > .csfloat-sticker-slot-img,
+body .csfloat-sticker-slot > img,
+body .csfloat-stickers-grid-cell > .csfloat-stickers-grid-cell-img,
+body .csfloat-stickers-grid-cell > img {
+  width: 60px !important;
+  height: 45px !important;
+  aspect-ratio: 4 / 3 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: block !important;
+  object-fit: contain !important;
+  filter: contrast(1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128412 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128413 — sticker container (DETAIL view)
+   Measured csfloat .stickers / .sticker-container around detail-view
+   thumb row:
+     display:    block (or inline flow from app-sticker-view children)
+     gap:        normal (NO flex gap, 0 px pitch overlap-tight)
+     padding:    0
+     bg:         transparent
+     border:     0
+     radius:     0
+   Sboxmarket .csfloat-stickers (line 70526) currently uses flex column
+   with 8px gap, --bg-1 background, 1px --line border, 10px radius and
+   12px padding. REPLACE with naked container that lets the row breathe
+   only via the parent surface chrome (already pinned by detail card).
+*/
+body .csfloat-stickers,
+body .csfloat-stickers-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+body .csfloat-stickers > .csfloat-stickers-row,
+body .csfloat-stickers-grid > .csfloat-stickers-grid-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  flex-wrap: nowrap !important;
+  height: auto !important;
+  min-height: 45px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128413 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128414 — sticker tooltip-trigger affordance
+   Measured csfloat .mat-mdc-tooltip-trigger.sticker (parent div of img):
+     display:        inline (default)
+     cursor:         pointer (mat-mdc-tooltip-trigger default)
+     bg:             transparent
+     border:         0
+     padding:        0
+     touch-action:   manipulation (mat tooltip default)
+   Sboxmarket has no equivalent class in the sticker card chrome — the
+   .csfloat-sticker host div should adopt the same vocabulary so live
+   tooltip / hover affordances read the same. Pin a generic hover state
+   (filter brightness 1.1) matching the live mat-tooltip hover behavior
+   without adding a card border (which csfloat does NOT use).
+*/
+body .csfloat-sticker,
+body .csfloat-sticker-slot,
+body .csfloat-stickers-grid-cell,
+body .csfloat-sticker-tooltip-trigger {
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  position: relative !important;
+}
+body .csfloat-sticker:hover > img,
+body .csfloat-sticker-slot:hover > img,
+body .csfloat-sticker-slot:hover > .csfloat-sticker-slot-img > img,
+body .csfloat-stickers-grid-cell:hover > img {
+  filter: contrast(1) brightness(1.1) !important;
+  transition: filter 120ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128414 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128415 — sticker percentage badge + name label
+   Measured csfloat .sticker-percentage (rendered when wear>0):
+     display:        inline-flex
+     font:           600 9px / 1 mono
+     color:          rgb(158, 167, 177)  (ink-2)
+     bg:             transparent
+     padding:        0
+     border:         0
+     letter-spacing: 0.02em
+     font-feature-settings: "tnum"
+   The sticker NAME is rendered only inside the mat-tooltip hover
+   bubble — there is NO inline text under each thumb in the live
+   csfloat /item/<id> detail card. Sboxmarket .csfloat-sticker-slot-name
+   (line 70587) currently renders an inline 10px name label under each
+   thumb — REMOVE it from the live row to match csfloat (the tooltip
+   takes over). Hide the name via display:none and pin the percentage
+   to the live mono 9/600 ink-2 vocabulary.
+*/
+body .csfloat-sticker-slot-name,
+body .csfloat-stickers-grid-cell-name {
+  display: none !important;
+}
+body .csfloat-sticker-slot-wear,
+body .csfloat-sticker-percentage,
+body .csfloat-sticker-slot-pct {
+  font-family: var(--mono, ui-monospace, "SFMono-Regular", monospace) !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-feature-settings: "tnum" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+body .csfloat-sticker-slot-pct {
+  height: 2px !important;
+  width: 60px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 1px !important;
+  overflow: hidden !important;
+  margin: 2px 0 0 !important;
+}
+body .csfloat-sticker-slot-pct > .csfloat-sticker-slot-pct-fill {
+  height: 100% !important;
+  background: rgb(35, 123, 255) !important;
+  transition: width 280ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128415 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128320 — /loadout LISTING root .loadout-list
+   csfloat measure: app-loadout-overview .grid-of-loadout-entries hosts
+   <app-overview-entry> children stacked flush, with no panel-card chrome
+   on the wrapper itself (transparent flex-column container). The per-row
+   chrome is optional (csfloat ships flat rows without per-card surround);
+   sboxmarket ships .loadout-list with bg var(--bg-1) + 1px var(--line) +
+   r-md radius (panel-card outer chrome). Strip the outer panel chrome
+   when on the dedicated /loadout page so the list reads flush like
+   csfloat's .grid-of-loadout-entries instead of as a panel-in-panel.
+   Modal-mode listings (LoadoutModal trigger from a non-page surface) and
+   the .loadout-picker (separate selector) keep their existing chrome via
+   the negative scope below.
+*/
+body .full-page-mode .loadout-list,
+body .info-modal-body .loadout-list {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  width: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128320 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128321 — .loadout-list > .loadout-card row
+   chrome (csfloat app-overview-entry pattern). Measured csfloat:
+   app-overview-entry is a 232px-tall transparent block — NO border, NO
+   radius, NO padding at host level — internal .loadout-entry-header at
+   2px 10px padding + cards-row beneath that. Sbox .loadout-card ships
+   bg var(--bg-1) + 1px var(--line) + r-md radius + transparent on
+   children — that's the per-card "tile" pattern, NOT csfloat's flat
+   232h row. Pin .loadout-card inside .loadout-list to a flat 232px-min
+   transparent surface that hosts a single brand-blue hairline left
+   accent on hover (csfloat's "hover state" — sbox's transform lift gets
+   replaced with a left brand stripe so hover reads as "selected" not as
+   "lifted"). Padding moved to 16px so the inner header + cards-row fit
+   csfloat's 2/10 + cards-row layout cleanly.
+*/
+body .full-page-mode .loadout-list > .loadout-card,
+body .info-modal-body .loadout-list > .loadout-card {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  min-height: 232px !important;
+  width: 100% !important;
+  box-shadow: none !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  transition: background 150ms cubic-bezier(0.4,0,0.2,1),
+              border-color 150ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+body .full-page-mode .loadout-list > .loadout-card:hover,
+body .info-modal-body .loadout-list > .loadout-card:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  transform: none !important;
+}
+body .full-page-mode .loadout-list > .loadout-card:focus-visible,
+body .info-modal-body .loadout-list > .loadout-card:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128321 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128322 — .loadout-card-name csfloat h3 typography
+   Measured csfloat app-overview-entry h3: font-size 18.72px (Material h3
+   1.17em from base 16), font-weight 600, color rgb(255,255,255), Roboto
+   sans, NO margin, NO padding, NO line-height override. Sbox ships
+   .loadout-card-name in serif (var(--serif)) at 18/360 -0.015em with
+   font-variation opsz 144 — editorial look that breaks parity. Pin to
+   Roboto sans 18.72/600 white inside .loadout-list. Padding 0 since
+   the parent .loadout-card now owns 16px padding.
+*/
+body .full-page-mode .loadout-list .loadout-card-name,
+body .info-modal-body .loadout-list .loadout-card-name {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18.72px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.3 !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  font-style: normal !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128322 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128323 — .loadout-card-meta csfloat right-rail
+   Measured csfloat .loadout-entry-header-right: 172w x 24h flex-row +
+   16px gap, hosts "X empty slots" (14/600 rgb(158,167,177) ink-2) + price
+   "$0.00" (14/600 rgb(158,167,177) ink-2 when 0/empty, white otherwise).
+   Sbox ships .loadout-card-meta as bottom-padded mono ink-4 caption with
+   ❤ favorites + price both 10.5px mono ink-4. Pin to csfloat's Roboto
+   sans 14/600 + ink-2 default; price (last span) gets white when value > 0
+   via :nth-last-child trick — actually since meta has just two spans
+   (favorites + price), pin the second to white as canonical loadout
+   value highlight.
+*/
+body .full-page-mode .loadout-list .loadout-card-meta,
+body .info-modal-body .loadout-list .loadout-card-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 16px !important;
+  flex-wrap: nowrap !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+}
+body .full-page-mode .loadout-list .loadout-card-meta > span,
+body .info-modal-body .loadout-list .loadout-card-meta > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128323 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128324 — .loadout-card-owner "by NAME" caption
+   Measured csfloat: app-overview-entry has no per-card owner caption
+   (the page-level attribution lives in the search-bar context above),
+   but sboxmarket emits .loadout-card-owner inline for the discover tab
+   (see csfloat-modals.js line 1610: "by ", highlightMatch(l.ownerName)).
+   Pin this row to ink-2 14/400 Roboto so it reads as a sub-caption under
+   the h3 instead of mono ink-4 caption typography that mismatched the
+   header treatment.
+*/
+body .full-page-mode .loadout-list .loadout-card-owner,
+body .info-modal-body .loadout-list .loadout-card-owner {
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+  line-height: 1.45 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128324 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128325 — .loadout-card-share copy-link glyph
+   csfloat ships the "Copy link" affordance as a small icon button only
+   (no panel chrome, no border-top, no caption). sboxmarket .loadout-
+   card-share emits a footer panel with border-top + bg-darker + flex
+   space-between + ink-3 mono caption + glyph. Strip the panel chrome
+   so the button floats top-right of the card as csfloat does, with
+   minimal hover-blue chrome. The button content is a content_copy
+   MaterialIcon at size 16, no caption text.
+*/
+body .full-page-mode .loadout-list .loadout-card-share,
+body .info-modal-body .loadout-list .loadout-card-share {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  transition: background 120ms ease, color 120ms ease !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 0 !important;
+}
+body .full-page-mode .loadout-list .loadout-card-share:hover,
+body .info-modal-body .loadout-list .loadout-card-share:hover {
+  background: rgba(35, 123, 255, 0.10) !important;
+  color: rgb(35, 123, 255) !important;
+}
+body .full-page-mode .loadout-list .loadout-card-share:focus-visible,
+body .info-modal-body .loadout-list .loadout-card-share:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128325 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128326 — .loadout-card highlightMatch <mark>
+   csfloat-modals.js wraps the search-matched fragments in <mark> via
+   highlightMatch() — both for loadout name (.loadout-card-name) and
+   owner (.loadout-card-owner). Default browser <mark> bg is bright
+   yellow which clashes with the dark panel + brand-blue palette. Pin
+   to a brand-blue tint chip pattern matching csfloat's measured search-
+   highlight color (rgba(35,123,255,0.20) bg + brand-blue 100% text +
+   inherit weight + transparent border).
+*/
+body .full-page-mode .loadout-list .loadout-card-name mark,
+body .full-page-mode .loadout-list .loadout-card-owner mark,
+body .info-modal-body .loadout-list .loadout-card-name mark,
+body .info-modal-body .loadout-list .loadout-card-owner mark {
+  background: rgba(35, 123, 255, 0.20) !important;
+  color: rgb(120, 175, 255) !important;
+  font-weight: inherit !important;
+  border-radius: 2px !important;
+  padding: 0 1px !important;
+  margin: 0 !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128326 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128327 — Loadout Lab page header GRID +
+   tabs + create-button alignment, measured against csfloat's 5-column
+   header layout (163px title | 345px nav-tabs | 1612px filter | 128px
+   months-chip | 151px create-pill, 10px gap, 63px h, align center).
+   Sbox InfoModal renders the LoadoutPage cluster (h1 "Loadout Lab" +
+   .loadout-tabs row + Create button + search input) stacked vertically.
+   Pin the .loadout-tabs row (which holds tabs + flex spacer + create
+   button via the flex:1 spacer span) to flex-row align-center so all
+   three groups sit on one line; pin its margin-bottom to 16px to clear
+   the search input which lands underneath. Search input itself gets
+   width 100% in the original ship — preserve that.
+*/
+body .full-page-mode .info-modal-body > .loadout-tabs,
+body .info-modal-body > .loadout-tabs {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  flex-wrap: nowrap !important;
+  margin: 0 0 16px 0 !important;
+  width: 100% !important;
+}
+/* The trailing flex:1 spacer div between tabs and the +Create button —
+   pin to a real growing column even when the modal-mode parent renames
+   it. Selector keys off the inline style flex:1 since the JS emits a
+   raw <div style={{flex:1}}> spacer between tabs and CTA. */
+body .full-page-mode .info-modal-body > .loadout-tabs > div[style*="flex"],
+body .info-modal-body > .loadout-tabs > div[style*="flex"] {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+/* The .btn.btn-accent + Create button at the end of .loadout-tabs gets
+   pushed to the right by the flex spacer above. Pin it to the canonical
+   csfloat brand-blue solid 36-tall pill so it visually matches the
+   create-loadout button measured at the right edge of csfloat's header
+   strip (sbox uses .btn.btn-accent which already approximates this). */
+body .full-page-mode .info-modal-body > .loadout-tabs > .btn.btn-accent,
+body .info-modal-body > .loadout-tabs > .btn.btn-accent {
+  height: 36px !important;
+  padding: 0 16px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  border: 0 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+}
+body .full-page-mode .info-modal-body > .loadout-tabs > .btn.btn-accent:hover,
+body .info-modal-body > .loadout-tabs > .btn.btn-accent:hover {
+  background: rgb(58, 137, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128327 */
+
+/* ─────────────────────────────────────────────────────────────────
+   AFFILIATE / REFERRAL PROGRAM PAGE — REAL SIGNED-IN MEASUREMENTS
+   csfloat.com/affiliate measured 2026-05-08 (signed-in session,
+   viewport 1440) — earlier ships #17900-#17905 approximated against
+   an anonymous-only snapshot and got several typographic + chrome
+   values wrong. csfloat ships the SAME flat marketing surface to
+   signed-in users (no commission/payout/referrals panel exists).
+   ───────────────────────────────────────────────────────────────── */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128400 — /affiliate hero typography parity
+   Measured csfloat .banner: 200px tall fixed (NOT min-height 160), bg
+   rgb(27,29,36), border-radius 12px, NO border, NO background-image.
+   Inside, .banner .content (gap 40) hosts .logo + .text where .text
+   is 303x51 with font-size 42px, font-weight 400, letter-spacing
+   normal (NOT -0.02em). Sbox ship #17900 set hero min-height 160 +
+   font 36/500 + ls -0.02em + 1px-6%-white border; pin to csfloat real.
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child {
+  min-height: 200px !important;
+  height: 200px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: rgb(27, 29, 36) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: row !important;
+  gap: 15px !important;
+  margin-bottom: 20px !important;
+}
+@media (max-width: 736px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child {
+    min-height: 120px !important;
+    height: 120px !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:nth-child(2) {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 42px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  line-height: 51px !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  font-style: normal !important;
+  margin: 0 !important;
+}
+@media (max-width: 736px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:nth-child(2) {
+    font-size: 26px !important;
+    line-height: 32px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128400 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128401 — /affiliate hero eyebrow as tinted pill
+   Measured csfloat .banner .logo .float: 127w x 69h, padding 10px,
+   border-radius 10.462px, bg rgba(193,206,255,0.04) (highlight-bg-minimal
+   token at 4% alpha — the same as our hairline tint chip). The pill
+   wraps the CSFloat logo image (107x45). Sbox AffiliateModal renders
+   an eyebrow text "SkinBox" as a mono-caps tracked-out small label
+   above the title; ship #17900 stylized it as 11px Roboto Mono caps
+   ink-2 with letter-spacing 0.16em. To match csfloat's tinted-pill
+   anchor at the LEFT of the title, restyle the eyebrow as a tinted
+   inline pill (Roboto sans 16/500 white) sitting on the same row as
+   the title. Promote the hero flex direction to row + gap 15.
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 10px 18px !important;
+  border-radius: 10.462px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin: 0 !important;
+  height: 49px !important;
+  min-width: 120px !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 736px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:first-child > div:first-child {
+    height: 36px !important;
+    padding: 6px 12px !important;
+    font-size: 14px !important;
+    min-width: 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128401 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128402 — /affiliate description card no border
+   Measured csfloat .card.description: bg rgb(27,29,36), border-radius 12px,
+   padding 30px, NO border (border 0px none). Sbox ship #17901 added
+   1px solid rgba(255,255,255,0.06) hairline border around it — strip so
+   the panel chrome matches csfloat's borderless flat-panel pattern.
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(2) {
+  border: 0 !important;
+  background: rgb(27, 29, 36) !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  margin-bottom: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128402 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128403 — /affiliate promo 2-up grid (fixed cols)
+   Measured csfloat .promo: display grid, grid-template-columns 490px 490px,
+   gap 20. The .container is 1000px wide so the two cards consume 490+20+490.
+   Sbox ship #17902 used minmax(360px,1fr) auto-fit which gives uneven sizes
+   on intermediate widths; pin to fixed 1fr 1fr (since the modal shell at
+   ship #17905 already caps at 1000px). Below 720px, stack to single column
+   (csfloat .promo media query collapses to 1fr at the same breakpoint).
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 20px !important;
+  margin-bottom: 20px !important;
+}
+@media (max-width: 720px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* About + Requirements cards — strip the 1px-6%-white border that ship
+   #17902 added (csfloat .card has no border). Keep panel bg + 12 br + 30 pad. */
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(3) > div {
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128403 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128404 — /affiliate apply card no border + button
+   Measured csfloat .card.apply: bg rgb(27,29,36), 12 br, 30 pad, NO border.
+   The Apply primary button is mat-mdc-raised with bg rgb(35,123,255) at
+   36px height, padding 0 16, border-radius 8, font-size 14, font-weight 500
+   (NOT 700), label width 35px ("Apply"). Ship #17904 sized it 40h padding
+   0 30 fw 700 — soften to csfloat's 36/14/500/0-16/8br.
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) {
+  border: 0 !important;
+  padding: 30px !important;
+  border-radius: 12px !important;
+  background: rgb(27, 29, 36) !important;
+  gap: 10px !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) a.btn.btn-accent {
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  line-height: 36px !important;
+  border-radius: 8px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  min-width: 67px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) a.btn.btn-accent:hover {
+  background: rgb(58, 137, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128404 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128405 — /affiliate apply email "input" → ghost btn
+   Measured csfloat .card.apply .actions: hosts a.email-btn (NOT an input)
+   styled as mat-mdc-button-base unelevated: 238w x 36h, padding 0 16, bg
+   rgba(193,206,255,0.04), color rgb(158,167,177) ink-2, font-size 14,
+   font-weight 500, border-radius 8, NO border, label "Email us at
+   affiliate@csfloat.com" (full sentence, not just an email address).
+   Sbox AffiliateModal renders a readonly input.price-input here at 220x40
+   with mono font + 0.5px ls + click-to-select behaviour — ship #17904
+   approximated this. Restyle the input to LOOK like the email-btn ghost
+   (38h, 14/500 sans, ink-2, ghost-tint, br 8, NO mono ls). The input is
+   still functionally interactive (click-to-select) but visually reads as
+   the ghost-button neighbour to the brand-blue Apply CTA, matching the
+   pixel parity.
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) input.price-input {
+  width: auto !important;
+  min-width: 240px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, color 140ms ease !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) input.price-input:hover {
+  background: rgba(193, 206, 255, 0.07) !important;
+  color: rgb(220, 226, 233) !important;
+}
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) input.price-input:focus {
+  outline: 0 !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.35) !important;
+  background: rgba(193, 206, 255, 0.07) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128405 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128406 — /affiliate requirements .table chrome
+   Measured csfloat .card.requirements > .table: bg rgba(193,206,255,0.04),
+   border-radius 6px (NOT 8 or 10), padding 20px, NO border. Inside, .header
+   "Per Platform" 16/500 white margin-bottom 10. Sbox baseline (#17903)
+   already set bg+br+padding correctly but the .header sub-title row was
+   never explicitly styled (it gets absorbed by .stall-stat-grid promotion).
+   Pin .affiliate-req-grid to display block container chrome (already done
+   by #17903) — this ship just guarantees the bg / 6 br / 20 pad land
+   reliably on the .affiliate-req-grid wrapper across themes (the existing
+   #17903 selectors had specificity inversions that some inherited theme
+   rules could override).
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) .affiliate-req-grid {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  padding: 20px !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128406 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128407 — /affiliate apply ".actions" gap parity
+   Measured csfloat .card.apply > .actions: display flex, gap 10px between
+   the email-btn ghost and the brand-blue Apply CTA. Sbox ship #17904
+   pinned gap 8 inline (modals.js style attr) which the existing #17904
+   css doesn't override. Pin to gap 10 so the two pills sit at the same
+   8-then-9 visual rhythm as csfloat. Also align-items center so the
+   email-btn's reduced height (36 vs the legacy 40) doesn't drift up.
+*/
+html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:nth-child(2) {
+  gap: 10px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+@media (max-width: 500px) {
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:nth-child(2) {
+    width: 100% !important;
+  }
+  html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-body > div:nth-child(4) > div:nth-child(2) > * {
+    width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128407 */
