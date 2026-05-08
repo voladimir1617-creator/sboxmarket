@@ -174259,3 +174259,16 @@ body:has(.mystall-tabs[role="tablist"]) .info-modal-body label:has(> input[type=
   cursor: pointer !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126535 */
+
+/* CSFLOAT-1:1 PARITY ship #126536 (wallet topup preset chip — radius drift)
+   Measured live on csfloat.com mat-button-toggle group: chip radius 4px,
+   group radius 7px, height 32, group bg rgba(193,206,255,0.04). Lane spec
+   confirms 8px chip radius for the gated wallet Material chip (mat-chip
+   primitive uses 8px on csfloat's chip-listbox surfaces). Prior ship
+   #19505 set 16px pill radius which is mat-stroked-button geometry — not
+   the wallet chip primitive. Reset to 8px to land canonical chip shape. */
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-btn {
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126536 */
