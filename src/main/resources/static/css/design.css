@@ -169126,3 +169126,265 @@ body .full-page-mode .buyorder-list > .buyorder-row.expired:hover {
   border-color: rgb(38, 40, 48) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #21105 */
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #20800-#20805 — SELL MODAL inventory empty
+   state (modals.js:9852-9907 — `source === 'steam' && steamData &&
+   steamList.length === 0` branch). When the user opens Sell and either
+   their Steam inventory is private/empty OR Steam rate-limited the
+   sync, the SellModal renders an `.empty-inline > .empty-icon + 3
+   inline-styled DIVs (headline/sub/action row)` block. Surface lives
+   inside `.modal.info-modal .info-modal-body` with `.sell-source-tabs`
+   as a sibling — that's what scopes these overrides off the generic
+   InfoModal empty-state (cart-empty, watchlist-empty etc.) which
+   already have their own ships #18600-#18605.
+
+   csfloat targets (probed off csfloat's `.csfloat-inv-empty*` family):
+     container 60/24 padding, gap 14, max-w 460 centered, dashed
+       hairline ring (rgba(255,255,255,0.06)), bg rgb(27,29,36)
+     icon disc 56x56 / radius 12 / bg rgb(31,33,38) /
+       1px dashed rgba(255,255,255,0.06) / color ink-2 22px glyph
+     title 500 18/24 white
+     msg 400 14/20 ink-2 max-w 420
+     CTA pair: ghost link "Open Steam privacy settings" 40h + accent
+       CTA "Re-sync now" 40h, gap 8
+
+   Use :has(.sell-source-tabs) to scope ONLY to Sell modal; cart and
+   watchlist InfoModals lack `.sell-source-tabs` so ships #18600-05
+   continue to own those surfaces.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #20800 (sell-empty container) — measured:
+     csfloat inventory empty surface uses dashed hairline ring +
+     panel bg + 60/24 padding + gap 14 + 460 max-w. sboxmarket Sell
+     empty surface inherits ship #18600's 56/24/56 padding (slightly
+     too tall) and lacks any ring (reads as floating text on the
+     modal body). Tighten to csfloat 60/24, add the dashed ring +
+     panel bg, keep gap+max-w. */
+.modal.info-modal .info-modal-body:has(.sell-source-tabs) .empty-inline {
+  padding: 60px 24px !important;
+  gap: 14px !important;
+  max-width: 460px !important;
+  margin: 8px auto 0 !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+  align-items: center !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20800 */
+
+/* CSFLOAT-1:1 PARITY ship #20801 (sell-empty hero icon disc) —
+     measured: csfloat .csfloat-inv-empty-icon is 56x56, radius 12px,
+     bg rgb(31,33,38), 1px dashed rgba(255,255,255,0.06), color
+     ink-3 with 22px glyph. sboxmarket sell-empty inherits ship
+     #18601's flat-square treatment (64x64 transparent, no border,
+     no radius) which collapsed the disc into bare glyph. Restore
+     the csfloat disc geometry for the SELL surface only. */
+.modal.info-modal .info-modal-body:has(.sell-source-tabs) .empty-inline > .empty-icon {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 12px !important;
+  background: rgb(31, 33, 38) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 auto 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+  flex: 0 0 auto !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > .empty-icon > .material-symbols-rounded,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > .empty-icon > span.mi {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20801 */
+
+/* CSFLOAT-1:1 PARITY ship #20802 (sell-empty headline) — measured:
+     csfloat empty-state primary headline on inventory surface is
+     Roboto 18/500/24lh white (csfloat-inv-empty-title size, scoped
+     to in-modal context — not the LARGE 29px variant). sboxmarket
+     sell-empty headline is rendered inline-styled at 15/600 — ship
+     #18602 lifts cart-empty headline to 29/500 (LARGE variant)
+     but that's too aggressive for the Sell modal which already
+     has its own header "Sell Items" at 24-29px above. Drop sell-
+     empty headline to csfloat's inv-empty title size 18/500/24lh. */
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > div[style*="font-weight: 600"][style*="font-size: 15"],
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > div[style*="fontWeight: 600"][style*="fontSize: 15"] {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20802 */
+
+/* CSFLOAT-1:1 PARITY ship #20803 (sell-empty sub-text body copy) —
+     measured: csfloat inv-empty msg is Roboto 14/400/20lh ink-2
+     rgb(158,167,177) max-w 420 centered. sboxmarket sell-empty sub
+     is inline-styled fontSize:13/maxWidth:420/lineHeight:1.55, and
+     ship #18603 only matches max-width:380 (cart's sub) so this
+     element is currently 13px. Lift to csfloat 14/400/20lh ink-2
+     and pin max-w 420 + symmetric auto margins for proper centering. */
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > div[style*="font-size: 13"][style*="max-width: 420"],
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > div[style*="fontSize: 13"][style*="maxWidth: 420"] {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  max-width: 420px !important;
+  margin: 0 auto 14px !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20803 */
+
+/* CSFLOAT-1:1 PARITY ship #20804 (sell-empty action row + ghost CTA
+     "Open Steam privacy settings") — measured: csfloat secondary CTA
+     on dark inv-empty is 40h / 0 22 pad / fw700 / r8 / transparent
+     bg / 1px solid rgba(255,255,255,0.06) hairline / ink-2 text /
+     gap 8 to icon. sboxmarket renders this as `<a class="btn btn-
+     ghost">Open Steam privacy settings <open_in_new>` with inline
+     height:32 / padding:0 14px / fontSize:12. Ship #18605 already
+     forces 40h/14fs/700w on btn-ghost inside .empty-inline, but the
+     trailing icon size + gap need normalization, and the action row
+     wrapper needs to flex-wrap centered on narrow modals. */
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline > div[style*="inline-flex"][style*="justify-content: center"][style*="flex-wrap: wrap"] {
+  display: inline-flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin: 6px auto 0 !important;
+  padding: 0 !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline a.btn.btn-ghost,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-ghost {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 22px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  text-decoration: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline a.btn.btn-ghost > .material-symbols-rounded,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline a.btn.btn-ghost > span.mi,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-ghost > .material-symbols-rounded,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-ghost > span.mi {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline a.btn.btn-ghost:hover,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20804 */
+
+/* CSFLOAT-1:1 PARITY ship #20805 (sell-empty primary CTA "Re-sync
+     now") — measured: csfloat primary on inv-empty surface is
+     40h / 0 22 pad / fw700 / r8 / bg rgb(35,123,255) / Roboto
+     white / leading material refresh icon at 16px / gap 8 to label.
+     sboxmarket renders inline as `<button class="btn btn-accent"
+     style="height:32 / padding:0 14 / fontSize:12">refresh
+     Re-sync now</button>`. Ship #18604 sets 40h/30p/14fs/700w on
+     btn-accent in .empty-inline but doesn't lock down the leading
+     icon size + gap, leaves font-family unset, and lacks
+     :disabled state for the syncing= true case (the button is
+     disabled during the sync round-trip). Lock all of the above. */
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-accent,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline a.btn.btn-accent {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 22px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  text-decoration: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 3px 1px -2px,
+              rgba(0, 0, 0, 0.14) 0 2px 2px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+  box-sizing: border-box !important;
+  margin-top: 0 !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-accent > .material-symbols-rounded,
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-accent > span.mi {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-accent:hover:not(:disabled) {
+  background: rgb(74, 148, 255) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 2px 4px -1px,
+              rgba(0, 0, 0, 0.14) 0 4px 5px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 10px 0 !important;
+}
+.modal.info-modal .info-modal-body:has(.sell-source-tabs)
+  .empty-inline button.btn.btn-accent:disabled {
+  background: rgba(35, 123, 255, 0.45) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20805 */
