@@ -160230,3 +160230,324 @@ html body nav.settings-nav .settings-group-divider {
   border: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #14805 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #15000-#15005 - sell wizard step indicator
+   Lane: /sell create-listing wizard step indicator + multi-step form chrome
+   Source: csfloat anon-gates /sell, /withdraw, /onboarding (no public
+   wizard primitive). Tokens applied per canonical csfloat dark theme:
+   BG rgb(21,23,28), panel rgb(27,29,36), brand rgb(35,123,255),
+   ink-2 rgb(158,167,177), hairline rgba(255,255,255,0.06),
+   Material elev-2 shadow, transition cubic-bezier(0.4,0,0.2,1) 150-300ms.
+   Local target: empty .sell-wizard / .wizard-step / .wizard-line / .wizard-step-label
+   classes (measured via injected test markup - getComputedStyle confirmed
+   zero styling: display:block, bg:transparent, color:#fff, padding:0, margin:0,
+   border:0, borderRadius:0, boxShadow:none).
+   Strategy: APPEND-only at file end, !important on every override.
+   ===================================================================== */
+
+/* ship #15000 - sell-wizard: container becomes flex row, brand-tinted panel chrome
+   (mat-stepper-horizontal layout @ 24px container padding, panel BG rgb(27,29,36),
+   hairline border, 12px elev-2 panel-radius matching csfloat card chrome) */
+.sell-wizard {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 720px !important;
+  margin: 0 auto 24px !important;
+  padding: 24px 32px !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 3px 1px -2px, rgba(0, 0, 0, 0.14) 0 2px 2px 0, rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15000 */
+
+/* ship #15001 - sell-wizard: step circle becomes a 24px material-stepper icon
+   (24x24 circle, 14px medium label, ink-2 base color rgb(158,167,177) on
+   subtle white-08 fill - matches mat-step-icon resting state per Material spec) */
+.sell-wizard .wizard-step {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: row !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  position: relative !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: default !important;
+  user-select: none !important;
+  font-size: 0 !important;
+}
+.sell-wizard .wizard-step::before {
+  content: counter(wizard-step-counter) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  margin-right: 8px !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  counter-increment: wizard-step-counter !important;
+}
+.sell-wizard {
+  counter-reset: wizard-step-counter !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15001 */
+
+/* ship #15002 - sell-wizard: current step state - brand-blue circle background,
+   white text, 4px brand-blue ring at 18% alpha (matches mat-step-icon-state-edit
+   active state, per csfloat brand rgb(35,123,255)) */
+.sell-wizard .wizard-step.is-current {
+  color: rgb(255, 255, 255) !important;
+}
+.sell-wizard .wizard-step.is-current::before {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: 0 0 0 4px rgba(35, 123, 255, 0.18) !important;
+}
+.sell-wizard .wizard-step.is-completed {
+  color: rgb(255, 255, 255) !important;
+}
+.sell-wizard .wizard-step.is-completed::before {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  content: "\2713" !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15002 */
+
+/* ship #15003 - sell-wizard: step label typography - 14px regular, ink-2 base,
+   white when current (matches mat-step-label resting/active states) */
+.sell-wizard .wizard-step-label {
+  display: inline-block !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.01em !important;
+  white-space: nowrap !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1), font-weight 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.sell-wizard .wizard-step.is-current .wizard-step-label {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+.sell-wizard .wizard-step.is-completed .wizard-step-label {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15003 */
+
+/* ship #15004 - sell-wizard: connecting line - 1px hairline that grows to fill,
+   16px horizontal margin per Material 2 mat-stepper-horizontal-line spec
+   (1px solid hairline rgba(255,255,255,0.06)) */
+.sell-wizard .wizard-line {
+  display: block !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  height: 0 !important;
+  min-width: 24px !important;
+  margin: 0 16px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-top-width: 1px !important;
+  border-top-style: solid !important;
+  border-top-color: rgba(255, 255, 255, 0.06) !important;
+  background-color: transparent !important;
+  transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.sell-wizard .wizard-line.is-completed {
+  border-top-color: rgba(35, 123, 255, 0.5) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15004 */
+
+/* ship #15005 - sell-wizard: nav button row - Back/Next/Submit at panel base,
+   12px gap, right-aligned with Back as ghost on the left.
+   Uses standard csfloat button shape: 6px radius, 36px height, 14px medium label,
+   24px horizontal padding. Submit/Next get brand fill, Back stays ghost */
+.sell-wizard-nav,
+.wizard-nav {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: 720px !important;
+  margin: 16px auto 0 !important;
+  padding: 16px 32px !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+}
+.wizard-nav .wizard-back,
+.sell-wizard-nav .wizard-back {
+  margin-right: auto !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.wizard-nav .wizard-back:hover,
+.sell-wizard-nav .wizard-back:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.wizard-nav .wizard-next,
+.wizard-nav .wizard-submit,
+.sell-wizard-nav .wizard-next,
+.sell-wizard-nav .wizard-submit {
+  height: 36px !important;
+  padding: 0 24px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 3px 1px -2px, rgba(0, 0, 0, 0.14) 0 2px 2px 0, rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.wizard-nav .wizard-next:hover,
+.wizard-nav .wizard-submit:hover,
+.sell-wizard-nav .wizard-next:hover,
+.sell-wizard-nav .wizard-submit:hover {
+  background-color: rgb(58, 138, 255) !important;
+}
+.wizard-nav .wizard-next:disabled,
+.wizard-nav .wizard-submit:disabled,
+.sell-wizard-nav .wizard-next:disabled,
+.sell-wizard-nav .wizard-submit:disabled {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15005 */
+
+/* CSFLOAT-1:1 PARITY ship #15100 (trades pill-row container — display:inline-flex, bg rgba(193,206,255,0.04), radius 7px, height 38px, padding 3px, overflow hidden) — measured on csfloat search filter primitive (mat-button-toggle-group): width auto, height 38px, padding 0, but inner pills carry margin:3px which is functionally equivalent to a 3px container padding. sbox renders these as bare divs with no background. */
+html body .trades-tabs-row,
+html body .trades-pills,
+html body .trade-filter-bar,
+html body div.trade-filter-bar {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 3px !important;
+  margin: 0 !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  border: 0 !important;
+  height: 38px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  vertical-align: middle !important;
+}
+/* When the bar carries an absolute-flex right side (CSV/search/role chips), allow it to grow to the row width while keeping pills cropped at 38px on the left. Wrap is forced off so a long state list sticks to the left + scrolls if needed rather than re-flowing into a second row that tears the visual. */
+html body div.trade-filter-bar {
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15100 */
+
+/* CSFLOAT-1:1 PARITY ship #15101 (trades pill geometry — height 32px, radius 4px, padding 0 12px, font-size 14px, weight 500, line-height 32px, letter-spacing 0.5px, transition all 150ms cubic-bezier(0.4,0,0.2,1)) — measured: csfloat label content carries padding 0 12px and the wrapping mat-button-toggle is 32px tall (with 3px container padding). sbox renders these as raw <button> with default browser chrome, oversized borders, and no shape. */
+html body .trades-tabs-row > .trades-tab,
+html body .trades-pills > .trades-pill,
+html body .trade-filter-bar > .offer-tab,
+html body .trade-filter-bar > .wallet-tx-filter-chip,
+html body div.trade-filter-bar > button.offer-tab,
+html body div.trade-filter-bar > button.wallet-tx-filter-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* Active/checked pill — bg rgba(255,255,255,0.08) over the rgba(193,206,255,0.04) container reads as the white-overlay highlight csfloat uses on .mat-button-toggle-checked, with crisp white text. */
+html body .trades-tabs-row > .trades-tab.is-active,
+html body .trades-pills > .trades-pill.is-on,
+html body .trade-filter-bar > .offer-tab.active,
+html body .trade-filter-bar > .wallet-tx-filter-chip.active,
+html body div.trade-filter-bar > button.offer-tab.active,
+html body div.trade-filter-bar > button.wallet-tx-filter-chip.active {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+/* Hover for unchecked pills — 4% white tint, mirrors mat-button-toggle hover state-layer. */
+html body .trades-tabs-row > .trades-tab:not(.is-active):hover,
+html body .trades-pills > .trades-pill:not(.is-on):hover,
+html body .trade-filter-bar > .offer-tab:not(.active):hover,
+html body .trade-filter-bar > .wallet-tx-filter-chip:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* Hover on already-active pill stays at 8% — no double tint. */
+html body .trades-tabs-row > .trades-tab.is-active:hover,
+html body .trades-pills > .trades-pill.is-on:hover,
+html body .trade-filter-bar > .offer-tab.active:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* Focus-visible — 1px ring inside the radius using the brand color, so keyboard navigators see clear focus without breaking the row geometry. */
+html body .trades-tabs-row > .trades-tab:focus-visible,
+html body .trades-pills > .trades-pill:focus-visible,
+html body .trade-filter-bar > .offer-tab:focus-visible,
+html body .trade-filter-bar > .wallet-tx-filter-chip:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 0 0 2px rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15101 */
