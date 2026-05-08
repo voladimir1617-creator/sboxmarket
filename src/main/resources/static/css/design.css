@@ -186300,3 +186300,2151 @@ body .full-page-mode .loadout-card-share {
   font-weight: 400 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128217 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128300 — /stall/{id} public hero panel surface
+   correction. EARLIER ship #16500 measured wrong values (assumed hero is
+   a panel surface with bg rgb(36,37,44) padding 24px border-radius 4px).
+   LIVE measurement on /stall/76561198181503811 (real public stall, user
+   logged in): hero is FLAT — no panel bg, no padding, no border-radius.
+   The avatar+name+pills row is a plain horizontal flex run with NO
+   surface chrome. Re-anchor the local hero to match: bg transparent,
+   padding 0, no border, no border-radius, no margin-bottom (the gap to
+   next section comes from grid gap on the parent stall-view, not from
+   hero padding/margin).
+   --------------------------------------------------------------------- */
+body app-stall-view .stall-hero,
+body .stall-view .stall-hero,
+body .public-stall .stall-hero {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 0 16px 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+body app-stall-view .stall-hero::before,
+body .stall-view .stall-hero::before {
+  display: none !important;
+  content: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128300 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128301 — /stall/{id} avatar dimensional lock.
+   EARLIER ship #16505 anchored avatar to 80×80 with flex 0 0 80px. LIVE
+   measurement on /stall/76561198181503811: <img> is 74×74, border-radius
+   6px (NOT round, NOT 50%), 2px solid transparent border (reserves the
+   ring slot for hover/focus state). Re-anchor with high-specificity to
+   override #16505 (80x80) AND any earlier 88px declaration. Inner img
+   gets object-fit:cover so a non-square Steam avatar is centered.
+   --------------------------------------------------------------------- */
+body app-stall-view .stall-hero .stall-avatar,
+body app-stall-view .stall-hero img.stall-avatar,
+body .stall-view .stall-hero .stall-avatar {
+  width: 74px !important;
+  height: 74px !important;
+  flex: 0 0 74px !important;
+  border-radius: 6px !important;
+  border: 2px solid transparent !important;
+  object-fit: cover !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+body app-stall-view .stall-hero .stall-avatar:hover,
+body app-stall-view .stall-hero .stall-avatar:focus-visible {
+  border-color: rgba(35, 123, 255, 0.45) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128301 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128302 — /stall/{id} seller-name typography.
+   EARLIER ship #16501 measured 24/32/500 white. LIVE measurement on
+   /stall/76561198181503811 confirms 24px / weight 500 / color white BUT
+   line-height is "normal" (browser default ~1.2 = ~28.8px), NOT 32px.
+   The 32px line-height was inherited from a global h2 baseline rule.
+   Re-anchor to live values, drop the bottom margin (hero is a flex row,
+   not a column), and make the name a SPAN-style inline element so the
+   verified pill sits inline-baseline-aligned without the h2 block-level
+   line-box stretching the row.
+   --------------------------------------------------------------------- */
+body app-stall-view .stall-hero .stall-name,
+body app-stall-view .stall-hero h2.stall-name,
+body .stall-view .stall-hero .stall-name {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  letter-spacing: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128302 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128303 — /stall/{id} verified pill correction.
+   EARLIER ship #16502 anchored to brand-fill (rgb(35,123,255) bg, white
+   text, 11px label, 18px height, 9px radius). LIVE measurement on
+   /stall/76561198181503811: verified pill is height 33, padding 8px 10px,
+   font 14/500, color ink-2 rgb(158,167,177), bg rgba(193,206,255,0.04)
+   (the canonical translucent surface tint), border-radius 20px (FULL
+   pill). Brand-fill blue is reserved for the checkmark glyph only — the
+   pill chrome is muted neutral. Re-anchor to neutral pill chrome.
+   --------------------------------------------------------------------- */
+body app-stall-view .stall-hero .seller-verified,
+body .stall-view .stall-hero .seller-verified,
+body app-stall-view .stall-hero .verified-pill {
+  height: 33px !important;
+  min-height: 33px !important;
+  padding: 8px 10px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+body app-stall-view .stall-hero .seller-verified::before {
+  /* checkmark glyph keeps the brand-blue accent — pill chrome stays neutral */
+  color: rgb(35, 123, 255) !important;
+}
+body app-stall-view .stall-hero .seller-verified:hover {
+  background: rgba(193, 206, 255, 0.07) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128303 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128304 — /stall/{id} app-stall-view filter
+   sidebar (.filter.sticky) surface. NEW measurement on real csfloat:
+   the live filter sidebar is NOT a panel surface — bg transparent,
+   padding 0, border 0, border-radius 12px (legacy / unused since bg is
+   transparent), width 350px, sticky position with top 85px (clears the
+   65px nav band plus a 20px breathing gap). Sections inside use flat
+   mat-expansion panels with their own bg (rgba(193,206,255,0.04)). Lock
+   the outer container so prior ships that gave it panel bg / padding /
+   hairline are defeated.
+   --------------------------------------------------------------------- */
+body app-stall-view .filter.sticky,
+body .stall-view .filter.sticky,
+body .public-stall .filter.sticky,
+body app-stall-view .stall-filter-sidebar {
+  width: 350px !important;
+  flex: 0 0 350px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 12px !important;
+  position: sticky !important;
+  top: 85px !important;
+  align-self: flex-start !important;
+}
+body app-stall-view .filter.sticky > * + *,
+body .stall-view .filter.sticky > * + * {
+  margin-top: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128304 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128305 — /stall/{id} sidebar section title
+   typography (State, Price, Wear, Special, Patterns labels). LIVE
+   measurement on /profile/watchlist (same .filter.sticky component as
+   /stall/{id}): the section labels are 12px / weight 700 / color WHITE
+   / letter-spacing 0.6px / NO uppercase. Earlier ship #16504 mis-anchored
+   these to ink-2 with uppercase + 0.04em tracking. Re-anchor to live.
+   --------------------------------------------------------------------- */
+body app-stall-view .filter.sticky .section-title,
+body app-stall-view .filter.sticky mat-expansion-panel-header .mat-content,
+body app-stall-view .filter.sticky mat-panel-title,
+body .stall-view .filter.sticky .filter-section-label {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0.6px !important;
+  text-transform: none !important;
+  line-height: 1.16 !important;
+}
+body app-stall-view .filter.sticky mat-expansion-panel-header {
+  padding: 0 !important;
+  background: transparent !important;
+  min-height: 36px !important;
+  height: 36px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128305 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128306 — /stall/{id} sidebar mat-button-toggle
+   group (All / Listed / Sold / Delisted state row). LIVE measurement on
+   the watchlist filter (same component): per-button height 32, font
+   16/400 white, bg rgba(193,206,255,0.04), border 0, border-radius 4px,
+   padding 0. Re-anchor for the muted-translucent surface treatment.
+   Tightened to 14px font for the narrower 350px sidebar so 4 toggles
+   fit cleanly with consistent 4px gaps.
+   --------------------------------------------------------------------- */
+body app-stall-view .filter.sticky mat-button-toggle-group,
+body app-stall-view .filter.sticky .mat-button-toggle-group,
+body .stall-view .filter.sticky mat-button-toggle-group {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  display: flex !important;
+  gap: 4px !important;
+  width: 100% !important;
+}
+body app-stall-view .filter.sticky mat-button-toggle,
+body app-stall-view .filter.sticky .mat-button-toggle,
+body .stall-view .filter.sticky mat-button-toggle {
+  flex: 1 1 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body app-stall-view .filter.sticky mat-button-toggle.mat-button-toggle-checked,
+body app-stall-view .filter.sticky .mat-button-toggle-checked {
+  background: rgba(193, 206, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+}
+body app-stall-view .filter.sticky mat-button-toggle .mat-button-toggle-button {
+  background: transparent !important;
+  border: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128306 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128307 — /stall/{id} item grid layout
+   correction. LIVE measurement on /stall/76561198181503811: item-card
+   width 246, height 471, transparent bg, no border, no padding. Grid
+   container is display:flex with gap 15px (NOT CSS grid with
+   grid-template-columns). The card carries its own internal panel
+   chrome — the grid wrapper is just a flex flow container. Lock the
+   layout so the grid doesn't reintroduce a card-wrapper bg/border that
+   stacks on top of the card's own surface (creating a double-panel).
+   --------------------------------------------------------------------- */
+body app-stall-view .stall-grid,
+body app-stall-view .item-grid,
+body .stall-view .item-grid,
+body .public-stall .item-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 15px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body app-stall-view .stall-grid > item-card,
+body app-stall-view .stall-grid > .item-card,
+body .stall-view .item-grid > item-card,
+body .stall-view .item-grid > .item-card {
+  width: 246px !important;
+  flex: 0 0 246px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128307 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128308 — /stall/{id} hero "Verified" / "Seller"
+   pill cluster spacing + KYC pill chrome. LIVE measurement: pill row
+   uses gap 6px between trust badges. The "Seller" pill (green) and
+   "KYC Approved" (large green button below the avatar+name row) follow
+   the muted-pill chrome convention but with brand-green accents. Earlier
+   ships left the pill row with no consistent gap. Lock the cluster
+   geometry so pills sit on a single inline-flex row with consistent
+   6px gap and the KYC primary button uses the brand-green surface.
+   --------------------------------------------------------------------- */
+body app-stall-view .stall-hero .name-row,
+body app-stall-view .stall-hero .pill-row,
+body app-stall-view .stall-hero .badges {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  margin-top: 4px !important;
+}
+body app-stall-view .stall-hero .seller-pill,
+body app-stall-view .stall-hero .pill.seller {
+  height: 24px !important;
+  padding: 4px 9px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: rgb(116, 215, 153) !important;
+  background: rgba(116, 215, 153, 0.12) !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+body app-stall-view .stall-hero .kyc-pill,
+body app-stall-view .stall-hero .pill.kyc,
+body app-stall-view .stall-hero .kyc-approved {
+  height: 33px !important;
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgb(116, 215, 153) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128308 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128310 — item-detail page header geometry
+   (item name + rarity bar + share + history button row).
+   --------------------------------------------------------------------
+   REAL surface: csfloat /item/<id> page-header. Lane-spec (signed-in
+   session, /item route, Glock-18 | Fade context). The page header
+   host (`.item-page-header`, mirror of the modal `.item-header`) is
+   a horizontal flex row at the top of the right rail — name on the
+   left, action buttons (Share / History / Watchlist) packed on the
+   right. Container measured: display flex, align-items center,
+   justify-content space-between, gap 12px, width 100%, padding
+   0 0 12px 0 (only bottom padding before the next surface), no bg,
+   no border, min-height 36px so the icon-buttons set the row height.
+   --------------------------------------------------------------------
+   PRIOR sboxmarket: the sboxmarket /item header was rendered as a
+   plain flex row without the locked min-height — when the right
+   rail's name wraps to 2 lines the row height jumps from 36 -> 56,
+   shoving the rarity stripe (#127920 ladder) down by 20px and
+   breaking alignment with the sticker row (#15700) that lives
+   directly below. Csfloat clamps the row to a single-line name; we
+   mirror with white-space:nowrap + overflow:hidden + ellipsis on
+   the name, then pin min-height 36 so the row never grows.
+   --------------------------------------------------------------------
+   csfloat conventions used here:
+     gap         12px (matches #126513 .item-actions row)
+     min-height  36px (matches the icon-button height in #126514)
+     name color  rgb(255,255,255), 18px / 600 / Roboto medium-bold
+     name lines  1 (ellipsis) — csfloat truncates and shows tooltip
+     padding     0 0 12px 0 (only bottom)
+   ---------------------------------------------------------------- */
+body .item-page-header,
+body app-item-page .item-page-header,
+body .item-page > .header,
+body .item-modal .item-header,
+body .item-modal > .header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  padding: 0 0 12px 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  min-height: 36px !important;
+  box-sizing: border-box !important;
+}
+body .item-page-header > .item-name,
+body .item-page-header > .name,
+body app-item-page .item-page-header > .item-name,
+body .item-modal .item-header > .item-name,
+body .item-modal .item-header > .name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body .item-page-header > .header-actions,
+body .item-page-header > .actions,
+body app-item-page .item-page-header > .actions,
+body .item-modal .item-header > .header-actions,
+body .item-modal .item-header > .actions {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  flex: 0 0 auto !important;
+  margin-left: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128310 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128311 — item-detail header rarity stripe
+   geometry (the colored under-name bar that signals rarity tier).
+   --------------------------------------------------------------------
+   REAL surface: csfloat renders a 2px-tall full-width tinted stripe
+   immediately below the item-name on the /item page-header (and on
+   the modal-mode header). The color resolves from the item rarity
+   tier (Consumer / Industrial / Mil-spec / Restricted / Classified
+   / Covert / Contraband / Knife). Lane-spec stripe height 2px,
+   border-radius 1px, padding-bottom 6px on the name so the stripe
+   sits flush under it, opacity 0.85 (slight desaturation so the
+   chrome reads as accent not as primary). Sboxmarket's prior /item
+   header lacked the stripe entirely - only the grid card variant
+   had a stripe (#127920 grid-card rarity overlay). Port the stripe
+   to the item-page header so the /item route matches the grid card
+   it was opened from.
+   --------------------------------------------------------------------
+   csfloat rarity color tokens (the SAME palette is used for the
+   stripe - measured from the live name `color` property per tier):
+     consumer     rgb(176,195,217)
+     industrial   rgb(94,152,217)
+     mil-spec     rgb(75,105,255)
+     restricted   rgb(136,71,255)
+     classified   rgb(211,44,230)
+     covert       rgb(235,75,75)
+     contraband   rgb(228,174,57)
+     knife/glove  rgb(228,174,57)
+   --------------------------------------------------------------------
+   The stripe element is generated via ::after on the .item-name span
+   so we don't need a markup change. The data-rarity attribute drives
+   the color; if data-rarity is absent we fall back to the brand blue
+   so the stripe is never invisible.
+   ---------------------------------------------------------------- */
+body .item-page-header > .item-name,
+body .item-modal .item-header > .item-name {
+  position: relative !important;
+  padding-bottom: 6px !important;
+}
+body .item-page-header > .item-name::after,
+body .item-modal .item-header > .item-name::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  border-radius: 1px !important;
+  background-color: rgb(35, 123, 255) !important;
+  opacity: 0.85 !important;
+  pointer-events: none !important;
+}
+body .item-page-header > .item-name[data-rarity="consumer"]::after,
+body .item-modal .item-header > .item-name[data-rarity="consumer"]::after {
+  background-color: rgb(176, 195, 217) !important;
+}
+body .item-page-header > .item-name[data-rarity="industrial"]::after,
+body .item-modal .item-header > .item-name[data-rarity="industrial"]::after {
+  background-color: rgb(94, 152, 217) !important;
+}
+body .item-page-header > .item-name[data-rarity="milspec"]::after,
+body .item-page-header > .item-name[data-rarity="mil-spec"]::after,
+body .item-modal .item-header > .item-name[data-rarity="milspec"]::after {
+  background-color: rgb(75, 105, 255) !important;
+}
+body .item-page-header > .item-name[data-rarity="restricted"]::after,
+body .item-modal .item-header > .item-name[data-rarity="restricted"]::after {
+  background-color: rgb(136, 71, 255) !important;
+}
+body .item-page-header > .item-name[data-rarity="classified"]::after,
+body .item-modal .item-header > .item-name[data-rarity="classified"]::after {
+  background-color: rgb(211, 44, 230) !important;
+}
+body .item-page-header > .item-name[data-rarity="covert"]::after,
+body .item-modal .item-header > .item-name[data-rarity="covert"]::after {
+  background-color: rgb(235, 75, 75) !important;
+}
+body .item-page-header > .item-name[data-rarity="contraband"]::after,
+body .item-page-header > .item-name[data-rarity="knife"]::after,
+body .item-page-header > .item-name[data-rarity="glove"]::after,
+body .item-modal .item-header > .item-name[data-rarity="contraband"]::after {
+  background-color: rgb(228, 174, 57) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128311 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128312 — item-detail header Share + History
+   icon-buttons (the small circular icon buttons in the header row).
+   --------------------------------------------------------------------
+   REAL surface: csfloat header right-side cluster contains 2-3
+   `mat-icon-button`s — Share (links icon), History (history clock
+   icon), and the Watchlist heart toggle. Lane-spec: each button is
+   a 36x36 transparent square with a 50% border-radius (becomes a
+   circle on hover/focus via mat-ripple state-layer), icon centered
+   20x20, icon color ink-2 rgb(158,167,177) at rest, brand
+   rgb(35,123,255) on hover. Sboxmarket prior rendered these as
+   square 32x32 buttons with default app accent - the dimensions
+   and rest-color drift made the row look heavier than csfloat's
+   airy header. Match exactly: 36x36, 50% radius, ink-2 rest, brand
+   hover, transparent rest bg, rgba(193,206,255,0.08) hover bg
+   (matches the .item-actions ripple state from #126517).
+   ---------------------------------------------------------------- */
+body .item-page-header .header-actions > button,
+body .item-page-header .header-actions > a,
+body .item-page-header .actions > button,
+body .item-page-header .actions > a,
+body .item-modal .item-header .header-actions > button,
+body .item-modal .item-header .actions > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .item-page-header .header-actions > button:hover,
+body .item-page-header .header-actions > button:focus-visible,
+body .item-page-header .header-actions > a:hover,
+body .item-page-header .header-actions > a:focus-visible,
+body .item-modal .item-header .header-actions > button:hover,
+body .item-modal .item-header .header-actions > button:focus-visible {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  color: rgb(35, 123, 255) !important;
+  outline: 0 !important;
+}
+body .item-page-header .header-actions > button:active,
+body .item-page-header .header-actions > a:active,
+body .item-modal .item-header .header-actions > button:active {
+  background-color: rgba(193, 206, 255, 0.12) !important;
+}
+body .item-page-header .header-actions > button > mat-icon,
+body .item-page-header .header-actions > button > svg,
+body .item-page-header .header-actions > button > .material-symbols-rounded,
+body .item-page-header .header-actions > button > .material-symbols-outlined,
+body .item-page-header .header-actions > a > mat-icon,
+body .item-page-header .header-actions > a > svg,
+body .item-modal .item-header .header-actions > button > mat-icon,
+body .item-modal .item-header .header-actions > button > svg {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  fill: currentColor !important;
+  color: inherit !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128312 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128260 — nav-dropdown panel chrome (translucent)
+   Pin .user-menu and the sibling nav-dropdown panels to csfloat's
+   themed-menu surface: rgba(21,23,28,0.8) + backdrop-filter blur(10px).
+   Drops the opaque var(--bg-1) baseline so the panel reads as a glassy
+   floating layer over the page like csfloat's MD3 menu surface.
+*/
+body .user-menu,
+body .notif-dropdown,
+body .tweaks-panel,
+body #user-menu-panel,
+body #notif-dropdown-panel {
+  background: rgba(21, 23, 28, 0.8) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128260 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128261 — nav-dropdown border + radius + shadow
+   Measured csfloat .mat-mdc-menu-panel.themed-menu computed:
+     border:        2px solid rgba(193,206,255,0.07)
+     border-radius: 15px
+     box-shadow:    rgba(0,0,0,0.2) 0 5px 5px -3px,
+                    rgba(0,0,0,0.14) 0 8px 10px 1px,
+                    rgba(0,0,0,0.12) 0 3px 14px 2px
+   Sbox baseline ships 1px var(--line-2) + var(--r-md) ≈ 10px + var(--shadow-2)
+   single-stop drop. Pin the 2px hairline + 15px radius + 3-stop MD-3 elevation
+   so the panel chrome matches csfloat's menu chip 1:1. NOTE — s&box CSS parser
+   only accepts SINGLE-VALUE box-shadow per the project quirk note; we ship the
+   web-targeted 3-stop here against the standard browser parser path used by
+   the SPA and trust the cascade fallback.
+*/
+body .user-menu,
+body .notif-dropdown,
+body .tweaks-panel,
+body #user-menu-panel,
+body #notif-dropdown-panel {
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128261 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128262 — nav-dropdown panel padding + width
+   Measured csfloat .mat-mdc-menu-panel computed:
+     padding:    0 (panel itself), inner content 8px 0 (mat-mdc-menu-content)
+     min-width:  112px, max-width: 280px
+   Csfloat rows extend FLUSH to the panel edges with only vertical 8px gutters
+   so hover ripple on a row paints to the rounded corners. Sbox .user-menu
+   baseline ships 6px padding around (the rows have a 6px gap from the panel
+   edge), and a hard 240px min-width. Strip the side padding, pin the vertical
+   gutters to 8px, and relax min-width so short labels (App / Tools sub-items)
+   pack as tight as csfloat's panel.
+*/
+body .user-menu,
+body .notif-dropdown,
+body .tweaks-panel,
+body #user-menu-panel,
+body #notif-dropdown-panel {
+  padding: 8px 0 !important;
+  min-width: 112px !important;
+  max-width: 280px !important;
+  overflow: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128262 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128263 — nav-dropdown row geometry (48h + 0 16)
+   Measured csfloat .mat-mdc-menu-item rows:
+     h:        48px
+     padding:  0 16px (no vertical padding — height enforces line)
+     border-radius: 0 (rows are flush rectangles, panel rounds the corners)
+   Sbox .user-menu-item baseline ships 10/12 padding + var(--r-sm) inner radius
+   so each row floats inside the panel with 6px gutters around it. Csfloat
+   ships flush 48-tall rows that span panel-edge to panel-edge. Strip the inner
+   radius, pin the 48h, and use horizontal-only padding so the icon+text row
+   reads as a tap-target plate.
+*/
+body .user-menu .user-menu-item,
+body .notif-dropdown .notif-item,
+body .tweaks-panel .tweaks-item,
+body #user-menu-panel .user-menu-item,
+body #notif-dropdown-panel .notif-item {
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128263 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128264 — nav-dropdown row typography (14/24/400)
+   Measured csfloat .mat-mdc-menu-item computed:
+     font:    14px / 24px / 400 Roboto, "Helvetica Neue", sans-serif
+     color:   rgb(255, 255, 255)        (white at rest — NOT the ink-2 grey
+                                         sbox uses on its rest state)
+   Sbox .user-menu-item ships 13/500 var(--ink-2) at rest and only flips to
+   --ink white on :hover. Csfloat keeps the rest state white so the panel
+   reads as a high-contrast quick-action menu (the hover state then lifts
+   with a translucent overlay rather than a color flip). Pin to the csfloat
+   color + font here so the row label reads at parity weight.
+*/
+body .user-menu .user-menu-item,
+body .notif-dropdown .notif-item,
+body .tweaks-panel .tweaks-item,
+body #user-menu-panel .user-menu-item,
+body #notif-dropdown-panel .notif-item {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: none !important;
+}
+body .user-menu .user-menu-item:hover,
+body .notif-dropdown .notif-item:hover,
+body .tweaks-panel .tweaks-item:hover,
+body #user-menu-panel .user-menu-item:hover,
+body #notif-dropdown-panel .notif-item:hover {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128264 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128265 — nav-dropdown leading icon (24x24, mr 16)
+   Measured csfloat .mat-mdc-menu-item > mat-icon computed:
+     width / height:  24px / 24px
+     color:           rgb(255, 255, 255)        (white at rest, matches label)
+     margin-right:    16px
+   Sbox .user-menu-item svg ships 16x16 var(--ink-3) with a 10px gap controlled
+   by the parent flex. Csfloat ships a 24x24 leading glyph with a hard 16px
+   right-margin and the SAME color as the label (white). Pin both the size and
+   the spacing so the icon optically leads the row at csfloat weight.
+*/
+body .user-menu .user-menu-item svg,
+body .user-menu .user-menu-item .material-icons,
+body .user-menu .user-menu-item .material-symbols-outlined,
+body .notif-dropdown .notif-item svg,
+body #user-menu-panel .user-menu-item svg,
+body #notif-dropdown-panel .notif-item svg {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  fill: rgb(255, 255, 255) !important;
+  margin-right: 16px !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128265 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128266 — nav-dropdown divider hairline (kill 1px)
+   Measured csfloat .mat-mdc-menu-panel.themed-menu (4-row Tools menu): NO
+   intra-panel divider elements — App / Trade Up Calculator / Float Checker /
+   Extension ship as 4 flush 48h rows with only 8/8 panel-padding above and
+   below the stack. Sbox .user-menu-divider ships a 1px var(--line) bar between
+   row groups (Profile | Wallet | Trades | Sell stack uses 4-5 dividers in
+   one panel). Strip the divider chrome to a near-invisible hairline so the
+   panel reads as a flush row stack like csfloat's Tools menu. Use the project's
+   `hairline` token rgba(255,255,255,0.06) for the residual line if any group
+   separation is needed — keeps the divider semantically present but visually
+   recessed to csfloat's parity.
+*/
+body .user-menu .user-menu-divider,
+body #user-menu-panel .user-menu-divider {
+  height: 1px !important;
+  margin: 4px 0 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128266 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128313 — item-detail main image area
+   container (the large preview in the left column of /item page).
+   --------------------------------------------------------------------
+   REAL surface: csfloat /item page lays out as a 2-column grid: left
+   column = item-image preview (square, dominant), right column =
+   info-rail (header + actions + sticker + float-bar + price-cmp +
+   recent-sales). Lane-spec image area: aspect-ratio 1/1 (square),
+   max-width 480px (locked), border-radius 12px (the panel-radius
+   token, distinct from the lightbox 8px in #126881 because the
+   in-page image carries more chrome), padding 24px (so the weapon
+   silhouette breathes inside the panel), background: linear-gradient
+   135deg from rgba(255,255,255,0.04) -> rgba(255,255,255,0.01) (a
+   subtle diagonal wash that lifts the weapon off the dark panel),
+   border 1px solid rgba(255,255,255,0.06) hairline.
+   --------------------------------------------------------------------
+   PRIOR sboxmarket: rendered the /item left image as a flat panel-bg
+   square with the weapon image stretching edge-to-edge - no padding,
+   no gradient wash, hard 8px radius matching the lightbox. The
+   image plate looked cramped and the rounded corners read undersized
+   against the 14px panel radius used elsewhere on the same page.
+   Lock the in-page image plate to 12px radius / 24px inner padding /
+   diagonal wash so it matches csfloat's airy weapon-display chrome.
+   ---------------------------------------------------------------- */
+body .item-page-image,
+body .item-page > .image,
+body .item-page > .item-image-area,
+body app-item-page .item-image-area,
+body .item-modal .item-image-area {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  aspect-ratio: 1 / 1 !important;
+  padding: 24px !important;
+  margin: 0 !important;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  ) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+body .item-page-image > img,
+body .item-page > .image > img,
+body .item-page > .item-image-area > img,
+body .item-modal .item-image-area > img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 auto !important;
+  pointer-events: auto !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128313 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128314 — item-detail recent-sales TABLE
+   wrapper geometry (the wrapper around the row table from #14704).
+   --------------------------------------------------------------------
+   REAL surface: csfloat recent-sales lives in a `.recent-sales-card`
+   panel beneath the price-comparison widget. The card wraps the
+   table with a subtle header strip showing `Recent Sales`. Lane-spec
+   panel padding 16px, border-radius 8px, background rgb(27,29,36)
+   (the canonical panel token), 1px hairline border at rgba(255,255,
+   255,0.06). The header strip inside has display flex, justify
+   space-between (label left, "View All" link right), padding-bottom
+   12px, font-size 14px / 600 / white for the label, font-size 12px
+   / 500 / brand for the link.
+   --------------------------------------------------------------------
+   PRIOR sboxmarket: rendered the recent-sales section as a bare
+   table without panel chrome - the rows from #14704 sat directly
+   on the page bg, breaking the consistent panel cadence. Wrap the
+   table in panel chrome so it matches the price-comparison widget
+   directly above it (#18806 reference-area). The row hairlines
+   (#14704) continue to live INSIDE the panel; the panel adds the
+   outer hairline so adjacent rows don't double-border.
+   ---------------------------------------------------------------- */
+body .recent-sales-card,
+body .recent-sales-panel,
+body app-item-page .recent-sales,
+body .item-page .recent-sales-section,
+body .item-modal .recent-sales-section {
+  display: block !important;
+  width: 100% !important;
+  padding: 16px !important;
+  margin: 0 !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+body .recent-sales-card > .recent-sales-header,
+body .recent-sales-panel > .recent-sales-header,
+body app-item-page .recent-sales > .header,
+body .item-page .recent-sales-section > .header,
+body .item-modal .recent-sales-section > .header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 0 0 12px 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+body .recent-sales-card > .recent-sales-header > .title,
+body .recent-sales-panel > .recent-sales-header > .title,
+body app-item-page .recent-sales > .header > .title,
+body .item-page .recent-sales-section > .header > .title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-transform: none !important;
+}
+body .recent-sales-card > .recent-sales-header > .view-all,
+body .recent-sales-panel > .recent-sales-header > .view-all,
+body app-item-page .recent-sales > .header > .view-all,
+body .item-page .recent-sales-section > .header > .view-all {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .recent-sales-card > .recent-sales-header > .view-all:hover,
+body .recent-sales-panel > .recent-sales-header > .view-all:hover {
+  color: rgb(75, 153, 255) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128314 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128315 — item-detail similar-items rail
+   (horizontal row of `MoreItems`-style cards beneath recent-sales).
+   --------------------------------------------------------------------
+   REAL surface: csfloat appends a "Similar Items" rail beneath the
+   recent-sales section showing the next 4-6 listings with the same
+   `defIndex+paintIndex` pair. Lane-spec: rail container padding
+   16px 0 0 0 (top margin from recent-sales), display flex, gap
+   12px, overflow-x auto, scroll-snap-type x mandatory; each card
+   is 200px wide flex-shrink:0, 4:5 aspect-ratio, panel bg
+   rgb(27,29,36), 1px hairline border, 8px radius, 12px padding,
+   scroll-snap-align start. Header strip above the rail uses the
+   same `.title` / `.view-all` pair as recent-sales (#128314).
+   --------------------------------------------------------------------
+   PRIOR sboxmarket: the similar-items rail wasn't styled - cards
+   stacked vertically because the rail container missed display:flex.
+   Lock the row layout so cards line up horizontally with proper
+   scroll-snap behavior on touch / trackpad swipe.
+   ---------------------------------------------------------------- */
+body .similar-items-rail,
+body .similar-items-section,
+body app-item-page .similar-items,
+body .item-page .similar-items-rail,
+body .item-modal .similar-items-rail {
+  display: block !important;
+  width: 100% !important;
+  margin: 16px 0 0 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-sizing: border-box !important;
+}
+body .similar-items-rail > .header,
+body .similar-items-section > .header,
+body app-item-page .similar-items > .header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 0 0 12px 0 !important;
+  margin: 0 !important;
+}
+body .similar-items-rail > .rail,
+body .similar-items-rail > .items,
+body .similar-items-section > .rail,
+body .similar-items-section > .items,
+body app-item-page .similar-items > .rail,
+body app-item-page .similar-items > .items {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  width: 100% !important;
+  padding: 4px 2px 12px 2px !important;
+  margin: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scroll-snap-type: x mandatory !important;
+  scroll-padding: 4px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.10) transparent !important;
+  box-sizing: border-box !important;
+}
+body .similar-items-rail > .rail::-webkit-scrollbar,
+body .similar-items-rail > .items::-webkit-scrollbar,
+body .similar-items-section > .rail::-webkit-scrollbar,
+body app-item-page .similar-items > .rail::-webkit-scrollbar {
+  height: 6px !important;
+}
+body .similar-items-rail > .rail::-webkit-scrollbar-thumb,
+body .similar-items-section > .rail::-webkit-scrollbar-thumb,
+body app-item-page .similar-items > .rail::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  border-radius: 3px !important;
+}
+body .similar-items-rail .similar-card,
+body .similar-items-rail .rail > .item-card,
+body .similar-items-rail .items > .item-card,
+body .similar-items-section .similar-card,
+body app-item-page .similar-items .similar-card {
+  flex: 0 0 200px !important;
+  width: 200px !important;
+  min-width: 200px !important;
+  max-width: 200px !important;
+  aspect-ratio: 4 / 5 !important;
+  padding: 12px !important;
+  margin: 0 !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  scroll-snap-align: start !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .similar-items-rail .similar-card:hover,
+body .similar-items-rail .rail > .item-card:hover,
+body app-item-page .similar-items .similar-card:hover {
+  background-color: rgb(33, 35, 43) !important;
+  border-color: rgba(35, 123, 255, 0.30) !important;
+  transform: translateY(-2px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128315 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128316 — item-detail page right-rail column
+   gap normalization (the vertical rhythm between header -> actions ->
+   sticker -> float-bar -> price-cmp -> recent-sales -> similar).
+   --------------------------------------------------------------------
+   REAL surface: csfloat /item right rail uses a uniform 16px gap
+   between successive panels - the `gap:16px` lives on the column
+   flexbox, NOT as `margin-top` on each panel. This decoupling is
+   important because individual panels (#126513 .item-actions, #15700
+   sticker-row, #15806 float-bar wrapper, #18806 reference-area, and
+   the new #128314 recent-sales-card and #128315 similar-items-rail)
+   all set their own `margin: 0` to stay self-contained - without
+   a parent `gap`, every adjacent pair would collapse to 0 spacing
+   and the rail would read as a single brick.
+   --------------------------------------------------------------------
+   PRIOR sboxmarket: the right rail had ad-hoc margins on individual
+   panels (the older 18811 / 126519 ships set `margin: 0 0 12px 0`),
+   producing an inconsistent 12 / 16 / 8 cadence depending on which
+   ship landed last. Lock the column to display:flex / flex-direction
+   :column / gap:16px so every panel inherits the same rhythm and
+   we can drop the per-panel bottom margins on future ships.
+   ---------------------------------------------------------------- */
+body .item-page-rail,
+body .item-page > .rail,
+body .item-page > .right-column,
+body app-item-page .item-page-rail,
+body .item-modal .item-rail,
+body .item-modal > .rail,
+body .item-modal > .right-column {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 280px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-sizing: border-box !important;
+}
+body .item-page-rail > *,
+body .item-page > .rail > *,
+body .item-page > .right-column > *,
+body app-item-page .item-page-rail > *,
+body .item-modal .item-rail > *,
+body .item-modal > .rail > *,
+body .item-modal > .right-column > * {
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128316 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128317 — auction grid card .history-btn
+   icon-only Material filled-tonal button correction.
+   --------------------------------------------------------------------
+   REAL surface (re-measured 2026-05-08, csfloat /search?type=auction):
+   the auction action row is THREE buttons, not two:
+       [ Auto Bid ]  [ Bid $price ]  [ history-icon ]
+   The third .history-btn is a square-ish icon-only filled-tonal button:
+       width: 36px (min-width:36px); height:40px; padding:0 10px;
+       background: rgba(193, 206, 255, 0.04);
+       color: rgb(255,255,255); border-radius:8px; border:0;
+       font:500 14px Roboto;
+   Houses a single mat-icon "history" (material-icons ligature) at 20px,
+   centered. Earlier ship #16509 locked the row geometry assuming TWO
+   buttons - the history-btn was missing entirely, so the grid card's
+   bid row read as a flat duo instead of the csfloat triplet.
+   --------------------------------------------------------------------
+   Fix: scope a .history-btn override that paints the same filled-tonal
+   surface as .auto-bid-btn (#16513) but at icon-button geometry, and
+   ensure the inner mat-icon centers without the MD ripple shifting
+   its baseline. min-width is the load-bearing token: MD's default
+   .mat-mdc-unelevated-button is min-width:64px, which would balloon
+   the icon button and steal width from .bid-btn.
+   ---------------------------------------------------------------- */
+body item-card .auction .history-btn,
+body item-card .auction button.history-btn,
+html body item-card .auction .history-btn,
+html body item-card .auction button.history-btn {
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 40px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font: 500 14px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body item-card .auction .history-btn mat-icon,
+body item-card .auction .history-btn .mat-icon,
+html body item-card .auction .history-btn mat-icon {
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+}
+body item-card .auction .history-btn:hover,
+html body item-card .auction .history-btn:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128317 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128318 — auction .timer color invariance
+   reaffirmation: timer stays brand-blue regardless of remaining time.
+   --------------------------------------------------------------------
+   REAL surface: csfloat exposes ONE css rule for the .timer span -
+       .auction-details .text .timer { font-weight:500; color:var(--primary-color); }
+   Re-measured 2026-05-08: the rule set is unchanged. There is no
+   .timer.warning, .timer.expiring, .timer.urgent, .timer[data-low],
+   .timer.red, or any data-attribute or class that switches the color
+   to amber or red as the auction nears 0. The countdown stays at
+   rgb(35,123,255) for its entire lifecycle.
+   --------------------------------------------------------------------
+   Earlier ships #16509-#16514 referenced "timer-low/timer-warning"
+   states by analogy with other auction sites (eBay, OPSkins). Those
+   were creative additions, NOT measured. This ship purges any such
+   state-based overrides and pins .timer to brand-blue with a high
+   enough specificity that descendant cascades cannot recolor it.
+   --------------------------------------------------------------------
+   Note: NOT setting font-size here (already 14px from #16510); ONLY
+   asserting color + weight + the absence of conditional states.
+   ---------------------------------------------------------------- */
+body item-card .auction-details .text .timer,
+body item-card .auction-details .text span.timer,
+body .auction-details .timer,
+body .auction-details-mobile .timer,
+html body item-card .auction-details .text .timer,
+html body .auction-details .timer {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-shadow: none !important;
+  animation: none !important;
+}
+body item-card .auction-details .text .timer.warning,
+body item-card .auction-details .text .timer.expiring,
+body item-card .auction-details .text .timer.urgent,
+body item-card .auction-details .text .timer.low,
+body item-card .auction-details .text .timer[data-low],
+body item-card .auction-details .text .timer[data-warning],
+html body .auction-details .timer.warning,
+html body .auction-details .timer.expiring,
+html body .auction-details .timer.urgent,
+html body .auction-details .timer.low {
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  animation: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128318 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128319 — auction grid card .bid-btn
+   Material outlined disabled-state token correction.
+   --------------------------------------------------------------------
+   REAL surface (re-measured 2026-05-08): when a card's bid CTA is in
+   the disabled state (own-listing, insufficient balance, or auction
+   closed), it renders as an MD outlined button with VERY specific
+   tokens that previous ships approximated:
+       background: rgba(0, 0, 0, 0)   (transparent — NOT rgb(27,29,36))
+       color:      color(srgb 1 1 1 / 0.38)  (38% white via P3 srgb)
+       border:     1px solid rgba(255, 255, 255, 0.12)
+       border-radius: 8px
+       padding:    0 10px
+       height:     40px
+       min-width:  64px (mat default; ours stretches to fill)
+       font:       500 14px Roboto
+   The .mat-mdc-button-disabled hook pins these. There is NO accent
+   color tinting on the disabled border (csfloat does NOT bleed
+   brand-blue into the disabled outline).
+   --------------------------------------------------------------------
+   Earlier ship lineage assumed an accent-tinted disabled border (the
+   common Angular Material default with custom theming). Snap to the
+   measured neutral 12%-white outline.
+   --------------------------------------------------------------------
+   Active (enabled) state still goes through the standard outlined
+   styling; this ship ONLY pins the disabled appearance to match the
+   measured CSS tokens. The .auction row's flex-grow rules in #128322
+   make this button the elastic middle column.
+   ---------------------------------------------------------------- */
+body item-card .auction .bid-btn,
+body item-card .auction button.bid-btn,
+html body item-card .auction .bid-btn {
+  height: 40px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  font: 500 14px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  border: 1px solid rgba(35, 123, 255, 0.50) !important;
+  color: rgb(35, 123, 255) !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body item-card .auction .bid-btn:hover:not(:disabled):not(.mat-mdc-button-disabled),
+html body item-card .auction .bid-btn:hover:not(:disabled):not(.mat-mdc-button-disabled) {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+body item-card .auction .bid-btn[disabled],
+body item-card .auction .bid-btn.mat-mdc-button-disabled,
+body item-card .auction button.bid-btn[disabled],
+html body item-card .auction .bid-btn[disabled],
+html body item-card .auction .bid-btn.mat-mdc-button-disabled {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  cursor: default !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128319 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128320 — mat-progress-bar BUFFER fill
+   correction (overrides the wrong "transparent buffer" assertion in
+   ship #16514).
+   --------------------------------------------------------------------
+   REAL surface (re-measured 2026-05-08, .auction-details progress):
+       .mdc-linear-progress__buffer-bar background-color is
+       rgba(35, 123, 255, 0.25)  — a 25%-alpha brand-blue track.
+   The earlier #16514 measurement claimed the buffer was transparent;
+   that was wrong. With a transparent buffer the progress bar would
+   be invisible at low progress percentages (early auction lifecycle)
+   because the only colored region would be the primary-bar fill,
+   which is tiny when scaleX≈0.05. CSFloat shows a faint blue track
+   the full width so the bar reads as "track + fill" the entire time.
+   --------------------------------------------------------------------
+   The PRIMARY bar inner remains solid brand-blue rgb(35,123,255)
+   (border-top-color, the MD linear-progress trick). The buffer-bar
+   is a separate underlay div that holds the dim track tint. Both
+   live at 4px height inside the 4px progress-bar shell.
+   ---------------------------------------------------------------- */
+body item-card .auction-details .mdc-linear-progress__buffer-bar,
+body .auction-details .mdc-linear-progress__buffer-bar,
+body .auction-details-mobile .mdc-linear-progress__buffer-bar,
+html body item-card .auction-details .mdc-linear-progress__buffer-bar {
+  background: rgba(35, 123, 255, 0.25) !important;
+  background-color: rgba(35, 123, 255, 0.25) !important;
+  height: 4px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  flex-basis: 100% !important;
+}
+body item-card .auction-details .mdc-linear-progress__buffer,
+html body item-card .auction-details .mdc-linear-progress__buffer {
+  background: transparent !important;
+  height: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128320 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128321 — auction-details .text two-tone
+   typography lock: "Expires in" label vs timer countdown.
+   --------------------------------------------------------------------
+   REAL surface (re-measured 2026-05-08): the .text row inside
+   .auction-details is a flex space-between row containing TWO inline
+   text fragments with DIFFERENT typography:
+       LEFT  - "Expires in"
+               color: rgb(255, 255, 255)   (full white, NOT ink-2)
+               font: 400 14px Roboto       (regular weight)
+       RIGHT - the countdown (e.g. "06:11:35:04")
+               color: rgb(35, 123, 255)    (brand blue, see #128318)
+               font: 500 14px Roboto       (medium weight)
+   The contrast in weight (400 vs 500) is part of the visual hierarchy:
+   the label whispers, the timer is what your eye lands on.
+   --------------------------------------------------------------------
+   Earlier ships #16510 only locked the row geometry (justify-between
+   + 17px height + 14px font) but left the label color/weight to
+   inheritance. On sboxmarket the label was bleeding into ink-2
+   (rgb(158,167,177)) because of an upstream `.footer span` rule that
+   muted secondary text. Snap the label to full white + 400, and
+   pin the timer to medium weight (the timer color is owned by #128318).
+   --------------------------------------------------------------------
+   Implementation: target the leading text node of .text via a
+   `:first-child` selector AND a generic descendant text rule. The
+   timer element is `span.timer` so it is picked off separately
+   without recoloring it.
+   ---------------------------------------------------------------- */
+body item-card .auction-details .text,
+body .auction-details .text,
+html body item-card .auction-details .text {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-top: 5px !important;
+  min-height: 17px !important;
+  width: 100% !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 14px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+}
+body item-card .auction-details .text > *:not(.timer):not(.mat-icon),
+body .auction-details .text > *:not(.timer):not(.mat-icon),
+html body item-card .auction-details .text > *:not(.timer) {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128321 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128322 — auction action row 3-column
+   flex distribution: [Auto Bid 64] | [Bid grow] | [history 36].
+   --------------------------------------------------------------------
+   REAL surface (re-measured 2026-05-08, csfloat .auction container):
+       display: flex; gap: 10px; flex-direction: row;
+       height: 40px (single-row); width matches card content (~218px
+       inside a 246px card with 14px horizontal padding).
+   Children measured at this card width:
+       .auto-bid-btn   width 64px   (intrinsic - MD default min-width)
+       .bid-btn        width 98px   (FLEX-GROW: stretches to fill)
+       .history-btn    width 36px   (locked by #128317)
+   Math: 64 + 10 + 98 + 10 + 36 = 218 OK
+   --------------------------------------------------------------------
+   The load-bearing rule: ONLY the .bid-btn flex-grows. .auto-bid-btn
+   and .history-btn stay at intrinsic / locked widths. Earlier ship
+   #16509 locked the row to "two equal-weight 40px buttons" - that
+   was a TWO-button approximation. The real csfloat row is THREE
+   columns with an asymmetric grow distribution.
+   --------------------------------------------------------------------
+   At narrower card widths (responsive), the .bid-btn shrinks first
+   (it has flex-shrink:1); the locked sidekicks do not shrink. This
+   matches csfloat's behavior down to the breakpoint where the row
+   collapses to .auction-details-mobile (handled separately).
+   ---------------------------------------------------------------- */
+body item-card .auction,
+body .auction,
+html body item-card .auction {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-sizing: border-box !important;
+}
+body item-card .auction > .auto-bid-btn,
+html body item-card .auction > .auto-bid-btn {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 64px !important;
+  max-width: none !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+}
+body item-card .auction > .bid-btn,
+html body item-card .auction > .bid-btn {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+}
+body item-card .auction > .history-btn,
+html body item-card .auction > .history-btn {
+  flex: 0 0 36px !important;
+  width: 36px !important;
+  flex-grow: 0 !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128322 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128400 — FloatDB body + variant background
+   Measured csfloat body: bg rgb(21,23,28), padding 0 60px, color white.
+   Sboxmarket DatabaseModal currently inherits the standard modal body
+   bg (--bg-0 ≈ #1a1c20). When the modal is mounted as a /database route
+   variant body it should pin to the csfloat raw rgb(21,23,28). Pin both
+   the .db-page wrapper and the .db-page-variant root used by the
+   route-mounted (non-modal) database surface so the floor of the page
+   matches csfloat 1:1.
+*/
+body .db-page,
+body .db-page-variant,
+body .csfloat-db,
+body .csfloat-db-page,
+body .info-modal-body[data-route="/database"],
+body .info-modal-body[data-route="/db"] {
+  background: rgb(21, 23, 28) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128400 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128401 — FloatDB item-card panel (mat-card)
+   Measured csfloat item-card .mat-card computed:
+     bg:               rgb(27, 29, 36)
+     border:           2px solid rgba(0, 0, 0, 0)  (transparent shell)
+     border-radius:    12px
+     box-shadow MD-1:  0 2px 1px -1px rgba(0,0,0,0.2),
+                       0 1px 1px 0 rgba(0,0,0,0.14),
+                       0 1px 3px 0 rgba(0,0,0,0.12)
+     padding:          0 (children handle gutters)
+     display:          flex
+     dimensions:       246 x 420 (whole tile)
+   Sboxmarket .csfloat-db-grid > .csfloat-db-card and the table-row
+   db-thumb container chrome currently use --bg-1 + --r-md (~10px).
+   Pin the panel rgb + 12px radius + MD-1 elevation 1:1 to csfloat.
+*/
+body .csfloat-db-card,
+body .csfloat-db-grid > .csfloat-db-card,
+body .csfloat-db-grid > .item-card,
+body .floatdb-card,
+body .floatdb-tile,
+body .db-card-tile {
+  background: rgb(27, 29, 36) !important;
+  border: 2px solid rgba(0, 0, 0, 0) !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  box-shadow:
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 246px !important;
+  min-height: 420px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128401 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128402 — FloatDB grid layout (flex 15px gap)
+   Measured csfloat .content-wrapper computed:
+     display:    flex
+     flex-wrap:  wrap   (cards reflow on narrow viewports)
+     gap:        15px
+     padding:    0 (parent .container handles gutters)
+   Sboxmarket .csfloat-db-grid currently uses CSS grid with
+   grid-template-columns: repeat(auto-fill, minmax(...)). Pin to flex
+   wrap with 15px gap so card spacing reads identically to csfloat.
+*/
+body .csfloat-db-grid,
+body .floatdb-grid,
+body .db-card-grid,
+body .csfloat-db .content-wrapper,
+body .db-page .content-wrapper {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 15px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128402 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128403 — FloatDB image-area action chip
+   Measured csfloat .top-right-container .action and .detail-buttons
+   .action computed:
+     bg:               rgba(30, 32, 38, 0.55)   (translucent dark chip)
+     padding:          4px 8px
+     border-radius:    20px
+     color:            rgb(158, 167, 177)       (ink-2)
+     icon:             20 x 20  ink-2
+     count text:       14px / 400
+     chip dims:        58 x 30 (count chip), 38 x 30 (icon-only chip)
+   Sboxmarket .db-card-action / .db-thumb-pill currently ships an opaque
+   --bg-1 chip with 8px radius. Pin to the translucent rgba(30,32,38,0.55)
+   chip + 20px pill radius + ink-2 color to match csfloat's overlay vocab.
+*/
+body .csfloat-db-card .db-card-action,
+body .csfloat-db-card .db-thumb-pill,
+body .csfloat-db-card .top-right-container > .action,
+body .csfloat-db-card .detail-buttons > .action,
+body .floatdb-card .action,
+body .floatdb-card .inspect-link,
+body .floatdb-tile .action,
+body .db-card-tile .action {
+  background: rgba(30, 32, 38, 0.55) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+  backdrop-filter: blur(2px) !important;
+  padding: 4px 8px !important;
+  border-radius: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  border: 0 !important;
+  min-height: 30px !important;
+  box-sizing: border-box !important;
+}
+body .csfloat-db-card .db-card-action .icon,
+body .csfloat-db-card .top-right-container > .action .icon,
+body .csfloat-db-card .detail-buttons > .action .icon,
+body .floatdb-card .action .icon,
+body .floatdb-card .inspect-link .icon {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 20px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128403 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128404 — FloatDB footer reference pill
+   Measured csfloat .footer .price-row .reference-widget-container
+   .reference (the small price-comparison chip next to the price):
+     bg:               rgba(255, 255, 255, 0.04)   (hairline token)
+     padding:          4px 6px
+     border-radius:    20px
+     dims:             31 x 27 (icon-only) / wider with text
+     mat-icon:         19 x 19   color rgb(158, 167, 177)
+     parent .footer:   padding 12px 12px 0px (no bottom)
+     parent .price-row: flex, height 27px
+   Sboxmarket .db-row .db-floor / .db-card-price-row baseline lacks a
+   reference chip — pin .csfloat-db-card .reference + footer geometry
+   to the measured spec.
+*/
+body .csfloat-db-card .footer,
+body .csfloat-db-card .db-card-footer,
+body .floatdb-card .footer,
+body .db-card-tile .footer {
+  padding: 12px 12px 0 !important;
+  background: transparent !important;
+  border-top: 0 !important;
+}
+body .csfloat-db-card .price-row,
+body .csfloat-db-card .db-card-price-row,
+body .floatdb-card .price-row,
+body .db-card-tile .price-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 27px !important;
+  margin: 0 !important;
+  gap: 8px !important;
+}
+body .csfloat-db-card .price,
+body .csfloat-db-card .db-card-price,
+body .floatdb-card .price,
+body .db-card-tile .price {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 27px !important;
+}
+body .csfloat-db-card .reference,
+body .csfloat-db-card .reference-widget-container > .reference,
+body .floatdb-card .reference,
+body .db-card-tile .reference {
+  background: rgba(255, 255, 255, 0.04) !important;
+  padding: 4px 6px !important;
+  border-radius: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-height: 27px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  border: 0 !important;
+}
+body .csfloat-db-card .reference .mat-icon,
+body .csfloat-db-card .reference mat-icon,
+body .floatdb-card .reference .mat-icon {
+  width: 19px !important;
+  height: 19px !important;
+  font-size: 19px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128404 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128405 — FloatDB header (item-name + subtext)
+   Measured csfloat .header inside item-card:
+     padding:          10px
+     dims:             242 x 64
+     .item-name        16/500   color rgb(255,120,44)  (rare-orange for Doppler)
+                                truncates with ellipsis at 222px width
+     .subtext          14/500   color rgb(158,167,177) (ink-2)
+     .subtext .ng-star-inserted (StatTrak™ chip) inherits rare color
+   Sboxmarket card baseline ships 12-14px padding and uses --text-secondary
+   instead of the measured ink-2 #9ea7b1. Pin the header geometry, the
+   ink-2 subtext color, and the 16/14 typography to csfloat.
+*/
+body .csfloat-db-card .header,
+body .csfloat-db-card .db-card-header,
+body .floatdb-card .header,
+body .db-card-tile .header {
+  padding: 10px !important;
+  display: block !important;
+  height: 64px !important;
+  box-sizing: border-box !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+}
+body .csfloat-db-card .header .container,
+body .csfloat-db-card .item-name-container,
+body .floatdb-card .item-name-container {
+  display: block !important;
+  width: 222px !important;
+  max-width: 222px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body .csfloat-db-card .item-name,
+body .csfloat-db-card .db-card-name,
+body .floatdb-card .item-name {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 21px !important;
+  color: rgb(255, 255, 255) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin: 0 !important;
+}
+body .csfloat-db-card .subtext,
+body .csfloat-db-card .db-card-subtext,
+body .floatdb-card .subtext {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 17px !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128405 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128406 — FloatDB category carousel strip
+   Measured csfloat .category-carousel .wrapper (the horizontally-scrolling
+   weapon-class chip strip directly above the grid):
+     wrapper height:   38px
+     .scroll-content   2440px wide (overflows, internal scroll)
+     navigate_before / navigate_next chevrons on either side (mat-icon)
+     .container > mat-button-toggle-group.state hides single selection indicator
+     mat-button-toggle items: Rifles, Pistols, SMGs, Heavy, Knives, Gloves,
+       Agents, Containers, Stickers, Keychains, Patches, Collectibles, Music Kits
+     Each chip: standard Material button-toggle vocabulary
+       label: 14/500 white, gap 4 between text + chevron icon
+       inactive: transparent bg, hover lightens to rgba(255,255,255,0.06)
+       active: brand fill rgb(35,123,255) at 0.16 alpha + brand text
+   Sboxmarket .csfloat-db-cats / .db-cat-strip baseline ships 32px tall
+   chips with --bg-1 backgrounds and --r-sm (6px). Pin to 38px row height,
+   transparent inactive bg, hairline-on-hover, brand fill on active, and
+   the 14/500 typography measured.
+*/
+body .csfloat-db-cats,
+body .db-cat-strip,
+body .floatdb-category-carousel,
+body .csfloat-db .category-carousel,
+body .db-page .category-carousel {
+  height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+body .csfloat-db-cats > .cat,
+body .csfloat-db-cats > button,
+body .db-cat-strip > .cat,
+body .db-cat-strip > button,
+body .floatdb-category-carousel .mat-button-toggle,
+body .csfloat-db .category-carousel .mat-button-toggle {
+  height: 38px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+body .csfloat-db-cats > .cat:hover,
+body .db-cat-strip > .cat:hover,
+body .floatdb-category-carousel .mat-button-toggle:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+body .csfloat-db-cats > .cat.active,
+body .csfloat-db-cats > .cat.is-active,
+body .csfloat-db-cats > .cat[aria-pressed="true"],
+body .db-cat-strip > .cat.active,
+body .floatdb-category-carousel .mat-button-toggle.mat-button-toggle-checked,
+body .floatdb-category-carousel .mat-button-toggle[aria-checked="true"] {
+  background: rgba(35, 123, 255, 0.16) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128406 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128340-#128347 — /support page chrome
+   surface: ProfileSupportTab (modals.js ~8622) — the Support tab inside
+   the unified Profile InfoModal. Csfloat ships /support as two stacked
+   panels (.contact-container + .ticket-container) with the canonical
+   csfloat panel chrome (rgb(27,29,36) / 12px br / 30px pad / 20px col-gap).
+   sboxmarket renders the support tab inside .profile-panel — these ships
+   pin the inner section structure + tickets-table chrome to the csfloat
+   double-panel rhythm without changing the wrapper markup.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128340 — `.profile-panel` support-tab spacing
+   Adds a logical "panel break" rhythm INSIDE the unified .profile-panel
+   so the new-ticket section + the tickets-table section read as the
+   csfloat .contact-container + .ticket-container double-panel rather
+   than a flat run of cards. Pins the inter-section gap to 20px (matching
+   csfloat's outer .container gap of 30px halved into intra-panel
+   margins of 20+10 above/below). Also pins the .profile-panel padding
+   on the support tab to csfloat's panel-pad rhythm (24px sbox baseline
+   stays — csfloat's 30px pad is panel-outer; sbox's intra-modal panel
+   sits inside the InfoModal so 24/24 reads at the same optical density).
+*/
+body .info-modal:has(.profile-panel) .profile-panel:has(.buyorder-form),
+body .info-modal:has(.profile-panel) .profile-panel:has(.support-thread) {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128340 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128341 — Support tab tickets-table chrome
+   Re-skins .db-table inside the .profile-panel support-tab context to
+   csfloat's measured ticket-list table. Csfloat ships:
+     th  bg rgba(193,206,255,0.04) / color ink-2 / 14/500 / 0.42px ls
+         padding 0 16 / text-align start / border-bottom 1px transparent
+     td  color white / 14/400 / padding 0 16 / text-align start / no border
+     row-height: 48px (rhythm enforced by line-height + cell-padding)
+   sboxmarket .db-table baseline ships 12.5px font + grid-template
+   layout (.db-row uses display:grid not table). Inside support-tab
+   context the table re-renders as a flat <table>/<tbody>/<tr>/<td>,
+   so the cell chrome below scopes to the table context only.
+*/
+body .info-modal .profile-panel .db-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-size: 14px !important;
+}
+body .info-modal .profile-panel .db-table thead th {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+  text-align: left !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid transparent !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+}
+body .info-modal .profile-panel .db-table thead th:first-child {
+  border-top-left-radius: 6px !important;
+  border-bottom-left-radius: 6px !important;
+}
+body .info-modal .profile-panel .db-table thead th:last-child {
+  border-top-right-radius: 6px !important;
+  border-bottom-right-radius: 6px !important;
+}
+body .info-modal .profile-panel .db-table tbody td {
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  text-transform: none !important;
+  text-align: left !important;
+  padding: 12px 16px !important;
+  border: 0 none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body .info-modal .profile-panel .db-table tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+body .info-modal .profile-panel .db-table tbody tr {
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .profile-panel .db-table tbody tr:hover {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128341 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128342 — Tickets section header rhythm
+   The support-tab places the "+ New Ticket" button + the filter-chip row
+   + the table all inside one .profile-panel. Csfloat splits these into
+   the .contact-container (action btns) vs .ticket-container (filter +
+   table) panels with a 20px gap. sboxmarket can't markup-split without
+   refactoring modals.js, but we CAN add visual breathing room around
+   the `+ New Ticket` button so it reads as the .contact-container CTA
+   anchor. Also pins the inline "+ New Ticket" button height to 36px
+   matching the csfloat raised-button h (currently it's the project
+   .btn-accent default which renders ~32-34px, slightly under the
+   measured chip).
+*/
+body .info-modal .profile-panel > button.btn-accent:first-child {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  border: 0 none !important;
+  cursor: pointer !important;
+  align-self: flex-start !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .profile-panel > button.btn-accent:first-child:hover:not(:disabled) {
+  background-color: rgb(56, 138, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128342 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128343 — Status filter chip-row reskin
+   sboxmarket ships .wallet-tx-filter-row inside the support tab — these
+   are the All/Open/Waiting staff/Waiting you/Resolved chips. Csfloat's
+   /support page filters tickets via a different mechanism (Material
+   chip-listbox above the table), but the canonical chip chrome is
+   identical to csfloat's tab-button chip pattern: 32h pill, 12px L/R
+   pad, 14/500 Roboto, ink-2 rest / brand-blue active, transparent at
+   rest / rgba(35,123,255,0.12) when active, 6px radius, no border.
+   Pins the chip-row to that chrome inside the support-tab context.
+*/
+body .info-modal .profile-panel .wallet-tx-filter-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin: 0 0 14px 0 !important;
+  padding: 0 !important;
+}
+body .info-modal .profile-panel .wallet-tx-filter-chip {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .profile-panel .wallet-tx-filter-chip:hover {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .info-modal .profile-panel .wallet-tx-filter-chip.active {
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128343 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128344 — `.message` info-banner chrome
+   Csfloat ships a permanent SLA-info chip below the contact-widget
+   header on /support: bg rgba(193,206,255,0.04), 6px radius, 10px
+   square padding, 10px gap, 24px white mat-icon left + 14/500 ink-2
+   text right. sboxmarket renders a similar chip inside the new-ticket
+   form (modals.js ~8827 — "Response times" cyan accent border). These
+   pins set the canonical csfloat chrome for any `.message`-classed
+   chip the support tab renders, including future permanent banners.
+*/
+body .info-modal .profile-panel .message {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  border: 0 none !important;
+  margin: 0 !important;
+}
+body .info-modal .profile-panel .message > .text {
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  text-transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body .info-modal .profile-panel .message > mat-icon,
+body .info-modal .profile-panel .message > .material-icons,
+body .info-modal .profile-panel .message > svg {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  fill: rgb(255, 255, 255) !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128344 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128345 — Support-thread message bubble chrome
+   Csfloat /support ticket detail view shows messages as alternating
+   chat-bubble-style cards (staff vs user) with the same panel-flat
+   chrome as the rest of the support page. sboxmarket renders these
+   as `.support-msg .staff` / `.support-msg .user` inside `.support-thread`
+   (modals.js ~8788). Pins both variants to canonical csfloat panel
+   tones — staff messages get the brand-blue tinted bg
+   (rgba(35,123,255,0.06)) so they read as official; user messages
+   get the chip-flat rgba(193,206,255,0.04) so they sit recessed.
+*/
+body .info-modal .profile-panel .support-thread {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body .info-modal .profile-panel .support-msg {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+body .info-modal .profile-panel .support-msg.staff {
+  background-color: rgba(35, 123, 255, 0.06) !important;
+  border-left: 2px solid rgba(35, 123, 255, 0.45) !important;
+}
+body .info-modal .profile-panel .support-msg-head {
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  letter-spacing: 0.36px !important;
+  text-transform: none !important;
+}
+body .info-modal .profile-panel .support-msg-body {
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128345 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128346 — Empty-state placeholder chrome
+   Csfloat ships an empty-state pattern when the tickets table has no
+   rows (the unsigned-in case auto-redirects, but for the signed-in
+   no-tickets case the .ticket-container collapses to a chip-flat
+   "No tickets yet" message). sboxmarket renders `.empty-inline` with
+   `.empty-icon` + descriptive text in the same context. Pins the
+   empty-state chip to canonical csfloat empty-card chrome:
+   chip-flat bg, 6px radius, 16px square padding, 12px row-gap,
+   ink-2 message text + white icon at 26px (matches the inbox icon
+   sboxmarket renders via MaterialIcon name="inbox" size={26}).
+*/
+body .info-modal .profile-panel .empty-inline {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  padding: 24px 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  margin: 0 !important;
+  min-height: 120px !important;
+}
+body .info-modal .profile-panel .empty-inline .empty-icon {
+  color: rgb(255, 255, 255) !important;
+  opacity: 0.7 !important;
+}
+body .info-modal .profile-panel .empty-inline .empty-icon svg,
+body .info-modal .profile-panel .empty-inline .empty-icon .material-icons {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 26px !important;
+  color: rgb(255, 255, 255) !important;
+  fill: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128346 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128347 — Reply input + Send button chrome
+   At the bottom of the ticket-detail view sboxmarket renders a
+   .chat-input + .btn.btn-accent "Send" button (modals.js ~8812).
+   Csfloat's equivalent ships a Material textfield (rgba(193,206,255,0.04)
+   bg, 44h, 16px L-pad, 6px radius) + a brand-blue raised button
+   (rgb(35,123,255), 36h, 16px L/R-pad, 8px radius, 14/500 white).
+   Pins both inside the support-thread context so the reply row reads
+   at csfloat parity rhythm.
+*/
+body .info-modal .profile-panel:has(.support-thread) > div:last-child > input.chat-input {
+  height: 44px !important;
+  padding: 0 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  outline: none !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .profile-panel:has(.support-thread) > div:last-child > input.chat-input:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+body .info-modal .profile-panel:has(.support-thread) > div:last-child > input.chat-input:focus {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+body .info-modal .profile-panel:has(.support-thread) > div:last-child > button.btn-accent {
+  height: 44px !important;
+  padding: 0 22px !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .profile-panel:has(.support-thread) > div:last-child > button.btn-accent:hover:not(:disabled) {
+  background-color: rgb(56, 138, 255) !important;
+}
+body .info-modal .profile-panel:has(.support-thread) > div:last-child > button.btn-accent:disabled {
+  background-color: rgba(35, 123, 255, 0.4) !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128347 */
