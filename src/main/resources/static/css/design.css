@@ -161746,6 +161746,107 @@ html body .menu-popover .user-menu-row.is-destructive:hover {
 }
 /* END CSFLOAT-1:1 PARITY ship #15506 */
 
+/* CSFLOAT-1:1 PARITY ship #16000 (notif drawer — panel chrome surface fidelity)
+   measured: csfloat .mat-mdc-menu-panel.themed-menu rgba(21,23,28,0.8) +
+   2px solid rgba(193,206,255,0.07) + border-radius 15px + backdrop-filter
+   blur(10px), sbox was rgb(27,29,36) opaque + 1px hairline + 12px radius +
+   no blur. csfloat uses the translucent themed-menu pattern across every
+   bell/search/tools dropdown — port the exact glass treatment. */
+html body .notif-dropdown {
+  background-color: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 15px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16000 */
+
+/* CSFLOAT-1:1 PARITY ship #16001 (notif drawer — Material elev-3 menu shadow)
+   measured: csfloat themed-menu uses Material elevation-3 stack
+   "rgba(0,0,0,0.2) 0 5px 5px -3px, rgba(0,0,0,0.14) 0 8px 10px 1px,
+   rgba(0,0,0,0.12) 0 3px 14px 2px", sbox was the same triple but at
+   elevation-2 offsets. The bell dropdown floats on a hover-z plane so
+   csfloat upgrades to the 5/8/3 stack — match it. */
+html body .notif-dropdown {
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16001 */
+
+/* CSFLOAT-1:1 PARITY ship #16002 (notif drawer — header geometry + divider)
+   measured: csfloat menu-content padding 8px 0, sbox feed was 4px 0;
+   csfloat header divider rgba(255,255,255,0.06) 1px hairline; sbox header
+   currently 14px 16px which matches but the divider was already correct
+   — re-stamp at higher precedence so the panel-chrome restyle (#16000)
+   doesn't lose the header chrome under the new translucent bg. */
+html body .notif-dropdown .notif-header {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background-color: transparent !important;
+}
+html body .notif-dropdown .notif-feed,
+html body .notif-dropdown .notif-feed-body {
+  padding: 8px 0 !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16002 */
+
+/* CSFLOAT-1:1 PARITY ship #16003 (notif drawer — mark-all-read link state)
+   measured: csfloat themed-menu action links use brand rgb(35,123,255) on
+   hover with 150ms cubic-bezier(0.4,0,0.2,1) transition; sbox .notif-clear
+   already shifts to brand on hover but used 140ms ease — align timing to
+   the canonical Material easing curve so the bell-dropdown link feels in
+   the same family as every other Material control. */
+html body .notif-dropdown .notif-clear {
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .notif-dropdown .notif-clear:hover {
+  color: rgb(35, 123, 255) !important;
+  background-color: rgba(35, 123, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16003 */
+
+/* CSFLOAT-1:1 PARITY ship #16004 (notif drawer — individual row hover bg)
+   measured: csfloat .mat-mdc-menu-item active/hover bg
+   color(srgb 1 1 1 / 0.12) === rgba(255,255,255,0.12) with cubic-bezier
+   easing; sbox .notif-item:hover was rgba(255,255,255,0.04). The 3x
+   contrast bump is what makes the bell dropdown feel responsive on the
+   new translucent panel — without it rows look glued to the glass. */
+html body .notif-dropdown .notif-item:hover,
+html body .notif-dropdown .notif:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16004 */
+
+/* CSFLOAT-1:1 PARITY ship #16005 (notif drawer — unread row tint + indicator dot)
+   measured: csfloat unread-row tint sits at brand alpha 0.08 (one stop
+   above the 0.04 sbox shipped at #2002), and the read-indicator dot is
+   the canonical 6px circle at rgb(35,123,255) — sbox already places the
+   dot but the tint contrast under the new translucent panel needs the
+   2x bump to remain readable through the backdrop blur. */
+html body .notif-dropdown .notif-item.unread,
+html body .notif-dropdown .notif.unread {
+  background-color: rgba(35, 123, 255, 0.08) !important;
+}
+html body .notif-dropdown .notif-item.unread:hover,
+html body .notif-dropdown .notif.unread:hover {
+  background-color: rgba(35, 123, 255, 0.14) !important;
+}
+html body .notif-dropdown .notif-item.unread::after,
+html body .notif-dropdown .notif.unread::after {
+  background-color: rgb(35, 123, 255) !important;
+  width: 6px !important;
+  height: 6px !important;
+  right: 14px !important;
+  top: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16005 */
+
 
 /* ───────────────────────────────────────────────────────────────────────────
    CSFLOAT-1:1 PARITY ships #15900-#15906 — first-time onboarding / welcome
@@ -161878,3 +161979,625 @@ html body .help-intro {
   color: rgba(255, 255, 255, 0.6) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #15906 */
+
+/* CSFLOAT-1:1 PARITY ship #15806 (item-detail float bar geometry — wrapper 222px wide / 40px tall, bar inside is 8px tall with margin-top:5px, position:relative, inner segment-holder rounds 4px and clips overflow). Measured live on csfloat item-page item-float-bar host: wrapper computed width 222.25px height 40px display block flex 1 1 0%, bar height 8px margin 5px 0 0 position relative, inner radius 4px overflow hidden. sbox local equivalents .csfloat-float-bar / .csfloat-float-bar-track were 8px tall already but lacked the 222px column constraint and the 5px top gap before the bar inside the 40px host slot. Targeting both the legacy csfloat-* selectors AND the angular-aligned .float-bar-wrapper / .float-bar / item-float-bar names so any rendering path matches. */
+html body item-float-bar,
+html body .float-bar-wrapper,
+html body .csfloat-float-bar {
+  display: block !important;
+  width: 222px !important;
+  max-width: 222px !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  position: relative !important;
+  flex: 1 1 0% !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body item-float-bar > .container,
+html body .float-bar-wrapper > .container,
+html body .csfloat-float-bar > .container {
+  display: block !important;
+  width: 100% !important;
+  height: 40px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  position: relative !important;
+}
+html body .float-bar,
+html body .csfloat-float-bar-track,
+html body item-float-bar .float-bar {
+  position: relative !important;
+  height: 8px !important;
+  margin: 5px 0 0 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  display: block !important;
+}
+html body .float-bar > div:not(.wear-marker),
+html body .csfloat-float-bar-track > .csfloat-float-bar-segments,
+html body .csfloat-float-bar-track > div:not(.csfloat-float-bar-marker) {
+  height: 100% !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  display: block !important;
+  font-size: 0 !important;
+  white-space: nowrap !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15806 */
+
+/* CSFLOAT-1:1 PARITY ship #15807 (float-bar tier segment colors — exact background-color values measured live on csfloat .progress-width-fn/mw/ft/ww/bs computed bg). FN rgb(0,128,0) green, MW rgb(24,165,24) lighter green, FT rgb(154,205,50) yellow-green, WW rgb(205,92,92) indianred, BS rgb(249,36,36) red. sbox was using oklch translations that drifted noticeably toward unsaturated hues. Each segment is inline-block, height:100%, no border, no radius (radius lives on the parent clipper). Width comes from inline style on csfloat (per-skin scaled), so we explicitly do NOT set width here — only color + display + box. */
+html body .progress-width-fn,
+html body .csfloat-float-bar-seg.is-fn,
+html body .csfloat-float-bar-seg-fn {
+  background-color: rgb(0, 128, 0) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-mw,
+html body .csfloat-float-bar-seg.is-mw,
+html body .csfloat-float-bar-seg-mw {
+  background-color: rgb(24, 165, 24) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-ft,
+html body .csfloat-float-bar-seg.is-ft,
+html body .csfloat-float-bar-seg-ft {
+  background-color: rgb(154, 205, 50) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-ww,
+html body .csfloat-float-bar-seg.is-ww,
+html body .csfloat-float-bar-seg-ww {
+  background-color: rgb(205, 92, 92) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-bs,
+html body .csfloat-float-bar-seg.is-bs,
+html body .csfloat-float-bar-seg-bs {
+  background-color: rgb(249, 36, 36) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15807 */
+
+/* CSFLOAT-1:1 PARITY ship #15808 (breakpoint tick fallback — when csfloat is not driving inline widths because we control the bar locally, the standard CS:GO float thresholds 0.07 / 0.15 / 0.38 / 0.45 / 1.00 should map onto a fixed-range bar. csfloat per-item bars zoom into the skin's min/max float so they're scaled, but the local item-detail page often shows the canonical full-range bar — so we ship a fallback gradient on .csfloat-float-bar-track[data-fallback="full"] and .item-page-float-bar[data-range="canonical"] using the exact 5 segment colors at the canonical breakpoints. This stops segment widths collapsing to 0 when no inline style ships from the server. */
+html body .csfloat-float-bar-track[data-fallback="full"],
+html body .item-page-float-bar[data-range="canonical"],
+html body .float-bar[data-range="full"] {
+  background-image: linear-gradient(
+    to right,
+    rgb(0, 128, 0) 0%,
+    rgb(0, 128, 0) 7%,
+    rgb(24, 165, 24) 7%,
+    rgb(24, 165, 24) 15%,
+    rgb(154, 205, 50) 15%,
+    rgb(154, 205, 50) 38%,
+    rgb(205, 92, 92) 38%,
+    rgb(205, 92, 92) 45%,
+    rgb(249, 36, 36) 45%,
+    rgb(249, 36, 36) 100%
+  ) !important;
+  background-color: transparent !important;
+  height: 8px !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+html body .float-bar[data-ticks="visible"]::before,
+html body .csfloat-float-bar-track[data-ticks="visible"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, transparent calc(7% - 0.5px), rgba(0,0,0,0.35) calc(7% - 0.5px), rgba(0,0,0,0.35) calc(7% + 0.5px), transparent calc(7% + 0.5px)),
+    linear-gradient(to right, transparent calc(15% - 0.5px), rgba(0,0,0,0.35) calc(15% - 0.5px), rgba(0,0,0,0.35) calc(15% + 0.5px), transparent calc(15% + 0.5px)),
+    linear-gradient(to right, transparent calc(38% - 0.5px), rgba(0,0,0,0.35) calc(38% - 0.5px), rgba(0,0,0,0.35) calc(38% + 0.5px), transparent calc(38% + 0.5px)),
+    linear-gradient(to right, transparent calc(45% - 0.5px), rgba(0,0,0,0.35) calc(45% - 0.5px), rgba(0,0,0,0.35) calc(45% + 0.5px), transparent calc(45% + 0.5px));
+  z-index: 0;
+}
+/* END CSFLOAT-1:1 PARITY ship #15808 */
+
+/* CSFLOAT-1:1 PARITY ship #15809 (current-float marker — 3px wide / 14px tall pill positioned absolutely with top:-3px so it overhangs the 8px bar by 3px on top and 3px on bottom, centred horizontally on the float position via "left:calc(N% - 2px)" offset, light grey rgb(217,217,217) fill, 4px radius, no border, no shadow). Measured live on csfloat .wear-marker computed: width 3px height 14px top -3px left calc(...% - 2px) background rgb(217,217,217) border-radius 4px box-shadow none. sbox local .csfloat-float-bar-marker had a triangle ::after and a thicker 2px/16px bar that didn't match the pill shape. Wipe ::before/::after, keep just the rectangle. */
+html body .wear-marker,
+html body .csfloat-float-bar-marker,
+html body .float-marker {
+  position: absolute !important;
+  top: -3px !important;
+  bottom: auto !important;
+  width: 3px !important;
+  height: 14px !important;
+  background-color: rgb(217, 217, 217) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+}
+html body .wear-marker::before,
+html body .wear-marker::after,
+html body .csfloat-float-bar-marker::before,
+html body .csfloat-float-bar-marker::after,
+html body .float-marker::before,
+html body .float-marker::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15809 */
+
+/* CSFLOAT-1:1 PARITY ship #15810 (text-info row under the bar — flex row, 4px gap, 14px Roboto, 10px top gap, white text, with .wear (the float number) sitting flush-left and .paint-seed (the seed integer) following. Measured live on .text-info computed: display flex / gap 4px / margin-top 10px / font-size 14px / font-weight 400 / color rgb(255,255,255) / Roboto. The local .csfloat-float-bar-meta was using 11px mono with letter-spacing 0.02em which read as a typeset chip, not the plain numeric strip csfloat ships. Csfloat does NOT show the tier name (.csfloat-float-bar-tier) next to the float number on the item-detail bar — only the float and paint-seed; so we match by hiding the tier-abbr inside item-float-bar context. */
+html body .text-info,
+html body .csfloat-float-bar-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin: 10px 0 0 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  font-feature-settings: normal !important;
+}
+html body .text-info > .wear,
+html body .text-info > .has-rank,
+html body .csfloat-float-bar-value {
+  display: block !important;
+  flex: 0 1 auto !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  color: rgb(255, 255, 255) !important;
+  font-feature-settings: "tnum" !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  letter-spacing: normal !important;
+}
+html body .text-info > .paint-seed {
+  display: block !important;
+  flex: 0 1 auto !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  color: rgb(255, 255, 255) !important;
+  font-feature-settings: "tnum" !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+html body item-float-bar .csfloat-float-bar-tier,
+html body .float-bar-wrapper .csfloat-float-bar-tier {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15810 */
+
+/* CSFLOAT-1:1 PARITY ship #15811 (hover tooltip on float bar — csfloat uses Angular Material's mat-mdc-tooltip-trigger on .float-bar and .wear, which on hover renders a 12px Roboto rgba(97,97,97,0.92) bubble with 4px radius and 6px/8px padding above the bar showing the exact float decimal. sbox doesn't bring Angular Material so we simulate the same surface using a CSS-only :hover + ::after. The bubble shows the .wear text content via the [data-tooltip] attribute, anchored to the bar's center. Measured tooltip baseline against csfloat live mat-tooltip styles: bg rgba(97,97,97,0.92), color #fff, 12px Roboto, 4px radius, padding 6px 8px, max-width 250px, transform translate(-50%, -100%) above the trigger. Transition matches MDC easing of 150ms cubic-bezier with a 200ms enter delay (csfloat's default tooltip-show-delay). */
+html body .float-bar[data-tooltip],
+html body .csfloat-float-bar-track[data-tooltip] {
+  cursor: pointer !important;
+}
+html body .float-bar[data-tooltip]::after,
+html body .csfloat-float-bar-track[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background-color: rgba(97, 97, 97, 0.92);
+  color: rgb(255, 255, 255);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) 200ms, transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 200ms;
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
+  max-width: 250px;
+  letter-spacing: 0.025em;
+  font-feature-settings: "tnum";
+}
+html body .float-bar[data-tooltip]:hover::after,
+html body .csfloat-float-bar-track[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+html body .text-info > .wear[data-tooltip] {
+  position: relative !important;
+  cursor: default !important;
+}
+html body .text-info > .wear[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background-color: rgba(97, 97, 97, 0.92);
+  color: rgb(255, 255, 255);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) 200ms;
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
+  font-feature-settings: "tnum";
+}
+html body .text-info > .wear[data-tooltip]:hover::after {
+  opacity: 1;
+}
+/* END CSFLOAT-1:1 PARITY ship #15811 */
+
+/* CSFLOAT-1:1 PARITY ship #16500 (public-stall hero panel surface lock) — measured live on /stall/{id} via injected canonical markup: .stall-hero computes background-color rgba(0,0,0,0) (transparent) and display:grid with gap 8px 18px because earlier ship #9000 declarations were being overridden later in cascade (probably by .container .panel rules added in the 15xxx series). csfloat .seller-details-wrapper / .hero on /stall/{id} computes background rgb(36,37,44), display flex row, align-items center, gap 16px, padding 24px, border 0, border-radius 4px, margin-bottom 16px. Re-anchor with high-specificity prefix so cascade wins regardless of ancestor wrapper class. */
+html body .stall-hero,
+html body main .stall-hero,
+html body .container .stall-hero,
+html body .stall-page .stall-hero {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 24px !important;
+  background-color: rgb(36, 37, 44) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  margin-bottom: 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  grid-auto-flow: row !important;
+  row-gap: unset !important;
+  column-gap: unset !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16500 */
+
+/* CSFLOAT-1:1 PARITY ship #16501 (.stall-name title font-size lock) — measured live on injected canonical markup: .stall-name computes font-size 20px / weight 600 / line-height 28px, drift from csfloat .seller-details .name 24/32/500. Re-anchor with high-specificity to defeat the global h2 stylesheet. Inline-flex with 6px gap so the verified pill sits inline-baseline-aligned to the name. min-width:0 + flex-wrap:wrap lets the parent flex column collapse and lets the pill+link wrap onto a 2nd line on narrow widths instead of overflowing. */
+html body .stall-hero .stall-name,
+html body main .stall-hero .stall-name,
+html body .container .stall-hero h2.stall-name {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  flex-wrap: wrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16501 */
+
+/* CSFLOAT-1:1 PARITY ship #16502 (.seller-verified inline trust pill) — measured live on injected canonical markup: .seller-verified computes font-size 0px (label invisible!) and background rgba(108,161,255,0.1), drift from canonical brand rgb(35,123,255). 0px font-size came from a prior ship that hid the label and showed only an icon — but the icon glyph isn't present in this DOM, leaving an empty pill. Lock to a self-contained pill with the "Verified" label visible: brand fill, white text, 11px label, 18px height, 9px radius (round-pill), padding 0 8px 0 6px, leading checkmark glyph via ::before. Verified-checkmark blue rgb(35,123,255) per canonical-token spec. */
+html body .stall-hero .stall-name .seller-verified,
+html body .stall-name > .seller-verified,
+html body main .stall-name > .seller-verified {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 8px 0 6px !important;
+  margin: 0 0 0 6px !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+  letter-spacing: 0 !important;
+  border-radius: 9px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  cursor: default !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .stall-hero .stall-name .seller-verified::before,
+html body .stall-name > .seller-verified::before {
+  content: "\2713" !important;
+  display: inline-block !important;
+  margin-right: 3px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16502 */
+
+/* CSFLOAT-1:1 PARITY ship #16503 (.stall-stat-grid wrap + min-width-0 for narrow heroes) — measured live: .stall-stat-grid is flex with gap 24px (good) but no flex-wrap, so on narrow viewports the row overflows because parent column has no min-width:0. csfloat .stat-grid uses flex-wrap:wrap with row-gap 8px and column-gap 24px so chips reflow to a 2nd line below ~720px. Lock that behaviour and force the parent column to claim only its content width via min-width:0 so the row doesn't push out the avatar column. */
+html body .stall-hero .stall-stat-grid,
+html body .stall-hero .stall-meta.stall-stat-grid,
+html body main .stall-hero .stall-stat-grid {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  row-gap: 8px !important;
+  column-gap: 24px !important;
+  margin-top: 8px !important;
+  padding: 0 !important;
+  list-style: none !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+html body .stall-hero .stall-stat-grid > .stall-stat {
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16503 */
+
+/* CSFLOAT-1:1 PARITY ship #16504 (.stall-stat-label / -val / -unit type tokens) — measured live: label 12/400/rgba(255,255,255,0.6) tracking 0.4px (close), val 16/400/white (drift — should be 14/500), unit 12/400/rgba(255,255,255,0.6) (close). Lock label to ink-2 rgb(158,167,177) (brief canonical token) with uppercase + 0.04em tracking; val to 14/500/white tabular-nums for column-aligned numerics; unit to ink-2 lowercase 12/400 with 4px ml. */
+html body .stall-hero .stall-stat-grid .stall-stat .stall-stat-label,
+html body .stall-hero .stall-stat .stall-stat-label,
+html body main .stall-hero .stall-stat-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 2px 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  font-variant-numeric: normal !important;
+}
+html body .stall-hero .stall-stat-grid .stall-stat .stall-stat-val,
+html body .stall-hero .stall-stat .stall-stat-val,
+html body main .stall-hero .stall-stat-val {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+html body .stall-hero .stall-stat-grid .stall-stat .stall-stat-val .stall-stat-unit,
+html body .stall-hero .stall-stat-val .stall-stat-unit,
+html body main .stall-hero .stall-stat-unit {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0 !important;
+  text-transform: lowercase !important;
+  color: rgb(158, 167, 177) !important;
+  margin-left: 4px !important;
+  padding: 0 !important;
+  font-variant-numeric: normal !important;
+  vertical-align: baseline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16504 */
+
+/* CSFLOAT-1:1 PARITY ship #16505 (.stall-avatar dimensional lock + flex shrink) — measured live: .stall-avatar has width 88px height 88px flex-basis 80px which is internally inconsistent (88 visible vs 80 reserved in the row, ~8px of avatar overflow). csfloat avatar locks 80x80 with flex 0 0 80px. Re-anchor to defeat ship-#9001 vs whatever later rule pushed 88px. Add object-fit:cover to inner img and remove drop-shadow that creeps in from card-elev tokens. */
+html body .stall-hero .stall-avatar,
+html body main .stall-hero > .stall-avatar,
+html body .container .stall-hero .stall-avatar {
+  width: 80px !important;
+  height: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+  flex: 0 0 80px !important;
+  flex-basis: 80px !important;
+  border-radius: 50% !important;
+  border: 0 !important;
+  background-color: rgb(45, 46, 54) !important;
+  background-image: none !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  filter: none !important;
+  outline: 0 !important;
+  position: relative !important;
+}
+html body .stall-hero .stall-avatar > *,
+html body .stall-hero .stall-avatar img,
+html body .stall-hero .stall-avatar > div {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16505 */
+
+/* CSFLOAT-1:1 PARITY ship #16506 (.stall-hero responsive stack <540px) — at 480px the hero collapses awkwardly because the avatar still claims 80px and the name column gets squeezed under the rating chips. csfloat collapses to flex-direction:column with align-items:flex-start, avatar 56x56, name 18/24, gap 12px, padding 16px. Lock the breakpoint at 540px (csfloat measured) and the reduced spacing tokens. */
+@media (max-width: 540px) {
+  html body .stall-hero,
+  html body main .stall-hero,
+  html body .container .stall-hero {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+  }
+  html body .stall-hero .stall-avatar {
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+    flex: 0 0 56px !important;
+    flex-basis: 56px !important;
+  }
+  html body .stall-hero .stall-name,
+  html body .stall-hero h2.stall-name {
+    font-size: 18px !important;
+    line-height: 24px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+  }
+  html body .stall-hero .stall-stat-grid {
+    column-gap: 16px !important;
+    row-gap: 8px !important;
+    margin-top: 6px !important;
+  }
+  html body .stall-hero .stall-stat-grid > .stall-stat .stall-stat-label {
+    font-size: 10px !important;
+  }
+  html body .stall-hero .stall-stat-grid > .stall-stat .stall-stat-val {
+    font-size: 13px !important;
+    line-height: 18px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16506 */
+
+/* CSFLOAT-1:1 PARITY ship #16507 (.stall-hero hairline + elev-2 + transition tokens) — csfloat panel surfaces use a 1px hairline rgba(255,255,255,0.06) plus material elev-2 shadow on hover/focus-within. Local hero is flat with no affordance. Lock the inset hairline ring (so it doesn't add layout px), the focus-visible elev-2 ring with brand fill, and the canonical 200ms cubic-bezier(0.4,0,0.2,1) transition timing for state changes. */
+html body .stall-hero,
+html body main .stall-hero,
+html body .container .stall-hero {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .stall-hero:hover,
+html body main .stall-hero:hover,
+html body .container .stall-hero:hover {
+  background-color: rgb(40, 42, 50) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 4px 8px rgba(0, 0, 0, 0.16) !important;
+}
+html body .stall-hero:focus-within,
+html body main .stall-hero:focus-within {
+  box-shadow:
+    inset 0 0 0 2px rgb(35, 123, 255),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 4px 8px rgba(0, 0, 0, 0.16) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16507 */
+
+/* CSFLOAT-1:1 PARITY ship #16508 (.stall-name Steam ↗ link + name-row token cleanup) — the brief glimpse on csfloat showed "Charlsster / Verified / Seller" with a slash separator pattern; locally the markup uses inline elements with no separator and the trailing Steam ↗ link wraps below the pill on narrow widths because flex-wrap breaks mid-row. Cluster name + pill in a single inline-flex run, push the Steam link to flex-end when there's space, and style the link as a small uppercase ink-2 caption chip. Hover paints background rgba(255,255,255,0.06) (canonical hairline). */
+html body .stall-hero .stall-name {
+  flex-flow: row wrap !important;
+  align-items: baseline !important;
+  column-gap: 8px !important;
+  row-gap: 4px !important;
+}
+html body .stall-hero .stall-name > a[href*="steam"],
+html body .stall-hero .stall-name > a[href*="profiles"],
+html body .stall-hero .stall-name > a[target="_blank"] {
+  font-size: 11px !important;
+  line-height: 18px !important;
+  height: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  color: rgb(158, 167, 177) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  white-space: nowrap !important;
+  margin-left: 8px !important;
+  vertical-align: middle !important;
+  border-radius: 4px !important;
+  padding: 0 4px !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .stall-hero .stall-name > a[href*="steam"]:hover,
+html body .stall-hero .stall-name > a[href*="profiles"]:hover,
+html body .stall-hero .stall-name > a[target="_blank"]:hover {
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16508 */
