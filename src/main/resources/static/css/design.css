@@ -163885,3 +163885,161 @@ body .cart-summary .cart-summary-row.cart-summary-savings > span:first-child {
   color: rgb(158, 167, 177) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #17407 */
+/* CSFLOAT-1:1 PARITY ship #17200 (bulk-action toolbar — bar radius + Material elev-8 shadow rebased on CSFloat Angular Material primitive — measured: probed live csfloat .mat-elevation-z8 on csfloat.com which renders box-shadow: rgba(0,0,0,0.2) 0px 5px 5px -3px, rgba(0,0,0,0.14) 0px 8px 10px 1px, rgba(0,0,0,0.12) 0px 3px 14px 2px (the canonical Material Design elevation-8 stack, applied by csfloat to every floating Material overlay including mat-mdc-bottom-sheet, mat-mdc-snack-bar-container, and the SelectionToolbar that surfaces when items are selected on /profile/listings or /watchlist). Probed --mat-bottom-sheet-container-shape on csfloat — value is 4px (Material canonical bottom-sheet corner radius). sbox baseline (ship #1322 + the original .csfloat-bulk-bar in design.css) was 8px / 10px radius and a single non-Material drop-shadow (0 4px 16px / 0 16px 40px). Pin radius to Material 4px and the shadow to the elevation-8 stack so floating-overlay specularity exactly matches csfloat Material rhythm. APPEND-only override; ship #1322 already pinned the bg/border/padding so we only correct the two drift props here.) */
+body .csfloat-bulk-bar {
+  border-radius: 4px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+              rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+              rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17200 */
+/* CSFLOAT-1:1 PARITY ship #17201 (bulk-action toolbar — action button geometry rebased on Material mat-mdc-raised-button mat-primary canonical — measured: probed a live button.mat-mdc-raised-button.mat-primary on csfloat.com — the canonical action button used in every Angular Material toolbar / bottom-sheet / snackbar action chip resolves to: background rgb(35,123,255), color rgb(255,255,255), font Roboto / 14px / 400 weight (NOT 600), line-height normal, letter-spacing normal, padding 0px 16px, border-radius 4px (NOT 8px), height 40px (NOT 32px), text-transform none. The csfloat warn variant uses --mat-toolbar-container-background-color: #eb4b4b which is rgb(235, 75, 75). The Material elevation-2 raised-button shadow is rgba(0,0,0,0.2) 0px 3px 1px -2px, rgba(0,0,0,0.14) 0px 2px 2px 0px, rgba(0,0,0,0.12) 0px 1px 5px 0px. sbox baseline (ship #1322) had: 32px tall / 8px radius / Roboto 13/600 / padding 6px 14px / no shadow — drift on five separate axes. Repaint geometry + typography to match Material primitive exactly so action buttons inside the bulk bar render at the same size, weight, and shape as the same buttons in csfloat dialog footers, snackbar actions, and bottom-sheet chips.) */
+body .csfloat-bulk-bar-action,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action {
+  height: 40px !important;
+  padding: 0px 16px !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+body .csfloat-bulk-bar-action.primary,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.primary {
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+              rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+              rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17201 */
+/* CSFLOAT-1:1 PARITY ship #17202 (bulk-action toolbar — danger color rebased to canonical csfloat warn token — measured: probed live .mat-toolbar.mat-warn rule on csfloat.com — csfloat redefines --mat-toolbar-container-background-color: #eb4b4b at the warn variant. This #eb4b4b = rgb(235, 75, 75) is the canonical csfloat warn / danger color used everywhere a destructive action is rendered (cancel-listing, delete-watchlist-item, Delete-All in bulk toolbar, Cancel-All warn variant). sbox baseline (ship #1322) shipped rgb(220, 90, 90) which is a softer rose/coral, NOT the canonical csfloat warn red — drift -15 R / +15 G / +15 B. Snap to the exact csfloat warn token on the .danger / .is-danger button states (border + color + hover bg). The hover bg uses the same red at 0.08 alpha to mirror csfloat Material ripple overlay convention.) */
+body .csfloat-bulk-bar-action.danger,
+body .csfloat-bulk-bar-action.is-danger,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.danger,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.is-danger {
+  color: rgb(235, 75, 75) !important;
+  border-color: rgb(235, 75, 75) !important;
+}
+body .csfloat-bulk-bar-action.danger:hover,
+body .csfloat-bulk-bar-action.is-danger:hover,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.danger:hover,
+body .csfloat-bulk-bar-actions > .csfloat-bulk-action.is-danger:hover {
+  background: rgba(235, 75, 75, 0.08) !important;
+  color: rgb(235, 75, 75) !important;
+  border-color: rgb(235, 75, 75) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17202 */
+/* CSFLOAT-1:1 PARITY ship #17203 (bulk-action toolbar — count label typography rebased to Material snackbar label canonical — measured: probed live .mdc-snackbar__label baseline on csfloat.com — Material snackbar label resolves to font-family Roboto / Helvetica Neue / sans-serif, font-size 14px (per --mat-bottom-sheet-container-text-size, the canonical sticky-overlay label size), font-weight 400, line-height normal, letter-spacing normal, color rgb(255, 255, 255). The strong/<b> portion holding the selected count uses the brand accent rgb(35, 123, 255) at fw 700 — that part was already correct in ship #1322. Drift in baseline: ship #1322 used font-size 13px and forced font-variant-numeric: tabular-nums on the entire label. Material snackbar labels do NOT use tabular-nums — only numeric-only chips (price, time, balance) do. The text X selected is mixed numeric + lexical, so applying tabular-nums to the whole label widens the lexical selected by ~2-4px which is visible against csfloat tighter Roboto rhythm. Pin font-size to 14px and lift tabular-nums off the wrapper, leaving fv-num auto on the <b> child only.) */
+body .csfloat-bulk-bar-count {
+  font-size: 14px !important;
+  font-variant-numeric: normal !important;
+}
+body .csfloat-bulk-bar-count strong,
+body .csfloat-bulk-bar-count > b {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17203 */
+/* CSFLOAT-1:1 PARITY ship #17204 (bulk-action toolbar — close button parity rebased to csfloat ink-3 + Material ripple overlay — measured: csfloat dismiss / clear affordance on every floating action overlay (snackbar, bottom-sheet, selection toolbar) renders as a 24x24 transparent button with the close glyph in ink-3 (rgb(158, 167, 177)) at 14px / 500 weight, hovers to ink-1 (rgb(255, 255, 255)) with bg rgba(255, 255, 255, 0.04) — the canonical Material ripple-overlay color for secondary action on dark surface. sbox baseline shipped color: var(--ink-3) which renders as a non-canonical token, and font: 500 14px / 1 var(--ui) which on the cascading var fallback chain ends up Roboto but the size is uncomputed because line-height: 1 truncates the glyph below baseline. Pin the geometry to width/height 28px (Material recommended hit-target for a dismiss affordance — 28px squares the Material 24px icon to a 28px touch target with 2px halo), the color to rgb(158, 167, 177), font Roboto 18/400 (Material sans-serif close glyph at 18px is the canonical close glyph size), border-radius 50% (Material circular ripple shape for icon buttons), with hover bg rgba(255, 255, 255, 0.04) and hover color white.) */
+body .csfloat-bulk-bar-close {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 140ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 140ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .csfloat-bulk-bar-close:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17204 */
+/* CSFLOAT-1:1 PARITY ship #17205 (bulk-action toolbar — slide-up animation timing rebased to Material easing canonical — measured: csfloat applies the Material standard transition curve cubic-bezier(0.4, 0, 0.2, 1) at 250ms duration on every overlay enter animation (mat-mdc-bottom-sheet, mat-mdc-snack-bar-container, mat-mdc-dialog-container). This curve is the Material Design easeInOut — fast acceleration with a gentle landing — and csfloat overlay enter animation uses 250ms not 240ms (per the canonical Material BottomSheet enter timing, taken from the @angular/material source: animation-duration: 250ms, easing-fn: cubic-bezier(0.4, 0, 0.2, 1)). sbox baseline shipped 240ms cubic-bezier(0.2, 0.8, 0.2, 1) which is iOS-style ease-out, NOT Material easing — the curves diverge most at t=0.6 where Material decelerates and the iOS curve still accelerates, producing a perceptibly different snap on slide-up. Pin to canonical Material curve + 250ms duration to match csfloat overlay rhythm.) */
+body .csfloat-bulk-bar {
+  animation: csfloat-bulk-up-canonical 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+@keyframes csfloat-bulk-up-canonical {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body .csfloat-bulk-bar[data-centered],
+body .csfloat-bulk-bar[style*="translateX"] {
+  animation: csfloat-bulk-up-centered-canonical 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+@keyframes csfloat-bulk-up-centered-canonical {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+/* END CSFLOAT-1:1 PARITY ship #17205 */
+/* CSFLOAT-1:1 PARITY ship #17206 (bulk-action toolbar — vertical divider rebased to canonical csfloat hairline — measured: csfloat vertical divider between the count label and the action button row in any floating overlay uses the canonical hairline rgba(255, 255, 255, 0.06) — the same divider token used between sidebar items, between header chips, and between any two siblings in a Material-style overlay. The Material-recommended divider height inside a 40px-action-button row is 20px (50% of action height, centered) — sbox baseline shipped 18px which is non-canonical (drift -2px). The bg was var(--line) which on the sboxmarket token chain currently resolves to rgba(255,255,255,0.06) but pin it to the literal value so any future token edit doesn't drift the bulk-bar surface again. Also pin width to 1px exactly (sometimes browsers compute fractional px on transformed parents which breaks crisp 1px hairlines).) */
+body .csfloat-bulk-bar-divider {
+  width: 1px !important;
+  min-width: 1px !important;
+  height: 20px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17206 */
+/* CSFLOAT-1:1 PARITY ship #17300 — search-suggest hover-only fallback
+   Companion to ship #17100 (search-suggest keyboard-active emphasis).
+   Ship #17100 bumped .active / .sel / [aria-selected="true"] rows to
+   white-alpha 12% to match csfloat's mat-mdc-option-active keyboard
+   focus level. This ship pins the *pure* :hover (no .active class
+   attached) row to csfloat's measured 4% white. The React handler
+   sets suggestIdx -> .active on mouseenter so the 4% state is short-
+   lived, but during the brief mouseenter -> render gap and during
+   any code path that bypasses the handler this fallback ensures
+   hover never paints darker than csfloat's measured baseline. */
+body .search-suggest-row:hover:not(.active):not(.sel):not([aria-selected="true"]) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17300 */
+
+/* CSFLOAT-1:1 PARITY ship #17500 (item-detail similar-items / "More from this seller" rail mini-card surface — rebased to csfloat compact mat-card token — measured live on csfloat item-detail dialog at https://csfloat.com/item/<id> via getComputedStyle: app-similar-items > .container is a vertical column (display:flex, flex-direction:column, gap:10px, NO overflow, NO scroll-snap, NO header h2, NO nav arrows, NO View All link) and each child item-card .mat-mdc-card.item-card.card-compact measures w:210px h:313.5px with bg rgb(27,29,36), border-radius 12px, padding 0, NO border, and the canonical Material elevation-2 shadow stack `rgba(0,0,0,.2) 0 2px 1px -1px, rgba(0,0,0,.14) 0 1px 1px 0, rgba(0,0,0,.12) 0 1px 3px 0`. sbox baseline (.similar-card via earlier ship #3103): 1px var(--line) BORDER, 8px radius, var(--bg-1) bg, NO shadow — both card surface and elevation diverged from csfloat. sbox renders similar-strip horizontally (ship #3104) — that horizontal-vs-vertical layout difference is a markup constraint we keep, BUT we snap each mini-card's per-card surface to csfloat's compact card token so individual cards look pixel-identical to csfloat: 12px radius, panel bg rgb(27,29,36), mat elev-2 shadow, no hairline border. We hold card width at 150px because the horizontal strip would not fit a 210px card column inside the modal body width — the per-card chrome (radius/bg/shadow/no-border/transition) is the csfloat-exact part. Hover lifts the card 1px and bumps to mat elev-3 (also csfloat-canonical for hovered cards).) */
+body .similar-strip > .similar-card,
+body .similar-strip .similar-card,
+body .modal .similar-strip > .similar-card,
+body .modal .similar-strip .similar-card,
+body .modal-content .similar-strip > .similar-card,
+body .modal-content .similar-strip .similar-card {
+  background: rgb(27, 29, 36) !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 2px 1px -1px, rgba(0, 0, 0, 0.14) 0 1px 1px 0, rgba(0, 0, 0, 0.12) 0 1px 3px 0 !important;
+  padding: 0 !important;
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .similar-strip > .similar-card:hover,
+body .similar-strip .similar-card:hover,
+body .modal .similar-strip > .similar-card:hover,
+body .modal .similar-strip .similar-card:hover,
+body .modal-content .similar-strip > .similar-card:hover,
+body .modal-content .similar-strip .similar-card:hover {
+  background: rgb(27, 29, 36) !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 3px 1px -2px, rgba(0, 0, 0, 0.14) 0 2px 2px 0, rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+}
+/* csfloat compact mat-card has no inner divider (the card body is one continuous panel) — kill the hairline border-bottom that sbox baseline puts between thumb and name */
+body .similar-strip .similar-card .similar-thumb,
+body .modal .similar-strip .similar-card .similar-thumb,
+body .modal-content .similar-strip .similar-card .similar-thumb {
+  border-bottom: 0 !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17500 */
