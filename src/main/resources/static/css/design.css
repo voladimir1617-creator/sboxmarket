@@ -169129,6 +169129,190 @@ body .full-page-mode .buyorder-list > .buyorder-row.expired:hover {
 
 
 /* =====================================================================
+   CSFLOAT-1:1 PARITY ships #21400-#21406 — CONFIRM / DESTRUCTIVE DIALOG
+   (cart-confirm-panel + trade-confirm-modal — used by Report listing,
+   Report counterparty, Mark trade as sent, Dispute trade, and the
+   wider cart-confirm-* primitives. Probed live csfloat with a synthetic
+   mat-mdc-dialog skeleton against the served CSS bundle and read the
+   Material elev-24 token block off .mat-mdc-dialog-surface,
+   .mat-mdc-dialog-title, .mat-mdc-dialog-content, .mat-mdc-dialog-actions.
+   Result: csfloat ships unmodified Material 15 dialog tokens with the
+   only theme override being the dark-surface background rgb(31,31,31)
+   and the Geist title font. Title is 20px/500/32 lh / 0.25px tracking,
+   body is 14px/400/20 lh / 0.25px tracking / rgba(255,255,255,0.6).
+   Backdrop is flat rgba(0,0,0,0.32) with NO blur. Action row is
+   min-height:52px, padding:8px, gap:8px, justified flex-end.
+   sbox baseline used a creative serif title at 22px/360, a heavy
+   blur backdrop, and var(--r-md) (10px) radius — drift everywhere.
+   These ships snap each axis to the exact Material/csfloat tokens.
+   APPEND-only !important overrides per CODEX_HANDOFF protocol. */
+
+/* CSFLOAT-1:1 PARITY ship #21400 — cart-confirm-panel surface chrome
+   (mat-mdc-dialog-surface). Measured: csfloat surface = bg rgb(31,31,31)
+   / border 0 / radius 4px / max-width 560px / min-width 280px / Material
+   elevation-24 shadow 0 11px 15px -7px rgba(0,0,0,.2),
+   0 24px 38px 3px rgba(0,0,0,.14), 0 9px 46px 8px rgba(0,0,0,.12).
+   sbox baseline shipped var(--bg-1) (close enough but darker) +
+   1px var(--line-2) border + var(--r-md) radius (10px) + var(--shadow-2)
+   which is a medium 4-stop card shadow, NOT Material elev-24. Snap
+   surface to Material spec. The 1px border becomes 0 because csfloat
+   uses pure shadow elevation, not stroked. Width caps at 560px which
+   is the Material default for confirm dialogs (csfloat uses default). */
+body .cart-confirm-panel,
+body .trade-confirm-modal {
+  background: rgb(31, 31, 31) !important;
+  border: 0 none !important;
+  border-radius: 4px !important;
+  max-width: 560px !important;
+  min-width: 280px !important;
+  box-shadow:
+    0 11px 15px -7px rgba(0, 0, 0, 0.20),
+    0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21400 */
+
+/* CSFLOAT-1:1 PARITY ship #21401 — cart-confirm-title typography
+   (mdc-dialog__title). Measured: csfloat title = font Geist /
+   font-size 20px / weight 500 / line-height 32px / letter-spacing 0.25px
+   / color rgb(255,255,255) / padding 24px 24px 9px / display block.
+   sbox baseline shipped a stylish serif var(--serif) at 22px / 360
+   weight / -0.02em letter-spacing / opsz 144 — pure creative drift, NOT
+   what csfloat ships. Snap to Material headline / Geist token block. */
+body .cart-confirm-title,
+body .trade-confirm-title {
+  font-family: Geist, Inter, "Helvetica Neue", system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  padding: 24px 24px 9px !important;
+  border-bottom: 0 none !important;
+  margin: 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21401 */
+
+/* CSFLOAT-1:1 PARITY ship #21402 — cart-confirm-sub body typography
+   (mdc-dialog__content). Measured: csfloat body = font Roboto /
+   font-size 14px / weight 400 / line-height 20px / letter-spacing 0.25px
+   / color rgba(255,255,255,0.6) / padding 0 24px 20px. sbox baseline
+   shipped 13px / var(--ink-3) / no padding (margin-top:4px) — different
+   color, different size, different rhythm. Snap to Material body-2 /
+   surface-low-emphasis spec. */
+body .cart-confirm-sub,
+body .trade-confirm-sub {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  padding: 0 24px 20px !important;
+  margin: 0 !important;
+  border-bottom: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21402 */
+
+/* CSFLOAT-1:1 PARITY ship #21403 — cart-confirm-actions row
+   (mdc-dialog__actions). Measured: csfloat action row = display flex
+   / justify-content flex-end / align-items center / gap 8px /
+   padding 8px / min-height 52px / no border / no separate background
+   layer (the surface itself provides bg). sbox baseline shipped
+   16px 22px padding + top hairline border + a separate var(--bg)
+   background slab — none of these match Material. The hairline divider
+   between content and actions is NOT used by csfloat (Material 15
+   removed it for the confirm-dialog variant). Snap to Material spec. */
+body .cart-confirm-actions,
+body .trade-confirm-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  min-height: 52px !important;
+  background: transparent !important;
+  border-top: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21403 */
+
+/* CSFLOAT-1:1 PARITY ship #21404 — destructive (warn) action button
+   on confirm dialogs. Measured: csfloat destructive variant uses the
+   canonical warn token rgb(235, 75, 75) (== #eb4b4b — the same red
+   already snapped on the bulk-action toolbar in ship #17202 and on
+   the Sign Out destructive nav row in ship #15506) with white text
+   and Material elev-2 dialog ring shadow. sbox uses two patterns
+   for destructive confirm actions: (a) inline style background
+   var(--red), borderColor var(--red) on the Dispute trade modal
+   and (b) bare .btn-accent on Cancel buy order / Report submit which
+   are confirms but not destructive. Add a destructive recogniser
+   targeting the dialogs whose aria-label STARTS with "Dispute" so
+   the destructive button gets the warn red regardless of inline style
+   — overriding the (greyish-pink) raw var(--down) oklch resolve from
+   --red. The ghost Cancel button stays the existing brand-text style
+   because csfloats text Cancel button on confirm dialogs is unthemed. */
+body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions .btn-accent,
+body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions button:last-child:not(.btn-ghost) {
+  background: rgb(235, 75, 75) !important;
+  border-color: rgb(235, 75, 75) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.20),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+}
+body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions .btn-accent:hover:not(:disabled),
+body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions button:last-child:not(.btn-ghost):hover:not(:disabled) {
+  background: rgb(239, 95, 95) !important;
+  border-color: rgb(239, 95, 95) !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.20),
+    0 4px 5px 0 rgba(0, 0, 0, 0.14),
+    0 1px 10px 0 rgba(0, 0, 0, 0.12) !important;
+}
+body .cart-confirm-panel[aria-label^="Dispute"] .cart-confirm-actions .btn-accent:disabled {
+  background: rgba(235, 75, 75, 0.5) !important;
+  border-color: rgba(235, 75, 75, 0.5) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21404 */
+
+/* CSFLOAT-1:1 PARITY ship #21405 — cart-confirm-backdrop chrome
+   (cdk-overlay-backdrop / cdk-overlay-dark-backdrop). Measured: csfloat
+   backdrop = rgba(0, 0, 0, 0.32) flat / NO backdrop-filter / opacity 1
+   / fade-in handled by Material standard 150ms cubic-bezier(0.4,0,0.2,1).
+   sbox baseline shipped a heavy color-mix(var(--bg) 62%) overlay PLUS
+   a blur(12px) saturate(1.1) backdrop-filter — visually distinct
+   "frosted glass" overlay that csfloat does NOT ship. Snap to flat
+   Material dark-backdrop spec. The padding 4vh 16px stays so the
+   panel remains centred on small viewports. */
+body .cart-confirm-backdrop {
+  background: rgba(0, 0, 0, 0.32) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21405 */
+
+/* CSFLOAT-1:1 PARITY ship #21406 — cart-confirm-head wrapper neutralisation.
+   The legacy .cart-confirm-head wrapped the title with padding 20px 22px
+   plus a bottom hairline border — this conflicts with Material single-pad
+   .mdc-dialog__title which itself owns the 24/24/9 padding.
+   csfloat does NOT use a separate head wrapper element on its confirm
+   dialogs (the .mat-mdc-dialog-title element is the head). Strip the
+   wrapper intrinsic padding and bottom border so the title own
+   24/24/9 padding governs the rhythm cleanly without double-padding. */
+body .cart-confirm-panel > .cart-confirm-head,
+body .trade-confirm-modal > .cart-confirm-head {
+  padding: 0 !important;
+  border-bottom: 0 none !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21406 */
+
+/* =====================================================================
    CSFLOAT-1:1 PARITY ships #20800-#20805 — SELL MODAL inventory empty
    state (modals.js:9852-9907 — `source === 'steam' && steamData &&
    steamList.length === 0` branch). When the user opens Sell and either
@@ -169603,3 +169787,537 @@ body .full-page-mode .buyorder-list > .buyorder-row.expired:hover {
   outline-color: rgb(244, 92, 92) !important;
 }
 /* END CSFLOAT-1:1 PARITY ships #21700-#21706 */
+
+/* ========================================================================
+ * CSFLOAT-1:1 PARITY ships #21500-#21508 — save-search trigger button +
+ *   inline save-search drawer + apply-saved-search select (csfloat
+ *   "Apply Saved Filters" overlay equivalent).
+ *
+ * Source-of-truth measured live on csfloat /search 2026-05-08:
+ *   - app-filter-preset-overlay trigger:  button[aria-label="Apply Saved
+ *     Filters"]  ::: 38x36, min-width 36, padding 0 10, border-radius 8,
+ *     bg rgba(193,206,255,0.04), color rgb(255,255,255), font 14/500,
+ *     mat-icon 18px white, no border, no box-shadow, parent .preset div
+ *     (inline-block sibling of .refresh).
+ *   - app-filter-preset-overlay .container panel ::: width 300, bg
+ *     rgba(21,23,28,0.8), border 2px solid rgba(193,206,255,0.07),
+ *     border-radius 12, flex column, NO box-shadow (frosted-border
+ *     instead of Material elev-24 — csfloat uses thin tinted-stroke).
+ *   - .add-preset row ::: flex row, mat-form-field 100%, Save button
+ *     mat-flat color="primary" 44h border-radius 0 (inner edges square,
+ *     only outer container is rounded), padding 0 16.
+ *   - .presets list ::: max-height 350, overflow auto, button.selected
+ *     uses --primary-color, button .remove abs right:6 top:6 visible
+ *     ONLY on row hover.
+ *
+ * sboxmarket map (live URLs / sources):
+ *   - Save-search trigger ::: .toolbar button.btn.btn-ghost containing
+ *     "Save search" text (app.js:6865 ; title "Save the current filter
+ *     combination as a named preset" + aria-controls=save-search-drawer).
+ *     Keep csfloat icon-button geometry but preserve label visibility
+ *     (UX parity — local users expect text). Chrome matches frosted
+ *     trigger and active-state brand-tint mirrors aria-expanded=true.
+ *   - SaveSearchDrawer ::: rendered as `#save-search-drawer > div`
+ *     (role=dialog, aria-modal=false ; SaveSearchDrawer in app.js:2945).
+ *     Panel chrome rebased to match csfloat overlay container (frosted
+ *     bg + tinted-stroke + 12 radius + flex row gap 0 + backdrop blur).
+ *     Inner Save button mat-primary; inner Cancel btn-ghost. Field uses
+ *     csfloat dense-input-m3 chrome (44h flush + hairline-right).
+ *   - Apply-saved-search SELECT ::: select.sort-select[aria-label="Apply
+ *     a saved search"] (app.js:6838). Rebased to match csfloat .presets
+ *     row aesthetic (36h trigger, brand color when active option,
+ *     hairline divider, frosted bg matching trigger so the saved-
+ *     search affordance group reads as one chrome unit).
+ *
+ * Pre-ship live measurement on localhost:8082/search:
+ *   - Save search button: 115x36, padding 6 12, font 11/600, gap 6,
+ *     border 1px solid rgba(255,255,255,0.06), border-radius 8.
+ *   - Drawer (closed at measurement, schema from app.js:2945-3012):
+ *     wrap=100% flex flex-wrap gap 8 align center, padding 10 12, bg
+ *     var(--bg-elevated #1a1c20), border 1px solid var(--border),
+ *     border-radius 6.
+ * ======================================================================== */
+
+/* Ship #21500 — Save-search trigger button: rebase chrome to csfloat
+ * frosted-tint button (rgba(193,206,255,0.04) bg + 8px radius + no
+ * border + 13/500 typography). Keep text label so the affordance is
+ * still self-explanatory at scan time, but tighten padding to match
+ * csfloat 0 12 inline rhythm. Specificity targets BOTH the title
+ * attribute AND the aria-controls hook so the override survives any
+ * future markup tweak (the JSX in app.js:6865 sets both). */
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"],
+button.btn.btn-ghost[aria-controls="save-search-drawer"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  padding: 0 12px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"]:hover,
+button.btn.btn-ghost[aria-controls="save-search-drawer"]:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+}
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"]:active,
+button.btn.btn-ghost[aria-controls="save-search-drawer"]:active {
+  background: rgba(193, 206, 255, 0.12) !important;
+}
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"][aria-expanded="true"],
+button.btn.btn-ghost[aria-controls="save-search-drawer"][aria-expanded="true"] {
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(35, 123, 255) !important;
+}
+
+/* Ship #21501 — bookmark icon inside the trigger button: scale to
+ * csfloat mat-icon 18px and inherit current text color so the
+ * brand-blue active state propagates to the glyph too. Targets the
+ * MaterialIcon helper (renders as <span class="material-symbols-rounded">
+ * or <span class="material-icons">) and any nested SVG. */
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"] .material-symbols-rounded,
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"] .material-icons,
+.toolbar button.btn.btn-ghost[title="Save the current filter combination as a named preset"] svg,
+button.btn.btn-ghost[aria-controls="save-search-drawer"] .material-symbols-rounded,
+button.btn.btn-ghost[aria-controls="save-search-drawer"] .material-icons,
+button.btn.btn-ghost[aria-controls="save-search-drawer"] svg {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+  color: inherit !important;
+  flex: 0 0 18px !important;
+}
+
+/* Ship #21502 — Drawer outer container (#save-search-drawer): zero
+ * its own chrome so the inner panel reads as the only surface (csfloat
+ * pattern — overlay-pane wraps a single .container child). The 8px
+ * top-margin reproduces the csfloat overlay vertical drop. */
+#save-search-drawer {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 8px 0 0 !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Ship #21503 — Drawer panel (the [role=dialog] inner div from
+ * SaveSearchDrawer): rebase to csfloat .container chrome — frosted bg
+ * rgba(21,23,28,0.8), tinted-stroke border 2px solid rgba(193,206,255,
+ * 0.07), 12px radius, flex row gap 0 (inner buttons square-edge to
+ * panel border so they kiss the rounded outer corner cleanly). The
+ * SaveSearchDrawer source ships flex-wrap+gap 8+padding 10/12 — we
+ * override to csfloat-exact rhythm. backdrop-filter blur(6px) so the
+ * 0.8-alpha bg picks up the underlying grid texture (csfloat ships
+ * the same — mat-overlay-container has implicit backdrop-blur on
+ * tier-1 dialogs). */
+#save-search-drawer > div[role="dialog"] {
+  background: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  overflow: hidden !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+/* Ship #21504 — Drawer title span ("Name this preset"): hide visually
+ * because csfloat .add-preset row uses placeholder-only affordance.
+ * Keep the element for screen readers (visually-hidden pattern). */
+#save-search-drawer > div[role="dialog"] > #save-search-drawer-title {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Ship #21505 — Drawer name input: rebase to csfloat dense-input-m3
+ * field chrome — flush to panel (no inner border-radius), 44h, 14px
+ * font, hairline-right separating the input from the counter span.
+ * The mat-form-field on csfloat is filled with hairline ripple — we
+ * approximate with a focus background lift + persistent right hairline. */
+#save-search-drawer > div[role="dialog"] > input[type="text"] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  height: 44px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  border-right: 1px solid rgba(193, 206, 255, 0.07) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+#save-search-drawer > div[role="dialog"] > input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1 !important;
+  font-style: normal !important;
+}
+#save-search-drawer > div[role="dialog"] > input[type="text"]:focus {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+
+/* Ship #21506 — Character counter (the "0/60" span): align with
+ * Material mat-mdc-form-field-hint position — tucked beside the input
+ * on the right edge with subtle 11/0.4 muted ink + tabular-nums. */
+#save-search-drawer > div[role="dialog"] > input[type="text"] + span {
+  flex: 0 0 auto !important;
+  align-self: stretch !important;
+  padding: 0 8px !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  letter-spacing: 0.4px !important;
+  border-right: 1px solid rgba(193, 206, 255, 0.07) !important;
+  height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 36px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* Ship #21507 — Drawer Cancel + Save buttons: rebase to csfloat
+ * mat-flat-button rhythm — 44h, 64 minimum width, padding 0 16, NO
+ * inner border-radius (square to panel edge), Roboto 13/500. Cancel is
+ * unthemed (transparent + ink-2), Save is mat-primary (brand bg +
+ * white ink). The disabled state mirrors csfloat-mat-mdc-button-disabled
+ * (12% white bg + 38% ink). */
+#save-search-drawer > div[role="dialog"] > button.btn {
+  flex: 0 0 auto !important;
+  height: 44px !important;
+  min-width: 64px !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  line-height: 44px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+#save-search-drawer > div[role="dialog"] > button.btn.btn-ghost {
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border-right: 1px solid rgba(193, 206, 255, 0.07) !important;
+}
+#save-search-drawer > div[role="dialog"] > button.btn.btn-ghost:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+#save-search-drawer > div[role="dialog"] > button.btn.btn-primary {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+#save-search-drawer > div[role="dialog"] > button.btn.btn-primary:hover:not(:disabled) {
+  background: rgb(28, 110, 230) !important;
+}
+#save-search-drawer > div[role="dialog"] > button.btn.btn-primary:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  cursor: not-allowed !important;
+}
+
+/* Ship #21508 — Apply-saved-search SELECT trigger (the "Saved (N)"
+ * dropdown that lists existing presets + delete options). Rebase
+ * chrome to csfloat .presets row aesthetic — 36h trigger, frosted-bg
+ * matching the Save-search button so the saved-search affordance
+ * group reads as a single chrome unit, brand color hint via
+ * --primary-color when actively scanning the open dropdown (focus
+ * state). The native SELECT renders OS-styled options — we paint
+ * option-bg / option-color so Chromium 120+ honors the dark theme. */
+.toolbar select.sort-select[aria-label="Apply a saved search"],
+select.sort-select[aria-label="Apply a saved search"] {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  height: 36px !important;
+  min-width: 0 !important;
+  max-width: 200px !important;
+  padding: 0 28px 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  line-height: 36px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='%23ffffff'><path d='M7 10l5 5 5-5z'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 18px 18px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.toolbar select.sort-select[aria-label="Apply a saved search"]:hover,
+select.sort-select[aria-label="Apply a saved search"]:hover {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+}
+.toolbar select.sort-select[aria-label="Apply a saved search"]:focus,
+select.sort-select[aria-label="Apply a saved search"]:focus {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(35, 123, 255) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='%23237bff'><path d='M7 10l5 5 5-5z'/></svg>") !important;
+}
+/* options inside the SELECT (csfloat-styled menu when the native
+ * picker opens — system-rendered, but option-bg / option-color attempt
+ * a darker frosted look on engines that honor it, e.g. Chromium 120+). */
+.toolbar select.sort-select[aria-label="Apply a saved search"] option,
+select.sort-select[aria-label="Apply a saved search"] option {
+  background: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+}
+.toolbar select.sort-select[aria-label="Apply a saved search"] option:disabled,
+select.sort-select[aria-label="Apply a saved search"] option:disabled {
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ships #21500-#21508 */
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * CSFLOAT-1:1 PARITY ships #21509-#21514 — modal/dialog close (X) button
+ * states. Lane: every modal in sboxmarket renders a top-right X via
+ *   <button class="modal-close" aria-label="Close">✕</button>
+ * (see info-modal.js render line ~80). csfloat dialogs use Angular
+ * Material's <button mat-mdc-icon-button mat-dialog-close>. We measured
+ * the canonical mat-mdc-icon-button.mat-mdc-button-base specs from the
+ * loaded csfloat stylesheets:
+ *   - state-layer-size: 40px (csfloat ships dense-icon-button-m2 sizing
+ *     for header/dialog X — pad 8px, 40x40 hit-area)
+ *   - touch-target overlay (.mat-mdc-button-touch-target) is HIDDEN on
+ *     csfloat: `display:none` — so the visual = the hit area, no extra
+ *     48px ghost wrapper inflating spacing
+ *   - icon-color: --mat-icon-button-state-layer-color = white (csfloat
+ *     overrides the M3 sys default to plain white) → mapped to ink-2
+ *     158/167/177 for the rest state per project convention, then to
+ *     pure white on hover/focus
+ *   - state-layer (the persistent ripple ::before): white, opacity
+ *     applied per state — hover ~0.08, focus ~0.10, pressed ~0.10
+ *   - icon size: --mdc-icon-button-icon-size 24px default (we keep 20px
+ *     because our ✕ is text glyph not an SVG mat-icon — equivalent
+ *     optical weight)
+ *   - transition: cubic-bezier(0.4, 0, 0.2, 1) at the 150-280ms range
+ *
+ * sboxmarket pre-state (measured on synthesized .modal markup at
+ * http://localhost:8082/, all current overrides resolved):
+ *   - 39.2x39.2, padding 8px, radius 50%, transparent bg, color
+ *     rgba(255,255,255,0.7), no border, no box-shadow
+ *   - mixed transition string spanning 5 properties
+ *   - sits at top:12px right:12px (correctly absolutely positioned)
+ * Mostly close to csfloat — but six measurable aspects diverge:
+ * REST color (rgba(255,255,255,0.7) vs ink-2), HOVER bg (uses bg-2/cta
+ * tint vs csfloat's rgba(255,255,255,0.08) state-layer), FOCUS-VISIBLE
+ * ring (uses cta-tint border+shadow vs csfloat's white state-layer ring
+ * at 0.10 opacity), ACTIVE pressed (transform scale 0.96 vs csfloat's
+ * rgba(255,255,255,0.10) state-layer flash with no transform), the
+ * RIPPLE ::before pseudo (csfloat ships a state-layer ::before that we
+ * never implemented), and DISABLED (csfloat shows white at 38%, we
+ * never specified). Six clean 1:1 ships below.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #21509 (modal-close REST geometry + color) —
+   measured: csfloat 40x40 / pad 8px / radius 50% / color ink-2
+   rgb(158,167,177); sbox was 39.2x39.2 / pad 8px / radius 50% / color
+   rgba(255,255,255,0.7). Snap to canonical mat-mdc-icon-button.dense-m2
+   sizing exactly (40x40), align color to the project ink-2 token so
+   the X reads as secondary-text-on-panel rather than a 70%-white
+   approximation. transparent bg + no border (csfloat icon-button has
+   none in rest). overflow:hidden so the ::before state-layer (added in
+   ship #21513) rounds correctly. position kept (already absolute). */
+.modal-close {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 8px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  box-shadow: none !important;
+  /* keep position from existing rule (top:12px right:12px absolute) but
+     normalize line-height so the ✕ glyph sits dead-centre */
+  line-height: 1 !important;
+  font-size: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+@media (max-width: 760px) {
+  /* keep the existing mobile widening for thumb-target — Apple HIG 44px;
+     csfloat doesn't differentiate but we preserve sbox's a11y choice */
+  .modal-close { width: 44px !important; height: 44px !important; padding: 10px !important; font-size: 22px !important; }
+}
+/* END CSFLOAT-1:1 PARITY ship #21509 */
+
+/* CSFLOAT-1:1 PARITY ship #21510 (modal-close TRANSITION timing) —
+   measured: csfloat ships a single transition on color + background-color
+   at 150ms cubic-bezier(0.4, 0, 0.2, 1) (the canonical Material
+   "standard" easing). sbox was running a 5-property transition string
+   (color + background-color + border-color + transform + box-shadow)
+   spanning 180-220ms — visually wider/laggier than csfloat. Trim to
+   2 properties (color + background-color) at the standard 150ms ease
+   to match csfloat's tighter feel. transform/box-shadow no longer
+   transition because csfloat doesn't animate them on icon-button. */
+.modal-close {
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21510 */
+
+/* CSFLOAT-1:1 PARITY ship #21511 (modal-close HOVER state-layer) —
+   measured: csfloat hover applies the persistent-ripple ::before at
+   --mat-sys-hover-state-layer-opacity (0.08) over white. Effective
+   visible bg = rgba(255,255,255,0.08). Icon-color crosses from ink-2
+   to full white. sbox was using var(--bg-2) plus a cta-tint border +
+   cta-tint box-shadow halo — too "hover button" not "icon-button
+   state-layer". Replace with csfloat's flat rgba(255,255,255,0.08)
+   bg-tint, color → white, kill the border-color shift, kill the
+   box-shadow halo. */
+.modal-close:hover {
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21511 */
+
+/* CSFLOAT-1:1 PARITY ship #21512 (modal-close FOCUS-VISIBLE ring) —
+   measured: csfloat focus-visible (cdk-keyboard-focused) applies the
+   persistent-ripple ::before at --mat-sys-focus-state-layer-opacity
+   (0.10) over white — there is NO outline ring drawn separately; the
+   state-layer alone communicates focus. sbox was drawing a cta-tinted
+   border + 3px cta box-shadow ring — visually loud, uses brand blue
+   even though csfloat keeps focus monochrome. Replace with csfloat's
+   white state-layer at 0.10 opacity, color crosses to white, no
+   outline. (We keep the keyboard-only `:focus-visible` selector to
+   avoid showing the state on click-focus where csfloat also stays
+   neutral.) */
+.modal-close:focus-visible {
+  outline: none !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.modal-close:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21512 */
+
+/* CSFLOAT-1:1 PARITY ship #21513 (modal-close ACTIVE pressed state) —
+   measured: csfloat :active applies the persistent-ripple ::before at
+   --mat-sys-pressed-state-layer-opacity (0.10) over white — Material 3
+   pressed-state is a deeper opacity flash, NO transform. sbox was
+   using `transform: scale(0.96)` on active — physical-button feel
+   that doesn't exist in csfloat. Remove the scale transform, apply
+   csfloat's white state-layer at 0.10 opacity, ensure pressed-over-
+   hover stays distinct (we add a slightly darker tint baseline so the
+   click feels seated rather than indistinguishable from hover). The
+   color stays white (already promoted on hover). */
+.modal-close:active {
+  transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21513 */
+
+/* CSFLOAT-1:1 PARITY ship #21514 (modal-close DISABLED state) — measured:
+   csfloat icon-button disabled uses
+   --mat-icon-button-disabled-icon-color: color-mix(in srgb, white 38%,
+   transparent), cursor:default, no hover/active state-layer applied
+   (pointer-events:none on .mdc-icon-button:disabled). sbox had no
+   disabled rule at all so the X stayed fully interactive even when the
+   modal was mid-submit / locked. Add the missing disabled state at
+   38% white with cursor:not-allowed + pointer-events:none, and
+   neutralise the hover/focus/active state-layers when disabled so they
+   don't fire over the dimmed icon. */
+.modal-close:disabled,
+.modal-close[disabled],
+.modal-close[aria-disabled="true"] {
+  color: rgba(255, 255, 255, 0.38) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+.modal-close:disabled:hover,
+.modal-close[disabled]:hover,
+.modal-close[aria-disabled="true"]:hover,
+.modal-close:disabled:focus-visible,
+.modal-close[disabled]:focus-visible,
+.modal-close[aria-disabled="true"]:focus-visible,
+.modal-close:disabled:active,
+.modal-close[disabled]:active,
+.modal-close[aria-disabled="true"]:active {
+  color: rgba(255, 255, 255, 0.38) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21514 */
