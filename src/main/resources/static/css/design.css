@@ -196414,3 +196414,960 @@ html body .toolbar kbd.search-kbd {
   box-shadow: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #129106 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #129200 — ANON ROUTING AUDIT, app-banners
+   PROMO STRIPE.
+
+   Measured anon visit to https://csfloat.com/db (and confirmed
+   identical on /, /search) — the <app-banners> custom element
+   wraps an internal <div class="banners"> that renders the rolling
+   marketing message ("Meet Loadout Lab: Build your dream loadout,
+   get recommendations, and share with others. Try it Now! ✖").
+
+   Box: w=2440 (full viewport), h=38, padding 0, margin 0.
+   Background is rgba(0,0,0,0) — the stripe sits on top of the
+   page background (panel rgb(27,29,36)) and the trailing ✖
+   dismiss glyph is a unicode close char rendered inline at the
+   same font-size as the body copy.
+
+   Type: 16px / 400 / Roboto, "Helvetica Neue", sans-serif.
+   Color: rgb(255,255,255).
+   Text-align: start (locale-aware left).
+   Border-bottom: 0px none — there is NO hairline beneath the
+   stripe; separation comes purely from the panel/page bg
+   transition.
+
+   Display on csfloat: app-banners itself is display:inline (the
+   custom element collapses to inline by default in their build);
+   the inner .banners div carries the box dimensions. Mirror that
+   here: the host wrapper is inline so any padding from a
+   surrounding nav doesn't double up. */
+body app-banners,
+body .csfloat-banners,
+body .top-banner-host,
+body .promo-banner-host {
+  display: inline !important;
+  width: 100% !important;
+  background: rgba(0, 0, 0, 0) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body app-banners > .banners,
+body .csfloat-banners > .banners,
+body .csfloat-banners > div,
+body .top-banner-host > .banners,
+body .promo-banner-host > .banners,
+body .promo-banner-stripe {
+  display: block !important;
+  width: 100% !important;
+  height: 38px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 16px/38px Roboto, "Helvetica Neue", sans-serif !important;
+  text-align: start !important;
+  border-bottom: 0 none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+body .promo-banner-stripe .promo-banner-dismiss,
+body app-banners .banners .dismiss,
+body .csfloat-banners .banners .dismiss {
+  display: inline !important;
+  margin-left: 8px !important;
+  color: inherit !important;
+  font: inherit !important;
+  background: rgba(0, 0, 0, 0) !important;
+  border: 0 !important;
+  cursor: pointer !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129200 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #129201 — ANON ROUTING AUDIT,
+   app-skin-counter type spec on /db.
+
+   The FloatDB header carries an <app-skin-counter> that displays
+   the live total skin count ("1,873,232,248 Skins" at audit time).
+
+   Box: w=173, h=22, padding 0, margin 0, border-radius 0,
+   display:block.
+   Background: rgba(0,0,0,0) (transparent, sits on panel bg).
+   Color: rgb(255,255,255).
+   Type: 18px / 500 / Roboto, "Helvetica Neue", sans.
+
+   Width is content-driven (tabular-nums sized to the comma-
+   separated billion-figure count). The element is a single
+   inline text node — no wrapper span sub-styling.
+
+   Mirror token mapping for sboxmarket: panel rgb(27,29,36)
+   already matches csfloat. Brand rgb(35,123,255) is NOT used
+   here — the counter is monochrome white. */
+body app-skin-counter,
+body .csfloat-skin-counter,
+body .skin-counter,
+body .floatdb-skin-counter {
+  display: block !important;
+  width: auto !important;
+  min-width: 173px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(255, 255, 255) !important;
+  font: 500 18px/22px Roboto, "Helvetica Neue", sans-serif !important;
+  border-radius: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0 !important;
+  text-align: start !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129201 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #129202 — ANON ROUTING AUDIT,
+   app-mini-footer compact /db legal strip.
+
+   On /db (and other slim-footer routes) csfloat swaps the full
+   <app-full-footer> for <app-mini-footer> — a single-line legal
+   strip with three trailing links. Measured at viewport 2440:
+
+   Box: w=2440 (full viewport), h=63, padding 0,
+        background rgba(0,0,0,0), border-top 0px none.
+   Color: rgb(255,255,255).
+   Type: 16px / Roboto / text-align:start.
+
+   Content (verbatim copy):
+     "© CSFloat Inc. 2026. Not affiliated with Valve Corp."
+     "Affiliate"  "Terms of Service"  "Privacy Policy"
+
+   The three link texts are rendered run-on in the DOM (no
+   visible separator chars) — csfloat relies on padding/margin
+   between the inline links rather than a "·" or "|" between
+   them. This rule mirrors that exactly: link-spacing comes from
+   margin-left on the 2nd and 3rd anchor.
+
+   Width=2440 means the strip stretches the full viewport with
+   NO max-width clamp, NO horizontal padding. Centering of the
+   text content is NOT applied — text-align is start (left in
+   LTR locales). */
+body app-mini-footer,
+body .csfloat-mini-footer,
+body footer.mini-footer,
+body .floatdb-mini-footer {
+  display: block !important;
+  width: 100% !important;
+  height: 63px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 16px/63px Roboto, "Helvetica Neue", sans-serif !important;
+  text-align: start !important;
+  border-top: 0 none !important;
+}
+body app-mini-footer a,
+body .csfloat-mini-footer a,
+body footer.mini-footer a,
+body .floatdb-mini-footer a {
+  display: inline !important;
+  color: rgb(255, 255, 255) !important;
+  text-decoration: none !important;
+  margin-left: 16px !important;
+  font: inherit !important;
+}
+body app-mini-footer a:first-of-type,
+body .csfloat-mini-footer a:first-of-type,
+body footer.mini-footer a:first-of-type,
+body .floatdb-mini-footer a:first-of-type {
+  margin-left: 24px !important;
+}
+body app-mini-footer a:hover,
+body .csfloat-mini-footer a:hover,
+body footer.mini-footer a:hover,
+body .floatdb-mini-footer a:hover {
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129202 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #129203 — ANON ROUTING AUDIT, FloatDB
+   <thead>/<tbody> tr canonical ROW METRICS.
+
+   Inside <app-float-dbtable> the canonical row anatomy at
+   viewport 2440 measures:
+
+   Header row:
+     <thead> h=48, color rgb(255,255,255), font-size 16px,
+     font-weight 400, background rgba(0,0,0,0).
+
+   Body row:
+     <tr> h=62, background rgb(27,29,36) (panel token — confirms
+     the canonical panel color is what's painted on each
+     individual data row, not just on a parent panel),
+     color rgb(255,255,255), font-size 14px, border-bottom
+     0px none rgb(255,255,255) (no hairline — separation comes
+     from a tiny vertical gap between rows or from inner cell
+     padding only).
+
+   Total table:
+     <app-float-dbtable> w=1185 (table is narrower than the
+     enclosing app-filter-content-container at 1550px — the
+     ~365px gap is filter-rail + side gutter). Background
+     rgba(0,0,0,0) (table itself transparent — only the rows
+     paint panel bg).
+
+   Mirror with strict !important so any inherited mat-table
+   defaults are crushed. */
+body app-float-dbtable,
+body .csfloat-floatdb-table,
+body .floatdb-table {
+  display: block !important;
+  width: 1185px !important;
+  background: rgba(0, 0, 0, 0) !important;
+}
+body app-float-dbtable thead,
+body .csfloat-floatdb-table thead,
+body .floatdb-table thead {
+  display: table-header-group !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 16px/48px Roboto, "Helvetica Neue", sans-serif !important;
+  height: 48px !important;
+}
+body app-float-dbtable tbody tr,
+body .csfloat-floatdb-table tbody tr,
+body .floatdb-table tbody tr {
+  display: table-row !important;
+  height: 62px !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 14px/1.4 Roboto, "Helvetica Neue", sans-serif !important;
+  border-bottom: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129203 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #129204 — ANON ROUTING AUDIT,
+   app-landing-page > .outer canonical CONTAINER frame.
+
+   The anon homepage at https://csfloat.com/?nolocal=1 (set the
+   query so the embedded local-dev redirect doesn't kick in)
+   renders:
+
+     app-landing-page                 (block, 5000px tall slab)
+       └── .outer.ng-star-inserted   (display:flex, w=2440,
+                                       h=5000, bg transparent,
+                                       padding 0 5px,
+                                       margin 0 0 30px,
+                                       max-width:none)
+             └── .container          (block, w=1337, h=5000,
+                                       bg transparent, no
+                                       padding/margin)
+
+   Critical numbers:
+     • .outer is full-viewport-wide with a 5px horizontal gutter
+       (NOT a centered max-width clamp — anon homepage stretches).
+     • .outer has a 30px bottom margin separating it from the
+       footer.
+     • .container is exactly 1337px wide centered inside .outer
+       via the flex layout (justify-content defaults to center
+       once the inner block is narrower than the flex container).
+     • Both layers carry transparent background — page bg shows
+       through.
+
+   This frame is what every anon homepage section nests inside,
+   so getting the outer→container nesting EXACTLY right is the
+   prerequisite for shipping the hero, the trending grid, the
+   carousel etc. in subsequent passes. */
+body app-landing-page,
+body .csfloat-landing-page,
+body .landing-page {
+  display: block !important;
+  background: rgba(0, 0, 0, 0) !important;
+}
+body app-landing-page > .outer,
+body .csfloat-landing-page > .outer,
+body .landing-page > .outer {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 5px !important;
+  margin: 0 0 30px !important;
+  background: rgba(0, 0, 0, 0) !important;
+}
+body app-landing-page > .outer > .container,
+body .csfloat-landing-page > .outer > .container,
+body .landing-page > .outer > .container {
+  display: block !important;
+  width: 1337px !important;
+  max-width: 1337px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129204 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #129205 — ANON ROUTING AUDIT,
+   <mat-card.item-card.card-compact> on /search canonical CARD.
+
+   Measured /search anon listing card (the elementary unit of
+   the buy-now grid):
+
+     <mat-card class="mat-mdc-card mdc-card item-card
+                       card-compact hover-enabled
+                       ng-star-inserted">
+       w=246, h=332,
+       background rgb(27,29,36),
+       padding 0,
+       border-radius 12px,
+       border 2px solid rgba(0,0,0,0)  ← !! 2px transparent
+                                          border, reserved for
+                                          the brand-blue
+                                          rgb(35,123,255) hover
+                                          state which paints
+                                          this same border
+                                          without changing
+                                          layout.
+
+   Box-shadow (Material elevation z1, three-layer):
+     rgba(0,0,0,0.20) 0px 2px 1px -1px,
+     rgba(0,0,0,0.14) 0px 1px 1px  0px,
+     rgba(0,0,0,0.12) 0px 1px 3px  0px
+
+   NOTE: s&box CSS quirk — multi-value box-shadow IS supported
+   in normal browsers but caused parser issues in s&box's WebKit
+   build (see reference_sbox_css_quirks.md). sboxmarket runs in
+   a real Chromium dev server (port 8082), not s&box, so the
+   3-layer shadow is safe here. Still, encode each layer
+   explicitly so any future port to s&box can collapse this to
+   a single-layer fallback without re-measuring.
+
+   The 2px transparent border is the load-bearing detail — every
+   listing card on csfloat reserves border-box space for the
+   blue hover/selection state so the grid never reflows on
+   hover. Always preserve the 2px transparent border with
+   !important. */
+body mat-card.item-card.card-compact,
+body .csfloat-item-card.card-compact,
+body .item-card.card-compact {
+  display: block !important;
+  width: 246px !important;
+  height: 332px !important;
+  padding: 0 !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 2px solid rgba(0, 0, 0, 0) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.20) 0px 2px 1px -1px,
+    rgba(0, 0, 0, 0.14) 0px 1px 1px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 3px 0px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  transition: border-color 120ms ease, transform 120ms ease !important;
+}
+body mat-card.item-card.card-compact.hover-enabled:hover,
+body .csfloat-item-card.card-compact.hover-enabled:hover,
+body .item-card.card-compact.hover-enabled:hover {
+  border-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129205 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #129080-#129085 — /db filter sidebar section
+   header (.row > .name + .icon) live RE-MEASUREMENT vs csfloat /db.
+   Out-cascades the prior ship #128171 rules at L185740-L185779 which
+   approximated the .name as 16px/400 and the .icon as 15px ink-2. csfloat
+   /db actually paints the .name as 12px/700/0.6 letter-spacing pure-white
+   and the .icon chevron as 15x15 currentColor=#fff with a matrix(-1,...)
+   180° transform when the section is expanded (300ms transition). The
+   sboxmarket /db page is currently rendering correctly *only* because
+   Angular's component-scoped `[_ngcontent-...]` attribute selectors win
+   the cascade against #128171's `body .advanced-search app-search-row
+   .row > .name` chain — but that's fragile: if the Angular bundle
+   rebuild changes the hash, #128171's wrong 16px/400 will visibly ship.
+   Lock the truth here with `html body .advanced-search app-search-row
+   div.row > div.name` (specificity 1,3,5) so the rendered output is
+   invariant under any future Angular rebuild.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #129080 — .row geometry RE-AFFIRM. csfloat
+   .advanced-search app-search-row .row.expanded measured 310x27 outer
+   (15px inner + 6px+6px padding-y), display:flex row, justify-content
+   space-between, align-items center, cursor pointer, transparent bg,
+   no border. Already pinned by #128171 at L185740-L185762 — re-pin here
+   with stronger specificity so a future style addition can't drift the
+   row off-rhythm. Measured row x=525 width=310 on the live csfloat /db
+   sidebar (350px panel - 20px*2 padding = 310px inner column). */
+html body .advanced-search app-search-row div.row,
+html body .advanced-search app-search-row div.row.expanded,
+html body .filter.sticky .advanced-search app-search-row div.row,
+html body .filter.sticky .advanced-search app-search-row div.row.expanded {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 6px 0 !important;
+  margin: 0 !important;
+  height: 15px !important;
+  min-height: 15px !important;
+  box-sizing: content-box !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129080 */
+
+/* CSFLOAT-1:1 PARITY ship #129081 — .name FONT-SIZE 12px (NOT 16px).
+   csfloat .advanced-search .row > .name measured `font-size: 12px` in
+   getComputedStyle on every section header (Wear / Special / Patterns /
+   Stickers / Charms / Rarity / Collection). #128171 said 16px which is
+   the dropdown mat-label font, NOT the section header. The 4px surplus
+   in #128171 makes the header read as h4-weight rather than the calmer
+   12px label-cap-style csfloat actually ships. Lock to 12 exact. */
+html body .advanced-search app-search-row div.row > div.name,
+html body .advanced-search app-search-row div.row.expanded > div.name,
+html body .filter.sticky .advanced-search app-search-row div.row > div.name {
+  font-size: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129081 */
+
+/* CSFLOAT-1:1 PARITY ship #129082 — .name FONT-WEIGHT 700 (NOT 400).
+   csfloat .advanced-search .row > .name measured `font-weight: 700` =
+   bold. #128171 said 400 (regular) — explicitly noted as "NOT 600 / NOT
+   bold" in the source comment, but the live csfloat measurement
+   contradicts that. The bold weight + 12px small size is what gives
+   csfloat's section labels their characteristic "all-cap-feel without
+   actually being uppercase" cadence. Lock to 700 exact. */
+html body .advanced-search app-search-row div.row > div.name,
+html body .advanced-search app-search-row div.row.expanded > div.name,
+html body .filter.sticky .advanced-search app-search-row div.row > div.name {
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: none !important;
+  line-height: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129082 */
+
+/* CSFLOAT-1:1 PARITY ship #129083 — .name LETTER-SPACING 0.6px (NOT
+   normal). csfloat .advanced-search .row > .name measured
+   `letter-spacing: 0.6px` — a small positive tracking that opens the
+   12px bold characters so they don't crowd. #128171 said `normal` (=
+   0px tracking). Without the 0.6px tracking the bold 12px text reads
+   denser/heavier than csfloat's. The 0.6px is approx 5% of 12 — a
+   conventional micro-tracking adjustment for small bold UI labels. */
+html body .advanced-search app-search-row div.row > div.name,
+html body .advanced-search app-search-row div.row.expanded > div.name,
+html body .filter.sticky .advanced-search app-search-row div.row > div.name {
+  letter-spacing: 0.6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129083 */
+
+/* CSFLOAT-1:1 PARITY ship #129084 — .icon COLOR pure white (NOT ink-2).
+   csfloat .advanced-search .row > .icon measured `color: rgb(255,255,255)`.
+   The chevron SVG inside the .icon DIV is `<path stroke="currentColor"
+   ...>` so the .icon's color directly drives the visible chevron stroke.
+   #128171 set color to rgb(158,167,177) (the csfloat ink-2 muted
+   text token) — that paints the chevron as a soft grey rather than
+   the same pure-white as the .name label. csfloat actually keeps the
+   chevron at the same brightness as the label so the header reads as
+   one unified white block. Lock chevron to #fff and re-pin the 15x15
+   container size + display:block (the SVG inside is 14x15 by viewBox
+   but the container is a square 15x15 wrapper). */
+html body .advanced-search app-search-row div.row > div.icon,
+html body .advanced-search app-search-row div.row.expanded > div.icon,
+html body .filter.sticky .advanced-search app-search-row div.row > div.icon {
+  width: 15px !important;
+  height: 15px !important;
+  color: rgb(255, 255, 255) !important;
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  border: 0 !important;
+}
+/* The SVG inside follows the parent currentColor automatically because
+   the path uses stroke=currentColor, but pin its dimensions defensively
+   so a stray Angular host-context style can't blow it up to 24x24. */
+html body .advanced-search app-search-row div.row > div.icon > svg,
+html body .advanced-search app-search-row div.row.expanded > div.icon > svg {
+  width: 14px !important;
+  height: 15px !important;
+  display: block !important;
+  fill: none !important;
+}
+html body .advanced-search app-search-row div.row > div.icon > svg path,
+html body .advanced-search app-search-row div.row.expanded > div.icon > svg path {
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129084 */
+
+/* CSFLOAT-1:1 PARITY ship #129085 — .icon TRANSFORM + TRANSITION
+   chevron flip when section is expanded, plus .content sibling's 6px
+   top margin. csfloat measured the .icon's `transform` as
+   matrix(1,0,0,1,0,0) (= identity, chevron-down) when the section is
+   collapsed and `matrix(-1,0,0,-1,0,0)` (= 180° rotation, chevron-up)
+   when the section is expanded — and the `transition` property is set
+   to `0.3s` so the flip animates over 300ms when the user toggles the
+   section. The expanded state is signalled by the `.expanded` class on
+   the parent .row. #128171 didn't ship the transform or transition at
+   all, so the chevron stays static — visibly broken: clicking a header
+   should rotate the chevron, but currently nothing happens. Lock the
+   collapsed identity, the expanded 180°, and the 300ms transition.
+   Also pin the .content / .content.expanded sibling's `margin: 6px 0 0;
+   padding: 0` (the breath between the header row and the first
+   checkbox of the section body — measured exactly 6px on csfloat). */
+html body .advanced-search app-search-row div.row > div.icon,
+html body .filter.sticky .advanced-search app-search-row div.row > div.icon {
+  transform: matrix(1, 0, 0, 1, 0, 0) !important;
+  transition: transform 0.3s !important;
+}
+html body .advanced-search app-search-row div.row.expanded > div.icon,
+html body .filter.sticky .advanced-search app-search-row div.row.expanded > div.icon {
+  transform: matrix(-1, 0, 0, -1, 0, 0) !important;
+}
+html body .advanced-search app-search-row div.content,
+html body .advanced-search app-search-row div.content.expanded,
+html body .filter.sticky .advanced-search app-search-row div.content,
+html body .filter.sticky .advanced-search app-search-row div.content.expanded {
+  margin: 6px 0 0 !important;
+  padding: 0 !important;
+}
+/* The hairline divider <div class="gap"> between sections — csfloat
+   measured 310x1, background rgba(193,206,255,0.04) (a barely-blue
+   hairline, NOT pure white-on-black). Re-pin so a later override
+   doesn't bump it back to a heavier 1px white stripe. */
+html body .advanced-search > div.gap,
+html body .filter.sticky .advanced-search > div.gap {
+  width: 100% !important;
+  height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129085 */
+
+/* =====================================================================
+   END CSFLOAT-1:1 PARITY ships #129080-#129085
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129060 — item-detail mat-card panel canonical.
+   Measured csfloat /item/<id> central panel (item-detail > mat-card):
+     width:            494px (max-width 494)
+     height:           569px (auto, content-driven)
+     bg:               rgb(27, 29, 36)  ← --cf-panel token
+     border:           0 (transparent shell)
+     border-radius:    12px
+     box-shadow MD-1:  0 2px 1px -1px rgba(0,0,0,0.2),
+                       0 1px 1px 0 rgba(0,0,0,0.14),
+                       0 1px 3px 0 rgba(0,0,0,0.12)
+     display:          flex, flex-direction: column
+   Sboxmarket exposes the same surface as `.modal.item-page` plus the new
+   csfloat-mounted Angular tag selectors `item-detail mat-card` (when the
+   detail surface is rendered as a route, not a modal). Pin both flavours
+   to the canonical csfloat panel chrome so the central card reads
+   identical regardless of mount path.
+*/
+html body item-detail > mat-card,
+html body item-detail mat-card.mat-mdc-card,
+html body .csfloat-item-detail > .item-detail-card,
+html body .modal.item-page > .item-detail-card,
+html body .modal.item-page .item-detail-panel {
+  background: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-width: 494px !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129060 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129061 — item-detail .header (title row).
+   Measured csfloat item-detail .header:
+     padding:          0
+     display:          flex, flex-direction: row, gap: 10
+     height:           ~36 (content driven)
+   Inside the header:
+     .item-name:       16/500 #ffffff (or rarity-tier color)
+     .subtext:         14/500 #9ea7b1 (ink-2), margin-top 6
+   Sboxmarket .modal.item-page header used .modal-header / .modal-title
+   shape; pin both the header row and the inner item-name/subtext typo
+   tokens so the title block matches csfloat 1:1.
+*/
+html body item-detail .header,
+html body .modal.item-page .item-detail-header,
+html body .csfloat-item-detail .item-detail-header {
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 10px !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+html body item-detail .item-name,
+html body .modal.item-page .item-detail-header .item-name,
+html body .modal.item-page .modal-title,
+html body .csfloat-item-detail .item-name {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+}
+html body item-detail .subtext,
+html body .modal.item-page .item-detail-header .subtext,
+html body .modal.item-page .modal-subtitle,
+html body .csfloat-item-detail .subtext {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 6px 0 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129061 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129062 — item-detail .image area.
+   Measured csfloat item-detail .image:
+     width:            494
+     height:           378
+     padding:          0
+     display:          flex (full-bleed image inside)
+   Inner img.item-img fills the area edge-to-edge; the panel border-
+   radius (12px) clips the top corners. Pin both the image area and the
+   inner img to the canonical chrome so the central image fills the
+   panel exactly the way csfloat presents it. .modal-preview is the
+   sboxmarket-side analogue of the .image area.
+*/
+html body item-detail .image,
+html body .modal.item-page .modal-preview,
+html body .modal.item-page .item-detail-image,
+html body .csfloat-item-detail .item-detail-image {
+  width: 494px !important;
+  max-width: 494px !important;
+  height: 378px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  overflow: hidden !important;
+}
+html body item-detail .image > img,
+html body item-detail .image .item-img,
+html body .modal.item-page .modal-preview > img,
+html body .modal.item-page .item-detail-image > img {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 378px !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129062 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129063 — item-detail .footer + .price-row +
+   .price + .action-buttons. Measured csfloat item-detail .footer:
+     width:            494, height: 129
+     padding:          12px (all sides)
+     display:          flex, flex-direction: column, gap: 10
+   Inside .footer:
+     .price-row:       470 x 27, display flex, gap: 6
+       .price:         22/500 #ffffff (left)
+       app-reference-widget: 65 x 24 chip on right
+     .action-buttons:  470 x 40 (alias .actions)
+   Sboxmarket maps the same shape onto .modal.item-page > .modal-actions
+   and the .item-rail-actions-* button rail. Pin both flavours so the
+   bottom block reads canonical csfloat regardless of layout source.
+*/
+html body item-detail .footer,
+html body .modal.item-page .modal-actions,
+html body .modal.item-page .item-detail-footer,
+html body .csfloat-item-detail .item-detail-footer {
+  padding: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  background: transparent !important;
+  border: 0 !important;
+  width: 100% !important;
+  max-width: 494px !important;
+  box-sizing: border-box !important;
+}
+html body item-detail .price-row,
+html body .modal.item-page .modal-price-row,
+html body .modal.item-page .item-detail-price-row,
+html body .csfloat-item-detail .price-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  height: 27px !important;
+  background: transparent !important;
+}
+html body item-detail .price-row .price,
+html body item-detail .footer .price,
+html body .modal.item-page .item-detail-price,
+html body .modal.item-page .modal-price-row .price {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: 27px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+}
+html body item-detail .action-buttons,
+html body item-detail .footer .actions,
+html body .modal.item-page .item-rail-actions,
+html body .modal.item-page .modal-actions-row {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  width: 100% !important;
+  height: 40px !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129063 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129064 — app-order-table Material table chrome.
+   Measured csfloat /item/<id> left rail (app-order-table):
+     width:            250 (rail), height: 510
+     inner:            table.mat-mdc-table.slimmed-table
+       <thead> .mat-mdc-header-row  → 14/500 ink-2 column titles
+                                       columns: "Price" / "Quantity"
+       <tbody> .mat-mdc-row         → 42h, 14/500 white
+     bg:               transparent (no own panel chrome)
+   Sboxmarket exposes the same surface inside the item-page modal as the
+   .buy-orders-table / .modal-orders-table / .recent-sales-table block.
+   Pin both the Material table and the sboxmarket-side selectors so the
+   left-rail order table reads canonical csfloat.
+*/
+html body app-order-table,
+html body app-order-table .container,
+html body .modal.item-page .buy-orders-table,
+html body .modal.item-page .modal-orders-table {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  width: 250px !important;
+  max-width: 250px !important;
+}
+html body app-order-table .mat-mdc-table,
+html body app-order-table table,
+html body .modal.item-page .buy-orders-table table,
+html body .modal.item-page .modal-orders-table table {
+  background: transparent !important;
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 14px !important;
+}
+html body app-order-table .mat-mdc-header-row,
+html body app-order-table thead tr,
+html body .modal.item-page .buy-orders-table thead tr,
+html body .modal.item-page .modal-orders-table thead tr {
+  height: 36px !important;
+  background: transparent !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+html body app-order-table .mat-mdc-row,
+html body app-order-table tbody tr,
+html body .modal.item-page .buy-orders-table tbody tr,
+html body .modal.item-page .modal-orders-table tbody tr {
+  height: 42px !important;
+  background: transparent !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body app-order-table .mat-mdc-row:hover,
+html body app-order-table tbody tr:hover,
+html body .modal.item-page .buy-orders-table tbody tr:hover,
+html body .modal.item-page .modal-orders-table tbody tr:hover {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+}
+html body app-order-table .mat-mdc-row:last-child,
+html body app-order-table tbody tr:last-child,
+html body .modal.item-page .buy-orders-table tbody tr:last-child,
+html body .modal.item-page .modal-orders-table tbody tr:last-child {
+  border-bottom: 0 !important;
+}
+html body app-order-table .mat-mdc-cell,
+html body app-order-table td {
+  padding: 0 12px !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129064 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129065 — item-history-chart range toggle group.
+   Measured csfloat item-history-chart range chip:
+     width:            205, height: 31
+     bg:               rgba(193, 206, 255, 0.04)  ← --cf-row-hover
+     border-radius:    7px
+     display:          inline-flex
+   The mat-button-toggle-group is the small "1d / 7d / 30d / 90d / All"
+   strip below the chart canvas. Sboxmarket exposes the same surface as
+   .chart-range-row / .chart-range-btn — pin the wrapper to the canonical
+   csfloat 31h pill at radius 7 with the Material toggle bg, and pin the
+   inner buttons to the same 14/500 typography csfloat uses. Active state
+   gets the brand fill ring measured on csfloat.
+*/
+html body item-history-chart mat-button-toggle-group,
+html body item-history-chart .range,
+html body .modal.item-page .chart-range-group,
+html body .modal.item-page .chart-range-row {
+  height: 31px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+html body item-history-chart mat-button-toggle,
+html body item-history-chart .range > .mat-button-toggle,
+html body .modal.item-page .chart-range-btn {
+  height: 31px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 31px !important;
+  color: rgb(255, 255, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  cursor: pointer !important;
+}
+html body item-history-chart mat-button-toggle:hover,
+html body .modal.item-page .chart-range-btn:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+html body item-history-chart mat-button-toggle.mat-button-toggle-checked,
+html body item-history-chart mat-button-toggle[aria-pressed="true"],
+html body .modal.item-page .chart-range-btn.active,
+html body .modal.item-page .chart-range-btn[aria-pressed="true"] {
+  background: rgba(35, 123, 255, 0.16) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129065 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #129066 — app-skin-bar / app-similar-items /
+   app-reference-widget / app-sticker-view baseline chrome.
+   Measured csfloat /item/<id> ancillary surfaces:
+     app-skin-bar:           full-bleed strip, height 38, transparent bg
+                             (carousel chevrons + mat-button-toggle-group
+                             of category names — same vocabulary as the
+                             db-page category carousel measured in #128406)
+     app-similar-items:      right rail container (x=1001), no own panel
+                             chrome — relies on item-card panels inside.
+                             The empty-state container has no bg/border.
+     app-reference-widget:   65 x 24 chip in the price-row
+                             bg rgba(255,255,255,0.04)  (--cf-hair),
+                             padding 4 6, border-radius 20,
+                             inner mat-icon 19x19 ink-2
+     app-sticker-view:       155 x 19 inline pill row, transparent bg,
+                             displays sticker chips in a horizontal row
+   Pin all four to the canonical csfloat tokens so the per-item detail
+   ancillary chrome reads identical regardless of mount path.
+*/
+html body app-skin-bar,
+html body app-skin-bar > .container,
+html body .modal.item-page .item-skin-bar,
+html body .modal.item-page .item-detail-skin-bar {
+  height: 38px !important;
+  background: transparent !important;
+  border: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 !important;
+  margin: 0 0 12px !important;
+}
+html body app-similar-items,
+html body app-similar-items > .container,
+html body .modal.item-page .similar-items,
+html body .modal.item-page .related-items-rail {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+html body app-reference-widget,
+html body app-reference-widget > .reference,
+html body app-reference-widget > div,
+html body .modal.item-page .reference-widget,
+html body .modal.item-page .item-reference-widget {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px 6px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  height: 24px !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+}
+html body app-reference-widget mat-icon,
+html body .modal.item-page .reference-widget mat-icon,
+html body .modal.item-page .item-reference-widget .icon {
+  width: 19px !important;
+  height: 19px !important;
+  font-size: 19px !important;
+  line-height: 19px !important;
+  color: rgb(158, 167, 177) !important;
+}
+html body app-sticker-view,
+html body .modal.item-page .sticker-row,
+html body .modal.item-page .item-detail-stickers {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 19px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129066 */
