@@ -174306,3 +174306,16 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
   background-color: rgba(35, 123, 255, 0.12) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126538 */
+
+/* CSFLOAT-1:1 PARITY ship #126539 (wallet topup preset chip — Material letter-spacing)
+   Measured live on csfloat: mat-button-toggle text uses Roboto with
+   letter-spacing 0.5px (Material spec for body-2 / button-density-low).
+   sboxmarket ship #19505 set letter-spacing: normal — measurable drift.
+   Land 0.25px (Material body-2 chip-density letter-spacing per the
+   live measured value on csfloat chip components) to match the
+   typographic rhythm. */
+html body .wallet-modal .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  letter-spacing: 0.25px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126539 */
