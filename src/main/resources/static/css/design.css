@@ -179841,3 +179841,139 @@ html body .buy-btn.is-permanent:disabled {
 }
 
 /* ── csfloat-1:1 ships #127380-#127388 END ─────────────────── */
+
+
+/* CSFLOAT-1:1 PARITY ship #127400 — `.wallet-inline-hint` body-level brand-blue callout chrome lift
+   ────────────────────────────────────────────────────────────────────────────
+   Sister surface to #127260 (`.wallet-error` 12/400/0.4px destructive helper).
+   Anchor: csfloat dialog-content callout (the canonical info notice that sits
+   beneath the withdraw amount input — "You can only withdraw balance obtained
+   through item sales. You have $X.XX in withdrawable balance."). Re-measured
+   today on the live sboxmarket render via getComputedStyle (synthetic probe
+   against both `wallet-modal` and bare contexts):
+
+      INSIDE .wallet-modal (correct, source of truth):
+        bg              rgba(35, 123, 255, 0.06)
+        border          1px solid rgba(35, 123, 255, 0.18)
+        border-radius   4px
+        padding         10px 12px
+        margin-top      12px
+        font            13/400/lh18/normal Roboto
+        color           rgb(158, 167, 177)
+        display         flex / align-items: flex-start / gap: 8px
+        icon            16x16 flex circle, bg rgba(35,123,255,0.20), brand
+                        color, 14/700/lh18, margin-top 1px, flex 0 0 auto
+        strong          rgb(35, 123, 255), fw 700
+
+      OUTSIDE .wallet-modal (regression — ANY future render site):
+        bg              oklch(0.23 0.01 260)         <- v1 panel token leak
+        border          1px solid oklch(0.3 0.012 260)  <- v1 hairline leak
+        radius          6px (off canonical 4)
+        pad             8px 12px (off canonical 10/12)
+        font            12/400/lh20/0.4px (csfloat mat-mdc-form-field-hint
+                        primitive — fine for bare hints, but THIS surface is
+                        a callout, not a bare helper)
+        no flex/gap, no icon chrome, no strong colour, no margin-top
+
+   The bare `.wallet-inline-hint` was picking up #127260's typography rule
+   (12/400/0.4px) which targets the bare mat-hint primitive — but the legacy
+   line-5980 rule still pumped v1 oklch panel tokens for bg/border + 6px
+   radius + 8/12 pad. Two different agents wrote conflicting rules: #19503
+   keyed brand-blue chrome only inside `.wallet-modal`; #127260 lifted only
+   typography to body. Neither lifted the chrome.
+
+   This ship promotes the canonical brand-blue callout chrome to body-level so
+   any future render site (currently the only render site is wallet withdraw
+   step — modals.js:14305 — but the surface is now reusable) matches csfloat
+   1:1 without needing a `.wallet-modal` ancestor. Six measurable refinements
+   bundled. APPEND-only, !important to outflank legacy line-5980 and #127260.
+
+   Lane: wallet-inline-hint body-level brand-blue callout chrome lift
+   Sister to: ship #127260 (.wallet-error destructive-text primitive)
+   Refs: csfloat dialog-content callout primitive measured live via probe */
+
+/* 1: container chrome — lift brand-blue 6%/18% tint + 4px radius + 10/12 pad
+      + 12px margin-top + flex-row + 8px gap to body level so bare hints (no
+      `.wallet-modal` ancestor) render identical to the canonical surface */
+html body .wallet-inline-hint {
+  background-color: rgba(35, 123, 255, 0.06) !important;
+  border: 1px solid rgba(35, 123, 255, 0.18) !important;
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  margin-top: 12px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+}
+
+/* 2: body typography — 13/400/lh18 Roboto + ink-2 colour + letter-spacing
+      normal (csfloat dialog-content callout primitive; supersedes #127260's
+      mat-hint 12/400/0.4px which was wrong family for THIS surface — the
+      callout is a dialog-content notice, not a bare form-field helper) */
+html body .wallet-inline-hint {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+}
+
+/* 3: icon chrome — 16x16 brand-tinted circle (bg rgba(35,123,255,0.20)),
+      brand glyph rgb(35,123,255), 14/700/lh18, 1px margin-top to align with
+      body baseline, flex-locked at 0 0 auto so multi-line body never crushes
+      the icon. Lifted to body level so the icon renders identically anywhere
+      the inline-hint surface mounts */
+html body .wallet-inline-hint .wallet-inline-hint-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: rgba(35, 123, 255, 0.20) !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 18px !important;
+  flex: 0 0 auto !important;
+  margin-top: 1px !important;
+}
+
+/* 4: emphasis — strong wraps the dollar value ($X.XX in withdrawable balance);
+      flips ink-2 to brand rgb(35,123,255) at fw 700, family-locked Roboto so
+      it reads as the canonical csfloat brand-numeral primitive even when the
+      author forgets the inline `style={color:'var(--accent)'}` override */
+html body .wallet-inline-hint strong {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+
+/* 5: Material standard transition on chrome state changes — 200ms easing on
+      bg + border + color so any hover/focus/disabled toggles glide instead
+      of snap. Mirrors #127260's transition pattern on `.wallet-error` so the
+      sister surfaces share consistent motion language (cubic-bezier(0.4,0,
+      0.2,1) is the canonical Material standard easing — same curve csfloat
+      uses for every form-field state transition) */
+html body .wallet-inline-hint {
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 6: nested-text colour reset — second-child <span> (the body text wrapper
+      that holds the description + <strong>) was inheriting the bare oklch
+      legacy text colour in fall-through paths; force ink-2 + Roboto so the
+      text reads correctly even if a parent component nukes inherited color
+      or font-family */
+html body .wallet-inline-hint > span:not(.wallet-inline-hint-icon) {
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127400 */
