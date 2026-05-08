@@ -174319,3 +174319,17 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
   letter-spacing: 0.25px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126539 */
+
+/* CSFLOAT-1:1 PARITY ship #126540 (wallet topup preset chip — chip line-height)
+   Measured live on csfloat: .mat-button-toggle-label-content uses
+   line-height 32px (matches chip box height to vertically center text
+   without padding-top tricks). sboxmarket ship #19505 ships line-height
+   30px which is a 2px text-y-center drift downward. Land 32px so the
+   text optical centerline matches the 32h chip box edge-to-edge. */
+html body .wallet-modal .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  line-height: 32px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126540 */
