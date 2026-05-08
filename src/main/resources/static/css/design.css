@@ -170956,3 +170956,520 @@ body .profile-row:has(> .profile-row-value > div > button.btn.btn-ghost[title*="
   color: rgb(255, 255, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #21806 */
+
+
+/* ============================================================================
+   CSFLOAT-1:1 PARITY ships #126200-#126205 - item-card action-button cluster
+   ----------------------------------------------------------------------------
+   Lane: csfloat.com/search every <item-card> has a 4-variant button cluster
+   in a flex row at the bottom of the card body. Live-measured on csfloat
+   2026-05-08 via getComputedStyle:
+     - .cart-btn       (raised primary)   -> 44h x 44w / bg rgb(35,123,255)
+                                            / pad 0 10 / r 8 / fs 14 / fw 500
+                                            / minWidth 36px (icon-button rule)
+                                            / Material elev-2 box-shadow
+                                            / transition box-shadow 0.28s cb
+     - .buy-now-btn    (outlined)         -> 40h x 87w / bg transparent
+                                            / 1px solid rgba(255,255,255,0.12)
+                                            / pad 0 10 / r 8 / minWidth 64px
+                                            / fs 14 / fw 500
+                                            / transition border 0.28s cb
+     - .bid-btn        (outlined, auction)-> 40h x 92w / same outlined chrome
+                                            as .buy-now-btn (auction-card slot)
+     - .auto-bid-btn   (unelevated/tonal) -> 40h x 69w / bg rgba(193,206,255,0.04)
+                                            / r 8 / pad 0 10 / minWidth 64px
+                                            / fs 14 / fw 500
+                                            / transition box-shadow 0.28s cb
+     - Row container .buy   flex / gap 5px / row / w 218 / h 40
+     - Row container .auction flex / gap 10px / row / w 218 / h 40
+   sbox baseline (pre-ship, measured at /):
+     - .grid-cart-btn -> 30h x 30w (44x44 mobile) / position:absolute / r 8
+                        / line + ink-2 / opacity 0.6 / NO blue fill - was a
+                        chrome-color overlay sitting outside the card body
+     - .buy-btn       -> 30h / pad 0 12 / bg ink (NOT brand) / r 6 / fs 12
+                        / fw 600 / mono-primary per a prior ink-not-brand
+                        ship - diverges from csfloat outlined/raised pair
+     - No .card-bid-btn, .card-auto-bid-btn selectors exist on sbox yet
+   These 6 ships repaint .grid-cart-btn and .buy-btn to csfloat-exact Material
+   chrome and define forward-compatible .card-bid-btn / .card-auto-bid-btn
+   rules so future GridCard auction-row mounts inherit the right surface.
+   APPEND-only, !important. NO TOKEN BLOCK MUTATION.
+   ======================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #126200 (item-card cart raised-primary) - measured:
+   csfloat .cart-btn 44x40 / bg rgb(35,123,255) / r 8 / Material elev-2
+   shadow / pad 0 10 / fs 14 / fw 500 / transition box-shadow 0.28s cb;
+   sbox baseline .grid-cart-btn was 30x30 (44x44 mobile) chrome overlay with
+   bg color-mix(bg 75%) + 1px line border + ink-2 text + opacity 0.6 - i.e.
+   a translucent backdrop chip, not a Material raised primary CTA. This ship
+   repaints the button to csfloat exact raised-primary tokens for the
+   default (not-in-cart) state. .grid-cart-btn.in keeps its own success
+   palette from later ships, so we exempt that variant. Anchored to the
+   .grid-cart-btn class regardless of position context (overlay or future
+   in-row mount). */
+.grid-cart-btn:not(.in) {
+  height: 40px !important;
+  min-width: 36px !important;
+  padding: 0 10px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0 2px 2px 0,
+    rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+@media (max-width: 760px) {
+  .grid-cart-btn:not(.in) {
+    width: 44px !important;
+    height: 40px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126200 */
+
+/* CSFLOAT-1:1 PARITY ship #126201 (item-card outlined Buy Now) - measured:
+   csfloat .buy-now-btn 87x40 / bg transparent / border 1px solid
+   rgba(255,255,255,0.12) / pad 0 10 / r 8 / minWidth 64 / fs 14 / fw 500
+   / transition border 0.28s cb / color rgba(255,255,255,0.38) when disabled,
+   rgb(35,123,255) when enabled (Material primary outlined - label inherits
+   primary palette). sbox baseline .buy-btn was 30h / pad 0 12 / bg ink (mono
+   primary fill, NOT brand) / 1px solid ink border / r 6 (var --r-sm) / fs 12
+   / fw 600 / transition filter+transform 140ms - i.e. a smaller mono-fill
+   button, not a Material outlined transparent variant. This ship paints
+   .buy-btn AND a forward-compatible .card-buy-btn alias to csfloat exact
+   Material outlined chrome. The mono-fill .cf-feebar-cta.buy at line 4481
+   keeps its existing brand fill (sticky checkout has its own token block). */
+.buy-btn,
+.card-buy-btn {
+  height: 40px !important;
+  min-width: 64px !important;
+  padding: 0 10px !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  transition: border 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  filter: none !important;
+  transform: none !important;
+}
+/* Sticky checkout fee-bar exception (already brand-filled on the surface
+   per a prior token-block ship - this ship MUST NOT bleed onto it). */
+.cf-feebar-cta.buy {
+  background: var(--cta) !important;
+  color: var(--cta-ink) !important;
+  border: 0 none !important;
+  height: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126201 */
+
+/* CSFLOAT-1:1 PARITY ship #126202 (item-card outlined Bid $X - auction slot) -
+   measured: csfloat .bid-btn 92x40 / bg transparent / border 1px solid
+   rgba(255,255,255,0.12) / pad 0 10 / r 8 / minWidth 64 / fs 14 / fw 500
+   / transition border 0.28s cb. Same outlined chrome as .buy-now-btn but
+   mounts in the auction-card slot (sibling to .auto-bid-btn). sbox has no
+   pre-existing .card-bid-btn selector - define it forward-compatibly so the
+   day GridCard adds a Bid CTA the chrome is already csfloat-exact. The
+   slightly wider 92px reflects the Bid $136.00 inline-amount label format
+   csfloat uses (vs Buy Now). Width is content-driven via min-width + pad,
+   so the rule lets the label set the visible footprint while pinning the
+   minimum at 64px (Material baseline). */
+.card-bid-btn,
+.bid-btn {
+  height: 40px !important;
+  min-width: 64px !important;
+  padding: 0 10px !important;
+  background: rgba(0, 0, 0, 0) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: border 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126202 */
+
+/* CSFLOAT-1:1 PARITY ship #126203 (item-card unelevated Auto Bid - filled-tonal) -
+   measured: csfloat .auto-bid-btn 69x40 / bg rgba(193,206,255,0.04) / r 8
+   / pad 0 10 / minWidth 64 / fs 14 / fw 500 / border 0 none
+   / transition box-shadow 0.28s cb. This is Material filled-tonal /
+   unelevated variant - brand-tinted surface fill, no border, no shadow,
+   with a much subtler container feel than raised-primary. The lane brief
+   token notes brand-tinted filled-tonal as rgba(35,123,255,0.15), but
+   live measurement on csfloat shows the disabled-Auto-Bid surface is the
+   ink-tinted rgba(193,206,255,0.04) - that is the actual Material Components
+   unelevated surface token at rest. Use the LIVE-MEASURED value (the rule).
+   Define .card-auto-bid-btn forward-compatibly + .auto-bid-btn alias. */
+.card-auto-bid-btn,
+.auto-bid-btn {
+  height: 40px !important;
+  min-width: 64px !important;
+  padding: 0 10px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126203 */
+
+/* CSFLOAT-1:1 PARITY ship #126204 (item-card action-row container layout) -
+   measured: csfloat .buy     -> display:flex / gap:5px  / w:218 / h:40
+                  csfloat .auction -> display:flex / gap:10px / w:218 / h:40
+   The two row variants only differ in gap: BIN cards (cart + Bargain + Buy Now,
+   3 buttons crammed into 218px) use 5px gap; auction cards (Auto Bid + Bid + history,
+   also 3 buttons but with a wider middle Bid label) use 10px gap. Row width
+   218px ~ card-body inner width minus padding. sboxmarket has no pre-existing
+   .card-action-row container - define it forward-compatibly with both modifier
+   variants. .card-action-row is the canonical action cluster wrapper; the
+   .is-buy / .is-auction modifiers select the gap. Width is auto/100% so the
+   row fills its parent (the card body), matching csfloat flush-to-edge layout. */
+.card-action-row,
+.grid-card .card-action-row,
+.item-card .card-action-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  flex-wrap: nowrap !important;
+}
+.card-action-row.is-auction,
+.grid-card .card-action-row.is-auction {
+  gap: 10px !important;
+}
+/* When the row children are flex-1 (label-driven width like Bid $136.00),
+   the outlined CTAs naturally expand to absorb leftover space - match the
+   csfloat behaviour where Buy Now / Bid stretch and the cart/auto-bid keep
+   their content-width. */
+.card-action-row > .card-buy-btn,
+.card-action-row > .buy-btn,
+.card-action-row > .card-bid-btn,
+.card-action-row > .bid-btn {
+  flex: 1 1 auto !important;
+}
+.card-action-row > .grid-cart-btn,
+.card-action-row > .card-cart-btn,
+.card-action-row > .card-auto-bid-btn,
+.card-action-row > .auto-bid-btn {
+  flex: 0 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126204 */
+
+/* CSFLOAT-1:1 PARITY ship #126205 (item-card action-button hover/focus/disabled) -
+   csfloat Material buttons surface a state layer on hover (an overlay
+   that tints the surface ~8% with the label color) and a focus-visible
+   ring. Live behaviour we mirror per variant:
+     - raised-primary (.cart-btn) on hover  -> box-shadow elevates to elev-4
+                                              (Material raised -> hover lift)
+     - outlined (.buy-now-btn / .bid-btn) on hover -> bg fill rgba(35,123,255,0.04)
+                                              + border-color rgba(35,123,255,0.5)
+     - unelevated (.auto-bid-btn) on hover  -> bg deepens rgba(193,206,255,0.08)
+     - disabled across all variants -> color rgba(255,255,255,0.38), bg/border
+                                       fade per Material disabled spec, cursor
+                                       not-allowed, NO hover.
+   Focus-visible across all variants: 2px brand-tinted ring outside the
+   border (does NOT replace the border). This ship paints all four variants
+   in one pass + scopes disabled behaviour. Standard transition cubic-bezier
+   matches the rest of the cluster. */
+.grid-cart-btn:not(.in):not(:disabled):hover {
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0 3px 14px 2px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  filter: brightness(1.05) !important;
+  transform: none !important;
+}
+.buy-btn:not(:disabled):hover,
+.card-buy-btn:not(:disabled):hover,
+.bid-btn:not(:disabled):hover,
+.card-bid-btn:not(:disabled):hover {
+  background: rgba(35, 123, 255, 0.04) !important;
+  border-color: rgba(35, 123, 255, 0.5) !important;
+  color: rgb(35, 123, 255) !important;
+  filter: none !important;
+  transform: none !important;
+}
+.auto-bid-btn:not(:disabled):hover,
+.card-auto-bid-btn:not(:disabled):hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* Disabled state - Material spec: 38% opacity label, 12% opacity surface,
+   no hover/focus interaction. Applied across all four variants. */
+.grid-cart-btn:disabled,
+.buy-btn:disabled,
+.card-buy-btn:disabled,
+.bid-btn:disabled,
+.card-bid-btn:disabled,
+.auto-bid-btn:disabled,
+.card-auto-bid-btn:disabled {
+  color: rgba(255, 255, 255, 0.38) !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+.buy-btn:disabled,
+.card-buy-btn:disabled,
+.bid-btn:disabled,
+.card-bid-btn:disabled {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0) !important;
+  box-shadow: none !important;
+}
+.grid-cart-btn:not(.in):disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+.auto-bid-btn:disabled,
+.card-auto-bid-btn:disabled {
+  background: rgba(193, 206, 255, 0.04) !important;
+  box-shadow: none !important;
+}
+/* Focus-visible ring - 2px brand-tinted at 50% opacity, sits outside the
+   button normal border so the keyboard-tab indicator is visible without
+   eating border space. Same focus token as the rest of the design system
+   (var --cta is rgb(35,123,255)). */
+.grid-cart-btn:focus-visible,
+.buy-btn:focus-visible,
+.card-buy-btn:focus-visible,
+.bid-btn:focus-visible,
+.card-bid-btn:focus-visible,
+.auto-bid-btn:focus-visible,
+.card-auto-bid-btn:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126205 */
+
+/* END CSFLOAT-1:1 PARITY ships #126200-#126205 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #21807-#21812 — TOAST / SNACKBAR specificity
+   bump to defeat the prior ship #11010 block at design.css:153830-153866
+   which uses `body .sale-toast.sale-toast.{kind}` selectors (specificity
+   0,3,1 — beats my plain `.sale-toast.kind` at 0,2,0 even with
+   !important on both since !important resolves the CASCADE not the
+   SPECIFICITY tie). Re-assert the canonical csfloat snackbar tokens at
+   matching-or-greater specificity so the actual on-screen toast renders
+   to csfloat parity.
+
+   Verified after #21800-#21806 build+restart: bg/br/pad/min/max/min-h/
+   backdrop/font-* all locked correctly to csfloat tokens, but border-
+   left rail (still 3px solid kind-color from #11010), thumb display
+   (still flex from earlier rules), label color (still 0.85 alpha from
+   design.css:5925), and position (still relative from sbox layout) all
+   bleed through. Bumping each to `body .sale-toast.sale-toast.{kind}`
+   pattern (matching #11010's specificity) plus declaring AFTER #11010
+   in source order so cascade wins.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #21807 — drop the colored 3px left rail at
+   matched specificity. csfloat MatSnackBar has no border-left rail on
+   any variant. Doubled `.sale-toast.sale-toast.{kind}` to match the
+   prior ship #11010 selector pattern. */
+body .sale-toast.sale-toast,
+body .sale-toast.sale-toast.ok,
+body .sale-toast.sale-toast.success,
+body .sale-toast.sale-toast.warn,
+body .sale-toast.sale-toast.warning,
+body .sale-toast.sale-toast.err,
+body .sale-toast.sale-toast.error,
+body .sale-toast.sale-toast.info,
+body .sale-toast.sale-toast.outbid,
+body .sale-toast.sale-toast.bid,
+body .sale-toast.sale-toast.purchase,
+body .sale-toast.sale-toast.listing,
+body .sale-toast.sale-toast.live {
+  border-left: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21807 */
+
+/* CSFLOAT-1:1 PARITY ship #21808 — pin .sale-toast surface chrome at
+   doubled-class specificity so the prior ship #11010 + variant rules
+   (which set background-color) cannot bleed through. Re-asserts the
+   Material default rgb(66,66,66) base. Variants override it below. */
+body .sale-toast.sale-toast {
+  position: fixed !important;
+  bottom: 8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  min-width: 344px !important;
+  max-width: 672px !important;
+  min-height: 48px !important;
+  padding: 14px 16px !important;
+  background: rgb(66, 66, 66) !important;
+  background-color: rgb(66, 66, 66) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 3px 5px -1px,
+    rgba(0, 0, 0, 0.14) 0 6px 10px 0,
+    rgba(0, 0, 0, 0.12) 0 1px 18px 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  animation: toast-in 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21808 */
+
+/* CSFLOAT-1:1 PARITY ship #21809 — variant chrome at doubled specificity
+   so each kind's bg+br+blur token wins over ship #11010's same-spec rule.
+   Per csfloat dark-theme.css: only .snackbar-info (panel rgba(27,29,36,
+   0.8)) and .snackbar-error (rgba(139,19,20,0.7)) get tokens; success
+   stays on Material rgb(66,66,66) default; warn mirrors info/error
+   idiom in canonical amber rgba(176,113,24,0.75). All translucent
+   variants use border-radius 6px + backdrop-filter blur(32px). */
+body .sale-toast.sale-toast.ok,
+body .sale-toast.sale-toast.info {
+  background: rgba(27, 29, 36, 0.8) !important;
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+body .sale-toast.sale-toast.err,
+body .sale-toast.sale-toast.error {
+  background: rgba(139, 19, 20, 0.7) !important;
+  background-color: rgba(139, 19, 20, 0.7) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+body .sale-toast.sale-toast.warn,
+body .sale-toast.sale-toast.warning {
+  background: rgba(176, 113, 24, 0.75) !important;
+  background-color: rgba(176, 113, 24, 0.75) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+body .sale-toast.sale-toast.success {
+  background: rgb(66, 66, 66) !important;
+  background-color: rgb(66, 66, 66) !important;
+  border-radius: 4px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21809 */
+
+/* CSFLOAT-1:1 PARITY ship #21810 — hide thumb at higher specificity
+   than the prior `body .sale-toast .sale-toast-thumb::before` content
+   rules at design.css:153793-153810 which only set ::before content
+   (don't impact display). The earlier ship #21803 selector
+   `.sale-toast .sale-toast-thumb` at (0,2,0) is beaten by inherited
+   selectors that target the thumb directly. Use body-prefixed +
+   doubled .sale-toast.sale-toast specificity. */
+body .sale-toast.sale-toast .sale-toast-thumb,
+body .toast .sale-toast-thumb {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21810 */
+
+/* CSFLOAT-1:1 PARITY ship #21811 — label color full white at higher
+   specificity than design.css:5925 `.sale-toast-line2, .sale-toast-text
+   { color: var(--ink-2) }` (which resolves to ~0.85 alpha). Use body-
+   prefixed + doubled .sale-toast.sale-toast specificity so cascade wins
+   regardless of source order. */
+body .sale-toast.sale-toast .sale-toast-text,
+body .sale-toast.sale-toast .sale-toast-line2 {
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  flex: 1 1 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21811 */
+
+/* CSFLOAT-1:1 PARITY ship #21812 — multi-toast stack container chrome at
+   matching specificity. Earlier ship #21806's `.sale-toasts` selector at
+   (0,1,0) loses to `body .sale-toast-stack` (0,1,1) etc. Lock to
+   body-prefixed selectors so cascade wins. */
+body .sale-toasts,
+body .toasts-container,
+body .toast-stack {
+  position: fixed !important;
+  bottom: 8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  display: flex !important;
+  flex-direction: column-reverse !important;
+  gap: 8px !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  align-items: center !important;
+}
+body .sale-toasts > .sale-toast,
+body .toasts-container > .sale-toast,
+body .toast-stack > .sale-toast {
+  position: static !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21812 */
