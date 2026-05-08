@@ -164043,3 +164043,63 @@ body .modal-content .similar-strip .similar-card .similar-thumb {
   background: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #17500 */
+
+/* CSFLOAT-1:1 PARITY ship #17600 (faq accordion — letter-spacing on question text) — measured: csfloat .menu-item .name letter-spacing 0.7px / fw 500, sbox help-faq-q was -0.005em / fw 600 */
+html body .help-faq-q,
+html body .csfloat-faq-q,
+html body .csfloat-home-faq-q {
+  letter-spacing: 0.7px !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17600 */
+
+/* CSFLOAT-1:1 PARITY ship #17601 (faq accordion — chevron rotation timing matches Material 250ms cubic-bezier(0.4,0,0.2,1)) — measured: csfloat .menu-item .icon transition: all 0.4s ease (open transform rotate via state class), sbox csfloat-home-faq-q-arrow was 200ms ease */
+html body .csfloat-home-faq-q-arrow,
+html body .csfloat-faq-q::after,
+html body .help-faq-q .material-icons,
+html body .help-faq-q [class*="material"] {
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1), color 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17601 */
+
+/* CSFLOAT-1:1 PARITY ship #17602 (faq accordion — expand/collapse timing matches csfloat 0.25s ease-out grid-template-rows transition) — measured: csfloat .menu-item .content transition: grid-template-rows 0.25s ease-out, sbox had no defined timing on csfloat-home-faq-a */
+html body .csfloat-home-faq-a,
+html body .csfloat-faq-a,
+html body .help-faq-a {
+  transition: max-height 250ms ease-out, opacity 250ms ease-out, padding 250ms ease-out !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17602 */
+
+/* CSFLOAT-1:1 PARITY ship #17603 (faq accordion — answer body color matches csfloat sub-section rgb(158,167,177) ink-2) — measured: csfloat .sub-section color rgb(158,167,177), sbox help-faq-a was var(--ink-3) and csfloat-home-faq-a was var(--ink-2) (mismatched) */
+html body .help-faq-a,
+html body .csfloat-faq-a,
+html body .csfloat-home-faq-a {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17603 */
+
+/* CSFLOAT-1:1 PARITY ship #17604 (faq accordion — divider hairline between accordion rows uses csfloat exact rgba(193,206,255,0.04) cool tint instead of var(--line) generic) — measured: csfloat .gap bg rgba(193,206,255,0.04) 1px tall */
+html body .csfloat-home-faq-list > * + *::before {
+  content: none !important;
+}
+html body .csfloat-home-faq-item {
+  border-color: rgba(193, 206, 255, 0.06) !important;
+}
+html body .csfloat-home-faq-item:hover {
+  border-color: rgba(193, 206, 255, 0.12) !important;
+}
+html body .csfloat-faq-item {
+  border-color: rgba(193, 206, 255, 0.06) !important;
+}
+html body .csfloat-faq-item:hover,
+html body .csfloat-faq-item.open {
+  border-color: rgba(193, 206, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17604 */
+
+/* CSFLOAT-1:1 PARITY ship #17605 (faq accordion — expanded-state background tint kept subtle: csfloat doesn't tint the open item — it only changes border. drop the brand-cyan wash on csfloat-home-faq-item[open]) — measured: csfloat .menu-item bg rgba(0,0,0,0) in both collapsed and expanded states */
+html body .csfloat-home-faq-item[open] {
+  background: var(--bg-1) !important;
+  border-color: rgba(193, 206, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17605 */
