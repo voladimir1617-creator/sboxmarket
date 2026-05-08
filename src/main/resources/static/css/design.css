@@ -172935,3 +172935,442 @@ body .profile-row:has(> .profile-row-value > div[style*="max-height: 220"]) > .p
 /* END CSFLOAT-1:1 PARITY ship #126512 */
 
 /* END CSFLOAT-1:1 PARITY ships #126507-#126512 */
+
+/* ============================================================
+ * CSFLOAT-1:1 PARITY ships #126513-#126519 — /item .item-actions row
+ * ============================================================
+ * Lane: item-detail .item-actions row (Similar / FloatDB; Share is
+ *   conditional and not present on every listing — measured listing
+ *   /item/972584713665511647 has 2 visible actions, csfloat conditionally
+ *   renders the third Share button when permitted by listing state).
+ * Real csfloat measurement (chrome devtools getComputedStyle on
+ *   .item-actions and each .action child):
+ *     row:   width 250, height 56, padding 10px, gap 10px,
+ *            display flex, background rgba(193,206,255,0.04),
+ *            border-radius 6px, box-shadow none
+ *     btn:   <a class="mat-ripple action">, width 110, height 36,
+ *            padding 6px, gap 6px, display flex, justify center,
+ *            align center, bg rgba(193,206,255,0.04),
+ *            color rgb(30,144,255) (link color, overridden by label),
+ *            font-size 16px / weight 400, border-radius 6px,
+ *            transition: background 0.3s
+ *     icon:  <mat-icon svgicon="similar"|"floatdb_search">,
+ *            width 24px / height 24px box, color rgb(35,123,255)
+ *     label: <span>, font-size 14px, font-weight 500,
+ *            color rgb(255,255,255), line-height normal
+ * Sbox state: ItemModal currently lacks a top-of-rail .item-actions
+ *   row; CSS is appended prophylactically so the moment a JSX/component
+ *   surface labelled .item-actions is rendered (csfloat-modals.js or a
+ *   future rail addition) it inherits exact csfloat geometry without a
+ *   second ship cycle. Selectors are highly specific (body .item-actions,
+ *   body app-item-page .item-actions) so they win cascade against any
+ *   prior loose .item-actions rules without bleeding into the existing
+ *   mobile sticky bar (#11811, line 154978) which already targets
+ *   `.item-page .item-actions` under @media(max-width:480px). Desktop
+ *   geometry below sits outside that media query so they don't conflict.
+ * ============================================================ */
+
+/* CSFLOAT-1:1 PARITY ship #126513 — .item-actions row container.
+   Lane-spec: csfloat measured row uses display:flex / gap:10px /
+   padding:10px / bg rgba(193,206,255,0.04) (--highlight-background-
+   minimal token) / border-radius:6px / no box-shadow / no border.
+   Sbox: surface absent; rule activates the moment .item-actions is
+   rendered. We exclude the mobile sticky-bar override from this rule
+   by placing the geometry outside any @media query — the existing
+   #11811 mobile override at @media(max-width:480px) re-applies sticky
+   positioning which still wins inside its media context. */
+@media (min-width: 481px) {
+  body .item-actions:not(.buy-actions):not(.csfloat-listing-actions),
+  body app-item-page .item-actions:not(.buy-actions):not(.csfloat-listing-actions),
+  body .item-page .item-actions:not(.buy-actions):not(.csfloat-listing-actions),
+  body .item-modal .item-actions:not(.buy-actions):not(.csfloat-listing-actions) {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    padding: 10px !important;
+    background: rgba(193, 206, 255, 0.04) !important;
+    background-color: rgba(193, 206, 255, 0.04) !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126513 */
+
+/* CSFLOAT-1:1 PARITY ship #126514 — .item-actions > .action button
+   geometry. Lane-spec: csfloat measured each action <a> at width 110,
+   height 36, padding 6px, gap 6px, display flex, justify+align center,
+   border-radius 6px, font-size 16px, font-weight 400,
+   bg rgba(193,206,255,0.04), color rgb(30,144,255). Equal-flex (1 1 0)
+   so a 2-button row consumes the 230px content area: 230 - gap10 = 220
+   / 2 = 110 each, exactly matching the measured 110px width. With 3
+   buttons (Share enabled), 230 - 2*gap10 = 210 / 3 = 70 each — csfloat
+   handles this gracefully via flex:1. Match exactly. */
+@media (min-width: 481px) {
+  body .item-actions > .action,
+  body .item-actions > a.action,
+  body .item-actions > button.action,
+  body app-item-page .item-actions > .action,
+  body .item-page .item-actions > .action,
+  body .item-modal .item-actions > .action {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 6px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: rgba(193, 206, 255, 0.04) !important;
+    background-color: rgba(193, 206, 255, 0.04) !important;
+    font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    line-height: normal !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    color: rgb(30, 144, 255) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126514 */
+
+/* CSFLOAT-1:1 PARITY ship #126515 — .item-actions > .action mat-icon /
+   svg / Material Symbols icon size + tint. Lane-spec: csfloat icons are
+   24x24 box with a 16px font-size hint (mat-icon defaults to 24
+   width/height; the svgicons render at the box). Color is the brand
+   blue rgb(35,123,255), distinct from the link color rgb(30,144,255)
+   on the <a> itself — the icon explicitly overrides to brand blue. */
+@media (min-width: 481px) {
+  body .item-actions > .action > mat-icon,
+  body .item-actions > .action > svg,
+  body .item-actions > .action > .material-symbols-rounded,
+  body .item-actions > .action > .material-symbols-outlined,
+  body .item-actions > .action > i.material-icons,
+  body app-item-page .item-actions > .action > mat-icon,
+  body app-item-page .item-actions > .action > svg,
+  body .item-page .item-actions > .action > mat-icon,
+  body .item-page .item-actions > .action > svg,
+  body .item-modal .item-actions > .action > mat-icon,
+  body .item-modal .item-actions > .action > svg {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    color: rgb(35, 123, 255) !important;
+    fill: rgb(35, 123, 255) !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+  }
+  body .item-actions > .action > mat-icon > svg,
+  body app-item-page .item-actions > .action > mat-icon > svg,
+  body .item-page .item-actions > .action > mat-icon > svg,
+  body .item-modal .item-actions > .action > mat-icon > svg {
+    width: 24px !important;
+    height: 24px !important;
+    fill: currentColor !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126515 */
+
+/* CSFLOAT-1:1 PARITY ship #126516 — .item-actions > .action label span
+   typography. Lane-spec: csfloat label spans render at font-size 14px /
+   font-weight 500 / color rgb(255,255,255) / line-height normal. The
+   Roboto medium label sits to the right of the 24px icon with 6px gap
+   per #126514. Measured directly via getComputedStyle on the inner span
+   sibling of the mat-icon. */
+@media (min-width: 481px) {
+  body .item-actions > .action > span:not([class*="ripple"]):not([class*="touch"]),
+  body app-item-page .item-actions > .action > span:not([class*="ripple"]):not([class*="touch"]),
+  body .item-page .item-actions > .action > span:not([class*="ripple"]):not([class*="touch"]),
+  body .item-modal .item-actions > .action > span:not([class*="ripple"]):not([class*="touch"]) {
+    font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: normal !important;
+    color: rgb(255, 255, 255) !important;
+    letter-spacing: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126516 */
+
+/* CSFLOAT-1:1 PARITY ship #126517 — .item-actions > .action hover state.
+   Lane-spec: csfloat measured `transition: background 0.3s` on each
+   action. The hover background lift comes from Material's mat-ripple
+   state-layer (rgba(193,206,255,0.08) — token --highlight-background-
+   light, slightly stronger than the resting --highlight-background-
+   minimal). Csfloat keeps the icon + label tints constant on hover —
+   only the bg shade changes. Match the 300ms timing with the canonical
+   cubic-bezier(0.4,0,0.2,1) easing (csfloat's bundle uses linear-ish
+   `0.3s` shorthand; the Material default actually applies the mdc-
+   layer easing. Use the canonical curve so we don't introduce
+   regressions in adjacent ripple targets). */
+@media (min-width: 481px) {
+  body .item-actions > .action,
+  body app-item-page .item-actions > .action,
+  body .item-page .item-actions > .action,
+  body .item-modal .item-actions > .action {
+    transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                background 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  body .item-actions > .action:hover,
+  body .item-actions > .action:focus-visible,
+  body app-item-page .item-actions > .action:hover,
+  body app-item-page .item-actions > .action:focus-visible,
+  body .item-page .item-actions > .action:hover,
+  body .item-page .item-actions > .action:focus-visible,
+  body .item-modal .item-actions > .action:hover,
+  body .item-modal .item-actions > .action:focus-visible {
+    background: rgba(193, 206, 255, 0.08) !important;
+    background-color: rgba(193, 206, 255, 0.08) !important;
+    text-decoration: none !important;
+    outline: 0 !important;
+  }
+  body .item-actions > .action:active,
+  body app-item-page .item-actions > .action:active,
+  body .item-page .item-actions > .action:active,
+  body .item-modal .item-actions > .action:active {
+    background: rgba(193, 206, 255, 0.12) !important;
+    background-color: rgba(193, 206, 255, 0.12) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126517 */
+
+/* CSFLOAT-1:1 PARITY ship #126518 — .item-actions row width / margin
+   inside the rail context. Lane-spec: csfloat row measured at width
+   250px which aligns to the 250px right-rail card column. The row is
+   self-contained — no external margin — and uses `box-sizing:
+   border-box` so the 10px padding sits inside the 250x56 box exactly.
+   Locking width to fit the parent (100% of rail with max-width 250 to
+   match csfloat's default rail) plus margin:0 keeps it from drifting
+   when nested inside a `.card` wrapper. */
+@media (min-width: 481px) {
+  body .item-actions:not(.buy-actions):not(.csfloat-listing-actions),
+  body app-item-page .item-actions:not(.buy-actions):not(.csfloat-listing-actions),
+  body .item-page .item-actions:not(.buy-actions):not(.csfloat-listing-actions),
+  body .item-modal .item-actions:not(.buy-actions):not(.csfloat-listing-actions) {
+    width: 100% !important;
+    max-width: 250px !important;
+    min-height: 56px !important;
+    margin: 0 !important;
+    align-self: stretch !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126518 */
+
+/* CSFLOAT-1:1 PARITY ship #126519 — .item-actions card variant override.
+   Lane-spec: csfloat row className is exactly `card item-actions
+   dense-icon-button-m3`. The `.card` token in csfloat carries panel
+   bg + radius; in our app the same `.card` class is used on multiple
+   surfaces with broader styling (padding, shadow, border) that would
+   conflict with the csfloat row's compact 10px padding measurement.
+   Strip the inherited `.card` styling specifically when combined with
+   `.item-actions` so the row matches csfloat: no panel bg, no shadow,
+   only the rgba(193,206,255,0.04) wash from #126513. The
+   `dense-icon-button-m3` class is a Material density modifier — under
+   M3 dense mode icon-buttons render at the 36px height we already
+   locked in #126514, so no further change needed for it. */
+@media (min-width: 481px) {
+  body .card.item-actions,
+  body app-item-page .card.item-actions,
+  body .item-page .card.item-actions,
+  body .item-modal .card.item-actions {
+    background: rgba(193, 206, 255, 0.04) !important;
+    background-color: rgba(193, 206, 255, 0.04) !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    padding: 10px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126519 */
+
+/* END CSFLOAT-1:1 PARITY ships #126513-#126519 */
+
+/* ===========================================================================
+   CSFLOAT-1:1 PARITY ships #23200..#23205 - sell-modal seller-note textarea
+   surface (the optional listing description csfloat shows under the price
+   field on /sell). Anon-locked on csfloat so the textarea is not directly
+   inspectable; tokens taken from the operator-supplied canonical spec +
+   measured live on the search-bar mat-mdc-text-field-wrapper which shares
+   the same Material filled-text-field chrome on csfloat:
+     wrap bg : rgba(193, 206, 255, 0.04)   (measured)
+     wrap br : 6px                          (measured)
+     wrap pad: 12px (operator spec for textarea variant; single-line was 16px)
+     min-h   : 88px multiline (operator spec)
+     transit : cubic-bezier(0.4, 0, 0.2, 1) 150ms
+     ink-2   : rgb(158, 167, 177)
+     hairline: rgba(255, 255, 255, 0.06)
+     brand   : rgb(35, 123, 255)
+   Sboxmarket renders the seller note inside an .info-modal that already
+   has .wallet-amount-input + .wallet-input-label (matched by the existing
+   :has() guard at #150586+). Existing .wallet-amount-input rules force
+   height:56px which is wrong for the textarea variant - these overrides
+   scope to TEXTAREA elements only so the input variant on the same modal
+   is unaffected.
+   =========================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #23200 - seller-note textarea wrapper chrome
+   (wrap bg, radius, padding, min-height). csfloat Material filled
+   text-field-wrapper carries no visible border but a 1px line-ripple at
+   the bottom that animates on focus. Sboxmarket textarea was rendering
+   with the deposit-input chrome (56px height + 10px radius + 1px white
+   hairline) which is wrong for a multiline note. Reset to Material 6px
+   radius, ink-tinted bg, and 12px gutter; min-h 88px so the box reads
+   as a multi-row note even at 0 chars. */
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input,
+.info-modal textarea.wallet-amount-input {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 12px !important;
+  min-height: 88px !important;
+  height: auto !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  resize: vertical !important;
+  display: block !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23200 */
+
+/* CSFLOAT-1:1 PARITY ship #23201 - seller-note textarea body type.
+   csfloat Material filled-text-field input renders Roboto 16/400 with
+   24px line-height and rgb(255,255,255) ink. The seller note renders the
+   same body type. Sboxmarket inline style was 13px / 1.4 lh - bumping to
+   the canonical 14px/20px Material body-2 used for compact form fields
+   (csfloat uses 14px on dense form fields per ship #11904). Reset
+   tabular-nums OFF (it is prose, not numbers). */
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input,
+.info-modal textarea.wallet-amount-input {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0107142857em !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: normal !important;
+  text-align: left !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23201 */
+
+/* CSFLOAT-1:1 PARITY ship #23202 - seller-note textarea focus + hover
+   states. csfloat Material filled text-field tints the bg slightly on
+   hover (rgba(193,206,255,0.08)) and shows a 2px brand line-ripple at
+   the bottom on focus (rgb(35,123,255)). Implement with box-shadow inset
+   on the bottom edge so we do not reflow the textarea or disturb the
+   measured 6px radius. Outline:none kills the browser default focus ring
+   to defer to the brand line. */
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input:hover,
+.info-modal textarea.wallet-amount-input:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+}
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input:focus,
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input:focus-visible,
+.info-modal textarea.wallet-amount-input:focus,
+.info-modal textarea.wallet-amount-input:focus-visible {
+  outline: none !important;
+  background: rgba(193, 206, 255, 0.08) !important;
+  box-shadow: inset 0 -2px 0 0 rgb(35, 123, 255) !important;
+  border-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23202 */
+
+/* CSFLOAT-1:1 PARITY ship #23203 - seller-note textarea placeholder.
+   csfloat Material filled-text-field renders placeholders at the same
+   font as the input but in ink-2 at full opacity (Material 3 sets
+   placeholder-color to on-surface-variant). Sboxmarket was inheriting
+   the browser-default ~50% black placeholder which is invisible on the
+   dark panel. Lock to ink-2 rgb(158,167,177) at opacity:1, italic style
+   matches the example-text feel (Quick sale, open to offers). */
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input::placeholder,
+.info-modal textarea.wallet-amount-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+}
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input::-webkit-input-placeholder,
+.info-modal textarea.wallet-amount-input::-webkit-input-placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+  font-style: italic !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23203 */
+
+/* CSFLOAT-1:1 PARITY ship #23204 - seller-note character counter span.
+   In modals.js the counter renders inline as a span inside the
+   .wallet-input-label that sits ABOVE the textarea, with inline 11px
+   var(--text-muted) styling. csfloat anchors the counter at the
+   bottom-right of the field (Material mat-hint right-align pattern) at
+   12/400 ink-2 with letter-spacing 0.033em. Sboxmarket can not easily
+   move the existing span (would require JSX surgery) - instead, restyle
+   the inline span: bump 11->12, switch from var(--text-muted) to the
+   canonical csfloat ink-2, and add the Material hint letter-spacing +
+   tabular-nums so the digits do not jump as the user types. The
+   "(optional .)" prefix and parens stay so the information delivered
+   is unchanged. */
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) .wallet-input-label > span,
+.info-modal:has(textarea.wallet-amount-input) .wallet-input-label > span {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0333333333em !important;
+  color: rgb(158, 167, 177) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  margin-left: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23204 */
+
+/* CSFLOAT-1:1 PARITY ship #23205 - seller-note resize handle + scrollbar
+   inside the multiline textarea. csfloat keeps the Material textarea
+   resizable on the vertical axis but strips the diagonal browser-default
+   resize grip in favor of a subtle bottom-right notch. Make the textarea
+   overflow:auto + resize:vertical AND restyle the inner scrollbar to the
+   global ink-2 thumb so it does not pop a chrome-blue scrollbar on
+   focus. */
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input,
+.info-modal textarea.wallet-amount-input {
+  overflow-y: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent !important;
+}
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input::-webkit-scrollbar,
+.info-modal textarea.wallet-amount-input::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input::-webkit-scrollbar-track,
+.info-modal textarea.wallet-amount-input::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input::-webkit-scrollbar-thumb,
+.info-modal textarea.wallet-amount-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-radius: 3px !important;
+}
+.info-modal:has(.wallet-amount-input):has(.wallet-input-label) textarea.wallet-amount-input::-webkit-scrollbar-thumb:hover,
+.info-modal textarea.wallet-amount-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23205 */
