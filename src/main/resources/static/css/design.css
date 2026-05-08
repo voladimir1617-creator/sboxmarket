@@ -182029,3 +182029,803 @@ body .info-modal span[style*="color: var(--accent)"][style*="font-weight: 700"] 
   fill: currentColor !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #127885 */
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127820 — Profile-panel canonical card geometry
+   csfloat /profile content cards (.profile-card) measure: bg rgb(27,29,36),
+   border-radius 12px, padding 30px, no visible border (hairline only between
+   header + content via .t-gap = 1px rgba(193,206,255,0.04)). Sbox baseline
+   .profile-panel shipped pad 24, border 1px var(--line), radius var(--r-md)
+   ≈8px and bg var(--bg-1) ≈ rgb(11,12,15). Bring the panel surface into
+   csfloat's measured tokens so it stops looking like a debugger panel.
+*/
+body .profile-panel {
+  padding: 30px !important;
+  border-radius: 12px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  margin-bottom: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127820 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127821 — ProfilePersonalTab Account-Standing
+   header title typography. Measured csfloat .profile-card .title (the
+   inner card title): font-size 24px / font-weight 500 / color rgb(255,255,255)
+   / line-height 1.25. Sbox inline emits fontSize 16 / fontWeight 700,
+   which renders as a chunky stub vs csfloat's airy heading. Inline anchor:
+   the wrapper div carries inline `font-size: 16px; font-weight: 700;` and
+   sits as the first child of the standing card row. Pin to canonical csfloat
+   measurement.
+*/
+body div[style*="font-size: 16px"][style*="font-weight: 700"][style*="color: var(--text-primary)"] {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 1.25 !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127821 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127822 — Account-Standing ladder node sizing
+   Measured csfloat .standing-level (inactive node): 28x28 circle. Active
+   .standing-level.current: 40x40 circle. Sbox inline emits 36 (inactive)
+   / 46 (active) — both 8-12px too large, which makes the ladder visually
+   crowd the card. Anchor on the inline-style width/height the markup
+   emits and pin to csfloat tokens. Also the marginTop:-5 hop the active
+   node uses to compensate for its larger size goes away — at 40 vs 28 the
+   12-px delta sits comfortably without negative margin.
+*/
+body div[style*="width: 36px"][style*="height: 36px"][style*="border-radius: 50%"] {
+  width: 28px !important;
+  height: 28px !important;
+}
+body div[style*="width: 46px"][style*="height: 46px"][style*="border-radius: 50%"] {
+  width: 40px !important;
+  height: 40px !important;
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127822 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127823 — Account-Standing label typography
+   Measured csfloat .standing-level-wrapper > span.label: font-size 14px /
+   font-weight 100 (inactive) / color rgb(158,167,177) (ink-2). Active label
+   (.label.current): same 14px but font-weight 700 / color rgb(255,255,255)
+   white. Sbox inline emits 12px / 600 inactive / 800 active — too dense at
+   12, and active uses brand color when csfloat uses pure white. The fw 100
+   inactive is intentional — csfloat goes ultra-thin to emphasize the bold
+   active label. Anchor inline labels and rebase to csfloat tokens.
+*/
+body div[style*="font-size: 12px"][style*="font-weight: 600"][style*="color: var(--text-muted)"][style*="letter-spacing: 0.2px"] {
+  font-size: 14px !important;
+  font-weight: 100 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body div[style*="font-size: 12px"][style*="font-weight: 800"][style*="letter-spacing: 0.2px"] {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127823 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127824 — Account-Standing inactive node fill
+   Measured csfloat inactive .standing-level: background rgba(193,206,255,0.04)
+   (the canonical csfloat tinted-white-on-dark wash). Sbox inline emits
+   var(--bg-elevated) which renders as a flat opaque grey, breaking the
+   "translucent on the panel" effect csfloat depends on. Pin the inactive
+   circle background to the measured rgba wash. Active node bg stays opaque
+   white per ship #127825 below.
+*/
+body div[style*="width: 28px"][style*="height: 28px"][style*="border-radius: 50%"][style*="background: var(--bg-elevated)"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127824 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127825 — Account-Standing ACTIVE node fill +
+   icon color. Measured csfloat .standing-level.current (the active 40x40):
+   background rgb(255,255,255) (pure white), icon color rgb(59,130,246)
+   (the canonical csfloat brand-blue token). NOT brand-bg with white-icon
+   like sbox is shipping. The csfloat treatment reads as "pinned/spotlight"
+   against the dark panel — bright white disc with the brand-blue glyph
+   floating inside. Pin the active node accordingly. The MaterialIcon nested
+   inside is already a child element so we can target the bg via the active
+   node selector and the icon color via its inline color attribute parents.
+*/
+body div[style*="width: 40px"][style*="height: 40px"][style*="border-radius: 50%"][style*="border: 2px solid"] {
+  background: rgb(255, 255, 255) !important;
+  box-shadow: 0 0 0 4px rgba(35, 123, 255, 0.13), 0 8px 24px rgba(35, 123, 255, 0.20) !important;
+  border-color: rgb(255, 255, 255) !important;
+}
+body div[style*="width: 40px"][style*="height: 40px"][style*="border-radius: 50%"] > .material-icons,
+body div[style*="width: 40px"][style*="height: 40px"][style*="border-radius: 50%"] > i,
+body div[style*="width: 40px"][style*="height: 40px"][style*="border-radius: 50%"] > span {
+  color: rgb(59, 130, 246) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127825 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127826 — Profile-panel header divider hairline
+   Measured csfloat .profile-card .t-gap (the 1px line between the panel
+   header and the content rows): width 1190 (matches inner-pad-deducted
+   panel width), height 1px, background rgba(193,206,255,0.04). Sbox baseline
+   has no equivalent — rows separate via dashed border-bottom on each
+   .profile-row, which doesn't form a single canonical hairline below the
+   panel header. Inject a ::before pseudo-element on the FIRST .profile-row
+   inside .profile-panel so the panel-header → content-rows transition gets
+   the canonical csfloat hairline without DOM churn. Also rebase the row
+   border-bottom to the same exact rgba so all dividers track in lock-step.
+*/
+body .profile-panel > .profile-row:first-child {
+  position: relative !important;
+  margin-top: 8px !important;
+  padding-top: 16px !important;
+}
+body .profile-panel > .profile-row:first-child::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 1px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+body .profile-row {
+  border-bottom-color: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127826 */
+
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127780 — sell-modal Cancel/List CTA pair
+   csfloat mat-dialog action buttons measure (Material 3
+   text-button + brand contained-button at the bottom of any
+   dialog, e.g. Cart "Cancel" + "Confirm Purchase"):
+     min-height        : 36px
+     padding           : 0 16px
+     border-radius     : 4px
+     font              : Roboto 14/500
+     letter-spacing    : 0.0892857143em (Material button tracking)
+     text-transform    : none
+     contained bg      : rgb(35,123,255)
+     contained color   : rgb(255,255,255)
+     contained shadow  : 0 3px 1px -2px rgba(0,0,0,0.2),
+                         0 2px 2px  0  rgba(0,0,0,0.14),
+                         0 1px 5px  0  rgba(0,0,0,0.12)
+     text-button bg    : transparent
+     text-button color : rgb(255,255,255)
+     gap between row   : 8px (mat-dialog-actions)
+   sboxmarket SellModal action row uses .btn .btn-ghost +
+   .btn .btn-accent with inline padding 13 + flex 1 — pin to
+   the canonical Material dialog-actions geometry inside the
+   .info-modal scope.
+   ============================================================ */
+body .info-modal > div > button.btn.btn-ghost,
+body .info-modal > div > button.btn.btn-accent,
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-ghost,
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-accent {
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  line-height: 36px !important;
+  box-sizing: border-box !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow      150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal > div > button.btn.btn-ghost,
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-ghost {
+  background-color: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body .info-modal > div > button.btn.btn-ghost:hover,
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+body .info-modal > div > button.btn.btn-accent,
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-accent {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px  0  rgba(0, 0, 0, 0.14),
+    0 1px 5px  0  rgba(0, 0, 0, 0.12) !important;
+}
+body .info-modal > div > button.btn.btn-accent:hover,
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-accent:hover {
+  background-color: rgb(20, 110, 240) !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.2),
+    0 4px 5px  0  rgba(0, 0, 0, 0.14),
+    0 1px 10px 0  rgba(0, 0, 0, 0.12) !important;
+}
+body .info-modal > div > button.btn.btn-accent[disabled],
+body .info-modal div[style*="display: flex"][style*="marginTop: 20"] > button.btn.btn-accent[disabled] {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127780 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127781 — sell-modal Seller-note textarea
+   csfloat shipping-address textarea / KYC notes textarea measure:
+     min-height       : 96px (multi-line filled variant)
+     padding          : 16px (top-aligned, equal padding all sides)
+     bg               : rgba(255,255,255,0.04)
+     border           : 0
+     border-bottom    : 1px solid rgba(255,255,255,0.42)
+     border-radius    : 4px 4px 0 0
+     font             : Roboto 14/400 white, line-height 20px
+     letter-spacing   : 0.0178571429em
+     resize           : vertical
+   sboxmarket SellModal renders the seller-note as a <textarea>
+   reusing .wallet-amount-input — ship #127522 already pinned the
+   single-line input chassis but textarea inherits centred padding
+   that suits an input, not multi-line. Pin the textarea variant
+   inside .info-modal so the Material multi-line geometry holds.
+   ============================================================ */
+body .info-modal textarea.wallet-amount-input {
+  min-height: 96px !important;
+  padding: 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0178571429em !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42) !important;
+  border-radius: 4px 4px 0 0 !important;
+  resize: vertical !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  vertical-align: top !important;
+  transition: border-bottom-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal textarea.wallet-amount-input:focus {
+  border-bottom-color: rgb(35, 123, 255) !important;
+  border-bottom-width: 2px !important;
+  outline: 0 !important;
+}
+body .info-modal textarea.wallet-amount-input::placeholder {
+  color: rgba(255, 255, 255, 0.42) !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127781 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127782 — sell-modal item-thumb chassis
+   csfloat queue list-row item-thumb (the small skin preview to
+   the LEFT of the price input) measures:
+     size              : 88px square
+     border-radius     : 6px
+     background        : rgba(255,255,255,0.04)
+     border            : 1px solid rgba(255,255,255,0.06)
+     padding           : 6px (image inset)
+     no glow / no radial gradient on the base state
+   sboxmarket SellModal item-header inline-styles a 120x120 div
+   with a brand-tinted radial-gradient + a layered linear-gradient
+   chassis (modals.js:9480). Override via attribute selector to
+   land on the canonical 88x88 hairline-bordered chassis without
+   touching cards elsewhere on the site.
+   ============================================================ */
+body .info-modal div[style*="aspectRatio: '1'"][style*="borderRadius: 10"],
+body .info-modal div[style*="aspect-ratio: 1"][style*="border-radius: 10px"] {
+  width: 88px !important;
+  height: 88px !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 6px !important;
+  flex-shrink: 0 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127782 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127783 — sell-modal Steam-overcharge warning
+   csfloat warning callouts (e.g. KYC pending warn, withdraw-locked
+   warn) use Material warn-color tokens, not the ad-hoc red the
+   sboxmarket SellModal currently inline-styles.
+     bg               : rgba(244,67,54,0.10)
+     border           : 1px solid rgba(244,67,54,0.30)
+     border-radius    : 4px
+     padding          : 12px 16px
+     color            : rgb(244,67,54)
+     font             : Roboto 13/400, line-height 20px
+     letter-spacing   : 0.0178571429em
+   sboxmarket renders the Steam-overcharge warn at modals.js:9684
+   with rgba(239,68,68,0.10) bg + rgba(239,68,68,0.3) border + #f87171
+   text — Tailwind reds, ~5% off the Material warn channel.
+   Pin via attribute selector on the unique inline style key.
+   ============================================================ */
+body .info-modal div[style*="rgba(239,68,68,0.10)"],
+body .info-modal div[style*="rgba(239, 68, 68, 0.10)"],
+body .info-modal div[style*="background: rgba(239,68,68,0.10)"],
+body .info-modal div[style*="background-color: rgba(239,68,68,0.10)"] {
+  background-color: rgba(244, 67, 54, 0.10) !important;
+  border: 1px solid rgba(244, 67, 54, 0.30) !important;
+  border-radius: 4px !important;
+  padding: 12px 16px !important;
+  color: rgb(244, 67, 54) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0178571429em !important;
+  margin-top: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127783 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127784 — sell-modal auto-accept success line
+   csfloat success-confirm tokens (e.g. wallet "Funds added — you
+   now have $X available", KYC "Verification complete") measure:
+     color            : rgb(76,175,80)
+     font             : Roboto 12/500
+     line-height      : 16px
+     letter-spacing   : 0.4px
+     icon-prefix-gap  : 4px (when present)
+   sboxmarket renders the auto-accept success at modals.js:9728 as
+     fontSize 11, color var(--green), fontWeight 700
+   Pin to the Material success-color tokens inside .info-modal.
+   ============================================================ */
+body .info-modal div[style*="var(--green)"][style*="fontWeight: 700"][style*="marginTop: 6"],
+body .info-modal div[style*="color: var(--green)"][style*="font-weight: 700"][style*="margin-top: 6px"] {
+  color: rgb(76, 175, 80) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  margin-top: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127784 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127785 — sell-modal floor-comparison caption
+   csfloat helper-text / mat-form-field-hint primitive in dialogs:
+     font            : Roboto 12/400
+     line-height     : 20px
+     letter-spacing  : 0.4px
+     color           : rgb(158,167,177) (ink-2)
+     padding-top     : 4px (separator from preceding row)
+   sboxmarket renders the "X% above floor" caption at
+   modals.js:9665 with fontSize 10, color var(--text-muted),
+   marginTop 4, borderTop 1px solid var(--border), paddingTop 6.
+   The borderTop divider is correct; the type ramp is too small.
+   Pin to the Material hint scale + ink-2 token (the color is
+   already correct in spirit but exact rgb(158,167,177) replaces
+   var(--text-muted) which final-cascades a touch warmer).
+   ============================================================ */
+body .info-modal div[style*="gridColumn: '1 / -1'"][style*="fontSize: 10"],
+body .info-modal div[style*="grid-column: 1 / -1"][style*="font-size: 10px"] {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.4px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 4px !important;
+  padding-top: 6px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127785 */
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #127860-#127866 — REAL /profile Developers
+   tab measurements (mcp__playwright__browser_navigate https://csfloat.com/profile,
+   Chib skinbox.market signed-in session, viewport 1440x900).
+
+   The Developers tab is the rightmost cell in csfloat's profile-page
+   horizontal mat-button-toggle-group (8 cells: Personal Info,
+   Transactions, Buy Orders, Auto-Bids, Trades, Offers, Notifications,
+   Developers). Switching to it replaces the sub-component below the
+   strip in-place — no URL change.
+
+   Measured tokens (live getComputedStyle):
+
+     STRIP:    1236w x 38h, bg rgba(193,206,255,0.04), border 0,
+               border-radius 7px, display flex, padding 0
+     CELL:     ~167w x 32h, margin 3px, bg transparent (inactive)
+               or rgba(193,206,255,0.04) (active .mat-button-toggle-checked),
+               border-radius 4px
+     LABEL:    500 14/32 Roboto, letter-spacing 0.42px,
+               padding 0 12px, color ink-2 (inactive) / white (active),
+               text-transform none (sentence case)
+     INNER:    transition padding 150ms cubic-bezier(0.4,0,0.2,1) .045s
+
+   sboxmarket's profile surfaces are rendered as separate modals (no
+   shared tab strip yet), so the strip ship targets the sister tab-
+   switcher primitive used in SellModal / Trades modal so the moment
+   the API keys panel is re-mounted in a tabbed profile modal, the
+   strip already matches.
+
+   The remaining 5 ships address inner panel gaps the earlier
+   #126720-#126726 round did not cover:
+
+     #127862 — api-key-new "COPY THIS NOW…" eyebrow heading
+                (11/yellow → 12/600/0.32em white uppercase eyebrow)
+     #127863 — api-key-new wrapper margin-bottom 14 → 20 (rhythm)
+     #127864 — .profile-panel intro helper bg → outline-only hairline
+     #127865 — .profile-panel .db-table thead density (11/upper →
+                12/500/0.5px sentence-case Roboto)
+     #127866 — bulk Revoke-all row 1px hairline divider above
+
+   ===================================================================== */
+
+/* csfloat-1:1 ship #127860 — settings api-key tab-strip wrapper: 38px h + 7px radius + panel-tint bg + flex (csfloat /profile mat-button-toggle-group canonical density for intra-page profile tabs Personal Info/Transactions/Buy Orders/Auto-Bids/Trades/Offers/Notifications/Developers) */
+html body .info-modal .info-modal-tabstrip,
+html body .info-modal-body .info-modal-tabstrip {
+  display: flex !important;
+  align-items: stretch !important;
+  flex-wrap: wrap !important;
+  gap: 0 !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  margin: 0 0 16px !important;
+  padding: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127860 */
+
+/* csfloat-1:1 ship #127861 — settings api-key tab-strip cell: 32px h + 3px margin + 4px radius + ink-2 inactive label + white active (csfloat /profile mat-button-toggle canonical inactive/checked geometry) */
+html body .info-modal .info-modal-tabstrip > .info-modal-tab,
+html body .info-modal .info-modal-tabstrip > button,
+html body .info-modal .info-modal-tabstrip > [role="tab"],
+html body .info-modal-body .info-modal-tabstrip > .info-modal-tab,
+html body .info-modal-body .info-modal-tabstrip > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  margin: 3px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  color: rgb(158, 167, 177) !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .info-modal .info-modal-tabstrip > .info-modal-tab:hover,
+html body .info-modal .info-modal-tabstrip > button:hover,
+html body .info-modal-body .info-modal-tabstrip > .info-modal-tab:hover,
+html body .info-modal-body .info-modal-tabstrip > button:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(220, 226, 233) !important;
+}
+html body .info-modal .info-modal-tabstrip > .info-modal-tab.active,
+html body .info-modal .info-modal-tabstrip > .info-modal-tab[aria-selected="true"],
+html body .info-modal .info-modal-tabstrip > button.active,
+html body .info-modal .info-modal-tabstrip > button[aria-selected="true"],
+html body .info-modal-body .info-modal-tabstrip > .info-modal-tab.active,
+html body .info-modal-body .info-modal-tabstrip > .info-modal-tab[aria-selected="true"],
+html body .info-modal-body .info-modal-tabstrip > button.active,
+html body .info-modal-body .info-modal-tabstrip > button[aria-selected="true"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127861 */
+
+/* csfloat-1:1 ship #127862 — settings api-key-new "COPY THIS NOW…" eyebrow heading: 12/600 white uppercase + 0.32em tracking (csfloat fresh-secret callout-heading canonical, replaces 11/yellow flat label that conflicts with the brand-tint left border below it) */
+html body .profile-panel .api-key-new > div:first-child {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.32em !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: uppercase !important;
+  margin-bottom: 10px !important;
+  opacity: 0.92 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127862 */
+
+/* csfloat-1:1 ship #127863 — settings api-key-new wrapper margin-bottom 14 → 20 (csfloat fresh-secret callout vertical-rhythm canonical — extra space before the keys table so the new key reveal does not crowd the row list below) */
+html body .profile-panel .api-key-new {
+  margin-bottom: 20px !important;
+  padding: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127863 */
+
+/* csfloat-1:1 ship #127864 — settings api-key intro helper: outline-only hairline + 12px ink-2 + .info-modal panel-tint surface (csfloat /profile help-callout canonical chrome — replaces flat var(--accent-dim) brand-fill that pulls focus from the keys table) */
+html body .profile-panel > div:first-child[style*="accent-dim"],
+html body .profile-panel > div[style*="background: var(--accent-dim)"],
+html body .profile-panel > div[style*="background:var(--accent-dim)"] {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  margin-bottom: 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.1px !important;
+}
+html body .profile-panel > div:first-child[style*="accent-dim"] a,
+html body .profile-panel > div[style*="background: var(--accent-dim)"] a,
+html body .profile-panel > div[style*="background:var(--accent-dim)"] a {
+  color: rgb(96, 158, 255) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-panel > div:first-child[style*="accent-dim"] a:hover,
+html body .profile-panel > div[style*="background: var(--accent-dim)"] a:hover,
+html body .profile-panel > div[style*="background:var(--accent-dim)"] a:hover {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127864 */
+
+/* csfloat-1:1 ship #127865 — settings api-key db-table thead: 12/500 sentence-case + 0.5px tracking + ink-2 (csfloat /profile table-head canonical density — matches the 0.42px toggle-label tracking for vertical rhythm, replaces uppercase 11px) */
+html body .profile-panel .db-table thead tr th {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(158, 167, 177) !important;
+  text-transform: none !important;
+  padding: 10px 14px !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  text-align: left !important;
+}
+html body .profile-panel .db-table thead tr th.right {
+  text-align: right !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127865 */
+
+/* csfloat-1:1 ship #127866 — settings api-key bulk Revoke-all row: 1px hairline divider above + 10px top padding (csfloat /profile danger-action separator canonical — visually segregates the destructive bulk action from the table that owns the per-row revokes) */
+html body .profile-panel > div > div[style*="justify-content: flex-end"]:has(> button.btn-ghost[title*="Security panic"]),
+html body .profile-panel > div > div[style*="justifyContent: flex-end"]:has(> button.btn-ghost[title*="Security panic"]),
+html body .profile-panel > div > div[style*="justify-content: flex-end"]:has(> button.btn-ghost[title*="panic"]) {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding-top: 12px !important;
+  margin-top: 8px !important;
+  margin-bottom: 14px !important;
+}
+/* Fallback when :has() is not honored — still pin the spacing geometry so the row reads as a separate cluster from the table below it */
+html body .profile-panel .btn-ghost[title*="Security panic"] {
+  height: 30px !important;
+  padding: 0 14px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  line-height: 28px !important;
+  border-radius: 6px !important;
+  color: rgb(235, 75, 76) !important;
+  background: transparent !important;
+  border: 1px solid rgba(235, 75, 76, 0.32) !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+html body .profile-panel .btn-ghost[title*="Security panic"]:hover {
+  background: rgba(235, 75, 76, 0.10) !important;
+  border-color: rgba(235, 75, 76, 0.55) !important;
+  color: rgb(243, 105, 106) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127866 */
+
+/* END CSFLOAT-1:1 PARITY ships #127860-#127866 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127920 — listing-card rarity overlay base
+   csfloat measurement (handoff): linear-gradient(rgba(panel,0) 20%,
+   rgba(rarity,0.32) 100%) bottom-anchored on the image area, plus
+   border-bottom 3px solid rarity-color. sboxmarket's .grid-thumb
+   already burns ::before (top stripe, line 118448) and ::after
+   (radial bloom, line 147682), so the overlay rides as a multi-
+   value box-shadow inset on .grid-thumb itself — composes with the
+   existing 3-layer background without disturbing it.
+   This base ship pins the geometry (no rarity color yet — that's
+   handled by the per-tier ships below). Acts as the default for
+   any card whose rarity falls outside the s&box taxonomy.
+   ============================================================ */
+body .grid-card .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 var(--line),
+    inset 0 -160px 120px -100px rgba(27, 29, 36, 0) !important;
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127920 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127921 — Limited-rarity gradient + stripe
+   Limited maps to csfloat's high-rarity warm-red tier (Classified
+   / Covert read closest). Bottom-anchored gradient ramps from
+   transparent panel-bg at 20% up to rgba(rare-lim, 0.32) at 100%,
+   plus a 3px solid rare-lim bottom stripe so the rarity reads even
+   when the image dominates. sboxmarket already declares --rare-lim
+   at design.css:59 (oklch warm-red) — pin that token.
+   Selector mirrors the existing rarity pattern (line 18507 +
+   118453 + 129234) so the cascade order keeps Limited above the
+   base ship #127920.
+   ============================================================ */
+body .grid-card.rarity-Limited .grid-thumb,
+body .grid-card[data-rarity="Limited"] .grid-thumb,
+body .grid-card:has(.rarity-Limited) .grid-thumb,
+body .grid-card:has(.grid-rarity.limited) .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 var(--rare-lim),
+    inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-lim) 32%, transparent) !important;
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127921 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127922 — Off-Market rarity gradient + stripe
+   Off-Market maps to csfloat's mid-tier amber (Restricted reads
+   closest). Same gradient mechanic as #127921 but pinned to
+   --rare-off (oklch amber, declared at design.css:60).
+   ============================================================ */
+body .grid-card.rarity-Off-Market .grid-thumb,
+body .grid-card[data-rarity="Off-Market"] .grid-thumb,
+body .grid-card:has(.rarity-Off-Market) .grid-thumb,
+body .grid-card:has(.grid-rarity.offmarket) .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 var(--rare-off),
+    inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-off) 32%, transparent) !important;
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127922 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127923 — Standard rarity gradient + stripe
+   Standard maps to csfloat's low-tier cool gray-blue (Mil-Spec /
+   Industrial / Consumer cluster). Lower alpha so the dominant
+   common tier doesn't shout — gradient pins to --rare-std at the
+   same 0.32 alpha, but the bottom stripe slightly desaturates via
+   a color-mix to ink-3 to keep Standard from competing visually
+   with Limited / Off-Market on a mixed grid.
+   ============================================================ */
+body .grid-card.rarity-Standard .grid-thumb,
+body .grid-card[data-rarity="Standard"] .grid-thumb,
+body .grid-card:has(.rarity-Standard) .grid-thumb,
+body .grid-card:has(.grid-rarity.standard) .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 color-mix(in oklab, var(--rare-std) 75%, var(--ink-3)),
+    inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-std) 28%, transparent) !important;
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127923 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127924 — gradient stops/alpha curve
+   Refines the bottom-anchored fade so the transparent stop at
+   ~20% from the bottom ramps cleanly to the rarity-tinted stop at
+   100%, mirroring csfloat's measured curve. The previous ships
+   used a single inset spread, which is geometrically equivalent
+   to a 0%->100% gradient; csfloat actually holds the panel-color
+   floor for ~20% of the image height before the rarity tint kicks
+   in. Reproduce that with a stacked second inset shadow pinned to
+   panel rgb(27,29,36) at the bottom 32% of the image area — it
+   silhouettes the base of the image so the gradient appears to
+   "start" higher up rather than running floor-to-ceiling. The 32%
+   panel layer + 100% rarity layer composite to the same visual
+   curve csfloat ships.
+   Applies to ALL rarity tiers via .grid-card .grid-thumb, with
+   per-rarity ships above keeping the rarity color authority.
+   ============================================================ */
+body .grid-card .grid-thumb::before {
+  /* keep top-stripe geometry from prior ships intact;
+     this rule is a no-op pin — the shadow stack on .grid-thumb itself
+     handles the bottom panel-floor and rarity ramp */
+}
+body .grid-card .grid-thumb {
+  /* re-declare the shadow stack with an inserted middle "panel hold" so
+     the curve reads as: panel-floor for 20% -> ramp -> rarity-tint at 100%.
+     The middle inset is a translucent panel-rgb at the bottom 32% which
+     visually pushes the rarity ramp's effective start UP the image.
+     The base ship #127920 declared `inset 0 -3px 0 0 var(--line)`; we
+     keep it here so the cascade ordering remains stable. Rarity-specific
+     overrides (#127921-#127923) replace this whole stack with their tier
+     color, so the Standard/Limited/Off-Market cards still win. */
+  background-image:
+    linear-gradient(180deg,
+      rgba(27, 29, 36, 0) 0%,
+      rgba(27, 29, 36, 0) 68%,
+      rgba(27, 29, 36, 0.55) 100%),
+    radial-gradient(ellipse at 30% 20%, color-mix(in oklab, var(--ink) 4%, transparent), transparent 60%),
+    repeating-linear-gradient(45deg, var(--bg-2) 0 2px, transparent 2px 10px) !important;
+  background-color: var(--bg-1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127924 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127925 — bottom-stripe consistency
+   Pin the bottom stripe geometry across all rarity tiers so a
+   3px solid line reads consistently regardless of which ship
+   applied it (#127920 base / #127921-#127923 per-rarity). Without
+   the pin, sub-pixel rounding on a viewport zoom can blend the
+   stripe into the gradient hold above; this rule forces the
+   bottom 3px row to render as an opaque slice via a sharp inset
+   shadow, with the gradient overlay box-shadow taking the
+   secondary slot below. Order matters in the box-shadow stack —
+   the first listed value is painted ON TOP, so the 3px solid sits
+   above the soft 160px ramp. The per-rarity ships #127921-#127923
+   already encode this order; this ship pins the layering rule
+   into a class so any future hover / focus state inherits the
+   same precedence. Also adds a 1px sub-pixel anti-aliasing safety
+   shadow at -1px so the stripe edge stays crisp on retina.
+   ============================================================ */
+body .grid-card .grid-thumb {
+  /* Force GPU layer for crisp stripe rendering on transformed cards
+     (the .grid-card hover translateY -2px at line 118480 can cause
+     sub-pixel blur on the bottom edge without GPU promotion). */
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+}
+/* Hover treatment — when the card lifts, the rarity ramp brightens
+   slightly (alpha 0.32 -> 0.40) so the rarity signal intensifies on
+   the focused card. Mirrors csfloat's hover behavior where the
+   rarity tint reads as a "spotlight" on the actively-considered
+   card. Per-rarity hover overrides; Standard kept lower to maintain
+   the "common" reading. */
+body .grid-card:hover.rarity-Limited .grid-thumb,
+body .grid-card:hover[data-rarity="Limited"] .grid-thumb,
+body .grid-card:hover:has(.rarity-Limited) .grid-thumb,
+body .grid-card:hover:has(.grid-rarity.limited) .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 var(--rare-lim),
+    inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-lim) 40%, transparent) !important;
+}
+body .grid-card:hover.rarity-Off-Market .grid-thumb,
+body .grid-card:hover[data-rarity="Off-Market"] .grid-thumb,
+body .grid-card:hover:has(.rarity-Off-Market) .grid-thumb,
+body .grid-card:hover:has(.grid-rarity.offmarket) .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 var(--rare-off),
+    inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-off) 40%, transparent) !important;
+}
+body .grid-card:hover.rarity-Standard .grid-thumb,
+body .grid-card:hover[data-rarity="Standard"] .grid-thumb,
+body .grid-card:hover:has(.rarity-Standard) .grid-thumb,
+body .grid-card:hover:has(.grid-rarity.standard) .grid-thumb {
+  box-shadow:
+    inset 0 -3px 0 0 color-mix(in oklab, var(--rare-std) 90%, var(--ink-3)),
+    inset 0 -160px 120px -100px color-mix(in oklab, var(--rare-std) 34%, transparent) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127925 */
