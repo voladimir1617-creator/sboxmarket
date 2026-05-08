@@ -170635,3 +170635,324 @@ body .profile-row:has(> .profile-row-value > div > button.btn.btn-ghost[title*="
 }
 /* END CSFLOAT-1:1 PARITY ship #21712 */
 /* END CSFLOAT-1:1 PARITY ships #21707-#21712 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #21800-#21806 — TOAST / SNACKBAR notification
+   stack (the `.sale-toast` element rendered by app.js:9009-9028 — that
+   is the actual on-screen toast surface; the `.toast` selector targeted
+   by ships #15464 and #17071 is a legacy class that the live `setToast`
+   pipeline never emits anymore, so those rules do not apply to runtime
+   toasts and we re-target the actual `.sale-toast` here).
+
+   csfloat measurement basis (probed off live https://csfloat.com via
+   playwright on 2026-05-08):
+     dark-theme.css?v=SYE67SK5 token defs:
+       --primary-color: #237bff
+       --snackbar-info-background: rgba(27, 29, 36, .8)
+       --snackbar-error-background: rgba(139, 19, 20, .7)
+     dark-theme.css variant rules:
+       :root .snackbar-error  { border-radius: 6px; bg: var(...);
+                                backdrop-filter: blur(32px); }
+       :root .snackbar-info   { border-radius: 6px; bg: var(...);
+                                backdrop-filter: blur(32px); }
+       (no :root .snackbar-success / .snackbar-warning rules — csfloat
+        leaves those variants on Material default rgb(66,66,66) panel.)
+     styles-D2O5OWU7.css MatSnackBar Material token block:
+       --mat-snack-bar-container-shape: 4px
+       --mat-snack-bar-container-color: #424242
+       --mat-snack-bar-supporting-text-color: white
+       --mat-snack-bar-supporting-text-font: Roboto, sans-serif
+       --mat-snack-bar-supporting-text-line-height: 20px
+       --mat-snack-bar-supporting-text-size: 14px
+       --mat-snack-bar-supporting-text-weight: 400
+       --mat-snack-bar-button-color: #7986cb (Material default; csfloat
+        button color resolves through --primary-color = #237bff)
+   Constructed Material snackbar in csfloat DOM (default Material chrome
+   + .snackbar-info variant) measured:
+     surface: bg rgb(66,66,66) / br 4px / pad 0 16px / min-h 48px /
+       min-w 344px / max-w 672px / box-shadow Material elev2
+       (rgba(0,0,0,.2) 0 3px 5px -1px, rgba(0,0,0,.14) 0 6px 10px 0,
+        rgba(0,0,0,.12) 0 1px 18px 0) / color rgb(255,255,255) / Roboto
+       14px / 400 / lh 20px / ls 0.25px
+     label inside surface: pad 14px 16px / same Roboto 14/400/20/0.25
+     pane positioning: cdk-overlay-pane.mat-mdc-snack-bar-handset has
+       position:static + margin: 8px auto + max-w 672 + min-w 344, sits
+       inside fixed .cdk-overlay-container (bottom-center anchor)
+     .snackbar-info computed: bg rgba(27,29,36,0.8) / br 6px / blur(32px)
+   csfloat MatSnackBar has NO icon thumbnail (text-only label + optional
+   action button). No colored left rail. Stacks bottom-center.
+
+   sboxmarket baseline (.sale-toast constructed in /home DOM, kind=ok):
+     bg rgba(31,110,60,0.7) (sbox green tint embellishment — diverges)
+     border-left 3px solid rgb(34,197,94) (sbox colored rail — diverges)
+     br 6px / pad 14px 16px / min-w 344 / max-w 672
+     pos relative top:0 (renders inline mid-page, NOT fixed bottom)
+     thumb 24x24 br 6px (sbox-only icon — csfloat is text-only)
+     text color rgba(255,255,255,0.85) (sbox dim — csfloat full white)
+     gap 12px / align-items center
+     animation csfloat-snackbar-enter 150ms cubic-bezier(0,0,0.2,1)
+   The legacy `.toast` rules (ships #15464 + #17071) that pin position
+   fixed top:80 right:24 do not fire because the React render uses
+   `.sale-toast` not `.toast` (app.js:9022). So toasts currently emit
+   inline in document flow, often pushed off-screen by surrounding
+   content. This ship-cluster fixes the surface chrome AND the wrapper
+   anchoring on the actual `.sale-toast` selector.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #21800 — anchor toast to viewport bottom-center
+   per Material MatSnackBar default (csfloat MatSnackBar uses cdk-overlay-
+   container > cdk-global-overlay-wrapper at justify-content:center /
+   align-items:flex-end and pane margin 8px auto). sbox baseline rendered
+   `.sale-toast` at position:relative inline in body flow (no fixed wrap).
+   Lock position:fixed bottom:8px / left:50% / translateX(-50%) / z-index
+   1000 so the toast snaps to bottom-center exactly where csfloat MDC
+   pane sits. Override the legacy ship #17071 `.toast` (top:80 right:24)
+   too, to keep both selectors consistent. */
+.sale-toast,
+.toast {
+  position: fixed !important;
+  bottom: 8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 1000 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21800 */
+
+/* CSFLOAT-1:1 PARITY ship #21801 — surface chrome to Material defaults
+   (csfloat MDC token block: container shape 4px, color #424242, white
+   text, Roboto 14/400/lh20/ls0.0178571em which resolves to ~0.25px).
+   sbox baseline used 6px br + green/red tinted bg + 0.85a text — push
+   to canonical Material surface. Variant-specific overrides (info,
+   error, warning) restore the translucent + blur idiom in #21805. */
+.sale-toast,
+.toast {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  min-width: 344px !important;
+  max-width: 672px !important;
+  min-height: 48px !important;
+  padding: 14px 16px !important;
+  background: rgb(66, 66, 66) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 3px 5px -1px,
+    rgba(0, 0, 0, 0.14) 0 6px 10px 0,
+    rgba(0, 0, 0, 0.12) 0 1px 18px 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  animation: toast-in 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21801 */
+
+/* CSFLOAT-1:1 PARITY ship #21802 — drop the colored 3px left rail.
+   csfloat MatSnackBar has no border-left rail on any variant (info,
+   error, success, warning) — the colored treatment lives entirely in
+   the surface bg. sbox baseline shipped a 3px solid green/amber/red
+   rail that has no equivalent on csfloat. Force-drop on the base + all
+   kind variants so sboxmarket prior `.sale-toast.warn` /
+   `.sale-toast.err` border-left declarations (ships at design.css:9940-
+   9941) are overridden. */
+.sale-toast,
+.sale-toast.ok,
+.sale-toast.success,
+.sale-toast.warn,
+.sale-toast.warning,
+.sale-toast.err,
+.sale-toast.error,
+.sale-toast.info,
+.toast,
+.toast.ok,
+.toast.success,
+.toast.warn,
+.toast.warning,
+.toast.err,
+.toast.error,
+.toast.info {
+  border-left: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21802 */
+
+/* CSFLOAT-1:1 PARITY ship #21803 — hide sbox icon thumbnail; csfloat
+   MatSnackBar is text-only (no leading glyph circle). The thumb sits
+   in the left of the surface and pushes the label rightward, breaking
+   parity with csfloat flush-left text layout. Hide it; let the label
+   span the full surface width minus 14/16px padding. */
+.sale-toast .sale-toast-thumb,
+.toast .sale-toast-thumb {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21803 */
+
+/* CSFLOAT-1:1 PARITY ship #21804 — label color + typography to Material
+   defaults. sbox baseline used `.sale-toast-line2` / `.sale-toast-text`
+   color rgba(255,255,255,0.85) at design.css:5925-5927 — csfloat label
+   is full rgb(255,255,255) per `--mat-snack-bar-supporting-text-color:
+   white`. Lock label color, font, size, weight, line-height, letter-
+   spacing to Material defaults. Make label flex-grow so it consumes
+   remaining surface width (csfloat MDC uses `flex-grow:1` on
+   `.mdc-snackbar__label`). */
+.sale-toast .sale-toast-text,
+.sale-toast .sale-toast-line2,
+.toast .sale-toast-text,
+.toast .sale-toast-line2 {
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  flex: 1 1 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21804 */
+
+/* CSFLOAT-1:1 PARITY ship #21805 — variant chrome to csfloat tokens.
+   csfloat dark-theme.css ships ONLY `.snackbar-info` (panel-tinted
+   translucent + 32px blur + br 6px) and `.snackbar-error` (dark-red
+   translucent + 32px blur + br 6px). No custom `.snackbar-success` /
+   `.snackbar-warning` rule means csfloat falls back to Material
+   default rgb(66,66,66) for those. Apply the canonical info/error
+   tokens to sbox kind=ok/info / kind=err. Keep success on the Material
+   default surface (already set in #21801). For kind=warn, no csfloat
+   token exists so we mirror the info/error idiom (translucent + blur
+   + br 6px) in canonical csfloat warning amber rgba(176,113,24,0.75)
+   so the variant reads consistently with the info/error treatment.
+   Note: kind=ok in sboxmarket is the most-used neutral confirmation
+   (e.g. "Copied to clipboard") which matches csfloat `info` snackbar
+   semantics (panel-bg neutral confirmation), so we map ok -> info. */
+.sale-toast.ok,
+.toast.ok,
+.sale-toast.info,
+.toast.info,
+.sale-toast.snackbar-info,
+.toast.snackbar-info {
+  background: rgba(27, 29, 36, 0.8) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+.sale-toast.err,
+.sale-toast.error,
+.toast.err,
+.toast.error,
+.sale-toast.snackbar-error,
+.toast.snackbar-error {
+  background: rgba(139, 19, 20, 0.7) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+.sale-toast.warn,
+.sale-toast.warning,
+.toast.warn,
+.toast.warning,
+.sale-toast.snackbar-warning,
+.toast.snackbar-warning {
+  background: rgba(176, 113, 24, 0.75) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+.sale-toast.success,
+.toast.success,
+.sale-toast.snackbar-success,
+.toast.snackbar-success {
+  background: rgb(66, 66, 66) !important;
+  border-radius: 4px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21805 */
+
+/* CSFLOAT-1:1 PARITY ship #21806 — multi-toast stack container + close /
+   action button chrome. csfloat MatSnackBar stacks toasts via the cdk-
+   overlay-pane pattern with 8px margin between successive panes. The
+   action button (Dismiss / close X) uses `--mat-snack-bar-button-color`
+   which resolves to csfloat brand `#237bff` via `--primary-color`.
+   Material button base: bg transparent / fw 500 / lh 36 / pad 0 8 /
+   br 4 / ls 0.0892857em / text-transform uppercase / Roboto 14px. sbox
+   defines `.sale-toasts`, `.toasts-container`, `.toast-stack` container
+   classes already (design.css:9100-9116) but with an inline default;
+   lock them to fixed bottom-center column-reverse with 8px gap so
+   multi-toasts read as a stack growing upward (csfloat behavior — newest
+   at bottom, older toasts pushed up). */
+.sale-toasts,
+.toasts-container,
+.toast-stack {
+  position: fixed !important;
+  bottom: 8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  display: flex !important;
+  flex-direction: column-reverse !important;
+  gap: 8px !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  align-items: center !important;
+}
+.sale-toasts > .sale-toast,
+.toasts-container > .sale-toast,
+.toast-stack > .sale-toast,
+.sale-toasts > .toast,
+.toasts-container > .toast,
+.toast-stack > .toast {
+  position: static !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+.sale-toast .toast-cta,
+.sale-toast .sale-toast-cta,
+.sale-toast button.toast-action,
+.sale-toast button.toast-close,
+.toast .toast-action,
+.toast button.toast-close {
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: uppercase !important;
+  padding: 0 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+}
+.sale-toast .toast-cta:hover,
+.sale-toast .sale-toast-cta:hover,
+.sale-toast button.toast-action:hover,
+.sale-toast button.toast-close:hover,
+.toast .toast-action:hover,
+.toast button.toast-close:hover {
+  background: rgba(35, 123, 255, 0.08) !important;
+}
+/* Variants invert the action color to white when the bg is colored
+   (info/error/warn translucent surfaces — same as csfloat
+   .snackbar-error / .snackbar-info action color override). */
+.sale-toast.info .toast-cta,
+.sale-toast.ok .toast-cta,
+.sale-toast.err .toast-cta,
+.sale-toast.error .toast-cta,
+.sale-toast.warn .toast-cta,
+.sale-toast.warning .toast-cta,
+.toast.info .toast-action,
+.toast.ok .toast-action,
+.toast.err .toast-action,
+.toast.error .toast-action,
+.toast.warn .toast-action,
+.toast.warning .toast-action {
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21806 */
