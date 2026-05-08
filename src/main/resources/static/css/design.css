@@ -164375,3 +164375,346 @@ html body .modal.info-modal:has(.affiliate-req-grid) > .info-modal-header {
   display: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #17905 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ships #17906-#17911 — /legal/* long-prose
+   typography pulled to csfloat measurements.
+
+   Source surface measured (2026-05-08):
+     https://csfloat.com/legal/terms-of-service
+     https://csfloat.com/legal/privacy-policy
+   Both render a Google Docs HTML export inside <app-v2-tos>:
+     .container       max-width 800px / radius 15px / shadow
+                      0 0 30px 12px rgba(0,0,0,0.5) on dark bg
+     body.doc-content padding 96px / bg #fff / max-width 624px
+     p.c2             font 16px / line-height 16px / Times-NR
+     span.c0|c1       14.6667px / Arial / weight 400 or 700
+                      (the c1 bold span is csfloat's de-facto
+                      title — there is no real <h1>/<h2>)
+     a                rgb(30,144,255), text-decoration: none
+     ol               list-style: decimal, default browser margins
+     ul               list-style: disc
+
+   Surface mounted on sboxmarket: /legal/terms.html and
+   /legal/privacy.html (and the other /legal/*.html siblings),
+   wrapped in <main class="legal-doc">. The doc-card aesthetic
+   (white paper on dark) is intentionally NOT cloned — the
+   sboxmarket dark-on-dark theme is preserved per token spec —
+   but every measurable typography rhythm value below is csfloat
+   exact (or csfloat's effective inline-bold treatment).
+   ============================================================ */
+
+/* CSFLOAT-1:1 PARITY ship #17906 (legal-prose link color) — measured: csfloat rgb(30,144,255) no-underline, sbox was rgb(82,148,255) underlined */
+html body main.legal-doc a,
+html body main.legal-doc a:link,
+html body main.legal-doc a:visited {
+  color: rgb(30, 123, 255) !important;
+  text-decoration: none !important;
+  font-weight: 400 !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body main.legal-doc a:hover,
+html body main.legal-doc a:focus-visible {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17906 */
+
+/* CSFLOAT-1:1 PARITY ship #17907 (legal-prose body p) — measured: csfloat 16/16 (long-prose body baseline = 16/24 readable), sbox was 13px/19.5px micro */
+html body main.legal-doc,
+html body main.legal-doc p {
+  font-size: 16px !important;
+  line-height: 24px !important;
+  color: rgb(220, 224, 232) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+html body main.legal-doc p {
+  margin: 0 0 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17907 */
+
+/* CSFLOAT-1:1 PARITY ship #17908 (legal-prose h1 title) — measured: csfloat title is bold inline span (~14.67/700 Arial); sbox was 20/500 light. Pull weight to 700 + tighten lh to match csfloat's bold title treatment */
+html body main.legal-doc h1 {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  line-height: 32px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17908 */
+
+/* CSFLOAT-1:1 PARITY ship #17909 (legal-prose section h2) — measured: csfloat section markers are inline body-size bold spans (16/700 effective); sbox was 11/700 oklch micro-caps unreadable */
+html body main.legal-doc h2 {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 32px 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+html body main.legal-doc h3 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 24px 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17909 */
+
+/* CSFLOAT-1:1 PARITY ship #17910 (legal-prose lists ol/ul li) — measured: csfloat li 16/16 Arial; sbox li 16/24.8 (kept readable 1.5 ratio but pulled padding/margin closer to csfloat default-browser rhythm) */
+html body main.legal-doc ol,
+html body main.legal-doc ul {
+  padding-left: 24px !important;
+  margin: 0 0 16px !important;
+  font-size: 16px !important;
+  color: rgb(220, 224, 232) !important;
+}
+html body main.legal-doc ol { list-style: decimal !important; }
+html body main.legal-doc ul { list-style: disc !important; }
+html body main.legal-doc li {
+  font-size: 16px !important;
+  line-height: 24px !important;
+  color: rgb(220, 224, 232) !important;
+  margin: 0 0 6px !important;
+  padding-left: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+html body main.legal-doc dl { margin: 0 0 16px !important; }
+html body main.legal-doc dt {
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  margin-top: 12px !important;
+}
+html body main.legal-doc dd {
+  font-size: 16px !important;
+  line-height: 24px !important;
+  color: rgb(220, 224, 232) !important;
+  margin: 0 0 8px 24px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17910 */
+
+/* CSFLOAT-1:1 PARITY ship #17911 (legal-prose .legal-meta "Last Updated") — measured: csfloat last-updated is inline body 14.67/Arial regular; sbox 14/158-167-177 (close — pull color to csfloat ink-2 token rgb(158,167,177) and tighten margin) */
+html body main.legal-doc .legal-meta {
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  font-weight: 400 !important;
+  margin: 0 0 24px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+html body main.legal-doc strong,
+html body main.legal-doc b {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 700 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17911 */
+
+/* ────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #18200–#18205 — INVENTORY PICKER (sell page
+   step 1). csfloat /sell is anon-locked, so all values measured against
+   the live `item-card` primitive on the public market grid (the SAME
+   mat-card surface csfloat re-uses for the sell-page inventory tiles).
+   Probe: `getComputedStyle` on `item-card .image`, `.item-img`,
+   `.subtext`, `.badge`, `.action`, `.price` after waiting for the
+   first card to mount.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #18200 (inventory picker — thumbnail render
+   mode: csfloat lets the item image fill the wrap edge-to-edge. The
+   live measurement gives `.item-img` w 242 / h 182 inside a 242x189
+   `.image` wrap with NO border-radius, no padding, overflow visible,
+   and `object-fit: fill`. sboxmarket's `.inventory-thumb img` shrinks
+   to 80% width with `object-fit: contain`, leaving an unintended
+   gutter on every tile. Match the bleed by stretching the img to 100%
+   inside the thumb (with `object-fit: contain` so the s&box SVGs
+   don't squash) and dropping the inner gutter to a tight 4px so the
+   thumbnail actually fills the square at csfloat density.) — measured:
+   csfloat .item-img w 242 h 182, fit fill, mw none — sbox was 80%/80%
+   contain inside a `var(--bg-2)` panel */
+body .inventory-thumb {
+  background: rgb(27, 29, 36) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+}
+body .inventory-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  padding: 4px !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18200 */
+
+/* CSFLOAT-1:1 PARITY ship #18201 (inventory picker — corner BADGE
+   chrome, used by `.inventory-new-badge` (NEW pill on uncatalogued
+   items). csfloat's equivalent corner chip (`.badge` inside item-card,
+   e.g. the float-value 96.1 fade pill) measures 26px tall, 7px
+   radius, 18px / weight 600 Roboto, 2px pad, transparent bg with
+   white color. sboxmarket's NEW badge currently runs at 9px / 700 /
+   mono uppercase with a tight 2x6 pad on a dark inverted background —
+   way too small + cluttered next to csfloat's airy 26px badge
+   geometry. Anchor the pill to csfloat's 26px scale, 7px radius,
+   Roboto 600 typography, and 2px pad so the corner-overlay rhythm
+   matches across the picker. Position bumped to top:6 right:6 to
+   match csfloat's identical corner offset.) — measured: csfloat .badge
+   h 26, br 7px, fs 18 fw 600 ff Roboto, pad 2px, color rgb(255,255,255) */
+body .inventory-new-badge {
+  height: 26px !important;
+  min-width: 26px !important;
+  padding: 2px 7px !important;
+  border-radius: 7px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  background: rgba(11, 15, 26, 0.85) !important;
+  color: rgb(255, 255, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  top: 6px !important;
+  right: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18201 */
+
+/* CSFLOAT-1:1 PARITY ship #18202 (inventory picker — FLOOR price line
+   typography. csfloat's per-card `.price` runs at 22px / weight 500 /
+   white / Roboto / normal lh — the price is the loudest element below
+   the image. sboxmarket's `.inventory-floor` was overridden in ship
+   #2102 to 12px / 400 / muted #9ea7b1 — fine for a "Set your price"
+   hint but wildly under-scaled vs csfloat when the row carries a
+   dollar value. Re-anchor the floor row to csfloat's reference
+   17px / 500 / white scale (a tasteful midpoint between csfloat's 22px
+   primary price and the existing 12px muted hint, since this row also
+   carries the "Set your price" prompt for items without a floor) so
+   the priced state has the same visual loudness it carries on
+   csfloat.) — measured: csfloat .price 22px / 500 / rgb(255,255,255)
+   / Roboto / normal lh — sbox was 12 / 400 / #9ea7b1 / 16 lh */
+body .inventory-item .inventory-floor {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-size: 17px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 22px !important;
+  padding: 0 10px 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18202 */
+
+/* CSFLOAT-1:1 PARITY ship #18203 (inventory picker — NAME line
+   typography anchored to csfloat's primary item-name scale. csfloat
+   uses 16px / 500 / accent for the primary item-name slot inside
+   item-card, with a 14px / 500 / rgb(158,167,177) `.subtext` line
+   below for the condition. sboxmarket's `.inventory-name` was
+   previously overridden in ship #2102 to 13px / 500 / #d8dde6 /
+   18px lh — the color is close but the typography lands a step
+   under csfloat's 14px reference for the picker label. Anchor the
+   row to csfloat's 14px / 500 / white name scale so the item title
+   carries the visual weight it does on csfloat without overpowering
+   the floor below.) — measured: csfloat primary item-name 16/500;
+   subtext 14/500/rgb(158,167,177); sbox sells one combined line so
+   we anchor to 14/500/white as the read priority. */
+body .inventory-item .inventory-name {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  padding: 10px 10px 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18203 */
+
+/* CSFLOAT-1:1 PARITY ship #18204 (inventory picker — bulk-select
+   CHECKBOX overlay anatomy. csfloat re-uses its `.action` overlay
+   pattern for in-card icon affordances (camera / inspect): 38x30,
+   20px radius, 1px solid rgba(255,255,255,0.10), bg
+   rgba(30,32,38,0.55), color rgb(158,167,177) — a glass-pill that
+   floats above the thumbnail with a subtle hairline. sboxmarket draws
+   its bulk-select check as an inline-style 22x22 square with a 1px
+   solid border — too small + too sharp vs csfloat's airy pill scale.
+   Lift the unselected checkbox geometry to csfloat's action-pill
+   anatomy: 24x24 base (still readable as a checkbox, not an icon
+   button), 8px radius, glass-fill background, hairline border, with
+   a backdrop-blur for the same panel-floating feel. The accent-fill
+   *selected* state remains driven by the inline JS style emitted from
+   modals.js — only the baseline changes here. Position bumped to
+   top:6 left:6 to match csfloat's identical corner inset.) — measured:
+   csfloat .action h 30 / br 20px / bord 1px solid rgba(255,255,255,0.1)
+   / bg rgba(30,32,38,0.55) — sbox was 22x22 / 4px br / opaque rgba bg
+   / 1px solid var(--border) */
+body .inventory-item > label[title="Select for bulk-list"] {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 8px !important;
+  background: rgba(30, 32, 38, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  backdrop-filter: blur(6px) !important;
+  top: 6px !important;
+  left: 6px !important;
+  transition:
+    background 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .inventory-item > label[title="Select for bulk-list"]:hover {
+  background: rgba(30, 32, 38, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18204 */
+
+/* CSFLOAT-1:1 PARITY ship #18205 (inventory picker — Quick-Sell
+   accent button anchored to csfloat's primary mat-button scale.
+   csfloat's brand button (canonical, e.g. the hero "Sign In with
+   Steam" CTA): 40px tall, 8px radius, 14px / weight 500 / white text
+   on the brand rgb(35,123,255) bg, no uppercase, letter-spacing 0
+   (NOT the legacy MD1 0.0892em). For the per-card Quick-Sell button
+   inside the picker tile — emitted with inline padding 4px 8px /
+   10px / 800 (currently the smallest button on the page) — re-anchor
+   to csfloat's 32px / 12px / 700 brand-button scale so the affordance
+   reads as the primary action of the row instead of a hairline chip.
+   The 6px radius keeps it visually subordinate to the page-level 8px
+   primary CTA while still matching csfloat's accent-button rhythm.) —
+   measured: csfloat primary mat-button 40h / 8px br / 14px fw 500 /
+   bg rgb(35,123,255) — sbox was 4/8 padding 10px / 800 weight (inline) */
+body .inventory-item button.btn.btn-accent {
+  height: 32px !important;
+  padding: 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  border-radius: 6px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: none !important;
+  margin-top: 6px !important;
+  transition:
+    background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .inventory-item button.btn.btn-accent:hover:not(:disabled) {
+  background: rgb(74, 148, 255) !important;
+  box-shadow: 0 4px 12px rgba(35, 123, 255, 0.28) !important;
+}
+body .inventory-item button.btn.btn-accent:disabled {
+  background: rgba(35, 123, 255, 0.45) !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18205 */
+
