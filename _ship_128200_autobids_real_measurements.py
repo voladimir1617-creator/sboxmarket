@@ -1,4 +1,4 @@
-"""Atomic append of CSFLOAT 1:1 parity ships #128098-#128105 — /profile Auto-Bids tab
+"""Atomic append of CSFLOAT 1:1 parity ships #128200-#128207 — /profile Auto-Bids tab
 real-measurement chrome (proxy-bid standing-order rows).
 
 Live measured chain (mcp__playwright__browser_navigate https://csfloat.com/profile/offers ->
@@ -59,7 +59,7 @@ the same 8-column shape, just with the canonical Material density/typography:
     emits a btn-accent which is the same brand color but a different radius (4px). Pin
     18px pill radius on the .empty-inline a.btn-accent only.
 
-Ship-number selection: highest in HEAD is #128097. This batch claims #128098-#128105 to
+Ship-number selection: highest in HEAD is #128097. This batch claims #128200-#128207 to
 clear the >=#128070 floor required and avoid collision with parallel-agent ranges.
 
 NO Docker. APPEND-ONLY at end of design.css. Atomic tempfile + os.replace.
@@ -68,7 +68,7 @@ import os, sys, tempfile
 
 CSS = r"""
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128098 - Auto-Bids row min-height + density
+   CSFLOAT-1:1 PARITY ship #128200 - Auto-Bids row min-height + density
    Measured csfloat /profile/offers Auto-Bids list .mat-mdc-row at 56px
    min-height with 0 16px horizontal padding and a hairline border-bottom
    rgba(255,255,255,0.06). Sbox ProfileAutoBidsTab renders inside .profile-
@@ -94,10 +94,10 @@ body .profile-panel .db-table tbody tr.db-row:last-child td {
 body .profile-panel .db-table tbody tr.db-row:hover {
   background: rgba(255, 255, 255, 0.02) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128098 */
+/* END CSFLOAT-1:1 PARITY ship #128200 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128099 - Auto-Bids header-cell typography
+   CSFLOAT-1:1 PARITY ship #128201 - Auto-Bids header-cell typography
    Measured csfloat .mat-mdc-header-cell on the Auto-Bids table: color
    rgb(158,167,177), font-size 11.5px, font-weight 500, letter-spacing
    0.05em, sentence-case (NOT uppercase). Sbox baseline .db-table thead
@@ -119,10 +119,10 @@ body .profile-panel .db-table thead th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
   padding: 14px 12px 10px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128099 */
+/* END CSFLOAT-1:1 PARITY ship #128201 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128100 - Auto-Bids state pill geometry (pill not chip)
+   CSFLOAT-1:1 PARITY ship #128202 - Auto-Bids state pill geometry (pill not chip)
    Measured csfloat state pills (Winning / Outbid) on Auto-Bids rows: 22px
    height, 0 8px horizontal pad, 11px radius (PILL shape), fs 11/600, NOT
    uppercase. Sbox emits inline-style chips at 9/800 fontSize, 2px 6px pad,
@@ -147,10 +147,10 @@ body .profile-panel .db-table tbody td.center span[style*="rgba(251, 191, 36, 0.
   letter-spacing: 0 !important;
   line-height: 1 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128100 */
+/* END CSFLOAT-1:1 PARITY ship #128202 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128101 - Auto-Bids AUTO-kind brand-blue chip
+   CSFLOAT-1:1 PARITY ship #128203 - Auto-Bids AUTO-kind brand-blue chip
    Measured csfloat AUTO chip on auto-raising bid rows: 22px height, 0 8px
    pad, 11px radius, fs 11/600, brand-blue token rgb(35,123,255) at 0.13
    alpha background + 1px border at 0.35 alpha (matches the canonical
@@ -178,10 +178,10 @@ body .profile-panel .db-table tbody td.center span[style*="rgba(77, 200, 255, 0.
   color: rgb(35, 123, 255) !important;
   border: 1px solid rgba(35, 123, 255, 0.35) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128101 */
+/* END CSFLOAT-1:1 PARITY ship #128203 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128102 - Max-bid cell ⌃ chevron prefix glyph
+   CSFLOAT-1:1 PARITY ship #128204 - Max-bid cell ⌃ chevron prefix glyph
    Measured csfloat Max-bid (auto-raise ceiling) cell: monospace 14/600
    tabular-nums, with a tiny ⌃ chevron at rgba(255,255,255,0.45) sitting
    6px before the number to signify "raise up to this cap". Sbox emits the
@@ -208,10 +208,10 @@ body .profile-panel .db-table tbody tr.db-row td:nth-of-type(6).right.db-mono::b
   line-height: 1 !important;
   pointer-events: none !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128102 */
+/* END CSFLOAT-1:1 PARITY ship #128204 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128103 - Auto-Bids Stop-row destructive button
+   CSFLOAT-1:1 PARITY ship #128205 - Auto-Bids Stop-row destructive button
    Measured csfloat per-row Stop action on AUTO-kind bid rows: red text
    rgb(248,113,73) on a transparent base with a 1px transparent border
    that becomes 1px rgba(248,113,73,0.30) on hover and a 0.06-alpha red
@@ -238,10 +238,10 @@ body .profile-panel .db-table tbody td:last-child button.btn.btn-ghost:focus-vis
   outline: 2px solid rgba(248, 113, 73, 0.50) !important;
   outline-offset: 1px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128103 */
+/* END CSFLOAT-1:1 PARITY ship #128205 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128104 - Capital-exposure strip canonical chrome
+   CSFLOAT-1:1 PARITY ship #128206 - Capital-exposure strip canonical chrome
    Measured csfloat exposure strip (the winningSum + outbidSum + maxExposure
    summary above the table): panel-bg rgb(27,29,36) with 8px radius and
    10/14 padding. Sbox emits the strip via inline style as bg
@@ -262,10 +262,10 @@ body .profile-panel div[role="region"][aria-label="Past bids summary"] {
   font-size: 12.5px !important;
   color: rgb(158, 167, 177) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128104 */
+/* END CSFLOAT-1:1 PARITY ship #128206 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128105 - Stop-all + empty-state CTA pill radius
+   CSFLOAT-1:1 PARITY ship #128207 - Stop-all + empty-state CTA pill radius
    Measured csfloat bulk-cancel CTA "Stop all auto-raises": 36px height
    pill-shaped (18px radius) with red border 1px rgb(248,113,73)/0.45 +
    red text + transparent bg. Sbox emits the bulk-cancel as a 6/12 fs-11
@@ -318,7 +318,7 @@ body .profile-panel .empty-inline a.btn.btn-accent:active {
   background: rgb(28, 105, 222) !important;
   transform: translateY(1px) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128105 */
+/* END CSFLOAT-1:1 PARITY ship #128207 */
 
 """
 
@@ -326,7 +326,7 @@ target = r"C:\Users\WW\Desktop\sboxmarket\src\main\resources\static\css\design.c
 with open(target, 'rb') as f:
     f.seek(-2048, os.SEEK_END)
     tail = f.read().decode('utf-8', errors='replace')
-if 'ship #128098' in tail:
+if 'ship #128200' in tail:
     print('ALREADY APPENDED - ABORT')
     sys.exit(0)
 
@@ -340,7 +340,7 @@ try:
             out.write(buf)
         out.write(CSS.encode('utf-8'))
     os.replace(tmpname, target)
-    print('APPENDED', len(CSS), 'bytes -> ships #128098-#128105')
+    print('APPENDED', len(CSS), 'bytes -> ships #128200-#128207')
 except Exception as e:
     if os.path.exists(tmpname):
         try: os.remove(tmpname)

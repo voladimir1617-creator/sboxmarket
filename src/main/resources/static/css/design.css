@@ -184287,7 +184287,7 @@ body .offer-row .wallet-tx-status.PENDING {
 
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128114 - Auto-Bids row min-height + density
+   CSFLOAT-1:1 PARITY ship #128200 - Auto-Bids row min-height + density
    Measured csfloat /profile/offers Auto-Bids list .mat-mdc-row at 56px
    min-height with 0 16px horizontal padding and a hairline border-bottom
    rgba(255,255,255,0.06). Sbox ProfileAutoBidsTab renders inside .profile-
@@ -184313,10 +184313,10 @@ body .profile-panel .db-table tbody tr.db-row:last-child td {
 body .profile-panel .db-table tbody tr.db-row:hover {
   background: rgba(255, 255, 255, 0.02) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128114 */
+/* END CSFLOAT-1:1 PARITY ship #128200 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128115 - Auto-Bids header-cell typography
+   CSFLOAT-1:1 PARITY ship #128201 - Auto-Bids header-cell typography
    Measured csfloat .mat-mdc-header-cell on the Auto-Bids table: color
    rgb(158,167,177), font-size 11.5px, font-weight 500, letter-spacing
    0.05em, sentence-case (NOT uppercase). Sbox baseline .db-table thead
@@ -184338,10 +184338,10 @@ body .profile-panel .db-table thead th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
   padding: 14px 12px 10px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128115 */
+/* END CSFLOAT-1:1 PARITY ship #128201 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128100 - Auto-Bids state pill geometry (pill not chip)
+   CSFLOAT-1:1 PARITY ship #128202 - Auto-Bids state pill geometry (pill not chip)
    Measured csfloat state pills (Winning / Outbid) on Auto-Bids rows: 22px
    height, 0 8px horizontal pad, 11px radius (PILL shape), fs 11/600, NOT
    uppercase. Sbox emits inline-style chips at 9/800 fontSize, 2px 6px pad,
@@ -184366,10 +184366,10 @@ body .profile-panel .db-table tbody td.center span[style*="rgba(251, 191, 36, 0.
   letter-spacing: 0 !important;
   line-height: 1 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128100 */
+/* END CSFLOAT-1:1 PARITY ship #128202 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128101 - Auto-Bids AUTO-kind brand-blue chip
+   CSFLOAT-1:1 PARITY ship #128203 - Auto-Bids AUTO-kind brand-blue chip
    Measured csfloat AUTO chip on auto-raising bid rows: 22px height, 0 8px
    pad, 11px radius, fs 11/600, brand-blue token rgb(35,123,255) at 0.13
    alpha background + 1px border at 0.35 alpha (matches the canonical
@@ -184397,10 +184397,10 @@ body .profile-panel .db-table tbody td.center span[style*="rgba(77, 200, 255, 0.
   color: rgb(35, 123, 255) !important;
   border: 1px solid rgba(35, 123, 255, 0.35) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128101 */
+/* END CSFLOAT-1:1 PARITY ship #128203 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128102 - Max-bid cell ⌃ chevron prefix glyph
+   CSFLOAT-1:1 PARITY ship #128204 - Max-bid cell ⌃ chevron prefix glyph
    Measured csfloat Max-bid (auto-raise ceiling) cell: monospace 14/600
    tabular-nums, with a tiny ⌃ chevron at rgba(255,255,255,0.45) sitting
    6px before the number to signify "raise up to this cap". Sbox emits the
@@ -184427,10 +184427,10 @@ body .profile-panel .db-table tbody tr.db-row td:nth-of-type(6).right.db-mono::b
   line-height: 1 !important;
   pointer-events: none !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128102 */
+/* END CSFLOAT-1:1 PARITY ship #128204 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128103 - Auto-Bids Stop-row destructive button
+   CSFLOAT-1:1 PARITY ship #128205 - Auto-Bids Stop-row destructive button
    Measured csfloat per-row Stop action on AUTO-kind bid rows: red text
    rgb(248,113,73) on a transparent base with a 1px transparent border
    that becomes 1px rgba(248,113,73,0.30) on hover and a 0.06-alpha red
@@ -184457,10 +184457,10 @@ body .profile-panel .db-table tbody td:last-child button.btn.btn-ghost:focus-vis
   outline: 2px solid rgba(248, 113, 73, 0.50) !important;
   outline-offset: 1px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128103 */
+/* END CSFLOAT-1:1 PARITY ship #128205 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128104 - Capital-exposure strip canonical chrome
+   CSFLOAT-1:1 PARITY ship #128206 - Capital-exposure strip canonical chrome
    Measured csfloat exposure strip (the winningSum + outbidSum + maxExposure
    summary above the table): panel-bg rgb(27,29,36) with 8px radius and
    10/14 padding. Sbox emits the strip via inline style as bg
@@ -184481,10 +184481,10 @@ body .profile-panel div[role="region"][aria-label="Past bids summary"] {
   font-size: 12.5px !important;
   color: rgb(158, 167, 177) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128104 */
+/* END CSFLOAT-1:1 PARITY ship #128206 */
 
 /* ---------------------------------------------------------------------
-   CSFLOAT-1:1 PARITY ship #128105 - Stop-all + empty-state CTA pill radius
+   CSFLOAT-1:1 PARITY ship #128207 - Stop-all + empty-state CTA pill radius
    Measured csfloat bulk-cancel CTA "Stop all auto-raises": 36px height
    pill-shaped (18px radius) with red border 1px rgb(248,113,73)/0.45 +
    red text + transparent bg. Sbox emits the bulk-cancel as a 6/12 fs-11
@@ -184537,7 +184537,7 @@ body .profile-panel .empty-inline a.btn.btn-accent:active {
   background: rgb(28, 105, 222) !important;
   transform: translateY(1px) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #128105 */
+/* END CSFLOAT-1:1 PARITY ship #128207 */
 
 
 
@@ -184926,3 +184926,754 @@ body div[role="dialog"] .offer-list {
   border-radius: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128121 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128190 - /profile Account Standing card chrome
+   Measured csfloat .container.profile-card wrapping app-account-standing
+   on /profile root: bg rgb(27,29,36) (panel token), border-radius 12px,
+   padding 30px (vs sbox JSX 22px 26px), gap 16px column flex. Sbox
+   ProfilePersonalTab modals.js:3485 renders inline-styled wrapper with
+   padding 22px 26px + borderRadius 12 + background var(--bg-card).
+   Pin to literal csfloat numbers + the canonical panel rgb so the card
+   matches csfloat exactly even if --bg-card drifts on a theme override.
+   Anchor on the JSX inline-style fingerprint (no class on the card div).
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] {
+  padding: 30px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128190 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128191 - Account Standing title typography
+   Measured csfloat span.title in app-account-standing card header:
+   font-size 24px, font-weight 500, color rgb(255,255,255). Sbox JSX
+   modals.js:3495 renders fontSize 16, fontWeight 700, color
+   var(--text-primary) - undersized AND over-bold vs csfloat. Pin to the
+   measured csfloat values so the header reads as a section title rather
+   than a body label. Selector anchors on the header-row inline-style
+   fingerprint (marginBottom 24, flexWrap wrap, gap 8) - first
+   div child = the title.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] > div[style*="margin-bottom: 24px"][style*="flex-wrap: wrap"] > div:first-child {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128191 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128192 - Account Standing subtitle (note line)
+   Measured csfloat .recent-restrictions: 12px / fw 400 / rgb(255,255,255)
+   pinned to the right of the header row. Sbox JSX modals.js:3496 renders
+   fontSize 12, color var(--text-muted) which makes the note read as
+   a faded caption when csfloat keeps it at full white emphasis (so a
+   non-default state like Average rating 2.4 reads with proper weight).
+   Pin the second header-row child to the csfloat-measured 12/white.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] > div[style*="margin-bottom: 24px"][style*="flex-wrap: wrap"] > div:nth-child(2) {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128192 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128193 - Account Standing inactive node circle
+   Measured csfloat .standing-level-wrapper (non-current): 28x28 icon-only
+   wrapper, no ring (ring lives on the active node only). Background per
+   the Aura visual manual is rgba(193,206,255,0.04) - barely-there frost
+   tint on the panel. Sbox JSX modals.js:3537 renders inactive circles at
+   36x36 with border 2px solid var(--border) and bg var(--bg-elevated)
+   - too large AND uses an opaque bg instead of the Aura frost. Anchor
+   the inactive circles by the inline-style width 36px height 36px
+   border-radius 50% fingerprint inside the Account Standing grid. Pin
+   to the measured 28x28 + frost bg + transparent border (no ring).
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="width: 36px"][style*="height: 36px"][style*="border-radius: 50%"] {
+  width: 28px !important;
+  height: 28px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128193 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128194 - Account Standing active node circle
+   Measured csfloat .standing-level.current: 40x40 (vs sbox 46x46), bg
+   rgb(255,255,255) WHITE (vs sbox n.color blue fill), border 4px solid
+   rgb(59,130,246) brand ring (vs sbox 2px ring), border-radius 50%, NO
+   box-shadow halo (sbox over-decorates with 0 0 0 4px tint + 0 8px 24px
+   tint). Pin to the measured numbers so the active node reads as a clean
+   white-disc-with-blue-ring per csfloat instead of a glowing solid blob.
+   Anchor on the inline-style width 46px height 46px border-radius 50%
+   fingerprint inside the Account Standing card.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="width: 46px"][style*="height: 46px"][style*="border-radius: 50%"] {
+  width: 40px !important;
+  height: 40px !important;
+  background: rgb(255, 255, 255) !important;
+  border: 4px solid rgb(59, 130, 246) !important;
+  box-shadow: none !important;
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128194 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128195 - Account Standing active node icon color
+   Measured csfloat mat-icon inside .standing-level.current: 16px font-size,
+   color rgb(59,130,246) (brand blue) - the icon is COLORED on a white
+   disc per csfloat. Sbox JSX modals.js:3548 renders the active icon at
+   22px with color #fff (white-on-blue). Both the size and the color
+   invert vs csfloat. Pin to 16px + brand blue so the active icon reads
+   as a colored glyph on the white disc instead of a white glyph on a
+   blue disc. Anchor: MaterialIcon class .material-symbols-rounded.mi
+   inside any active 40x40 (rendered as 46x46 inline) circle.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="width: 46px"][style*="height: 46px"][style*="border-radius: 50%"] > .material-symbols-rounded {
+  font-size: 16px !important;
+  color: rgb(59, 130, 246) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="width: 36px"][style*="height: 36px"][style*="border-radius: 50%"] > .material-symbols-rounded {
+  font-size: 16px !important;
+  color: rgb(158, 167, 177) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128195 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128196 - Account Standing active label typography
+   Measured csfloat span.label.current: 14px, font-weight 700, color
+   rgb(255,255,255) WHITE (not the brand color), margin-top 10px (offset
+   to clear the larger active disc). Sbox JSX modals.js:3550 renders
+   fontSize 12, fontWeight 800, color active.color - undersized,
+   over-bold, AND blue when csfloat is white. Pin to the measured values
+   so the active state reads as bold-white-14 per csfloat. Anchor: the
+   div sibling of the 46x46 (rendered) active circle, inside the same
+   ladder column-flex wrapper.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="width: 46px"][style*="height: 46px"][style*="border-radius: 50%"] + div {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(255, 255, 255) !important;
+  margin-top: 10px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128196 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128197 - Account Standing inactive label typography
+   Measured csfloat span.label (non-current): 14px, font-weight 100 (Roboto
+   thin), color rgb(158,167,177) ink-2, margin-top 6px. Sbox JSX
+   modals.js:3550 renders fontSize 12, fontWeight 600, color
+   var(--text-muted) - undersized AND way over-weight (600 vs 100) which
+   makes the unreached states fight the active for emphasis when csfloat
+   keeps them whisper-thin. Pin to the measured 14/100/ink-2/marginTop6
+   so the ladder reads with proper hierarchy. Anchor: the div sibling
+   of the 36x36 inactive circle.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="width: 36px"][style*="height: 36px"][style*="border-radius: 50%"] + div {
+  font-size: 14px !important;
+  font-weight: 100 !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 6px !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128197 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128198 - Account Standing rail (background segment)
+   Measured csfloat .bar elements between standing-level-wrappers: each
+   rail segment is 233px wide x 4px tall, bg color(srgb 0.137255 0.482353 1
+   / 0.2) which equals rgba(35,123,255,0.2) - translucent brand blue.
+   Sbox JSX modals.js:3506 renders the rail as one absolute div spanning
+   the row at top 22, height 2, bg var(--border) (hairline grey). Wrong
+   on three axes: thickness 2 vs 4, color hairline vs brand-translucent,
+   AND vertical anchor (csfloat aligns rail to circle centre, sbox uses
+   top 22 which lands above the smaller circles post-#128193). Pin the
+   rail-background div to the csfloat numbers. Anchor: absolute div with
+   inline top 22px height 2px background var(--border).
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="position: absolute"][style*="top: 22px"][style*="height: 2px"][style*="var(--border)"] {
+  top: 14px !important;
+  height: 4px !important;
+  background: rgba(35, 123, 255, 0.2) !important;
+  border-radius: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128198 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128199 - Account Standing rail (progress segment)
+   Measured csfloat: there is NO progress-fill segment that brightens up
+   to the active node - every .bar segment uses the SAME rgba(35,123,255,
+   0.2) translucent brand color regardless of where the active node sits.
+   Sbox JSX modals.js:3513 renders a SECOND absolute div on top of the
+   rail with width idx*20%, background active.color (full-opacity brand)
+   which lights up the segments before the current node. This diverges
+   from csfloat - flatten the progress div to match the rail-bg so the
+   ladder reads as a uniform translucent-brand line (csfloat conveys
+   position via the active-disc size + color, not via fill length).
+   Anchor: absolute div with top 22px height 2px transition width 0.3s.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="position: absolute"][style*="top: 22px"][style*="height: 2px"][style*="transition: width 0.3s"] {
+  top: 14px !important;
+  height: 4px !important;
+  background: rgba(35, 123, 255, 0.2) !important;
+  border-radius: 2px !important;
+  width: 0 !important;
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128199 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128200 - Account Standing ladder grid container
+   Measured csfloat .standing-info: padding 0 30px, justify-content center,
+   align-items CENTER (not flex-start) so the active 40x40 disc sits
+   centred on the rail and the inactive 28x28 discs sit centred on the
+   same rail. Sbox JSX modals.js:3498 renders paddingTop 4, display grid,
+   gridTemplateColumns repeat(5, 1fr), alignItems flex-start - the
+   flex-start anchors all node columns to the top, which works only
+   when all circles are the same size. Post #128193/#128194 (40 active +
+   28 inactive) the columns visually misalign. Pin to align-items center
+   so the discs sit centred on the rail row. Also flatten paddingTop to
+   0 so the grid edge sits at the rail row. Anchor: the grid div with
+   grid-template-columns repeat(5, 1fr) inside the standing card.
+*/
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="grid-template-columns: repeat(5, 1fr)"] {
+  align-items: center !important;
+  padding-top: 0 !important;
+  min-height: 60px !important;
+}
+body div[style*="padding: 22px 26px"][style*="border-radius: 12px"][style*="margin: 18px 0"] div[style*="grid-template-columns: repeat(5, 1fr)"] > div {
+  align-items: center !important;
+  gap: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128200 */
+
+
+/* =================================================================
+   CSFLOAT-1:1 PARITY ships #128110-#128116 — /profile OUTER container
+   chrome + user-info / hero-strip refinements (header strip ABOVE the
+   intra-page tab body, on the canonical /profile route — measured
+   2026-05-08 against signed-in csfloat.com session, viewport 1440x900,
+   user Chib stall 76561198181503811).
+
+   Lane brief: /profile `.container.profile-card` panel chrome — the
+   OUTER chrome that wraps every /profile tab content. Earlier ships
+   #127820 + #2500-2503 pinned the inner .profile-panel chrome and the
+   .profile-hero / .profile-avatar / .profile-name / .profile-id type.
+   These ships address the OUTER user-info hero-card chrome + the chip
+   row + the meta-line + the action-anchor row + the avatar column +
+   the stats grid panel chrome — the surfaces csfloat ships canonical
+   chrome on but sboxmarket emits raw inline-styled.
+
+   Tokens: panel rgb(27,29,36), brand rgb(35,123,255),
+           ink-2 rgb(158,167,177), hairline rgba(255,255,255,0.06).
+   ================================================================= */
+
+/* -----------------------------------------------------------------
+   #128110 — .profile-hero-split outer card chrome
+   csfloat .container.profile-card outer wrapper: 12px radius, 30px
+   padding, bg rgb(27,29,36), 0 border. sboxmarket emits .profile-hero-
+   split as a bare flex column (no chrome) before stacking the hero
+   row inside; csfloat treats the hero row as INSIDE the canonical
+   panel chrome so the header strip reads as a card matching the
+   panel cards below. Wrap .profile-hero-split as the canonical card
+   so the hero reads as panel-chromed surface (matches inner .profile-
+   panel cards measured at #127820 br 12 / pad 30 / bg rgb(27,29,36)).
+   Scoped to .profile-hero-split (not bare .profile-hero) so the
+   wrapper only chromes the OUTER block — the inner .profile-hero
+   keeps its existing flat-row geometry from ship #2500.
+   ----------------------------------------------------------------- */
+body .profile-hero-split {
+  background: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  margin-bottom: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  box-shadow: none !important;
+}
+/* Strip the bottom-border hairline from the inner .profile-hero so the
+   wrapper-card chrome owns the surround instead of stacking two
+   borders (ship #2500 added a 1px hairline border-bottom for the
+   un-wrapped flat-stripe variant; now that the wrapper card owns
+   the chrome we drop the hairline to avoid double-borders). */
+body .profile-hero-split > .profile-hero {
+  border-bottom: 0 !important;
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128110 */
+
+/* -----------------------------------------------------------------
+   #128111 — .profile-name inline standing-chip canonical csfloat
+   flag-chip chrome (Good standing / SUSPENDED / Email unverified /
+   Deletion pending / Admin / CSR variants).
+   csfloat measures the inline status chip beside the display name as:
+   Roboto 12/500 / lh 18 / 0.4px tracking / bg per-state tinted at
+   12% / color per-state foreground / 1px solid same-state at 35% /
+   4px radius / 4/10 padding / no text-transform. sboxmarket inline
+   shipped fontSize 10 / fontWeight 800 / 2/8 padding / borderRadius 4
+   which reads as a caps badge not a chip — pin to the measured chip
+   geometry across all variants the modals.js renders inline-styled
+   spans for. Selector hooks the inline `style*=`-encoded background
+   tokens that the JS emits (rgba(248,113,113,...) red / rgba(251,191,
+   36,...) amber / rgba(77,200,255,...) cyan / rgba(34,197,94,...)
+   green) so we don't have to touch the JS.
+   Scoped to .profile-hero-split / .profile-name parent only.
+   ----------------------------------------------------------------- */
+body .profile-hero-split .profile-name span[style*="padding: 2px 8px"][style*="border-radius: 4"],
+body .profile-hero-split .profile-name span[style*="padding:2px 8px"][style*="border-radius:4"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  line-height: 18px !important;
+  text-transform: none !important;
+  padding: 4px 10px !important;
+  border-radius: 4px !important;
+  margin-left: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128111 */
+
+/* -----------------------------------------------------------------
+   #128112 — Verified-Seller pill brand-blue chrome.
+   csfloat's 'Verified Seller' badge beside the display name is a
+   brand-blue pill: bg rgba(35,123,255,0.08), 1px solid rgba(35,123,
+   255,0.45), color rgb(255,255,255), Roboto 12/600, 4/10 padding,
+   4px radius, 0.4px tracking. The Admin/CSR variant in modals.js
+   uses rgba(77,200,255,0.15) cyan + var(--accent) — that's accent
+   cyan not brand blue. Re-pin Admin + CSR + (when present) verified-
+   seller variants to brand-blue per csfloat. Selector hooks the
+   inline-style cyan token so we override only that variant without
+   touching SUSPENDED red / Email-unverified amber / Deletion amber
+   / Good-standing green which already match csfloat's per-state
+   tints.
+   ----------------------------------------------------------------- */
+body .profile-hero-split .profile-name span[style*="rgba(77,200,255,0.15)"],
+body .profile-hero-split .profile-name span[style*="rgba(77, 200, 255, 0.15)"] {
+  background: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgba(35, 123, 255, 0.45) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128112 */
+
+/* -----------------------------------------------------------------
+   #128113 — .profile-id meta-chip row canonical chrome.
+   csfloat measures the meta line below the display name as a
+   chip-row: each meta entry (Member Since · ★ rating · Steam ID
+   value) renders as a chip with bg rgba(193,206,255,0.04) +
+   color ink-2 rgb(158,167,177) + Roboto 12/500 + 4/8 padding +
+   4px radius. sboxmarket inline-styles the Member-since + ★ rating
+   spans with raw fontSize 11 + fontWeight 600/700 + plain bg —
+   that reads as floating bare text not as a chip-row. Pin both
+   inline-style hooks to the canonical chip chrome. Hooks via the
+   marginLeft 10 + fontSize 11 inline patterns the JS emits for
+   exactly these two chips, so other inline-styled spans elsewhere
+   in .profile-id stay untouched.
+   ----------------------------------------------------------------- */
+body .profile-hero-split .profile-id span[style*="font-size: 11px"][style*="margin-left: 10"],
+body .profile-hero-split .profile-id span[style*="fontSize: 11"][style*="marginLeft: 10"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  margin-left: 8px !important;
+  letter-spacing: 0.2px !important;
+  line-height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+}
+/* The ★ self-rating chip carries inline color #fbbf24 amber; csfloat
+   keeps the star amber but bg + box matches the meta-chip pattern.
+   Re-assert the amber color on the rating chip variant only. */
+body .profile-hero-split .profile-id span[style*="font-size: 11px"][style*="#fbbf24"],
+body .profile-hero-split .profile-id span[style*="fbbf24"] {
+  color: rgb(251, 191, 36) !important;
+  font-weight: 600 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128113 */
+
+/* -----------------------------------------------------------------
+   #128114 — .profile-link action-anchor pill chrome.
+   csfloat measures the action-anchor row ('View Steam profile ↗' /
+   'Copy stall link') as inline brand-blue chips: bg rgba(35,123,
+   255,0.08), color rgb(35,123,255), Roboto 12/500, 4/10 padding,
+   4px radius, 6px gap, no underline at rest, brighter brand-blue
+   on hover with 16% bg lift. sboxmarket emits .profile-link as
+   plain brand-blue text (ship #2503 pinned color/typography) but
+   csfloat treats these as action-chips so they invite click rather
+   than reading as inline text. Wrap .profile-link in chip chrome
+   while preserving the existing typography pin from #2503. Scoped
+   to .profile-hero-split context so other .profile-link instances
+   elsewhere stay as bare text.
+   ----------------------------------------------------------------- */
+body .profile-hero-split .profile-link,
+body .profile-hero-split a.profile-link,
+body .profile-hero-split button.profile-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2px !important;
+  line-height: 16px !important;
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: background-color 120ms ease, color 120ms ease !important;
+}
+body .profile-hero-split .profile-link:hover,
+body .profile-hero-split a.profile-link:hover,
+body .profile-hero-split button.profile-link:hover {
+  background: rgba(35, 123, 255, 0.16) !important;
+  color: rgb(80, 150, 255) !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128114 */
+
+/* -----------------------------------------------------------------
+   #128115 — .profile-hero grid columns + avatar size csfloat parity.
+   csfloat measures the hero grid as 80px-fixed avatar column + 1fr
+   text + auto earnings, gap 24px. sboxmarket prior ship #2500
+   shipped 96px + 1fr + auto / gap 20px which over-sizes the avatar
+   by 16px and under-spaces the columns by 4px. Pin to csfloat's
+   80x80 + 24px gap so the hero reads at csfloat's measured density.
+   The .profile-avatar element itself was sized 96x96 by ship #2501;
+   re-pin to 80x80 inside the .profile-hero-split context so the
+   global .profile-avatar (also used in stall pages, reviews, etc.)
+   stays at 96px and only the hero variant matches csfloat.
+   ----------------------------------------------------------------- */
+body .profile-hero-split > .profile-hero {
+  grid-template-columns: 80px 1fr auto !important;
+  gap: 24px !important;
+  align-items: center !important;
+}
+body .profile-hero-split > .profile-hero > .profile-avatar {
+  width: 80px !important;
+  height: 80px !important;
+  font-size: 28px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128115 */
+
+/* -----------------------------------------------------------------
+   #128116 — .profile-stats grid panel chrome (sit-below-hero card).
+   csfloat measures the stats row (Balance / Portfolio / Total Sold
+   / Total Purchased) as a flush .container.profile-card panel
+   directly below the hero-card with the canonical 12/30/rgb(27,29,
+   36) chrome and a 1px hairline rgba(255,255,255,0.06) top border
+   tying it visually to the hero card above. sboxmarket prior ship
+   shipped .profile-stats as a 4-col grid with bg var(--line) +
+   border 1px var(--line) + radius var(--r-md) ≈ 8 — that reads as
+   a debugger panel (gray surface) not as csfloat's panel chrome.
+   Pin to canonical panel + hairline + canonical inner cell padding
+   24/24 so the stat-cells read at csfloat's measured density. The
+   inner .profile-stat cell needs solid panel bg (was bg-1 ≈ rgb(11,
+   12,15)) replaced with transparent so the parent panel surface
+   shows through cleanly.
+   ----------------------------------------------------------------- */
+body .profile-stats {
+  background: rgb(27, 29, 36) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  margin-bottom: 16px !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 1px !important;
+  box-shadow: 0 -1px 0 0 rgba(255, 255, 255, 0.06) inset !important;
+}
+body .profile-stats > .profile-stat {
+  background: rgb(27, 29, 36) !important;
+  padding: 24px !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+body .profile-stats > .profile-stat:last-child {
+  border-right: 0 !important;
+}
+body .profile-stats > .profile-stat > .profile-stat-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+}
+body .profile-stats > .profile-stat > .profile-stat-val {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .profile-stats > .profile-stat > .profile-stat-val.accent {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128116 */
+
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128122 — /profile Offers .item-thumb anchor lift
+   Measured csfloat .item-thumb when wrapped in a deep-link <a>
+   (modals.js renderOffer line 12072 — anchor with className
+   item-thumb pointing at /item/{itemId}). Pin :hover transform
+   scale(1.04) on the inner img + brand-tinted box-shadow ring on
+   the anchor itself so the user sees a clear interactive cue when
+   the thumbnail is clickable. Sbox baseline emits the anchor with
+   no chrome — the user has to discover it's clickable by trial.
+*/
+body .offer-row a.item-thumb {
+  display: block !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  transition: box-shadow .14s ease, transform .14s ease !important;
+  cursor: pointer !important;
+}
+body .offer-row a.item-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transition: transform .22s cubic-bezier(.4, 0, .2, 1) !important;
+}
+body .offer-row a.item-thumb:hover {
+  box-shadow: 0 0 0 2px color-mix(in oklab, rgb(35, 123, 255) 35%, transparent) !important;
+}
+body .offer-row a.item-thumb:hover img {
+  transform: scale(1.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128122 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128123 — /profile Offers .item-name anchor lift
+   Measured csfloat .item-name anchor (modals.js renderOffer line
+   12082 — anchor className item-name with inline color: inherit /
+   text-decoration: none). Pin :hover color brand rgb(35,123,255) +
+   underline so the deep-link cue matches every other deep-link
+   anchor in the modal. Anchor specifically on the offer-row
+   context so non-anchor .item-name spans (legacy items without
+   itemId) stay color: inherit.
+*/
+body .offer-row a.item-name {
+  cursor: pointer !important;
+  transition: color .14s ease !important;
+}
+body .offer-row a.item-name:hover {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(35, 123, 255, 0.6) !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128123 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128124 — /profile Offers buyer message quote
+   Measured csfloat buyer-note quote on the offer row (modals.js
+   renderOffer line 12094 — div with inline italic + ellipsis
+   styles). Pin canonical typography: line-height 1.45 (current
+   default tightens to 1.2 which clips italic descenders), color
+   ink-2 rgb(158,167,177), and tint the quote-marks brand 35% so
+   the curly “…” reads as a deliberate quote framing rather than
+   accidentally muted glyph clutter. Anchor on the inline-style
+   font-style: italic + max-width: 320 combo which uniquely
+   identifies the buyer-note line.
+*/
+body .offer-row > div > div[style*="font-style: italic"][style*="max-width: 320px"],
+body .offer-row > div > div[style*="fontStyle: italic"][style*="maxWidth: 320"] {
+  line-height: 1.45 !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 4px !important;
+  font-feature-settings: 'liga' 1, 'kern' 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128124 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128125 — /profile Offers seller reply quote
+   Measured csfloat seller-reply quote on rejected offer rows
+   (modals.js renderOffer line 12107 — div with inline color
+   var(--red) + "↩ Seller:" prefix). Pin red to canonical rgb
+   (248,113,113) literal + add a 2px left-border bar in red 0.40
+   alpha so the reply visually attaches to the parent offer row
+   like a threaded quote. Anchor on the inline-style color: var
+   (--red) substring + max-width 320.
+*/
+body .offer-row > div > div[style*="color: var(--red)"][style*="max-width: 320px"],
+body .offer-row > div > div[style*="color: var(--red)"][style*="maxWidth: 320"] {
+  color: rgb(248, 113, 113) !important;
+  border-left: 2px solid rgba(248, 113, 113, 0.40) !important;
+  padding-left: 7px !important;
+  margin-top: 5px !important;
+  margin-left: -1px !important;
+  line-height: 1.45 !important;
+  background: rgba(248, 113, 113, 0.04) !important;
+  border-radius: 0 4px 4px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128125 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128126 — /profile Offers Send/Raise primary btn
+   Measured csfloat Send (incoming counter) / Raise (outgoing) primary
+   action button on the counter drawer (modals.js renderOffer line
+   12231 — button.buy-btn with inline padding 7px 11px / fontSize 11).
+   The buy-btn class has its own ruleset; pin the counter-drawer
+   variant to a tight 28px tall density + brand-CTA chrome + brand
+   18% halo on :hover. Anchor on the inline-style font-size: 11 +
+   .buy-btn class which uniquely identifies the counter-drawer
+   primary action vs the outer Accept buy-btn.
+*/
+body .offer-row button.buy-btn[style*="font-size: 11px"],
+body .offer-row button.buy-btn[style*="fontSize: 11"] {
+  height: 28px !important;
+  padding: 0 11px !important;
+  background: rgb(35, 123, 255) !important;
+  color: #fff !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  border-radius: 5px !important;
+  font: 700 11px/1 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  cursor: pointer !important;
+  transition: background-color .14s ease, box-shadow .14s ease, transform .14s ease !important;
+}
+body .offer-row button.buy-btn[style*="font-size: 11px"]:hover,
+body .offer-row button.buy-btn[style*="fontSize: 11"]:hover {
+  background: rgb(58, 137, 255) !important;
+  border-color: rgb(58, 137, 255) !important;
+  box-shadow: 0 0 0 2px color-mix(in oklab, rgb(35, 123, 255) 18%, transparent) !important;
+  transform: translateY(-1px) !important;
+}
+body .offer-row button.buy-btn[style*="font-size: 11px"]:disabled,
+body .offer-row button.buy-btn[style*="fontSize: 11"]:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128126 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128127 — /profile Offers tab count badge
+   Measured csfloat offer-tab count pill (modals.js OffersModal line
+   12411 + 12420 — span.filter-count with inline marginLeft 6 nested
+   inside the offer-tab button). Pin to canonical brand-tinted pill:
+   bg rgba(35,123,255,0.16), color rgb(35,123,255) at rest / white
+   when parent .offer-tab.active, fs 10 / fw 700, pad 1px 6px,
+   border-radius 8px. Sbox baseline .filter-count is generic — this
+   ship pins the offers-modal tab variant to canonical csfloat tab-
+   count chrome.
+*/
+body .offer-tabs .offer-tab .filter-count,
+body .offer-tabs > button .filter-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 18px !important;
+  height: 16px !important;
+  padding: 0 5px !important;
+  margin-left: 6px !important;
+  background: rgba(35, 123, 255, 0.16) !important;
+  color: rgb(35, 123, 255) !important;
+  font: 700 10px/1 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-feature-settings: 'tnum' 1 !important;
+  border-radius: 8px !important;
+  letter-spacing: 0 !important;
+}
+body .offer-tabs .offer-tab.active .filter-count,
+body .offer-tabs > button.active .filter-count {
+  background: rgba(35, 123, 255, 0.30) !important;
+  color: #fff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128127 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128128 — /profile Offers tab text typography
+   Measured csfloat offer-tab text (the "Incoming" / "Outgoing"
+   labels in the offer-tabs strip — modals.js OffersModal line
+   12403, 12412): canonical Roboto 13/500 + 0.16px tracking + no
+   text-transform. Sbox baseline .offer-tab gets its typography
+   from inherited button styles which can drift on theme. Pin the
+   literals scoped to the modal-mode offer-tabs (vs the full-page
+   variant covered by ship #128097).
+*/
+body div[role="dialog"] .offer-tabs .offer-tab,
+body div[role="dialog"] .offer-tabs > button {
+  font: 500 13px/1 Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.16px !important;
+  text-transform: none !important;
+  padding: 8px 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  transition: color .14s ease, border-color .14s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+}
+body div[role="dialog"] .offer-tabs .offer-tab:hover,
+body div[role="dialog"] .offer-tabs > button:hover {
+  color: var(--text-primary) !important;
+}
+body div[role="dialog"] .offer-tabs .offer-tab.active,
+body div[role="dialog"] .offer-tabs > button.active,
+body div[role="dialog"] .offer-tabs > button[aria-selected="true"] {
+  color: rgb(35, 123, 255) !important;
+  border-bottom-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128128 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128129 — /profile Offers dialog title
+   Measured csfloat dialog-header text on the Offers panel: "Incoming
+   · Offers" / "Outgoing · Offers" — Roboto 18/500 + line-height 24px
+   + 0.16px tracking + white text. Sbox InfoModal renders the title
+   prop into a generic modal-title element which inherits a smaller
+   default. Pin to the canonical csfloat panel-header geometry so
+   the dialog frame reads at the right hierarchy weight. Anchor on
+   the dialog title content via the data attribute or generic
+   .modal-title scoped to the dialog role.
+*/
+body div[role="dialog"] .modal-title,
+body div[role="dialog"] .dialog-title,
+body div[role="dialog"] header h2,
+body div[role="dialog"] header h3,
+body div[role="dialog"] > .modal-card > header > div:first-child {
+  font: 500 18px/24px Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.16px !important;
+  color: var(--text-primary) !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128129 */
