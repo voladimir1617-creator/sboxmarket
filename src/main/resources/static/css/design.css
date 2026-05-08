@@ -168239,3 +168239,528 @@ html body .recent-sales-row .recent-sales-time {
   flex-wrap: wrap !important;
 }
 /* END CSFLOAT-1:1 PARITY ships #20600-#20607 */
+
+/* CSFLOAT-1:1 PARITY ships #20608-#20613 (stall social/contact action row — Follow + Block + Report + Contact + Share row in .stall-hero per app.js:7589-7641 — measured: csfloat does NOT expose social-icon contact chips publicly on guest stall views per lane brief acknowledgment ("csfloat may not expose social-icon contact chips publicly"); sbox baseline injected-DOM probe on /stall/<id>: .stall-share-btn computes (h:36px / pad 0px 16px / gap 8px / br 4px / bg transparent / color rgb(108,161,255) misaligned vs csfloat ink-2 rgb(158,167,177) / border 0px none / fs 14px / fw 500 / lh 36px / ls 1.25px / tt uppercase / transition background 0.25s cubic-bezier(0.4,0,0.2,1)) — and the parent .stall-hero computes gap:normal (i.e. NO gap between adjacent .stall-share-btn buttons in the action row, so they collapse together with no breathing room). Apply canonical csfloat tokens from lane brief: ink-2 base color rgb(158,167,177), brand rgb(35,123,255) on hover, brand-tint bg rgba(35,123,255,0.06) on hover, hairline border rgba(255,255,255,0.06), 8px gap between adjacent buttons, hairline divider between Contact/Share group and Follow/Block/Report group. Standard csfloat transition 200ms cubic-bezier(0.4,0,0.2,1). APPEND-only, !important — measure-and-match only. */
+
+/* CSFLOAT-1:1 PARITY ship #20608 (stall action-button row min-height anchor — .stall-share-btn 36px constant height) — measured: sbox baseline action buttons render at h:36px from the existing #6746 .stall-share-btn block, but the existing CSS uses padding 8px 14px without an explicit min-height anchor, so the row collapses to a shorter chip when content is text-only (e.g. "Block" / "Report" — no icon span). csfloat anchors a constant 36px row height on its action-row chips so adjacent buttons keep a stable horizontal baseline regardless of text/icon content. Lock min-height: 36px on .stall-hero > .stall-share-btn so the row remains visually aligned even when inner content varies (icon-prefixed Contact vs text-only Block). */
+.stall-hero > .stall-share-btn {
+  min-height: 36px !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20608 */
+
+/* CSFLOAT-1:1 PARITY ship #20609 (stall action-button base color — .stall-share-btn ink-2 default) — measured: sbox baseline computed color rgb(108,161,255) (a stale brand-leaning blue from #16xxx series), canonical csfloat ink-2 secondary text rgb(158,167,177) (per lane brief tokens). Action-row buttons in csfloat sit at ink-2 by default and only flip to brand on hover/focus. Lock the resting color so the row reads as "secondary affordance" instead of "primary CTA chain." */
+.stall-hero > .stall-share-btn {
+  color: rgb(158, 167, 177) !important;
+}
+.stall-hero > .stall-share-btn .stall-share-icon {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20609 */
+
+/* CSFLOAT-1:1 PARITY ship #20610 (stall action-button hairline border — .stall-share-btn hairline rgba(255,255,255,0.06)) — measured: sbox baseline computed border 0px none (no visible chip outline), canonical csfloat tokens use hairline rgba(255,255,255,0.06) on chip-style action affordances (per lane brief tokens). The hairline gives each chip a definite footprint without competing with the panel — distinguishes it from a flat text button. Apply 1px solid border with the canonical hairline alpha so each action button reads as a discrete chip. */
+.stall-hero > .stall-share-btn {
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20610 */
+
+/* CSFLOAT-1:1 PARITY ship #20611 (stall action-button hover state — .stall-share-btn brand-tint bg + brand color + brand border on hover/focus) — measured: sbox baseline hover from #6756 fires `background var(--bg-2)` (a non-canonical bg-2 token that shifts to a flat panel color, no brand signal), canonical csfloat hover for ink-2-based action chips per lane brief: bg-tint rgba(35,123,255,0.06), text/icon color brand rgb(35,123,255), border to brand-tinted hairline rgba(35,123,255,0.35). Lock the canonical csfloat hover so each action button gets the proper brand-bloom cue on mouseover/keyboard focus. */
+.stall-hero > .stall-share-btn:hover,
+.stall-hero > .stall-share-btn:focus-visible {
+  background-color: rgba(35, 123, 255, 0.06) !important;
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.35) !important;
+}
+.stall-hero > .stall-share-btn:hover .stall-share-icon,
+.stall-hero > .stall-share-btn:focus-visible .stall-share-icon {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20611 */
+
+/* CSFLOAT-1:1 PARITY ship #20612 (stall action-button transition — .stall-share-btn 200ms cubic-bezier(0.4,0,0.2,1) standard csfloat motion token) — measured: sbox baseline computed `background 0.25s cubic-bezier(0.4,0,0.2,1)` (only animates background; color/border snap instantly which gives the hover a half-finished feel as text/border jump while bg eases), canonical csfloat motion per CODEX_HANDOFF.md tokens: `cubic-bezier(0.4,0,0.2,1)` at 150-300ms across ALL animatable properties. Lock 200ms ease across background-color, color, and border-color so the brand-bloom hover transitions all properties together (no half-snap). */
+.stall-hero > .stall-share-btn {
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20612 */
+
+/* CSFLOAT-1:1 PARITY ship #20613 (stall action-row hairline divider — group break between positive/neutral actions (Contact/Share/Follow) and negative actions (Block/Report) per lane brief "divider hairline between groups") — measured: sbox baseline has no divider (.stall-hero renders 5 .stall-share-btn buttons in flat sequence with no visual separation between functional groups), canonical csfloat row pattern places a 1px hairline rgba(255,255,255,0.06) vertical divider between functional groups. Position: the Block button (rendered AFTER Follow per app.js:7626-7627) gets a `border-left` hairline + 8px margin-left to introduce the group break between "neutral/positive" actions (Contact/Share/Follow — engage with seller) and "negative" actions (Block/Report — distance from seller). Target Block via [title*="Hide this seller"]/[title*="have blocked"] (the two stable title strings BlockSellerButton sets per app.js:2014-2024) — Block sits at a stable position in markup order and doesn't conflict with the brand-overridden Follow button styling from prior #166098-onward ships. Avoids tagging the Follow button (which has its own brand-CTA block we don't want to fight) and avoids tagging Report (which would then end up double-divider'd from Block). */
+.stall-hero > .stall-share-btn[title*="Hide this seller"],
+.stall-hero > .stall-share-btn[title*="have blocked this seller"] {
+  margin-left: 8px !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding-left: 22px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20613 */
+
+/* CSFLOAT-1:1 PARITY ship #20614 (fee-breakdown panel — .fee-calc container chrome + .fee-calc-line row geometry to match csfloat <app-fee-calculator> .container + .fees > .fee row pattern) — measured side-by-side: csfloat .container bg rgba(193,206,255,0.04) / 6px br / 15px pad / no border / no shadow, csfloat .header (Fee Calculator) 20px/500/white/Roboto/margin 0, csfloat .fee row display:flex / 14px / 400 / rgb(255,255,255) / Roboto, csfloat .badge inline 2% chip, csfloat .highlight-text right-aligned value white. sbox baseline (measured at /market on .fee-calc): bg `oklch(0.23 0.01 260)` w/ `1px solid oklch(0.3 0.012 260)` border + `24px 28px` pad (too dark, too heavy chrome vs csfloat's light translucent panel), .fee-calc-title 16px/500 (smaller than csfloat 20px hero), .fee-calc-line 13px / 400 / `rgba(255,255,255,0.65)` Geist Mono w/ 700-weight strong (csfloat uses 14px / Roboto / full white for both label + value which keeps the row scanable as a financial breakdown not a faded-meta line). Lane brief asks "fee tooltip / breakdown popover" — neither site has a hover-fee-tooltip (csfloat's fee-breakdown is the always-visible app-fee-calculator panel; sboxmarket's equivalent is the .fee-calc on /market footer); shipping the breakdown row chrome to csfloat parity since that IS the canonical fee-breakdown surface on csfloat. Lock the .homepage-trust .fee-calc container BG + remove border to match csfloat's translucent-blue panel; bump .fee-calc-title to 20px/500/Roboto Heading scale; align .fee-calc-line label+value at csfloat 14px/Roboto with full-white color so financial rows read at csfloat receipt density not at sbox faded-meta density. */
+.homepage-trust .fee-calc {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 15px !important;
+  box-shadow: none !important;
+}
+.homepage-trust .fee-calc-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 12px !important;
+}
+.homepage-trust .fee-calc-title .section-title-dot {
+  display: none !important;
+}
+.homepage-trust .fee-calc-sub {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 14px !important;
+}
+.homepage-trust .fee-calc-breakdown {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+.homepage-trust .fee-calc-line {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 0 !important;
+}
+.homepage-trust .fee-calc-line strong {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.homepage-trust .fee-calc-line.total {
+  margin-top: 4px !important;
+  padding-top: 8px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.homepage-trust .fee-calc-line.total strong {
+  font-weight: 700 !important;
+  color: rgb(35, 123, 255) !important;
+}
+.homepage-trust .fee-calc-note {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20614 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #20400-#20406 — BulkAdjust % drawer parity
+   (modals.js:10584-10918, triggered by Bulk price adjust button at
+   modals.js:11211). Surface stack: cart-confirm-backdrop overlay →
+   cart-confirm-panel (max-width 480) → cart-confirm-title (drawer
+   header) → cart-confirm-sub (helper copy "Apply a percentage to every
+   active BUY NOW listing") → 6× .price-suggest-chip row (-10/-5/-1/
+   +1/+5/+10) → wallet-input-label "Or type a value" → typed-%
+   wallet-amount-input + "%" suffix → preview helper text → Cancel +
+   Apply CTAs.
+   csfloat reference (measured on /db at 2026-05-08): mat-mdc-button-
+   toggle-group { bg rgba(193,206,255,0.04), radius 7px, h 38, hairline
+   border-rgba(255,255,255,0.06), inline-flex, no padding } containing
+   mat-button-toggle children { 32h, m 3px, radius 4px, label
+   font 14px/32px 500, ls 0.42px, color rgb(158,167,177) default,
+   rgb(255,255,255) selected, padding 0 12px on label, transition
+   padding 0.15s cubic-bezier(0.4,0,0.2,1) }; selected chip carries the
+   bg rgba(193,206,255,0.04) tint (same as group container, so it
+   reads as filled against the surrounding chrome). mat-mdc-text-
+   field-wrapper { bg rgba(193,206,255,0.04), h 44, radius 6px, padding
+   0 0 0 16px, font 16px/24px 400, color white, ls 0.5px }, focus ring
+   added below. Primary mat-mdc-raised-button { bg rgb(35,123,255), h
+   40, color white, padding 13px 30px, font 15px/normal 700, radius
+   8px, shadow Material elevation-2: rgba(0,0,0,0.2) 0 3px 1px -2px,
+   rgba(0,0,0,0.14) 0 2px 2px 0, rgba(0,0,0,0.12) 0 1px 5px 0,
+   transition box-shadow 0.28s cubic-bezier(0.4,0,0.2,1) }.
+   sbox baseline (measured on http://localhost:8082, fresh injected
+   probe of the .cart-confirm-panel + chip + input subtree on the
+   home page DOM): chips render at browser-default chrome (bg rgb
+   107,107,107, border 2px outset, font 13.3333px/normal 400, no
+   transition, no radius), input renders at 2px-inset shaded gray,
+   buttons render unstyled. The .cart-confirm-panel base rules at
+   design.css:5713 are NOT being applied to our injected probe — the
+   sheet cssRules count for price-suggest-chip returned 0 from
+   the page context, suggesting the rule lives in a stylesheet block
+   that loses to later authority. We pin the canonical csfloat tokens
+   below at body-prefix authority + !important so they win against
+   any base or later override, scoped to the BulkAdjust drawer via
+   the cart-confirm-panel parent + the structural pattern the modal
+   uses (chip with plus-or-minus-text label, wallet-amount-input as
+   direct child of a max-width 480 panel containing those chip rows).
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #20400 (BulkAdjust drawer panel chrome —
+   .cart-confirm-panel inside the bulk adjust modal) — measured:
+   csfloat dialogs (mat-mdc-dialog-container) carry bg rgb(27,29,36)
+   (canonical panel token), 12px radius, padding 24px, Material
+   elevation-2 shadow [rgba(0,0,0,0.2) 0 3px 1px -2px, rgba(0,0,0,
+   0.14) 0 2px 2px 0, rgba(0,0,0,0.12) 0 1px 5px 0], hairline border
+   1px solid rgba(255,255,255,0.06) on the dark surface. sbox base
+   .cart-confirm-panel renders without consistent dialog padding +
+   without the canonical 12px radius — it inherits whatever the
+   later overrides shipped, but on the BulkAdjust surface the
+   max-width:480 inline style pairs with cramped 16-18 padding.
+   Pin canonical Material dialog chrome on the BulkAdjust drawer
+   specifically (matched via .cart-confirm-panel that contains the
+   .price-suggest-chip + .wallet-amount-input + Bulk-prefixed title)
+   so the panel reads as a Material drawer the same way csfloat
+   bulk-action dialogs do. */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input) {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20400 */
+
+/* CSFLOAT-1:1 PARITY ship #20401 (BulkAdjust drawer title — Bulk
+   price adjust header copy, .cart-confirm-title) — measured: csfloat
+   mat-mdc-dialog-title computes to font Roboto 20px / 500 / lh 32px
+   / ls normal / color rgb(255,255,255), pad 0, margin 0 0 12px (the
+   canonical Material dialog-header tracking, slightly tighter than
+   body to anchor the dialog above the form). sbox base .cart-confirm-
+   title renders at the inherited 16px/normal/400 unstyled (our probe
+   showed h 18 — clearly not picking up the design.css rule at line
+   5726). Pin csfloat exact dialog-title tokens. */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > .cart-confirm-title {
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 12px 0 !important;
+  padding: 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20401 */
+
+/* CSFLOAT-1:1 PARITY ship #20402 (BulkAdjust drawer helper copy —
+   "Apply a percentage to every active BUY NOW listing. Auctions are
+   skipped. Max plus-or-minus 50% per pass.", .cart-confirm-sub) —
+   measured: csfloat mat-mdc-dialog-content body copy { font 14px /
+   500 / lh 20px / color rgb(158,167,177) (ink-2) }. sbox base
+   inherits 16px/normal/400 white. Pin canonical Material
+   dialog-body tokens so the helper copy reads as quiet ink-2
+   secondary text. */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > .cart-confirm-sub {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 16px 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20402 */
+
+/* CSFLOAT-1:1 PARITY ship #20403 (BulkAdjust % chips — 6 .price-
+   suggest-chip "-10 -5 -1 +1 +5 +10") — measured: csfloat mat-button-
+   toggle in a toggle-group renders as { 32h chip, padding 0 12px on
+   label, font 14px/32px 500, ls 0.42px, default color rgb(158,167,
+   177) ink-2, default bg rgba(193,206,255,0.04) (the same hairline
+   tint the toggle-group carries), 4px radius, no border, transition
+   padding 0.15s cubic-bezier(0.4,0,0.2,1) 0.045s }. Selected chip:
+   color rgb(255,255,255) + bg stays rgba(193,206,255,0.04). Hover:
+   focus-overlay alpha animates from 0 to 0.04. sbox baseline ships
+   the chip with inline-color overrides (#fbbf24 for negative, var
+   --green for positive) + inline border-color rgba(251,191,36,
+   0.35) / rgba(34,197,94,0.35) — these inline rules win over class
+   rules unless we use !important. csfloat uses NO color encoding
+   on the +/- chips themselves (the symbol prefix carries the
+   semantic), so we strip the colored hairline border + lock the
+   chip to the canonical Material toggle chrome. The +/- symbol in
+   the chip text is preserved (modals.js:10876 builds the label from
+   the n-greater-than-zero ternary plus n plus percent sign). */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  .price-suggest-chip {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  border: 1px solid rgba(193, 206, 255, 0.04) !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  .price-suggest-chip:hover {
+  background: rgba(193, 206, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(193, 206, 255, 0.08) !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  .price-suggest-chip.active,
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  .price-suggest-chip:active {
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(35, 123, 255, 0.35) !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  .price-suggest-chip:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.45) !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  .price-suggest-chip:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20403 */
+
+/* CSFLOAT-1:1 PARITY ship #20404 (BulkAdjust chip ROW container —
+   the 6-chip flex strip) — measured: csfloat mat-button-toggle-group
+   { display inline-flex, bg rgba(193,206,255,0.04), radius 7px,
+   hairline 1px solid rgba(255,255,255,0.06), padding 0, h 38 }. The
+   sbox modal renders the chip row as a div with inline display:flex
+   flexWrap:wrap gap:6 justifyContent:center — the inline gap is
+   close to csfloat 3px chip-margin but the inline flex-wrap mode
+   loses the Material toggle-group hairline frame. Pin the row to
+   the canonical toggle-group chrome via the structural selector
+   (immediate flex-wrap div containing .price-suggest-chip in the
+   bulk-adjust panel) so the 6 chips group visually like a Material
+   button-toggle-group. The :has() selector keeps the override scoped
+   to the BulkAdjust drawer (other .price-suggest-chip uses on the
+   bargain offer flow are untouched). */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .price-suggest-chip) {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 3px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 7px !important;
+  margin: 0 0 16px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20404 */
+
+/* CSFLOAT-1:1 PARITY ship #20405 (BulkAdjust typed-% input chrome —
+   .wallet-amount-input + the 14px "%" suffix span) — measured:
+   csfloat mat-mdc-text-field-wrapper { bg rgba(193,206,255,0.04),
+   h 44, radius 6px, padding 0 0 0 16px, font 16px/24px 400, color
+   white, ls 0.5px }, with focus shipping a blue underline (inset
+   0 -2px 0 0 rgb(35,123,255)) per the Material filled-text-field
+   pattern. The wallet-input-label "Or type a value" computed at
+   csfloat is font 14px/20px 500 ink-2. sbox base .wallet-amount-
+   input is 2px-inset gray browser-default in our probe (later
+   global overrides give it a chrome but the BulkAdjust max-width
+   480 panel context drops it). Pin Material filled-text-field
+   tokens scoped to the BulkAdjust drawer. Also pin the "%" suffix
+   span next to the input. */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > .wallet-input-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 !important;
+  display: block !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input) {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  padding: 0 16px 0 16px !important;
+  height: 44px !important;
+  margin: 0 0 8px 0 !important;
+  transition: box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input):focus-within {
+  background: rgba(193, 206, 255, 0.08) !important;
+  box-shadow: inset 0 -2px 0 0 rgb(35, 123, 255) !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input)
+  > .wallet-amount-input {
+  flex: 1 1 auto !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input)
+  > .wallet-amount-input:focus,
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input)
+  > .wallet-amount-input:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input)
+  > .wallet-amount-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .wallet-amount-input)
+  > span {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.42px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-left: 8px !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20405 */
+
+/* CSFLOAT-1:1 PARITY ship #20406 (BulkAdjust CTA row — Cancel +
+   Apply buttons in the drawer footer) — measured: csfloat mat-mdc-
+   dialog-actions row carries 16px gap-top to the form body, the
+   Cancel ghost-button { padding 13px 30px, h 40, font 15px/normal
+   700, color rgb(158,167,177), bg transparent, border 1px solid
+   rgba(255,255,255,0.06), radius 8px, transition box-shadow 0.28s
+   cubic-bezier(0.4,0,0.2,1) }, and the Apply primary-button { bg
+   rgb(35,123,255), color white, padding 13px 30px, h 40, font
+   15px/normal 700, radius 8px, Material elevation-2 shadow
+   [rgba(0,0,0,0.2) 0 3px 1px -2px, rgba(0,0,0,0.14) 0 2px 2px 0,
+   rgba(0,0,0,0.12) 0 1px 5px 0] }. sbox baseline inline styles
+   ship the Cancel/Apply CTAs with padding:6px 14px;font-size:12px
+   — too small + too cramped for a 40h Material primary button. We
+   pin the canonical csfloat primary + ghost button tokens scoped
+   to the BulkAdjust drawer footer (the only flex row at the panel
+   end with justify-content:flex-end containing two .btn children).
+   Also pin the helper text below the input (font-size:11 in the
+   inline style) to the canonical Material dialog-hint chrome. */
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .btn-accent) {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  margin: 16px 0 0 0 !important;
+  padding: 0 !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .btn-accent)
+  > .btn.btn-ghost {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 24px !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .btn-accent)
+  > .btn.btn-ghost:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .btn-accent)
+  > .btn.btn-accent {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 30px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .btn-accent)
+  > .btn.btn-accent:hover:not(:disabled) {
+  background: rgb(28, 110, 230) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0px 2px 4px -1px,
+    rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
+  > div:has(> .btn-accent)
+  > .btn.btn-accent:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20406 */
