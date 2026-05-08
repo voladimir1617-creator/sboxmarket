@@ -191161,3 +191161,467 @@ body .csfloat-cdk-overlay-container .csfloat-sticker-tooltip-surface {
   -moz-osx-font-smoothing: grayscale !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128626 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128600 — item-detail page header typography
+   CORRECTION (was approximated in #128310 — measured 16px/500 here, not
+   18px/600; wrapper 62h, not 36h; allow line wrap, do not ellipsis).
+   --------------------------------------------------------------------
+   REAL surface: csfloat /item/<id> page header. Lane-spec measurements
+   (signed-in session, /item route, StatTrak Desert Eagle | Naga
+   Battle-Scarred). Header `.header` is 506w / 62h. Inner
+   `app-item-name` is 486w / 42h (10px L+R inset). Two stacked text
+   lines: weapon-name in StatTrak orange (rgb(255,120,44)), then the
+   StatTrak/wear segment in white. No ellipsis on the name; the block
+   wraps to two lines and the wrapper grows to 62h.
+   ---------------------------------------------------------------- */
+body .item-page-header,
+body app-item-page .item-page-header,
+body .item-page > .header,
+body app-item-image-actions ~ .header,
+body .item-modal .item-header,
+body .item-modal > .header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  padding: 0 0 12px 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  min-height: 62px !important;
+  box-sizing: border-box !important;
+}
+body .item-page-header > .item-name,
+body .item-page-header > .name,
+body app-item-page .item-page-header > .item-name,
+body .item-modal .item-header > .item-name,
+body .item-modal .item-header > .name,
+body app-item-name,
+body app-item-name > .container {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body app-item-name .item-name {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  color: rgb(255, 120, 44) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body app-item-name .subtext,
+body app-item-name .sub-text,
+body app-item-name .sub {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128600 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128601 — item-detail main image geometry
+   CORRECTION (#128313 was approximated; real geometry is 506x380 inside
+   a 506x390 container, no border, no border-radius, no padding).
+   --------------------------------------------------------------------
+   REAL surface: csfloat /item the big steam economy image is rendered
+   FLAT — no border, no radius, no padding — inside a transparent
+   container. The container is 10px taller than the image to leave
+   room for the action-row directly below at 10px gutter (#128604).
+   Aspect ratio of the image is exactly 506/380 = 1.33:1.
+   ---------------------------------------------------------------- */
+body app-item-image-actions .container,
+body app-item-image-actions > .container,
+body app-item-page app-item-image-actions .container,
+body .item-page app-item-image-actions .container {
+  width: 506px !important;
+  height: 390px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+}
+body app-item-image-actions .container > img,
+body app-item-image-actions > .container > img,
+body app-item-page app-item-image-actions img,
+body .item-page app-item-image-actions img {
+  width: 506px !important;
+  height: 380px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  display: block !important;
+  object-fit: contain !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128601 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128602 — item-detail history button chip
+   CORRECTION (#128312 was approximated as 36x36 / circle / transparent;
+   real is 37x40 / 8px radius / rgba(193,206,255,0.04) baked-in tint).
+   --------------------------------------------------------------------
+   REAL surface: csfloat /item action-row history button. Squared pill
+   (8px radius, NOT a circle), 37 wide × 40 tall, padding 0 10px,
+   permanent rgba(193,206,255,0.04) tint at rest (NOT transparent),
+   white icon (NOT ink-2). Inner mat-icon is 18px, NOT 20px. This is
+   the SAME chip used for share, content_copy, and any other action-row
+   button — the chip family is "small squared pill", not "circular icon
+   button".
+   ---------------------------------------------------------------- */
+body .item-page-header .header-actions > button,
+body .item-page-header .header-actions > a,
+body .item-page-header .actions > button,
+body .item-page-header .actions > a,
+body app-item-image-actions .actions > button,
+body app-item-image-actions .actions > a,
+body app-item-image-actions button[mat-icon-button],
+body app-item-image-actions button.history-btn,
+body app-item-image-actions button.share-btn,
+body .item-modal .item-header .header-actions > button,
+body .item-modal .item-header .actions > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 37px !important;
+  height: 40px !important;
+  min-width: 37px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .item-page-header .header-actions > button:hover,
+body .item-page-header .header-actions > button:focus-visible,
+body .item-page-header .header-actions > a:hover,
+body app-item-image-actions .actions > button:hover,
+body app-item-image-actions .actions > button:focus-visible,
+body app-item-image-actions button[mat-icon-button]:hover,
+body .item-modal .item-header .header-actions > button:hover {
+  background-color: rgba(193, 206, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+  outline: 0 !important;
+}
+body .item-page-header .header-actions > button:active,
+body .item-page-header .header-actions > a:active,
+body app-item-image-actions .actions > button:active,
+body .item-modal .item-header .header-actions > button:active {
+  background-color: rgba(193, 206, 255, 0.16) !important;
+}
+body .item-page-header .header-actions > button > mat-icon,
+body .item-page-header .header-actions > a > mat-icon,
+body .item-page-header .actions > button > mat-icon,
+body app-item-image-actions .actions > button > mat-icon,
+body app-item-image-actions button[mat-icon-button] > mat-icon,
+body .item-modal .item-header .header-actions > button > mat-icon {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  fill: currentColor !important;
+  color: inherit !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128602 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128603 — item-detail share button chip
+   The Share chip is the SAME chip as History (#128602) — same 37x40,
+   same 8px radius, same rgba(193,206,255,0.04) tint, same 18px icon,
+   same white color. Pin the .share-btn / share-button selectors so any
+   markup that names the share button explicitly inherits the chip
+   chrome instead of the prior circular ship-#128312 style.
+   ---------------------------------------------------------------- */
+body app-item-image-actions button.share-btn,
+body app-item-image-actions a.share-btn,
+body app-item-image-actions [data-action="share"],
+body app-item-image-actions button[aria-label*="hare" i],
+body app-item-image-actions a[aria-label*="hare" i],
+body .item-page-header .header-actions > button.share-btn,
+body .item-page-header .header-actions > a.share-btn,
+body .item-modal .item-header .header-actions > button.share-btn {
+  width: 37px !important;
+  height: 40px !important;
+  min-width: 37px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+body app-item-image-actions button.share-btn > mat-icon,
+body app-item-image-actions a.share-btn > mat-icon,
+body app-item-image-actions [data-action="share"] > mat-icon,
+body .item-page-header .header-actions > button.share-btn > mat-icon {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128603 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128604 — item-detail action-row geometry
+   The .actions row inside <app-item-image-actions> sits 10px BELOW the
+   main image (image is 380h, container is 390h, action-row docks at the
+   bottom 10px). Real measurement: display flex / row, gap 10px,
+   padding 0, margin 0, justify-content flex-start. Pin so the chips
+   line up flush under the image's left edge with consistent 10px
+   intra-chip spacing.
+   ---------------------------------------------------------------- */
+body app-item-image-actions .actions,
+body app-item-image-actions > .actions,
+body app-item-page app-item-image-actions .actions,
+body .item-page app-item-image-actions .actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  margin: 10px 0 0 0 !important;
+  width: 100% !important;
+  min-height: 40px !important;
+  box-sizing: border-box !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128604 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128605 — item-detail page-column max-width
+   The /item route's centered .container host computes max-width 1337px
+   (wider than /support's 1100 because /item splits a left image+actions
+   column and a right ladder+buy column). Pin so the /item page never
+   inherits the narrower 1100/1200 max-width set elsewhere by /profile
+   or /support page rules.
+   ---------------------------------------------------------------- */
+body app-item-page > .container,
+body app-item-page .container,
+body app-listing-page > .container,
+body app-listing-page .container,
+body .item-page > .container,
+body .item-page .container {
+  max-width: 1337px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128605 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128606 — item-detail image-actions host
+   The <app-item-image-actions> host is a pure pass-through wrapper —
+   transparent, no border, no border-radius, no padding, no margin,
+   width tracks the inner .container (506px). Pin to defeat any
+   generic .panel / .card chrome elsewhere in the cascade that might
+   paint a border or background on this host.
+   ---------------------------------------------------------------- */
+body app-item-image-actions,
+body app-item-page app-item-image-actions,
+body .item-page app-item-image-actions {
+  display: block !important;
+  width: 506px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128606 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128640-#128645 — SIGNED-IN footer chrome.
+   Measured 2026-05-08 against csfloat.com (signed-in session, viewport
+   1440x900) via Playwright getBoundingClientRect + getComputedStyle on
+   `<app-mini-footer> > .container` rendered on /profile, /, /db.
+   Earlier ships #20000-#20009 modeled the ANON /faq footer (the only
+   footer csfloat shows to logged-out users). Signed-in users see a
+   quieter `<app-mini-footer>` — transparent, full-bleed, hairline-
+   separated, no panel chrome. These six append after #20000-#20009 in
+   the cascade and re-pin only the surfaces that diverge.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #128640 — site-footer outer chrome (signed-in)
+   measured: csfloat signed-in <app-mini-footer> ancestor `div.footer`
+   has bg transparent, padding 0, no border. The footer simply inherits
+   the page bg-1 (rgb(21, 23, 28)) — there is no decorative band around
+   it. Earlier ship #20003 painted the outer footer rgb(21,23,28) to
+   match the page bg, which is correct for the page-bg token but it
+   ALSO added 30px 24px padding around the inner card. Signed-in
+   csfloat has NO outer padding — the inner row .container does its own
+   17px 5px gutter. Strip the outer 30px 24px padding so the strip sits
+   flush at the bottom of the page like csfloat's signed-in mini-footer.
+*/
+html body footer.site-footer {
+  background-color: transparent !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128640 */
+
+/* CSFLOAT-1:1 PARITY ship #128641 — site-footer-inner panel demote
+   measured: csfloat signed-in `<app-mini-footer> > .container` has
+   bg transparent, border-radius 0, padding 17px 5px, max-width NONE
+   (full bleed), NO box-shadow. Earlier ship #20003 layered a dark
+   rgb(27,29,36) card with 12px radius, 30px padding, 1337 max-width,
+   and the Material elevation-2 shadow stack inside the outer footer
+   — that's the chrome csfloat uses on the ANON /faq landing page,
+   not the signed-in mini-footer. Demote the panel to a transparent
+   inline strip that picks up the page bg behind it.
+*/
+html body footer.site-footer .site-footer-inner {
+  background-color: transparent !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 17px 5px !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128641 */
+
+/* CSFLOAT-1:1 PARITY ship #128642 — site-footer-inner top hairline
+   measured: csfloat signed-in `<app-mini-footer> > .container` has
+   border-top: 1px solid rgba(193, 206, 255, 0.04). This is the
+   canonical brand-blue-tinted hairline csfloat ships on EVERY signed-in
+   surface (filter rails, segment-control fills, panel separators —
+   see prior ships #19800-#19805 documenting the same token). Without
+   this hairline, ship #128641's transparent strip blends invisibly
+   into the page bg and the footer loses its visual separation from
+   the content above. Pin the hairline to match csfloat exactly.
+*/
+html body footer.site-footer .site-footer-inner {
+  border-top: 1px solid rgba(193, 206, 255, 0.04) !important;
+  border-right: 0 none !important;
+  border-bottom: 0 none !important;
+  border-left: 0 none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128642 */
+
+/* CSFLOAT-1:1 PARITY ship #128643 — site-footer link rail column-gap
+   measured: csfloat signed-in `.container` is grid with gap 40px and
+   `.links` inside is flex with column-gap 40px. Earlier ship #20007
+   pinned 60px column-gap on >=1100px to match the anon /faq footer
+   (which spreads its 4 columns wider in the panel-card chrome).
+   Signed-in csfloat tightens to 40px to match the .container grid-gap
+   so the link rail reads as part of the same rhythm as the copyright
+   and social-row neighbors. Re-pin to 40px on the wide breakpoint so
+   the columns sit at the canonical signed-in spacing.
+*/
+@media (min-width: 1100px) {
+  html body footer.site-footer .site-footer-inner {
+    column-gap: 40px !important;
+    gap: 40px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128643 */
+
+/* CSFLOAT-1:1 PARITY ship #128644 — site-footer social row gap tighten
+   measured: csfloat signed-in `.social` has display:flex, gap:15px,
+   flex-flow:row nowrap, 5 children (Discord, Twitter/X, GitHub, Steam,
+   Chrome Extension). Earlier ship #20005 pinned 18px gap to match the
+   anon /faq footer which uses slightly more breathing room around the
+   social row inside the panel card. Signed-in csfloat tightens to 15px
+   exact (the inline strip context calls for tighter horizontal rhythm
+   so the social SVGs read as a unit). Re-pin to 15px.
+*/
+html body footer.site-footer .site-footer-socials {
+  gap: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128644 */
+
+/* CSFLOAT-1:1 PARITY ship #128645 — site-footer-bottom strip rhythm
+   measured: csfloat signed-in mini-footer has NO separate "bottom"
+   strip — its copyright, links, and social row all sit as siblings in
+   the SAME .container grid (gap 40, padding 17px 5px, margin-top 17).
+   sboxmarket carries a separate .site-footer-bottom for copyright +
+   socials + meta (per the legal-disclosure structure ship #20008
+   preserved). Per "match-don't-redesign" we keep that structure but
+   re-pin its rhythm to csfloat's signed-in numbers: margin-top 17
+   (was 30), padding 17px 5px (was 20px 30px 0), max-width NONE
+   (was 1337) so the strip reads at the same vertical+gutter rhythm
+   as csfloat's mini-footer .container would if it carried this row.
+   Hairline at the TOP of .site-footer-inner (ship #128642) carries
+   the visual separation — no need for an extra hairline on
+   .site-footer-bottom.
+*/
+html body footer.site-footer .site-footer-bottom {
+  margin: 17px 0 0 !important;
+  padding: 17px 5px !important;
+  max-width: none !important;
+  border-top: 0 none !important;
+  gap: 16px 40px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128645 */
+
+/* csfloat-1:1 ships #128640-#128645 — SIGNED-IN footer parity:
+   - .site-footer outer: transparent, no padding, no border (#128640)
+   - .site-footer-inner panel demote: transparent, no radius, no shadow,
+     padding 17px 5px, max-width none (#128641)
+   - .site-footer-inner top hairline: 1px solid rgba(193,206,255,0.04)
+     mirroring csfloat's signed-in token (#128642)
+   - link rail column-gap 40 on >=1100 (down from 60) matching the
+     csfloat .container grid-gap (#128643)
+   - social row gap 15 (down from 18) matching csfloat .social (#128644)
+   - .site-footer-bottom strip rhythm 17/17px-5px max-width-none matching
+     csfloat .container row rhythm (#128645)
+   Earlier ships #20000-#20009 (anon-/faq footer card chrome) remain on
+   disk; these append after them in the cascade and override only the
+   surfaces signed-in csfloat changes.
+*/
