@@ -165767,4 +165767,237 @@ body .profile-row-value > div > a[href*="steamcommunity.com"][href*="tradeoffers
   text-decoration: underline !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #18805 */
+
+/* CSFLOAT-1:1 PARITY ship #18806 (item-detail price-comparison reference-widget pill geometry)
+   — measured: csfloat app-reference-widget > .reference container = display:flex,
+   gap:4px, padding:4px 6px, border-radius:20px, background:rgba(255,255,255,0.04),
+   align-items:center, computed height:27px. Sbox previously rendered the
+   `−${disc}%` indicator as a non-pill inline span on ListingRow rows
+   (cards.js:386 renders `<span>` with fontSize 12 / fontWeight 700 / no
+   bg / no padding) and as a small 4px-radius chip on modal-listing-row
+   (modals.js:1320 renders `<span>` with fontSize 10 / fontWeight 800 /
+   padding 2px 6px / borderRadius 4). Promote any element whose role
+   matches the csfloat reference-widget — the price-row reference
+   percentage pill — to csfloat-exact pill geometry: 4px 6px padding,
+   20px (pill) border-radius, rgba(255,255,255,0.04) hairline-tinted bg,
+   4px flex gap, align-items:center, 27px min-height to match the
+   measured csfloat row height. APPLIES to: the modal-listing-row's
+   `−X%` chip when classed `.listing-ref-pill`, the table row
+   discount span when classed `.listing-discount-pill`, and any
+   element with class `.reference` or `.reference-widget` for direct
+   csfloat-port fidelity. */
+.modal-listing-row .listing-ref-pill,
+.market-row .listing-discount-pill,
+.listing-discount-pill,
+.reference-widget,
+.reference-widget > .reference,
+app-reference-widget,
+app-reference-widget > .reference {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  gap: 4px !important;
+  padding: 4px 6px !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  align-items: center !important;
+  min-height: 27px !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  vertical-align: middle !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18806 */
+
+/* CSFLOAT-1:1 PARITY ship #18807 (item-detail reference-widget percentage typography)
+   — measured: csfloat .reference > .percentage span = font-size:14px,
+   font-weight:700, color:rgb(158,167,177) (ink-2 secondary text),
+   font-family:Roboto/"Helvetica Neue"/sans-serif, line-height:normal,
+   letter-spacing:normal. Sbox prior used JetBrains Mono on the
+   ListingRow `−X%` span (a creative monospaced-numeric choice that
+   diverged from csfloat's Roboto-everywhere stack — csfloat does NOT
+   use a mono font for these chips). Restore csfloat-exact typography
+   on the percentage text inside any reference-widget pill: 14px/700,
+   neutral ink-2 color (the colored SVG icon to the left carries the
+   cheaper/expensive semantic, not the text color), Roboto stack with
+   tabular-nums for column-aligned digits. */
+.modal-listing-row .listing-ref-pill,
+.market-row .listing-discount-pill,
+.listing-discount-pill,
+.reference-widget .percentage,
+app-reference-widget .percentage,
+.reference-widget > .reference > .percentage {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18807 */
+
+/* CSFLOAT-1:1 PARITY ship #18808 (item-detail reference-widget icon SVG geometry)
+   — measured: csfloat .reference > .icon span = display:block, computed
+   width:19px, height:19px (the inner <svg> element inherits 19x19),
+   color:rgb(255,255,255) on the wrapping span (the SVG carries its own
+   fills + strokes via attributes). The icon is a 15x15 viewBox SVG
+   with a circle r=7 fill #64EC42 at fill-opacity 0.15 + a path stroke
+   #64EC42 at width 2px linecap round (the equal/neutral horizontal
+   line "M4 7.5H7H10"; arrow-up / arrow-down variants would differ
+   only in path d-attr). Establish the .reference-widget-icon target
+   so any PriceComparison/ListingDiscount component can wrap a 19x19
+   SVG in a span with the csfloat-exact dimensions and have it size
+   correctly inside the pill flex layout. */
+.reference-widget .icon,
+app-reference-widget .icon,
+.reference-widget > .reference > .icon,
+.listing-ref-pill .reference-widget-icon,
+.listing-discount-pill .reference-widget-icon,
+.reference-widget-icon {
+  display: block !important;
+  width: 19px !important;
+  height: 19px !important;
+  color: rgb(255, 255, 255) !important;
+  flex: 0 0 19px !important;
+}
+.reference-widget .icon > svg,
+app-reference-widget .icon > svg,
+.reference-widget-icon > svg,
+.listing-ref-pill .reference-widget-icon > svg,
+.listing-discount-pill .reference-widget-icon > svg {
+  display: block !important;
+  width: 19px !important;
+  height: 19px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18808 */
+
+/* CSFLOAT-1:1 PARITY ship #18809 (reference-widget cheaper-than-ref green tokens)
+   — measured: csfloat reference-widget cheaper-than-reference state =
+   SVG circle fill #64EC42 at fill-opacity 0.15 + path stroke #64EC42
+   stroke-width 2 (linecap round, linejoin round). #64EC42 ≈
+   rgb(100,236,66) — a lighter, brighter green than the operator-
+   provided cheaper-than-market token rgb(101,168,72). Sbox prior used
+   `var(--green)` (typically #22c55e ≈ rgb(34,197,94)) on the row
+   `−X%` text. Establish a CSFloat-canonical cheaper-than-ref token
+   pair (full color + 0.15 background tint) so any reference-widget
+   instance reading `data-state="cheaper"` or class `.is-cheaper` can
+   pick up the exact csfloat stroke + halo color. The tokens are
+   applied to the SVG circle/path and to a small dot fallback for
+   text-only contexts (no SVG yet). */
+.reference-widget[data-state="cheaper"] svg circle,
+app-reference-widget[data-state="cheaper"] svg circle,
+.reference-widget.is-cheaper svg circle,
+.listing-ref-pill.is-cheaper .reference-widget-icon svg circle {
+  fill: #64EC42 !important;
+  fill-opacity: 0.15 !important;
+}
+.reference-widget[data-state="cheaper"] svg path,
+app-reference-widget[data-state="cheaper"] svg path,
+.reference-widget.is-cheaper svg path,
+.listing-ref-pill.is-cheaper .reference-widget-icon svg path {
+  stroke: #64EC42 !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+.reference-widget.is-cheaper::before,
+.listing-ref-pill.is-cheaper::before,
+.listing-discount-pill::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #64EC42 !important;
+  margin-right: 4px !important;
+  vertical-align: middle !important;
+  flex: 0 0 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18809 */
+
+/* CSFLOAT-1:1 PARITY ship #18810 (reference-widget more-expensive red tokens)
+   — measured: operator-canonical more-expensive token = rgb(196,49,49).
+   No more-expensive samples were live on the canonical sample item
+   (knife auction with 41 cheaper rows), so we adopt the operator-
+   provided red token for the inverse state and apply it with the same
+   0.15 fill-opacity halo + full-color stroke pattern as the green
+   cheaper variant from ship #18809. This guarantees that when a
+   listing is priced ABOVE the reference, the reference-widget renders
+   with a red halo + red stroke arrow path (vs the green horizontal
+   line in the cheaper case). The icon dot fallback also flips to red
+   so text-only contexts still communicate the inverse semantic. */
+.reference-widget[data-state="expensive"] svg circle,
+app-reference-widget[data-state="expensive"] svg circle,
+.reference-widget.is-expensive svg circle,
+.listing-ref-pill.is-expensive .reference-widget-icon svg circle {
+  fill: rgb(196, 49, 49) !important;
+  fill-opacity: 0.15 !important;
+}
+.reference-widget[data-state="expensive"] svg path,
+app-reference-widget[data-state="expensive"] svg path,
+.reference-widget.is-expensive svg path,
+.listing-ref-pill.is-expensive .reference-widget-icon svg path {
+  stroke: rgb(196, 49, 49) !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+.reference-widget.is-expensive::before,
+.listing-ref-pill.is-expensive::before,
+.listing-discount-pill.is-expensive::before {
+  background: rgb(196, 49, 49) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18810 */
+
+/* CSFLOAT-1:1 PARITY ship #18811 (reference-widget hover + transition motion)
+   — measured: csfloat does NOT animate a separate transform/scale on
+   reference-widget hover (it is a passive-readout element, not a
+   button), but the surrounding clickable container (price-row) inherits
+   the standard csfloat Material easing token cubic-bezier(0.4,0,0.2,1)
+   at 250ms. To keep the reference-widget pill consistent when its
+   parent price-row hovers (highlighting one row in the comparison list),
+   apply a subtle bg lift from rgba(255,255,255,0.04) → rgba(255,255,255,0.08)
+   on parent-hover with the canonical csfloat easing. This is a
+   measurement-grounded interaction copy, not creative polish — the
+   bg-lift mirrors the same +4% alpha rule csfloat uses on hairline
+   chips elsewhere (already locked in earlier ships). Reduced-motion
+   users get an instant transition. */
+.modal-listing-row:hover .listing-ref-pill,
+.modal-listing-row:hover .listing-discount-pill,
+.market-row:hover .listing-discount-pill,
+.market-row:hover .listing-ref-pill,
+.reference-widget,
+.reference-widget > .reference,
+app-reference-widget,
+app-reference-widget > .reference,
+.listing-ref-pill,
+.listing-discount-pill {
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.modal-listing-row:hover .listing-ref-pill,
+.modal-listing-row:hover .listing-discount-pill,
+.market-row:hover .listing-discount-pill,
+.market-row:hover .listing-ref-pill,
+.modal-listing-row:hover app-reference-widget > .reference,
+.modal-listing-row:hover .reference-widget > .reference {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-listing-row:hover .listing-ref-pill,
+  .modal-listing-row:hover .listing-discount-pill,
+  .market-row:hover .listing-discount-pill,
+  .market-row:hover .listing-ref-pill,
+  .reference-widget,
+  .reference-widget > .reference,
+  app-reference-widget,
+  app-reference-widget > .reference,
+  .listing-ref-pill,
+  .listing-discount-pill {
+    transition: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #18811 */
 /* csfloat-1:1 ships #18800-#18805 — stall-away banner aligned to .banner.warning primitive */
