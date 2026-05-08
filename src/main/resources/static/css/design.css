@@ -166001,3 +166001,1038 @@ app-reference-widget > .reference,
 }
 /* END CSFLOAT-1:1 PARITY ship #18811 */
 /* csfloat-1:1 ships #18800-#18805 — stall-away banner aligned to .banner.warning primitive */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #19600-#19605 — Stall Follow / Unfollow button
+   state machine. The /stall/<id> hero renders FollowSellerButton (app.js
+   2033-2087) which always emits class="stall-share-btn" and toggles
+   visual state via title= and an inline `style={border, color}` prop:
+       follow-not-yet  -> title="Get notified when this seller lists ..."
+                         JSX inline style sets `var(--accent-border)` border
+                         + `var(--accent)` text — currently a near-mono
+                         ghost in the canvas. csfloat-equivalent for the
+                         primary CTA is the mat-mdc-raised-button (golden
+                         measure on csfloat homepage Sign-in button):
+                           h40, padding 13px 30px, min-width 64px,
+                           font-family Roboto, fs15, fw700, lh normal,
+                           letter-spacing normal, text-transform none,
+                           color rgb(255,255,255), bg rgb(35,123,255),
+                           border 0, radius 8px,
+                           transition box-shadow .28s cubic-bezier(0.4,0,0.2,1),
+                           shadow rgba(0,0,0,0.2) 0 3px 1px -2px,
+                                  rgba(0,0,0,0.14) 0 2px 2px 0,
+                                  rgba(0,0,0,0.12) 0 1px 5px 0.
+       following       -> title="Click to unfollow"  JSX inline sets
+                         `var(--border)` border + opacity .75 — currently
+                         no brand affinity, no hover hint. csfloat outlined
+                         primary measure (mat-mdc-stroked-button, .reset-btn
+                         on toolbar reset row, golden measure):
+                           h36, padding 0 15px, fs14, fw500, radius 8px,
+                           1px solid hairline rgba(255,255,255,0.12),
+                           transparent fill, color = primary brand,
+                           transition border .28s cubic-bezier(0.4,0,0.2,1).
+                         For the follow surface we keep csfloat's filled
+                         h40 geometry across BOTH states (it's the seller-
+                         hero CTA, not a row chip — a 4px state-driven
+                         height shift would jitter the hero layout) but
+                         flip the fill: filled-brand for "Follow",
+                         transparent + 1px brand border for "Following".
+   The lane needs the surface to override the inline style{} from the JSX
+   so we lock everything with !important and target the title= attribute.
+   APPEND-only; do not modify the token block at top.
+
+   #19600 — base geometry / typography lockdown for both states. csfloat
+   raised primary measured: h40, padding 13/30, fw700, fs15, radius 8px,
+   min-width 64px, font Roboto, lh normal, color/bg overridden per state
+   below. Locks display:inline-flex with 8px gap so the +/✓ glyph and
+   trailing follower-count span align on the baseline. `box-sizing
+   border-box` so the 1px border of the following-state doesn't push
+   geometry +2px. Disabled state mirrors mdc-button disabled (cursor
+   default + pointer-events none + opacity .5). */
+.stall-share-btn[title*="Get notified"],
+.stall-share-btn[title*="Click to unfollow"],
+.stall-hero .follow-btn,
+.stall-hero button.follow {
+  box-sizing: border-box !important;
+  height: 40px !important;
+  min-width: 64px !important;
+  padding: 13px 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  line-height: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  margin-left: auto !important;
+  outline: 0 !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: background-color 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color     280ms cubic-bezier(0.4, 0, 0.2, 1),
+              color            280ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow       280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.stall-share-btn[title*="Get notified"][disabled],
+.stall-share-btn[title*="Click to unfollow"][disabled],
+.stall-hero .follow-btn[disabled],
+.stall-hero button.follow[disabled] {
+  pointer-events: none !important;
+  opacity: 0.5 !important;
+  cursor: default !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19600 */
+
+/* CSFLOAT-1:1 PARITY ship #19601 — initial / not-yet-following state.
+   csfloat raised filled-brand: bg rgb(35,123,255) (canonical brand),
+   color rgb(255,255,255), border 0, mdc shadow stack
+   (rgba(0,0,0,0.2) 0 3px 1px -2px, rgba(0,0,0,0.14) 0 2px 2px 0,
+    rgba(0,0,0,0.12) 0 1px 5px 0). Override the inline style{border,color}
+   from the JSX (which paints `var(--accent-border)` ghost outline) since
+   that drift makes the primary CTA blend with the page (seller-hero
+   buyers can't see it). */
+.stall-share-btn[title*="Get notified"],
+.stall-hero .follow-btn:not([data-following="true"]),
+.stall-hero button.follow:not(.is-following) {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 3px 1px -2px,
+              rgba(0, 0, 0, 0.14) 0 2px 2px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+}
+.stall-share-btn[title*="Get notified"] .stall-share-icon,
+.stall-hero .follow-btn:not([data-following="true"]) .stall-share-icon {
+  color: rgb(255, 255, 255) !important;
+}
+/* hover-when-not-following — csfloat raises elevation via deeper mdc
+   shadow stack (cf. mdc-button--raised hover). No bg change (the brand
+   already saturates at the tonal scale csfloat ships). */
+.stall-share-btn[title*="Get notified"]:hover,
+.stall-hero .follow-btn:not([data-following="true"]):hover {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 2px 4px -1px,
+              rgba(0, 0, 0, 0.14) 0 4px 5px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 10px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19601 */
+
+/* CSFLOAT-1:1 PARITY ship #19602 — following / active state. csfloat
+   outlined-primary equivalent: transparent fill, 1px solid brand border,
+   brand-blue text. Same h40 geometry as ship #19600 — geometry stays
+   constant across states so the hero doesn't jitter on toggle. The JSX
+   inline style applies opacity .75 which we drop (the brand color +
+   transparent fill IS the de-emphasis; further opacity desaturates the
+   border to the point of not reading as primary). Removes box-shadow:
+   outlined buttons in csfloat's mdc theme don't carry elevation. */
+.stall-share-btn[title*="Click to unfollow"],
+.stall-hero .follow-btn[data-following="true"],
+.stall-hero button.follow.is-following {
+  background-color: transparent !important;
+  color: rgb(35, 123, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+.stall-share-btn[title*="Click to unfollow"] .stall-share-icon,
+.stall-hero .follow-btn[data-following="true"] .stall-share-icon {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19602 */
+
+/* CSFLOAT-1:1 PARITY ship #19603 — hover-on-following ("Unfollow"
+   affordance). csfloat doesn't ship a follow-stall feature publicly so
+   we lift from the in-app destructive-outlined pattern (mat-warn stroked
+   button — measured on /search Reset All Filters: color rgb(235,75,75),
+   bg rgba(235,87,87,0.05), 1px hairline border in the warn tint). On
+   hover-when-following, paint the same warn-red affordance so the user
+   sees that clicking will unfollow — purely a hover hint; the visible
+   text remains "Following" (changing the label on hover would re-flow
+   the hero, csfloat's pattern is to keep the geometry static). */
+.stall-share-btn[title*="Click to unfollow"]:hover,
+.stall-hero .follow-btn[data-following="true"]:hover,
+.stall-hero button.follow.is-following:hover {
+  background-color: rgba(235, 87, 87, 0.05) !important;
+  color: rgb(235, 75, 75) !important;
+  border: 1px solid rgb(235, 75, 75) !important;
+  box-shadow: none !important;
+}
+.stall-share-btn[title*="Click to unfollow"]:hover .stall-share-icon,
+.stall-hero .follow-btn[data-following="true"]:hover .stall-share-icon {
+  color: rgb(235, 75, 75) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19603 */
+
+/* CSFLOAT-1:1 PARITY ship #19604 — focus-visible ring. csfloat mdc
+   buttons get a 2px brand-tint outline at 2px offset from the rounded
+   border on keyboard focus (no outline on mouse focus — :focus-visible).
+   Ring color tracks state: brand-blue when follow / following, warn-red
+   when about to unfollow (matches the hover affordance from #19603 so
+   keyboard users get the same destructive cue). */
+.stall-share-btn[title*="Get notified"]:focus-visible,
+.stall-hero .follow-btn:not([data-following="true"]):focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+.stall-share-btn[title*="Click to unfollow"]:focus-visible,
+.stall-hero .follow-btn[data-following="true"]:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+.stall-share-btn[title*="Click to unfollow"]:focus-visible:hover,
+.stall-hero .follow-btn[data-following="true"]:focus-visible:hover {
+  outline-color: rgb(235, 75, 75) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19604 */
+
+/* CSFLOAT-1:1 PARITY ship #19605 — just-followed pulsing notification.
+   When the user has just flipped follow -> following the button briefly
+   pulses to confirm the action (csfloat ships an analogous mat-snack-bar
+   confirm but the inline echo on the trigger is a softer affordance for
+   keyboard-driven flows that don't park a cursor over a transient
+   snackbar). The FollowSellerButton component doesn't yet emit the
+   data-just-followed attr — purely opt-in: a future ship can wire
+   `setStatus({...just: true})` -> data-just-followed="true" without
+   touching this CSS. Animation is 1 cycle (avoid distracting users who
+   stay on the page), 800ms, brand-tint glow that fades to the steady
+   outlined-following paint from #19602. Respects reduced-motion. */
+@keyframes csfloat-follow-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(35, 123, 255, 0.55); }
+   60% { box-shadow: 0 0 0 8px rgba(35, 123, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(35, 123, 255, 0); }
+}
+.stall-share-btn[title*="Click to unfollow"][data-just-followed="true"],
+.stall-hero .follow-btn[data-following="true"][data-just-followed="true"] {
+  animation: csfloat-follow-pulse 800ms cubic-bezier(0.4, 0, 0.2, 1) 1 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stall-share-btn[title*="Click to unfollow"][data-just-followed="true"],
+  .stall-hero .follow-btn[data-following="true"][data-just-followed="true"] {
+    animation: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #19605 */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #19100-#19106 — sell-flow Step 2 pricing screen
+   Measurement source: csfloat.com (anon-locked /sell, fell back to mat-* on
+   home: mat-button-toggle-group, mat-button-toggle, mat-form-field, input
+   .mat-mdc-input-element, button[mat-flat-button], button[mat-stroked-button]).
+   sboxmarket SellModal (modals.js ~9474–9750) classes targeted:
+     .info-modal .wallet-input-label                 — field label
+     .info-modal input.wallet-amount-input           — price input chrome
+     .info-modal .price-suggest-row                  — chip row
+     .info-modal .price-suggest-chip                 — Floor / -5% / +5% / Steam
+     .info-modal .offer-tab                          — Buy Now / Auction toggle
+     .info-modal .modal-actions                      — Cancel/Continue row
+   APPEND-only, !important. NO Docker. Token block at top untouched.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #19100 (sell-step2 input chrome) — measured: csfloat
+   input.mat-mdc-input-element fs 16/lh 24/ls 0.5px Roboto white, container
+   mat-form-field 36px tall transparent. sbox was Geist mono 18px on opaque
+   bg-1 with 14px padding — too dense vs csfloat's bare underline-row look. */
+.info-modal input.wallet-amount-input,
+.info-modal input.wallet-amount-input-v2,
+.modal input.wallet-amount-input,
+.modal input.wallet-amount-input-v2 {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42) !important;
+  border-radius: 0 !important;
+  padding: 6px 0 7px 0 !important;
+  height: 36px !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal input.wallet-amount-input:hover,
+.modal input.wallet-amount-input:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.87) !important;
+}
+.info-modal input.wallet-amount-input:focus,
+.info-modal input.wallet-amount-input:focus-visible,
+.modal input.wallet-amount-input:focus {
+  border-bottom: 2px solid rgb(35, 123, 255) !important;
+  padding-bottom: 6px !important;
+}
+.info-modal input.wallet-amount-input::placeholder,
+.modal input.wallet-amount-input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19100 */
+
+/* CSFLOAT-1:1 PARITY ship #19101 (sell-step2 field label) — measured: csfloat
+   mat-form-field-label fs 12 (floating) / 16 (resting) Roboto rgb(158,167,177)
+   ink-2. sbox .wallet-input-label was 13px var(--ink-3) bold uppercase — too
+   "shouty" vs csfloat's restrained sentence-case ink-2. */
+.info-modal .wallet-input-label,
+.modal .wallet-input-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(158, 167, 177) !important;
+  text-transform: none !important;
+  margin-bottom: 6px !important;
+  margin-top: 14px !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19101 */
+
+/* CSFLOAT-1:1 PARITY ship #19102 (sell-step2 buy-now/auction toggle) — measured:
+   csfloat mat-button-toggle-group bg rgba(193,206,255,0.04), radius 7px,
+   38px tall; mat-button-toggle 32px tall (4px inset), Roboto 14/500. sbox
+   .offer-tab was an underlined tab (10×16 padding, transparent bg, white
+   underline on active) — wrong primitive entirely for the listing-type
+   choice in SellModal which is a segmented toggle, not a tab strip. */
+.info-modal .offer-tab,
+.modal .offer-tab {
+  height: 32px !important;
+  padding: 0 12px !important;
+  margin: 3px !important;
+  margin-bottom: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal .offer-tab:hover,
+.modal .offer-tab:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: transparent !important;
+}
+.info-modal .offer-tab.active,
+.modal .offer-tab.active {
+  background: rgba(35, 123, 255, 0.18) !important;
+  color: rgb(35, 123, 255) !important;
+  border-color: transparent !important;
+  border-bottom-color: transparent !important;
+}
+/* Wrap the two-button row as a segmented group: when two .offer-tab buttons
+   sit in a flex container inside the modal, render the parent as the toggle
+   group chrome (rgba(193,206,255,0.04) shell, 7px radius, 38px tall). The
+   grandparent is a flex row with gap:8 already from the JSX; we promote the
+   immediate parent (display:flex) to the group bg so .offer-tab buttons sit
+   inside it like mat-button-toggles. */
+.info-modal .offer-tab + .offer-tab { margin-left: 0 !important; }
+.info-modal .wallet-input-label + div:has(> .offer-tab),
+.modal .wallet-input-label + div:has(> .offer-tab) {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  margin-bottom: 14px !important;
+  display: flex !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19102 */
+
+/* CSFLOAT-1:1 PARITY ship #19103 (sell-step2 suggested-price chip row) — measured:
+   csfloat suggestion chips render as mat-chip-listbox: bg rgba(35,123,255,0.15)
+   for the brand-tinted "Suggested" chip, color rgb(35,123,255), 28px tall, 8px
+   horizontal pad, 8px radius, fs 12/500. sbox chip was rounded-pill bg-2/line/
+   ink-3 monospace — out-of-system, didn't read as brand-affordance. */
+.info-modal .price-suggest-row,
+.modal .price-suggest-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+  margin-bottom: 0 !important;
+}
+.info-modal .price-suggest-chip,
+.modal .price-suggest-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(193, 206, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.5px !important;
+  cursor: pointer !important;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal .price-suggest-chip:hover,
+.modal .price-suggest-chip:hover {
+  background: rgba(35, 123, 255, 0.10) !important;
+  border-color: rgba(35, 123, 255, 0.20) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.info-modal .price-suggest-chip.active,
+.info-modal .price-suggest-chip.sel,
+.modal .price-suggest-chip.active,
+.modal .price-suggest-chip.sel {
+  background: rgba(35, 123, 255, 0.15) !important;
+  border-color: rgba(35, 123, 255, 0.30) !important;
+  color: rgb(35, 123, 255) !important;
+}
+.info-modal .price-suggest-chip-label,
+.modal .price-suggest-chip-label {
+  color: inherit !important;
+  font-weight: 400 !important;
+  opacity: 0.9 !important;
+}
+.info-modal .price-suggest-chip-amt,
+.modal .price-suggest-chip-amt {
+  color: inherit !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19103 */
+
+/* CSFLOAT-1:1 PARITY ship #19104 (sell-step2 fee breakdown rows) — measured:
+   csfloat fee-row label color rgb(158,167,177) ink-2 fs 14/500 / amount white
+   tabular-nums fs 14/500. sbox SellModal fee block uses inline grid with
+   var(--text-muted) labels and JetBrains Mono amounts at 12px — kept the
+   structure but standardize size/font/tabular-nums against csfloat. */
+.info-modal .fee-breakdown-grid,
+.modal .fee-breakdown-grid,
+/* Selector targets the inline-styled grid the JSX paints (display:grid +
+   gridTemplateColumns:'1fr auto' + gap:4) inside SellModal. There's no class
+   on it, so we hook the parent .info-modal-body and pick any direct grid div
+   that contains a "You'll receive" or "Platform fee" text. We use a generic
+   helper class so future ships can target it. */
+.info-modal-body div[style*="grid-template-columns: 1fr auto"],
+.info-modal-body div[style*="gridTemplateColumns: 1fr auto"],
+.modal-body div[style*="grid-template-columns: 1fr auto"] {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  margin-top: 14px !important;
+  row-gap: 8px !important;
+  column-gap: 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+}
+.info-modal-body div[style*="grid-template-columns: 1fr auto"] > div,
+.modal-body div[style*="grid-template-columns: 1fr auto"] > div {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19104 */
+
+/* CSFLOAT-1:1 PARITY ship #19105 (sell-step2 you'll-receive emphasis) — measured:
+   csfloat net-receive emphasis fs 18-20/600 white tabular-nums (the strong
+   bottom row in the fee breakdown). sbox painted it at 12/var(--accent)/800
+   in JetBrains Mono — too small + accent-color hijacked the row. Promote the
+   last two cells of the grid (the emphasis row) per csfloat's hierarchy. */
+.info-modal-body div[style*="grid-template-columns: 1fr auto"] > div:nth-last-child(2),
+.info-modal-body div[style*="grid-template-columns: 1fr auto"] > div:nth-last-child(1),
+.modal-body div[style*="grid-template-columns: 1fr auto"] > div:nth-last-child(2),
+.modal-body div[style*="grid-template-columns: 1fr auto"] > div:nth-last-child(1) {
+  font-size: 18px !important;
+  line-height: 24px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.info-modal-body div[style*="grid-template-columns: 1fr auto"] > div:nth-last-child(1),
+.modal-body div[style*="grid-template-columns: 1fr auto"] > div:nth-last-child(1) {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19105 */
+
+/* CSFLOAT-1:1 PARITY ship #19106 (sell-step2 Cancel/Continue button row) — measured:
+   csfloat primary button[mat-flat-button][color="primary"] 45px tall, fs 14/500,
+   radius 8, color rgb(35,123,255), bg rgba(35,123,255,0.15), pad 0 20px.
+   Cancel button[mat-stroked-button] 40px tall, border 1px solid
+   rgba(255,255,255,0.12), color color(srgb 1 1 1 / 0.38), radius 8, pad 0 10px.
+   sbox modal-actions wraps two .modal-btn buttons with sboxmarket-styled
+   primary/secondary — replace with csfloat exact chrome. */
+.info-modal .modal-actions,
+.modal .modal-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  margin-top: 20px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.info-modal .modal-actions .modal-btn.primary,
+.info-modal .modal-actions button[type="submit"],
+.modal .modal-actions .modal-btn.primary,
+.modal .modal-actions button[type="submit"] {
+  height: 45px !important;
+  min-height: 45px !important;
+  padding: 0 20px !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 45px !important;
+  letter-spacing: 1.25px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal .modal-actions .modal-btn.primary:hover,
+.modal .modal-actions .modal-btn.primary:hover {
+  background: rgba(35, 123, 255, 0.25) !important;
+}
+.info-modal .modal-actions .modal-btn.primary:disabled,
+.modal .modal-actions .modal-btn.primary:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.30) !important;
+  cursor: not-allowed !important;
+}
+.info-modal .modal-actions .modal-btn:not(.primary),
+.info-modal .modal-actions .modal-btn.cancel,
+.info-modal .modal-actions button[type="button"]:not(.modal-btn.primary),
+.modal .modal-actions .modal-btn:not(.primary),
+.modal .modal-actions button[type="button"]:not(.modal-btn.primary) {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 38px !important;
+  letter-spacing: 1.25px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal .modal-actions .modal-btn:not(.primary):hover,
+.modal .modal-actions .modal-btn:not(.primary):hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.30) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19106 */
+
+/* CSFLOAT-1:1 PARITY ship #19000 (StallBioBlock container chrome) — measured:
+   csfloat prose-card primitive .card { padding: 30px; border-radius: 12px;
+   background: rgb(27,29,36); box-shadow: none } (measured on / homepage
+   secure/fees/auctions cards). sboxmarket bio block read-mode is an
+   unclassed inline-styled div after .stall-hero with
+   margin: 12px 0px 4px; padding: 12px; border-radius: 8px (sbox tokens).
+   Target via its unique inline-style fingerprint (white-space: pre-wrap +
+   align-items: flex-start are not used together anywhere else in the
+   stall InfoModal subtree). Force csfloat-exact panel chrome:
+   bg rgb(27,29,36), 12px radius, 30px padding (24px on mobile), no
+   shadow per csfloat .card primitive. Keep the flex layout so the
+   pencil Edit button still floats top-right. */
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  margin: 16px 0 8px !important;
+  box-shadow: none !important;
+  gap: 16px !important;
+}
+@media (max-width: 720px) {
+  .modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] {
+    padding: 20px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #19000 */
+
+/* CSFLOAT-1:1 PARITY ship #19001 (StallBioBlock prose typography) — measured:
+   csfloat in-card body prose 14px / 500 / lh 24px / rgb(158,167,177)
+   (measured on /db prose containers). sboxmarket bio currently fontSize 13
+   color var(--text-secondary). Force csfloat-exact 14/500/24 + ink-2
+   color so the bio reads with the same body rhythm as every other
+   csfloat panel. Target the inner flex:1 div (the prose column). */
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > div[style*="flex: 1"] {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19001 */
+
+/* CSFLOAT-1:1 PARITY ship #19002 (StallBioBlock auto-linkified link color) — measured:
+   csfloat in-card brand-blue links rgb(35,123,255) / 700 / inherit-family /
+   no underline at rest, underline on hover. sboxmarket linkifyText output
+   is plain anchor inheriting the global link color. Force csfloat-exact
+   brand-blue links inside the bio prose so Discord/Steam/Twitter contact
+   URLs the seller pasted match csfloat's link primitive. */
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > div[style*="flex: 1"] a {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  word-break: break-word !important;
+}
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > div[style*="flex: 1"] a:hover {
+  text-decoration: underline !important;
+  opacity: 0.85 !important;
+}
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > div[style*="flex: 1"] a:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+  border-radius: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19002 */
+
+/* CSFLOAT-1:1 PARITY ship #19003 (StallBioBlock edit-mode container) — measured:
+   when the owner clicks pencil Edit, sboxmarket renders the same inline-styled
+   wrapper but without the white-space: pre-wrap / flex-start (it is a
+   textarea + button row, no flex: 1 prose column). The wrapper still
+   has margin: 12px 0px 4px; padding: 12px; border-radius: 8px;
+   background: var(--bg-elevated); border: 1px solid var(--border).
+   Force csfloat-exact panel chrome to match the read-mode container so
+   the chrome does not pop when the seller toggles edit. Same selector
+   fingerprint minus the pre-wrap (only the edit wrapper matches both
+   border-radius: 8px and 1px solid border with this margin signature
+   inside the stall modal). */
+.modal div[style*="margin: 12px 0px 4px"][style*="padding: 12px"][style*="border-radius: 8px"]:not([style*="white-space"]) {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  margin: 16px 0 8px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19003 */
+
+/* CSFLOAT-1:1 PARITY ship #19004 (StallBioBlock edit-mode textarea) — measured:
+   csfloat textareas inside cards: font-family: inherit (Roboto cascade);
+   font-size: 14px; line-height: 24px; color: rgb(255,255,255); bg
+   rgba(255,255,255,0.04); border 1px solid rgba(255,255,255,0.08); radius
+   6px; padding 10px 12px; placeholder color rgb(158,167,177). sboxmarket
+   textarea inside StallBioBlock has minHeight: 80; padding: 8px 10px;
+   fontSize: 13; bg/border/color via local vars. Force csfloat-exact
+   typography + chrome so the typing experience matches a csfloat .card
+   textarea. Target via the unique parent fingerprint to avoid touching
+   other textareas. */
+.modal div[style*="margin: 12px 0px 4px"][style*="padding: 12px"][style*="border-radius: 8px"]:not([style*="white-space"]) > textarea[aria-label="Stall bio"] {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  min-height: 96px !important;
+  transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.modal div[style*="margin: 12px 0px 4px"][style*="padding: 12px"][style*="border-radius: 8px"]:not([style*="white-space"]) > textarea[aria-label="Stall bio"]::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+.modal div[style*="margin: 12px 0px 4px"][style*="padding: 12px"][style*="border-radius: 8px"]:not([style*="white-space"]) > textarea[aria-label="Stall bio"]:focus,
+.modal div[style*="margin: 12px 0px 4px"][style*="padding: 12px"][style*="border-radius: 8px"]:not([style*="white-space"]) > textarea[aria-label="Stall bio"]:focus-visible {
+  outline: none !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19004 */
+
+/* CSFLOAT-1:1 PARITY ship #19005 (StallBioBlock pencil Edit button) — measured:
+   csfloat in-card secondary action buttons: font-family inherit; font-size
+   12px; font-weight 500; line-height normal; padding 6px 12px; min-height
+   28px; color rgb(158,167,177); bg transparent; border 1px solid
+   rgba(255,255,255,0.08); border-radius 6px; hover color rgb(35,123,255)
+   + border-color rgba(35,123,255,0.5); transition cubic-bezier
+   (0.4,0,0.2,1) 200ms (measured on /db ghost buttons). sboxmarket bio
+   pencil Edit button has padding 4px 10px / fontSize 11 / 1px solid
+   var(--border). Force csfloat-exact chrome + ink-2 to brand hover.
+   Target via parent fingerprint + .btn-ghost class. Also covers the
+   bio-less Add a bio prompt button (different parent: small unclassed
+   div with 10px 0px 0px margin) by class match. */
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > button.btn-ghost,
+.modal div[style*="margin: 10px 0px 0px"][style*="font-size: 12px"] > button.btn-ghost {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  padding: 6px 12px !important;
+  min-height: 28px !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  letter-spacing: 0.02em !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+}
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > button.btn-ghost:hover,
+.modal div[style*="margin: 10px 0px 0px"][style*="font-size: 12px"] > button.btn-ghost:hover {
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.5) !important;
+  background: rgba(35, 123, 255, 0.06) !important;
+}
+.modal div[style*="white-space: pre-wrap"][style*="flex-start"][style*="border-radius: 8px"] > button.btn-ghost:focus-visible,
+.modal div[style*="margin: 10px 0px 0px"][style*="font-size: 12px"] > button.btn-ghost:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19005 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #19200–#19205 — /support contact form chrome
+   surface: ProfileSupportTab `+ New Ticket` form (modals.js ~8821) and
+   the inline Contact-Seller drawer (app.js ~2147).
+   csfloat /support is gated behind an Intercom widget (anon redirect to
+   home), so canonical Material textfield + button measurements pulled
+   from /db (live page using the same Angular Material 17 dialog kit
+   csfloat ships across the app):
+     - mat-mdc-text-field-wrapper  : bg rgba(193,206,255,0.04), 6px br,
+                                     44h, 16px L-pad, 0 R-pad, no border
+     - input.mat-mdc-input-element : Roboto 16px/24/0.5px ls, #fff
+     - mat-mdc-raised-button.primary: bg rgb(35,123,255), 40h,
+                                     30px L/R-pad, 8px br, 15/700, no
+                                     uppercase, no letter-spacing,
+                                     transition box-shadow 0.28s
+                                     cubic-bezier(0.4,0,0.2,1)
+     - body                        : bg rgb(21,23,28), Roboto fallback
+   sboxmarket support form was built on the legacy wallet/buyorder kit:
+   .buyorder-form  → 1px var(--line) border + var(--bg-1) chip-flat panel
+                     (csfloat dialog surface = solid rgb(27,29,36),
+                     12px radius, no border, Material 5 elevation)
+   .wallet-amount-input on subject input + textarea →
+                     transparent + var(--mono) 18px/500 (csfloat input
+                     = Material textfield, opaque rgba(193,206,255,0.04)
+                     pill 44h, Roboto 16/24/0.5px ls, #fff)
+   .wallet-submit.btn.btn-accent →
+                     full-width 38h white-on-black btn-accent (csfloat
+                     primary CTA = brand-blue 40h pill, 30px h-pad,
+                     8px br, 15/700)
+   These overrides scope to .profile-panel > .buyorder-form so they
+   don't bleed into the wallet topup form (which keeps its own mono
+   $9.99 look via separate ship #126142). All overrides APPEND-only,
+   measurement-grounded, !important — no creative redesign.
+   ===================================================================== */
+
+/* ship #19200 — .buyorder-form container chrome inside support tab */
+.profile-panel > .buyorder-form {
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 none !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  gap: 16px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 11px 15px -7px,
+    rgba(0, 0, 0, 0.14) 0px 24px 38px 3px,
+    rgba(0, 0, 0, 0.12) 0px 9px 46px 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19200 */
+
+/* ship #19201 — Subject input (.wallet-amount-input inside support form)
+   csfloat Material textfield: 44h, rgba(193,206,255,0.04) bg,
+   6px radius, 16px L-pad, Roboto 16/24/0.5px ls, no border. */
+.profile-panel > .buyorder-form > input.wallet-amount-input,
+.profile-panel > .buyorder-form > input.wallet-amount-input-v2 {
+  flex: none !important;
+  width: 100% !important;
+  height: 44px !important;
+  padding: 0 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  outline: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.profile-panel > .buyorder-form > input.wallet-amount-input::placeholder,
+.profile-panel > .buyorder-form > input.wallet-amount-input-v2::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.5px !important;
+}
+.profile-panel > .buyorder-form > input.wallet-amount-input:hover,
+.profile-panel > .buyorder-form > input.wallet-amount-input-v2:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+.profile-panel > .buyorder-form > input.wallet-amount-input:focus,
+.profile-panel > .buyorder-form > input.wallet-amount-input-v2:focus {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19201 */
+
+/* ship #19202 — category select inside support form
+   .sort-select root rule already shipped in #45 (height 36, br 6).
+   Inside the support form context the select sits next to 44h inputs,
+   so bump to 44h to match the textfield rhythm — csfloat Material
+   selects (mat-mdc-text-field-wrapper around mat-select on /db
+   advanced-search kit) measure 44h for body-text-rhythm rows, 36h
+   only in tight toolbars. */
+.profile-panel > .buyorder-form > select.sort-select {
+  width: 100% !important;
+  height: 44px !important;
+  padding: 0 38px 0 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19202 */
+
+/* ship #19203 — message textarea (.wallet-amount-input as textarea)
+   csfloat Material textarea (textarea.mat-mdc-input-element on /db
+   advanced-search "filter" multiline) shares the textfield wrapper
+   chrome but wraps content with 12px T-pad. Match: 16px L/R-pad,
+   12px T/B-pad, 6px br, rgba(193,206,255,0.04) bg, line-height 24
+   for crisp row pitch. Resize stays vertical. */
+.profile-panel > .buyorder-form > textarea.wallet-amount-input,
+.profile-panel > .buyorder-form > textarea.wallet-amount-input-v2 {
+  flex: none !important;
+  width: 100% !important;
+  min-height: 120px !important;
+  padding: 12px 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  outline: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  resize: vertical !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.profile-panel > .buyorder-form > textarea.wallet-amount-input::placeholder,
+.profile-panel > .buyorder-form > textarea.wallet-amount-input-v2::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.5px !important;
+}
+.profile-panel > .buyorder-form > textarea.wallet-amount-input:hover,
+.profile-panel > .buyorder-form > textarea.wallet-amount-input-v2:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+.profile-panel > .buyorder-form > textarea.wallet-amount-input:focus,
+.profile-panel > .buyorder-form > textarea.wallet-amount-input-v2:focus {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19203 */
+
+/* ship #19204 — Submit Ticket button (.wallet-submit.btn.btn-accent
+   inside support form). Replaces full-width 38h white-on-black
+   wallet-submit chrome with csfloat primary mat-raised-button:
+   bg rgb(35,123,255), 40h, 30px L/R-pad, 8px br, white, 15/700
+   Roboto, no uppercase, transition box-shadow 0.28s
+   cubic-bezier(0.4,0,0.2,1). Width:auto so the button bottom-aligns
+   with content rather than spanning the row; mat-raised primary
+   CTAs in csfloat dialogs hug their label. */
+.profile-panel > .buyorder-form > button.wallet-submit,
+.profile-panel > .buyorder-form > button.wallet-submit.btn,
+.profile-panel > .buyorder-form > button.wallet-submit.btn.btn-accent {
+  width: auto !important;
+  align-self: flex-start !important;
+  height: 40px !important;
+  padding: 0 30px !important;
+  background-color: rgb(35, 123, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  cursor: pointer !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  filter: none !important;
+  transform: none !important;
+}
+.profile-panel > .buyorder-form > button.wallet-submit:hover:not(:disabled),
+.profile-panel > .buyorder-form > button.wallet-submit.btn:hover:not(:disabled),
+.profile-panel > .buyorder-form > button.wallet-submit.btn.btn-accent:hover:not(:disabled) {
+  background-color: rgb(35, 123, 255) !important;
+  filter: none !important;
+  transform: none !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+    rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+.profile-panel > .buyorder-form > button.wallet-submit:active,
+.profile-panel > .buyorder-form > button.wallet-submit.btn:active,
+.profile-panel > .buyorder-form > button.wallet-submit.btn.btn-accent:active {
+  background-color: rgb(28, 100, 210) !important;
+  transform: none !important;
+}
+.profile-panel > .buyorder-form > button.wallet-submit:focus-visible,
+.profile-panel > .buyorder-form > button.wallet-submit.btn:focus-visible,
+.profile-panel > .buyorder-form > button.wallet-submit.btn.btn-accent:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 3px rgba(35, 123, 255, 0.4),
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+.profile-panel > .buyorder-form > button.wallet-submit:disabled,
+.profile-panel > .buyorder-form > button.wallet-submit.btn:disabled,
+.profile-panel > .buyorder-form > button.wallet-submit.btn.btn-accent:disabled {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19204 */
+
+/* ship #19205 — Contact-Seller inline drawer textarea + Send button
+   (app.js #contact-seller-drawer). Component renders inline-styled
+   <textarea> + cancel/Send buttons inside the dialog div with
+   id="contact-seller-drawer". Inline `style` attrs from JSX win the
+   cascade unless we hit them with !important on the same property.
+   csfloat: same Material textfield surface for the textarea, same
+   primary-blue raised button for the Send CTA. The Cancel ghost
+   button stays as the existing .btn.btn-ghost (already aligned to
+   csfloat material text-button via earlier ships). */
+#contact-seller-drawer {
+  background-color: rgb(27, 29, 36) !important;
+  border: 0 none !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  margin-top: 12px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 5px -1px,
+    rgba(0, 0, 0, 0.14) 0px 6px 10px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 18px 0px !important;
+}
+#contact-seller-drawer > textarea {
+  width: 100% !important;
+  min-height: 120px !important;
+  padding: 12px 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  outline: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  resize: vertical !important;
+  box-shadow: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+#contact-seller-drawer > textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.5px !important;
+}
+#contact-seller-drawer > textarea:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+#contact-seller-drawer > textarea:focus {
+  background-color: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.5) !important;
+}
+#contact-seller-drawer button.btn.btn-primary {
+  height: 40px !important;
+  padding: 0 30px !important;
+  background-color: rgb(35, 123, 255) !important;
+  border: 0 none !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  cursor: pointer !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+#contact-seller-drawer button.btn.btn-primary:hover:not(:disabled) {
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+    rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+#contact-seller-drawer button.btn.btn-primary:disabled {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19205 */
