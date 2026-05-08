@@ -171708,3 +171708,558 @@ body div:has(> button.btn.btn-ghost[title*="Load the next"])::after {
 /* END CSFLOAT-1:1 PARITY ship #126211 */
 
 /* END CSFLOAT-1:1 PARITY ships #126206-#126211 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #22100-#22105 — nav region/currency selector
+   dropdown panel chrome refinements. Re-measured live on csfloat.com via
+   playwright getComputedStyle on `.currency-selector-panel` (Material 2
+   .mat-mdc-select-panel) and individual `.mat-mdc-option` rows after
+   force-opening the panel from a clean session.
+
+   Live csfloat tokens captured (source-of-truth, May 2026):
+     panel:   bg rgba(21,23,28,0.8), border 2px solid rgba(193,206,255,0.07),
+              border-radius 0 0 15px 15px (top corners squared because the
+              panel attaches under the trigger via cdk-overlay-pane:not(
+              .mat-mdc-select-panel-above)), padding 8px 0, max-height 325px,
+              backdrop-filter blur(10px), shadow has THREE layers:
+                0 5px 5px -3px rgba(0,0,0,.2),
+                0 8px 10px 1px rgba(0,0,0,.14),
+                0 3px 14px 2px rgba(0,0,0,.12).
+     row:     48h, padding 0 16px, font 16px/400/lh24/ls0.5 Roboto, color #fff,
+              transparent bg by default; selected row bg color(srgb 1 1 1 / 0.12).
+     trigger: 45×25, transparent, white text, arrow 10×5 SVG colored
+              rgba(255,255,255,0.7); arrow rotates 180° on open with
+              `transform 80ms linear` (Material default mat-form-field-
+              animations-enabled rule).
+
+   Existing sbox ships #2600 + #6505-#6509 cover most of the panel chrome,
+   row spacing, flag/code/name typography, and active-row check icon.
+   Remaining gaps from a fresh diff vs the freshly-measured csfloat:
+     #22100 — third box-shadow layer was missing (ship #2600 only had 2 of 3)
+     #22101 — top corners must be squared (0 0 15px 15px), not all-15
+     #22102 — max-height + scroll behavior was unset; long lists need 325px
+     #22103 — selected/active row bg must be 0.12 not 0.08 (csfloat exact)
+     #22104 — caret transition must be `80ms linear` not `200ms ease`
+     #22105 — flag color full opacity (rgba 1) per csfloat selected-row
+     ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #22100 — restore third box-shadow layer on the
+   nav-picker panel. Ship #2600 dropped the trailing `0 3px 14px 2px
+   rgba(0,0,0,.12)` (likely a copy-paste truncation). Material elevation 2
+   is composed of THREE layers — without the third the panel reads as
+   floating but loses the soft outer ambient halo csfloat has. */
+body .nav-picker-panel {
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22100 */
+
+/* CSFLOAT-1:1 PARITY ship #22101 — square the top corners of the panel
+   so the dropdown reads as visually attached to the trigger above it.
+   csfloat's `.cdk-overlay-pane:not(.mat-mdc-select-panel-above)
+   div.mat-mdc-select-panel { border-top-left-radius: 0; border-top-
+   right-radius: 0; }` produces this seam. Ship #2600 set 15px on all four
+   corners which leaves a small visual gap above the rounded top edges.
+   Bottom-only radius mirrors csfloat exactly. */
+body .nav-picker-panel {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 15px !important;
+  border-bottom-right-radius: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22101 */
+
+/* CSFLOAT-1:1 PARITY ship #22102 — max-height + overflow scroll on the
+   panel. csfloat's `div.mat-mdc-select-panel.currency-selector-panel
+   { max-height: 325px; }` caps the panel at exactly 325px and scrolls
+   overflow internally — sbox panel had no max-height so a 7-currency
+   list rendered fine but anything longer would extend past the viewport
+   without scrolling. Lock to 325px + auto overflow so we match the
+   visual height csfloat ships even if we add more currencies. */
+body .nav-picker-panel {
+  max-height: 325px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22102 */
+
+/* CSFLOAT-1:1 PARITY ship #22103 — selected/active row background
+   exactly matches csfloat's mat-mdc-option selected layer. Ship #2600
+   set `.nav-picker-row.active { background: rgba(255,255,255,0.12) }`
+   correctly but ship #2600's hover rule used 0.08; csfloat's hover
+   state-layer at default density resolves to ~0.04 (much subtler) and
+   the SELECTED row sits at 0.12 with a brand-tinted ::after pseudo
+   border in some themes. Lock both states to the measured values:
+   hover 0.04, active 0.12. */
+body .nav-picker-panel .nav-picker-row:hover:not(.soon):not(.active) {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+body .nav-picker-panel .nav-picker-row.active,
+body .nav-picker-panel .nav-picker-row[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22103 */
+
+/* CSFLOAT-1:1 PARITY ship #22104 — caret arrow transition. csfloat's
+   `.mat-form-field-animations-enabled .mat-mdc-select-arrow { transition:
+   transform 80ms linear; }` rotates the dropdown arrow with a fast 80ms
+   linear curve when the panel opens. sbox `.nav-picker-caret` was at
+   `transition: transform 200ms ease` — too slow + non-linear. Lock to
+   csfloat's measured 80ms linear so the snap matches Material 2 timing
+   the rest of the dropdown chrome already ships. */
+body nav.nav .nav-picker-chip .nav-picker-caret {
+  transition: transform 80ms linear !important;
+}
+body nav.nav .nav-picker.open .nav-picker-caret {
+  transform: rotate(180deg) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22104 */
+
+/* CSFLOAT-1:1 PARITY ship #22105 — flag column full-opacity color. Ship
+   #6506 set `.nav-picker-flag { color: rgba(255,255,255,0.92) }` and ship
+   #7509 (`body .nav-picker-panel .nav-picker-row .nav-picker-flag`,
+   specificity 0,3,2) reapplied the same 0.92 alpha for the language
+   picker flags — but csfloat's option-row primary text content (which
+   includes the symbol) computes to flat `rgb(255,255,255)` at full
+   opacity (no alpha). The 0.92 alpha softens the flag column ~8% vs the
+   rest of the row, creating a faint mismatch. Use a doubled-class
+   selector (specificity 0,4,2) so this ship overrides BOTH #6506 and
+   #7509 regardless of source order. */
+body .nav-picker-panel .nav-picker-row .nav-picker-flag.nav-picker-flag {
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22105 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #21813-#21815 — TOAST .ok / .success / unkinded
+   killer override. The prior ship #11000 (design.css:153465-153468) uses
+   the selector `body .sale-toast:not(.err):not(.warn):not(.error)
+   :not(.warning):not(.info):not(.purchase):not(.listing):not(.live)
+   :not(.bid):not(.outbid)` which has specificity (0,12,1) — every
+   :not() pseudo-class adds class-level specificity. That selector
+   matches both default `.sale-toast` AND any `.sale-toast.ok` /
+   `.sale-toast.success`, locking those variants to the green sbox
+   embellishment. My ship #21809's `body .sale-toast.sale-toast.ok` at
+   (0,3,1) loses on specificity even with !important. Re-assert the
+   csfloat panel-info token (rgba(27,29,36,0.8)) for kind=ok and the
+   Material default rgb(66,66,66) for kind=success at (0,15,1) by
+   chaining 13 redundant `:not(.csfloat-toast-never-N)` after the kind
+   class so cascade specificity outpaces the prior ship #11000 chain.
+   The `.csfloat-toast-never-N` classes are guaranteed-no-match dummy
+   classes that still count toward specificity.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #21813 — kind=ok (panel info). Maps sbox
+   kind=ok (most-used neutral confirmation like "Copied to clipboard")
+   to csfloat panel-info chrome (rgba(27,29,36,0.8) + br 6 + blur 32).
+   Also drops the rail. Specificity: body=1elem + 14 classes (.sale-
+   toast x2 + .ok + 11 :not classes) + 0 ids = (0,14,1) > (0,12,1)
+   prior. */
+body .sale-toast.sale-toast.ok:not(.csfloat-toast-never-1):not(.csfloat-toast-never-2):not(.csfloat-toast-never-3):not(.csfloat-toast-never-4):not(.csfloat-toast-never-5):not(.csfloat-toast-never-6):not(.csfloat-toast-never-7):not(.csfloat-toast-never-8):not(.csfloat-toast-never-9):not(.csfloat-toast-never-10):not(.csfloat-toast-never-11) {
+  background: rgba(27, 29, 36, 0.8) !important;
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  border-radius: 6px !important;
+  border-left: 0 !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21813 */
+
+/* CSFLOAT-1:1 PARITY ship #21814 — kind=success (Material default
+   rgb(66,66,66) per csfloat dark-theme.css which ships no
+   .snackbar-success token). Same 11-:not() outpace pattern. */
+body .sale-toast.sale-toast.success:not(.csfloat-toast-never-1):not(.csfloat-toast-never-2):not(.csfloat-toast-never-3):not(.csfloat-toast-never-4):not(.csfloat-toast-never-5):not(.csfloat-toast-never-6):not(.csfloat-toast-never-7):not(.csfloat-toast-never-8):not(.csfloat-toast-never-9):not(.csfloat-toast-never-10):not(.csfloat-toast-never-11) {
+  background: rgb(66, 66, 66) !important;
+  background-color: rgb(66, 66, 66) !important;
+  border-radius: 4px !important;
+  border-left: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21814 */
+
+/* CSFLOAT-1:1 PARITY ship #21815 — default `.sale-toast` (no kind class)
+   which the prior ship #11000 :not()-chain selector also matches. Map
+   to csfloat panel-info chrome since the sboxmarket React renderer
+   in app.js:9019-9022 always assigns one of `''` (kind=ok shows neutral
+   confirmation), `err`, or `warn` — the unkinded path is treated as
+   the neutral panel-info per csfloat. Use the same outpace pattern but
+   with EXACT :not() chain matching the prior ship #11000 plus four
+   extra exclusions to bump specificity. */
+body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.info):not(.purchase):not(.listing):not(.live):not(.bid):not(.outbid):not(.success):not(.snackbar-error):not(.snackbar-warning):not(.csfloat-toast-never-1):not(.csfloat-toast-never-2):not(.csfloat-toast-never-3) {
+  background: rgba(27, 29, 36, 0.8) !important;
+  background-color: rgba(27, 29, 36, 0.8) !important;
+  border-radius: 6px !important;
+  border-left: 0 !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21815 */
+
+/* CSFLOAT-1:1 PARITY ship #126206 (trade-progress-stepper idle dot —
+   align IDLE step circle to MEASURED Material tokens from csfloat
+   --mat-stepper-header-icon-background-color rgba(255,255,255,.7) and
+   --mat-stepper-header-icon-foreground-color #ffffff. Sboxmarket prior
+   ship #9701 painted the idle dot rgba(255,255,255,.12) with text at
+   rgba(255,255,255,.6) — both wrong against csfloat high-contrast
+   neutral chip. Bump idle to .7 alpha bg and pure-white numeral.
+   Measured: csfloat bg=rgba(255,255,255,.7), fg=#ffffff. Sbox was
+   bg=rgba(255,255,255,.12), fg=rgba(255,255,255,.6). Net: idle steps
+   read as legible numbered chips instead of ghost dots. */
+.trade-progress-stepper .trade-phase .trade-phase-dot {
+  background: rgba(255, 255, 255, 0.7) !important;
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  color: #ffffff !important;
+}
+/* Anchor dots (Seller / Buyer) sit one tier quieter than the numbered
+   nodes — half the alpha, same neutral foreground — so they read as
+   role markers rather than completed steps. Csfloat uses a softer fill
+   for non-numbered anchors; we approximate with .35 alpha. */
+.trade-progress-stepper .trade-phase.anchor .trade-phase-dot {
+  background: rgba(255, 255, 255, 0.35) !important;
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126206 */
+
+/* CSFLOAT-1:1 PARITY ship #126207 (trade-progress-stepper completed +
+   current dot — re-align to csfloat MEASURED Material brand tokens:
+   --mat-stepper-header-selected-state-icon-background-color #237bff,
+   --mat-stepper-header-done-state-icon-background-color #237bff,
+   selected fg #ffffff. Prior ship #9702 already used rgb(35,123,255)
+   = #237bff, but expressed it as rgb() — switch to hex form so future
+   audits diff cleanly against csfloat hex-only token set. Also lock
+   font-weight to 500 (Material default) and unify line-height to the
+   24px-tall icon box. Measured: csfloat #237bff/#fff; sbox effectively
+   matched the rgb but was ambiguous on weight. */
+.trade-progress-stepper .trade-phase.on:not(.anchor):not(.current) .trade-phase-dot {
+  background: #237bff !important;
+  background-color: #237bff !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+}
+.trade-progress-stepper .trade-phase.current:not(.anchor) .trade-phase-dot {
+  background: #237bff !important;
+  background-color: #237bff !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.22) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126207 */
+
+/* CSFLOAT-1:1 PARITY ship #126208 (trade-progress-stepper failed/disputed/
+   cancelled dot — switch error red from Material legacy rgb(244,67,54)
+   to csfloat --mat-stepper-header-error-state-icon-foreground-color
+   = #eb4b4b, the canonical csfloat danger red used across CS:GO/CS2 UI.
+   Measured: csfloat #eb4b4b; sbox was rgb(244,67,54) (Material 500). The
+   diff is a perceptible ~8pt hue shift — csfloat sits warmer/saltier. */
+.trade-progress-stepper .trade-phase.failed .trade-phase-dot,
+.trade-progress-stepper .trade-phase.disputed .trade-phase-dot,
+.trade-progress-stepper .trade-phase.cancelled .trade-phase-dot {
+  background: #eb4b4b !important;
+  background-color: #eb4b4b !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+.trade-progress-stepper .trade-phase.failed .trade-phase-bar,
+.trade-progress-stepper .trade-phase.disputed .trade-phase-bar,
+.trade-progress-stepper .trade-phase.cancelled .trade-phase-bar {
+  background: #eb4b4b !important;
+  background-color: #eb4b4b !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126208 */
+
+/* CSFLOAT-1:1 PARITY ship #126209 (trade-progress-stepper label typography
+   — match csfloat MEASURED --mat-stepper-header-label-text-size 14px /
+   --mat-stepper-header-label-text-weight 400 /
+   --mat-stepper-header-label-text-color rgba(255,255,255,.7). Prior
+   ship #9704 capped the label at 12px / weight 400 / color
+   rgba(255,255,255,.6). The 2px size bump and .1 alpha bump bring the
+   labels in line with csfloat actual mat-step-label render. */
+.trade-progress-stepper .trade-phase .trade-phase-label {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+/* Selected/completed label — csfloat
+   --mat-stepper-header-selected-state-label-text-size 16px /
+   --mat-stepper-header-selected-state-label-text-color white. Sbox
+   prior ship #9704 fixed at 12px/.87 alpha/weight 500. Bump to 16px,
+   weight 400, full-white. */
+.trade-progress-stepper .trade-phase.on:not(.current) .trade-phase-label,
+.trade-progress-stepper .trade-phase.current .trade-phase-label {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: #ffffff !important;
+}
+/* Failed/disputed/cancelled label — switch from Material rgb(244,67,54)
+   to csfloat #eb4b4b. */
+.trade-progress-stepper .trade-phase.failed .trade-phase-label,
+.trade-progress-stepper .trade-phase.disputed .trade-phase-label,
+.trade-progress-stepper .trade-phase.cancelled .trade-phase-label {
+  color: #eb4b4b !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126209 */
+
+/* CSFLOAT-1:1 PARITY ship #126210 (trade-progress-stepper container
+   height — match csfloat MEASURED --mat-stepper-header-height 72px.
+   Prior ship #9700 used padding 24px 8px 44px which left the rail
+   ~64px-92px tall depending on label content. Pin the dots row to a
+   fixed 72px header zone (24px dots + 12px gap + 20px label + 16px tail
+   breathing room) so the stepper occupies a consistent vertical slot
+   regardless of label length, matching csfloat Material baseline. */
+.trade-progress-stepper,
+.trade-progress-stepper.six-node {
+  min-height: 72px !important;
+  padding: 12px 8px 32px !important;
+  align-items: center !important;
+}
+.trade-progress-stepper .trade-phase {
+  min-height: 48px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126210 */
+
+/* CSFLOAT-1:1 PARITY ship #126211 (trade-progress.terminal chip —
+   the DISPUTED / CANCELLED replacement that drops the stepper to a
+   single status chip. modals.js:6883 renders a .trade-progress.terminal
+   .disputed or .trade-progress.terminal .cancelled div with a single
+   text span. There was no measured-against-csfloat chrome on this
+   surface — the rendered chip inherited generic .trade-progress
+   panel chrome that does not exist post-#9700. Establish the terminal
+   chip as a pill matching csfloat mat-chip default-disabled chrome:
+   72px header zone, transparent neutral fill with hairline border for
+   cancelled, error-tinted fill for disputed. */
+.trade-progress.terminal {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-height: 72px !important;
+  padding: 16px 20px !important;
+  margin: 0 0 16px 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.trade-progress.terminal.disputed {
+  background: rgba(235, 75, 75, 0.08) !important;
+  background-color: rgba(235, 75, 75, 0.08) !important;
+  border: 1px solid rgba(235, 75, 75, 0.32) !important;
+  color: #eb4b4b !important;
+}
+.trade-progress.terminal.cancelled {
+  background: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.trade-progress.terminal > span {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  color: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126211 */
+
+/* CSFLOAT-1:1 PARITY ship #126212 (trade-progress-stepper transition —
+   match csfloat Material standard motion curve cubic-bezier(0.4, 0, 0.2,
+   1) at 200ms for state transitions on dot bg/color/box-shadow AND on
+   connector bar bg. Prior ship #9701 used 0.18s ease for the dot
+   only — out of family with csfloat Material standard. Also extend
+   the bar transition so the rail "fills" smoothly when a step lands.
+   Measured: csfloat uses Material standard motion (0.4,0,0.2,1) at
+   200ms across stepper transitions; sbox used 0.18s ease (the legacy
+   Material 1 curve). */
+.trade-progress-stepper .trade-phase .trade-phase-dot {
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.trade-progress-stepper .trade-phase .trade-phase-bar {
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.trade-progress.terminal {
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126212 */
+
+/* CSFLOAT-1:1 PARITY ship #126300 — /cart line-item .cart-thumb thumbnail
+   geometry. Lane-spec: csfloat cart preview thumb 60x45 with 4-6px radius
+   (Material card preview frame). Sbox prior #203 had 64x64 / 4px which
+   over-occupied the row column. Trim to 60x45 (4:3 aspect that matches
+   csfloat's tile crop) and bump radius to 6px to soft-corner against the
+   16px V padding. Also force the 60px column width on the row's grid
+   template so the thumbnail column is honoured at all viewports. */
+body .cart-row > .cart-thumb,
+body .cart-list .cart-row > .cart-thumb,
+body .cart-grid .cart-list .cart-row > .cart-thumb {
+  width: 60px !important;
+  height: 45px !important;
+  border-radius: 6px !important;
+  background: rgb(28, 31, 38) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  flex: 0 0 60px !important;
+}
+body .cart-row > .cart-thumb img,
+body .cart-list .cart-row > .cart-thumb img,
+body .cart-grid .cart-list .cart-row > .cart-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  padding: 4px !important;
+  box-sizing: border-box !important;
+}
+body .cart-row {
+  grid-template-columns: 60px 1fr auto auto auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126300 */
+
+/* CSFLOAT-1:1 PARITY ship #126301 — /cart .cart-id seller/listing typography
+   split. Lane-spec: condition row 12/400 ink-2 rgb(158,167,177); seller row
+   11/400 ink-3 rgb(118,127,137 — matches Material grey-500 bridge). Sbox
+   markup puts both fragments inside one .cart-id (Listing #N · by Seller).
+   Force .cart-id base = 12/400 ink-2 (the "Listing #" / "·" / "by " plain
+   text), then target the inner <a> seller-link and the non-link span
+   (system listings) to render at 11/400 ink-3 with no underline (csfloat
+   styles seller as a quiet attribution, not a CTA — color comes from
+   weight not chroma). */
+body .cart-row .cart-id,
+body .cart-list .cart-row .cart-id {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 16px !important;
+  letter-spacing: 0 !important;
+  display: flex !important;
+  align-items: baseline !important;
+  flex-wrap: wrap !important;
+  gap: 0 !important;
+}
+body .cart-row .cart-id > span,
+body .cart-list .cart-row .cart-id > span {
+  font-size: 11px !important;
+  color: rgb(118, 127, 137) !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+}
+body .cart-row .cart-id > span > a,
+body .cart-list .cart-row .cart-id > span > a {
+  font-size: 11px !important;
+  color: rgb(118, 127, 137) !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .cart-row .cart-id > span > a:hover,
+body .cart-list .cart-row .cart-id > span > a:hover {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+}
+body .cart-row .cart-id > span > span,
+body .cart-list .cart-row .cart-id > span > span {
+  font-size: 11px !important;
+  color: rgb(118, 127, 137) !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126301 */
+
+/* CSFLOAT-1:1 PARITY ship #126302 — /cart .cart-price tabular-nums + right
+   alignment reinforcement. Lane-spec: price column right-aligned with
+   tabular-nums so the dollar amounts line up visually across stacked
+   rows. Sbox prior #203 set font-variant-numeric: tabular-nums but did
+   not lock text-align/justify-self for the price grid cell, so on narrow
+   columns the digits could left-align. Force right alignment + tabular
+   nums + Roboto digits with 'tnum' OpenType feature (csfloat uses Roboto
+   with 'tnum', not Roboto Mono, for cart prices). */
+body .cart-row > .cart-price,
+body .cart-list .cart-row > .cart-price {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 20px !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  text-align: right !important;
+  justify-self: end !important;
+  white-space: nowrap !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126302 */
+
+/* CSFLOAT-1:1 PARITY ship #126303 — /cart .cart-row min-height 52px
+   baseline. Lane-spec: Material mat-mdc-list-item with thumbnail uses
+   52px min-height per Material List spec (--mdc-list-list-item-with-
+   leading-image-leading-element-height = 56px, container min 52px).
+   Sbox row currently sized by content; with 60x45 thumb + 16px V pad
+   (#126300 + #203) the row is naturally ~77px which is correct for a
+   2-line title+meta layout. Lock min-height to prevent collapse when
+   condition/seller meta is absent (system listings) and pin centre
+   alignment so the image sits midline against the meta block. */
+body .cart-row,
+body .cart-list .cart-row,
+body .cart-grid .cart-list .cart-row {
+  min-height: 77px !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126303 */
+
+/* CSFLOAT-1:1 PARITY ship #126304 — /cart remove-X icon-button hover
+   transition timing. Lane-spec: standard csfloat cubic-bezier(0.4,0,
+   0.2,1) at 150-300ms across all interactive transitions. Sbox prior
+   #9601 used 140ms ease which (a) is faster than csfloat's snap and
+   (b) uses the wrong easing curve. Replace with the canonical 200ms
+   cubic-bezier(0.4,0,0.2,1) on the last-of-type btn-ghost (remove X)
+   for color/border/background/transform together, so the hover wash
+   eases in with the same cadence as the rest of the row. */
+body .cart-row > button.btn-ghost:last-of-type,
+body .cart-list .cart-row > button.btn-ghost:last-of-type {
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126304 */
+
+/* CSFLOAT-1:1 PARITY ship #126305 — /cart .cart-row container transition.
+   Lane-spec: csfloat row hover bg fade uses standard cubic-bezier(0.4,
+   0,0.2,1) at 200ms. Sbox prior #203 set background 150ms with same
+   easing — bump to 200ms to match csfloat's mat-mdc-list-item state-
+   layer easing exactly, and add box-shadow/border-color to the trans-
+   ition list so the focus-visible ring eases in matched. */
+body .cart-row,
+body .cart-list .cart-row {
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126305 */
