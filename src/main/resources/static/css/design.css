@@ -162762,3 +162762,142 @@ html body .auction-details .mdc-linear-progress__bar-inner {
   border-color: rgb(35, 123, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #16514 */
+
+/* CSFLOAT-1:1 PARITY ship #16515 (wallet tx-history — .wallet-tx-list container chrome rebased to csfloat material panel — measured: csfloat .mat-mdc-table sits on a panel surface bg rgb(27,29,36) with 10px radius corners (proven by .mat-mdc-header-cell:first-of-type having border-radius:10px 0 0 10px). The list itself is the panel; rows hairline-divide internally. sbox was: bare flex column with no panel chrome, so the tx history floated against the page bg with no enclosing rounded surface. Snap to csfloat: panel bg + 10px radius + overflow:hidden so the first/last row corners follow the panel) */
+.wallet-tx-list {
+  background: rgb(27, 29, 36) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16515 */
+
+/* CSFLOAT-1:1 PARITY ship #16516 (wallet tx-history — .wallet-tx hairline divider rebased to csfloat-canonical rgba(193,206,255,0.04) — measured: csfloat .mat-mdc-cell uses border-bottom:1px solid rgba(193,206,255,0.04) (the exact hairline used everywhere in csfloat material tables). sbox was: rgba(255,255,255,0.06) which is slightly cooler/brighter — a 50% intensity mismatch against csfloat's blue-tinted hairline. Snap row hairline to csfloat-exact rgba(193,206,255,0.04)) */
+.wallet-tx {
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+}
+.wallet-tx:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16516 */
+
+/* CSFLOAT-1:1 PARITY ship #16517 (wallet tx-history — .wallet-tx-amt tabular-nums + mono alignment rebased to csfloat exact — measured: csfloat .mat-mdc-cell holding numeric content uses font-feature-settings:"tnum" with letter-spacing:0.25px font-size:14px font-weight:500. The mono family is "Roboto Mono" but display fonts inherit Roboto with tnum on for column alignment. sbox was: Roboto Mono with no tnum hint and inconsistent ls. Lock to csfloat: tnum feature on, ls 0.25px, fw 500, fs 14px, line-height 20px, right-aligned with explicit text-align so the +/- prefix doesn't drift) */
+.wallet-tx-amt {
+  font-family: "Roboto Mono", monospace !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+.wallet-tx-amt.in {
+  color: rgb(101, 168, 72) !important;
+}
+.wallet-tx-amt.out {
+  color: rgb(196, 49, 49) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16517 */
+
+/* CSFLOAT-1:1 PARITY ship #16518 (wallet tx-history — .wallet-tx-status status pill rebased to csfloat MD chip — measured: csfloat status chips render as 11px/600 uppercase labels with 0.5px letter-spacing inside a 1px-bordered pill: bg panel-2 (rgb(27,29,36)) tinted +6% per state, border 1px hairline rgba(193,206,255,0.08), border-radius 999px, padding 3px 10px. Color-coded: COMPLETED=green rgb(101,168,72), PENDING=amber rgb(255,167,38), FAILED/CANCELLED=red rgb(196,49,49). sbox was: bare 10px font-weight:700 text with no pill chrome — read like raw debug output. Snap to csfloat MD chip spec) */
+.wallet-tx-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 3px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 14px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(193, 206, 255, 0.08) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  white-space: nowrap !important;
+}
+.wallet-tx-status.COMPLETED {
+  color: rgb(101, 168, 72) !important;
+  border-color: rgba(101, 168, 72, 0.32) !important;
+  background: rgba(101, 168, 72, 0.08) !important;
+}
+.wallet-tx-status.PENDING {
+  color: rgb(255, 167, 38) !important;
+  border-color: rgba(255, 167, 38, 0.32) !important;
+  background: rgba(255, 167, 38, 0.08) !important;
+}
+.wallet-tx-status.FAILED,
+.wallet-tx-status.CANCELLED,
+.wallet-tx-status.REJECTED {
+  color: rgb(196, 49, 49) !important;
+  border-color: rgba(196, 49, 49, 0.32) !important;
+  background: rgba(196, 49, 49, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16518 */
+
+/* CSFLOAT-1:1 PARITY ship #16519 (wallet tx-history — ProfileTransactionsTab .db-table fallback header rebased to csfloat .mat-mdc-header-cell — measured: csfloat header cells render bg rgba(193,206,255,0.04) color rgb(158,167,177) font 14/500 line-height:22px letter-spacing:0.42px padding:0 16px height 42px with the FIRST cell having border-radius:10px 0 0 10px and last cell 0 10px 10px 0 to give the header strip rounded ends. sbox was: db-table headers used a hot bg + plain bottom border with no rounded ends — visually disconnected from csfloat's pill-ended header strip. Lock to csfloat material exact) */
+.db-table thead th {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 22px !important;
+  letter-spacing: 0.42px !important;
+  padding: 0 16px !important;
+  height: 42px !important;
+  text-transform: none !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0) !important;
+  border-top: 0 !important;
+}
+.db-table thead th:first-child {
+  border-radius: 10px 0 0 10px !important;
+}
+.db-table thead th:last-child {
+  border-radius: 0 10px 10px 0 !important;
+}
+.db-table tbody td {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  padding: 0 16px !important;
+  height: 52px !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  vertical-align: middle !important;
+}
+.db-table tbody tr:hover td {
+  background: rgba(193, 206, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16519 */
+
+/* CSFLOAT-1:1 PARITY ship #16520 (wallet tx-history — .wallet-tx-empty empty-state typography rebased to csfloat secondary text spec — measured: csfloat empty-state body copy renders 14px/400 line-height:20px color rgb(158,167,177) (the canonical ink-2 / secondary text token) with padding 48px vertical and centered text. sbox was: 13px with var(--ink-4) which is too dim and undersized vs csfloat. Snap to csfloat exact secondary-text token + canonical 48px vertical padding) */
+.wallet-tx-empty {
+  padding: 48px 20px !important;
+  text-align: center !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16520 */
+
+/* CSFLOAT-1:1 PARITY ship #16521 (wallet tx-history — .wallet-tx-right column gap & alignment rebased to csfloat — measured: csfloat tx rows put the amount + status pill in a right-aligned column with a 6px vertical gap, and inside that column the amount text-aligns right + the status pill self-aligns flex-end. The pill should NOT stretch — flex-end on the parent prevents it ballooning to column width. transition for the row hover uses cubic-bezier(0.4,0,0.2,1) at 250ms — the canonical Material standard easing. sbox was: gap was 3px (too tight) and the row transition lacked the proper Material easing curve. Lock to csfloat exact) */
+.wallet-tx-right {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+.wallet-tx-right > * {
+  align-self: flex-end !important;
+}
+.wallet-tx {
+  transition: background 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16521 */
