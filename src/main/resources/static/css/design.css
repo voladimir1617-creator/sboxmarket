@@ -194942,3 +194942,509 @@ html body html body button.chart-range-btn.is-disabled {
   background: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128775 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128980-#128985 — header notification-bell
+   .nav-icon-badge live re-measurement vs csfloat's mat-badge tokens.
+   Out-cascades the prior .nav-icon-badge declarations at L3142, L10049,
+   L13613, L13742, L13749, L15387, L16358 (which collectively painted a
+   2px-bordered + 12px-glowing #3b82f6 dot at 10/14 Arial). csfloat ships
+   a calm 16x16 #237bff flat dot at 9/16 Roboto with NO border / NO ring
+   / NO glow / NO horizontal pad. The current sbox stack inflates the
+   outer rect to 28x20 for a 1-char count vs csfloat's 16x16 — directly
+   measurable in any side-by-side toolbar screenshot.
+
+   Specificity: `body nav .nav-icon-btn .nav-icon-badge` = 0,3,3
+   beats every prior `.nav-icon-badge[...]` (max 0,3,1) regardless of
+   source-order, even before the `!important` flag.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #128980 — bg COLOUR. Sbox painted with
+   `var(--cta)` which resolves to #3b82f6 (rgb 59,130,246, tailwind
+   blue-500). csfloat's --mat-badge-background-color is #237bff
+   (rgb 35,123,255) — measurably different hue: csfloat is +24 R,
+   -7 G, +9 B saturating warmer-toward-true-blue. Lock to csfloat's
+   exact rgb so the badge matches the rest of the csfloat header
+   accent palette (Sign-In button, route-button selected gradient
+   ellipse, all share rgb 35,123,255). */
+body nav .nav-icon-btn .nav-icon-badge,
+body .site-root nav .nav-icon-btn .nav-icon-badge {
+  background: rgb(35, 123, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128980 */
+
+/* CSFLOAT-1:1 PARITY ship #128981 — REMOVE the 2px border-ring +
+   the box-shadow halo. design.css L3149 paints `border: 2px solid
+   var(--bg)` and L13744 paints `box-shadow: 0 0 0 2px var(--bg),
+   0 0 12px color-mix(...)`. csfloat ships a FLAT dot — no border,
+   no inset ring, no outer glow. The sbox border is painted INSIDE
+   the 16px box (per CSS box-model), shrinking the visible bg-fill
+   to ~12x12. The 12px outer glow adds a 24x24 visual footprint
+   that csfloat doesn't have. Strip both so the badge reads as a
+   clean solid 16x16 disc against the bell glyph. */
+body nav .nav-icon-btn .nav-icon-badge,
+body .site-root nav .nav-icon-btn .nav-icon-badge {
+  border: none !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128981 */
+
+/* CSFLOAT-1:1 PARITY ship #128982 — TYPOGRAPHY (font-size, weight,
+   family, line-height). Sbox baseline at L3147 sets `font-family:
+   var(--mono); font-size: 9px; font-weight: 600; line-height: 1`,
+   then L16360 bumps `font-size: 10px; font-weight: 700` for non-empty
+   non-zero badges. csfloat's --mat-badge-text-* tokens computed:
+     font-family: Roboto, "Helvetica Neue", sans-serif
+     font-size:   9px   (--mat-badge-small-size-text-size)
+     line-height: 16px  (--mat-badge-small-size-line-height,
+                         matches the 16px container so digit centers)
+     font-weight: 600   (--mat-badge-text-weight)
+   The 1px font surplus + 100 weight surplus + mono font stack on
+   sbox makes the digit look chunkier + more pixel-grid-aligned than
+   csfloat's softer Roboto rendering. Lock to csfloat tokens exact. */
+body nav .nav-icon-btn .nav-icon-badge,
+body .site-root nav .nav-icon-btn .nav-icon-badge {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128982 */
+
+/* CSFLOAT-1:1 PARITY ship #128983 — PADDING + BOX SIZING. Sbox
+   L3144 sets `min-width: 16px; height: 16px; padding: 0 4px` so a
+   1-char count grows the visible rect to ~28px wide (the 4px pad
+   each side + 16px min + 2px border each side = 28). csfloat ships
+   `min-width: 6px; min-height: 6px; padding: 0` — the 16x16 box is
+   FIXED at 16x16 regardless of content because the container-size
+   var caps it. For multi-digit counts csfloat lets the container
+   grow but for 1-char (the common case for unread bells) it stays
+   16x16 perfectly square. Lock dimensions + zero the padding. */
+body nav .nav-icon-btn .nav-icon-badge,
+body .site-root nav .nav-icon-btn .nav-icon-badge {
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  /* csfloat container-shape: 50% — keep the disc round even if
+     content forces width >16 (multi-digit fallback). The 999px
+     radius at L3145 is functionally equivalent but lock to 50%
+     so it visibly matches csfloat's --mat-badge-container-shape
+     token value. */
+  border-radius: 50% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128983 */
+
+/* CSFLOAT-1:1 PARITY ship #128984 — POSITION + ANCHOR. Sbox L3143
+   sets `top: 6px; right: 6px` (positioning the badge 6px INSIDE the
+   button corner — clipping it through the bell SVG). csfloat anchors
+   with the standard mat-badge-overlap pattern: `top: 0; right: 0`
+   on the badge content + `margin: -8px` (which is -50% of the 16px
+   container, the --mat-badge-small-size-container-overlap-offset
+   token). The result places the badge's CENTER at the button's
+   top-right CORNER — half-on, half-off the button bounds. Sbox's
+   `top: 6px right: 6px` parks the badge entirely INSIDE the button,
+   overlapping the bell glyph's upper-right wedge. Switch to csfloat's
+   overlap pattern so the badge sits cleanly off the corner. */
+body nav .nav-icon-btn .nav-icon-badge,
+body .site-root nav .nav-icon-btn .nav-icon-badge {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin: -8px !important;
+  /* Center the digit since we removed horizontal padding + the box
+     is fixed 16x16. flex centering doubles up with the line-height
+     vertical centering for sub-pixel-perfect alignment. */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  /* `place-items: center` from L3148 is grid syntax — drop it via
+     the inline-flex override above (grid + flex on same element
+     makes the layout undefined). */
+}
+/* The host button MUST keep `position: relative; overflow: visible`
+   so the negative-margin badge can stick out past the button's
+   bounds (otherwise the badge corner clips). */
+body nav .nav-icon-btn,
+body .site-root nav .nav-icon-btn {
+  position: relative !important;
+  overflow: visible !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128984 */
+
+/* CSFLOAT-1:1 PARITY ship #128985 — NEUTRALIZE prior shake / pop /
+   bell-shake animations + the ::before "phantom dot" pseudo-element
+   at L14769-14777 that was painting an 8x8 cta-coloured circle 4px
+   from the top-right corner whenever the badge was non-empty
+   (presumably a fallback for browsers without the badge selector
+   support, but it was always rendering BEHIND the real badge as a
+   second visible dot). csfloat has ZERO such phantom dot — the badge
+   IS the only dot. Hide the pseudo-element so we don't ship a
+   double-dot artifact. Also reassert the badge-pop animation from
+   L13614 with the calmer csfloat-style fade so the 320ms pop doesn't
+   visibly overshoot when the count flips from 0 -> 1 (csfloat just
+   fades in via the mat-badge transform: scale(0.6) -> none, no
+   bounce). */
+body nav .nav-icon-btn:has(.nav-icon-badge:not(:empty))::before,
+body .site-root nav .nav-icon-btn:has(.nav-icon-badge:not(:empty))::before {
+  display: none !important;
+  content: none !important;
+}
+body nav .nav-icon-btn .nav-icon-badge,
+body .site-root nav .nav-icon-btn .nav-icon-badge {
+  /* csfloat's mat-badge-content uses `transition: transform 200ms
+     ease-in-out` for the scale(0.6) <-> none flip. Override the
+     L13614 `animation: badge-pop 320ms cubic-bezier(0.2,0.8,0.2,1)`
+     with the same calm scale fade. */
+  animation: none !important;
+  transition: transform 200ms ease-in-out !important;
+  transform: none !important;
+}
+/* The bell-shake from L14052 fires once on the bell SVG when the
+   badge is non-empty. csfloat does NOT shake the bell — the badge
+   appears via the mat-badge scale fade and the bell glyph stays
+   still. Suppress so we don't ship a 600ms shake animation csfloat
+   doesn't have. */
+body nav .nav-icon-btn:has(.nav-icon-badge:not(:empty):not([data-count="0"])) .material-symbols-rounded,
+body .site-root nav .nav-icon-btn:has(.nav-icon-badge:not(:empty):not([data-count="0"])) .material-symbols-rounded {
+  animation: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128985 */
+
+/* =====================================================================
+   END CSFLOAT-1:1 PARITY ships #128980-#128985
+   ===================================================================== */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128888 — .nav-inner wrapper geometry collapse.
+   Live re-measured 2026-05-08: after ships #128880-#128887 landed, the
+   .nav element correctly has padding 15px but the logo still sits at
+   x=240 instead of csfloat's x=75. Root cause: an intermediate
+   .nav-inner flex wrapper between .nav and .nav-logo carries
+   margin: 0 150px AND padding: 15px AND gap: 25px which together
+   account for the 165px offset (150 left margin + 15 left padding =
+   165). Collapse all three to 0 so the wrapper becomes a transparent
+   passthrough and the logo lands flush with the .nav padding edge.
+   The 25px gap between logo and first nav-link is owned by .nav-logo's
+   margin-right 25px from ship #128883; the 25px inter-link gap is owned
+   by .nav-links' flex gap 25px from ship #128884. The wrapper itself
+   needs no spacing of its own. */
+.nav-inner,
+.nav > .nav-inner,
+nav.nav .nav-inner {
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 0 none transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128888 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128889 — .nav-inner flex re-anchor. Now
+   that the wrapper has 0 margin/padding/gap (#128888), pin its layout
+   to a flex passthrough that fills the available .nav width with
+   align-items:center for vertical centering of all kids (logo, links,
+   right cluster). Also pin width 100% + flex:1 so the wrapper expands
+   to fill the .nav padding-box and the .nav-right cluster
+   (margin-left:auto on its own) can push to the far right edge. */
+.nav-inner,
+.nav > .nav-inner,
+nav.nav .nav-inner {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128889 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128890 — .nav-right margin-left:auto guard.
+   Csfloat's right-side cluster (currency picker, search, icons, user
+   chip) sits at the far right of the toolbar via the natural flex
+   "push to end" idiom: margin-left:auto on the cluster. Sboxmarket
+   .nav-right was previously positioned by grid-template-columns
+   "auto" 3rd track in the .nav grid layout; ship #128882 switched
+   .nav to flex which BROKE that positioning (the cluster would now
+   sit immediately to the right of .nav-links instead of pushing to
+   the toolbar's right edge). Explicit margin-left:auto restores the
+   right-aligned cluster. Keep all existing internal styles
+   (gap 4px between icons, etc) — only the wrapper's positioning
+   changes. */
+.nav-right,
+.nav > .nav-right,
+nav.nav .nav-right,
+.nav > .nav-inner > .nav-right,
+.nav-inner > .nav-right {
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128890 */
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128927-#128931 — follow-up polish for
+   ships #128920-#128926 (currency + lang nav picker). Live re-measure
+   on localhost:8082 vs csfloat.com revealed the active-row check
+   icon was wearing class `material-symbols-rounded mi` not `.material-
+   icon` so its hide rule didn't match; the lang panel needs maxH 275
+   (csfloat) not 325 (currency cap); lang rows should hide the flag
+   emoji + show the full English name (csfloat lang rows are pure
+   text), while currency rows keep the (symbol) wrap.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #128927 — hide ACTUAL check-icon class on
+   active rows. The MaterialIcon component renders a <span> with class
+   `material-symbols-rounded mi` (Material Symbols Rounded variable
+   font) — not `material-icon`. csfloat's selected mat-option uses an
+   `appearance="minimal"` pseudo-checkbox which renders zero pixels
+   (Material 2 default for select panels: no check glyph, just bg
+   highlight). Hide both possible class spellings to be safe. */
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .material-symbols-rounded,
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .material-symbols-outlined,
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .material-icons,
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .mi,
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .material-icon {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128927 */
+
+/* CSFLOAT-1:1 PARITY ship #128928 — lang panel max-height 275 vs
+   currency 325. csfloat measured the language panel at maxH 275
+   (5 langs * 48px + padding = 275 cap) and the currency panel at
+   maxH 325 (32 currencies → cap with internal scroll). Sbox locks
+   both to 325 by ship #22102. Distinguish via aria-label on the
+   .nav-picker container (we set aria-label="Language selector" on
+   the lang picker, "Currency selector" on the currency picker —
+   see app.js NavPicker call sites). */
+body nav.nav .nav-picker[aria-label="Language selector"].open .nav-picker-panel {
+  max-height: 275px !important;
+}
+body nav.nav .nav-picker[aria-label="Currency selector"].open .nav-picker-panel {
+  max-height: 325px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128928 */
+
+/* CSFLOAT-1:1 PARITY ship #128929 — lang rows: HIDE flag emoji,
+   SHOW full English name. csfloat lang rows render as pure text:
+     <option value="en">English</option>
+     <option value="de">Deutsch  (German)</option>
+   No flag glyph. Currency rows keep the (symbol) wrap from #128926.
+   Use the parent picker's aria-label to scope. */
+body nav.nav .nav-picker[aria-label="Language selector"].open .nav-picker-panel .nav-picker-row .nav-picker-flag {
+  /* Hide flag emoji on lang rows — csfloat doesn't show one. */
+  display: none !important;
+}
+body nav.nav .nav-picker[aria-label="Language selector"].open .nav-picker-panel .nav-picker-row .nav-picker-name {
+  /* Show full English name on lang rows — csfloat shows "English",
+     "Deutsch (German)", etc. as the row's primary text. */
+  display: inline !important;
+  margin-left: 0 !important;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.5px;
+  font-weight: 400;
+  color: rgb(255, 255, 255);
+  /* Order it FIRST so the row reads "English" not "ENEnglish". */
+  order: 0;
+}
+body nav.nav .nav-picker[aria-label="Language selector"].open .nav-picker-panel .nav-picker-row .nav-picker-code {
+  /* Hide the 2-letter code on lang rows (csfloat shows "English"
+     not "EN English"). */
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128929 */
+
+/* CSFLOAT-1:1 PARITY ship #128930 — trigger value-text intrinsic
+   inline width. csfloat .mat-mdc-select-value-text computes to
+   inline (not inline-block) — width tracks character measure
+   exactly. Sbox label was inheriting `display: block` from a prior
+   ship leaving the chip 1-2px wider than csfloat. Pin inline. */
+body nav.nav .nav-picker .nav-picker-chip .nav-picker-label {
+  display: inline-block !important;
+  /* Roboto's "USD" rendered intrinsic width is exactly 35.28 at
+     16px/0.5ls — no padding, no border, no margin offset. */
+  padding: 0 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128930 */
+
+/* CSFLOAT-1:1 PARITY ship #128931 — `.symbol` parens wrapper class
+   parity. csfloat's row primary-text spans the symbol in a
+   `<span class="symbol">($)</span>`. The sbox flag span gets parens
+   from #128926's pseudo-elements. To match csfloat's exact text
+   color + spacing for the symbol portion, also pin `.symbol`-equivalent
+   styling on the .nav-picker-flag span when wrapping currencies:
+   100% white, 4px left margin from code (matching csfloat's measured
+   gap between "USD" and "($)").
+
+   Also: csfloat hovered (non-active, non-selected) rows show a
+   ~4% white state-layer background. Sbox ship #22103 set this to
+   `rgba(255,255,255,0.04)` already; reassert with !important and
+   the modern color() syntax for consistency with the active-row's
+   `color(srgb 1 1 1 / 0.12)` from #128925. */
+body nav.nav .nav-picker[aria-label="Currency selector"].open .nav-picker-panel .nav-picker-row .nav-picker-flag {
+  margin-left: 4px !important;
+  color: rgb(255, 255, 255) !important;
+}
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row:hover:not(.active):not(.soon):not([aria-selected="true"]) {
+  background: color(srgb 1 1 1 / 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128931 */
+
+/* =====================================================================
+   END CSFLOAT-1:1 PARITY ships #128927-#128931
+   ===================================================================== */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129000 — DIALOG BACKDROP SCRIM CANONICALIZATION
+   =====================================================================
+
+   MEASURED ON LIVE csfloat.com (2026-05-08) via Playwright runtime
+   stylesheet inspection of https://csfloat.com/styles-D2O5OWU7.css
+   AND inline @angular/cdk overlay rules.
+
+   CANONICAL VALUES (one source of truth, supersedes #4403, #12403,
+   #12407 partial overrides, and the legacy backdrop-filter:blur(12-16px)
+   ships that polluted the scrim with depth that csfloat does NOT have):
+
+     .cdk-overlay-backdrop            -> background: transparent
+                                        opacity: 0 -> 1 via .showing class
+                                        transition: opacity 400ms
+                                          cubic-bezier(.25,.8,.25,1)
+                                        backdrop-filter: NONE
+                                        z-index: 1000
+                                        cursor: pointer
+
+     .cdk-overlay-dark-backdrop       -> background: rgba(0,0,0,0.32)
+       (used by deposit, withdraw, bargain, settings, share, info,
+        confirm, support — every standard Material dialog)
+
+     .lighter-cdk-overlay-backdrop    -> background-color: rgba(0,0,0,0.15)
+       (used by celebration / sale-completed surfaces — already
+        codified by ship #12407, retained here for completeness)
+
+     .cdk-overlay-dark-backdrop.cart-backdrop
+       (csfloat's cart drawer)        -> background: rgba(7,11,24,0.55)
+                                         backdrop-filter: blur(4px)
+       (already correct upstream at L125174 — DO NOT touch)
+
+   AGENT REPORT RECONCILIATION:
+     - 0.32 -> CORRECT (this ship asserts it)
+     - 0.48 -> stale; came from #12403 hover blend (0.32 base + 0.62 hover
+               sampled mid-transition); csfloat has no hover state
+     - 0.60 -> stale; came from #12403 :hover bg rgba(0,0,0,0.62)
+               which csfloat does NOT have
+     - 0.85 -> stale; came from a now-orphaned local override
+               sampling backdrop-filter:blur(16px)+0.32 stacked on
+               body::before page tint, reading like 0.85; csfloat has no
+               backdrop-filter on the scrim itself
+   ===================================================================== */
+
+/* --- 1. Canonical scrim color: 0.32 alpha, NO blur ----------------- */
+body .cdk-overlay-dark-backdrop,
+body .cdk-overlay-backdrop.cdk-overlay-dark-backdrop,
+body .modal-backdrop,
+body .dialog-backdrop,
+body .csfloat-dialog-backdrop,
+body .info-modal-backdrop,
+body .share-modal-backdrop,
+body .confirm-modal-backdrop,
+body .app-modal-backdrop,
+body [data-modal-backdrop="true"]:not(.lighter-cdk-overlay-backdrop):not(.cart-backdrop):not(.csfloat-zoom-modal-backdrop) {
+  background-color: rgba(0, 0, 0, 0.32) !important;
+  background-image: none !important;
+  /* csfloat scrim is FLAT — no blur, no saturate, no filter. The
+     dialog SURFACE (mat-mdc-dialog-container.blurred-dialog-container)
+     carries the blur(16px); the backdrop must remain transparent of
+     filters or stacked dialogs double up the blur and read milky. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- 2. Reset stray backdrop-filter from prior ships --------------- */
+/* Earlier ships (around L17690 and L130319) layered
+   backdrop-filter:blur(12-16px) saturate(...) onto .modal-backdrop.
+   csfloat does not. Reassert NONE with full specificity. */
+body .modal-backdrop:not(.full-page-mode .modal-backdrop):not(.cart-backdrop) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- 3. Reset spurious :hover state on backdrop -------------------- */
+/* Ship #12403 added cursor:pointer (correct, csfloat has it) BUT also
+   added a :hover state that re-tints to rgba(0,0,0,0.62) and adds
+   blur(8px) saturate(0.85). csfloat does NEITHER. The cursor change
+   is the only hover affordance; the scrim itself stays dead-flat at
+   0.32. Hold cursor:pointer, drop the :hover bg/filter delta. */
+body .modal-backdrop:hover,
+body .modal-overlay:hover,
+body .cdk-overlay-backdrop:hover,
+body .csfloat-overlay-backdrop:hover,
+body .dialog-backdrop:hover,
+body .info-modal-backdrop:hover {
+  background-color: rgba(0, 0, 0, 0.32) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* Lighter variant must hold its 0.15 on hover too. */
+body .lighter-cdk-overlay-backdrop:hover {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- 4. Canonical transition: opacity 400ms ease-out --------------- */
+/* csfloat keeps Material's default. Earlier ships replaced it with a
+   220ms backdrop-filter+bg transition for the (now-removed) hover
+   behavior. Restore the Material curve — 400ms feels softer on dialog
+   open and matches csfloat exactly. Property restricted to opacity
+   so background-color and backdrop-filter changes are instant (and
+   thus invisible since they no longer change). */
+body .cdk-overlay-backdrop,
+body .cdk-overlay-dark-backdrop,
+body .modal-backdrop,
+body .dialog-backdrop,
+body .info-modal-backdrop {
+  transition: opacity 400ms cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+body .cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
+  opacity: 1 !important;
+  transition: opacity 400ms cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+/* --- 5. Lighter variant assertion (mirrors csfloat custom class) --- */
+body .lighter-cdk-overlay-backdrop {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- 6. Cursor stays pointer (csfloat affordance, retained) -------- */
+body .cdk-overlay-backdrop,
+body .cdk-overlay-dark-backdrop,
+body .modal-backdrop,
+body .dialog-backdrop,
+body .csfloat-dialog-backdrop,
+body .info-modal-backdrop {
+  cursor: pointer !important;
+}
+
+/* END CSFLOAT-1:1 PARITY ship #129000 */
