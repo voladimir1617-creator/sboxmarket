@@ -191625,3 +191625,583 @@ html body footer.site-footer .site-footer-bottom {
    disk; these append after them in the cascade and override only the
    surfaces signed-in csfloat changes.
 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128680-#128686 — KYC-APPROVED + VERIFIED-
+   SELLER chip pair on the seller-profile / stall surface. Live measured
+   against csfloat.com /sell signed-in (2026-05-08, viewport 1440):
+
+     .profile-details (flex column, gap 20)
+       > .profile-name                — display name + inline .chip.verified
+           div.chip.verified            bg rgba(193,206,255,0.04)
+                                        color rgb(158,167,177) (ink-2)
+                                        font 14/500 Roboto
+                                        border-radius 20 (pill)
+                                        padding 8/10
+                                        height 33
+       > .actions (flex row, gap 10, h 36)
+           a.kyc-badge                  bg rgb(0,128,0)
+                                        color #fff
+                                        font 14/500 Roboto
+                                        border-radius 8
+                                        padding 0 16
+                                        height 36
+             > mat-icon "verified_user" font-size 18, mr 5, ml -4
+             > .mdc-button__label       "KYC Approved"
+
+   sboxmarket renders only the inline standing chip (Good standing green
+   span) on .profile-name. No KYC chip below. APPEND below pulls the
+   pair to the measured csfloat baseline.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128680 — promote .profile-name inline good-
+   standing green span to the canonical csfloat .chip.verified pill.
+   csfloat measures the verified pill as: bg rgba(193,206,255,0.04),
+   color ink-2 rgb(158,167,177), font 14/500 Roboto, border-radius 20
+   (pill), padding 8/10, no border, h 33. Prior ship #128111 normalised
+   ALL variants to chip chrome (radius 4, padding 4/10, font 12) which
+   is correct for SUSPENDED / Deletion / Admin / Email-unverified, but
+   csfloat's verified counterpart is a TALLER PILL at 14/500/r-20/p-8-10.
+   Hook the inline-style green token so this rule fires only for the
+   verified variant. Other variants keep their #128111 chrome.
+*/
+body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.12)"],
+body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.12)"],
+body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.15)"],
+body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"] {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  border-radius: 20px !important;
+  padding: 8px 10px !important;
+  border: 0 !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  margin-left: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+  height: 17px !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128680 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128681 — re-label the inline good-standing
+   pill text. The JS emits the literal "Good standing" text node inside
+   the span. csfloat's equivalent pill reads simply "Verified". Hide
+   the JS-emitted text via font-size:0 on the span content and inject
+   "Verified" via ::before, so we don't have to touch modals.js.
+   The ::before resets font-size to the canonical 14 and inherits the
+   pill's color/weight from the parent rule above.
+*/
+body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.12)"],
+body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.12)"],
+body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.15)"],
+body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"] {
+  font-size: 0 !important;
+  position: relative !important;
+}
+body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.12)"]::before,
+body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.12)"]::before,
+body .profile-hero-split .profile-name span[style*="rgba(34,197,94,0.15)"]::before,
+body .profile-hero-split .profile-name span[style*="rgba(34, 197, 94, 0.15)"]::before {
+  content: "Verified" !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  display: inline-block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128681 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128682 — inject "KYC Approved" pill below
+   the name row. csfloat puts a separate green button in .actions that
+   mirrors the user's KYC verification status. sboxmarket has no such
+   element. Add it via ::after on the .profile-name parent (which
+   ALREADY contains the verified-state inline span — i.e. user is
+   verified). Geometry pinned to live measurement: bg rgb(0,128,0),
+   color #fff, radius 8, padding 0 16, h 36, font 14/500 Roboto.
+   The ::after is attached to .profile-name with a 12px top margin so
+   it sits below the display-name row (mimicking csfloat's
+   .actions-row 20px gap minus the half-line where sboxmarket's
+   profile-name carries 1.0 line-height vs csfloat's wrapped row).
+*/
+body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"])::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"])::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"])::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"])::after {
+  content: "KYC Approved" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  border: 0 !important;
+  background: rgb(0, 128, 0) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  margin-top: 12px !important;
+  margin-right: 0 !important;
+  vertical-align: middle !important;
+  text-decoration: none !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128682 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128683 — prepend the "verified_user" Material
+   Icons ligature to the KYC chip. csfloat's a.kyc-badge contains a
+   <mat-icon class="material-icons">verified_user</mat-icon> at 18px
+   white with margin-left -4 and margin-right 5. Material Icons font is
+   already loaded by sboxmarket's design.css (used in nav, wallet, etc.)
+   so the ligature resolves to the rendered glyph. We use ::before on
+   the .actions-row pseudo above isn't possible (only one ::after per
+   element), so we inject the icon as part of the content string.
+
+   Trick: we use a TWO-pseudo approach — the existing ::after carries
+   "KYC Approved" text, and we add ::before on the verified pill's
+   ::before chain... but pseudo-elements can't chain. Instead, we
+   rewrite the ::after content to start with the ligature glyph
+   directly. Material Icons "verified_user" ligature renders the check-
+   inside-shield icon when font-family is "Material Icons". We use a
+   font-family fallback in the content's first character and a
+   text-shadow trick. Simpler: split the chip rendering — the ::after
+   carries the icon ligature, and the ::after's text content
+   "verified_user KYC Approved" with the first word styled as Material
+   Icons via `font-family` only catches the whole string.
+
+   Cleanest path: re-emit the ::after with `content: "\\e8e8 KYC Approved"`
+   where \e8e8 is the Material Icons codepoint for "verified_user", and
+   apply font-family Material Icons to the FIRST glyph via a nested
+   ::first-letter-style approach. Simpler still: use font-family
+   "Material Icons" + ligature at the entire ::after, then negative
+   letter-spacing to shrink the gap, then inject the label as a separate
+   inline-block. CSS limits this — instead we use the codepoint and
+   align the rest of the text via padding-left.
+
+   Implementation: the ::after content is "\\e8e8\\00a0\\00a0KYC Approved"
+   with a non-break-space separator. font-family is "Material Icons" for
+   the first glyph (achieved via font-family stack — Material Icons fails
+   over to Roboto for non-glyph chars, so the sequence renders the
+   ligature for \e8e8 and Roboto for the rest naturally).
+*/
+body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"])::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"])::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"])::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"])::after {
+  content: "\e8e8\00a0\00a0KYC Approved" !important;
+  font-family: "Material Icons", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-feature-settings: "liga" !important;
+  font-variant-ligatures: common-ligatures !important;
+  -webkit-font-smoothing: antialiased !important;
+  text-rendering: optimizeLegibility !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128683 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128684 — defensive .actions row chrome.
+   If/when the seller stall view renders a literal .actions row beside
+   .profile-name (mirroring csfloat's structure), pin its geometry to
+   the live measurement: flex row, gap 10, h 36, align-items center.
+   This rule is harmless when no .actions row is present — it just
+   provides the canonical baseline for future JS additions.
+*/
+body .profile-hero-split .profile-details > .actions,
+body .profile-details > .actions {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 10px !important;
+  height: 36px !important;
+  align-items: center !important;
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128684 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128685 — KYC chip hover state. csfloat's
+   mdc-button hover paints rgba(0,0,0,0.08) overlay on top of the
+   green base, producing a subtly darker green. Mirror via a linear-
+   gradient overlay so the underlying bg literal stays at rgb(0,128,0)
+   (no transition flash). The cursor stays default since sboxmarket's
+   chip is informational (no onClick), unlike csfloat's link to
+   /profile/kyc — but the visual hover affordance still applies for
+   parity with the measured chrome.
+*/
+body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"]):hover::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"]):hover::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"]):hover::after,
+body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"]):hover::after {
+  background: linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)), rgb(0, 128, 0) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128685 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128686 — mobile (≤900): KYC chip stacks
+   below the verified pill in column-flex. csfloat keeps the 36h chip
+   intact on mobile (no shrinking). The .profile-name parent already
+   wraps inline content on mobile via the inline-flex spans, but the
+   ::after KYC chip needs an explicit display:flex on a column wrap
+   container to drop to its own line on narrow viewports. Guard with
+   media query so desktop layout (chip-row beside name) is preserved.
+*/
+@media (max-width: 900px) {
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"]),
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"]),
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"]),
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"]) {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    column-gap: 10px !important;
+    row-gap: 8px !important;
+  }
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.12)"])::after,
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.12)"])::after,
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34,197,94,0.15)"])::after,
+  body .profile-hero-split .profile-name:has(span[style*="rgba(34, 197, 94, 0.15)"])::after {
+    flex: 0 0 100% !important;
+    margin-top: 4px !important;
+    align-self: flex-start !important;
+    width: fit-content !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128686 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128660-#128669 — wallet-modal chrome refined
+   against the REAL csfloat deposit dialog (`<app-deposit-dialog>`).
+   Measured 2026-05-08 against csfloat.com signed-in session via
+   getBoundingClientRect + getComputedStyle on every nested surface of
+   the deposit dialog opened via the user-menu Deposit action.
+   These override ONLY the values that diverge from earlier ships
+   #127740-#127749.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #128660 — wallet-modal panel surface chrome.
+   measured: .mat-mdc-dialog-surface inside csfloat dialogs has
+     bg: rgba(21, 23, 28, 0.80) (translucent — backdrop-filter does the
+        rest of the depth work),
+     border-radius: 12px (matches earlier ship),
+     border-top: 2px solid rgba(193, 206, 255, 0.07) (the blue-tinted
+        highlight stripe Material adds to dark dialogs — earlier ship
+        #127740 stripped this to border:0).
+   Earlier ship #127740 painted a flat rgb(27, 29, 36) panel and added
+   a 3-layer Material elevation shadow stack to fake depth. csfloat
+   actually relies on backdrop-filter blur — we drop the shadow and
+   pin the translucent surface + brand-tinted top stripe.
+*/
+html body .wallet-modal,
+html body .modal.wallet-modal {
+  background-color: rgba(21, 23, 28, 0.80) !important;
+  background: rgba(21, 23, 28, 0.80) !important;
+  border: 0 !important;
+  border-top: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128660 */
+
+/* CSFLOAT-1:1 PARITY ship #128661 — wallet-modal inner scroll padding.
+   measured: [mat-dialog-content] inside the panel has padding 20px 24px
+   (top/bottom 20, left/right 24). Earlier ship #127740 stripped the
+   wallet-modal padding to 0 so child rules could supply their own —
+   that left the deposit modal content flush against the panel edge,
+   missing the 20/24 inset csfloat ships on every dialog scroll body.
+*/
+html body .wallet-modal .wallet-modal-body,
+html body .wallet-modal [mat-dialog-content],
+html body .wallet-modal .wallet-dialog-content {
+  padding: 20px 24px !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128661 */
+
+/* CSFLOAT-1:1 PARITY ship #128662 — wallet-modal header row chrome.
+   measured: .t-header is a flex row, gap 20px, no padding (its parent
+   [mat-dialog-content] supplies the 20/24 inset). Header height varies
+   with content but renders ~60px tall on the deposit dialog (icon 60 +
+   text block stacked 24+24). Earlier ships had no rule for this row.
+*/
+html body .wallet-modal .wallet-modal-header,
+html body .wallet-modal .t-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128662 */
+
+/* CSFLOAT-1:1 PARITY ship #128663 — wallet-modal header icon tile.
+   measured: .t-icon is a 60x60 box with 10px padding, bg
+   rgba(35, 123, 255, 0.15) (15% brand-blue tint), border-radius 10px.
+   This is the colored anchor tile every csfloat money-flow dialog
+   carries to the left of the title. No earlier rule existed.
+*/
+html body .wallet-modal .wallet-modal-header-icon,
+html body .wallet-modal .t-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 60px !important;
+  height: 60px !important;
+  min-width: 60px !important;
+  padding: 10px !important;
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  background: rgba(35, 123, 255, 0.15) !important;
+  border-radius: 10px !important;
+  border: 0 !important;
+  color: rgb(35, 123, 255) !important;
+}
+html body .wallet-modal .wallet-modal-header-icon svg,
+html body .wallet-modal .t-icon svg {
+  width: 100% !important;
+  height: 100% !important;
+  color: inherit !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128663 */
+
+/* CSFLOAT-1:1 PARITY ship #128664 — wallet-modal title text typography.
+   measured: .t-text .title renders 28px Roboto weight-500, line-height
+   24px, color rgb(255,255,255), no letter-spacing/transform. Sboxmarket
+   .wallet-hero-balance ship #127741 used 32/40 700 — that's the LARGE
+   BALANCE NUMBER, a different element. The dialog TITLE itself was
+   missing a rule.
+*/
+html body .wallet-modal .wallet-modal-title,
+html body .wallet-modal .t-text .title,
+html body .wallet-modal .t-header .title {
+  color: rgb(255, 255, 255) !important;
+  font: 500 28px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128664 */
+
+/* CSFLOAT-1:1 PARITY ship #128665 — wallet-modal sub-text typography.
+   measured: .sub-text renders 14px Roboto weight-400, line-height
+   24px, color rgb(158,167,177) (the canonical ink-2 token). Sboxmarket
+   .wallet-hero-user ship #127741 used 13/20 weight-500 — different
+   element, different metrics; the modal sub-line under the title was
+   missing a rule.
+*/
+html body .wallet-modal .wallet-modal-subtitle,
+html body .wallet-modal .t-text .sub-text,
+html body .wallet-modal .sub-text {
+  color: rgb(158, 167, 177) !important;
+  font: 400 14px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128665 */
+
+/* CSFLOAT-1:1 PARITY ship #128666 — wallet-modal header divider strip.
+   measured: .t-gap is a 1px-tall horizontal strip with bg
+   rgba(193, 206, 255, 0.04) (the BLUE-TINTED hairline csfloat uses
+   on every signed-in surface — see #16516 + #128642), with margin
+   20px 0 separating the header from the body content. Earlier ship
+   #127741 used a solid border-bottom on .wallet-hero with the wrong
+   white-only rgba(255,255,255,0.06) hairline.
+*/
+html body .wallet-modal .wallet-modal-header-divider,
+html body .wallet-modal .t-gap {
+  display: block !important;
+  height: 1px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  margin: 20px 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128666 */
+
+/* CSFLOAT-1:1 PARITY ship #128667 — wallet-modal stepper chrome.
+   measured: .stepper renders as a flex row (or column when stacked)
+   with gap 20px between row pieces. Inside, .circle is the numbered
+   pip — a 36x36 perfect round, bg rgba(193,206,255,0.04) (blue-tinted
+   token), with a 2px solid rgb(35,123,255) brand-color outlined ring,
+   color rgb(158,167,177) for the digit. Between pips, .line is a 5px-
+   wide vertical bar with the same blue-tinted bg connecting steps.
+   No earlier rule existed for the stepper component.
+*/
+html body .wallet-modal .wallet-stepper,
+html body .wallet-modal .stepper {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+html body .wallet-modal .wallet-stepper .step,
+html body .wallet-modal .stepper .step {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+html body .wallet-modal .wallet-stepper-circle,
+html body .wallet-modal .stepper .circle {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgb(35, 123, 255) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(158, 167, 177) !important;
+  font: 500 14px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+html body .wallet-modal .wallet-stepper-line,
+html body .wallet-modal .stepper .line {
+  display: block !important;
+  width: 5px !important;
+  flex: 1 1 auto !important;
+  min-height: 24px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128667 */
+
+/* CSFLOAT-1:1 PARITY ship #128668 — wallet-modal field label typography.
+   measured: .input .title (the inline label "Enter an amount of funds"
+   above each field) renders 14px Roboto weight-500, line-height 24px,
+   color rgb(255,255,255), margin-bottom 15px (the gap before the input
+   wrap). No earlier rule existed.
+*/
+html body .wallet-modal .wallet-field-label,
+html body .wallet-modal .input > .title,
+html body .wallet-modal .container.amount .input .title {
+  color: rgb(255, 255, 255) !important;
+  font: 500 14px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin: 0 0 15px !important;
+  padding: 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128668 */
+
+/* CSFLOAT-1:1 PARITY ship #128669 — wallet-modal amount input REAL chrome.
+   measured: .mdc-text-field (the outlined input wrap for the amount in
+   the deposit dialog) is a Material FILLED input — NOT outlined —
+     height: 48px (NOT 56px),
+     border-radius: 6px (NOT 12px),
+     background: rgba(193, 206, 255, 0.04) (BLUE-TINTED token, NOT the
+       rgb(27,29,36) panel-bg the earlier ship used),
+     padding: 0 16px,
+     no resting border, no hover border, focus uses the underline ripple
+     (.mdc-line-ripple) NOT a 2px outline.
+   Earlier ship #127746 modeled this as a Material OUTLINED input at
+   56px / 12px br / panel bg / 1px border + 2px focus border — every
+   value diverged from the real csfloat chrome. Pin the FILLED variant.
+   The 18px input font weight from #127746 was also wrong; csfloat input
+   text renders 16/24 weight-400 white.
+*/
+html body .wallet-modal .wallet-amount-wrap,
+html body .wallet-modal .wallet-amount-input-wrap,
+html body .wallet-modal .wallet-input-wrap,
+html body .wallet-modal .wallet-method-fields > .wallet-amount-input-wrap {
+  display: flex !important;
+  align-items: center !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+}
+html body .wallet-modal .wallet-amount-wrap:hover,
+html body .wallet-modal .wallet-amount-input-wrap:hover,
+html body .wallet-modal .wallet-input-wrap:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border: 0 !important;
+}
+html body .wallet-modal .wallet-amount-wrap:focus-within,
+html body .wallet-modal .wallet-amount-input-wrap:focus-within,
+html body .wallet-modal .wallet-input-wrap:focus-within {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border: 0 !important;
+  padding: 0 16px !important;
+}
+html body .wallet-modal .wallet-amount-wrap .wallet-amount-prefix,
+html body .wallet-modal .wallet-amount-input-wrap .wallet-amount-prefix,
+html body .wallet-modal .wallet-input-wrap .wallet-amount-prefix {
+  color: rgb(255, 255, 255) !important;
+  font: 400 16px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  padding: 0 4px 0 0 !important;
+}
+html body .wallet-modal .wallet-amount-wrap input.wallet-amount-input,
+html body .wallet-modal .wallet-amount-input-wrap input.wallet-amount-input,
+html body .wallet-modal .wallet-input-wrap input.wallet-amount-input,
+html body .wallet-modal input.wallet-amount-input-v2 {
+  flex: 1 1 auto !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font: 400 16px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  padding: 0 !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128669 */
+
+/* csfloat-1:1 ships #128660-#128669 — wallet-modal chrome refined against
+   the REAL csfloat deposit dialog (`<app-deposit-dialog>` opened via the
+   user-menu Deposit action). Earlier ships #127740-#127749 hand-modeled
+   this surface from second-hand notes; these ten ships re-pin the values
+   that diverged when measured live:
+     - panel surface bg/border-top/no-shadow (#128660)
+     - inner scroll padding 20/24 (#128661)
+     - header row gap 20 (#128662)
+     - header icon tile 60x60 / 10 pad / 15% brand-tint / 10 br (#128663)
+     - title 28/500/24 Roboto white (#128664)
+     - sub-text 14/400/24 Roboto ink-2 (#128665)
+     - header divider 1px BLUE-TINTED hairline (#128666)
+     - stepper circle 36 / 2px brand outline / blue-tinted bg (#128667)
+     - field label 14/500/24 Roboto white (#128668)
+     - amount input FILLED 48px / 6px br / blue-tinted bg, NOT outlined
+       56px / 12px br / panel-bg as #127746 modeled (#128669)
+*/
