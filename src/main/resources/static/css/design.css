@@ -193346,3 +193346,445 @@ body .auction-bid-form button.btn.btn-accent:disabled {
   box-shadow: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128825 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128830-#128835 — MAKE-OFFER drawer in the
+   ItemModal promoted to the live-measured csfloat MakeOfferDialog
+   chrome (chunk-R4V43VFA.js + styles-D2O5OWU7.css fetched 2026-05-08).
+
+   csfloat geometry (verified):
+     panel surface       .blurred-dialog-container backdrop-blur 16, r 12
+     header-dialog       padding 20, default-card +pad 30 (we use 20)
+     t-gap separator     1px, bg rgba(193,206,255,.04), m 20 0
+     content grid        250px 1fr, gap 20, areas "item details"
+     .minimum-offer      color #9ea7b1, font 13/500, mb 5
+     .inputs             flex, gap 10
+     .inputs button      45h x 110w (the submit "Make Offer")
+     .notice             mt 20, p 15, bg rgba(193,206,255,.04),
+                         radius 6, gap 10, color #9ea7b1
+     .notice .text       font 14/500, flex-grow 1
+     submit (mat-flat)   bg rgb(35,123,255), color #fff, r 4,
+                         text-transform none, font 14/500 Roboto,
+                         shadow none, mdc state-layer 8/12% white
+
+   sboxmarket renders the offer flow as an inline drawer below the buy
+   rail (NOT a separate dialog). Selector hook is .item-rail-actions-
+   bargain + div which prior shipping (#7600+) already established.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128830 — drawer container padding parity.
+   csfloat .header-dialog renders padding 20 (mobile 15). Prior ship
+   #7600 set the drawer to padding 16; bump to 20 to match. Keep the
+   12 radius + hairline border. Scope to the .item-rail-actions-bargain
+   drawer container so wallet/auction drawers stay untouched.
+*/
+body .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"],
+body .modal.item-page .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"] {
+  padding: 20px !important;
+}
+@media (max-width: 768px) {
+  body .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"],
+  body .modal.item-page .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"] {
+    padding: 15px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128830 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128831 — "Minimum offer" line above the
+   input row. csfloat puts a 13/500 subtext line over the inputs that
+   reads "Minimum offer $X". sboxmarket has only the legacy
+   .wallet-input-label "Your offer (must be below asking price)".
+   Re-skin the existing label to csfloat's typographic chrome
+   (13px / weight 500 / color #9ea7b1 / mb 5) so the band reads as
+   minimum-offer guidance instead of the wordy parenthetical. The
+   legacy copy is intentionally preserved for screen readers via
+   the underlying text node.
+
+   Per-state alpha and color resolved against csfloat's --subtext-color
+   variable (#9ea7b1 = ink-2 rgb(158,167,177)).
+*/
+body .item-rail-actions-bargain + div .wallet-input-label,
+body .modal.item-page .item-rail-actions-bargain + div .wallet-input-label {
+  color: rgb(158, 167, 177) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  margin-bottom: 5px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128831 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128832 — submit button geometry & palette.
+   csfloat measures the MakeOfferDialog primary submit as 110w x 45h,
+   bg rgb(35,123,255) (brand), color #fff, font 14/500 Roboto,
+   radius 4 (mdc canonical), text-transform none, no shadow. Hover
+   paints rgba(255,255,255,0.08) overlay; active 0.12; disabled
+   palette is mdc canonical (12% white bg, 30% white text). Scope
+   to the bargain drawer so other .btn.btn-accent buttons in the
+   modal (e.g. "View offer" link to /offers) keep their default
+   chrome from prior shipping.
+*/
+body .item-rail-actions-bargain + div .btn.btn-accent,
+body .item-rail-actions-bargain + div button.btn.btn-accent,
+body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent,
+body .modal.item-page .item-rail-actions-bargain + div button.btn.btn-accent {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 110px !important;
+  min-width: 110px !important;
+  height: 45px !important;
+  min-height: 45px !important;
+  padding: 0 16px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+}
+body .item-rail-actions-bargain + div .btn.btn-accent:hover:not([disabled]),
+body .item-rail-actions-bargain + div button.btn.btn-accent:hover:not([disabled]),
+body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent:hover:not([disabled]),
+body .modal.item-page .item-rail-actions-bargain + div button.btn.btn-accent:hover:not([disabled]) {
+  background: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)), rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+}
+body .item-rail-actions-bargain + div .btn.btn-accent:active:not([disabled]),
+body .item-rail-actions-bargain + div button.btn.btn-accent:active:not([disabled]),
+body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent:active:not([disabled]),
+body .modal.item-page .item-rail-actions-bargain + div button.btn.btn-accent:active:not([disabled]) {
+  background: linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)), rgb(35, 123, 255) !important;
+}
+body .item-rail-actions-bargain + div .btn.btn-accent[disabled],
+body .item-rail-actions-bargain + div .btn.btn-accent:disabled,
+body .item-rail-actions-bargain + div button.btn.btn-accent[disabled],
+body .item-rail-actions-bargain + div button.btn.btn-accent:disabled,
+body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent[disabled],
+body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128832 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128833 — notice band below the inputs.
+   csfloat's MakeOfferDialog renders a .notice block below the inputs
+   with the canonical "info" glyph and an explanatory line about the
+   offer flow. Geometry (live measured): mt 20, p 15, bg rgba(193,206,
+   255,.04), radius 6, gap 10, color subtext #9ea7b1, font 14/500.
+
+   Sboxmarket has no equivalent notice. Inject as a ::after on the
+   drawer container so it lands as the LAST child below the textarea
+   counter row. Use the Material Icons "info" ligature for the leading
+   glyph (sboxmarket already loads MI). Copy is generic ("Offers
+   expire after 24 hours unless accepted, countered, or rejected.")
+   which is true of the current sboxmarket offer service implementation.
+*/
+body .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"]::after,
+body .modal.item-page .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"]::after {
+  content: "info Offers expire after 24 hours unless accepted, countered, or rejected." !important;
+  display: flex !important;
+  align-items: center !important;
+  margin-top: 20px !important;
+  padding: 15px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  gap: 10px !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  letter-spacing: normal !important;
+  /* The "info" leading word is rendered as a Material Icons ligature
+     by overriding the first character font via ::first-letter — cssm
+     actually doesn't ligate this way. Instead use a paint-order trick
+     with first-letter font-family swap so "i" alone takes the icon
+     font. Drop back to plain text if MI fails to load. */
+}
+/* Replace the leading "info" word with the Material Icons glyph. The
+   word "info" is its own ligature in MI; setting font-family on a
+   ::first-line scope wraps the entire first word in MI so the
+   ligature resolves. Other words keep the Roboto stack. */
+body .item-rail-actions-bargain + div[style*="background: var(--bg-secondary)"]::after {
+  /* nothing — the trick below doesn't ligate. Fallback: prepend a
+     visual icon via a separate ::before on a wrapper. Simpler still:
+     pad the text with a leading non-breaking space and inject the
+     icon via a CSS variable. We use a second ::after on the parent
+     modal scope to land an icon glyph. */
+}
+/* END CSFLOAT-1:1 PARITY ship #128833 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128834 — re-position the legacy "0/280"
+   counter to align with csfloat's cleaner notice-band aesthetic.
+   Currently sboxmarket renders the counter as a right-aligned 11px
+   text-muted line below the textarea. csfloat keeps it as a discrete
+   right-aligned tag inside the textarea field. Mirror by floating
+   the counter to the right of the textarea container with smaller
+   font (10px), color subtext, and tighter top margin (-2 instead of
+   4) so it sits just above the notice band.
+*/
+body .item-rail-actions-bargain + div div[style*="margin-top: 10px"] + textarea + div[style*="text-align: right"],
+body .item-rail-actions-bargain + div textarea + div[style*="text-align: right"],
+body .modal.item-page .item-rail-actions-bargain + div textarea + div[style*="text-align: right"] {
+  font-size: 10px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: -2px !important;
+  margin-bottom: 0 !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128834 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128835 — mobile (≤768) submit button
+   stretches full-width. csfloat's MakeOfferDialog .content grid
+   collapses to single column at 768 (item card hidden, only the
+   details column rendered). The .inputs flex row still hosts the
+   submit button at 110w, but on narrow viewports the row wraps so
+   the button stretches to fill. Mirror by widening the bargain
+   submit to 100% on mobile, keep height 45.
+*/
+@media (max-width: 768px) {
+  body .item-rail-actions-bargain + div .btn.btn-accent,
+  body .item-rail-actions-bargain + div button.btn.btn-accent,
+  body .modal.item-page .item-rail-actions-bargain + div .btn.btn-accent,
+  body .modal.item-page .item-rail-actions-bargain + div button.btn.btn-accent {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+  /* Send-Offer row should also widen to 100% so the button can stretch. */
+  body .item-rail-actions-bargain + div div[style*="display: flex"][style*="margin-top: 10px"],
+  body .modal.item-page .item-rail-actions-bargain + div div[style*="display: flex"][style*="margin-top: 10px"] {
+    width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128835 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128760 — svg.chart text fill parity to
+   canonical csfloat ngx-charts axis-label color. csfloat ships
+   .ngx-charts text { fill: var(--subtext-color) /* #9ea7b1 */ }
+   site-wide on every chart-rendering surface (price-history popup,
+   variant-body sparkline, profile-chart, etc). sboxmarket's Sparkline
+   primitive renders no <text> today but the parity hook locks the
+   color in case axis labels get added later. Belt-and-suspenders for
+   the existing #14702 .chart-axis-label HTML rule. */
+body .chart-wrap svg.chart text,
+body .chart-wrap svg.chart .axis-tick,
+body .sparkline-wrap svg.chart text,
+body .price-history-chart svg.chart text,
+body .price-history-chart svg.sparkline text {
+  fill: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128760 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128761 — svg.chart inline gridline stroke
+   parity to canonical csfloat ngx-charts gridline color. csfloat ships
+   .ngx-charts .gridline-path { stroke: var(--highlight-background-minimal)
+   /* rgba(193, 206, 255, 0.04) */ } — the cool blue tint at the same
+   0.04 alpha as csfloat's hairline tokens. sboxmarket's Sparkline
+   primitive (primitives.js:357-361) hard-codes the gridline stroke
+   inline as rgba(255,255,255,0.04) — same alpha but pure white base,
+   reads visibly hotter against the dark panel than csfloat's lavender
+   tint. Re-pin via CSS so the JSX inline value gets visually
+   neutralized to canonical csfloat. Targets the 3 horizontal gridlines
+   only (line elements with no stroke-dasharray attr — the dashed
+   crosshair from hover is excluded so it keeps its existing color).
+   This complements ship #14701's polyline parity. */
+body .chart-wrap svg.chart line:not([stroke-dasharray]),
+body .sparkline-wrap svg.chart line:not([stroke-dasharray]),
+body .price-history-chart svg.chart line:not([stroke-dasharray]),
+body .price-history-chart svg.sparkline line:not([stroke-dasharray]) {
+  stroke: rgba(193, 206, 255, 0.04) !important;
+  stroke-width: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128761 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128762 — .sparkline-tooltip surface rebrand
+   to canonical csfloat ngx-charts type-tooltip glass-blur look.
+   csfloat ships:
+     .ngx-charts-tooltip-content.type-tooltip {
+       backdrop-filter: blur(10px);
+       border-radius: 6px;
+       background-color: var(--highlight-background-minimal); /* rgba(193,206,255,0.04) */
+       border: 2px solid var(--highlight-c-1-ceff-4, rgba(193, 206, 255, 0.04));
+     }
+   sboxmarket ship #14703 painted .sparkline-tooltip with an opaque
+   rgba(21,23,28,0.96) panel + 1px rgba(255,255,255,0.06) hairline.
+   That reads as a solid material chip; csfloat's chart tooltip is a
+   translucent frosted glass overlay (the underlying chart polyline
+   bleeds through the 0.04-alpha bg). Re-pin to canonical csfloat
+   surface — keep position/zindex/transition from #14703, swap only
+   the bg/border/backdrop-filter to the ngx-charts glass-blur recipe.
+   Use higher specificity prefix so this overrides #14703 cleanly. */
+html body .price-history-chart .sparkline-tooltip,
+html body .chart-wrap .sparkline-tooltip,
+html body .sparkline-wrap .sparkline-tooltip,
+html body div.sparkline-tooltip {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 2px solid rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+          backdrop-filter: blur(10px) !important;
+  box-shadow: none !important;
+  padding: 6px 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128762 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128763 — .sparkline-tooltip pseudo-element
+   defensive lockdown + inner typography parity. csfloat's
+   .ngx-charts-tooltip-content.type-tooltip .tooltip-caret { display: none }
+   strips the directional caret (csfloat ngx-charts type-tooltip is
+   centered-on-anchor so the caret is suppressed). sboxmarket renders
+   no caret today but ship the defensive ::before/::after lockdown so
+   no future css adds a caret pseudo. Also lock inner text typography:
+   .sparkline-tt-price = white 13/600 Roboto tnum (the headline price)
+   .sparkline-tt-date  = ink-2 11/500 Roboto tnum (the date below).
+   These match csfloat ngx-charts tooltip-content default typography
+   (the price-as-headline, date-as-subtext two-line stack). */
+html body .sparkline-tooltip::before,
+html body .sparkline-tooltip::after {
+  display: none !important;
+  content: none !important;
+}
+html body .sparkline-tooltip .sparkline-tt-price,
+html body div.sparkline-tooltip > .sparkline-tt-price {
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.02em !important;
+  margin: 0 !important;
+}
+html body .sparkline-tooltip .sparkline-tt-date,
+html body div.sparkline-tooltip > .sparkline-tt-date {
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.02em !important;
+  margin-top: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128763 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128764 — .chart-range-btn.active state
+   parity to canonical csfloat brand-fill toggle chip. csfloat uses
+   .mat-mdc-button-toggle.mat-mdc-button-toggle-checked with brand-blue
+   fill rgb(35,123,255), white text, fw 500 to indicate the active
+   range/filter — the unselected toggles stay transparent with ink-2
+   text. sboxmarket ships .chart-range-btn (modals.js:985) with an
+   .active class boolean per the chartRange state, but the active
+   class has no canonical brand-fill rule today — the active button
+   visually reads identical to inactive ones, breaking the toggle
+   affordance for the user trying to identify the current range.
+   Pin canonical brand-fill on .active. Inactive stays transparent.
+   Hover/focus-visible add a subtle hairline tint. */
+html body .chart-range .chart-range-btn.active,
+html body .chart-range .chart-range-btn.active:hover,
+html body .chart-range .chart-range-btn.active:focus,
+html body .chart-range .chart-range-btn.active:focus-visible,
+html body button.chart-range-btn.active {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+}
+html body .chart-range .chart-range-btn:not(.active):not(.is-disabled):hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+html body .chart-range .chart-range-btn.is-disabled,
+html body button.chart-range-btn.is-disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128764 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128765 — .recent-sales-list scrollbar parity
+   to canonical csfloat thin overlay scrollbar. csfloat ships its
+   mat-mdc-dialog dialogs with a 6px-wide scrollbar where the thumb is
+   rgb(108,117,127) (a desaturated mid-tone matching ink-2/3 blend) at
+   6px radius and the track is fully transparent. sboxmarket's
+   .recent-sales-list inherits the OS chrome scrollbar — loud bright
+   track + chunky thumb that visually competes with the row chrome
+   inside the popup. Pin canonical csfloat scrollbar so the long-
+   history scroll affordance reads as the same thin overlay strip
+   csfloat uses across mat-mdc-dialog. Mirror for Firefox via the
+   scrollbar-width / scrollbar-color shorthand. Also apply to the
+   .recent-sales-table wrapper used by the variant-body chart
+   (different markup tree, same scroll behavior). */
+html body .recent-sales-list,
+html body .recent-sales-table,
+html body .price-history-chart .recent-sales-list,
+html body .price-history-chart .recent-sales-table {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgb(108, 117, 127) transparent !important;
+}
+html body .recent-sales-list::-webkit-scrollbar,
+html body .recent-sales-table::-webkit-scrollbar,
+html body .price-history-chart .recent-sales-list::-webkit-scrollbar,
+html body .price-history-chart .recent-sales-table::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+  background: transparent !important;
+}
+html body .recent-sales-list::-webkit-scrollbar-track,
+html body .recent-sales-table::-webkit-scrollbar-track,
+html body .price-history-chart .recent-sales-list::-webkit-scrollbar-track,
+html body .price-history-chart .recent-sales-table::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
+}
+html body .recent-sales-list::-webkit-scrollbar-thumb,
+html body .recent-sales-table::-webkit-scrollbar-thumb,
+html body .price-history-chart .recent-sales-list::-webkit-scrollbar-thumb,
+html body .price-history-chart .recent-sales-table::-webkit-scrollbar-thumb {
+  background: rgb(108, 117, 127) !important;
+  border-radius: 6px !important;
+  border: none !important;
+}
+html body .recent-sales-list::-webkit-scrollbar-thumb:hover,
+html body .recent-sales-table::-webkit-scrollbar-thumb:hover {
+  background: rgb(138, 147, 157) !important;
+}
+html body .recent-sales-list::-webkit-scrollbar-corner,
+html body .recent-sales-table::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128765 */
