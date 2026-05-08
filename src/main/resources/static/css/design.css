@@ -192205,3 +192205,162 @@ html body .wallet-modal input.wallet-amount-input-v2 {
      - amount input FILLED 48px / 6px br / blue-tinted bg, NOT outlined
        56px / 12px br / panel-bg as #127746 modeled (#128669)
 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128740 — seller chrome row geometry on the
+   modal item-detail surface. csfloat .seller-details-wrapper sits in
+   the card body with: 16px vertical padding, 12px horizontal gap to
+   the avatar, a 1px hairline rgba(255,255,255,0.06) above and below.
+   sboxmarket .modal-seller-info uses 12/0 padding + var(--line) per
+   the original ship #5127. Pin to canonical csfloat geometry. */
+.modal-seller-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 16px 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128740 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128741 — seller name typography parity.
+   csfloat span/anchor that holds the seller name renders at 14px /
+   font-weight 400, color rgb(255,255,255), font-family Roboto.
+   sboxmarket .modal-seller-name (and .seller-name) are 13/500 var(--ink)
+   per ship #5141 — promote to canonical csfloat numbers. */
+.modal-seller-name,
+.seller-name {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: normal !important;
+  line-height: 17px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128741 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128742 — seller rating typography parity.
+   csfloat shows the rating row as 12/500 white text with the leading
+   star glyph in #ff8c00 orange. sboxmarket .modal-seller-rating uses
+   11px mono ink-3 per ship #5144. Promote to canonical csfloat numbers
+   and color the leading star glyph orange via CSS first-letter trick. */
+.modal-seller-rating,
+.seller-rating {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-top: 0 !important;
+  letter-spacing: normal !important;
+}
+.modal-seller-rating::first-letter,
+.seller-rating::first-letter {
+  color: #ff8c00 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+.modal-seller-rating-count,
+.seller-rating-count {
+  color: rgb(158, 167, 177) !important;
+  font-weight: 400 !important;
+  font-size: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128742 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128743 — seller status indicator dot on
+   grid card. csfloat uses a 10x10 SVG with two concentric circles:
+     inner cx5 cy5 r3 fill (color)
+     outer cx5 cy5 r4 stroke (color) opacity 0.15 stroke-width 2
+   sboxmarket renders a 6x6 div for .grid-status-dot per ship #1423.
+   Promote to 10x10 box with the outer translucent ring via box-shadow
+   (radial halo simulating the stroke r4 opacity 0.15). Inner circle is
+   the 6x6 painted area centered, achieved with a 4px inset background
+   via radial-gradient (closest-side from center).
+
+   Offline color: #9EA7B1 (csfloat ink-3 for status indicators).
+   Online color:  rgb(100, 236, 66) (per memory feedback finding).
+   Both with translucent ring at 0.15 alpha. */
+.grid-card .grid-status-dot {
+  width: 10px !important;
+  height: 10px !important;
+  flex: 0 0 10px !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  background-image: radial-gradient(circle at center,
+    #9EA7B1 0,
+    #9EA7B1 3px,
+    transparent 3px,
+    transparent 100%) !important;
+  box-shadow: 0 0 0 1px rgba(158, 167, 177, 0.15) !important;
+  display: inline-block !important;
+}
+.grid-card .grid-status-dot.online {
+  background-image: radial-gradient(circle at center,
+    rgb(100, 236, 66) 0,
+    rgb(100, 236, 66) 3px,
+    transparent 3px,
+    transparent 100%) !important;
+  box-shadow: 0 0 0 1px rgba(100, 236, 66, 0.15) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128743 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128744 — orange favorite/rating star at
+   right edge of the seller-details row. csfloat appends a 16x16 SVG
+   star (viewBox 24x24, fill #ff8c00) at the trailing end of the
+   .seller-details flex row, after the "flex-grow:1" spacer.
+   sboxmarket .grid-status has no such glyph today. Inject via ::after
+   on .grid-card .grid-status using the Material Icons "star" ligature
+   (font-family Material Icons is already loaded by sboxmarket).
+   Pinned to fz 16 with margin-left auto so it sits at the right edge. */
+.grid-card .grid-status::after {
+  content: "star" !important;
+  font-family: "Material Icons" !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: #ff8c00 !important;
+  margin-left: auto !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-block !important;
+  white-space: nowrap !important;
+  word-wrap: normal !important;
+  direction: ltr !important;
+  -webkit-font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  vertical-align: middle !important;
+  flex: 0 0 auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128744 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128745 — modal seller online/offline text
+   color parity. csfloat span.text inside the .seller-details widget
+   renders white (rgb(255,255,255)), not ink-2. sboxmarket may render
+   the equivalent text via .seller-online-indicator label or inline
+   span next to .seller-online-dot at default modal text color, which
+   risks rendering at ink-2 due to the parent .modal-seller-info color
+   inheritance. Force white on the trailing label inside the modal-
+   seller-info block when wrapped in either .seller-online-indicator
+   or .seller-status. Both selectors are no-op if absent. */
+.modal-seller-info .seller-online-indicator,
+.modal-seller-info .seller-status,
+.modal-seller-info .seller-online-text,
+.modal-seller-info .seller-status-text {
+  color: rgb(255, 255, 255) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128745 */
