@@ -178770,3 +178770,43 @@ html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> .toggle-
 
 /* END CSFLOAT-1:1 PARITY ship #127041 */
 
+
+/* CSFLOAT-1:1 PARITY ship #127120 — search-mode .type-toggle pill geometry refinement
+   Lane: top-of-grid mat-button-toggle-group equivalent (.type-toggle: All / Buy Now / Auction).
+   Re-measured live csfloat /search mat-button-toggle group + pills against existing ship #97
+   block; six measurable deltas land here without disturbing the mode-toggle macro layout.
+   Measured csfloat: group padding 0; pill padding 0px 12px; pill line-height 32px; pill
+   letter-spacing 0.42px; pill inactive color rgb(255,255,255) (full-white, not 0.72 alpha).
+   Six refinements:
+   1) group padding 3px to 0 (csfloat rail is flush, pills sit edge-to-edge of the rail
+      which keeps the 38px rail height equal to pill stack 32 + 0 padding = 32 visually
+      with the inset rendered by Material checked-state surface, not by group padding)
+   2) pill padding 0 16px to 0 12px (Material mat-button-toggle canonical inline padding
+      24px wide vs the 32px wide that 0 16px produced — drops 4px each side)
+   3) pill explicit line-height 32px (matches pill h, locks vertical text centering
+      previously inheriting parent line-height which created 1-2px optical drift)
+   4) pill letter-spacing 0 to 0.42px (Roboto 14/500 canonical Material spacing 0.03em
+      gives the broader title-cap rhythm matching the rest of the search bar)
+   5) pill inactive color rgba(255,255,255,0.72) to rgb(255,255,255) (csfloat keeps full
+      white on inactive — relies on bg state not text color to signal selection)
+   6) pill transition refined to 150ms cubic-bezier(0.4,0,0.2,1) (canonical Material easing
+      replaces 140ms ease across bg/color, harmonizes with adjacent toggle surfaces) */
+.type-toggle {
+  padding: 0 !important;
+}
+.type-toggle-btn {
+  padding: 0 12px !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  color: rgb(255, 255, 255) !important;
+  transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.type-toggle-btn:hover {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.type-toggle-btn.active {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(193, 206, 255, 0.10) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127120 */
