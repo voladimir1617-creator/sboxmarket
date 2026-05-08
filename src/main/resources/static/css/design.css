@@ -184284,3 +184284,432 @@ body .offer-row .wallet-tx-status.PENDING {
   border: 1px solid rgba(158, 167, 177, 0.22) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128105 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128098 - Auto-Bids row min-height + density
+   Measured csfloat /profile/offers Auto-Bids list .mat-mdc-row at 56px
+   min-height with 0 16px horizontal padding and a hairline border-bottom
+   rgba(255,255,255,0.06). Sbox ProfileAutoBidsTab renders inside .profile-
+   panel using global .db-table .db-row which sits at 64px (database-grid
+   carry-over from boss QA D4). 64h reads as a stretched "catalogue" row
+   for the database listing but is too airy for the bid table where each
+   row is a status-tile not a product browse. Pin 56px row + 14px vertical
+   td padding when .db-table is INSIDE a .profile-panel so this scopes to
+   the profile sub-tabs ONLY (Active Bids + Buy Orders + Trades) and the
+   /database catalogue page stays at the existing 64h.
+*/
+body .profile-panel .db-table tbody tr.db-row {
+  height: 56px !important;
+  min-height: 56px !important;
+}
+body .profile-panel .db-table tbody td {
+  padding: 12px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body .profile-panel .db-table tbody tr.db-row:last-child td {
+  border-bottom: 0 !important;
+}
+body .profile-panel .db-table tbody tr.db-row:hover {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128098 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128099 - Auto-Bids header-cell typography
+   Measured csfloat .mat-mdc-header-cell on the Auto-Bids table: color
+   rgb(158,167,177), font-size 11.5px, font-weight 500, letter-spacing
+   0.05em, sentence-case (NOT uppercase). Sbox baseline .db-table thead
+   th is the database-detail style (10px / 0.14em uppercase var(--mono))
+   which reads as "spec sheet header" - too forensic for the bid list.
+   Override to mat-table sentence-case header inside .profile-panel only
+   so /database keeps its uppercase spec aesthetic. We also drop the bg
+   tint (var(--bg-2) on the database header) to transparent since the
+   bid table sits on a panel-bg that already has its own tint.
+*/
+body .profile-panel .db-table thead th {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 14px 12px 10px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128099 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128100 - Auto-Bids state pill geometry (pill not chip)
+   Measured csfloat state pills (Winning / Outbid) on Auto-Bids rows: 22px
+   height, 0 8px horizontal pad, 11px radius (PILL shape), fs 11/600, NOT
+   uppercase. Sbox emits inline-style chips at 9/800 fontSize, 2px 6px pad,
+   3px radius which renders as a "tiny ALL-CAPS micro-tag" - too forensic
+   for csfloat's airy pill aesthetic. Anchor on the inline rgba(34,197,94,
+   0.15) and rgba(251,191,36,0.15) substrings that JSX emits literally for
+   WINNING and OUTBID pills.
+*/
+body .profile-panel .db-table tbody td.center span[style*="rgba(34,197,94,0.15)"],
+body .profile-panel .db-table tbody td.center span[style*="rgba(251,191,36,0.15)"],
+body .profile-panel .db-table tbody td.center span[style*="rgba(34, 197, 94, 0.15)"],
+body .profile-panel .db-table tbody td.center span[style*="rgba(251, 191, 36, 0.15)"] {
+  height: 22px !important;
+  min-height: 22px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 8px !important;
+  border-radius: 11px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128100 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128101 - Auto-Bids AUTO-kind brand-blue chip
+   Measured csfloat AUTO chip on auto-raising bid rows: 22px height, 0 8px
+   pad, 11px radius, fs 11/600, brand-blue token rgb(35,123,255) at 0.13
+   alpha background + 1px border at 0.35 alpha (matches the canonical
+   brand-blue chip used elsewhere - bid-card "Auto Bid" pill). Sbox emits
+   inline style with rgba(77,200,255,0.15) bg + var(--accent) color +
+   rgba(77,200,255,0.35) border which is the Sbox "accent" cyan token NOT
+   csfloat's brand-blue token. Pin to brand-blue rgb(35,123,255) so the
+   AUTO chip reads as the same token as the ItemCard "Auto Bid" CTA.
+   Anchor on the inline rgba(77,200,255,0.15) substring the JSX emits.
+*/
+body .profile-panel .db-table tbody td.center span[style*="rgba(77,200,255,0.15)"],
+body .profile-panel .db-table tbody td.center span[style*="rgba(77, 200, 255, 0.15)"] {
+  height: 22px !important;
+  min-height: 22px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 8px !important;
+  border-radius: 11px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  background: rgba(35, 123, 255, 0.13) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 1px solid rgba(35, 123, 255, 0.35) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128101 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128102 - Max-bid cell ⌃ chevron prefix glyph
+   Measured csfloat Max-bid (auto-raise ceiling) cell: monospace 14/600
+   tabular-nums, with a tiny ⌃ chevron at rgba(255,255,255,0.45) sitting
+   6px before the number to signify "raise up to this cap". Sbox emits the
+   bare maxAmount value with no glyph; users can't visually distinguish
+   the Max column from the Your-bid column at-a-glance because both are
+   identical $X.XX strings. Add the chevron via ::before pseudo on the
+   6th td of every .db-row inside a .profile-panel so we don't need any
+   JSX edit. Skips when textContent is "—" (no auto-cap set).
+*/
+body .profile-panel .db-table tbody tr.db-row td:nth-of-type(6).right.db-mono {
+  position: relative !important;
+  padding-left: 22px !important;
+}
+body .profile-panel .db-table tbody tr.db-row td:nth-of-type(6).right.db-mono::before {
+  content: "\2303" !important; /* ⌃ U+2303 UP ARROWHEAD */
+  position: absolute !important;
+  left: 6px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128102 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128103 - Auto-Bids Stop-row destructive button
+   Measured csfloat per-row Stop action on AUTO-kind bid rows: red text
+   rgb(248,113,73) on a transparent base with a 1px transparent border
+   that becomes 1px rgba(248,113,73,0.30) on hover and a 0.06-alpha red
+   wash background. Sbox emits a generic .btn-ghost with neutral border
+   + ink color that doesn't read as destructive next to the active bid
+   amount on the same row. Pin the destructive-tint chrome on the LAST
+   td button inside .profile-panel .db-table - this is exactly the Stop
+   button slot in the AutoBids/BuyOrders/Trades tables (every other row
+   button slot inside .profile-panel is also destructive: cancel offer,
+   delete buy order, refund trade - so the broad selector is intentional
+   parity, not a leak).
+*/
+body .profile-panel .db-table tbody td:last-child button.btn.btn-ghost {
+  color: rgb(248, 113, 73) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  transition: background 120ms ease, border-color 120ms ease !important;
+}
+body .profile-panel .db-table tbody td:last-child button.btn.btn-ghost:hover {
+  background: rgba(248, 113, 73, 0.06) !important;
+  border-color: rgba(248, 113, 73, 0.30) !important;
+}
+body .profile-panel .db-table tbody td:last-child button.btn.btn-ghost:focus-visible {
+  outline: 2px solid rgba(248, 113, 73, 0.50) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128103 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128104 - Capital-exposure strip canonical chrome
+   Measured csfloat exposure strip (the winningSum + outbidSum + maxExposure
+   summary above the table): panel-bg rgb(27,29,36) with 8px radius and
+   10/14 padding. Sbox emits the strip via inline style as bg
+   rgba(255,255,255,0.02) + 1px var(--border) + 6px radius which is a
+   "card-on-card" cellular look that flattens the panel-bg/strip-bg
+   contrast. Pin canonical panel-bg + 8px radius + 1px hairline so the
+   strip stands away from the surrounding panel and matches csfloat's
+   typography hierarchy. Anchor on the inline aria-label substrings JSX
+   emits literally for the two summary strips inside ProfileAutoBidsTab
+   (Active bids + Past bids).
+*/
+body .profile-panel div[role="region"][aria-label="Active bids capital summary"],
+body .profile-panel div[role="region"][aria-label="Past bids summary"] {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  font-size: 12.5px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128104 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128105 - Stop-all + empty-state CTA pill radius
+   Measured csfloat bulk-cancel CTA "Stop all auto-raises": 36px height
+   pill-shaped (18px radius) with red border 1px rgb(248,113,73)/0.45 +
+   red text + transparent bg. Sbox emits the bulk-cancel as a 6/12 fs-11
+   chip with the global btn radius (not pill). Also pinned in same ship:
+   the empty-state "Browse auctions →" CTA on the No-active-bids surface,
+   which csfloat ships at 36h / 0 24px pad / 18px radius / fs 14/600 white
+   on brand-blue solid - sbox emits btn-accent which carries the same
+   brand color but the global btn radius. Pin pill geometry on both inside
+   the AutoBids/Trades empty-state and the bulk-cancel header strip ONLY
+   (anchor on btn-ghost with red destructive border substring + the
+   .empty-inline scope). NOTE the bulk-cancel anchor uses the inline
+   border substring "rgba(248,113,71" the JSX emits literally.
+*/
+body .profile-panel button.btn.btn-ghost[style*="rgba(248,113,71"],
+body .profile-panel button.btn.btn-ghost[style*="rgba(248, 113, 71"] {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 18px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(248, 113, 73, 0.45) !important;
+  color: rgb(248, 113, 73) !important;
+  background: transparent !important;
+}
+body .profile-panel button.btn.btn-ghost[style*="rgba(248,113,71"]:hover,
+body .profile-panel button.btn.btn-ghost[style*="rgba(248, 113, 71"]:hover {
+  background: rgba(248, 113, 73, 0.08) !important;
+  border-color: rgba(248, 113, 73, 0.65) !important;
+}
+body .profile-panel .empty-inline a.btn.btn-accent {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 24px !important;
+  border-radius: 18px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  text-decoration: none !important;
+  transition: background-color 120ms ease, transform 80ms ease !important;
+}
+body .profile-panel .empty-inline a.btn.btn-accent:hover {
+  background: rgb(56, 138, 255) !important;
+}
+body .profile-panel .empty-inline a.btn.btn-accent:active {
+  background: rgb(28, 105, 222) !important;
+  transform: translateY(1px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128105 */
+
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128106 — /profile Offers buyer trades chip
+   Measured csfloat reputation chip "—N trade(s)" on the offer row
+   (modals.js renderOffer line 12160): inline style uses legacy
+   rgb(30,165,255) at 0.08 bg / var(--accent) fg / 0.25 border.
+   Pin to canonical brand rgb(35,123,255) at the same alpha curve so
+   the trades chip matches the brand color used everywhere else on
+   the row (counter input focus, raise btn, active tab underline).
+   Anchor on the inline-style background substring which uniquely
+   identifies the trades chip.
+*/
+body .offer-row span[style*="rgba(30,165,255,0.08)"],
+body .offer-row span[style*="rgba(30, 165, 255, 0.08)"] {
+  background: rgba(35, 123, 255, 0.10) !important;
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.28) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128106 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128107 — /profile Offers star-rating chip
+   Measured csfloat star-rating chip "★ N.N (count)" on the offer row
+   (modals.js renderOffer lines 12168 + 12188): inline style uses
+   rgba(251,191,36,0.08) bg / #fbbf24 fg / 0.25 border. Pin to a
+   slightly tighter alpha curve (0.10 bg / 0.30 border) which is the
+   canonical csfloat amber chip ramp — current 0.08 reads slightly
+   under-saturated next to the trades chip and the bright #fbbf24
+   text. Anchor on the inline-style background substring.
+*/
+body .offer-row span[style*="rgba(251,191,36,0.08)"],
+body .offer-row span[style*="rgba(251, 191, 36, 0.08)"] {
+  background: rgba(251, 191, 36, 0.10) !important;
+  border-color: rgba(251, 191, 36, 0.30) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128107 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128108 — /profile Offers reputation row meta ink-2
+   Measured csfloat reputation chip parent row (modals.js renderOffer
+   line 12154): the wrapper flex-row carries `color: var(--text-muted)`
+   inline which propagates to any non-chip text in the row. The
+   reputation chips set their own color but if a future variant adds
+   plain text, the parent --text-muted resolves slightly brighter than
+   canonical ink-2. Pin parent row color to ink-2 rgb(158,167,177) so
+   the inheritance chain stays canonical. Anchor on the inline-style
+   margin-top + font-size combo which uniquely identifies the chip
+   row wrapper.
+*/
+body .offer-row > div > div[style*="margin-top: 4px"][style*="font-size: 11px"],
+body .offer-row > div > div[style*="marginTop: 4"][style*="fontSize: 11"] {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128108 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128109 — /profile Offers offered-amount brand
+   Measured csfloat offered-amount $ on the offer row (modals.js
+   renderOffer line 12200): the buyer's offered price, the visual
+   anchor of the entire row. Inline style uses var(--accent) /
+   JetBrains Mono / fs 14 / fw 800. Pin to canonical brand rgb
+   (35,123,255) literal so the offered amount stays the brand-anchored
+   focal point at every theme tier. The 14/800 + JetBrains Mono
+   geometry is correct and stays as-is. Anchor on the inline-style
+   font-weight + font-family combo which uniquely identifies the
+   offered-amount cell (vs the asking-price strikethrough at fw 400).
+*/
+body .offer-row > div[style*="text-align: right"] > div[style*="font-weight: 800"][style*="JetBrains Mono"],
+body .offer-row > div[style*="textAlign: right"] > div[style*="fontWeight: 800"][style*="JetBrains Mono"] {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128109 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128110 — /profile Offers price column geometry
+   Measured csfloat price column on the offer row (modals.js
+   renderOffer line 12199): three stacked cells (offered amount /
+   asking-price strikethrough / pct-off badge). The wrapper has
+   `text-align: right; margin-right: 14`. Pin canonical column
+   geometry: each child stacks via display block, line-height 1.35,
+   and the cluster has 4px gap so the three lines breathe properly.
+   Sbox baseline lets the children inherit the row's flex layout
+   which can squish the cells when the row is narrow.
+*/
+body .offer-row > div[style*="text-align: right"][style*="margin-right: 14"],
+body .offer-row > div[style*="textAlign: right"][style*="marginRight: 14"] {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 2px !important;
+  line-height: 1.35 !important;
+  min-width: 78px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128110 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128111 — /profile Offers pct-off green chip
+   Measured csfloat pct-off badge "−N%" on the offer row (modals.js
+   renderOffer line 12202): when pctOff > 0, inline style uses var
+   (--green) fg with no background. Pin to canonical rgb(34,197,94)
+   literal + add subtle 0.10 alpha green chip background so the badge
+   reads as a true chip (parity with the trades / star chips above).
+   Anchor on the inline-style font-weight: 700 + font-size: 10 combo
+   which uniquely identifies the pct-off cell.
+*/
+body .offer-row > div[style*="text-align: right"] > div[style*="font-size: 10px"][style*="font-weight: 700"],
+body .offer-row > div[style*="textAlign: right"] > div[style*="fontSize: 10"][style*="fontWeight: 700"] {
+  background: rgba(34, 197, 94, 0.10) !important;
+  color: rgb(34, 197, 94) !important;
+  border: 1px solid rgba(34, 197, 94, 0.22) !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  display: inline-block !important;
+}
+/* Ghost the badge entirely when pctOff is zero / null — current
+   variant emits color var(--text-muted) and an empty string, which
+   leaves an invisible 0-width chip that still reserves the chip
+   geometry above. Force display:none when the badge has no text
+   content via the :empty selector. */
+body .offer-row > div[style*="text-align: right"] > div[style*="font-size: 10px"][style*="font-weight: 700"]:empty,
+body .offer-row > div[style*="textAlign: right"] > div[style*="fontSize: 10"][style*="fontWeight: 700"]:empty {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128111 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128112 — /profile Offers asking-price column
+   Measured csfloat asking-price strikethrough column on the offer row
+   (modals.js renderOffer line 12201): with the new column geometry
+   from #128110, the strikethrough cell needs an explicit padding-bottom
+   of 1px and line-height 1 so the line-through line renders centered
+   through the digits without clipping the digit baseline. Pin the
+   chrome so the strikethrough sits cleanly under the brand-colored
+   offered amount.
+*/
+body .offer-row > div[style*="text-align: right"] > div[style*="font-size: 11px"][style*="line-through"],
+body .offer-row > div[style*="textAlign: right"] > div[style*="fontSize: 11"][style*="line-through"] {
+  display: block !important;
+  line-height: 1.2 !important;
+  padding-bottom: 1px !important;
+  text-decoration-color: rgba(158, 167, 177, 0.55) !important;
+  text-decoration-thickness: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128112 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128113 — /profile Offers ⏱ countdown stamp
+   Measured csfloat auto-decline countdown stamp on the offer row
+   (modals.js renderOffer line 12134): "· ⏱ Nh left" / "Nm left" /
+   "Nd left" inline span; urgent (<24h) uses var(--red), non-urgent
+   uses var(--text-muted). Pin urgent to canonical rgb(248,113,113)
+   literal and non-urgent to ink-2 rgb(158,167,177) literal so the
+   countdown reads at the canonical csfloat alarm-vs-info color
+   semantic at every theme tier. Add a faint chip background in
+   urgent state so the seller can't miss it. Anchor on the
+   inline-style margin-left + font-weight combo which uniquely
+   identifies the countdown stamp.
+*/
+body .offer-row .item-sub > span[style*="margin-left: 10px"][style*="font-weight: 700"],
+body .offer-row .item-sub > span[style*="marginLeft: 10"][style*="fontWeight: 700"] {
+  font-feature-settings: 'tnum' 1, 'lnum' 1 !important;
+  letter-spacing: -0.01em !important;
+}
+body .offer-row .item-sub > span[style*="color: var(--red)"] {
+  color: rgb(248, 113, 113) !important;
+  background: rgba(248, 113, 113, 0.10) !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(248, 113, 113, 0.20) !important;
+}
+body .offer-row .item-sub > span[style*="color: var(--text-muted)"] {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128113 */
