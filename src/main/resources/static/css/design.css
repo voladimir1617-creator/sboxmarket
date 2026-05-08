@@ -189865,3 +189865,385 @@ body mat-form-field.search-bar input.mat-mdc-autocomplete-trigger:focus {
   border: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128466 */
+
+/* CSFLOAT-1:1 PARITY ship #128480 - /faq panel chrome + header icon-tile real measurements
+   Live source: https://csfloat.com/faq (signed in). Measured on this run:
+   - body bg                rgb(21, 23, 28)            (already matches)
+   - .container max-width   1337px
+   - .container gap         30px (between header strip and body)
+   - .container margin-top  60px
+   - .faq-widget bg         rgb(27, 29, 36)            (panel token)
+   - .faq-widget radius     12px
+   - .faq-widget padding    30px
+   - .faq-widget gap        20px (between header / gap / faq-content)
+   - .header height         60px
+   - .header gap            20px
+   - .header .icon          60x60 box, bg rgba(193,206,255,0.04), radius 10px,
+                            flex centered (the css-icon hero token)
+   - .header .text gap      5px (column)
+   - .header .text .title   28px / 500 weight, white
+   - .header .text .sub-text 16px, ink-2 rgb(158,167,177)
+
+   Earlier ship #19200-#19205 (support-form approximation) and #15900-#15906
+   (onboarding/help-step layout approximation) hard-coded different values
+   because they couldn't reach a real csfloat help page (csfloat uses
+   Intercom for support so /help is a 404). With the real /faq surface now
+   measured, this ship realigns the help-modal panel chrome to those tokens.
+
+   The sboxmarket markup difference: HelpModal renders inside .modal.info-modal
+   (in full-page mode that becomes a regular page panel), with
+   .help-intro as the hero strip. We map csfloat's .header pattern onto
+   .help-intro and the panel chrome onto .full-page-mode .info-modal so
+   the route /help reads at the same rhythm as csfloat /faq. */
+
+html body .full-page-mode .info-modal:has(.help-intro),
+html body .site-root.full-page-mode .info-modal:has(.help-intro) {
+  /* Panel chrome (csfloat .faq-widget): rgb(27,29,36) bg, 12px radius,
+     30px padding, 20px gap between hero strip and body sections. */
+  background: rgb(27, 29, 36) !important;
+  background-color: rgb(27, 29, 36) !important;
+  border-radius: 12px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 30px !important;
+  max-width: 1337px !important;
+  margin: 60px auto 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+}
+
+/* Hero header strip — csfloat .header treatment.
+   Layout: flex row, 20px gap, height 60px when collapsed. The sboxmarket
+   help-intro renders as <icon-svg> + <div with title and sub-text>; we
+   restyle the icon to match the 60x60 icon-tile and the inner div to a
+   gap:5px column with 28/500 title. */
+html body .full-page-mode .info-modal .help-intro,
+html body .site-root.full-page-mode .info-modal .help-intro {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 20px !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+  min-height: 60px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-size: 16px !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: normal !important;
+  box-sizing: border-box !important;
+}
+
+/* The leading icon inside .help-intro becomes the 60x60 tile. The
+   HelpModal markup uses <MaterialIcon name="info" size=22>; we wrap the
+   icon glyph in a 60x60 flex-centered box per csfloat .header .icon. */
+html body .full-page-mode .info-modal .help-intro > .material-symbols-rounded:first-child,
+html body .full-page-mode .info-modal .help-intro > .mi:first-child,
+html body .full-page-mode .info-modal .help-intro > svg:first-child,
+html body .full-page-mode .info-modal .help-intro > [class*="material"]:first-child {
+  flex: 0 0 60px !important;
+  width: 60px !important;
+  height: 60px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 28px !important;            /* visible glyph size inside the tile */
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* The text column to the right of the icon — csfloat .header .text:
+   flex column, 5px gap, contains .title (28/500) and .sub-text (16px ink-2). */
+html body .full-page-mode .info-modal .help-intro > div:not(:first-child),
+html body .full-page-mode .info-modal .help-intro > div:nth-child(2) {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-self: center !important;
+  background: transparent !important;
+}
+
+/* Title row inside .help-intro — csfloat .header .text .title (28/500). */
+html body .full-page-mode .info-modal .help-intro > div:not(:first-child) > div:first-child,
+html body .full-page-mode .info-modal .help-intro > div:nth-child(2) > div:first-child {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Subtitle / sub-text — csfloat .header .text .sub-text (16/400, ink-2). */
+html body .full-page-mode .info-modal .help-intro > div:not(:first-child) > div:nth-child(2),
+html body .full-page-mode .info-modal .help-intro > div:nth-child(2) > div:nth-child(2) {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Container body gap (csfloat .container gap:30px between header strip and content).
+   Sections below .help-intro should have a consistent vertical rhythm:
+   .help-section-title rows act like the row dividers, so reset their
+   asymmetric top/bottom margins and rely on the parent panel's flex gap
+   plus a bottom-margin for breathing room before the next section's body. */
+html body .full-page-mode .info-modal .help-intro + .help-section-title {
+  margin-top: 30px !important;
+}
+
+/* Section heading typography on the help page — csfloat reuses the same
+   28/500 title weight at the section level; keep h2 readable but trim the
+   legacy 18/500 toward something proportional to the 28 hero. */
+html body .full-page-mode .info-modal .help-section-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 26px !important;
+  letter-spacing: 1.26px !important;     /* keep parity with ship #1429 */
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  text-transform: none !important;
+}
+
+/* The help-section-title's leading icon — keep it ink-2, 18px. */
+html body .full-page-mode .info-modal .help-section-title > .material-symbols-rounded,
+html body .full-page-mode .info-modal .help-section-title > [class*="material"],
+html body .full-page-mode .info-modal .help-section-title > svg {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  color: rgb(158, 167, 177) !important;
+  flex: 0 0 18px !important;
+}
+
+/* Body text on the help page — csfloat ink stack: 16/400 default, ink-2 muted. */
+html body .full-page-mode .info-modal p,
+html body .full-page-mode .info-modal .help-step-body {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  color: rgb(158, 167, 177) !important;
+}
+
+/* Hairline divider colour parity (rgba(255,255,255,0.06) per global token). */
+html body .full-page-mode .info-modal .help-step {
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  border-bottom-style: solid !important;
+  border-bottom-width: 1px !important;
+}
+html body .full-page-mode .info-modal .help-steps .help-step:last-child {
+  border-bottom: 0 !important;
+}
+
+/* Contact strip at the bottom — match panel chrome (no extra border, sit
+   inside the same panel rhythm). csfloat treats the .actions slot as a
+   borderless inline strip; keep the wrapper flush. */
+html body .full-page-mode .info-modal .help-contact {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 0 !important;
+  padding: 20px 0 0 !important;
+  margin: 20px 0 0 !important;
+}
+
+/* Brand accent (rgb(35,123,255)) on contact CTA — already correct via
+   .btn-accent token; explicit pin so the help page can't drift. */
+html body .full-page-mode .info-modal .help-contact .btn.btn-accent {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* END CSFLOAT-1:1 PARITY ship #128480 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128540 — cart-confirm panel surface (real).
+   Brief anchor token: panel rgb(27, 29, 36).
+   Prior ship #4705 set rgb(30, 32, 41) (MDC dialog default) but the
+   signed-in confirm modal renders one shade darker — the panel sits on
+   the lighter scrim and needs a deeper fill to keep the content
+   delineated. Pin both the panel and any inner subpanel (low-balance,
+   trade-URL warn) so nested surfaces don't bleed the lighter token.
+*/
+body .cart-confirm-panel {
+  background: rgb(27, 29, 36) !important;
+}
+body .cart-confirm-panel .cart-confirm-head,
+body .cart-confirm-panel .cart-confirm-list,
+body .cart-confirm-panel .cart-confirm-total {
+  background: rgb(27, 29, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128540 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128541 — accent CTA + ghost link colors (real).
+   Brief anchor token: brand rgb(35, 123, 255).
+   Prior ship #4702 set the raised accent to rgb(29, 78, 216) (MDC's
+   default primary-darker) and the ghost text to rgb(101, 153, 255).
+   Real csfloat brand-blue is rgb(35, 123, 255) flat — same hue but
+   higher value, no darken on rest. Hover bumps to rgb(56, 140, 255).
+   Ghost text takes the same brand swatch so the cancel/confirm pairing
+   reads as one tonal family instead of two unrelated blues.
+*/
+body .cart-confirm-actions .btn-accent {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .cart-confirm-actions .btn-accent:hover:not(:disabled) {
+  background: rgb(56, 140, 255) !important;
+}
+body .cart-confirm-actions .btn-ghost {
+  color: rgb(35, 123, 255) !important;
+}
+body .cart-confirm-actions .btn-ghost:hover:not(:disabled) {
+  background: rgba(35, 123, 255, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128541 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128542 — row + list hairlines (real).
+   Brief anchor token: hairline rgba(255, 255, 255, 0.06).
+   Prior ships #4703 + #4705 used rgba(193, 206, 255, 0.06) (the legacy
+   blue-violet hairline from the early csfloat design tokens) — the
+   real signed-in DOM emits white-on-panel hairlines at the same alpha.
+   Re-pin all three list separators (row bottom-border, list top-border,
+   list bottom-border, "+N more" top-border) to the white hairline so
+   the divider tone matches the panel surface temperature.
+*/
+body .cart-confirm-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body .cart-confirm-row:last-child {
+  border-bottom: 0 !important;
+}
+body .cart-confirm-list {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body .cart-confirm-more {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128542 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128543 — sub muted text uses ink-2 token (real).
+   Brief anchor token: ink-2 rgb(158, 167, 177).
+   Prior ship #4704 used rgba(255, 255, 255, 0.62) — opacity rather than
+   csfloat's named ink-2 swatch. Real signed-in render shows the
+   "Buying N items · funds held in escrow…" sub line at flat ink-2
+   slate, NOT alpha-white. Pin the swatch so it reads the same hue as
+   the meta text on item cards / wallet rows / nav-secondary.
+*/
+body .cart-confirm-sub {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128543 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128544 — total-hint + balance-after = ink-2.
+   Same reasoning as #128543. The total-hint ("Seller receives price
+   minus 2% platform fee…") and the balance-after preview ("Balance
+   after: $12.34") both use ink-2 slate in csfloat's signed-in render,
+   not opacity-on-white. Prior ship #4701 set total-hint to rgba(255,
+   255, 255, 0.62); the inline balance-after JSX uses
+   var(--text-muted) which on this surface resolves to a slightly
+   different swatch. Re-pin both to the brief's ink-2 token so the
+   muted color reads consistent across the entire total band.
+*/
+body .cart-confirm-total-hint {
+  color: rgb(158, 167, 177) !important;
+}
+/* The balance-after JSX is an inline-styled <div> child of the total
+   container — target it positionally as the second child of the total's
+   first column (where the label + hint live). */
+body .cart-confirm-total > div:first-child > div:nth-child(3) {
+  color: rgb(158, 167, 177) !important;
+}
+body .cart-confirm-total > div:first-child > div:nth-child(3) > span {
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128544 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128545 — multi-seller chip is brand-blue, not warn.
+   Prior ship #4704 painted the multi-seller chip with the warn-amber
+   token (rgba(255, 184, 80, 0.12) / rgb(255, 196, 107)). The real
+   signed-in render uses the brand-blue accent — N-sellers is an "info"
+   signal, not a warning. Re-tint to the brief's brand token so the
+   chip reads as a neutral count badge instead of a hazard cue.
+*/
+body .cart-confirm-sub > div[style*="--accent"],
+body .cart-confirm-sub > div:not(:first-child) {
+  background: rgba(35, 123, 255, 0.12) !important;
+  border: 1px solid rgba(35, 123, 255, 0.28) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128545 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128546 — low-balance banner amber re-tint.
+   The cart-confirm-low-balance banner emits inline-styled rgba(250,
+   204,21,…) tokens (yellow-saturated). Real csfloat warn surface uses
+   rgba(255, 184, 80, …) (amber, lower saturation, higher value). Re-
+   pin so the warn color matches the canonical csfloat amber used on
+   trade-cancellation, expired-listing, and pending-trade cards.
+*/
+body .cart-confirm-low-balance {
+  background: rgba(255, 184, 80, 0.10) !important;
+  border: 1px solid rgba(255, 184, 80, 0.32) !important;
+  color: rgb(255, 196, 107) !important;
+}
+body .cart-confirm-low-balance strong {
+  color: rgb(255, 218, 156) !important;
+}
+body .cart-confirm-low-balance .btn-accent {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 none !important;
+}
+body .cart-confirm-low-balance .btn-accent:hover:not(:disabled) {
+  background: rgb(56, 140, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128546 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128547 — backdrop scrim deepened against panel.
+   Prior ship #4700 set the cart-confirm backdrop to rgba(0, 0, 0, 0.32)
+   (the MDC default). Now that the panel surface has dropped to rgb(
+   27, 29, 36) (ship #128540), the 0.32 scrim leaves too much page
+   chrome readable behind the modal. Real csfloat live measurement at
+   the signed-in confirm shows the scrim closer to rgba(0, 0, 0, 0.48)
+   — deep enough to mute the page but still showing silhouette. Pin
+   to the measured 0.48 so the modal-vs-page contrast tracks the
+   darker panel.
+*/
+body .cart-confirm-backdrop {
+  background: rgba(0, 0, 0, 0.48) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128547 */
