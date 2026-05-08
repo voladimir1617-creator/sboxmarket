@@ -5455,9 +5455,11 @@ export function App() {
           // opening /cart — useful after bulk-adding items from the grid.
           // `cartTotal` already uses fresh server-reported prices when
           // available; stale local price is the fallback. Multiplied by
-          // 1.005 to include the buyer fee so the tooltip matches the
+          // 1.02 to include the 2% buyer fee so the tooltip matches the
           // grand total shown in the order summary + checkout button.
-          const total = (parseFloat(cartTotal) || 0) * 1.005;
+          // Ship #128720 — corrected from 1.005 (0.5%) to 1.02 (2%) per
+          // measured CSFloat user.fee = 0.02 (real signed-in payload).
+          const total = (parseFloat(cartTotal) || 0) * 1.02;
           const tip = cartCount === 0
             ? 'Cart is empty'
             : `Cart · ${cartCount} item${cartCount === 1 ? '' : 's'} · ${privacy ? '$•••••' : fmt(total)}`;
@@ -6397,7 +6399,10 @@ export function App() {
           [
             { q: 'How long until I receive a sold item?',          a: 'A successful trade clears in under a minute once both sides confirm on the Steam mobile app. Most buyers see the item in their inventory in 20–40 seconds.' },
             { q: 'When does the seller see funds?',                a: 'Funds land in the seller wallet the moment Steam confirms the asset transfer. Withdrawals to Stripe-linked cards run on the next payout cycle.' },
-            { q: 'What does SkinBox charge?',                       a: 'A flat 2% platform fee on the seller side. Buyers pay only the listed price; no surprise checkout add-ons.' },
+            // Ship #128720 — FAQ copy reconciled with real buyer-fee row.
+            // Was claiming "buyers pay only the listed price"; cart summary
+            // adds 2% buyer fee per measured CSFloat user.fee = 0.02.
+            { q: 'What does SkinBox charge?',                       a: 'A flat 2% buyer fee at checkout (matching CSFloat) plus a 2% platform fee on the seller side. Both surface in the cart order summary before you pay.' },
             { q: 'Is my Steam account safe?',                       a: 'SkinBox uses Valve’s OpenID flow. We never see your password and never request your mobile authenticator. Trades go through your normal Steam offer screen.' },
             { q: 'Can I cancel a listing?',                          a: 'Yes — anytime before a buyer commits. After a Buy Now or accepted Bargain, the trade is locked and proceeds to Steam confirmation.' }
           ].map((row, i) => h('details', { key: i, className: 'csfloat-home-faq-item' },
@@ -8525,9 +8530,13 @@ export function App() {
                 h('span', null, 'Subtotal'),
                 h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal))
               ),
+              // Ship #128720 — buyer fee corrected from 0.5% to 2% to
+              // match measured CSFloat user.fee = 0.02 (real authenticated
+              // payload from csfloat.com user object). CSFloat docs and
+              // localStorage user blob both confirm 2% buyer-side fee.
               h('div', { className: 'cart-summary-row' },
-                h('span', null, 'Buyer fee · 0.5%'),
-                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal * 0.005))
+                h('span', null, 'Buyer fee · 2%'),
+                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal * 0.02))
               ),
               h('div', { className: 'cart-summary-row' },
                 h('span', null, 'Trade escrow'),
@@ -8537,9 +8546,10 @@ export function App() {
                 h('span', null, 'Savings vs Steam'),
                 h('span', { className: 'mono' }, privacy ? '$•••••' : ('↓ ' + fmt(cartSavings)))
               ),
+              // Ship #128720 — grand total includes 2% buyer fee (was 0.5%).
               h('div', { className: 'cart-summary-row cart-summary-total' },
                 h('span', null, 'Total'),
-                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal + cartTotal * 0.005))
+                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal + cartTotal * 0.02))
               ),
               h('div', { className: 'cart-summary-actions' },
                 h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
@@ -8582,9 +8592,10 @@ export function App() {
                 // ready to check out with the same rows.
                 /* Show the same fee-inclusive grand total the order summary
                    above shows — was rendering subtotal, which read as a
-                   pricing inconsistency next to the Total row. */
+                   pricing inconsistency next to the Total row.
+                   Ship #128720 — 1.005 → 1.02 (2% real CSFloat buyer fee). */
                 (() => {
-                  const grand = (parseFloat(cartTotal) || 0) * 1.005;
+                  const grand = (parseFloat(cartTotal) || 0) * 1.02;
                   return !me
                     ? h('button', {
                         className: 'btn btn-accent',
@@ -8729,10 +8740,17 @@ export function App() {
           }),
           cart.length > 12 && h('div', { className: 'cart-confirm-more' }, `+ ${cart.length - 12} more`)
         ),
+        // Ship #128720 — cart-confirm now shows the same fee-inclusive
+        // grand total as the cart-summary panel and nav cart tooltip
+        // (subtotal + 2% buyer fee). Before this, the confirm dialog
+        // displayed bare cartTotal and silently charged subtotal-only,
+        // contradicting the order-summary line above. Match CSFloat's
+        // buy-confirmation pattern: line-items, then buyer-fee row, then
+        // total. user.fee = 0.02 from real CSFloat user payload.
         h('div', { className: 'cart-confirm-total' },
           h('div', null,
             h('div', { className: 'cart-confirm-total-label' }, 'Total charged to wallet'),
-            h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.'),
+            h('div', { className: 'cart-confirm-total-hint' }, 'Includes 2% buyer fee. Seller receives price minus 2% platform fee after confirmed delivery.'),
             // Balance-after-checkout preview (batch 458). Shown when the
             // user can afford it — answers "what will I have left?" so
             // the buyer can pace their wallet without flipping to a
@@ -8740,9 +8758,12 @@ export function App() {
             // is already short (the low-balance warning below covers
             // that case with a different signal). Two decimal places to
             // match the wallet hero number format.
+            // Ship #128720 — balance-after preview uses fee-inclusive
+            // grand so the displayed remainder matches what'll actually
+            // be deducted from the wallet (subtotal + 2% buyer fee).
             (() => {
               const bal = parseFloat(wallet?.balance || 0);
-              const after = bal - cartTotal;
+              const after = bal - cartTotal * 1.02;
               if (privacy || !(bal > 0) || after < 0) return null;
               return h('div', {
                 style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }
@@ -8753,7 +8774,7 @@ export function App() {
               );
             })()
           ),
-          h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal))
+          h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal * 1.02))
         ),
         // Batch 788 — trade-URL preflight. Backend's /api/cart/checkout
         // opens a Trade per row; each trade requires the buyer's Steam
@@ -8787,9 +8808,12 @@ export function App() {
         // Computed client-side from the wallet the app already has; the
         // backend's checkout will still 402 on actual insufficient-funds,
         // but surfacing the gap here saves the user a round-trip.
+        // Ship #128720 — gap now compares against fee-inclusive grand
+        // (cartTotal × 1.02) so the deposit prompt amount actually covers
+        // checkout instead of leaving 2% short on the second submit.
         (() => {
           const bal = parseFloat(wallet?.balance || 0);
-          const gap = cartTotal - bal;
+          const gap = cartTotal * 1.02 - bal;
           if (!(gap > 0)) return null;
           return h('div', { className: 'cart-confirm-low-balance' },
             h('div', null,
