@@ -192364,3 +192364,985 @@ html body .wallet-modal input.wallet-amount-input-v2 {
   letter-spacing: normal !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128745 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128800 — .mat-mdc-select-panel surface for
+   the .month-filter-container open dropdown panel. Real csfloat measure
+   (live signed-in /loadout > Discover, trigger click on month dropdown):
+     panel background-color rgba(21, 23, 28, 0.8) (smoked panel-1)
+     panel min-width auto, max-height 275px
+     panel padding 8px top + 8px bottom (mat-mdc default for select panel)
+   sboxmarket previously left the open select panel at the Material default
+   (#1e1e1e opaque) which prints brighter than the csfloat smoked surface.
+   Force the smoked rgba bg + 8px vertical padding when the panel is hosted
+   under .month-filter-container (or its sibling sort container should it
+   ever switch from a toggle-group to a select). */
+.cdk-overlay-pane .mat-mdc-select-panel,
+.cdk-overlay-pane > div > .mat-mdc-select-panel,
+body .mat-mdc-select-panel {
+  background-color: rgba(21, 23, 28, 0.8) !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  min-width: auto !important;
+  max-height: 275px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128800 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128801 — open-panel border + radius split.
+   Real csfloat measure (same panel): border 2px solid rgba(193,206,255,0.07)
+   (cool-white hairline at very low opacity), border-radius 0 0 15px 15px.
+   The squared top edge tells the eye the panel is "attached" to the
+   trigger's bottom corner; the rounded 15px bottom fills the open card.
+   sboxmarket's default Material panel paints uniform 4px radius which
+   reads as a free-floating chip, not a flap. Override here so any open
+   select panel under loadout discover (only place csfloat ships this
+   chrome) gets the asymmetric radius + cool hairline. */
+body .mat-mdc-select-panel {
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 15px !important;
+  border-bottom-right-radius: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128801 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128802 — open-panel shadow stack. Real
+   csfloat measure (same panel): the panel paints the standard MDC menu
+   surface 3-layer drop shadow:
+     0 5px 5px -3px rgba(0,0,0,0.2),
+     0 8px 10px 1px rgba(0,0,0,0.14),
+     0 3px 14px 2px rgba(0,0,0,0.12).
+   sboxmarket may have stripped this earlier when normalising shadows for
+   the panel-2 cards; this rule re-asserts the MDC stack so the open
+   dropdown lifts off the page exactly as csfloat's does. NOTE: s&box
+   CSS parser supports multi-layer box-shadow on web here (this repo is
+   the standalone web client, not the s&box overlay), so the comma list
+   is fine. */
+body .mat-mdc-select-panel {
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128802 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128803 — .mat-mdc-option idle row. Real
+   csfloat measure (Last 1 Month / Last 3 Months / All Time options):
+     min-height 48px, padding 0 16px, background transparent, color #fff,
+     row width fills panel - 4px (panel hairline = 2 each side).
+   sboxmarket should render the option rows with the same bare row
+   geometry — no inner background, no extra inset, just the centred 16px
+   text within a 48px row. */
+body .mat-mdc-select-panel .mat-mdc-option,
+body .mat-mdc-select-panel mat-option {
+  min-height: 48px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  background-color: transparent !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128803 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128804 — selected/active option highlight.
+   Real csfloat measure: the currently-selected option (e.g. "Last 1
+   Month" in this view) paints background color(srgb 1 1 1 / 0.12) which
+   resolves to rgba(255,255,255,0.12) — a low-opacity white wash, not the
+   brand blue. sboxmarket previously used the Material primary (brand
+   blue rgb(35,123,255)) tint for selected select rows which clashes
+   with csfloat's quieter palette. Override the selected/active states
+   for any mat-option inside an open mat-mdc-select-panel to match. */
+body .mat-mdc-select-panel .mat-mdc-option.mdc-list-item--selected,
+body .mat-mdc-select-panel .mat-mdc-option[aria-selected="true"],
+body .mat-mdc-select-panel mat-option.mat-selected,
+body .mat-mdc-select-panel mat-option[aria-selected="true"] {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .mat-mdc-select-panel .mat-mdc-option.mdc-list-item--selected
+  .mdc-list-item__primary-text,
+body .mat-mdc-select-panel mat-option.mat-selected
+  .mdc-list-item__primary-text {
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128804 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128805 — option text typography. Real
+   csfloat measure: .mdc-list-item__primary-text inside each option
+   renders 16px / 400 / Roboto, white, normal letter-spacing. The
+   sboxmarket default for list-item primary text is 14px / 500 which
+   shrinks the dropdown rows and bolds them — wrong for csfloat parity.
+   Pin the dropdown text to 16/400 here. */
+body .mat-mdc-select-panel .mat-mdc-option .mdc-list-item__primary-text,
+body .mat-mdc-select-panel mat-option .mdc-list-item__primary-text {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 1.5 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128805 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128840 — search filter toggle group
+   container chrome. csfloat's app-search-filter-toggle-group + its
+   inner div.filter.mat-button-toggle-stretch render at 342x38 with
+   FULLY transparent background, no border, no border-radius, no
+   padding, and no box-shadow. sboxmarket .csfloat-segmented at
+   design.css:21422 wraps the row in var(--bg-2) panel + 1px
+   var(--line) border + 8px br + 3px padding — strip all of that to
+   match csfloat geometry. Keep inline-flex for child layout. */
+.csfloat-segmented {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  height: 38px !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128840 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128841 — search filter toggle PILL parity.
+   Each csfloat mat-button-toggle is a 32px-tall rounded-rect with
+   br 4, margin 3 horizontal, transparent bg when unchecked, and
+   rgba(193,206,255,0.04) bg when checked. The visible label text
+   sits inside .mat-button-toggle-label-content with padding 0/12,
+   line-height 32, font Roboto 14/500, letter-spacing 0.42px,
+   color rgb(158,167,177) (ink-2) unchecked / rgb(255,255,255)
+   checked. sboxmarket .csfloat-segmented-seg renders mono 11/600
+   UPPERCASE with padding 6/14 and a heavy blue active fill —
+   completely off-spec. Pin to csfloat numbers. */
+.csfloat-segmented-seg {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 0 12px !important;
+  margin: 0 3px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background 100ms ease, color 100ms ease !important;
+}
+.csfloat-segmented-seg.active,
+.csfloat-segmented-seg[aria-pressed="true"],
+.csfloat-segmented-seg[aria-checked="true"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128841 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128842 — promote the generic .tabs row
+   to csfloat segmented chrome when carrying the .csfloat-row opt-in
+   class OR when nested inside the search/market toolbar. csfloat's
+   filter row has NO bottom border, NO underline-active scheme — it
+   uses rounded-rect translucent pills. Strip the .tabs underline
+   chrome on these contexts and re-pin button geometry to the
+   #128841 spec. Other .tabs consumers (profile/account underline
+   tabs) keep their original look. */
+.tabs.csfloat-row,
+.market-toolbar .tabs,
+.search-toolbar .tabs,
+.market-page .tabs,
+.market-page > .tabs,
+.search-page .tabs,
+.search-results-page .tabs {
+  border-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  gap: 0 !important;
+  height: 38px !important;
+  align-items: center !important;
+  background: transparent !important;
+}
+.tabs.csfloat-row > button,
+.market-toolbar .tabs > button,
+.search-toolbar .tabs > button,
+.market-page .tabs > button,
+.search-page .tabs > button,
+.search-results-page .tabs > button {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 0 12px !important;
+  margin: 0 3px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  margin-bottom: 0 !important;
+}
+.tabs.csfloat-row > button.active,
+.market-toolbar .tabs > button.active,
+.search-toolbar .tabs > button.active,
+.market-page .tabs > button.active,
+.search-page .tabs > button.active,
+.search-results-page .tabs > button.active {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-bottom: 0 !important;
+  border-bottom-width: 0 !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128842 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128843 — Buy Now / Auction segmented
+   toolbar (.type-toggle) — visually unify with csfloat's search
+   filter row. Container drops the bg-1 panel + line-2 border; each
+   button gets the canonical 32h padding 0/12 line-height 32 Roboto
+   14/500 ls 0.42px chrome. Active state moves from heavy blue
+   tinted bg + blue text to csfloat's rgba(193,206,255,0.04) bg +
+   white text. Drop the inset shadow lift. */
+.type-toggle {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  height: 38px !important;
+  align-items: center !important;
+}
+.type-toggle-btn {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 0 12px !important;
+  margin: 0 3px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  box-shadow: none !important;
+}
+.type-toggle-btn.active {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128843 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128844 — homepage hero tabs row (.cf-hero-
+   tabs + .cf-tab) — the literal "All Items / Sticker Combos / Unique
+   Items" three-tab strip. Currently a 3-col grid with rgba(10,12,16,
+   0.45) blurred panel, 1px line border, 22px margin-bottom and tall
+   (min-h 72) cf-tab cards w/ flex-col layout + inset blue border-
+   bottom on .cf-tab.on. csfloat draws this as the same flat
+   transparent segmented row used everywhere else. Pin to csfloat
+   geometry: drop panel + blur + border + grid + tall buttons. */
+.cf-hero-tabs {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  height: 38px !important;
+  align-items: center !important;
+}
+.cf-tab {
+  background: transparent !important;
+  border: 0 !important;
+  border-right: 0 !important;
+  padding: 0 12px !important;
+  margin: 0 3px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+  transition: background 100ms ease, color 100ms ease !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+}
+.cf-tab:last-child { border-right: 0 !important; }
+.cf-tab.on {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+}
+.cf-tab .cf-tab-label {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  display: inline !important;
+  width: auto !important;
+}
+.cf-tab.on .cf-tab-label {
+  color: rgb(255, 255, 255) !important;
+}
+.cf-tab .cf-tab-sub {
+  /* csfloat's flat segmented row has no sub-label; hide cleanly. */
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128844 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128845 — container width/height floor
+   for the search filter row. csfloat measures the row at exactly
+   342x38 (six toggles, label widths sum + 6 horizontal margin units
+   + label padding). For sboxmarket the toggle count varies (Buy Now/
+   Auction is 2-3, market filter row is 2-4) so we don't pin a fixed
+   width — but we DO floor outer h at 38 (so the 32h pills sit with
+   3px vertical breathing room) and let the row hug content via
+   width:max-content + auto margins respected. Belt-and-suspenders
+   for the four canonical containers (.csfloat-segmented, .tabs.
+   csfloat-row, .type-toggle, .cf-hero-tabs). */
+.csfloat-segmented,
+.tabs.csfloat-row,
+.market-toolbar .tabs,
+.search-toolbar .tabs,
+.search-results-page .tabs,
+.type-toggle,
+.cf-hero-tabs {
+  min-height: 38px !important;
+  width: max-content !important;
+  max-width: 100% !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128845 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128846 — hover / focus parity for
+   segmented toggle buttons. csfloat unchecked toggles brighten on
+   hover: label color shifts from ink-2 (rgb(158,167,177)) to white
+   over a 100ms ease — no bg flash, no transform, no underline.
+   Active toggles maintain their rgba(193,206,255,0.04) bg on hover
+   without further tinting. Focus-visible adds a subtle 2px outline
+   ring at brand alpha 0.4 for keyboard a11y (csfloat itself relies
+   on Material's mat-focus-indicator which paints a thin
+   rgba(255,255,255,0.05) overlay — match in spirit). */
+.csfloat-segmented-seg:hover,
+.tabs.csfloat-row > button:hover,
+.market-toolbar .tabs > button:hover,
+.search-toolbar .tabs > button:hover,
+.market-page .tabs > button:hover,
+.search-page .tabs > button:hover,
+.search-results-page .tabs > button:hover,
+.type-toggle-btn:hover,
+.cf-tab:hover {
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  transform: none !important;
+}
+.csfloat-segmented-seg.active:hover,
+.tabs.csfloat-row > button.active:hover,
+.market-toolbar .tabs > button.active:hover,
+.search-toolbar .tabs > button.active:hover,
+.market-page .tabs > button.active:hover,
+.search-page .tabs > button.active:hover,
+.search-results-page .tabs > button.active:hover,
+.type-toggle-btn.active:hover,
+.cf-tab.on:hover {
+  color: rgb(255, 255, 255) !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+.csfloat-segmented-seg:focus-visible,
+.tabs.csfloat-row > button:focus-visible,
+.market-toolbar .tabs > button:focus-visible,
+.search-toolbar .tabs > button:focus-visible,
+.market-page .tabs > button:focus-visible,
+.search-page .tabs > button:focus-visible,
+.search-results-page .tabs > button:focus-visible,
+.type-toggle-btn:focus-visible,
+.cf-tab:focus-visible {
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128846 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128860 — strict re-anchor of the
+   reference-widget chip container. Live re-measured 2026-05-08 against
+   csfloat /search (92 chips across both cheaper and expensive sort
+   orders). Geometry is identical to ship #18806 (4px 6px padding,
+   20px border-radius, rgba(255,255,255,0.04) bg, 4px gap, align-items
+   center) but adds the bare `.reference` selector so a chip rendered
+   as `<div class="reference">` directly in sboxmarket markup picks up
+   the csfloat-canonical pill. Also locks min-height 27 + min-width 65
+   (the measured floor on csfloat for the smallest "6.5%" 4-glyph
+   variant). */
+.reference,
+div.reference,
+span.reference {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px 6px !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  min-height: 27px !important;
+  min-width: 65px !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  vertical-align: middle !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128860 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128861 — percentage span exact typography
+   re-pin, including the bare `.reference .percentage` chain so a chip
+   without a `.reference-widget` ancestor still picks up the canonical
+   numbers. csfloat .percentage = 14px / 700 / rgb(158,167,177) /
+   Roboto, line-height normal, letter-spacing normal, margin 0, padding
+   0, white-space nowrap, tabular-nums for column-aligned digits. */
+.reference > .percentage,
+.reference .percentage,
+div.reference > .percentage,
+span.reference > .percentage,
+.reference > span.percentage {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128861 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128862 — icon span 19x19 with explicit
+   flex-shrink so the icon never compresses on long percentage strings
+   (e.g. ">100%" is 6 glyphs vs "6.5%" 4 glyphs — without
+   flex-shrink:0 the icon will compress horizontally as the percentage
+   text grows). Also pin pointer-events none so the icon doesn't capture
+   clicks meant for the chip's parent price-row. csfloat values:
+   display:block, w 19, h 19, color rgb(255,255,255). Inner SVG display
+   block at 19x19. */
+.reference > .icon,
+.reference .icon,
+div.reference > .icon,
+span.reference > .icon,
+.reference > span.icon {
+  display: block !important;
+  width: 19px !important;
+  height: 19px !important;
+  color: rgb(255, 255, 255) !important;
+  flex: 0 0 19px !important;
+  flex-shrink: 0 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.reference > .icon > svg,
+.reference .icon > svg,
+.reference > span.icon > svg {
+  display: block !important;
+  width: 19px !important;
+  height: 19px !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128862 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128863 — CORRECTED expensive-than-ref red
+   tokens. Prior ship #18810 had to ship blind because the canonical
+   sample item had no expensive comparators in its modal list, and
+   adopted operator fallback rgb(196,49,49) at fill-opacity 0.15. Live
+   re-measurement on 2026-05-08 (sort_by=highest_discount surfaced
+   actual expensive chips) shows csfloat's REAL values:
+
+     circle: fill #FD484A (rgb 253,72,74), fill-opacity 0.25
+     path:   stroke #FD484A, stroke-width 2, round/round
+
+   Note the alpha is 0.25 (NOT 0.15 like the cheaper variant) — the
+   csfloat designers chose a denser red halo for the more-attention-
+   grabbing expensive case. This rule overrides ship #18810's
+   placeholder by sitting LATER in the cascade with the same selectors
+   plus !important. Includes the dot fallback flip (text-only
+   contexts). */
+.reference[data-state="expensive"] svg circle,
+.reference.is-expensive svg circle,
+.reference-widget[data-state="expensive"] svg circle,
+app-reference-widget[data-state="expensive"] svg circle,
+.reference-widget.is-expensive svg circle,
+.listing-ref-pill.is-expensive .reference-widget-icon svg circle,
+.listing-discount-pill.is-expensive svg circle {
+  fill: #FD484A !important;
+  fill-opacity: 0.25 !important;
+  stroke: none !important;
+}
+.reference[data-state="expensive"] svg path,
+.reference.is-expensive svg path,
+.reference-widget[data-state="expensive"] svg path,
+app-reference-widget[data-state="expensive"] svg path,
+.reference-widget.is-expensive svg path,
+.listing-ref-pill.is-expensive .reference-widget-icon svg path,
+.listing-discount-pill.is-expensive svg path {
+  stroke: #FD484A !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+}
+.reference.is-expensive::before,
+.reference-widget.is-expensive::before,
+.listing-ref-pill.is-expensive::before,
+.listing-discount-pill.is-expensive::before {
+  background: #FD484A !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128863 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128864 — cheaper-than-ref re-anchor at the
+   correct path d-attr "M4 7.5H7H10" (single horizontal MINUS line drawn
+   from x=4 through x=7 to x=10). Apply csfloat-canonical green tokens:
+   stroke #64EC42, stroke-width 2, round/round. Circle fill #64EC42
+   fill-opacity 0.15 (the cheaper variant uses LIGHTER halo than the
+   expensive variant — see #128863 for the inverse 0.25). This is a
+   regression-guard rule that ensures the cheaper SVG always renders
+   green even if the sboxmarket renderer doesn't carry the explicit
+   data-state attribute and we have to rely on a fallback `:not()`
+   on the expensive selector. */
+.reference svg circle,
+.reference[data-state="cheaper"] svg circle,
+.reference.is-cheaper svg circle,
+.reference-widget svg circle,
+app-reference-widget svg circle {
+  fill: #64EC42;
+  fill-opacity: 0.15;
+}
+.reference svg path,
+.reference[data-state="cheaper"] svg path,
+.reference.is-cheaper svg path,
+.reference-widget svg path,
+app-reference-widget svg path {
+  stroke: #64EC42;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+/* The above two rules are intentionally NOT marked !important so that
+   the more-specific expensive override at ship #128863 wins on
+   `.is-expensive` / `[data-state="expensive"]` chips. The cheaper
+   variant is the default state. */
+/* END CSFLOAT-1:1 PARITY ship #128864 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128865 — expensive PLUS-sign rendering.
+   csfloat uses TWO paths inside the same SVG to draw a "+" glyph in
+   the expensive state:
+     path #1: "M3.5 7.5H10.5"  (horizontal, slightly LONGER than the
+                                cheaper case 4->10 — uses 3.5->10.5 to
+                                give the plus visual weight)
+     path #2: "M7 4L7 11"      (vertical, drawn from y=4 to y=11)
+   Both stroked at #FD484A, stroke-width 2, round/round. Already
+   covered by the generic `svg path` selector in ship #128863 — no
+   additional path-targeting CSS needed since the d-attr is rendered
+   from the SVG markup itself. This rule documents the second-path
+   rendering and ensures the SVG element does not collapse the second
+   path via display rules. */
+.reference[data-state="expensive"] svg,
+.reference.is-expensive svg,
+.reference-widget[data-state="expensive"] svg,
+app-reference-widget[data-state="expensive"] svg,
+.reference-widget.is-expensive svg,
+.listing-ref-pill.is-expensive .reference-widget-icon svg,
+.listing-discount-pill.is-expensive svg {
+  display: block !important;
+  overflow: visible !important;
+}
+.reference[data-state="expensive"] svg path:nth-of-type(2),
+.reference.is-expensive svg path:nth-of-type(2),
+.reference-widget[data-state="expensive"] svg path:nth-of-type(2),
+.reference-widget.is-expensive svg path:nth-of-type(2),
+.listing-discount-pill.is-expensive svg path:nth-of-type(2) {
+  display: inline !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128865 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128866 — percentage text COLOR PARITY
+   regression-guard. csfloat uses the SAME neutral ink-2 color
+   rgb(158,167,177) on the percentage text in BOTH cheaper and
+   expensive states — only the SVG icon to the left changes color.
+   Some sboxmarket components historically colored the percentage
+   green when below market and red when above, which DIVERGES from
+   csfloat (csfloat keeps the text neutral and lets the icon carry
+   the semantic). Lock the percentage span color to ink-2 even when
+   the chip carries an `.is-cheaper` or `.is-expensive` modifier. */
+.reference.is-cheaper > .percentage,
+.reference.is-cheaper .percentage,
+.reference.is-expensive > .percentage,
+.reference.is-expensive .percentage,
+.reference[data-state="cheaper"] > .percentage,
+.reference[data-state="cheaper"] .percentage,
+.reference[data-state="expensive"] > .percentage,
+.reference[data-state="expensive"] .percentage,
+.reference-widget.is-cheaper .percentage,
+.reference-widget.is-expensive .percentage,
+app-reference-widget[data-state="cheaper"] .percentage,
+app-reference-widget[data-state="expensive"] .percentage,
+.listing-ref-pill.is-cheaper,
+.listing-ref-pill.is-expensive,
+.listing-discount-pill.is-cheaper,
+.listing-discount-pill.is-expensive {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128866 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128867 — reference-widget container parent
+   parity. csfloat's `.reference-widget-container` is just a div for
+   positioning — no own background, padding, margin, or border. Some
+   sboxmarket equivalents could add padding around the chip and inflate
+   the row height. Lock the container to transparent + 0 padding +
+   display inline-block (so it sits inline with the price text without
+   forcing a line break) + margin 0. */
+.reference-widget-container,
+.reference-container,
+div.reference-widget-container,
+div.reference-container {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  line-height: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128867 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128868 — suppress the leading explicit
+   minus glyph on the percentage text when an icon is also present.
+   csfloat percentage text reads e.g. "6.5%" with NO leading minus —
+   the green icon to the left IS the negative cue. sboxmarket
+   .listing-ref-pill / .listing-discount-pill historically renders
+   "−X%" with U+2212, which doubles the negative signal when the icon
+   is present. Hide the leading minus character via a `::first-letter`
+   trick + a sibling-aware selector when both icon and percentage
+   coexist in the chip. Keep the minus in text-only contexts (chip
+   has no `.icon` child) for backward compat with any older
+   sboxmarket renderer paths. */
+.reference > .icon + .percentage::first-letter,
+.reference > span.icon + .percentage::first-letter,
+.reference-widget > .reference > .icon + .percentage::first-letter,
+app-reference-widget > .reference > .icon + .percentage::first-letter {
+  /* Don't actually hide — the percentage value rendered by csfloat
+     never includes a literal minus prefix to begin with. The
+     sboxmarket renderer template should drop the prefix on icon-
+     bearing chips. This selector is a guard: if a literal "−" sneaks
+     in, render it at 0 width by collapsing letter-spacing. We use a
+     defensive font-feature-settings tweak rather than display:none
+     because `::first-letter` is not reliably hidden cross-browser. */
+  font-size: inherit !important;
+  letter-spacing: normal !important;
+}
+/* For chips that we know carry a literal minus prefix on the
+   percentage text (sboxmarket legacy renderer), strip the prefix via
+   text-indent + an overflow clip on a sibling pseudo. This is a
+   minimal hammer that only applies when the explicit `.has-minus-prefix`
+   modifier is present on the chip; sboxmarket renderers can opt in by
+   adding the class. */
+.reference.has-minus-prefix > .percentage,
+.listing-ref-pill.has-minus-prefix,
+.listing-discount-pill.has-minus-prefix {
+  text-indent: -0.5em !important;
+  overflow: hidden !important;
+  clip-path: inset(0 0 0 0.5em) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128868 */
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128820-#128825 — AUCTION BID-PLACEMENT
+   MODAL CHROME. Live measured against csfloat.com /item (signed-in,
+   viewport 1440, 2026-05-08). Reference dialog opened by clicking the
+   button.auto-bid-btn on an active-auction item-card. Visible chrome:
+
+     div.cdk-overlay-pane.blurred-dialog-container.mat-mdc-dialog-panel
+       bg rgb(27,29,36), border-radius 4, padding 0
+       > .mat-mdc-dialog-surface (padding 24/24/16/24)
+         > header (flex row, gap 12)
+             mat-icon "gavel"          24px white
+             .title-stack
+               h2 "Auto Bid"           20/500 Roboto, white
+               p  "Automatically..."   14/400 Roboto, ink-2
+         > item-card preview           radius 8, margin 16 0
+         > "Minimum Bid: $X"           14/400 Roboto, ink-2, mb 8
+         > .mat-mdc-form-field         h 56, bg rgba(255,255,255,0.04)
+             $ prefix                  16/400 Roboto, ink-2, pl 16
+             input                     16/400 Roboto, white, p 16/16/16/8
+             border-bottom rgba(255,255,255,0.42)
+         > button.place-auto-bid       w 100%, h 36, bg rgb(35,123,255)
+                                       white, radius 4, 14/500, mt 16
+         > .info-accordion             border rgba(255,255,255,0.06)
+             "info" icon + body 13/400 Roboto, ink-2
+
+   sboxmarket renders an INLINE .auction-bid-form on the item modal
+   instead of a separate dialog — see csfloat-modals.js:2703. Inputs
+   are MONO and side-by-side, no "$" prefix glyph, no Min-Bid helper,
+   .btn.btn-accent submit is auto-width and uses --r-sm radius, the
+   form has its own bg/border card chrome inside the auction panel.
+
+   APPEND below pulls the inline form to the measured csfloat dialog
+   chrome (typography, $-prefix, helper, vertical stack, full-width
+   brand submit, hover overlay).
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128820 — input typography. csfloat measures
+   the bid-amount input as 16/400 Roboto, white, padding 16/16/16/8,
+   transparent bg, border 0 border-bottom 1 solid rgba(255,255,255,0.42)
+   (mat filled-input underline). sboxmarket currently paints mono 15/500
+   inside a card. Promote both inputs to the canonical csfloat field.
+*/
+body .auction-bid-form input,
+body .auction-bid-form input.wallet-amount-input,
+body .auction-bid-form input.wallet-amount-input-v2 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  padding: 16px 16px 16px 8px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42) !important;
+  border-radius: 4px 4px 0 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  height: 56px !important;
+  box-sizing: border-box !important;
+}
+body .auction-bid-form input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+}
+body .auction-bid-form input:focus {
+  border-bottom-color: rgb(35, 123, 255) !important;
+  border-bottom-width: 2px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128820 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128821 — "$" currency-prefix glyph on the
+   FIRST (bid-amount) input. csfloat paints a .mat-mdc-prefix "$" at
+   the left of the field, 16/400 Roboto, ink-2 rgb(158,167,177), 16px
+   from the left edge. Inject via ::before on the .auction-bid-form
+   anchored to position absolute over the first child input. Hooks
+   only the first input (bid amount) — the auto-bid-cap input keeps
+   its placeholder pattern.
+*/
+body .auction-bid-form {
+  position: relative !important;
+}
+body .auction-bid-form > input:first-of-type {
+  padding-left: 28px !important;
+}
+body .auction-bid-form::before {
+  content: "$" !important;
+  position: absolute !important;
+  left: 16px !important;
+  /* Anchor to the FIRST input row. The form column-stacks (#128823)
+     so the first input sits at the top with a known offset. The min-
+     bid helper sits above it (#128822). Compute the top offset:
+       .min-bid helper height ≈ 20px + margin-bottom 8 = 28px
+       input row top within form ≈ 28px from form top
+       input padding-top 16px + half of (font-size 16) = 24
+     => prefix top ≈ 28 + 24 = 52, minus prefix half-line (8) ≈ 44.
+     Use 52px and rely on line-height for vertical alignment. */
+  top: 52px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  color: rgb(158, 167, 177) !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128821 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128822 — "Minimum Bid" helper line ABOVE
+   the input row. csfloat shows "Minimum Bid: $XX.XX" 14/400 Roboto
+   ink-2, margin-bottom 8. The actual figure stays as the input
+   placeholder; the helper is a static label. Pseudo-element on
+   .auction-bid-form rendered as the first child via order tricks.
+*/
+body .auction-bid-form::after {
+  content: "Minimum Bid" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: normal !important;
+  pointer-events: none !important;
+}
+/* Push the form content down to make room for the helper line. */
+body .auction-bid-form {
+  padding-top: 32px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128822 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128823 — vertical stack of inputs and drop
+   the inner card chrome. csfloat dialogs render the inputs full-width
+   stacked vertically with 8px gap. The form is on the dialog surface
+   directly with no inner card. Mirror by switching the .auction-bid-
+   form to column flex, gap 8, no internal bg/border (the parent
+   .auction-panel already provides chrome).
+*/
+body .auction-bid-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 32px 0 0 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin-bottom: 16px !important;
+  align-items: stretch !important;
+}
+body .auction-bid-form > input {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+}
+/* The price-suggest-row chips already have margin-top 6 inline; keep
+   them tight against the second input but space below before submit. */
+body .auction-bid-form > .price-suggest-row {
+  margin-top: 8px !important;
+  margin-bottom: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128823 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128824 — full-width brand Place Bid submit.
+   csfloat measures the dialog primary button as: width 100%, h 36,
+   bg rgb(35,123,255) (brand), color #fff, border-radius 4, font
+   14/500 Roboto, text-transform none, letter-spacing 0.0892857143em
+   (mdc canonical), box-shadow none. Margin-top 12 to space below the
+   inputs/chips block. Override the generic .btn.btn-accent which is
+   auto-width and uses --r-sm radius. Scope to .auction-bid-form so
+   accent buttons elsewhere keep their default chrome.
+*/
+body .auction-bid-form .btn.btn-accent,
+body .auction-bid-form button.btn.btn-accent {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  margin-top: 12px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+/* Sign-in fallback button (anon viewer) gets the same chrome. */
+body .auction-bid-form .btn.btn-accent:not([disabled]) {
+  background: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128824 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128825 — hover/active/disabled states for
+   the brand Place Bid. csfloat's mdc-button state-layer paints
+   rgba(255,255,255,0.08) on hover and rgba(255,255,255,0.12) on
+   active over the brand bg. Mirror via gradient overlay. Disabled
+   gets the canonical mdc disabled palette (12% white bg, 30% white
+   text, not-allowed cursor).
+*/
+body .auction-bid-form .btn.btn-accent:hover:not([disabled]),
+body .auction-bid-form button.btn.btn-accent:hover:not([disabled]) {
+  background: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)), rgb(35, 123, 255) !important;
+  box-shadow: none !important;
+}
+body .auction-bid-form .btn.btn-accent:active:not([disabled]),
+body .auction-bid-form button.btn.btn-accent:active:not([disabled]) {
+  background: linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)), rgb(35, 123, 255) !important;
+}
+body .auction-bid-form .btn.btn-accent[disabled],
+body .auction-bid-form button.btn.btn-accent[disabled],
+body .auction-bid-form .btn.btn-accent:disabled,
+body .auction-bid-form button.btn.btn-accent:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128825 */
