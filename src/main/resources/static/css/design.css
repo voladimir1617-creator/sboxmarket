@@ -162601,3 +162601,164 @@ html body .stall-hero .stall-name > a[target="_blank"]:hover {
   background-color: rgba(255, 255, 255, 0.06) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #16508 */
+
+/* CSFLOAT-1:1 PARITY ship #16509 (auction grid card — .auction row geometry rebased onto csfloat exact tokens — measured: csfloat .auction renders as display:flex; gap:10px; height:40px; (two equal-weight 40px buttons separated by a 10px gutter, no padding, no background, no border). sbox was: variable gap and height drift across the grid. Lock to csfloat exact: 10px gap, 40px row, no chrome) */
+body .auction,
+html body .auction {
+  display: flex !important;
+  gap: 10px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16509 */
+
+/* CSFLOAT-1:1 PARITY ship #16510 (auction grid card — .auction-details progress + text rail rebased to csfloat — measured: csfloat .auction-details has a 4px mat-progress-bar followed by a .text row at margin-top:5px height:17px with display:flex justify-content:space-between font-size:14px. sbox was: missing the 5px margin and the proper 17px text-row geometry. Snap to csfloat: 5px gap between progress and text; the text row is a flex space-between; the timer/expires inline at 14px) */
+body .auction-details,
+html body .auction-details {
+  display: block !important;
+  font-size: 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+body .auction-details > .text,
+body .auction-details .text,
+html body .auction-details > .text,
+html body .auction-details .text {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  height: 17px !important;
+  margin-top: 5px !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16510 */
+
+/* CSFLOAT-1:1 PARITY ship #16511 (auction grid card — .timer countdown color & weight locked to csfloat brand-blue 14/500 — measured: csfloat .timer span (the live countdown next to "Expires in") renders as color:rgb(35,123,255) font-size:14px font-weight:500 line-height:normal letter-spacing:normal — and CRITICALLY stays brand-blue across ALL time bands, including <5min (verified at 04:38). NO amber/red urgent state — the lane spec hypothesis was wrong; csfloat does not change color. sbox was: variable color logic with red/amber tinting that csfloat does not actually use. Pin to csfloat: brand-blue at every band) */
+body .auction-details .timer,
+body .auction-details span.timer,
+html body .auction-details .timer,
+html body .auction-details span.timer {
+  color: rgb(35, 123, 255) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-feature-settings: "tnum" !important;
+}
+body .auction-details .timer.urgent,
+body .auction-details .timer.warning,
+body .auction-details .timer.danger,
+html body .auction-details .timer.urgent,
+html body .auction-details .timer.warning,
+html body .auction-details .timer.danger {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16511 */
+
+/* CSFLOAT-1:1 PARITY ship #16512 (auction grid card — .bid-btn outlined CTA rebased to csfloat exact — measured: csfloat .bid-btn is a Material outlined button: background:transparent; color:rgba(255,255,255,0.38) when disabled; border:1px solid rgba(255,255,255,0.12); border-radius:8px; height:40px; padding:0 10px; font:500 14px Roboto; transition:border 280ms cubic-bezier(0.4,0,0.2,1). sbox was: variable / non-Material chrome on the bid CTA. Lock to csfloat MD outlined-button shape) */
+body .auction .bid-btn,
+body .bid-btn,
+html body .auction .bid-btn,
+html body .bid-btn {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  height: 40px !important;
+  padding: 0 10px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  transition: border 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+body .auction .bid-btn:not([disabled]):hover,
+html body .auction .bid-btn:not([disabled]):hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .auction .bid-btn:not([disabled]),
+html body .auction .bid-btn:not([disabled]) {
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.5) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16512 */
+
+/* CSFLOAT-1:1 PARITY ship #16513 (auction grid card — .auto-bid-btn filled-tonal CTA rebased to csfloat exact — measured: csfloat .auto-bid-btn is a Material filled (unelevated) button: background:rgba(193,206,255,0.04) when disabled; color:rgba(255,255,255,0.38); border:0; border-radius:8px; height:40px; padding:0 10px; font:500 14px Roboto; transition:box-shadow 280ms cubic-bezier(0.4,0,0.2,1). sbox was: not aligned to MD filled-tonal. Lock to csfloat exact disabled-tonal shape) */
+body .auction .auto-bid-btn,
+body .auto-bid-btn,
+html body .auction .auto-bid-btn,
+html body .auto-bid-btn {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  height: 40px !important;
+  padding: 0 10px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  box-shadow: none !important;
+}
+body .auction .auto-bid-btn:not([disabled]),
+html body .auction .auto-bid-btn:not([disabled]) {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .auction .auto-bid-btn:not([disabled]):hover,
+html body .auction .auto-bid-btn:not([disabled]):hover {
+  background: rgb(57, 138, 255) !important;
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16513 */
+
+/* CSFLOAT-1:1 PARITY ship #16514 (auction grid card — mat-progress-bar geometry & motion rebased to csfloat — measured: csfloat mat-progress-bar in .auction-details renders at exactly height:4px; the .mdc-linear-progress__primary-bar uses transition:transform 0.25s cubic-bezier(0.4,0,0.6,1) — that is the "decelerate" Material curve, NOT the standard 0.2,1 — and the buffer is invisible (transparent). The fill color comes from theme primary which on csfloat resolves to rgb(35,123,255). sbox was: variable progress styling. Snap to csfloat exact 4px height + decelerate easing + brand-blue fill) */
+body .auction-details mat-progress-bar,
+body .auction-details .mat-mdc-progress-bar,
+html body .auction-details mat-progress-bar,
+html body .auction-details .mat-mdc-progress-bar {
+  height: 4px !important;
+  display: block !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow: hidden !important;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.6, 1) !important;
+}
+body .auction-details .mdc-linear-progress__buffer,
+body .auction-details .mdc-linear-progress__buffer-bar,
+html body .auction-details .mdc-linear-progress__buffer,
+html body .auction-details .mdc-linear-progress__buffer-bar {
+  height: 4px !important;
+  background: transparent !important;
+}
+body .auction-details .mdc-linear-progress__bar.mdc-linear-progress__primary-bar,
+html body .auction-details .mdc-linear-progress__bar.mdc-linear-progress__primary-bar {
+  height: 4px !important;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.6, 1) !important;
+}
+body .auction-details .mdc-linear-progress__bar-inner,
+html body .auction-details .mdc-linear-progress__bar-inner {
+  border-top-width: 4px !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16514 */
