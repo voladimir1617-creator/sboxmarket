@@ -174272,3 +174272,25 @@ html body .wallet-modal .wallet-preset-btn {
   border-radius: 8px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126536 */
+
+/* CSFLOAT-1:1 PARITY ship #126537 (wallet topup preset chip — group wrapper bg)
+   Measured live on csfloat.com mat-button-toggle-group: bg
+   rgba(193,206,255,0.04) with 7px outer radius and 0 padding (chip margin
+   3px provides the 3px inset gutter). sboxmarket .wallet-preset-row was
+   transparent. Land the canonical inset wrapper background so the strip
+   reads as a Material toggle group container, not a flat row of buttons.
+   Wrapper padding 3px keeps each 32h chip flush with the 38h container
+   (32 + 3 + 3 = 38) — matches csfloat's measured 38px group height. */
+html body .wallet-modal .wallet-preset-row {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  padding: 3px !important;
+  gap: 0 !important;
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  width: auto !important;
+}
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126537 */
