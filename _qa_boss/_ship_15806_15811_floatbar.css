@@ -1,0 +1,319 @@
+
+/* CSFLOAT-1:1 PARITY ship #15806 (item-detail float bar geometry — wrapper 222px wide / 40px tall, bar inside is 8px tall with margin-top:5px, position:relative, inner segment-holder rounds 4px and clips overflow). Measured live on csfloat item-page item-float-bar host: wrapper computed width 222.25px height 40px display block flex 1 1 0%, bar height 8px margin 5px 0 0 position relative, inner radius 4px overflow hidden. sbox local equivalents .csfloat-float-bar / .csfloat-float-bar-track were 8px tall already but lacked the 222px column constraint and the 5px top gap before the bar inside the 40px host slot. Targeting both the legacy csfloat-* selectors AND the angular-aligned .float-bar-wrapper / .float-bar / item-float-bar names so any rendering path matches. */
+html body item-float-bar,
+html body .float-bar-wrapper,
+html body .csfloat-float-bar {
+  display: block !important;
+  width: 222px !important;
+  max-width: 222px !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  position: relative !important;
+  flex: 1 1 0% !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body item-float-bar > .container,
+html body .float-bar-wrapper > .container,
+html body .csfloat-float-bar > .container {
+  display: block !important;
+  width: 100% !important;
+  height: 40px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  position: relative !important;
+}
+html body .float-bar,
+html body .csfloat-float-bar-track,
+html body item-float-bar .float-bar {
+  position: relative !important;
+  height: 8px !important;
+  margin: 5px 0 0 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  display: block !important;
+}
+html body .float-bar > div:not(.wear-marker),
+html body .csfloat-float-bar-track > .csfloat-float-bar-segments,
+html body .csfloat-float-bar-track > div:not(.csfloat-float-bar-marker) {
+  height: 100% !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  display: block !important;
+  font-size: 0 !important;
+  white-space: nowrap !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15806 */
+
+/* CSFLOAT-1:1 PARITY ship #15807 (float-bar tier segment colors — exact background-color values measured live on csfloat .progress-width-fn/mw/ft/ww/bs computed bg). FN rgb(0,128,0) green, MW rgb(24,165,24) lighter green, FT rgb(154,205,50) yellow-green, WW rgb(205,92,92) indianred, BS rgb(249,36,36) red. sbox was using oklch translations that drifted noticeably toward unsaturated hues. Each segment is inline-block, height:100%, no border, no radius (radius lives on the parent clipper). Width comes from inline style on csfloat (per-skin scaled), so we explicitly do NOT set width here — only color + display + box. */
+html body .progress-width-fn,
+html body .csfloat-float-bar-seg.is-fn,
+html body .csfloat-float-bar-seg-fn {
+  background-color: rgb(0, 128, 0) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-mw,
+html body .csfloat-float-bar-seg.is-mw,
+html body .csfloat-float-bar-seg-mw {
+  background-color: rgb(24, 165, 24) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-ft,
+html body .csfloat-float-bar-seg.is-ft,
+html body .csfloat-float-bar-seg-ft {
+  background-color: rgb(154, 205, 50) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-ww,
+html body .csfloat-float-bar-seg.is-ww,
+html body .csfloat-float-bar-seg-ww {
+  background-color: rgb(205, 92, 92) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+html body .progress-width-bs,
+html body .csfloat-float-bar-seg.is-bs,
+html body .csfloat-float-bar-seg-bs {
+  background-color: rgb(249, 36, 36) !important;
+  background-image: none !important;
+  display: inline-block !important;
+  height: 100% !important;
+  vertical-align: top !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15807 */
+
+/* CSFLOAT-1:1 PARITY ship #15808 (breakpoint tick fallback — when csfloat is not driving inline widths because we control the bar locally, the standard CS:GO float thresholds 0.07 / 0.15 / 0.38 / 0.45 / 1.00 should map onto a fixed-range bar. csfloat per-item bars zoom into the skin's min/max float so they're scaled, but the local item-detail page often shows the canonical full-range bar — so we ship a fallback gradient on .csfloat-float-bar-track[data-fallback="full"] and .item-page-float-bar[data-range="canonical"] using the exact 5 segment colors at the canonical breakpoints. This stops segment widths collapsing to 0 when no inline style ships from the server. */
+html body .csfloat-float-bar-track[data-fallback="full"],
+html body .item-page-float-bar[data-range="canonical"],
+html body .float-bar[data-range="full"] {
+  background-image: linear-gradient(
+    to right,
+    rgb(0, 128, 0) 0%,
+    rgb(0, 128, 0) 7%,
+    rgb(24, 165, 24) 7%,
+    rgb(24, 165, 24) 15%,
+    rgb(154, 205, 50) 15%,
+    rgb(154, 205, 50) 38%,
+    rgb(205, 92, 92) 38%,
+    rgb(205, 92, 92) 45%,
+    rgb(249, 36, 36) 45%,
+    rgb(249, 36, 36) 100%
+  ) !important;
+  background-color: transparent !important;
+  height: 8px !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+html body .float-bar[data-ticks="visible"]::before,
+html body .csfloat-float-bar-track[data-ticks="visible"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, transparent calc(7% - 0.5px), rgba(0,0,0,0.35) calc(7% - 0.5px), rgba(0,0,0,0.35) calc(7% + 0.5px), transparent calc(7% + 0.5px)),
+    linear-gradient(to right, transparent calc(15% - 0.5px), rgba(0,0,0,0.35) calc(15% - 0.5px), rgba(0,0,0,0.35) calc(15% + 0.5px), transparent calc(15% + 0.5px)),
+    linear-gradient(to right, transparent calc(38% - 0.5px), rgba(0,0,0,0.35) calc(38% - 0.5px), rgba(0,0,0,0.35) calc(38% + 0.5px), transparent calc(38% + 0.5px)),
+    linear-gradient(to right, transparent calc(45% - 0.5px), rgba(0,0,0,0.35) calc(45% - 0.5px), rgba(0,0,0,0.35) calc(45% + 0.5px), transparent calc(45% + 0.5px));
+  z-index: 0;
+}
+/* END CSFLOAT-1:1 PARITY ship #15808 */
+
+/* CSFLOAT-1:1 PARITY ship #15809 (current-float marker — 3px wide / 14px tall pill positioned absolutely with top:-3px so it overhangs the 8px bar by 3px on top and 3px on bottom, centred horizontally on the float position via "left:calc(N% - 2px)" offset, light grey rgb(217,217,217) fill, 4px radius, no border, no shadow). Measured live on csfloat .wear-marker computed: width 3px height 14px top -3px left calc(...% - 2px) background rgb(217,217,217) border-radius 4px box-shadow none. sbox local .csfloat-float-bar-marker had a triangle ::after and a thicker 2px/16px bar that didn't match the pill shape. Wipe ::before/::after, keep just the rectangle. */
+html body .wear-marker,
+html body .csfloat-float-bar-marker,
+html body .float-marker {
+  position: absolute !important;
+  top: -3px !important;
+  bottom: auto !important;
+  width: 3px !important;
+  height: 14px !important;
+  background-color: rgb(217, 217, 217) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+}
+html body .wear-marker::before,
+html body .wear-marker::after,
+html body .csfloat-float-bar-marker::before,
+html body .csfloat-float-bar-marker::after,
+html body .float-marker::before,
+html body .float-marker::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15809 */
+
+/* CSFLOAT-1:1 PARITY ship #15810 (text-info row under the bar — flex row, 4px gap, 14px Roboto, 10px top gap, white text, with .wear (the float number) sitting flush-left and .paint-seed (the seed integer) following. Measured live on .text-info computed: display flex / gap 4px / margin-top 10px / font-size 14px / font-weight 400 / color rgb(255,255,255) / Roboto. The local .csfloat-float-bar-meta was using 11px mono with letter-spacing 0.02em which read as a typeset chip, not the plain numeric strip csfloat ships. Csfloat does NOT show the tier name (.csfloat-float-bar-tier) next to the float number on the item-detail bar — only the float and paint-seed; so we match by hiding the tier-abbr inside item-float-bar context. */
+html body .text-info,
+html body .csfloat-float-bar-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin: 10px 0 0 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  font-feature-settings: normal !important;
+}
+html body .text-info > .wear,
+html body .text-info > .has-rank,
+html body .csfloat-float-bar-value {
+  display: block !important;
+  flex: 0 1 auto !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  color: rgb(255, 255, 255) !important;
+  font-feature-settings: "tnum" !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  letter-spacing: normal !important;
+}
+html body .text-info > .paint-seed {
+  display: block !important;
+  flex: 0 1 auto !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  color: rgb(255, 255, 255) !important;
+  font-feature-settings: "tnum" !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+html body item-float-bar .csfloat-float-bar-tier,
+html body .float-bar-wrapper .csfloat-float-bar-tier {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15810 */
+
+/* CSFLOAT-1:1 PARITY ship #15811 (hover tooltip on float bar — csfloat uses Angular Material's mat-mdc-tooltip-trigger on .float-bar and .wear, which on hover renders a 12px Roboto rgba(97,97,97,0.92) bubble with 4px radius and 6px/8px padding above the bar showing the exact float decimal. sbox doesn't bring Angular Material so we simulate the same surface using a CSS-only :hover + ::after. The bubble shows the .wear text content via the [data-tooltip] attribute, anchored to the bar's center. Measured tooltip baseline against csfloat live mat-tooltip styles: bg rgba(97,97,97,0.92), color #fff, 12px Roboto, 4px radius, padding 6px 8px, max-width 250px, transform translate(-50%, -100%) above the trigger. Transition matches MDC easing of 150ms cubic-bezier with a 200ms enter delay (csfloat's default tooltip-show-delay). */
+html body .float-bar[data-tooltip],
+html body .csfloat-float-bar-track[data-tooltip] {
+  cursor: pointer !important;
+}
+html body .float-bar[data-tooltip]::after,
+html body .csfloat-float-bar-track[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background-color: rgba(97, 97, 97, 0.92);
+  color: rgb(255, 255, 255);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) 200ms, transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 200ms;
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
+  max-width: 250px;
+  letter-spacing: 0.025em;
+  font-feature-settings: "tnum";
+}
+html body .float-bar[data-tooltip]:hover::after,
+html body .csfloat-float-bar-track[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+html body .text-info > .wear[data-tooltip] {
+  position: relative !important;
+  cursor: default !important;
+}
+html body .text-info > .wear[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background-color: rgba(97, 97, 97, 0.92);
+  color: rgb(255, 255, 255);
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1) 200ms;
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
+  font-feature-settings: "tnum";
+}
+html body .text-info > .wear[data-tooltip]:hover::after {
+  opacity: 1;
+}
+/* END CSFLOAT-1:1 PARITY ship #15811 */
