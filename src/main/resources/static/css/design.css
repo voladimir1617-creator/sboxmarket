@@ -183316,3 +183316,567 @@ html body .full-page-mode .profile-panel .empty-inline > div:not(.empty-icon) {
 /* END CSFLOAT-1:1 PARITY ship #127935 */
 
 /* END CSFLOAT-1:1 PARITY ships #127930-#127935 */
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127900 — /profile Trades trade-list flat-row container
+   Real measure (csfloat /profile Trades tab table.mat-mdc-table inside
+   .container.profile-card): single panel hosts ALL trade rows; no per-row
+   chrome. Panel = bg rgb(27,29,36), pad 30px, radius 12px (already pinned
+   #127820). Inside, the trade list itself is bg transparent, no border, no
+   gap between rows — rows touch directly because each row has its own bottom
+   hairline. Sboxmarket prior #1305 layered each .trade-row with bg
+   rgb(27,29,36) + 1px border rgb(38,40,48) + 8px radius + 12px gap, which
+   double-stacks card chrome inside the parent .profile-panel. Override
+   .trade-list back to flat (no gap, no panel chrome) and strip the per-row
+   card surface so rows render flush like csfloat. The row hairline below
+   takes over the visual divider duty. */
+body .profile-panel .trade-list,
+body .container .trade-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+body .profile-panel .trade-list > .trade-row,
+body .container .trade-list > .trade-row,
+body .profile-panel > .trade-row {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 16px 0 !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  transition: background 140ms ease !important;
+  box-shadow: none !important;
+}
+body .profile-panel .trade-list > .trade-row:last-child,
+body .container .trade-list > .trade-row:last-child {
+  border-bottom: 0 !important;
+}
+body .profile-panel .trade-list > .trade-row:hover,
+body .container .trade-list > .trade-row:hover {
+  background: rgba(193, 206, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127900 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127901 — Trades column-header row typography
+   Real measure (csfloat thead.mat-mdc-header-row > th.mat-mdc-header-cell):
+   row height 42px, cell padding 0px 16px (first child 0px 0px 0px 16px),
+   color rgb(158, 167, 177) (ink-2), Roboto 14px / 500, line-height 22px,
+   letter-spacing 0.42px, text-align start, no border on the row itself but
+   the cell carries 1px solid rgba(0,0,0,0) (transparent — keeps layout
+   stable as rows scroll). Sboxmarket has no semantic .trade-list-header
+   element; modals.js renders rows directly. Synthesize header chrome via
+   ::before pseudo on the .trade-list, so the user reading the panel sees
+   consistent column hint typography even though sboxmarket's .trade-row
+   layout is divs not table-cells. Use grid template that mirrors the row
+   columns from #126640 (1fr auto auto). Pin label tokens to the csfloat
+   measured spec. */
+body .profile-panel .trade-list::before,
+body .container .trade-list::before {
+  content: "Trade   Status   Action" !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto auto !important;
+  column-gap: 16px !important;
+  padding: 0 0 10px 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 22px !important;
+  letter-spacing: 0.42px !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: start !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  margin-bottom: 8px !important;
+  white-space: pre !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127901 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127902 — .trade-state status-text typography parity
+   Real measure (csfloat .state span.ng-star-inserted carrying VERIFIED /
+   CANCELLED / PENDING text): font Roboto 14/400, line-height 20px,
+   text-transform NONE, letter-spacing 0, NO border, NO background pill.
+   The csfloat status indicator is a plain colored TEXT label (rgb(100,236,66)
+   green for Verified, rgb(0,191,255) deep-sky-blue for Cancelled, plus
+   semantic colors for pending states). Sboxmarket prior #1306 ships the
+   .trade-state as an UPPERCASE 11/700 chip with 4px radius + tinted overlay
+   bg/border — that reads as a bold tag, not csfloat's quiet semantic text.
+   Pin to the csfloat plain-text token: kill the chip chrome (bg/border/
+   border-radius/padding all reset), pin font tokens, preserve the per-state
+   color coding via the existing .pending/.completed/.cancelled/.disputed
+   classes (already at #7032-7034). */
+body .profile-panel .trade-state,
+body .container .trade-state,
+body .trade-row .trade-state {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  white-space: nowrap !important;
+}
+/* Per-state color overrides — pin the csfloat semantic palette directly so
+   the existing pending/completed/cancelled classes inherit the right tones
+   instead of the legacy yellow/up/down derived colors that don't match
+   csfloat's measured greens/blues. */
+body .trade-row .trade-state.pending,
+body .trade-row .trade-state.pending_buyer_confirm,
+body .trade-row .trade-state.pending_seller_send,
+body .trade-row .trade-state.pending_seller_accept {
+  color: rgb(232, 185, 96) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body .trade-row .trade-state.verified,
+body .trade-row .trade-state.completed {
+  color: rgb(100, 236, 66) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body .trade-row .trade-state.cancelled {
+  color: rgb(0, 191, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body .trade-row .trade-state.disputed,
+body .trade-row .trade-state.failed {
+  color: rgb(248, 113, 113) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127902 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127903 — .trade-title item name + thumb measurements
+   Real measure (csfloat td.cdk-column-item > img): 66x50 thumb, no radius,
+   transparent bg. Item name is Roboto 14/400 white inside the same cell.
+   Sboxmarket modals.js (line 6760) renders the thumb at 36x36 with 4px
+   radius via inline style and the title in a flex row. The thumb is too
+   small + too rounded vs csfloat's flat 66x50 photo; pin the visible
+   measurements. Also kill the inline border-radius via the inner img
+   selector so the photo reads as a flat product shot. Title font already
+   matches at the parent level via #127902-adjacent rules. */
+body .trade-row .trade-title img,
+body .trade-row a.trade-title img,
+body .trade-row .trade-title > a img {
+  width: 66px !important;
+  height: 50px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  object-fit: contain !important;
+  margin-right: 16px !important;
+  flex-shrink: 0 !important;
+}
+body .trade-row .trade-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127903 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127904 — .trade-counterparty-url action-row anchor parity
+   Real measure (csfloat /profile/trades — counterparty-link buttons that
+   surface "Inspect Link" / "Listing" / Steam URL): rendered as flat text-only
+   anchors with brand-blue rgb(35,123,255) text, no underline at rest,
+   underline on hover, Roboto 13px/500, no padding, no border, no background.
+   Sboxmarket prior #2904 styles .trade-counterparty-link with token vars
+   (--ink-2, --line, --r-sm) but the resulting compute is ink-2 muted text
+   with hairline underline. csfloat foregrounds these as ACTIONS — bright
+   blue text inviting click — not muted captions. Pin the brand-blue color
+   token + 13/500 Roboto + crisp underline-on-hover treatment. */
+body .trade-row .trade-counterparty-link,
+body .trade-row .trade-counterparty-url a:not(.trade-counterparty-copy) {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: color 100ms ease, text-decoration-color 100ms ease !important;
+}
+body .trade-row .trade-counterparty-link:hover,
+body .trade-row .trade-counterparty-url a:not(.trade-counterparty-copy):hover {
+  color: rgb(58, 137, 255) !important;
+  text-decoration: underline solid rgb(58, 137, 255) !important;
+}
+/* The trade-counterparty-url wrapper itself: csfloat row-meta line is a
+   single horizontal flex strip with 8px gap, ink-2 caption + brand-blue
+   action anchor + small copy glyph button. Override the wrapper to flex-row
+   layout (existing rule may force column). */
+body .trade-row .trade-counterparty-url {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 4px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127904 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127905 — .trade-copy-id glyph-button minimal chrome
+   Real measure (csfloat row-meta copy buttons + general inline icon-button
+   pattern across the site): 20x20 box, transparent bg, ink-2 rgb(158,167,177)
+   color at rest, brand-blue rgb(35,123,255) on hover, NO border, NO radius
+   beyond the natural line-box. The glyph itself is a single Material
+   "content_copy" character at 16px. Sboxmarket prior #2904 ships the
+   .trade-counterparty-copy + .trade-copy-id with var(--ink-2) color + 1px
+   solid var(--line) border + var(--r-sm) radius + 4px padding — that reads
+   as a mini-button with chrome. csfloat uses bare glyph icons. Strip the
+   border + radius + padding so the glyph floats inline next to its label,
+   keep the ink-2 → brand-blue color transition. */
+body .trade-row .trade-counterparty-copy,
+body .trade-row .trade-copy-id,
+body .trade-row > .trade-side .trade-copy-id {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition:
+    color 100ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 100ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .trade-row .trade-counterparty-copy:hover,
+body .trade-row .trade-copy-id:hover {
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 0 !important;
+}
+body .trade-row .trade-counterparty-copy:focus-visible,
+body .trade-row .trade-copy-id:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127905 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127906 — Trades pagination footer chrome
+   Real measure (csfloat mat-paginator at bottom of trade table): full-width
+   1176px, height 56px, bg rgb(27,29,36) (same as panel — visually flush),
+   color rgb(255,255,255), 12px font. Sboxmarket modals.js renders a
+   pagination footer below .trade-list (search for "Items per page" /
+   "1 - 10 of N"); the inline emit lacks the canonical bottom-of-panel
+   chrome that csfloat ships. Synthesize a .trade-pagination wrapper and
+   any inline-style div with "Items per page" hint matches the csfloat
+   token: 56px tall row, 12px Roboto, ink-1 white text, 16px horizontal
+   padding, hairline top divider. The row anchor is the inline style emit
+   that matches the trades pagination block — using the "Items per page"
+   text content selector lookalike via attribute pattern. */
+body .profile-panel .trade-pagination,
+body .container .trade-pagination,
+body .profile-panel .trades-paginator,
+body .profile-panel > .trade-list + div[style*="Items per page"],
+body .profile-panel div.trade-paginator {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  height: 56px !important;
+  padding: 0 16px !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.04) !important;
+  margin-top: 0 !important;
+  border-radius: 0 0 12px 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127906 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128020 - Personal Info input wrapper chrome
+   Measured csfloat .profile-card .mat-mdc-text-field-wrapper: 44px height,
+   6px radius, bg rgba(255,255,255,0.04) translucent wash, no border, padding
+   0 0 0 16px. Sbox ProfilePersonalTab emits .price-input via inline {flex:1}
+   with global .price-input baseline at 28h/11px/4px (ship #5704 pinned the
+   broad .profile-tabs ~ div input.price-input override which made the
+   Personal Info inputs feel cramped and chip-shaped). Override the input
+   chrome inside .profile-panel ONLY so Trades/Notifications stay untouched
+   while Personal Info matches csfloat's 44px filled-text-field aesthetic.
+*/
+body .profile-panel .profile-row-value input.price-input,
+body .profile-panel .profile-row-value input[type="email"].price-input,
+body .profile-panel .profile-row-value input[type="text"].price-input,
+body .profile-panel .profile-row-value input[type="url"].price-input {
+  height: 44px !important;
+  padding: 0 0 0 16px !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+  box-shadow: none !important;
+  transition: background-color 100ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .profile-panel .profile-row-value input.price-input:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+body .profile-panel .profile-row-value input.price-input:focus {
+  background: rgba(255, 255, 255, 0.08) !important;
+  outline: none !important;
+  border: 0 !important;
+}
+body .profile-panel .profile-row-value input.price-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128020 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128021 - Personal Info inline action buttons
+   Measured csfloat /profile inline action buttons (Edit / Save / Verify):
+   .mat-mdc-button text-button at 36px height, padding 0 16px, font-size 14,
+   font-weight 500, letter-spacing normal, color rgb(255,255,255) primary or
+   rgb(235,75,75) destructive (Logout All Sessions, Disable 2FA, Regenerate
+   Backup Codes). Sbox emits btn-ghost with inline {padding:5px 10px,
+   fontSize:11, border:1px solid var(--border)} which renders as compressed
+   11px chip - wrong density for csfloat's airy 36h text-button. Override
+   when btn-ghost lives inside a .profile-panel .profile-row-value so we
+   match csfloat's text-button density without touching btn-ghost elsewhere.
+*/
+body .profile-panel .profile-row-value button.btn.btn-ghost,
+body .profile-panel .profile-row-value a.btn.btn-ghost {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  letter-spacing: normal !important;
+  line-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .profile-panel .profile-row-value button.btn.btn-ghost:hover:not([disabled]),
+body .profile-panel .profile-row-value a.btn.btn-ghost:hover:not([disabled]) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128021 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128022 - Destructive inline action button tone
+   Measured csfloat /profile destructive text-button (Logout All Sessions,
+   Disable 2FA, Regenerate Backup Codes): SAME 36h/14/500 chrome but color
+   rgb(235,75,75) brand-red. Sbox emits the destructive flavor via inline
+   style="color: var(--red)" or color hex 248,113,113. Anchor on the inline
+   color attribute substring so destructive buttons inherit the red tone
+   over ship #128021's white default.
+*/
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="color: var(--red)"],
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="248,113,113"],
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="248, 113, 113"],
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="rgb(235, 75, 75)"],
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="235,75,75"] {
+  color: rgb(235, 75, 75) !important;
+  border-color: rgba(235, 75, 75, 0.32) !important;
+}
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="color: var(--red)"]:hover:not([disabled]),
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="248,113,113"]:hover:not([disabled]),
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="248, 113, 113"]:hover:not([disabled]),
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="rgb(235, 75, 75)"]:hover:not([disabled]),
+body .profile-panel .profile-row-value button.btn.btn-ghost[style*="235,75,75"]:hover:not([disabled]) {
+  background: rgba(235, 75, 75, 0.08) !important;
+  border-color: rgba(235, 75, 75, 0.55) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128022 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128023 - Email verify-status pill chrome
+   Measured csfloat /profile email verify pill (next to email value): ~18px
+   height, 8px horizontal padding, 4px radius, font-size 11px, font-weight
+   600 (NOT 700), text-transform uppercase, letter-spacing 0.04em, color
+   rgb(34,197,94) on tinted bg rgba(34,197,94,0.13) when verified, color
+   rgb(251,191,36) on rgba(251,191,36,0.13) when unverified (the AMBER not
+   the OLD #fbbf24 which sbox ships - same hex, but sbox over-saturates the
+   bg fill at 0.15 alpha vs csfloat's 0.13). Sbox inline emits {fontSize:10,
+   fontWeight:700, padding:2px 8px, borderRadius:4} which is ALMOST right
+   but 10/700 reads as denser than csfloat's airier 11/600. Anchor on the
+   inline-style attribute the sbox markup carries.
+*/
+body .profile-panel .profile-row-value span[style*="font-size: 10px"][style*="font-weight: 700"][style*="border-radius: 4px"] {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 3px 9px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 14px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128023 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128024 - Personal Info Save buy-btn density
+   Measured csfloat /profile Save action (when editing email/trade-url):
+   .mat-mdc-raised-button at 36px h, 0 16px padding, fs 14/500 white text on
+   brand-blue bg rgb(35,123,255), 4px radius, no border, hover bg
+   rgb(69,147,255). Sbox emits .buy-btn which is shaped for cart/buy actions
+   (40h, larger pad). Override .buy-btn ONLY when nested inside a profile
+   row-value so the cart/buy primary CTA shape elsewhere stays untouched.
+*/
+body .profile-panel .profile-row-value button.buy-btn,
+body .profile-panel .profile-row-value > div > button.buy-btn {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+  line-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,0.2),
+              0 2px 2px 0 rgba(0,0,0,0.14),
+              0 1px 5px 0 rgba(0,0,0,0.12) !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .profile-panel .profile-row-value button.buy-btn:hover:not([disabled]) {
+  background: rgb(69, 147, 255) !important;
+  box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2),
+              0 4px 5px 0 rgba(0,0,0,0.14),
+              0 1px 10px 0 rgba(0,0,0,0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128024 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128025 - Personal Info t-header layout density
+   Measured csfloat .profile-card .t-header: display flex / direction row /
+   gap 20px / height 60px - title (28/500 white) and subtitle (14/400 ink-2)
+   sit side-by-side at the top of the panel. Sbox renders the equivalent as
+   a stacked block (title above subtitle); reshape via :first-child anchor
+   on a .profile-panel-header pattern. Since sbox doesn't emit a dedicated
+   header wrapper for Personal Info (the title is implied by the modal tab),
+   we instead pin the FIRST .profile-row inside .profile-panel as the de-
+   facto header - the existing ship #127826 already targets it for the
+   hairline; this ship adds layout-density tokens to that same anchor so
+   the first row itself reads as a header (label larger 14, value reset to
+   ink-2 14/400 subtitle tone).
+*/
+body .profile-panel > .profile-row:first-child > .profile-row-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+  flex: 0 0 auto !important;
+  padding-top: 2px !important;
+}
+body .profile-panel > .profile-row:first-child {
+  align-items: baseline !important;
+  gap: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128025 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128026 - Phone Number country-prefix glyph
+   Measured csfloat /profile Phone Number field: input with LEFT-side adornment
+   "+1" rendered as .mat-mdc-form-field-icon-prefix (color rgb(158,167,177),
+   fs 16, padding-right 4px) sitting INSIDE the wrapper. Sbox doesn't render
+   a country-prefix today (the field is just a plain input), so we add the
+   prefix glyph via background-image inline-SVG positioned 16px from left at
+   12px width x 16px tall WHEN the input has a tel/phone hint OR a name attr
+   matching phoneNumber. This is the same prefix-via-bg pattern used in ship
+   #127664 for the $ glyph on stall-row price-input - no DOM churn.
+*/
+body .profile-panel .profile-row-value input.price-input[type="tel"],
+body .profile-panel .profile-row-value input.price-input[name*="phone" i],
+body .profile-panel .profile-row-value input.price-input[placeholder*="+" ] {
+  padding: 0 16px 0 44px !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16' fill='%239ea7b1' font-family='Roboto,Helvetica,Arial,sans-serif' font-size='13' font-weight='400'><text x='0' y='12'>%2B1</text></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: 16px center !important;
+  background-size: 16px 16px !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128026 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128027 - Email verify-status pill color tokens
+   Measured csfloat verify pill colors at the EXACT alpha curve (separating
+   from sbox baseline): VERIFIED uses fg rgb(34,197,94) on bg
+   rgba(34,197,94,0.13); UNVERIFIED uses fg rgb(251,191,36) on bg
+   rgba(251,191,36,0.13). Sbox baseline emits VERIFIED via var(--green-dim)
+   bg + var(--green) fg (good fg, slightly different bg alpha - green-dim
+   resolves to roughly 0.15-0.18 alpha) and UNVERIFIED via the literal
+   rgba(251,191,36,0.15) bg with #fbbf24 fg. Pin the bg alphas to csfloat's
+   measured 0.13 so the pill weight matches across both states. Anchor on
+   the existing inline color attribute substring.
+*/
+body .profile-panel .profile-row-value span[style*="font-size: 10px"][style*="background: var(--green-dim)"],
+body .profile-panel .profile-row-value span[style*="font-size: 11px"][style*="background: var(--green-dim)"] {
+  background: rgba(34, 197, 94, 0.13) !important;
+  color: rgb(34, 197, 94) !important;
+}
+body .profile-panel .profile-row-value span[style*="font-size: 10px"][style*="rgba(251,191,36,0.15)"],
+body .profile-panel .profile-row-value span[style*="font-size: 11px"][style*="rgba(251,191,36,0.15)"],
+body .profile-panel .profile-row-value span[style*="rgba(251, 191, 36, 0.15)"] {
+  background: rgba(251, 191, 36, 0.13) !important;
+  color: rgb(251, 191, 36) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128027 */
+
