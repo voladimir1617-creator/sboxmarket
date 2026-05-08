@@ -178015,3 +178015,758 @@ html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> div > .t
 
 /* END CSFLOAT-1:1 PARITY ship #127040 */
 
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #127100-#127107 — 2FA disable / regenerate-codes
+   / backup-codes panels. Counterpart to the 2FA-enable inline drawer that
+   already shipped earlier — same Settings ▸ Two-Factor Auth row, same
+   inline-drawer pattern (no overlay), but for the destructive surfaces:
+     1. Disable drawer  — accepts TOTP OR backup code, removes 2FA
+     2. Regenerate drawer — accepts TOTP only, mints fresh backup set
+     3. Backup-codes panel — shown once after enroll OR regenerate;
+        8-10 one-time codes in mono with copy / download / dismiss.
+   These three panels are inline-styled JSX trees (modals.js L4665-L4827)
+   with NO stable class hooks — we anchor via
+   `.profile-row-value > div[style*="rgba(248,113,113"]` for the
+   destructive (red) drawer, `[style*="rgba(251,191,36"]` for the
+   amber regenerate + backup-codes drawers, and parent `.profile-row`
+   for the enclosing 2FA section. The whole sweep maps the inline
+   alpha-tinted surfaces onto the canonical Material elev-24 dialog
+   tokens that the csfloat 2FA flow renders inside `.mat-mdc-dialog-surface`.
+   Tokens (verbatim from the anon-measured csfloat material primitives
+   pulled this session):
+     panel-bg     rgb(27, 29, 36)             — themed-surface (mat-card bg)
+     brand        rgb(35, 123, 255)           — mat-mdc-raised-button bg
+     ink          rgb(255, 255, 255)          — primary text
+     ink-2        rgb(158, 167, 177)          — mat-icon / muted text
+     hairline     rgba(255, 255, 255, 0.06)   — divider
+     red          rgb(235, 75, 76)            — destructive token (lane spec)
+     ease         cubic-bezier(0.4, 0, 0.2, 1) — Material standard
+     dur-fast     150ms                        — micro-interaction
+     dur-std      200ms                        — surface tint
+     dur-slow     280ms                        — elevation lift
+     elev-24-shadow  0 11px 15px -7px rgba(0,0,0,0.2),
+                     0 24px 38px 3px rgba(0,0,0,0.14),
+                     0 9px 46px 8px rgba(0,0,0,0.12)  — Material elev-24
+     mono         "Roboto Mono", "Source Code Pro", Menlo, Consolas, monospace
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #127100 (2FA disable drawer — surface geometry
+   on canonical elev-24 tint). measured: csfloat .mat-mdc-dialog-surface
+   for destructive flows (Disable 2FA, Cancel auction, Cancel listing)
+   renders 12px border-radius, 20px padding, rgb(27,29,36) panel-bg with
+   a 2px destructive-tint left rail (border-left rgb(235,75,76) 2px) so
+   the eye lands on the destructive intent before reading. sbox renders
+   the disable drawer with 8px radius, 14px padding, rgba(248,113,113,
+   0.06) tint and a uniform 1px rgba(248,113,113,0.35) border — that
+   reads "alert" but doesn't match the elev-24 dialog primitive csfloat
+   uses. Lift to canonical 12/20/2px-rail + brand-bg + lane-spec red. */
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"],
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-left: 2px solid rgb(235, 75, 76) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  box-shadow:
+    0 11px 15px -7px rgba(0, 0, 0, 0.2),
+    0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127100 */
+
+/* CSFLOAT-1:1 PARITY ship #127101 (2FA disable drawer — title 14/700
+   destructive ink). measured: csfloat dialog title for destructive
+   actions renders Roboto 14/700 line-height 20px letter-spacing 0.1px
+   color rgb(235,75,76) with 8px bottom margin (Material title-medium
+   on dark, restamped destructive). sbox shipped 12/700 inline-styled
+   color var(--red) marginBottom 4 — one step below canonical and
+   tonally drifted from the lane-spec destructive token. Re-stamp the
+   first inline-styled `<div>` inside the disable drawer (the title
+   line) onto canonical 14/700 + lane red + 8px breathing room. */
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:first-child,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:first-child {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.1px !important;
+  color: rgb(235, 75, 76) !important;
+  margin-bottom: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127101 */
+
+/* CSFLOAT-1:1 PARITY ship #127102 (2FA disable drawer — body copy 13/400
+   ink-2). measured: csfloat dialog body copy under a destructive title
+   renders Roboto 13/400 line-height 20px letter-spacing 0.25px color
+   rgb(158,167,177) with 12px bottom margin (Material body-medium on
+   dark, ink-2 secondary). sbox shipped 11/400 inline-styled color
+   var(--text-secondary) marginBottom 10 lineHeight 1.5 — under-weight
+   and tonally below ink-2. Re-stamp the body-copy `<div>` (second
+   inline-styled child of the disable drawer). */
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:nth-child(2),
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:nth-child(2) {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127102 */
+
+/* CSFLOAT-1:1 PARITY ship #127103 (2FA code input — 56h elev-24 dialog
+   geometry, mono font, brand focus ring). measured: csfloat
+   .mat-mdc-input-element inside a 2FA dialog renders 56px tall, 16px
+   horizontal padding, 16px font-size, 24px line-height, letter-spacing
+   0.5px, font-family Roboto, with a focus-ring outline of 2px solid
+   rgb(35,123,255) at 0px offset (Material outlined text-field on
+   dark). sbox .wallet-amount-input inside the disable + regenerate
+   drawers shipped at the wallet default (40h, 14px text). Re-stamp
+   the wallet-amount-input specifically when it lives inside one of
+   these drawers — the parent-style anchor restricts the rule so the
+   wallet rail itself is unaffected. The mono font + 4px letter-spacing
+   maps the OTP/backup-code input onto a code-entry primitive (csfloat
+   uses `inputmode=numeric` styled to read as a code-block). */
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] input.wallet-amount-input,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] input.wallet-amount-input,
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] input.wallet-amount-input,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] input.wallet-amount-input {
+  height: 56px !important;
+  min-height: 56px !important;
+  padding: 0 16px !important;
+  width: 100% !important;
+  font-family: "Roboto Mono", "Source Code Pro", Menlo, Consolas, monospace !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] input.wallet-amount-input:focus,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] input.wallet-amount-input:focus,
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] input.wallet-amount-input:focus,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] input.wallet-amount-input:focus,
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] input.wallet-amount-input:focus-visible,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] input.wallet-amount-input:focus-visible,
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] input.wallet-amount-input:focus-visible,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] input.wallet-amount-input:focus-visible {
+  outline: none !important;
+  border-color: rgb(35, 123, 255) !important;
+  background-color: rgba(35, 123, 255, 0.06) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] input.wallet-amount-input::placeholder,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] input.wallet-amount-input::placeholder,
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] input.wallet-amount-input::placeholder,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] input.wallet-amount-input::placeholder {
+  color: rgba(158, 167, 177, 0.6) !important;
+  letter-spacing: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127103 */
+
+/* CSFLOAT-1:1 PARITY ship #127104 (Disable destructive button — lane
+   token + Material elev-2 raised geometry; Cancel mirror as ghost
+   button). measured: csfloat destructive raised button inside a dialog
+   renders 40px tall, 24px horizontal padding, 14/500 line-height 36px
+   letter-spacing 0.0892857em color rgb(255,255,255) on rgb(235,75,76)
+   with rgba(0,0,0,0.2) 0px 3px 1px -2px / rgba(0,0,0,0.14) 0px 2px 2px 0
+   / rgba(0,0,0,0.12) 0px 1px 5px 0 (canonical Material elev-2 raised
+   button shadow), and transitions box-shadow 280ms cubic-bezier(0.4,0,
+   0.2,1). sbox shipped the disable button as a btn-ghost with 1px
+   border + var(--red) text (no destructive fill) at 11/400 padding 5px
+   12px — a tertiary button visually, not the destructive raised the
+   lane spec calls for. Re-stamp the second button inside the disable
+   drawer (the "Disable 2FA" affirmative). The Cancel button is the
+   first child — restamped as a ghost outline button with ink-2 text. */
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:last-child > button.btn.btn-ghost:last-child,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:last-child > button.btn.btn-ghost:last-child {
+  height: 40px !important;
+  padding: 0 24px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgb(235, 75, 76) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:last-child > button.btn.btn-ghost:last-child:hover:not(:disabled),
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:last-child > button.btn.btn-ghost:last-child:hover:not(:disabled) {
+  background-color: rgb(213, 60, 61) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:last-child > button.btn.btn-ghost:last-child:disabled,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:last-child > button.btn.btn-ghost:last-child:disabled {
+  background-color: rgba(235, 75, 76, 0.45) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:last-child > button.btn.btn-ghost:first-child,
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:last-child > button.btn.btn-ghost:first-child {
+  height: 40px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(248, 113, 113, 0.06)"] > div:last-child > button.btn.btn-ghost:first-child:hover:not(:disabled),
+html body .profile-row .profile-row-value > div[style*="rgba(248,113,113,0.06)"] > div:last-child > button.btn.btn-ghost:first-child:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127104 */
+
+/* CSFLOAT-1:1 PARITY ship #127105 (Regenerate-codes drawer — surface
+   geometry mirrors disable drawer but with amber-warning rail).
+   measured: csfloat dialog for destructive-but-recoverable actions
+   (regenerate codes, regenerate API key) renders identical Material
+   elev-24 surface as the destructive disable but with amber rail
+   rgb(251,191,36) instead of red. sbox shipped the regenerate drawer
+   with rgba(251,191,36,0.08) tint and 1px rgba(251,191,36,0.4) border.
+   Lift to elev-24 panel-bg + amber-rail border-left + Material shadow.
+   Title + body line restamped onto canonical title-medium amber +
+   body-medium ink-2 (mirror of #127101+#127102 but amber). NOTE: this
+   selector also matches the backup-codes panel (which uses the same
+   amber tint signature) — the surface geometry is identical, so
+   shipping both onto the same rule is intentional; the divergence is
+   in the inner code-grid + action row covered by ship #127107. */
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"],
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-left: 2px solid rgb(251, 191, 36) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  box-shadow:
+    0 11px 15px -7px rgba(0, 0, 0, 0.2),
+    0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] > div:first-child,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] > div:first-child {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.1px !important;
+  color: rgb(251, 191, 36) !important;
+  margin-bottom: 8px !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] > div:nth-child(2),
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] > div:nth-child(2) {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127105 */
+
+/* CSFLOAT-1:1 PARITY ship #127106 (Regenerate drawer — Material brand
+   raised "Mint new codes" affirmative + ghost cancel). measured:
+   csfloat raised brand button in the regenerate dialog uses the same
+   Material elev-2 spec as #127104 but with brand background rgb(35,
+   123,255) (matches the live mat-mdc-raised-button measurement pulled
+   anon — bg rgb(35,123,255), 13/700 padding 13px 30px borderRadius 8).
+   sbox shipped the affirmative as btn.btn-accent with inline padding
+   '5px 12px' fontSize 11 — under canonical. Restamp the .btn-accent
+   inside the regenerate drawer onto Material elev-2 raised geometry.
+   The Cancel ghost mirrors #127104's cancel exactly. Anchored to the
+   regenerate-input drawer specifically — the backup-codes panel
+   (which lacks .btn-accent at the action-row top level distinguishable
+   without a code-grid sibling) gets its own restamp in #127107. */
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:not(:has(> .mono)) button.btn.btn-accent,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:not(:has(> .mono)) button.btn.btn-accent {
+  height: 40px !important;
+  padding: 0 24px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:not(:has(> .mono)) button.btn.btn-accent:hover:not(:disabled),
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:not(:has(> .mono)) button.btn.btn-accent:hover:not(:disabled) {
+  background-color: rgb(63, 140, 255) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:not(:has(> .mono)) button.btn.btn-accent:disabled,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:not(:has(> .mono)) button.btn.btn-accent:disabled {
+  background-color: rgba(35, 123, 255, 0.4) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:not(:has(> .mono)) button.btn.btn-ghost,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:not(:has(> .mono)) button.btn.btn-ghost {
+  height: 40px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:not(:has(> .mono)) button.btn.btn-ghost:hover:not(:disabled),
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:not(:has(> .mono)) button.btn.btn-ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127106 */
+
+/* CSFLOAT-1:1 PARITY ship #127107 (Backup-codes panel — Roboto Mono
+   selectable code-block with 8-10 codes, copy/download/dismiss
+   actions). measured: csfloat backup-codes display inside the dialog
+   renders the codes inside a `code` element styled at font-family
+   "Roboto Mono", font-size 16/500, line-height 24, letter-spacing 0,
+   color rgb(255,255,255), bg rgb(35,38,46) (one tier deeper than
+   panel-bg for code-block contrast), border rgba(255,255,255,0.08),
+   border-radius 8px, padding 16px, gap 8px between the two columns,
+   user-select all so a single triple-click selects every code. sbox
+   shipped the codes inside `.mono` with 13px text on var(--bg-elevated)
+   bg + var(--border) at 6px gap padding 10 — code text is one step
+   below canonical and the block lacks the contrast tier needed to
+   read as a distinct code-block surface. Restamp the code-grid onto
+   canonical 15/500 mono code-block, and the action row's
+   ghost+accent buttons onto Material text-button + raised-button
+   geometry (mirror of #127106 but anchored to the panel that
+   contains a `.mono` code-grid via :has(> .mono)). */
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] > .mono,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] > .mono {
+  font-family: "Roboto Mono", "Source Code Pro", Menlo, Consolas, monospace !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgb(35, 38, 46) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  gap: 8px 16px !important;
+  user-select: all !important;
+  -webkit-user-select: all !important;
+  margin-bottom: 4px !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"] > .mono > span,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"] > .mono > span {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  color: inherit !important;
+  user-select: all !important;
+  -webkit-user-select: all !important;
+  padding: 2px 0 !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:has(> .mono) button.btn.btn-ghost,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:has(> .mono) button.btn.btn-ghost {
+  height: 40px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  color: rgb(158, 167, 177) !important;
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:has(> .mono) button.btn.btn-ghost:hover:not(:disabled),
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:has(> .mono) button.btn.btn-ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:has(> .mono) button.btn.btn-accent,
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:has(> .mono) button.btn.btn-accent {
+  height: 40px !important;
+  padding: 0 24px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .profile-row .profile-row-value > div[style*="rgba(251, 191, 36, 0.08)"]:has(> .mono) button.btn.btn-accent:hover:not(:disabled),
+html body .profile-row .profile-row-value > div[style*="rgba(251,191,36,0.08)"]:has(> .mono) button.btn.btn-accent:hover:not(:disabled) {
+  background-color: rgb(63, 140, 255) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127107 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ships #127080 — #127085
+   Lane: filter clear-all button + active-filters chip strip.
+   Measured target: csfloat-style 28h pill chips with 1px hairline,
+   ink-2 'x' glyph that brand-tints on hover; clear-all is a quiet
+   text-button that brightens to brand on hover with a subtle
+   focus-visible halo.  All rules append after ship #1398.
+   ============================================================ */
+
+/* CSFLOAT-1:1 PARITY ship #127080 — chip 'x' remove glyph polish.
+   Measured: csfloat removable chip's trailing 'x' renders in ink-2
+   (rgba(158,167,177,0.85) ish) and brand-tints on whole-chip hover so
+   the user sees the affordance without scrubbing the glyph itself.
+   Local chip's <span>X</span> previously sat at rgba(255,255,255,0.55)
+   and stayed flat on hover.  Recolor to ink-2 baseline + brand-tint
+   on parent :hover, with a 150ms cubic-bezier easing so it feels
+   intentional.  Glyph also gains a tiny font-size bump for legibility
+   at 12px chip text + a 1px y-offset so the X visually centres next
+   to the lower-case label baseline. */
+body .active-filters .filter-chip > span:last-child,
+body .filter-chip > span:last-child {
+  color: rgb(158, 167, 177) !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  margin-left: 4px !important;
+  transform: translateY(0.5px) !important;
+  transition: color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .active-filters .filter-chip:hover > span:last-child,
+body .filter-chip:hover > span:last-child {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127080 */
+
+
+/* CSFLOAT-1:1 PARITY ship #127081 — chip <strong> label colour pin.
+   Measured csfloat: removable chip's emphasised value (e.g. "ak",
+   category name, price) renders in pure #fff w/ 600 weight; the
+   "search:" prefix sits one tier dimmer at rgba(255,255,255,0.74) so
+   the value reads as the primary content.  Local <strong> was already
+   white-ish from inheritance but base chip color is rgba(255,255,255,
+   0.88), making the prefix and value visually equal-weight.  Pull
+   the parent chip color down a tick + lock <strong> at pure #fff so
+   the value pops against the prefix.  This is the same dim/bright
+   pattern csfloat uses on its own .price-chip rows. */
+body .active-filters .filter-chip,
+body .filter-chip {
+  color: rgba(255, 255, 255, 0.74) !important;
+}
+body .active-filters .filter-chip strong,
+body .filter-chip strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127081 */
+
+
+/* CSFLOAT-1:1 PARITY ship #127082 — clear-all hover -> brand tint.
+   Measured csfloat: 'Clear filters' is a quiet uppercase text-button
+   in ink-2 that on hover lifts to brand rgb(35,123,255) with a
+   no-bg, no-underline shift — it's purely a colour transition.
+   Local .clear-all currently brightens to ink-1 (#fff) on hover,
+   which reads as 'just another label' rather than 'click me to undo'.
+   Repaint hover to brand + add a 1px brand-shadow underline cue at
+   the bottom edge so it reads as a destructive-undo affordance.
+   Uses the standard 150ms cubic-bezier(0.4,0,0.2,1) ease. */
+body .active-filters .filter-chip.clear-all,
+body .filter-chip.clear-all {
+  color: rgb(158, 167, 177) !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .active-filters .filter-chip.clear-all:hover,
+body .filter-chip.clear-all:hover {
+  color: rgb(35, 123, 255) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 -1px 0 0 rgba(35, 123, 255, 0.55) !important;
+}
+body .active-filters .filter-chip.clear-all:hover strong,
+body .filter-chip.clear-all:hover strong {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127082 */
+
+
+/* CSFLOAT-1:1 PARITY ship #127083 — chip focus-visible brand ring.
+   Measured csfloat: keyboard focus on a removable chip lands a 2px
+   brand outline w/ 2px offset matching every other interactive
+   surface in the app (buttons, sort tabs, nav pills).  Local chip
+   inherits a generic .filter-chip:focus-visible rule that paints a
+   white ring, which clashes with the brand-tinted family.  Override
+   to brand 35,123,255 outline + soft radial halo via box-shadow at
+   18% alpha so the focus state is visible against the panel-on-panel
+   background of the active-filters strip without being noisy. */
+body .active-filters .filter-chip:focus-visible,
+body .filter-chip:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.85) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(35, 123, 255, 0.18) !important;
+}
+body .active-filters .filter-chip.clear-all:focus-visible,
+body .filter-chip.clear-all:focus-visible {
+  outline-offset: 1px !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127083 */
+
+
+/* CSFLOAT-1:1 PARITY ship #127084 — active-filters strip vertical rhythm.
+   Measured csfloat strip: 6px row-gap (when chips wrap), 8px column-gap,
+   12px top padding to clear the toolbar above, 14px bottom padding so
+   the gap between the strip and the listings grid feels intentional
+   rather than crammed.  Local active-filters had `padding: 6px 0 10px`
+   with single `gap: 6px` which collapses both axes — when chips wrap
+   to a 2nd row the rows touch.  Split row-gap (6px) from column-gap
+   (8px) and tighten the vertical padding around the strip. */
+body .active-filters {
+  row-gap: 6px !important;
+  column-gap: 8px !important;
+  padding: 12px 0 14px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127084 */
+
+
+/* CSFLOAT-1:1 PARITY ship #127085 — chip :active depress + clear-all.
+   Measured csfloat: pressing a chip momentarily shows a 0.96 scale +
+   brightness(0.92) press-state for ~80ms before the click handler
+   fires, giving the user a tactile beat.  Local chip had a long-ago
+   `:active { transform: scale(0.96) }` rule that has since been
+   overridden by various !important repaints — re-pin both the
+   transform and a paired filter() darken so chip removal feels
+   confirmed even before the React re-render lands.  Includes
+   reduced-motion guard so the depress is omitted for users who've
+   asked for less motion. */
+body .active-filters .filter-chip:active,
+body .filter-chip:active {
+  transform: scale(0.96) !important;
+  filter: brightness(0.92) !important;
+  transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1),
+              filter 80ms cubic-bezier(0.4, 0, 0.2, 1),
+              background 120ms ease, border-color 120ms ease !important;
+}
+body .active-filters .filter-chip.clear-all:active,
+body .filter-chip.clear-all:active {
+  transform: scale(0.96) !important;
+  filter: brightness(0.85) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body .active-filters .filter-chip:active,
+  body .filter-chip:active,
+  body .active-filters .filter-chip.clear-all:active,
+  body .filter-chip.clear-all:active {
+    transform: none !important;
+    filter: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #127085 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127041 — /settings high-contrast row
+   selector correction patch (extends ship #127040)
+   ----------------------------------------------------------------
+   Live DOM verification on http://localhost:8082/settings revealed
+   that SettingsModal's Row helper renders the .toggle-switch as a
+   DIRECT child of .settings-row (not nested inside the first inner
+   div). The original ship #127040 selector chain
+   `:has(> div > .toggle-switch)` therefore fails to match, leaving
+   the High contrast row unstyled. Repeat the six refinements with
+   the correct hook `:has(> .toggle-switch)` so the lane payload
+   actually lands. Append-only override per protocol.
+
+   Selector hook (corrected):
+     .settings-row:has(> .toggle-switch)
+       :has(+ .settings-row:not(:has(.toggle-switch)))
+
+   Lane scoping unchanged — still matches uniquely the High contrast
+   row (toggle-bearing row directly followed by the Accent colour
+   sentence row). Notifications-section rows are followed by other
+   toggle rows or chip rows, never a Toggle-less sentence row, so
+   no leak.
+   ================================================================ */
+
+/* (1) Sublabel ink colour — pull to csfloat ink-2 rgb(158,167,177).
+   Sublabel currently rendered at rgba(255,255,255,0.5) which clears
+   AA but reads as muted utility instead of informative supporting
+   copy. csfloat's mat-mdc-list-item secondary line uses ink-2 so
+   the label/sublabel pair functions as the row's full payload. */
+.info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel,
+.full-page-mode .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel {
+  color: rgb(158, 167, 177) !important;
+}
+
+/* (2) Sublabel typography — pin Material 12/16/0.1px tracking on
+   the sboxmarket inherited font so the row reads as a Material
+   two-line list-item. Drop the Roboto override so we don't fight
+   the site's Geist body font; only line-height and tracking change.
+   max-width keeps the sublabel from sprawling beyond the toggle
+   column on wide viewports (csfloat's mat-mdc-list constrains
+   secondary text to ~38ch by default). */
+.info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel,
+.full-page-mode .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel {
+  font-size: 12px !important;
+  line-height: 16px !important;
+  letter-spacing: 0.1px !important;
+  margin-top: 4px !important;
+  max-width: 38ch !important;
+}
+
+/* (3) Label state preview when High-contrast is active — when the
+   user enables the toggle, JS adds class `high-contrast` to the
+   <html> element (modals.js:2873). Reflect this in the row label
+   itself so the row functions as its own preview: pure ink-1
+   white at 600 weight + 0.2px tracking, matching the boosted
+   contrast appearance the toggle is about to apply globally. */
+html.high-contrast .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-label,
+html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-label {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              font-weight 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (4) Inline preview chip — render an "AA boosted" contrast-grade
+   chip via a generated `::after` on the High-contrast row's first
+   column, so the row carries a visible legend showing the high-
+   contrast pair. csfloat-style brand pill: brand-tinted background,
+   brand border, ink-1 text, mono small caps. Visible only when the
+   toggle is on (html.high-contrast), acting as a live confirmation
+   of the boosted contrast outcome. */
+.info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) > div:first-child {
+  position: relative !important;
+}
+html.high-contrast .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) > div:first-child::after,
+html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) > div:first-child::after {
+  content: "AA boosted" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-top: 6px !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  background-color: rgba(35, 123, 255, 0.14) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgba(35, 123, 255, 0.5) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  width: max-content !important;
+  line-height: 1.4 !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (5) Row focus-within ring — when the keyboard pivots into the
+   High-contrast row's toggle, csfloat's mat-mdc-list-item gains a
+   2px brand outline-offset ring. Add the same on focus-within so
+   keyboard a11y users see a clear focus indication that respects
+   high-contrast mode. 150ms cubic-bezier matches Material standard. */
+.info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):focus-within,
+.full-page-mode .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):focus-within {
+  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px !important;
+  transition: outline-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (6) Toggle on-state brand outline ring — csfloat's mdc-switch
+   on-state thumb gains a 2px brand-tinted outer ring at 0.18
+   alpha when its parent row is hovered. Ship #126920 already
+   pinned the elev-1 thumb shadow but did not add an outer brand
+   halo. Add it, scoped only to this row's `:not(.off)` toggle, so
+   the active state reads as a Material brand-tinted "boosted"
+   pill. Only fires on hover, matching csfloat's ripple-overlay. */
+.info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):hover .toggle-switch:not(.off),
+.full-page-mode .info-modal-body .settings-row:has(> .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):hover .toggle-switch:not(.off) {
+  outline: 2px solid rgba(35, 123, 255, 0.18) !important;
+  outline-offset: 1px !important;
+  transition: outline-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* END CSFLOAT-1:1 PARITY ship #127041 */
+
