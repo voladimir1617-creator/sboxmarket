@@ -189640,3 +189640,228 @@ nav.nav .nav-inner {
   gap: 25px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128505 */
+
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128460 — search-bar wrapper chrome (real)
+   Live-measured 2026-05-08 on csfloat.com/search:
+   .mat-mdc-text-field-wrapper inside mat-form-field.search-bar →
+     bg rgba(193,206,255,0.04), border-radius 6px (NOT 8 as ship #128175
+     guessed), padding 0 0 0 16px (the right edge is hugged by the
+     slash-square suffix). Pin the 6/16 numbers exactly so the pill chrome
+     reads like csfloat's filled-text-field-no-label preset.
+*/
+body mat-form-field.search-bar > .mat-mdc-text-field-wrapper,
+body mat-form-field.search-bar .mat-mdc-text-field-wrapper {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  padding: 0 0 0 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128460 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128461 — search-bar wrapper geometry
+   Live-measured: wrapper rect 310x44 (sbox routes vary the 310 width
+   inside .advanced-search; pin only the 44 height + flex-display so
+   the prefix/infix/suffix triplet aligns center-vertically against the
+   wrapper baseline). The mat-mdc-form-field-flex inside is the actual
+   row container for the three icon zones — pin its height to 44 too
+   so the slash-square doesn't drop below baseline on dense-input-m3.
+*/
+body mat-form-field.search-bar > .mat-mdc-text-field-wrapper {
+  height: 44px !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+body mat-form-field.search-bar .mat-mdc-text-field-wrapper > .mat-mdc-form-field-flex {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  flex: 1 1 auto !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128461 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128462 — prefix lens svg sizing + paint
+   Live-measured prefix container at .mat-mdc-form-field-icon-prefix:
+     rect 96,172 19x16 with padding-right 4px. The icon is an INLINE
+     <svg width="15" height="16" viewBox="0 0 15 16" fill="none"
+     stroke="white"> not a mat-icon font glyph. Sbox baseline emits a
+     mat-icon font ligature here (which renders 24x24 by default and
+     pushes the input off-center). Pin the prefix container's flex
+     alignment + padding, and any svg/mat-icon child to 15x16 white.
+*/
+body mat-form-field.search-bar .mat-mdc-form-field-icon-prefix {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 4px 0 0 !important;
+  flex: 0 0 auto !important;
+  color: rgb(255, 255, 255) !important;
+}
+body mat-form-field.search-bar .mat-mdc-form-field-icon-prefix > svg,
+body mat-form-field.search-bar .mat-mdc-form-field-icon-prefix > svg * {
+  width: 15px !important;
+  height: 16px !important;
+  color: rgb(255, 255, 255) !important;
+  stroke: rgb(255, 255, 255) !important;
+}
+body mat-form-field.search-bar .mat-mdc-form-field-icon-prefix > mat-icon,
+body mat-form-field.search-bar .mat-mdc-form-field-icon-prefix > .mat-icon {
+  width: 16px !important;
+  height: 16px !important;
+  font-size: 16px !important;
+  line-height: 16px !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128462 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128463 — slash-square (kbd hint) chrome
+   Live-measured suffix .slash-square > .round-square:
+     OUTER (border-box) 22x22, INNER 20x20 (1px border each side)
+     bg rgba(193,206,255,0.04)
+     border 1px solid rgba(158,167,177,0.15)  (NOT the rgba(255,255,255,0.06)
+                                               hairline ship #128175 guessed)
+     border-radius 6px
+     display flex; align-items center; justify-content center
+   Sbox legacy .keyboard-shortcut / .kbd selectors targeted 24x24/4br/
+   transparent-bg/0.06-border. Pin the .round-square + .slash-square
+   selectors directly (which is the actual emitted markup) so both Sbox
+   and csfloat themes paint the SAME 22x22 tinted-pill kbd hint.
+*/
+body mat-form-field.search-bar .mat-mdc-form-field-icon-suffix {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 12px 0 0 !important;
+  flex: 0 0 auto !important;
+  height: 44px !important;
+}
+body mat-form-field.search-bar .slash-square {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 auto !important;
+}
+body mat-form-field.search-bar .slash-square > .round-square,
+body mat-form-field.search-bar .round-square {
+  width: 20px !important;
+  height: 20px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(158, 167, 177, 0.15) !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128463 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128464 — diagonal-line "/" glyph color
+   Live-measured .diagonal-line:
+     color rgb(158,167,177) (ink-2, the muted slate)
+     font 14px Roboto / 0 line-height (the wrapper sets line-height 0 so
+     the "/" sits visually centered without consuming row height)
+   Sbox legacy ship #128175 guessed 12px font here — bump to live 14
+   so the slash glyph fills the 20x20 inner box at the correct visual
+   weight. textAlign:left on the live measurement is fine because the
+   parent's flex centering does the actual horizontal centering.
+*/
+body mat-form-field.search-bar .slash-square .diagonal-line,
+body mat-form-field.search-bar .round-square .diagonal-line,
+body mat-form-field.search-bar .diagonal-line {
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: center !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128464 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128465 — infix padding + input typography
+   Live-measured .mat-mdc-form-field-infix inside .search-bar:
+     rect 115,158 271x44, padding-top 10px, padding-bottom 10px
+     min-height 44px (matches wrapper height — infix fills the row)
+   Live-measured input:
+     font 16/24 Roboto white
+     placeholder color rgba(255,255,255,0.7) (NOT the ink-2 158/167/177
+     that ship #128175 set — csfloat uses 70%-white which reads brighter
+     and is one of the few places csfloat departs from its ink-2 token)
+   Pin both numbers exact so the input baseline lines up with the
+   prefix lens (172 baseline) and the slash-square center (181 baseline).
+*/
+body mat-form-field.search-bar .mat-mdc-form-field-infix {
+  padding: 10px 0 !important;
+  min-height: 44px !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  border: 0 !important;
+}
+body mat-form-field.search-bar input,
+body mat-form-field.search-bar input.mat-mdc-input-element,
+body mat-form-field.search-bar input.mat-mdc-autocomplete-trigger {
+  font: 400 16px/24px Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 24px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  border-radius: 0 !important;
+}
+body mat-form-field.search-bar input::placeholder,
+body mat-form-field.search-bar input.mat-mdc-input-element::placeholder,
+body mat-form-field.search-bar input.mat-mdc-autocomplete-trigger::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128465 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128466 — :focus-within stays clean
+   Live-measured the wrapper at focus-state: NO border swap, NO box-shadow
+   ring, NO color change to the wrapper itself — csfloat relies entirely
+   on the line-ripple under the wrapper to indicate focus. Sbox global
+   stylesheet baseline (line 124033) injects:
+     .searchbar input:focus, ... { box-shadow: 0 0 0 3px brand-blue-glow; }
+   which fires on .search-bar input too via the loose .searchbar selector
+   collision. Strip the focus-ring inside .search-bar scope so csfloat's
+   subtler line-ripple-only focus reads correctly. Keep the line-ripple
+   visible by NOT zeroing its display.
+*/
+body mat-form-field.search-bar:focus-within > .mat-mdc-text-field-wrapper,
+body mat-form-field.search-bar > .mat-mdc-text-field-wrapper:focus-within,
+body mat-form-field.search-bar > .mat-mdc-text-field-wrapper.mdc-text-field--focused {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+body mat-form-field.search-bar input:focus,
+body mat-form-field.search-bar input.mat-mdc-input-element:focus,
+body mat-form-field.search-bar input.mat-mdc-autocomplete-trigger:focus {
+  box-shadow: none !important;
+  outline: 0 !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128466 */
