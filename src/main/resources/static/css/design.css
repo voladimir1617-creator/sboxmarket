@@ -186012,3 +186012,291 @@ body .filter-sidebar .search-within-section > .kbd {
   background: transparent !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128175 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128210 — /loadout page header GRID layout
+   Measured csfloat .header (app-loadout-overview > div.header.ng-star-inserted):
+   display grid + grid-template-columns 163px 345px 1891px 0 0 / 10px gap / 63px h.
+   Sbox /loadout currently stacks H1 above .loadout-tabs above .loadout-add-btn —
+   pin the wrapper around the H1+tabs+add-btn cluster to a single GRID row so the
+   page-title sits LEFT, the tabs sit MIDDLE, and the create-pill+search/sort
+   filter stretch RIGHT. Anchor: the .full-page-mode wrapper that hosts
+   .loadout-tabs immediately after an h1.
+*/
+body .full-page-mode .loadout-page-header,
+body .full-page-mode > h1 + .loadout-tabs,
+body .info-modal-body > h1 + .loadout-tabs {
+  display: grid !important;
+  grid-template-columns: auto auto 1fr !important;
+  align-items: center !important;
+  gap: 24px !important;
+  margin-bottom: 18px !important;
+  width: 100% !important;
+}
+/* When page renders the H1 + tabs + add as siblings (no wrapper), pin the H1
+   to row-1-col-1 inside the grid. */
+body .full-page-mode > h1.csfloat-h1 + .loadout-tabs ~ .loadout-add-btn,
+body .info-modal-body > h1 + .loadout-tabs ~ .loadout-add-btn {
+  grid-column: 3 !important;
+  justify-self: end !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128210 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128211 — .loadout-tabs flat inline strip (kill pill)
+   Measured csfloat <app-nav-tabs> children: 3 inline anchor links rendered FLAT
+   on transparent bg (NO segmented pill bg, NO 4px padding, NO border-radius).
+   Sbox baseline emits .loadout-tabs as a SEGMENTED PILL (bg rgba(193,206,255,0.04)
+   + 4px padding + 14px mb) which doesn't match. Strip the pill chrome so .loadout-
+   tabs ships as inline links with 28px gap between them (csfloat-equivalent
+   anchor spacing).
+*/
+body .loadout-tabs {
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  gap: 28px !important;
+  margin-bottom: 0 !important;
+  flex-wrap: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128211 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128212 — .loadout-tabs > button/anchor link parity
+   Measured csfloat anchor link computed: 16/400 Roboto, color ink-2
+   rgb(158,167,177) at rest, white rgb(255,255,255) when active, padding 0 8px,
+   34px h, NO border, NO bg, NO border-radius (flat link chrome). Active state
+   gets a 2px brand-blue ::after underline pinned to bottom -8px so the
+   underline sits below the strip baseline. Sbox ships these as 32x88 buttons
+   with bg+border+radius — strip the chrome and pin to the inline-link style.
+*/
+body .loadout-tabs > button,
+body .loadout-tabs > a {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 8px !important;
+  height: 34px !important;
+  min-width: 0 !important;
+  width: auto !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  position: relative !important;
+  cursor: pointer !important;
+  transition: color 140ms ease !important;
+  box-shadow: none !important;
+}
+body .loadout-tabs > button:hover,
+body .loadout-tabs > a:hover {
+  color: rgb(220, 226, 233) !important;
+  background: transparent !important;
+}
+body .loadout-tabs > button.active,
+body .loadout-tabs > button.is-active,
+body .loadout-tabs > button[aria-current="page"],
+body .loadout-tabs > button[aria-pressed="true"],
+body .loadout-tabs > a.active,
+body .loadout-tabs > a.is-active,
+body .loadout-tabs > a[aria-current="page"] {
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+  font-weight: 500 !important;
+}
+body .loadout-tabs > button.active::after,
+body .loadout-tabs > button.is-active::after,
+body .loadout-tabs > button[aria-current="page"]::after,
+body .loadout-tabs > button[aria-pressed="true"]::after,
+body .loadout-tabs > a.active::after,
+body .loadout-tabs > a.is-active::after,
+body .loadout-tabs > a[aria-current="page"]::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: -6px !important;
+  height: 2px !important;
+  background: rgb(35, 123, 255) !important;
+  border-radius: 1px !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128212 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128213 — .loadout-add-btn brand-blue solid pill
+   Measured csfloat "add Create Loadout" button at 151w x 36h, bg rgb(35,123,255),
+   color white, font 14/600 Roboto with letter-spacing 0, border-radius 8px,
+   padding 0 16px, NO border, NO box-shadow, hover lift to rgb(58,137,255).
+   Sbox ships .loadout-add-btn as a DASHED ink-2 outline button (var(--bg-1)
+   bg + dashed line-2 border + 13/500 ink-2 text). Strip the dashed chrome and
+   pin to csfloat's brand-primary CTA pill.
+*/
+body .loadout-add-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 36px !important;
+  min-width: 0 !important;
+  padding: 0 16px !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: background 140ms ease, transform 140ms ease !important;
+}
+body .loadout-add-btn:hover {
+  background: rgb(58, 137, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  transform: translateY(-1px) !important;
+}
+body .loadout-add-btn:active {
+  background: rgb(28, 105, 220) !important;
+  transform: translateY(0) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128213 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128214 — .loadout-grid flat full-width entry rows
+   Measured csfloat .grid-of-loadout-entries: app-overview-entry rows are 232h
+   each, flat full-width (no per-row card chrome), bg transparent, no border,
+   no padding at the host level (the inner content paints on the page bg
+   directly). Sbox .loadout-grid ships repeat(auto-fill, minmax(280px,1fr))
+   tiled cards — that's the wrong layout for the /loadout-overview pattern.
+   When inside .full-page-mode (the dedicated /loadout route), pin the grid
+   to a single column of full-width 232h-min entry rows with 16px row gap.
+   Modal-mode loadout pickers (LoadoutModal at 380x...) keep the existing
+   minmax tile chrome via the negative scope below.
+*/
+body .full-page-mode .loadout-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+  width: 100% !important;
+}
+body .full-page-mode .loadout-grid > .loadout-card,
+body .full-page-mode .loadout-grid > .loadout-entry,
+body .full-page-mode .loadout-grid > app-overview-entry,
+body .full-page-mode .loadout-grid > .csfloat-loadout-card {
+  width: 100% !important;
+  min-height: 232px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128214 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128215 — .loadout-card panel chrome (page mode)
+   Measured csfloat per-entry chrome (when the entry expands to its own panel
+   on /loadout/<id>): bg rgb(27,29,36) panel + 12px border-radius + no border
+   + no shadow + 18px padding. The /loadout-overview list version paints the
+   row-card with the SAME panel-token bg + 12px br but a SLIGHTLY tighter
+   16px padding to keep the 232h fit. Sbox .loadout-card uses var(--bg-1)
+   + var(--line) 1px border + r-md (~8px) — replace with the canonical
+   rgb(27,29,36) panel + 12px br + hairline rgba(255,255,255,0.06) border
+   (lane brief tokens) + 16px padding for entry rows.
+*/
+body .full-page-mode .loadout-card,
+body .full-page-mode .loadout-entry,
+body .full-page-mode app-overview-entry,
+body .full-page-mode .csfloat-loadout-card {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+body .full-page-mode .loadout-card:hover,
+body .full-page-mode .loadout-entry:hover,
+body .full-page-mode app-overview-entry:hover {
+  background: rgb(31, 33, 41) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128215 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128216 — .loadout-card-name h3 typography parity
+   Measured csfloat .loadout-entry-header h3: font-size 18.72px (Material h3
+   default at 1.17em from base 16), font-weight 600, color rgb(255,255,255),
+   font-family Roboto, letter-spacing normal, 25px line-height. Sbox ships the
+   loadout-card-name in serif (var(--serif)) at 18/360 with -0.015em tracking
+   and font-variation-settings opsz 144 — that's the editorial/elegant look
+   from the design system but it BREAKS pixel parity with csfloat's clean
+   sans h3. Pin to Roboto sans 18.72/600 white when on /loadout page.
+*/
+body .full-page-mode .loadout-card-name,
+body .full-page-mode .loadout-entry-name,
+body .full-page-mode .csfloat-loadout-card-title,
+body .full-page-mode app-overview-entry h3 {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 18.72px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 25px !important;
+  color: rgb(255, 255, 255) !important;
+  font-variation-settings: normal !important;
+  font-style: normal !important;
+  padding: 0 0 4px 0 !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128216 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128217 — .loadout-card-meta + price right-rail
+   Measured csfloat .loadout-entry-header-right: 180w x 24h, holds "X empty
+   slots" ink-2 + price 14/600 white (e.g. "$729.76") right-aligned with
+   8-12px gap. Sbox baseline ships .loadout-card-meta as bottom-padded mono
+   ink-4 caption text and .loadout-card-share as a separate footer panel
+   with own border-top + bg + ink-3 mono. Strip the share-footer chrome and
+   pin meta to a flex-row that hosts ink-2 captions (left side, mono 11px)
+   + a brand-white 14/600 price chip (right side, Roboto sans) so the row
+   reads exactly like csfloat's loadout-entry-header-right.
+*/
+body .full-page-mode .loadout-card-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 0 0 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0 !important;
+}
+body .full-page-mode .loadout-card-meta .loadout-card-price,
+body .full-page-mode .loadout-card-meta .csfloat-loadout-card-value,
+body .full-page-mode .loadout-card-meta strong,
+body .full-page-mode .loadout-card-meta .price {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+  margin-left: auto !important;
+}
+body .full-page-mode .loadout-card-share {
+  background: transparent !important;
+  border-top: 0 !important;
+  padding: 6px 0 0 0 !important;
+  margin: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128217 */
