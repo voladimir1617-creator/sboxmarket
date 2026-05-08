@@ -179977,3 +179977,381 @@ html body .wallet-inline-hint > span:not(.wallet-inline-hint-icon) {
   letter-spacing: normal !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #127400 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127500 (refund-request drawer chrome)
+   measured: csfloat mat-mdc-dialog probe — surface rgb(27,29,36),
+   br 8px, mat-elev-24 layered shadow, 20/24 inset padding;
+   sbox was rgb(31,31,31)/br 4px/0 padding/elev-24 shadow already.
+   Scope hook: .cart-confirm-panel[aria-labelledby="refund-drawer-title"]
+   so this override does not leak into other cart-confirm consumers
+   (cart checkout, order confirm, etc.). Refund drawer lives at
+   modals.js:7596 (TradesTab), opened via openRefundForTrade.
+   Canonical csfloat tokens: panel rgb(27,29,36), border-radius 8px,
+   inset padding 20px 24px, mat-elev-24 box-shadow stack.
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 11px 15px -7px,
+    rgba(0, 0, 0, 0.14) 0px 24px 38px 3px,
+    rgba(0, 0, 0, 0.12) 0px 9px 46px 8px !important;
+  padding: 20px 24px !important;
+  width: min(460px, 100%) !important;
+  max-width: 460px !important;
+  overflow: visible !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127500 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127501 (refund-request drawer backdrop)
+   measured: csfloat material scrim rgba(0,0,0,0.6) full-bleed
+   no backdrop-filter blur (Material default — non-blurred scrim);
+   sbox was rgba(0,0,0,0.32) + 12px blur via .cart-confirm-backdrop
+   global rule. Scope to refund drawer only by anchoring to backdrop
+   that contains the refund-drawer-titled panel via :has() selector.
+   ============================================================ */
+.cart-confirm-backdrop:has(> .cart-confirm-panel[aria-labelledby="refund-drawer-title"]) {
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 4vh 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127501 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127502 (refund-request drawer title)
+   measured: csfloat mat-mdc-dialog-title 20/500/32lh Roboto
+   ink-1 white with Material h6 0.15px tracking; sbox was 20/500/32lh
+   Geist with 0.25px tracking. Pulls font-family to canonical Roboto
+   and tightens tracking to 0.15px Material h6 spec. 8px gap to subtitle.
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-title#refund-drawer-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.15px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 8px 0 !important;
+  padding: 0 !important;
+  font-variation-settings: normal !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127502 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127503 (refund-request drawer subtitle)
+   measured: Material dialog supporting text ink-2 rgb(158,167,177)
+   13/400/20lh; sbox was rgba(255,255,255,0.6)/14px. Adds a 16px
+   gap below the subtitle so the trade-summary card breathes per
+   Material dialog content rhythm (16-24px between blocks).
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-sub {
+  color: rgb(158, 167, 177) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  margin: 0 0 16px 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127503 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127504 (refund-request trade-summary card)
+   measured: trade context card uses sbox tokens that resolve to
+   oklch values; csfloat equivalent in support-context cards is
+   bg-elevated rgb(35,38,46) + 1px hairline rgba(255,255,255,0.06)
+   + ink-2 rgb(158,167,177) + Roboto 12/400/18lh. Anchored via the
+   inline-styled context block immediately after the subtitle inside
+   the refund drawer panel. Inline style attribute selectors target
+   the var(--bg-elevated) and var(--border) tokens used in the JSX.
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > div[style*="--bg-elevated"],
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > div[style*="border: 1px solid var(--border)"] {
+  background: rgb(35, 38, 46) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+  letter-spacing: 0.25px !important;
+  padding: 10px 12px !important;
+  margin: 0 0 16px 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > div[style*="--bg-elevated"] strong,
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > div[style*="border: 1px solid var(--border)"] strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127504 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127505 (refund-request reason textarea)
+   measured: csfloat mat-mdc-form-field-textarea-control wrapper
+   uses filled appearance — bg rgba(193,206,255,0.04) + 6/6/0/0 br
+   + 1px bottom underline rgba(255,255,255,0.42) + ink-1 white text;
+   no full border. sbox was rgb(13,19,32) + 1px solid border + 6px
+   uniform br + Roboto 13px. Bumps font to 14/20lh Material body,
+   bumps min-height to 96px (4 rows × 24px lh + 0 padding) for the
+   Material default mat-form-field textarea baseline. Adds focus
+   state: brand 35,123,255 underline on focus per Material spec.
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > textarea[aria-label="Refund / dispute reason"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42) !important;
+  border-radius: 6px 6px 0 0 !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  padding: 14px 16px !important;
+  min-height: 96px !important;
+  width: 100% !important;
+  resize: vertical !important;
+  outline: none !important;
+  transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+  caret-color: rgb(35, 123, 255) !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > textarea[aria-label="Refund / dispute reason"]:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.6) !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > textarea[aria-label="Refund / dispute reason"]:focus,
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > textarea[aria-label="Refund / dispute reason"]:focus-visible {
+  background: rgba(193, 206, 255, 0.06) !important;
+  border-bottom: 2px solid rgb(35, 123, 255) !important;
+  padding-bottom: 13px !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > textarea[aria-label="Refund / dispute reason"]::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-weight: 400 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127505 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127506 (refund-request character counter)
+   measured: Material mat-hint label ink-2 rgb(158,167,177) at
+   12/400/16lh tracked 0.4px right-aligned with 4-8px top gap to
+   anchor under the textarea like a Material form-field hint.
+   sbox was oklch ink at 11px no tracking. Bumped to 12px to match
+   Material hint baseline + 4px top-gap shrunk to 8px to balance.
+   tabular-nums on the counter so digits don't shift width.
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > div[style*="text-align: right"] {
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  margin-top: 8px !important;
+  padding: 0 16px !important;
+  text-align: right !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127506 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127507 (refund-request actions row)
+   measured: Material mat-mdc-dialog-actions flex-end 8px gap with
+   0 padding (compact dialog actions); sbox flex-end matches but
+   margin-top 14 needs to be 24 to clear the counter line per
+   Material dialog content-to-actions rhythm. No border-top
+   (Material modern dialogs drop the divider).
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  margin: 24px 0 0 0 !important;
+  padding: 0 !important;
+  border-top: 0 !important;
+  min-height: 36px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127507 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127508 (refund-request Cancel ghost CTA)
+   measured: csfloat mat-mdc-button text-button — transparent bg,
+   ink-1 white text, 36h, 0/8 padding, br 8px, fw 500 14/36lh
+   Roboto, no text-transform. Hover: rgba(255,255,255,0.04) wash.
+   sbox was rendering brand-blue text rgb(101,153,255) which reads
+   as a confirm action (wrong polarity). Pulled to canonical Material
+   ghost so Cancel reads as the secondary action vs the destructive
+   Submit. Border removed (sbox inline border style overridden via
+   !important to match Material text-button which has no border).
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-ghost {
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  height: 36px !important;
+  min-width: 64px !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-ghost:focus-visible {
+  background: rgba(255, 255, 255, 0.08) !important;
+  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
+  outline-offset: 2px !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-ghost:disabled {
+  color: rgba(255, 255, 255, 0.38) !important;
+  cursor: default !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127508 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127509 (refund-request Submit destructive CTA)
+   measured: csfloat mat-mdc-raised-button.mat-warn — destructive
+   bg rgb(235,75,76) per spec (csfloat live measures 235,75,75 but
+   spec mandates 235,75,76 token), ink-1 white, 36h, 0/16 padding,
+   br 8px, fw 500 14/36lh Roboto, no text-transform, Material
+   elev-2 layered shadow (3/1/-2 + 2/2/0 + 1/5/0). sbox was using
+   .btn-accent which renders brand-blue rgb(29,78,216) — wrong
+   polarity for a refund-request action. Refund destructive override
+   pulls to mat-warn destructive red while preserving the .btn-accent
+   class hook (modals.js:7658 ships .btn .btn-accent). Hover lifts
+   to rgb(220,60,61) + elev-4 shadow per Material raised-button spec.
+   ============================================================ */
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-accent {
+  background: rgb(235, 75, 76) !important;
+  background-image: none !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857em !important;
+  height: 36px !important;
+  min-width: 64px !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-accent:hover:not(:disabled) {
+  background: rgb(220, 60, 61) !important;
+  background-image: none !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+    rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-accent:focus-visible {
+  background: rgb(220, 60, 61) !important;
+  outline: 2px solid rgba(235, 75, 76, 0.6) !important;
+  outline-offset: 2px !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-accent:active:not(:disabled) {
+  background: rgb(200, 50, 51) !important;
+  transform: scale(0.98) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0px 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0px 3px 14px 2px !important;
+}
+.cart-confirm-panel[aria-labelledby="refund-drawer-title"] > .cart-confirm-actions > .btn.btn-accent:disabled {
+  background: rgba(255, 255, 255, 0.12) !important;
+  background-image: none !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  cursor: default !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127509 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127510 (refund-request panel chrome — specificity bump)
+   measured: live re-measure on http://localhost:8080/wallet showed
+   panel still rendering rgb(31,31,31) + br 4px because the existing
+   `body .cart-confirm-panel[role="dialog"]` rule (specificity 0,1,1,1)
+   beats the ship-#127500 selector `.cart-confirm-panel[aria-labelledby=...]`
+   (specificity 0,1,1,0) on tag count even with both !important.
+   Corrective patch: prepend `body` to lift our selector to 0,1,1,1
+   and double the attribute selector to 0,1,2,1 so we win cleanly
+   against any future role/dialog overrides too. Same target tokens
+   as #127500 — bg rgb(27,29,36), br 8px, mat-elev-24 stack, 20/24 pad.
+   ============================================================ */
+body .cart-confirm-panel[aria-labelledby="refund-drawer-title"][role="dialog"],
+body .cart-confirm-panel[aria-labelledby="refund-drawer-title"] {
+  background: rgb(27, 29, 36) !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 11px 15px -7px,
+    rgba(0, 0, 0, 0.14) 0px 24px 38px 3px,
+    rgba(0, 0, 0, 0.12) 0px 9px 46px 8px !important;
+  padding: 20px 24px !important;
+  width: min(460px, 100%) !important;
+  max-width: 460px !important;
+  overflow: visible !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127510 */
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127511 (refund-request character counter — selector fix)
+   measured: live re-measure showed counter still oklch ink at 11px
+   because the inline style on the counter element serializes as
+   `text-align:right` (no space) while ship-#127506 selector used
+   `[style*="text-align: right"]` (with space) and missed entirely.
+   Corrective patch: drop the colon-spacing from the substring match
+   so the selector hits regardless of the JSX style serialization
+   strategy (some renderers emit the `: ` form, others emit `:` only).
+   Same target tokens as #127506 — ink-2 12/400/16lh + 0.4px tracking
+   + 8px top + tabular-nums.
+   ============================================================ */
+body .cart-confirm-panel[aria-labelledby="refund-drawer-title"] > div[style*="text-align"][style*="right"] {
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  margin-top: 8px !important;
+  padding: 0 16px !important;
+  text-align: right !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127511 */
