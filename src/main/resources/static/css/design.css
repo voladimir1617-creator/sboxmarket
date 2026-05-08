@@ -174350,3 +174350,20 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
     box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126541 */
+
+/* CSFLOAT-1:1 PARITY ship #126542 (wallet topup preset chip — selected-state ring shadow)
+   Lane spec: selected chip is brand-tinted rgba(35,123,255,0.12) +
+   brand text + brand border. Measured live on csfloat list pages: when
+   a Material chip is in pressed/selected state, a 1px brand-color ring
+   reads via the border alone — no outer box-shadow halo. sboxmarket
+   prior ships sometimes layered a 3px shadow halo on .active. Reset
+   the active chip to a clean 1px brand border (no halo) to match the
+   csfloat Material chip flat-pressed visual. */
+html body .wallet-modal .wallet-preset-btn.active,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
+  box-shadow: none !important;
+  border-color: rgb(35, 123, 255) !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126542 */
