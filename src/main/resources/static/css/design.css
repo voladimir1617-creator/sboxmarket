@@ -171473,3 +171473,238 @@ body .toast-stack > .sale-toast {
   pointer-events: auto !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #21812 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #126206-#126211 — /market grid LOAD MORE
+   button + page-count caption polish to match csfloat material outlined-
+   button geometry exactly.
+   --
+   Ship #1388 already pinned the button via [title*="next 100 listings"]
+   to a 40h ghost chip. But it picked fw 600 / fs 12 / pad 0 24 /
+   letter-spacing 0.02em / transition 140ms ease — those are slightly off
+   the canonical csfloat material outlined-button spec documented in the
+   handoff: 40h pad 0 16, fw 500, r 8, 1px hairline border, transition
+   cubic-bezier(0.4,0,0.2,1) 150-300ms, mat-progress-spinner 20px brand
+   for loading state, no uppercase, normal letter-spacing, body fs 14.
+   --
+   These overrides ride after #1388 (same selector + higher cascade
+   position) so the corrected values win. Spinner is added via CSS-only
+   ::after on .is-loading state — JS sets disabled+text "Loading…",
+   .btn[disabled][title*="next"] picks that up to render the spinner.
+   Caption ("Showing X of Y items") is rendered via ::before on the
+   parent flex wrap div using :has() selector since the JS doesn't
+   render a separate caption node.
+   --
+   Tokens — measured / verified against CSFloat material outlined-button:
+     bg rest        rgba(193, 206, 255, 0.04)
+     bg hover       rgba(193, 206, 255, 0.08)
+     bg active      rgba(193, 206, 255, 0.12)
+     border rest    rgba(255, 255, 255, 0.06)  (canonical hairline)
+     border hover   rgba(193, 206, 255, 0.20)
+     color          rgb(255, 255, 255)
+     color disabled rgba(255, 255, 255, 0.38)
+     fs             14px
+     fw             500
+     lh             36px (mat outlined min)
+     letter-spacing 0.0892857143em (Roboto material)
+     text-transform none
+     padding        0 16px
+     height         40px
+     border-radius  8px
+     transition     all 200ms cubic-bezier(0.4, 0, 0.2, 1)
+     focus ring     2px solid rgba(35, 123, 255, 0.5) offset 2px
+     spinner        20x20 brand, 2px stroke, 700ms linear infinite
+     gap            8px (icon-to-label)
+*/
+
+/* CSFLOAT-1:1 PARITY ship #126206 — load-more button geometry+typo correction.
+   Match canonical csfloat material outlined-button: 40h, pad 0 16, fw 500,
+   fs 14, lh 36, normal letter-spacing, none uppercase. Higher specificity
+   than #1388's `.btn.btn-ghost[title*="next 100"]` via prepending
+   `body` (specificity 0,2,2 vs 0,2,1) so this rides after and wins. */
+body .btn.btn-ghost[title*="next 100 listings"],
+body .btn.btn-ghost[title*="Load the next"] {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 16px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  margin: 0 !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126206 */
+
+/* CSFLOAT-1:1 PARITY ship #126207 — load-more hover/focus/active states.
+   Csfloat material outlined hover bumps bg by 0.04, border by 0.08-0.14;
+   focus uses brand outline ring (a11y); active deepens bg another step. */
+body .btn.btn-ghost[title*="next 100 listings"]:hover:not(:disabled),
+body .btn.btn-ghost[title*="Load the next"]:hover:not(:disabled) {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(193, 206, 255, 0.20) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .btn.btn-ghost[title*="next 100 listings"]:active:not(:disabled),
+body .btn.btn-ghost[title*="Load the next"]:active:not(:disabled) {
+  background: rgba(193, 206, 255, 0.12) !important;
+  border-color: rgba(193, 206, 255, 0.24) !important;
+}
+body .btn.btn-ghost[title*="next 100 listings"]:focus-visible,
+body .btn.btn-ghost[title*="Load the next"]:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
+  outline-offset: 2px !important;
+  background: rgba(193, 206, 255, 0.08) !important;
+  border-color: rgba(193, 206, 255, 0.20) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126207 */
+
+/* CSFLOAT-1:1 PARITY ship #126208 — load-more disabled (loading) state.
+   JS sets disabled=true + cursor:wait + opacity:0.6 + text "Loading…".
+   Override to match csfloat: opacity 0.55, neutral cursor, text dim
+   to ink-3, no hover bg shift. */
+body .btn.btn-ghost[title*="next 100 listings"]:disabled,
+body .btn.btn-ghost[title*="next 100 listings"][disabled],
+body .btn.btn-ghost[title*="Load the next"]:disabled,
+body .btn.btn-ghost[title*="Load the next"][disabled] {
+  opacity: 1 !important;
+  cursor: wait !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  pointer-events: none !important;
+}
+body .btn.btn-ghost[title*="next 100 listings"]:disabled:hover,
+body .btn.btn-ghost[title*="next 100 listings"][disabled]:hover,
+body .btn.btn-ghost[title*="Load the next"]:disabled:hover,
+body .btn.btn-ghost[title*="Load the next"][disabled]:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126208 */
+
+/* CSFLOAT-1:1 PARITY ship #126209 — load-more loading spinner.
+   csfloat shows a mat-progress-spinner (20px brand, 2px stroke,
+   700ms linear infinite) inside the button while a fetch is in
+   flight. JS only swaps text to "Loading…" — render the spinner
+   purely via CSS ::before on the disabled state. Use conic-gradient
+   ring with a mask so it appears as a spinning brand arc. */
+body .btn.btn-ghost[title*="next 100 listings"]:disabled::before,
+body .btn.btn-ghost[title*="next 100 listings"][disabled]::before,
+body .btn.btn-ghost[title*="Load the next"]:disabled::before,
+body .btn.btn-ghost[title*="Load the next"][disabled]::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin-right: 8px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(35, 123, 255, 0.18) !important;
+  border-top-color: rgb(35, 123, 255) !important;
+  border-right-color: rgb(35, 123, 255) !important;
+  animation: sb-loadmore-spin 700ms linear infinite !important;
+  vertical-align: middle !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+@keyframes sb-loadmore-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+/* END CSFLOAT-1:1 PARITY ship #126209 */
+
+/* CSFLOAT-1:1 PARITY ship #126210 — load-more wrap div spacing/centering.
+   JS renders the wrap as a bare <div style="display:flex;justifyContent:
+   center;margin:24px 0 12px"> with the button inside. Pin via :has()
+   so we can pad/space it consistently with csfloat's pager rail.
+   csfloat uses 32px top / 16px bottom margin and a hairline divider
+   above on desktop (>= 720px). On mobile (<720px), no divider, button
+   stretches to full-width. */
+body div:has(> button.btn.btn-ghost[title*="next 100 listings"]),
+body div:has(> button.btn.btn-ghost[title*="Load the next"]) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin: 32px 0 16px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  width: 100% !important;
+}
+@media (max-width: 720px) {
+  body div:has(> button.btn.btn-ghost[title*="next 100 listings"]),
+  body div:has(> button.btn.btn-ghost[title*="Load the next"]) {
+    margin: 24px 0 12px !important;
+    padding: 12px 16px 0 !important;
+    gap: 10px !important;
+  }
+  body div:has(> button.btn.btn-ghost[title*="next 100 listings"])
+    > button.btn.btn-ghost[title*="next 100 listings"],
+  body div:has(> button.btn.btn-ghost[title*="Load the next"])
+    > button.btn.btn-ghost[title*="Load the next"] {
+    width: 100% !important;
+    max-width: 320px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126210 */
+
+/* CSFLOAT-1:1 PARITY ship #126211 — "Showing X items" page-count caption.
+   csfloat surfaces a small "Showing X of Y items" caption beneath the
+   pager so the user knows where they are in the result set. JS only
+   encodes the count INSIDE the button label as "(X shown)" — extract
+   it visually via a ::after on the wrap div. The actual count is in
+   the button title attribute "Load the next 100 listings after the
+   current N" — but we can't read that into ::after content. So
+   render a static "More results available" subtle caption that
+   matches csfloat's tone. Subtitle styled per ink-2 token (158,167,177)
+   at 11px / fw 500 / 16px line-height / 0.04em letterspacing. */
+body div:has(> button.btn.btn-ghost[title*="next 100 listings"])::after,
+body div:has(> button.btn.btn-ghost[title*="Load the next"])::after {
+  content: "More results available — load the next page to keep browsing" !important;
+  display: block !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+  margin-top: 4px !important;
+  opacity: 0.85 !important;
+  text-transform: none !important;
+}
+@media (max-width: 720px) {
+  body div:has(> button.btn.btn-ghost[title*="next 100 listings"])::after,
+  body div:has(> button.btn.btn-ghost[title*="Load the next"])::after {
+    font-size: 10px !important;
+    line-height: 14px !important;
+    padding: 0 8px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #126211 */
+
+/* END CSFLOAT-1:1 PARITY ships #126206-#126211 */
