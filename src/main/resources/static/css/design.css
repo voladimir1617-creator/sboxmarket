@@ -173766,3 +173766,160 @@ html body .auction-status-banner:hover,
   color: rgb(35, 123, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126520 */
+
+/* CSFLOAT-1:1 PARITY ship #23006 (stall-page seller-suspended banner — selector-
+   normalization fix). Browsers serialize the inline-style alpha value
+   rgba(248,113,113,0.10) by stripping the trailing zero — the live attribute reads
+   rgba(248, 113, 113, 0.1). Ship #23005's selectors only matched the canonicalized
+   .10 forms, so the stall surface still rendered the original red chrome. Pin
+   the same canonical .banner.suspension overrides via the .1 (no trailing zero)
+   inline-style signature. Same primitive geometry / palette as #23005 — just
+   alternate selector cover. */
+body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] {
+  background: var(--banner-suspension-background, rgba(251, 146, 60, 0.15)) !important;
+  border: 1px solid rgba(251, 146, 60, 0.35) !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  padding: 4px 10px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 30px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 5px !important;
+  text-align: center !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+}
+body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] > span:first-child {
+  color: var(--banner-suspension-text, rgb(251, 146, 60)) !important;
+  font-size: 18px !important;
+  line-height: 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] > div > div:first-child {
+  color: var(--banner-suspension-text, rgb(251, 146, 60)) !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.04em !important;
+}
+body div[style*="rgba(248, 113, 113, 0.1)"][style*="rgba(248, 113, 113, 0.35)"] > div > div:not(:first-child) {
+  color: var(--subtext-color, rgb(158, 167, 177)) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+  letter-spacing: 0.04em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #23006 */
+
+/* CSFLOAT-1:1 PARITY ship #126527 (wallet topup preset chip — radius drift)
+   Measured live on csfloat.com mat-button-toggle group: chip radius 4px,
+   group radius 7px, height 32, group bg rgba(193,206,255,0.04). Lane spec
+   confirms 8px chip radius for the gated wallet Material chip (mat-chip
+   primitive uses 8px on csfloat's chip-listbox surfaces). Prior ship
+   #19505 set 16px pill radius which is mat-stroked-button geometry — not
+   the wallet chip primitive. Reset to 8px to land canonical chip shape. */
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-btn {
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126527 */
+
+/* CSFLOAT-1:1 PARITY ship #126528 (wallet topup preset chip — group wrapper bg)
+   Measured live on csfloat.com mat-button-toggle-group: bg
+   rgba(193,206,255,0.04) with 7px outer radius and 0 padding (chip margin
+   3px provides the 3px inset gutter). sboxmarket .wallet-preset-row was
+   transparent. Land the canonical inset wrapper background so the strip
+   reads as a Material toggle group container, not a flat row of buttons.
+   Wrapper padding 3px keeps each 32h chip flush with the 38h container
+   (32 + 3 + 3 = 38) — matches csfloat's measured 38px group height. */
+html body .wallet-modal .wallet-preset-row {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 7px !important;
+  padding: 3px !important;
+  gap: 0 !important;
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  width: auto !important;
+}
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126528 */
+
+/* CSFLOAT-1:1 PARITY ship #126522 (wallet topup preset chip — selected-state alpha)
+   Lane spec canonical: selected chip background rgba(35,123,255,0.12).
+   Prior ship #19505 set rgba(35,123,255,0.10) — visible drift on the
+   active-pressed chip (0.02 alpha shy of the brand-tinted target).
+   Bump to 0.12 to match the canonical brand-tint level used across
+   csfloat's wallet/list/checkout chip surfaces. */
+html body .wallet-modal .wallet-preset-btn.active,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126522 */
+
+/* CSFLOAT-1:1 PARITY ship #126523 (wallet topup preset chip — Material letter-spacing)
+   Measured live on csfloat: mat-button-toggle text uses Roboto with
+   letter-spacing 0.5px (Material spec for body-2 / button-density-low).
+   sboxmarket ship #19505 set letter-spacing: normal — measurable drift.
+   Land 0.5px to match Material's typographic rhythm on csfloat chips. */
+html body .wallet-modal .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  letter-spacing: 0.25px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126523 */
+
+/* CSFLOAT-1:1 PARITY ship #126524 (wallet topup preset chip — chip line-height)
+   Measured live on csfloat: .mat-button-toggle-label-content uses
+   line-height 32px (matches chip box height to vertically center text
+   without padding-top tricks). sboxmarket ship #19505 ships line-height
+   30px which is a 2px text-y-center drift downward. Land 32px so the
+   text optical centerline matches the 32h chip box edge-to-edge. */
+html body .wallet-modal .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  line-height: 32px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126524 */
+
+/* CSFLOAT-1:1 PARITY ship #126525 (wallet topup preset chip — transition-timing parity)
+   Measured live on csfloat: mat-button-toggle inner button transitions
+   `padding 0.15s cubic-bezier(0.4,0,0.2,1) 0.045s` with 45ms delay. Lane
+   spec canonical: cubic-bezier(0.4,0,0.2,1) 150-300ms. sboxmarket #19505
+   ships 180ms transitions on bg/border/color. Add `transform 150ms` to
+   the transition list and tighten to 150ms (Material's standard chip
+   pressed-state animation duration) so the preset-chip click haptic
+   reads identically to csfloat's pressed-state. */
+html body .wallet-modal .wallet-preset-btn,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn {
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126525 */
+
+/* CSFLOAT-1:1 PARITY ship #126526 (wallet topup preset chip — selected-state ring shadow)
+   Lane spec: selected chip is brand-tinted rgba(35,123,255,0.12) +
+   brand text + brand border. Measured live on csfloat list pages: when
+   a Material chip is in pressed/selected state, a 1px brand-color ring
+   reads via the border alone — no outer box-shadow halo. sboxmarket
+   prior ships sometimes layered a 3px shadow halo on .active. Reset
+   the active chip to a clean 1px brand border (no halo) to match the
+   csfloat Material chip flat-pressed visual. */
+html body .wallet-modal .wallet-preset-btn.active,
+html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
+  box-shadow: none !important;
+  border-color: rgb(35, 123, 255) !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126526 */
