@@ -174367,3 +174367,983 @@ html body .wallet-modal .wallet-preset-row .wallet-preset-btn.active {
   border-style: solid !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126542 */
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #126600-#126606 — SecurityActivityRow
+   (security-event audit list, modals.js:4036).
+
+   Surface: SecurityActivityRow renders inside the ProfilePersonalTab
+   as the row labeled "Security activity" (modals.js:4497). The user
+   opens it via a "Show recent security events" toggle button, then
+   0-50 whitelisted audit events render in a scroll container — each
+   row is a leading meta.icon glyph + event label (with optional STAFF
+   chip) + optional summary line + trailing time-ago timestamp. Hidden
+   when me?.id is falsy, so anon viewers don't see the surface;
+   sboxmarket has no per-row dismiss action (the events are read-only
+   audit entries), but the layout primitive is otherwise the
+   sibling-class to the canonical Material two-line list-item already
+   landed for SignInHistoryRow at #126507-#126512.
+
+   Measurement source: csfloat-styles.css already documents the
+   canonical Material list-item primitives (`--with-leading-icon
+   --with-two-lines{height: 72px}`, `--mat-list-list-item-leading-icon-
+   size: 24px`). csfloat profile and security pages are anon-locked,
+   but the primitive is identical to the BlockedListRow ports already
+   shipped at #21707-#21712, the FollowingListRow ports at #22600+,
+   and the SignInHistoryRow ports just landed at #126507-#126512. We
+   re-use the same canonical token set:
+     .mat-mdc-list-item.--with-leading-icon.--with-two-lines -> 72h
+     .mdc-list-item__primary-text         -> 14 / 500 / Roboto / ink
+     .mdc-list-item__secondary-text       -> 12 / 400 / Roboto / ink-2
+     .mdc-list-item__start                -> 24x24 leading icon, 16px
+                                             trailing margin to text
+     hairline divider between rows        -> rgba(255,255,255,0.06)
+     hover state-layer                    -> rgba(255,255,255,0.04)
+     standard transition                  -> 200ms cubic-bezier(0.4,0,0.2,1)
+
+   Source row baseline (modals.js:4089-4116): inline-styled flex with
+   gap:8 fontSize:11 padding:6px 10px on a --bg-elevated background +
+   --border hairline + 4px radius, with inner glyph span / event-meta
+   div / right-aligned time-ago span. That is ~24h compressed and
+   reads as a debug-table primitive, not the canonical csfloat
+   list rhythm.
+
+   Selector strategy: every override is gated on a `.profile-row`
+   whose value cell contains the scrollable list container with
+   inline-style `max-height: 260px`. SecurityActivityRow is the ONLY
+   profile-row using that exact value (SignInHistoryRow uses 220,
+   FollowingListRow caps at 10 rows with no scroll, BlockedListRow
+   has no scroll container). This guarantees zero collision with
+   the BlockedListRow ports #21707-#21712, the FollowingListRow
+   ports #22600+, and the SignInHistoryRow ports #126507-#126512
+   that already shipped.
+
+   Per-row inner divs are matched via the unique inline padding
+   `6px 10px` on the row child (SignInHistoryRow uses `4px 8px`,
+   different inline value, different match). The leading glyph span
+   is matched by `font-size: 14px` + `flex-shrink: 0` on a span
+   sibling that opens the row. The trailing time-ago span carries
+   `min-width: 90px` + `text-align: right` (SignInHistoryRow uses
+   `min-width: 60px`, different inline value, different match). The
+   STAFF chip is matched by inline-style background
+   `rgba(30, 165, 255, 0.18)`. */
+
+/* Ship #126600 — list container chrome.
+ * Convert the inline-styled scroll container (.profile-row-value > div
+ * with max-height:260, gap:4, --bg-elevated dark fill) into a flush
+ * Material list panel: gap collapses to 0 (Material rhythm uses the
+ * 72h row itself for separation, not external gap), full-width, panel
+ * background drops to transparent so each row's hairline divider is
+ * the only visual separator. Top hairline rgba(255,255,255,0.06)
+ * inserted to separate the list from the toggle button above it. The
+ * scroll container retains max-height for overflow handling but loses
+ * its 4px radius (Material list panels are full-bleed flat). Mirrors
+ * Ship #126507 exactly except for the max-height fingerprint. */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  margin-top: 4px !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  overflow-y: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126600 */
+
+/* Ship #126601 — per-row geometry to canonical Material 72h two-line
+ * with leading icon. Each row is the inline-styled
+ * `<div style="display:flex; align-items:center; gap:8; font-size:11;
+ *  padding:6px 10px; ...">` with a unique padding signature. Pin to:
+ *   - height 72px (csfloat measured --with-leading-icon --with-two-lines)
+ *   - padding 0 24px 0 16px (Material spec: 16 leading, 24 trailing)
+ *   - gap 16px (Material primary-to-secondary gap)
+ *   - 1px rgba(255,255,255,0.06) bottom hairline between rows
+ *   - background hover state-layer rgba(255,255,255,0.04) at 200ms
+ *     cubic-bezier (Material list-item ripple base)
+ *   - last-row gets no bottom border (visual closure to the panel)
+ * Mirrors Ship #126508 except the inner-row padding fingerprint
+ * is `6px 10px` (SecurityActivityRow) not `4px 8px` (SignIn). */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  height: 72px !important;
+  min-height: 72px !important;
+  padding: 0 24px 0 16px !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"]:last-of-type {
+  border-bottom: 0 !important;
+}
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"]:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126601 */
+
+/* Ship #126602 — leading icon glyph to canonical Material list-item
+ * `__start` slot. Source span is the first child of each row, with
+ * inline `font-size: 14px` + `flex-shrink: 0` (modals.js:4098)
+ * carrying the meta.icon glyph (—, ↗, ✓, ✗, ↩, ↙, ⚠, ⛔). csfloat
+ * .mdc-list-item__start renders a 24x24 leading icon container at
+ * ink-2 color with the icon glyph itself centered inside; for text-
+ * glyph leading icons (no SVG), promote the span to a 24x24 inline-
+ * flex centered box at 18px font-size so the glyph optically reads
+ * as a Material icon-sized leading affordance. Color drops to ink-2
+ * (rgb(158,167,177)) since the glyph is decorative metadata, not
+ * primary content. Selector targets the first-child span inside any
+ * row whose padding fingerprint matches. */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] > span:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: rgb(158, 167, 177) !important;
+  flex-shrink: 0 !important;
+  margin-right: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126602 */
+
+/* Ship #126603 — primary event label to canonical Material list-item
+ * primary-text. Source div is the wrapper inside each row holding
+ * (a) event label as bold inline-style fontWeight:700 text-primary
+ * fontSize:12 and optionally (b) STAFF chip (handled in #126605).
+ * Pin the wrapper to flex:1 + min-width:0 (Material primary-text
+ * column behavior — flex-fill with overflow ellipsis). The label
+ * text itself is 14/500/Roboto/ink primary per the canonical
+ * `__primary-text` token. The summary div is handled in #126604. */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] > div[style*="flex: 1"] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 0 !important;
+}
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] > div[style*="flex: 1"] > div[style*="font-weight: 700"],
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] > div[style*="flex: 1"] > div[style*="fontWeight: 700"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126603 */
+
+/* Ship #126604 — secondary summary text to canonical Material list-
+ * item secondary-text. Source div is the optional second-line in
+ * each row (modals.js:4108-4111) carrying r.summary (e.g. an admin
+ * action note, a withdrawal reference number, a dispute id). Inline
+ * style is fontSize:10 + color:var(--text-muted) + marginTop:2 +
+ * overflow:hidden + textOverflow:ellipsis + whiteSpace:nowrap.
+ * Pin to canonical `__secondary-text` token: 12/400/Roboto/16lh/
+ * ink-2 with 4px top margin (Material primary-to-secondary gap)
+ * and ellipsis-clipped to the row width. Selector targets the
+ * inline-style font-size:10 fingerprint scoped to the flex:1
+ * wrapper so the footer caption (also fontSize:10, but at
+ * .profile-row-value root) is unaffected. */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] > div[style*="flex: 1"] > div[style*="font-size: 10px"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 4px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126604 */
+
+/* Ship #126605 — STAFF chip pill (admin-actor flag).
+ * Source span is the optional inline-styled badge inside the bold
+ * event-label div (modals.js:4102-4106). Inline style packs:
+ *   marginLeft:6, fontSize:9, fontWeight:800, padding:1px 5px,
+ *   borderRadius:3, background:rgba(30,165,255,0.18),
+ *   color:var(--accent), letterSpacing:0.4
+ * That reads as a tight ad-hoc badge, not the canonical Material
+ * filter-chip (--mdc-chip-container-height: 32px) which would
+ * dominate the row. csfloat uses a small inline `mat-chip` density-
+ * compact variant for actor-role tags inside list-item primary-text:
+ * 18h capsule, 0 8 padding, 11/500/Roboto with 0.4px ls + uppercase,
+ * brand-tinted bg rgba(35,123,255,0.18) + brand text. Land that
+ * primitive so the STAFF label reads as a Material role-chip in-
+ * line with the event title. Selector pinned to the inline brand-
+ * tinted background fingerprint so no peer chip is collateral-
+ * damaged. */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] span[style*="rgba(30, 165, 255, 0.18)"],
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] span[style*="rgba(30,165,255,0.18)"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 8px !important;
+  margin: 0 0 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(35, 123, 255) !important;
+  background-color: rgba(35, 123, 255, 0.18) !important;
+  border-radius: 9px !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126605 */
+
+/* Ship #126606 — trailing time-ago timestamp + toggle button + row
+ * label + footer safety-advice caption (the four chrome elements
+ * around the list panel, mirroring Ship #126512 for SignInHistory).
+ *
+ * (a) Trailing time-ago span (modals.js:4113-4115) carries inline
+ *     fontSize:10 + color:var(--text-muted) + minWidth:90 +
+ *     textAlign:right with timeAgo(r.createdAt) text content. csfloat
+ *     trailing metadata caps follow Material overline conventions:
+ *     11/500/Roboto/uppercase/letter-spacing 0.4px / ink-2. Promote
+ *     to that primitive — but bump min-width to 96px (slightly
+ *     wider than the 60px SignInHistory chip since "X minutes ago"
+ *     reads longer than a UA family).
+ *
+ * (b) Toggle button (modals.js:4076-4081) is inline-styled
+ *     .btn.btn-ghost with 5px 12px pad / fontSize:11 / 1px
+ *     var(--border) border. Convert to canonical Material outlined-
+ *     button matching the SignInHistory toggle: 32h / pad 0 16 /
+ *     13/500/uppercase/0.4px ls / brand text + brand 0.5α border /
+ *     brand 0.08α hover bloom (deepens to 0.16 on :active for
+ *     snappy press).
+ *
+ * (c) Row label (.profile-row-label "Security activity") adopts
+ *     Material list-section head conventions (12/500/uppercase/
+ *     0.4px ls/ink-2) — same as Ship #126512.
+ *
+ * (d) Footer hint (modals.js:4120-4121) is inline-styled
+ *     fontSize:10 + color:var(--text-muted) + marginTop:4 +
+ *     lineHeight:1.4 advice for what to do if an event looks
+ *     suspicious. Promote to canonical Material caption
+ *     (12/400/Roboto/16lh/ink-2) with 12px top margin to separate
+ *     from the list panel above. Selector pinned to inline-style
+ *     fingerprint "font-size: 10px" + "line-height: 1.4" — same
+ *     pattern as #126512 but anchored against the max-height: 260
+ *     parent so it cannot collide with the SignInHistory footer
+ *     (max-height: 220 anchor). */
+body .profile-row > .profile-row-value > div[style*="max-height: 260"] > div[style*="padding: 6px 10px"] > span[style*="min-width: 90px"][style*="text-align: right"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  min-width: 96px !important;
+  flex-shrink: 0 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+body .profile-row:has(> .profile-row-value > div[style*="max-height: 260"]) > .profile-row-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+}
+body .profile-row:has(> .profile-row-value > div[style*="max-height: 260"]) > .profile-row-value > button.btn.btn-ghost:first-of-type {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(35, 123, 255) !important;
+  background-color: transparent !important;
+  border: 1px solid rgba(35, 123, 255, 0.5) !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  align-self: flex-start !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+}
+body .profile-row:has(> .profile-row-value > div[style*="max-height: 260"]) > .profile-row-value > button.btn.btn-ghost:first-of-type:hover {
+  background-color: rgba(35, 123, 255, 0.08) !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+body .profile-row:has(> .profile-row-value > div[style*="max-height: 260"]) > .profile-row-value > button.btn.btn-ghost:first-of-type:active {
+  background-color: rgba(35, 123, 255, 0.16) !important;
+  transition-duration: 80ms !important;
+}
+body .profile-row:has(> .profile-row-value > div[style*="max-height: 260"]) > .profile-row-value > button.btn.btn-ghost:first-of-type:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+body .profile-row:has(> .profile-row-value > div[style*="max-height: 260"]) > .profile-row-value > div[style*="font-size: 10px"][style*="line-height: 1.4"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 12px !important;
+  padding: 0 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126606 */
+
+/* END CSFLOAT-1:1 PARITY ships #126600-#126606 */
+
+
+/* CSFLOAT-1:1 PARITY ship #126580 (SellModal auto-accept threshold input — Material textfield 44h)
+   Lane spec: csfloat sell-form auto-accept input is a Material mat-mdc-text-field-wrapper
+   filled variant. Measured live on csfloat (mat-form-field on /search filter row used as
+   reference, scaled to sell-form 44h variant): 44px row height, rgba(193,206,255,0.04)
+   surface, 6px radius, 16px horizontal padding, 1px transparent resting border, 1px
+   brand rgb(35,123,255) focused border. The SellModal renders the auto-accept input as
+   <input class="wallet-amount-input" type="number" max="50" aria-label="Auto-accept
+   discount percent">. Scope strictly via the aria-label so we do not catch the price
+   input above (already matched to its own treatment). */
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"] {
+  height: 44px !important;
+  padding: 0 16px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.0107142857em !important;
+  line-height: 20px !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  transition:
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"]:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"]:focus {
+  background: rgba(193, 206, 255, 0.06) !important;
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 1px rgb(35, 123, 255) !important;
+}
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"]::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
+}
+/* Strip the spinners on number inputs to match csfloat clean Material look. */
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"]::-webkit-outer-spin-button,
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+}
+html body .info-modal input.wallet-amount-input[aria-label="Auto-accept discount percent"][type="number"] {
+  -moz-appearance: textfield !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126580 */
+
+/* CSFLOAT-1:1 PARITY ship #126581 (SellModal auto-accept row — flex alignment + percent suffix)
+   Lane spec: the auto-accept block puts the input + "%" suffix on a single flex row.
+   csfloat Material analogue puts the suffix as a mat-icon-suffix at 12px from the field
+   edge with the same 14px Roboto, ink-2 weight. Lock 8px gap, vertical center, and
+   remove any stray margin so the suffix sits hard against the textfield right side. */
+html body .info-modal > .info-modal-body > div:has(> .wallet-input-label):has(> div > input.wallet-amount-input[aria-label="Auto-accept discount percent"]) > div {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+html body .info-modal > .info-modal-body > div:has(> .wallet-input-label):has(> div > input.wallet-amount-input[aria-label="Auto-accept discount percent"]) > div > span {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.0107142857em !important;
+  flex-shrink: 0 !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126581 */
+
+/* CSFLOAT-1:1 PARITY ship #126582 (SellModal auto-accept helper text — Material subscript metrics)
+   Lane spec: csfloat material subscript helper text is Roboto 12px/400, 20px line-height,
+   ink-2 rgb(158,167,177) when neutral, success-green rgb(76,175,80) when the threshold
+   is satisfied. Measured live on csfloat: helper-text uses 4px margin-top spacing from
+   the input edge. The SellModal renders this as the helper <div> sibling after the
+   flex input row inside the same parent block. */
+html body .info-modal > .info-modal-body > div:has(> .wallet-input-label):has(> div > input.wallet-amount-input[aria-label="Auto-accept discount percent"]) > div + div {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.0333333333em !important;
+  margin-top: 4px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126582 */
+
+/* CSFLOAT-1:1 PARITY ship #126583 (SellModal auto-accept block — outer spacing reset)
+   Lane spec: csfloat sell-form sections use a 16px vertical rhythm between labelled
+   blocks (mat-form-field default outer margin). The inline style on the auto-accept
+   container declares margin-top:14px; lock to 16px to match the row-rhythm of the
+   sibling Listing Type / Price / Seller Note blocks. */
+html body .info-modal > .info-modal-body > div:has(> .wallet-input-label):has(> div > input.wallet-amount-input[aria-label="Auto-accept discount percent"]) {
+  margin-top: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126583 */
+
+/* CSFLOAT-1:1 PARITY ship #126584 (SellModal auto-accept label — Material floating-label parity)
+   Lane spec: csfloat mat-mdc-floating-label measured at Roboto 16px/normal/400, but the
+   lane brief calls for a 12/700 ink-2 caption-style label that matches the wallet-input-label
+   cluster used elsewhere in the modal. Existing ship #42 already pins .wallet-input-label
+   typography globally; here we only ensure the inline-rendered (optional 1-50%) hint span
+   inside the label matches the ink-2 caption metrics so it does not visually outweigh the
+   primary "Auto-accept offers" label text. */
+html body .info-modal > .info-modal-body > div:has(> div > input.wallet-amount-input[aria-label="Auto-accept discount percent"]) > .wallet-input-label > span {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.0333333333em !important;
+  margin-left: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126584 */
+
+/* CSFLOAT-1:1 PARITY ship #126585 (SellModal auto-accept hairline divider — section separator)
+   Lane spec: csfloat sell-form puts a hairline rgba(255,255,255,0.06) divider above the
+   auto-accept section to separate it from the price + payout-preview block. The block
+   sits between the payout grid and the Seller Note textarea; a 1px top border on the
+   container itself preserves the 16px rhythm without inserting an extra DOM node. */
+html body .info-modal > .info-modal-body > div:has(> .wallet-input-label):has(> div > input.wallet-amount-input[aria-label="Auto-accept discount percent"]) {
+  padding-top: 16px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126585 */
+
+/* csfloat-1:1 ship #126720 — settings api-key-new banner: panel-token bg + brand-tint left border + 12px radius (Material mat-mdc-card surface-tint canonical for fresh-secret callout) */
+.profile-panel .api-key-new {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-left: 3px solid rgb(35, 123, 255) !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  margin-bottom: 14px !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18) !important;
+  transition: border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* csfloat-1:1 ship #126721 — settings api-key-token: Roboto Mono 13px + 0.04em letter-spacing + selectable mask (CSFloat secret-cell canonical for one-shot fresh key reveal) */
+.profile-panel .api-key-new .api-key-token {
+  font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(220, 226, 233) !important;
+  background: rgba(0, 0, 0, 0.32) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  word-break: break-all !important;
+  user-select: all !important;
+  -webkit-user-select: all !important;
+  font-variant-ligatures: none !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+
+/* csfloat-1:1 ship #126722 — settings db-table API key row: 56px min-height + ink-2 cell color (Material mat-mdc-list-item canonical density for credential rows) */
+.profile-panel .db-table tbody tr.db-row {
+  min-height: 56px !important;
+  height: 56px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.profile-panel .db-table tbody tr.db-row td {
+  color: rgb(220, 226, 233) !important;
+  font-size: 13px !important;
+  padding: 12px 14px !important;
+  vertical-align: middle !important;
+}
+.profile-panel .db-table tbody tr.db-row:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+.profile-panel .db-table tbody tr.db-row td.db-mono {
+  font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace !important;
+  font-size: 12px !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(158, 167, 177) !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #126660-#126665 — 2FA enroll panel
+   (TwoFactorEnrollPanel, modals.js:4829-4878).
+
+   Surface: when the user clicks "Enable 2FA" on the Personal Info tab
+   the inline `.twofa-enroll` div opens in the same `.profile-row-value`
+   cell. It contains four primitive sub-blocks that get measured and
+   styled independently:
+
+     1) helper text  ("Scan the QR below in Google Authenticator …")
+     2) qr-row       — `<img>` 160x160 white background + secret label
+                       column with `.mono` selectable secret string
+     3) input block  — `.wallet-input-label` + `.wallet-amount-input`
+                       6-digit numeric OTP input
+     4) button row   — Cancel (`btn-ghost`) + Confirm (`btn-accent`)
+
+   Measurement source: csfloat /settings is anon-locked (404) but the
+   stylesheet was introspected via getComputedStyle/cssRules pulls
+   for the canonical primitives that compose csfloat's 2FA enroll
+   modal:
+
+     .csfloat-otp                     -> inline-flex, gap 6px column-of-inputs
+     .csfloat-otp-block               -> flex column, gap 8px, align flex-start
+     .csfloat-otp-block-helper        -> 11/1.4 var(--ui), color ink-4,
+                                          letter-spacing -0.005em, <b> -> ink-2 / 600
+     .csfloat-otp > input:focus       -> border var(--cta), bg var(--bg-1),
+                                          box-shadow rgba(59,130,246,0.15) 0 0 0 3px
+     .csfloat-code-block              -> bg var(--bg-1), 1px line, radius 8,
+                                          padding 14, mono 12, ink-2, lh 1.6
+     mat-mdc-dialog-content tokens    -> 14/20 / 0.25px / rgba(255,255,255,0.6)
+     mat-mdc-dialog-actions tokens    -> gap 8, padding 8, min-h 52, justify-end
+     .mat-mdc-form-field-error        -> rgb(228,103,103), 12/1.4, tabular-nums
+
+   Selector strategy: every override is gated on a `.profile-row` whose
+   value cell contains a `.twofa-enroll` direct child div. There is
+   exactly one of these in the DOM (modals.js:4829 — only the Personal
+   Info tab's Two-Factor row renders the panel, and only while the
+   `enrolling` state is true). The QR `<img>` is matched by the inline
+   `width: 160` on an img tag inside `.twofa-enroll`. The secret-string
+   div is the `.mono` div inside `.twofa-enroll`. The label-row is the
+   `.wallet-input-label` inside `.twofa-enroll`. The input is the
+   `.wallet-amount-input` inside `.twofa-enroll`. The error and button
+   row reuse `.wallet-error` and `.btn` selectors gated on `.twofa-enroll`
+   — so zero collision with the wallet-modal ports already shipped at
+   #141074+ and the inline bargain ports at #145645+.
+
+   The panel chromes itself with the canonical csfloat dialog-content
+   color ramp (rgba(255,255,255,0.6) helper text, rgb(35,123,255) brand
+   on the secret string, hairline rgba(255,255,255,0.06) divider above
+   the button row). The QR image gains a 12px white-on-bg-1 frame so it
+   reads as a card primitive instead of a bare img edge — this matches
+   the csfloat-code-block pattern (--bg-1 + 1px --line + 8px radius).
+
+   APPEND-only, !important on every declaration. NO Docker. */
+
+/* ── (1) panel container ─────────────────────────────────────────── */
+html body .profile-row > .profile-row-value > .twofa-enroll {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  margin-top: 10px !important;
+  padding: 16px !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  width: 100% !important;
+  max-width: 520px !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset !important;
+}
+
+/* ── (2) helper text (first inline-styled div inside .twofa-enroll) ── */
+html body .twofa-enroll > div[style*="font-size: 12"][style*="color: var(--text-secondary)"] {
+  margin-bottom: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  letter-spacing: 0.005em !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* ── (3) qr + secret row (flex with gap 14, align center) ────────── */
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 14"] {
+  gap: 16px !important;
+  padding: 14px !important;
+  background: rgb(20, 22, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  align-items: center !important;
+}
+
+/* ── (4) qr image — 160x160 white bg, framed ─────────────────────── */
+html body .twofa-enroll img[alt="2FA QR"] {
+  width: 160px !important;
+  height: 160px !important;
+  background: rgb(255, 255, 255) !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  image-rendering: pixelated !important;
+}
+
+/* ── (5) "SECRET" small-caps eyebrow label ───────────────────────── */
+html body .twofa-enroll div[style*="font-size: 10"][style*="text-transform: uppercase"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 6px !important;
+}
+
+/* ── (6) selectable secret-string code block (.mono inside .twofa-enroll) ── */
+html body .twofa-enroll .mono {
+  display: block !important;
+  padding: 8px 10px !important;
+  background: rgb(15, 17, 22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  letter-spacing: -0.01em !important;
+  color: rgb(35, 123, 255) !important;
+  word-break: break-all !important;
+  user-select: all !important;
+  -webkit-user-select: all !important;
+  cursor: text !important;
+  max-width: 200px !important;
+}
+
+/* ── (7) "6-digit code from your app" label ──────────────────────── */
+html body .twofa-enroll > .wallet-input-label {
+  margin-top: 4px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 6px !important;
+}
+
+/* ── (8) OTP input — 6-digit numeric ─────────────────────────────── */
+html body .twofa-enroll > input.wallet-amount-input {
+  display: block !important;
+  width: 100% !important;
+  max-width: 220px !important;
+  padding: 12px 14px !important;
+  background: rgb(20, 22, 28) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  outline: 0 !important;
+  font-family: "Roboto Mono", "JetBrains Mono", ui-monospace, monospace !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.4em !important;
+  text-align: center !important;
+  color: rgb(255, 255, 255) !important;
+  font-variant-numeric: tabular-nums !important;
+  transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html body .twofa-enroll > input.wallet-amount-input::placeholder {
+  color: rgba(255, 255, 255, 0.18) !important;
+  letter-spacing: 0.4em !important;
+  font-weight: 400 !important;
+}
+
+html body .twofa-enroll > input.wallet-amount-input:hover {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+html body .twofa-enroll > input.wallet-amount-input:focus,
+html body .twofa-enroll > input.wallet-amount-input:focus-visible {
+  border-color: rgb(35, 123, 255) !important;
+  background: rgb(15, 17, 22) !important;
+  box-shadow: rgba(35, 123, 255, 0.18) 0 0 0 3px !important;
+}
+
+/* ── (9) inline error message (.wallet-error gated to twofa) ─────── */
+html body .twofa-enroll > .wallet-error {
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  letter-spacing: -0.005em !important;
+  font-variant-numeric: tabular-nums !important;
+  color: rgb(228, 103, 103) !important;
+  background: rgba(228, 103, 103, 0.08) !important;
+  border: 1px solid rgba(228, 103, 103, 0.28) !important;
+  border-radius: 6px !important;
+}
+
+/* ── (10) button row (Cancel + Confirm), hairline divider above ──── */
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"][style*="margin-top: 10"] {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding-top: 14px !important;
+  margin-top: 4px !important;
+  min-height: 52px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.btn-ghost {
+  padding: 8px 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.03em !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.btn-ghost:hover {
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.btn-accent {
+  padding: 8px 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgb(35, 123, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  border-radius: 6px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.btn-accent:hover:not(:disabled) {
+  background: rgb(58, 138, 255) !important;
+  border-color: rgb(58, 138, 255) !important;
+  box-shadow: rgba(35, 123, 255, 0.28) 0 4px 14px !important;
+}
+
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.btn-accent:focus-visible {
+  outline: 0 !important;
+  box-shadow: rgba(35, 123, 255, 0.45) 0 0 0 3px !important;
+}
+
+html body .twofa-enroll > div[style*="display: flex"][style*="gap: 10"] > .btn.btn-accent:disabled {
+  background: rgba(35, 123, 255, 0.4) !important;
+  border-color: rgba(35, 123, 255, 0.4) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* ── (11) narrow viewport: stack QR row vertically ───────────────── */
+@media (max-width: 520px) {
+  html body .twofa-enroll > div[style*="display: flex"][style*="gap: 14"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  html body .twofa-enroll .mono {
+    max-width: 100% !important;
+  }
+  html body .twofa-enroll > input.wallet-amount-input {
+    max-width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ships #126660-#126665 */
+
+/* csfloat-1:1 ship #126723 — settings api-key scope chip: brand-tinted pill 11/16 + 0.4px tracking (CSFloat mat-mdc-chip canonical density for permission badges, replaces RW-yellow) */
+.profile-panel .db-table tbody tr.db-row td span[title*="Read-only"],
+.profile-panel .db-table tbody tr.db-row td span[title*="Full access"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 22px !important;
+  padding: 0 9px !important;
+  border-radius: 11px !important;
+  font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  line-height: 22px !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  border: 1px solid transparent !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.profile-panel .db-table tbody tr.db-row td span[title*="Full access"] {
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(96, 158, 255) !important;
+  border-color: rgba(35, 123, 255, 0.28) !important;
+}
+.profile-panel .db-table tbody tr.db-row td span[title*="Read-only"] {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: rgb(74, 222, 128) !important;
+  border-color: rgba(34, 197, 94, 0.28) !important;
+}
+
+/* csfloat-1:1 ship #126724 — settings api-key revoke button: destructive red text + 28px height + 1px tinted border (CSFloat mat-mdc-button danger-flat canonical for irreversible row action) */
+.profile-panel .db-table tbody tr.db-row td.right .btn-ghost {
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  line-height: 26px !important;
+  border-radius: 6px !important;
+  color: rgb(235, 75, 76) !important;
+  background: transparent !important;
+  border: 1px solid rgba(235, 75, 76, 0.32) !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+.profile-panel .db-table tbody tr.db-row td.right .btn-ghost:hover {
+  background: rgba(235, 75, 76, 0.10) !important;
+  border-color: rgba(235, 75, 76, 0.55) !important;
+  color: rgb(243, 105, 106) !important;
+}
+.profile-panel .db-table tbody tr.db-row td.right .btn-ghost:active {
+  background: rgba(235, 75, 76, 0.16) !important;
+  transform: none !important;
+}
+
+/* csfloat-1:1 ship #126725 — settings api-key copy/download/dismiss action row: 28px chips + 11px label + 8px gap (CSFloat mat-mdc-button-base canonical density for fresh-secret action cluster) */
+.profile-panel .api-key-new .btn-accent,
+.profile-panel .api-key-new .btn-ghost {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 26px !important;
+  letter-spacing: 0.2px !important;
+  border-radius: 6px !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+.profile-panel .api-key-new .btn-accent {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+}
+.profile-panel .api-key-new .btn-accent:hover {
+  background: rgb(64, 142, 255) !important;
+  border-color: rgb(64, 142, 255) !important;
+}
+.profile-panel .api-key-new .btn-ghost {
+  background: transparent !important;
+  color: rgb(220, 226, 233) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+.profile-panel .api-key-new .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* csfloat-1:1 ship #126726 — settings api-key generate-new CTA row: 32px input + 1px hairline border + 6px radius (CSFloat mat-mdc-form-field outlined-density canonical for label/scope/mint cluster) */
+.profile-panel > div:nth-of-type(2) > input.price-input,
+.profile-panel > div:nth-of-type(2) > select.price-input {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 30px !important;
+  letter-spacing: 0.1px !important;
+  color: rgb(220, 226, 233) !important;
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  outline: none !important;
+}
+.profile-panel > div:nth-of-type(2) > input.price-input:focus,
+.profile-panel > div:nth-of-type(2) > select.price-input:focus {
+  border-color: rgb(35, 123, 255) !important;
+  background: rgb(31, 33, 41) !important;
+}
+.profile-panel > div:nth-of-type(2) > input.price-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+.profile-panel > div:nth-of-type(2) > .btn-accent {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 30px !important;
+  letter-spacing: 0.2px !important;
+  border-radius: 6px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgb(35, 123, 255) !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.profile-panel > div:nth-of-type(2) > .btn-accent:hover {
+  background: rgb(64, 142, 255) !important;
+  border-color: rgb(64, 142, 255) !important;
+}
+.profile-panel > div:nth-of-type(2) > .btn-accent:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
