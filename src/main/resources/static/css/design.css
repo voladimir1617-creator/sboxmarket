@@ -162902,6 +162902,293 @@ html body .auction-details .mdc-linear-progress__bar-inner {
 }
 /* END CSFLOAT-1:1 PARITY ship #16521 */
 
+/* CSFLOAT-1:1 PARITY ship #16900 (buy-order create modal — .buyorder-form panel chrome rebased to Material dialog tokens — measured: csfloat dialog containers use bg rgba(21,23,28,.8) with 4px radius and Material elev-24 shadow. Inner content padding 20px 24px. sbox was: padding 20px / variable border-radius / no shadow / hairline 1px solid var(--line). Lock the standing-buy-order create form panel to csfloat exact Material dialog chrome) */
+body .info-modal .buyorder-form,
+body .modal .buyorder-form,
+html body .info-modal .buyorder-form,
+html body .modal .buyorder-form {
+  background: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  padding: 20px 24px !important;
+  margin-bottom: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  box-shadow:
+    0 11px 15px -7px rgba(0, 0, 0, 0.2),
+    0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+  transition: background 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16900 */
+
+/* CSFLOAT-1:1 PARITY ship #16901 (buy-order create modal — item-search typeahead .price-input rebased to csfloat Material text-field — measured: csfloat .mat-mdc-text-field-wrapper renders bg rgba(193,206,255,0.04), border-radius 6px, height 44px, padding-left 16px (no top/bottom pad — input fills 24px line-height inside). Input element transparent bg / white color / 16px / 400 / 24px lh / no border. sbox .price-input was: variable form-input chrome with mismatched radius/height. Snap to csfloat exact filled-text-field shape) */
+body .info-modal .buyorder-form .price-input,
+body .modal .buyorder-form .price-input,
+html body .info-modal .buyorder-form .price-input,
+html body .modal .buyorder-form .price-input {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  height: 44px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .buyorder-form .price-input::placeholder,
+body .modal .buyorder-form .price-input::placeholder,
+html body .info-modal .buyorder-form .price-input::placeholder,
+html body .modal .buyorder-form .price-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+body .info-modal .buyorder-form .price-input:focus,
+body .info-modal .buyorder-form .price-input:focus-visible,
+body .modal .buyorder-form .price-input:focus,
+html body .info-modal .buyorder-form .price-input:focus,
+html body .modal .buyorder-form .price-input:focus {
+  background: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+  box-shadow: inset 0 -2px 0 0 rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16901 */
+
+/* CSFLOAT-1:1 PARITY ship #16902 (buy-order create modal — .buyorder-picker typeahead-results panel rebased to csfloat Material select-panel — measured: csfloat .mat-select-panel-background-color is rgba(21,23,28,.8). The autocomplete dropdown for item search uses the same surface treatment as a Material overlay panel: bg rgba(21,23,28,.8), border-radius 4px, max-height for scroll. Picker rows are list items at 44px tall with 12px 16px padding. sbox was: bg var(--bg-1) (panel-2) with 1px border. Snap to csfloat Material select-panel exact surface) */
+body .info-modal .buyorder-picker,
+body .modal .buyorder-picker,
+html body .info-modal .buyorder-picker,
+html body .modal .buyorder-picker {
+  background: rgba(21, 23, 28, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  overflow-y: auto !important;
+  max-height: 380px !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+  margin-top: 4px !important;
+}
+body .info-modal .buyorder-picker .buyorder-picker-row,
+body .modal .buyorder-picker .buyorder-picker-row,
+html body .info-modal .buyorder-picker .buyorder-picker-row,
+html body .modal .buyorder-picker .buyorder-picker-row {
+  display: grid !important;
+  grid-template-columns: 44px 1fr auto !important;
+  gap: 12px !important;
+  align-items: center !important;
+  padding: 10px 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+  transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .buyorder-picker .buyorder-picker-row:last-child,
+body .modal .buyorder-picker .buyorder-picker-row:last-child,
+html body .info-modal .buyorder-picker .buyorder-picker-row:last-child,
+html body .modal .buyorder-picker .buyorder-picker-row:last-child {
+  border-bottom: 0 !important;
+}
+body .info-modal .buyorder-picker .buyorder-picker-row:hover,
+body .modal .buyorder-picker .buyorder-picker-row:hover,
+html body .info-modal .buyorder-picker .buyorder-picker-row:hover,
+html body .modal .buyorder-picker .buyorder-picker-row:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+body .info-modal .buyorder-picker .buyorder-picker-row:focus-visible,
+body .modal .buyorder-picker .buyorder-picker-row:focus-visible,
+html body .info-modal .buyorder-picker .buyorder-picker-row:focus-visible,
+html body .modal .buyorder-picker .buyorder-picker-row:focus-visible {
+  background: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16902 */
+
+/* CSFLOAT-1:1 PARITY ship #16903 (buy-order create modal — .buyorder-picked selected-item summary card rebased to csfloat hairline-card chrome — measured: csfloat picked-item summary in dialog forms uses a flat hairline card on rgba(193,206,255,0.04) tinted bg with 6px radius and 14px padding. Border collapses to a 1px hairline at rgba(255,255,255,0.06). sbox was: bg var(--bg-2) (panel-3) with two-tone border at var(--line-2). Snap to csfloat hairline-card surface) */
+body .info-modal .buyorder-form .buyorder-picked,
+body .modal .buyorder-form .buyorder-picked,
+html body .info-modal .buyorder-form .buyorder-picked,
+html body .modal .buyorder-form .buyorder-picked {
+  padding: 14px 16px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  color: rgb(255, 255, 255) !important;
+  transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .buyorder-form .buyorder-picked:hover,
+body .modal .buyorder-form .buyorder-picked:hover,
+html body .info-modal .buyorder-form .buyorder-picked:hover,
+html body .modal .buyorder-form .buyorder-picked:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16903 */
+
+/* CSFLOAT-1:1 PARITY ship #16904 (buy-order create modal — .wallet-amount-input numeric inputs (max-price + quantity) rebased to csfloat Material text-field exact — measured: csfloat .mat-mdc-text-field-wrapper bg rgba(193,206,255,0.04), 6px radius, 44px height, 16px left padding, transparent input, 16px / 400 / 24px lh white text, no border. The numeric max-price + quantity inputs in the buy-order form share that exact treatment. sbox .wallet-amount-input was: variable input chrome (different bg/radius/height). Snap to csfloat filled-text-field shape uniformly) */
+body .info-modal .buyorder-form .wallet-amount-input,
+body .info-modal .buyorder-form .wallet-amount-input-v2,
+body .modal .buyorder-form .wallet-amount-input,
+body .modal .buyorder-form .wallet-amount-input-v2,
+html body .info-modal .buyorder-form .wallet-amount-input,
+html body .info-modal .buyorder-form .wallet-amount-input-v2,
+html body .modal .buyorder-form .wallet-amount-input,
+html body .modal .buyorder-form .wallet-amount-input-v2 {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  height: 44px !important;
+  padding: 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -moz-appearance: textfield !important;
+  transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .info-modal .buyorder-form .wallet-amount-input::placeholder,
+body .info-modal .buyorder-form .wallet-amount-input-v2::placeholder,
+body .modal .buyorder-form .wallet-amount-input::placeholder,
+body .modal .buyorder-form .wallet-amount-input-v2::placeholder,
+html body .info-modal .buyorder-form .wallet-amount-input::placeholder,
+html body .modal .buyorder-form .wallet-amount-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+}
+body .info-modal .buyorder-form .wallet-amount-input::-webkit-outer-spin-button,
+body .info-modal .buyorder-form .wallet-amount-input::-webkit-inner-spin-button,
+body .info-modal .buyorder-form .wallet-amount-input-v2::-webkit-outer-spin-button,
+body .info-modal .buyorder-form .wallet-amount-input-v2::-webkit-inner-spin-button,
+body .modal .buyorder-form .wallet-amount-input::-webkit-outer-spin-button,
+body .modal .buyorder-form .wallet-amount-input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+body .info-modal .buyorder-form .wallet-amount-input:focus,
+body .info-modal .buyorder-form .wallet-amount-input:focus-visible,
+body .info-modal .buyorder-form .wallet-amount-input-v2:focus,
+body .info-modal .buyorder-form .wallet-amount-input-v2:focus-visible,
+body .modal .buyorder-form .wallet-amount-input:focus,
+body .modal .buyorder-form .wallet-amount-input-v2:focus,
+html body .info-modal .buyorder-form .wallet-amount-input:focus,
+html body .modal .buyorder-form .wallet-amount-input:focus {
+  background: rgba(193, 206, 255, 0.08) !important;
+  outline: none !important;
+  box-shadow: inset 0 -2px 0 0 rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16904 */
+
+/* CSFLOAT-1:1 PARITY ship #16905 (buy-order create modal — .wallet-submit "Place Buy Order" CTA rebased to csfloat Material protected-button exact — measured: csfloat primary CTA is bg rgb(35,123,255) / color rgb(255,255,255) / 8px radius / 40px tall / pad 13px 30px / 15px / 700 / normal letter-spacing & lh / Material elevation-2 shadow / transition box-shadow 280ms cubic-bezier(0.4,0,0.2,1). sbox .wallet-submit was: variable button chrome. Snap to csfloat primary-CTA shape exactly inside the buy-order create form) */
+body .info-modal .buyorder-form .wallet-submit,
+body .info-modal .buyorder-form button.wallet-submit,
+body .info-modal .buyorder-form .btn.btn-accent.wallet-submit,
+body .modal .buyorder-form .wallet-submit,
+body .modal .buyorder-form button.wallet-submit,
+body .modal .buyorder-form .btn.btn-accent.wallet-submit,
+html body .info-modal .buyorder-form .wallet-submit,
+html body .info-modal .buyorder-form button.wallet-submit,
+html body .modal .buyorder-form .wallet-submit,
+html body .modal .buyorder-form button.wallet-submit {
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  height: 40px !important;
+  padding: 13px 30px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  margin-top: 4px !important;
+}
+body .info-modal .buyorder-form .wallet-submit:hover:not(:disabled),
+body .info-modal .buyorder-form button.wallet-submit:hover:not(:disabled),
+body .modal .buyorder-form .wallet-submit:hover:not(:disabled),
+body .modal .buyorder-form button.wallet-submit:hover:not(:disabled),
+html body .info-modal .buyorder-form .wallet-submit:hover:not(:disabled),
+html body .modal .buyorder-form .wallet-submit:hover:not(:disabled) {
+  background: rgb(57, 138, 255) !important;
+  filter: none !important;
+  transform: none !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.2),
+    0 4px 5px 0 rgba(0, 0, 0, 0.14),
+    0 1px 10px 0 rgba(0, 0, 0, 0.12) !important;
+}
+body .info-modal .buyorder-form .wallet-submit:active:not(:disabled),
+body .modal .buyorder-form .wallet-submit:active:not(:disabled),
+html body .info-modal .buyorder-form .wallet-submit:active:not(:disabled),
+html body .modal .buyorder-form .wallet-submit:active:not(:disabled) {
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+body .info-modal .buyorder-form .wallet-submit:disabled,
+body .modal .buyorder-form .wallet-submit:disabled,
+html body .info-modal .buyorder-form .wallet-submit:disabled,
+html body .modal .buyorder-form .wallet-submit:disabled {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16905 */
+
+/* CSFLOAT-1:1 PARITY ship #16906 (buy-order create modal — .wallet-input-label field labels rebased to csfloat Material form-field label exact — measured: csfloat form-field labels render at 12px / 400 / rgb(158,167,177) (ink-2) above inputs with 4px bottom margin and normal letter-spacing. The buy-order form uses .wallet-input-label for "Item" / "Maximum Price per Item (USD)" / "Quantity". sbox was: variable label sizing/colour. Snap to csfloat form-field label exact treatment) */
+body .info-modal .buyorder-form .wallet-input-label,
+body .modal .buyorder-form .wallet-input-label,
+html body .info-modal .buyorder-form .wallet-input-label,
+html body .modal .buyorder-form .wallet-input-label {
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #16906 */
+
 /* CSFLOAT-1:1 PARITY ship #16522 (mobile bottom nav — bar background color rebased to csfloat semi-transparent token — measured: csfloat .container inside <app-nav-tabs> renders rgba(21, 23, 28, 0.8) so the backdrop-filter blur(10px) reads through and the bar visually fuses with the page underneath. sbox was rgba(15, 18, 26, 0.96) which is darker AND nearly opaque, killing the read-through entirely. Snap to csfloat exact 0.8 alpha + canonical body-bg token rgb(21,23,28).) */
 @media (max-width: 720px) {
   body app-nav-tabs > div > .container,
