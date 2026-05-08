@@ -160551,3 +160551,728 @@ html body .trade-filter-bar > .wallet-tx-filter-chip:focus-visible {
   box-shadow: inset 0 0 0 2px rgb(35, 123, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #15101 */
+
+/* CSFLOAT-1:1 PARITY ship #15102 (trade tab unread count badge — brand-blue 18px pip with white text, weight 600, 11px font, 9px radius, padding 0 6px, margin-left 6px, line-height 18px, min-width 18px) — measured against csfloat mat-badge sibling on tab labels: brand fill, white text, 18px round-pill, sits inline-flex with the label text. sbox renders these as bare inline spans inheriting the row's font-size with no shape. */
+html body .trades-tabs-row > .trades-tab > .tab-badge,
+html body .trades-tabs-row > .trades-tab .tab-badge,
+html body .trade-filter-bar > .offer-tab .tab-badge,
+html body .trade-filter-bar > .offer-tab .filter-count,
+html body .trades-pills > .trades-pill .tab-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 6px !important;
+  margin-left: 6px !important;
+  margin-right: 0 !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+  letter-spacing: 0 !important;
+  border-radius: 9px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  flex-shrink: 0 !important;
+}
+/* Active pill keeps badge at brand fill (no inversion) — matches csfloat behaviour where the count chip stays the same regardless of selection state because the pill is the highlight target, not the badge. */
+html body .trades-tabs-row > .trades-tab.is-active > .tab-badge,
+html body .trade-filter-bar > .offer-tab.active .tab-badge,
+html body .trade-filter-bar > .offer-tab.active .filter-count,
+html body .trades-pills > .trades-pill.is-on .tab-badge {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* Zero-count safety — when a count of 0 renders, hide it so the row doesn't carry a "0" pip. Matches csfloat's mat-badge[hidden] behaviour. */
+html body .trades-tabs-row > .trades-tab > .tab-badge:empty,
+html body .trade-filter-bar > .offer-tab > .tab-badge:empty {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15102 */
+
+/* CSFLOAT-1:1 PARITY ship #15103 (trades-tab dropdown caret + label icon spacing) — measured: csfloat .element.selected wraps the label and a 14x15 svg checkmark icon, with the label and icon flex-aligned and 6px gap. The active-tab dropdown arrow on tab-strip variants is a 16x16 chevron rotated when open. sbox tab buttons collapse all children to inline with no gap, so an icon + text adopt no spacing and any svg child overflows the 32px row. */
+html body .trades-tabs-row > .trades-tab > svg,
+html body .trades-tabs-row > .trades-tab > i,
+html body .trades-tabs-row > .trades-tab > .material-icons,
+html body .trade-filter-bar > .offer-tab > svg,
+html body .trade-filter-bar > .offer-tab > i,
+html body .trade-filter-bar > .offer-tab > .material-icons,
+html body .trades-pills > .trades-pill > svg,
+html body .trades-pills > .trades-pill > i {
+  width: 16px !important;
+  height: 16px !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* Trailing dropdown caret on tabs that open a sub-menu (e.g. History → date picker, Disputes → status drill) — chevron-down using a CSS triangle so we don't need an extra DOM node. Active-tab variant rotates 180deg via .is-open. */
+html body .trades-tabs-row > .trades-tab.has-dropdown::after,
+html body .trade-filter-bar > .offer-tab.has-dropdown::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin-left: 6px !important;
+  border-left: 4px solid transparent !important;
+  border-right: 4px solid transparent !important;
+  border-top: 4px solid currentColor !important;
+  flex-shrink: 0 !important;
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .trades-tabs-row > .trades-tab.has-dropdown.is-open::after,
+html body .trade-filter-bar > .offer-tab.has-dropdown.is-open::after {
+  transform: rotate(180deg) !important;
+}
+/* If a tab has explicit label-content wrapping (csfloat .element.selected pattern), force the wrap to flex inline with 6px gap so a checkmark icon sits cleanly to the right of the label without breaking the 32px row height. */
+html body .trades-tabs-row > .trades-tab > .element,
+html body .trades-tabs-row > .trades-tab > .element.selected,
+html body .trade-filter-bar > .offer-tab > .element {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15103 */
+
+/* CSFLOAT-1:1 PARITY ship #15104 (profile tab strip ink-bar — 2px brand underline on active, 1px hairline rgba(255,255,255,0.06) under whole strip, 14px label, ink-2 inactive / white active, 48px row height) — measured: csfloat mat-tab-header default carries a 2px ink-bar at the row bottom that animates between tabs via cubic-bezier(0.4,0,0.2,1). sbox profile-tabs use ad-hoc box-shadow / border-bottom that's the wrong color and thickness, with no canonical hairline under the unselected tabs. */
+html body .profile-tabs,
+html body nav.profile-tabs,
+html body .mystall-tabs,
+html body .wallet-tabs {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 16px !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  position: relative !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+html body .profile-tabs::-webkit-scrollbar,
+html body .mystall-tabs::-webkit-scrollbar,
+html body .wallet-tabs::-webkit-scrollbar {
+  display: none !important;
+}
+/* Tab buttons in the strip — 14px label, ink-2 base, 48px tall, padding 0 16px, no border (the underline lives on ::after). */
+html body .profile-tabs > button,
+html body .profile-tabs > .profile-tab,
+html body nav.profile-tabs > button,
+html body .mystall-tabs > button,
+html body .wallet-tabs > button {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 48px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  flex-shrink: 0 !important;
+}
+/* Hover — 4% white tint, white text. */
+html body .profile-tabs > button:not(.active):hover,
+html body .profile-tabs > .profile-tab:not(.active):hover,
+html body .mystall-tabs > button:not(.active):hover,
+html body .wallet-tabs > button:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* Active tab — white text, no bg fill, 2px brand ink-bar at bottom edge via ::after. */
+html body .profile-tabs > button.active,
+html body .profile-tabs > .profile-tab.active,
+html body nav.profile-tabs > button.active,
+html body .mystall-tabs > button.active,
+html body .wallet-tabs > button.active {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 500 !important;
+  background-color: transparent !important;
+  border-bottom: 0 !important;
+}
+html body .profile-tabs > button.active::after,
+html body .profile-tabs > .profile-tab.active::after,
+html body nav.profile-tabs > button.active::after,
+html body .mystall-tabs > button.active::after,
+html body .wallet-tabs > button.active::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  background-color: rgb(35, 123, 255) !important;
+  border-radius: 0 !important;
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  pointer-events: none !important;
+}
+/* Focus-visible — keyboard ring inset on the tab box without breaking the ink-bar position. */
+html body .profile-tabs > button:focus-visible,
+html body .profile-tabs > .profile-tab:focus-visible,
+html body .mystall-tabs > button:focus-visible,
+html body .wallet-tabs > button:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 0 0 2px rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15104 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY — sticker/charm SLOT ROW on item-detail
+   Lane: item-detail sticker chips. csfloat shows 4 (CSGO) or 5 (CS2)
+   sticker slots laid out as a single horizontal row of small chips
+   below the item image. Each slot has thumb + name + wear% + a tiny
+   wear bar; empty slots become a dashed placeholder.
+   Canonical tokens: bg rgb(21,23,28), panel rgb(27,29,36),
+   brand rgb(35,123,255), ink-2 rgb(158,167,177),
+   hairline rgba(255,255,255,0.06).
+   These rules drive the prompt-canonical class names:
+     .sticker-row > .sticker-slot[.empty]
+       .sticker-thumb / .sticker-name
+       .sticker-wear-bar > .sticker-wear-fill
+       .sticker-scrape
+   APPEND-only, !important, measure-and-match.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #15700 (sticker SLOT ROW container — flex row, 8px gap, 12px vertical padding, hairline divider above; csfloat lays slots in a single row that wraps below 360px). */
+html body .sticker-row,
+html body .csfloat-sticker-row,
+html body .item-stickers .sticker-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 12px 0 !important;
+  margin: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15700 */
+
+/* CSFLOAT-1:1 PARITY ship #15701 (sticker SLOT chip — 1fr basis, panel bg rgb(27,29,36), 1px hairline border, 8px radius, 8px padding, column flex layout, transition; csfloat slot panel measured at ~70-78px wide x ~88-94px tall, but our grid is fluid so we use flex:1 with min-width 64px). */
+html body .sticker-row > .sticker-slot,
+html body .csfloat-sticker-row > .sticker-slot,
+html body .item-stickers .sticker-row > .sticker-slot {
+  flex: 1 1 0 !important;
+  min-width: 64px !important;
+  max-width: 96px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  padding: 8px 6px 6px 6px !important;
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  cursor: default !important;
+  box-sizing: border-box !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .sticker-row > .sticker-slot:hover,
+html body .csfloat-sticker-row > .sticker-slot:hover {
+  background-color: rgb(33, 35, 43) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15701 */
+
+/* CSFLOAT-1:1 PARITY ship #15702 (sticker THUMBNAIL image — 40x40, contain, no radius, transparent bg, slight shadow on hover; csfloat sticker images sit on transparent within the chip and are object-fit:contain so foil/holo edges read correctly). */
+html body .sticker-row > .sticker-slot > .sticker-thumb,
+html body .sticker-row > .sticker-slot img.sticker-thumb,
+html body .csfloat-sticker-row > .sticker-slot .sticker-thumb {
+  display: block !important;
+  width: 40px !important;
+  height: 40px !important;
+  object-fit: contain !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  margin: 0 0 2px 0 !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15702 */
+
+/* CSFLOAT-1:1 PARITY ship #15703 (sticker NAME label — 11px, 500 weight, ink-2 rgb(158,167,177), single-line truncate with ellipsis, full chip width minus 4px each side; csfloat truncates the name and shows full name in tooltip on hover). */
+html body .sticker-row > .sticker-slot > .sticker-name,
+html body .sticker-row > .sticker-slot .sticker-name,
+html body .csfloat-sticker-row > .sticker-slot .sticker-name {
+  display: block !important;
+  width: calc(100% - 4px) !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin: 0 !important;
+  padding: 0 2px !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15703 */
+
+/* CSFLOAT-1:1 PARITY ship #15704 (sticker WEAR BAR — 4px tall mini-track at bottom of slot, full chip width minus 4px each side, panel bg rgba(255,255,255,0.06), 2px radius; csfloat track sits 4px above the slot bottom and reads as a hairline rule when scrape is 0%). */
+html body .sticker-row > .sticker-slot > .sticker-wear-bar,
+html body .sticker-row > .sticker-slot .sticker-wear-bar,
+html body .csfloat-sticker-row > .sticker-slot .sticker-wear-bar {
+  display: block !important;
+  position: relative !important;
+  width: calc(100% - 4px) !important;
+  height: 4px !important;
+  margin: 4px 2px 0 2px !important;
+  padding: 0 !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+  border-radius: 2px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15704 */
+
+/* CSFLOAT-1:1 PARITY ship #15705 (sticker WEAR FILL — left-anchored fill inside the wear bar; gradient runs green->amber->red as scrape grows, so a 0% sticker is solid green and a 100% sticker is solid red. csfloat uses fill-width = scrape%, with a smooth color shift via background-position trick. We use inline width on the fill set by JS and a gradient on the fill itself oriented along a 5x reference width so partial fills read the correct color stop. */
+html body .sticker-row > .sticker-slot .sticker-wear-bar > .sticker-wear-fill,
+html body .csfloat-sticker-row > .sticker-slot .sticker-wear-bar > .sticker-wear-fill {
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  height: 100% !important;
+  border-radius: 2px !important;
+  background-image: linear-gradient(
+    to right,
+    oklch(0.78 0.16 152) 0%,
+    oklch(0.84 0.16 80) 50%,
+    oklch(0.66 0.18 30) 100%
+  ) !important;
+  background-size: 500% 100% !important;
+  background-position: 0% 50% !important;
+  transition: width 240ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15705 */
+
+/* CSFLOAT-1:1 PARITY ship #15706 (sticker SCRAPE % badge — micro-pill in top-right corner of slot, 9px mono font, panel bg rgba(0,0,0,0.55), white text, 4px horiz padding, 2px radius; csfloat uses this only when scrape > 0). */
+html body .sticker-row > .sticker-slot > .sticker-scrape,
+html body .sticker-row > .sticker-slot .sticker-scrape,
+html body .csfloat-sticker-row > .sticker-slot .sticker-scrape {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  height: 14px !important;
+  min-width: 22px !important;
+  padding: 0 4px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 3px !important;
+  text-transform: none !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+}
+/* Color-shift the scrape pill text when scrape gets bad — keep the same panel, just paint the number. */
+html body .sticker-row > .sticker-slot > .sticker-scrape.is-good { color: oklch(0.86 0.15 152) !important; }
+html body .sticker-row > .sticker-slot > .sticker-scrape.is-warn { color: oklch(0.88 0.16 80) !important; }
+html body .sticker-row > .sticker-slot > .sticker-scrape.is-bad  { color: oklch(0.74 0.18 30) !important; }
+/* END CSFLOAT-1:1 PARITY ship #15706 */
+
+/* CSFLOAT-1:1 PARITY ship #15707 (sticker EMPTY-SLOT placeholder — dashed hairline border, lower opacity, no name/thumb visible, an em-dash glyph centered; csfloat shows an empty slot when the weapon has fewer applied stickers than the maxslots, so an AK with 2 stickers shows 4 chips: 2 real + 2 empty for CSGO, 3 empty for CS2). */
+html body .sticker-row > .sticker-slot.empty,
+html body .sticker-row > .sticker-slot.is-empty,
+html body .csfloat-sticker-row > .sticker-slot.empty {
+  background-color: transparent !important;
+  border: 1px dashed rgba(255, 255, 255, 0.10) !important;
+  opacity: 0.5 !important;
+}
+html body .sticker-row > .sticker-slot.empty:hover,
+html body .sticker-row > .sticker-slot.is-empty:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  opacity: 0.7 !important;
+}
+html body .sticker-row > .sticker-slot.empty > *,
+html body .sticker-row > .sticker-slot.is-empty > * { display: none !important; }
+html body .sticker-row > .sticker-slot.empty::before,
+html body .sticker-row > .sticker-slot.is-empty::before {
+  content: "\2014" !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  color: rgba(255, 255, 255, 0.30) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15707 */
+
+/* CSFLOAT-1:1 PARITY ship #15708 (sticker SLOT hover micro-lift + brand outline-glow on focus-visible — csfloat slot rises ~1px on hover and the wear-bar fill pops to full saturation; we add a subtle translateY and a brand-tinted ring for keyboard nav). */
+html body .sticker-row > .sticker-slot:not(.empty):not(.is-empty):hover {
+  transform: translateY(-1px) !important;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(35, 123, 255, 0.18) !important;
+}
+html body .sticker-row > .sticker-slot:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 0 0 2px rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15708 */
+
+/* CSFLOAT-1:1 PARITY ship #15105 (profile-tabs inner badges + Role: label typography + sticky elev-2 shadow on filter row) — measured: csfloat tab badges sit at 18px right-of-label with 6px gap, brand fill, white 11px/600. The "Role:" prefix on the trades filter row is ink-2 12px/500 with 8px right margin and is non-interactive. When the filter row sticks to the top of the scroll container csfloat applies a Material elev-2 shadow so it visually detaches from content. sbox renders these as bare text + no shadow on stick. */
+html body .profile-tabs > button > .profile-tab-badge,
+html body .profile-tabs > .profile-tab > .profile-tab-badge,
+html body .profile-tabs > button > .tab-badge,
+html body .mystall-tabs > button > .tab-badge,
+html body .wallet-tabs > button > .tab-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 6px !important;
+  margin-left: 6px !important;
+  margin-right: 0 !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+  letter-spacing: 0 !important;
+  border-radius: 9px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  flex-shrink: 0 !important;
+}
+html body .profile-tabs > button > .profile-tab-badge:empty,
+html body .profile-tabs > .profile-tab > .profile-tab-badge:empty,
+html body .profile-tabs > button > .tab-badge:empty {
+  display: none !important;
+}
+/* Inline "Role:" label that prefixes the role chips on the trade filter bar — 12px ink-2, weight 500, 8px right margin, non-interactive (pointer-events none so a stray click doesn't blur the chip group). */
+html body .trade-filter-bar > span:not(.tab-badge):not(.filter-count) {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  margin: 0 8px 0 8px !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  pointer-events: none !important;
+  flex-shrink: 0 !important;
+}
+/* Sticky filter bar — when the trade filter bar is positioned sticky (it should be on long trade lists), apply Material elev-2 to detach from scrolled content under it. */
+html body div.trade-filter-bar[style*="sticky"],
+html body div.trade-filter-bar.is-stuck {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 12 !important;
+  box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2),
+              0 2px 2px 0 rgba(0, 0, 0, 0.14),
+              0 1px 5px 0 rgba(0, 0, 0, 0.12) !important;
+}
+/* CSV-export anchor + trades search input — re-shape into the 32px row height so the right-side controls land on the same baseline as the pills. */
+html body div.trade-filter-bar > a.btn,
+html body div.trade-filter-bar > a.btn-ghost {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+  margin: 0 0 0 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  text-decoration: none !important;
+  line-height: 32px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  flex-shrink: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body div.trade-filter-bar > a.btn:hover,
+html body div.trade-filter-bar > a.btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body div.trade-filter-bar > input.price-input {
+  height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  border-radius: 4px !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 0 8px !important;
+  line-height: 32px !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15105 */
+
+/* CSFLOAT-1:1 PARITY ship #15106 (state-semantic active pill fills + ink-bar hairline below the pill-row) — measured: csfloat colours its filter pills with state semantics — pending = brand brand-blue, accepted/verified = success-green, declined/disputed = danger-red, expired/cancelled = warning-amber — applied as the active-fill background only (inactive stays neutral). Hairline 1px rgba(255,255,255,0.06) sits below the pill row to separate it from the trade list, mirroring the mat-tab-header underline pattern. */
+html body div.trade-filter-bar {
+  border-bottom: 1px solid transparent !important;
+  position: relative !important;
+}
+html body div.trade-filter-bar::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: -1px !important;
+  height: 1px !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  pointer-events: none !important;
+}
+/* State-semantic active fills — picked up via the CSV path encoding (PENDING_*, VERIFIED, DISPUTED, CANCELLED) on the offer-tab; map onto the 8% white default but tinted with state colour at 12% so the active highlight reads correctly and the inactive row still uses the canonical 8% white. Class hooks via attribute selector so we don't need to ship JS to add modifier classes — the existing setFilter passes the state token straight to the button label. */
+html body .trade-filter-bar > .offer-tab.active[data-state="OPEN"],
+html body .trade-filter-bar > button.offer-tab.active[aria-pressed="true"][data-state="OPEN"] {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(35, 123, 255) !important;
+}
+html body .trade-filter-bar > .offer-tab.active[data-state^="PENDING"],
+html body .trade-filter-bar > button.offer-tab.active[aria-pressed="true"][data-state^="PENDING"] {
+  background-color: rgba(255, 178, 36, 0.14) !important;
+  color: rgb(255, 178, 36) !important;
+}
+html body .trade-filter-bar > .offer-tab.active[data-state="VERIFIED"],
+html body .trade-filter-bar > button.offer-tab.active[aria-pressed="true"][data-state="VERIFIED"] {
+  background-color: rgba(76, 175, 80, 0.14) !important;
+  color: rgb(76, 175, 80) !important;
+}
+html body .trade-filter-bar > .offer-tab.active[data-state="DISPUTED"],
+html body .trade-filter-bar > button.offer-tab.active[aria-pressed="true"][data-state="DISPUTED"] {
+  background-color: rgba(244, 67, 54, 0.14) !important;
+  color: rgb(244, 67, 54) !important;
+}
+html body .trade-filter-bar > .offer-tab.active[data-state="CANCELLED"],
+html body .trade-filter-bar > button.offer-tab.active[aria-pressed="true"][data-state="CANCELLED"] {
+  background-color: rgba(255, 178, 36, 0.10) !important;
+  color: rgb(255, 178, 36) !important;
+}
+/* Outline ring on the trades-tab strip pseudo-mat-tab-header — when present alongside the pill row, give the row a 1px hairline at top + bottom so the dual-strip layout (Incoming/Outgoing/History/Disputes above, state pills below) reads as two distinct primitives like csfloat's mat-tab-header + mat-button-toggle-group stack. */
+html body .trades-tabs-row {
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  position: relative !important;
+}
+html body .trades-tabs-row::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: -7px !important;
+  height: 1px !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  pointer-events: none !important;
+}
+/* Pill-row spacing — when the trades-pills row immediately follows the tabs row, add a 12px top margin so the two primitives are visually separated without letting the pill row touch the hairline. */
+html body .trades-tabs-row + .trades-pills,
+html body .trades-tabs-row + .trade-filter-bar,
+html body .trades-tabs-row ~ .trade-filter-bar {
+  margin-top: 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15106 */
+
+/* CSFLOAT-1:1 PARITY ship #15800 (deposit modal — panel chrome) — measured: csfloat mat-mdc-dialog-surface bg rgb(31,31,31) br 4px shadow Material elev-24 ff Roboto fs 16, sbox wallet-modal was bg oklch(0.2 0.009 260) br 12px shadow custom heavy */
+html body .modal.wallet-modal {
+  background-color: rgb(31, 31, 31) !important;
+  border-radius: 4px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 11px 15px -7px, rgba(0, 0, 0, 0.14) 0px 24px 38px 3px, rgba(0, 0, 0, 0.12) 0px 9px 46px 8px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  overflow: hidden !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15800 */
+
+/* CSFLOAT-1:1 PARITY ship #15801 (deposit modal — payment-method tile) — measured: csfloat raised-card panel bg rgb(27,29,36) br 4px hairline rgba(255,255,255,0.06) shadow elev-2, sbox wallet-method-card was using ad-hoc card chrome */
+html body .wallet-modal .wallet-method-card {
+  background-color: rgb(27, 29, 36) !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  color: rgb(255, 255, 255) !important;
+  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+html body .wallet-modal .wallet-method-card.selected {
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px, 0 0 0 1px rgb(35, 123, 255) inset !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15801 */
+
+/* CSFLOAT-1:1 PARITY ship #15802 (deposit modal — amount input) — measured: csfloat mat-mdc-input-element fs 16 color white h 24 pad 0 bg transparent ff Roboto, sbox wallet-amount-input-v2 was inheriting site tokens */
+html body .wallet-modal .wallet-amount-input-v2 {
+  font-size: 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  outline: none !important;
+}
+html body .wallet-modal .wallet-amount-wrap {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: border-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .wallet-modal .wallet-amount-wrap:focus-within {
+  border-color: rgb(35, 123, 255) !important;
+}
+html body .wallet-modal .wallet-amount-prefix {
+  color: rgb(158, 167, 177) !important;
+  font-size: 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15802 */
+
+/* CSFLOAT-1:1 PARITY ship #15803 (deposit modal — fx hint) — measured: csfloat secondary text color rgb(158,167,177) fs 11 fw 500 ff Roboto, sbox wallet-amount-fx-hint was using inline style with var(--text-muted) */
+html body .wallet-modal .wallet-amount-fx-hint {
+  color: rgb(158, 167, 177) !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+  margin-top: 4px !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15803 */
+
+/* CSFLOAT-1:1 PARITY ship #15804 (deposit modal — Continue CTA) — measured: csfloat mat-mdc-raised-button.mat-primary h 40 pad 13px 30px br 8px bg rgb(35,123,255) fs 15 fw 700 shadow elev-2 transition box-shadow 0.28s cubic-bezier, sbox wallet-submit was inheriting btn-accent base */
+html body .wallet-modal .wallet-submit {
+  height: 40px !important;
+  padding: 13px 30px !important;
+  border-radius: 8px !important;
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  border: none !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+html body .wallet-modal .wallet-submit:hover:not(:disabled) {
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px, rgba(0, 0, 0, 0.14) 0px 4px 5px 0px, rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+html body .wallet-modal .wallet-submit:disabled {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: none !important;
+  cursor: default !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15804 */
+
+/* CSFLOAT-1:1 PARITY ship #15805 (deposit modal — dismiss X / close) — measured: csfloat mat-mdc-icon-button is 40x40 br 50% transparent bg color white pad 8 transition cubic-bezier, sbox wallet-modal modal-close was 0x0 visible only signed-in — explicit Material spec applied */
+html body .wallet-modal .modal-close {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 8px !important;
+  border-radius: 50% !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 20px !important;
+  line-height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: normal !important;
+}
+html body .wallet-modal .modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+html body .wallet-modal .modal-close:active {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15805 */
