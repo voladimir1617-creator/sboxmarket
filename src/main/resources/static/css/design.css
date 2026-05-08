@@ -163700,3 +163700,188 @@ html body .recent-sales-row:hover {
   padding-top: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #17006 */
+
+/* ─────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #17400-#17407 — cart line-item summary column (right rail)
+   surface: /cart sticky right-rail summary panel — line-items, fees, total, CTA
+   measured: csfloat /cart anon-locked (404), tokens back-derived from canonical
+   csfloat anchors (CODEX_HANDOFF tokens, /db CTA primary button measure
+   = 40h / fw 700 / br 8 / pad 13px 30px / fs 15 / bg rgb(35,123,255))
+   sbox baseline (/cart, sb_cart seeded): panel bg oklch(0.2 0.009 260)
+   = visually warm but tonally off vs csfloat panel rgb(27,29,36); border was
+   oklch(0.36) too bright vs csfloat hairline rgba(255,255,255,0.06);
+   row label ink rgba(255,255,255,0.65) vs csfloat ink-2 rgb(158,167,177);
+   total amount 16/500 vs csfloat-canonical 18-20/600 white emphasis;
+   CTA was ghost-styled rgba(255,255,255,0.04)/12px/500 vs csfloat brand
+   primary button rgb(35,123,255)/15/700/40h/8r — major mismatch.
+   ───────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #17400 (cart-summary panel chrome — measured: csfloat panel bg rgb(27,29,36) per canonical token, border 1px rgba(255,255,255,0.06) hairline, br 12px, padding 20px (csfloat mat-mdc-card chrome), Material elevation-2 box-shadow stack vs sbox heavy 24px-blur shadow that read as a floating overlay rather than a flush sticky rail. Aligns the cart panel chrome with every other csfloat surface (item-card, modal, profile-card, wallet-card, etc.).) */
+body .cart-summary,
+body .cart-summary[class] {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17400 */
+
+/* CSFLOAT-1:1 PARITY ship #17401 (cart-summary title — measured: csfloat panel-title pattern fs 16 / fw 500 / lh 24px / color rgb(255,255,255) / mb 16 / ls normal — sbox was 15/700 with custom Geist family fallback overriding the canonical Roboto stack. Removing the local font-family override forces the panel title to render in the same Roboto, "Helvetica Neue", Arial, sans-serif stack used everywhere else on csfloat, and the 16/500/24lh weight matches mat-card-title.) */
+body .cart-summary .cart-summary-title,
+body .cart-summary-title[class] {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  margin-bottom: 16px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17401 */
+
+/* CSFLOAT-1:1 PARITY ship #17402 (cart-summary-row geometry + ink-2 label — measured: csfloat list-row pattern fs 14 / fw 400 / color rgb(158,167,177) / pad 8px 0 / row height ~36 / display flex space-between / gap normal — sbox was 13/400/rgba(255,255,255,0.65)/6px-vertical-pad which read both too small and slightly too white. Bumps to canonical 14px label sub-row sized at the same scale as wallet-tx + offer-row.) */
+body .cart-summary .cart-summary-row,
+body .cart-summary-row[class] {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 8px 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  gap: 16px !important;
+}
+body .cart-summary .cart-summary-row > span:first-child {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17402 */
+
+/* CSFLOAT-1:1 PARITY ship #17403 (cart-summary-row amount cell — tabular-nums + right-aligned — measured: csfloat amount cell fs 14 / fw 400 / color rgb(255,255,255) / text-align right / font-feature-settings "tnum" 1 / font-variant-numeric tabular-nums — pre-ship sbox amount used .mono helper which already had tnum but inherited row's ink-2 color and 13px size; lifting the right-cell to 14/400/white-on-row + explicit tnum guarantees cents columns line up like csfloat /db price cells.) */
+body .cart-summary .cart-summary-row .mono,
+body .cart-summary .cart-summary-row span:last-child:not(:first-child),
+body .cart-summary-row .mono[class] {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  text-align: right !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17403 */
+
+/* CSFLOAT-1:1 PARITY ship #17404 (cart-summary divider hairlines — measured: csfloat hairline divider rgba(255,255,255,0.06) per canonical token, 1px solid — sbox was using oklch(0.36 0.014 260) which renders ~rgba(255,255,255,0.10) much too bright. Slightly increase mt/pt above the total row from 6/6 to 12/12 so the section break reads with the same breathing room as csfloat checkout summaries (mat-mdc-list section-divider pattern).) */
+body .cart-summary .cart-summary-row.cart-summary-total {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  margin-top: 12px !important;
+  padding-top: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17404 */
+
+/* CSFLOAT-1:1 PARITY ship #17405 (cart-summary-total emphasis — label + amount — measured: csfloat total-row pattern label fs 14 / fw 600 / white vs amount fs 20 / fw 600 / color rgb(255,255,255) / tnum — sbox was uniform 13/400 row with only the amount lifted to 16/500 white. Bumps the label to 14/600 white (so it reads as a section heading not another sub-row) and the amount to 20/600 white tnum so the grand total reads as the visual stop on the panel.) */
+body .cart-summary .cart-summary-row.cart-summary-total {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  align-items: baseline !important;
+}
+body .cart-summary .cart-summary-row.cart-summary-total > span:first-child {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: normal !important;
+}
+body .cart-summary .cart-summary-row.cart-summary-total .mono,
+body .cart-summary .cart-summary-row.cart-summary-total > span:last-child {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: rgb(255, 255, 255) !important;
+  line-height: 28px !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17405 */
+
+/* CSFLOAT-1:1 PARITY ship #17406 (cart-summary-actions checkout CTA — measured: csfloat primary button on /db = 40h / pad 13px 30px / fw 700 / br 8 / fs 15 / bg rgb(35,123,255) / color white per canonical token — sbox checkout CTA was 44h / 12px / fw 500 / br 6 / bg rgba(255,255,255,0.04) ghost-style, completely off the brand-blue primary CTA spec. The cart Checkout button is the highest-intent CTA on the entire site so it must match csfloat's mat-mdc-raised-button.mat-primary token exactly.) */
+body .cart-summary .cart-summary-actions {
+  margin-top: 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+body .cart-summary .cart-summary-actions .cart-summary-checkout-btn,
+body .cart-summary-checkout-btn[class] {
+  background-color: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 0 !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 30px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  letter-spacing: normal !important;
+  border-radius: 8px !important;
+  width: 100% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+body .cart-summary-checkout-btn:hover {
+  background-color: rgb(28, 110, 230) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 2px 4px -1px,
+    rgba(0, 0, 0, 0.14) 0px 4px 5px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 10px 0px !important;
+}
+/* Ghost secondary buttons (Clear, Move to watchlist) match csfloat
+   mat-stroked-button: 36h / 14px / fw 500 / 4r / transparent bg / ink-2 color / hairline border. */
+body .cart-summary .cart-summary-actions .btn.btn-ghost {
+  background-color: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  width: 100% !important;
+  letter-spacing: normal !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .cart-summary .cart-summary-actions .btn.btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17406 */
+
+/* CSFLOAT-1:1 PARITY ship #17407 (cart-summary savings row uplift color — measured: csfloat savings/discount lift uses a green up-tone rgb(46,204,113) (canonical csfloat positive-green per recent-sales / pnl tokens) at fw 500 — sbox was using --up token mapped through .mono which kept ink-2 inheritance. Forces the savings row's amount to render in the canonical csfloat positive-green so the discount reads as a positive-delta line, matching wallet-tx credit / deposit-success styling.) */
+body .cart-summary .cart-summary-row.cart-summary-savings .mono,
+body .cart-summary .cart-summary-row.cart-summary-savings > span:last-child {
+  color: rgb(46, 204, 113) !important;
+  font-weight: 500 !important;
+}
+body .cart-summary .cart-summary-row.cart-summary-savings > span:first-child {
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #17407 */
