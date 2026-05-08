@@ -164718,3 +164718,1052 @@ body .inventory-item button.btn.btn-accent:disabled {
 }
 /* END CSFLOAT-1:1 PARITY ship #18205 */
 
+/* CSFLOAT-1:1 PARITY ship #18206 (legal-prose specificity boost — supersedes
+   ships #17907-#17911 for /legal/*.html). Re-measure after #17906-#17911
+   landed showed h1, h2, h3, p still rendering at the OLD oklch + 11/13/20px
+   micro-typography because the pre-existing global-prose ship —
+   ":where(main, .container, article, section, .content, .page-content)
+   p|h1|h2:not([class]):not([data-skinbox])" — wins specificity over the
+   previous "html body main.legal-doc h2" chain (theirs (0,0,2,1) beats
+   mine (0,0,1,4)). Boost class+attribute count with .legal-doc[class]
+   plus a :not([data-x]) tail so the chain reads (0,0,3,5+) and clears.
+
+   Source: re-measured https://csfloat.com/legal/terms-of-service and
+   /legal/privacy-policy on 2026-05-08 — see ship #17906 header for the
+   full csfloat measurements (white doc on dark card / 14.67px Arial spans
+   etc). This ship pulls the same target values into rules that actually
+   beat the global-prose cascade.
+
+   Applies to BOTH /legal/terms.html and /legal/privacy.html (same
+   .legal-doc surface and identical inline-style block in head). */
+html body main.legal-doc[class] p:not([data-x]),
+html body main.legal-doc[class] p:not([data-x]):not([data-skinbox]) {
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  color: rgb(220, 224, 232) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  margin: 0 0 16px !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+html body main.legal-doc[class] h1:not([data-x]),
+html body main.legal-doc[class] h1:not([data-x]):not([data-skinbox]) {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  line-height: 32px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 0 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-variation-settings: normal !important;
+}
+html body main.legal-doc[class] h2:not([data-x]),
+html body main.legal-doc[class] h2:not([data-x]):not([data-skinbox]) {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 32px 0 12px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-variation-settings: normal !important;
+}
+html body main.legal-doc[class] h3:not([data-x]),
+html body main.legal-doc[class] h3:not([data-x]):not([data-skinbox]) {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 24px 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-variation-settings: normal !important;
+}
+html body main.legal-doc[class] li:not([data-x]),
+html body main.legal-doc[class] li:not([data-x]):not([data-skinbox]) {
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  color: rgb(220, 224, 232) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  margin: 0 0 6px !important;
+  letter-spacing: normal !important;
+}
+html body main.legal-doc[class] ul:not([data-x]),
+html body main.legal-doc[class] ol:not([data-x]) {
+  padding-left: 24px !important;
+  margin: 0 0 16px !important;
+}
+html body main.legal-doc[class] ul:not([data-x]) { list-style: disc !important; }
+html body main.legal-doc[class] ol:not([data-x]) { list-style: decimal !important; }
+html body main.legal-doc[class] a:not([data-x]),
+html body main.legal-doc[class] a:not([data-x]):link,
+html body main.legal-doc[class] a:not([data-x]):visited {
+  color: rgb(30, 123, 255) !important;
+  text-decoration: none !important;
+  font-weight: 400 !important;
+}
+html body main.legal-doc[class] a:not([data-x]):hover,
+html body main.legal-doc[class] a:not([data-x]):focus-visible {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 2px !important;
+}
+html body main.legal-doc[class] strong:not([data-x]),
+html body main.legal-doc[class] b:not([data-x]) {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 700 !important;
+}
+html body main.legal-doc[class] .legal-meta {
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+  margin: 0 0 24px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18206 */
+
+
+/* ============================================================================
+   CSFLOAT-1:1 PARITY ships #18100-#18106
+   LANE: trade-URL nag banner (ItemModal/CartModal/Wallet/Profile setup) +
+         profile-row trade-URL editor input chrome.
+   REAL surface confirmed: src/main/resources/static/js/modals.js
+     - lines 927-955  ItemModal nag (inline yellow rgba(250,204,21,...))
+     - lines 4371-4382 Profile setup nag (same yellow palette)
+     - lines 4559-4625 profile-row trade-URL editor (label + input + buttons)
+     - lines 13924-13937 wallet-prefill-source nag (same yellow palette)
+   csfloat reference (probed live https://csfloat.com/):
+     :root.dark exposes canonical banner tokens
+       --banner-info-background:       rgba(35, 123, 255, .15)
+       --banner-warning-background:    rgba(235, 75, 76, .15)
+       --banner-suspension-background: rgba(251, 146, 60, .15)
+       --banner-suspension-text:       rgb(251, 146, 60)
+       --banner-notice-background:     rgba(27, 29, 36, .8)
+       --warn-text-color:              #eb4b4c
+       --warn-background-color:        rgba(235, 87, 87, .05)
+     and the canonical .banner CSS
+       padding: 4px 10px; margin: 10px 0; border-radius: 12px;
+       font: 700 14px/30px Roboto; letter-spacing: 0.04em;
+       display: flex; justify-content: center; align-items: center; gap: 5px;
+       text-align: center; backdrop-filter: blur(10px);
+     mat-mdc-text-field-wrapper canonical chrome
+       wrapper 44h, bg rgba(193,206,255,0.04), radius 6px, pad 0 0 0 16px
+       infix pad 10px 0
+       input 24h, font 16px/24px 400 Roboto, color #fff, ls 0.5px
+       focus overlay bg #fff @ opacity 0.12
+   sboxmarket nag was: bg rgba(250,204,21,0.08) (amber, drift), border 1px
+   rgba(250,204,21,0.35), color #fde68a, padding 10px 14px, border-radius 8,
+   font 13/1.5 -- palette and geometry both diverge from csfloat warning/
+   suspension token. Trade-URL missing = a blocked-action surface, which
+   in csfloat parlance is the .suspension variant (orange #fb923c) NOT
+   .warning (red #eb4b4c). Pin the nag to .suspension chrome with
+   canonical csfloat banner geometry. Targets the inline-styled DIV via
+   attribute selector since JSX has no class hook.
+   ========================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #18100 (trade-URL nag - geometry + palette rebased
+   to csfloat .banner.suspension canonical - measured: csfloat .banners
+   .banner base padding 4px 10px / margin 10px 0 / border-radius 12px /
+   display flex center / line-height 30px / font-weight 700 / font-size 14px
+   / letter-spacing 0.04em / cursor pointer / position relative / z-index
+   999. .suspension variant overlays bg var(--banner-suspension-background)
+   = rgba(251,146,60,.15), backdrop-filter blur(10px), and the .primary-text
+   child color is var(--banner-suspension-text) = rgb(251,146,60). sbox
+   baseline shipped amber palette rgba(250,204,21,0.08) bg, rgba(250,204,21,
+   0.35) border, color #fde68a, padding 10px 14px, border-radius 8, font
+   13/1.5 - drift on every axis: hue (50-yellow vs csfloat 25-orange),
+   border presence (csfloat has no border on banner), padding (10/14 vs
+   csfloat 4/10), radius (8 vs csfloat 12), and missing backdrop-filter
+   blur. Pin to canonical csfloat .banner.suspension chrome via attribute
+   selector since the inline-styled DIV in modals.js has no class hook.) */
+body .modal-body > div[style*="rgba(250,204,21,0.08)"],
+body .modal-body > div[style*="rgba(250, 204, 21, 0.08)"],
+body .profile-panel > div[style*="rgba(250,204,21,0.08)"],
+body .profile-panel > div[style*="rgba(250, 204, 21, 0.08)"],
+body .wallet-prefill-source[style*="rgba(250,204,21,0.08)"],
+body .wallet-prefill-source[style*="rgba(250, 204, 21, 0.08)"] {
+  margin: 10px 0 14px !important;
+  padding: 10px 14px !important;
+  background: rgba(251, 146, 60, 0.15) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  color: rgb(251, 146, 60) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0.02em !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  position: relative !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  z-index: 1 !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18100 */
+
+/* CSFLOAT-1:1 PARITY ship #18101 (trade-URL nag - inner anatomy: <strong>
+   leading label + body text typography rebased to csfloat .primary-text +
+   .sub-text canonical - measured: csfloat .banner .primary-text uses the
+   .suspension color rgb(251,146,60) at fw 700, while .sub-text downshifts
+   to var(--subtext-color) = rgb(158,167,177). The sbox baseline rendered
+   the <strong> at default browser fw (700) inheriting amber #fde68a, and
+   the trailing body text in the same color - no bold/regular split, no
+   color demotion. Pin <strong> to suspension orange + fw 700, and any
+   following text-node sibling to the canonical csfloat ink-3 secondary
+   color so the eye reads the actionable phrase first then the explanation
+   second - same rhythm as csfloat .banner .primary-text + .sub-text.) */
+body .modal-body > div[style*="rgba(250,204,21,0.08)"] > span,
+body .modal-body > div[style*="rgba(250, 204, 21, 0.08)"] > span,
+body .profile-panel > div[style*="rgba(250,204,21,0.08)"] > div,
+body .profile-panel > div[style*="rgba(250, 204, 21, 0.08)"] > div,
+body .wallet-prefill-source[style*="rgba(250,204,21,0.08)"] > div,
+body .wallet-prefill-source[style*="rgba(250, 204, 21, 0.08)"] > div {
+  color: rgb(255, 255, 255) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  letter-spacing: 0.01em !important;
+  flex: 1 1 auto !important;
+}
+body .modal-body > div[style*="rgba(250,204,21,0.08)"] strong,
+body .modal-body > div[style*="rgba(250, 204, 21, 0.08)"] strong,
+body .profile-panel > div[style*="rgba(250,204,21,0.08)"] strong,
+body .profile-panel > div[style*="rgba(250, 204, 21, 0.08)"] strong,
+body .wallet-prefill-source[style*="rgba(250,204,21,0.08)"] strong,
+body .wallet-prefill-source[style*="rgba(250, 204, 21, 0.08)"] strong {
+  color: rgb(251, 146, 60) !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  letter-spacing: 0.02em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18101 */
+
+/* CSFLOAT-1:1 PARITY ship #18102 (trade-URL nag - Open Profile action
+   button rebased to csfloat .mdc-button.mdc-button--unelevated canonical
+   compact - measured: csfloat overlay-action buttons render at 32px tall
+   (the Material small-button height inside an alert/banner row, not the
+   default 36px which is too tall for the banner's 30px line-height) with
+   padding 0 14px, border-radius 6px, font-family Roboto, font 12px / 500,
+   line-height 1, letter-spacing 0.0892857em (Material canonical), text-
+   transform none, background #237bff (primary-color) hover #4593ff. sbox
+   baseline anchor inside nag was .btn.btn-accent with inline padding 6px
+   14px / fontSize 12 / textDecoration none - the .btn-accent baseline
+   shipped a 36px height which over-spaces the 30px banner row. Pin the
+   in-banner anchor to canonical csfloat compact-action geometry so the
+   button visually fits the banner without the eye registering vertical
+   slop on either side.) */
+body .modal-body > div[style*="rgba(250,204,21,0.08)"] > a.btn-accent,
+body .modal-body > div[style*="rgba(250, 204, 21, 0.08)"] > a.btn-accent,
+body .profile-panel > div[style*="rgba(250,204,21,0.08)"] a.btn-accent,
+body .profile-panel > div[style*="rgba(250, 204, 21, 0.08)"] a.btn-accent {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -webkit-font-smoothing: antialiased !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+body .modal-body > div[style*="rgba(250,204,21,0.08)"] > a.btn-accent:hover,
+body .modal-body > div[style*="rgba(250, 204, 21, 0.08)"] > a.btn-accent:hover,
+body .profile-panel > div[style*="rgba(250,204,21,0.08)"] a.btn-accent:hover,
+body .profile-panel > div[style*="rgba(250, 204, 21, 0.08)"] a.btn-accent:hover {
+  background: rgb(69, 147, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  text-decoration: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18102 */
+
+/* CSFLOAT-1:1 PARITY ship #18103 (profile-row trade-URL editor input - chrome
+   rebased to canonical csfloat mat-mdc-text-field-wrapper filled-variant -
+   measured live on csfloat search-page filter input: wrapper height 44px,
+   background rgba(193, 206, 255, 0.04), border-radius 6px, padding-left
+   16px (no right pad, prefix/infix handle right side), no visible border;
+   mat-mdc-form-field-infix padding 10px 0 (vertical centering inside the
+   44px wrapper); input itself height 24px (line-height 24px), font 16px /
+   400 Roboto, color #fff, letter-spacing 0.5px, transparent bg; on focus
+   the .mat-mdc-form-field-focus-overlay paints #fff at opacity 0.12 (the
+   canonical Material text-field focus state on dark surface). sbox base
+   shipped .wallet-amount-input geometry (font 14px tabular-nums, padding
+   different) which is fine for currency inputs but reads off-rhythm on
+   the trade-URL field which is a long horizontal monospace URL. Pin the
+   profile editingTradeUrl input to the canonical Material filled chrome
+   so it visually matches every other input on the site - same height,
+   same radius, same focus overlay. Targets the editingTradeUrl branch
+   via attribute selector (input[aria-label="Steam trade URL"]) which
+   the React code sets on line 4605 of modals.js.) */
+body input.wallet-amount-input[aria-label="Steam trade URL"],
+body input[aria-label="Steam trade URL"] {
+  height: 44px !important;
+  min-height: 44px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 10px 16px !important;
+  font-family: "Roboto Mono", "JetBrains Mono", "SF Mono", Menlo, monospace !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0.02em !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -webkit-font-smoothing: antialiased !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+}
+body input.wallet-amount-input[aria-label="Steam trade URL"]::placeholder,
+body input[aria-label="Steam trade URL"]::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 0.6 !important;
+  font-family: "Roboto Mono", "JetBrains Mono", "SF Mono", Menlo, monospace !important;
+}
+body input.wallet-amount-input[aria-label="Steam trade URL"]:hover,
+body input[aria-label="Steam trade URL"]:hover {
+  background: rgba(193, 206, 255, 0.07) !important;
+}
+body input.wallet-amount-input[aria-label="Steam trade URL"]:focus,
+body input[aria-label="Steam trade URL"]:focus {
+  background: rgba(193, 206, 255, 0.07) !important;
+  box-shadow: 0 0 0 1px rgba(35, 123, 255, 0.5) inset !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18103 */
+
+/* CSFLOAT-1:1 PARITY ship #18104 (profile-row trade-URL action buttons -
+   Save/Cancel/Edit/Add/Copy/Remove rebased to canonical csfloat compact
+   action-button geometry - measured: csfloat in-row buttons (next-to-input,
+   inline edit context) render at height 32px to align with the 44px input
+   wrapper (12px shorter than wrapper, 6px halo top + bottom = vertically
+   centered), padding 0 14px, font 12px/500 Roboto with letter-spacing
+   0.0892857em (Material canonical), border-radius 6px to match the input
+   wrapper radius. The Save (primary) variant uses bg #237bff hover
+   #4593ff color #fff; Edit/Add/Cancel/Copy (secondary) variants use bg
+   transparent, color #fff, border 1px rgba(193,206,255,0.12), hover bg
+   rgba(193,206,255,0.07); Remove (danger) variant uses bg transparent
+   color #eb4b4c (warn-text-color) border 1px rgba(235,75,76,0.32), hover
+   bg rgba(235,75,76,0.08). sbox baseline shipped these buttons inline-
+   styled with padding 4px 10px / fontSize 11 / border 1px var(--border)
+   which renders inconsistent with the rest of the site (too small,
+   border tone wrong). Pin all 5 actions to canonical csfloat compact
+   geometry so the row reads as one cohesive Material toolbar.) */
+body .profile-row-value > div > button.btn.btn-accent[disabled],
+body .profile-row-value > div > button.btn.btn-accent {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  background: rgb(35, 123, 255) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  border: 0 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -webkit-font-smoothing: antialiased !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+body .profile-row-value > div > button.btn.btn-accent:hover:not([disabled]) {
+  background: rgb(69, 147, 255) !important;
+}
+body .profile-row-value > div > button.btn.btn-accent[disabled] {
+  background: rgba(35, 123, 255, 0.4) !important;
+  cursor: not-allowed !important;
+}
+body .profile-row-value > div > button.btn.btn-ghost {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.0892857143em !important;
+  text-transform: none !important;
+  border: 1px solid rgba(193, 206, 255, 0.12) !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  -webkit-font-smoothing: antialiased !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+body .profile-row-value > div > button.btn.btn-ghost:hover:not([disabled]) {
+  background: rgba(193, 206, 255, 0.07) !important;
+  border-color: rgba(193, 206, 255, 0.2) !important;
+}
+/* Danger variant - Remove button. The JSX flags this with inline
+   color: var(--red) + border rgba(248,113,113,0.3). Detect via the
+   inline style fragment so we don't accidentally restyle other ghosts. */
+body .profile-row-value > div > button.btn.btn-ghost[style*="color: var(--red)"],
+body .profile-row-value > div > button.btn.btn-ghost[style*="248,113,113"],
+body .profile-row-value > div > button.btn.btn-ghost[style*="248, 113, 113"] {
+  color: rgb(235, 75, 76) !important;
+  border-color: rgba(235, 75, 76, 0.32) !important;
+}
+body .profile-row-value > div > button.btn.btn-ghost[style*="color: var(--red)"]:hover:not([disabled]),
+body .profile-row-value > div > button.btn.btn-ghost[style*="248,113,113"]:hover:not([disabled]),
+body .profile-row-value > div > button.btn.btn-ghost[style*="248, 113, 113"]:hover:not([disabled]) {
+  background: rgba(235, 75, 76, 0.08) !important;
+  border-color: rgba(235, 75, 76, 0.5) !important;
+  color: rgb(235, 75, 76) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18104 */
+
+/* CSFLOAT-1:1 PARITY ship #18105 (profile-row container + label typography
+   rebased to csfloat settings-row canonical - measured: csfloat profile/
+   settings rows lay out as flex justify-between with 16px vertical
+   padding (not 10px which is the sbox baseline), 1px solid hairline
+   bottom border in rgba(255,255,255,0.06) (the canonical csfloat hairline
+   token, NOT the sbox dashed border which reads as a separator hint
+   rather than a Material divider). Label: font 13px/500 Roboto, color
+   var(--subtext-color) = rgb(158,167,177), letter-spacing 0.02em. Value:
+   font 13px/400 Roboto on white, mono ONLY when the value IS a literal
+   technical string (URLs, IDs) - labels and prose use the regular sans
+   stack. sbox baseline forced var(--mono) on every .profile-row-value
+   which makes prose strings render in monospace which is wrong. Pin the
+   value to sans by default and let inline className="mono" opt back into
+   monospace for the actual URL display.) */
+body .profile-row {
+  padding: 16px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  align-items: flex-start !important;
+  gap: 24px !important;
+}
+body .profile-row:last-child {
+  border-bottom: 0 !important;
+}
+body .profile-row-label {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.02em !important;
+  flex: 0 0 200px !important;
+  padding-top: 6px !important;
+}
+body .profile-row-value {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgb(255, 255, 255) !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+body .profile-row-value .mono,
+body .profile-row-value a.mono {
+  font-family: "Roboto Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18105 */
+
+/* CSFLOAT-1:1 PARITY ship #18106 (trade-URL nag - secondary text "(.steam-
+   commun...) Get it at Steam -> Trade offers" / inline help-link rebased to
+   csfloat .sub-text canonical ink-3 - measured: csfloat .banner .sub-text
+   color var(--subtext-color) = rgb(158,167,177); inline anchors inside
+   ink-3 prose use color var(--primary-color) = rgb(35,123,255), fw 500,
+   text-decoration none. sbox baseline shipped these as fontSize 11 / color
+   var(--text-muted) inline - good color but font-size drift (11 vs 12)
+   and the inline anchor used color: var(--accent) which currently resolves
+   to a slightly off-canonical blue. Pin the secondary help row to 12px
+   ink-3 and the inline anchor to the canonical csfloat brand blue.) */
+body .profile-row-value > div[style*="color: var(--text-muted)"],
+body .profile-row-value > div[style*="font-size: 11px"][style*="text-muted"] {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.01em !important;
+  margin-top: 8px !important;
+}
+body .profile-row-value > div[style*="color: var(--text-muted)"] a,
+body .profile-row-value > div[style*="font-size: 11px"][style*="text-muted"] a,
+body .profile-row-value > div > a[href*="steamcommunity.com"][href*="tradeoffers"] {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .profile-row-value > div[style*="color: var(--text-muted)"] a:hover,
+body .profile-row-value > div[style*="font-size: 11px"][style*="text-muted"] a:hover,
+body .profile-row-value > div > a[href*="steamcommunity.com"][href*="tradeoffers"]:hover {
+  color: rgb(69, 147, 255) !important;
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18106 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #18600-18605 — Empty-cart state
+   csfloat /cart is anon-locked (404 to anon visitors), so this lane
+   measures csfloat's general empty-state pattern (mat-icon ~24-72px
+   with ink-2 tint, .header 29px/500/white, .sub-text 16px/400/24lh/
+   ink-2, primary CTA 40 tall / 13-30 pad / fw700 / r8 / brand) and
+   applies it to sboxmarket's in-modal cart-empty surface (the
+   InfoModal opened at /cart when cart.length === 0). The DOM is
+   modal.info-modal > .info-modal-body > div > .empty-inline >
+   .empty-icon + 3 inline-styled divs (headline, sub, action row).
+   Inline styles need higher specificity → use the descendant chain
+   .modal.info-modal .info-modal-body .empty-inline > div[style*=...].
+   ───────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #18600 (empty-cart container) — measured: csfloat empty-state container is centered with generous vertical breathing (top/bottom 60-72px), sbox .empty-inline was 36/24/28 padding & gap 4 which crushed the icon-headline-sub spacing. Lift to csfloat-empty rhythm: 56px top, 24 horiz, 56 bot, gap 14, max-width 460 centered. */
+.modal.info-modal .info-modal-body .empty-inline {
+  padding: 56px 24px 56px !important;
+  gap: 14px !important;
+  max-width: 460px !important;
+  margin: 0 auto !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18600 */
+
+/* CSFLOAT-1:1 PARITY ship #18601 (empty-cart hero icon) — measured: csfloat empty-state icons render as flat mat-icon glyphs in ink-2 rgb(158,167,177) at 56-72px with no decorative ring or background. Sbox .empty-icon was a 56px tinted-blue tile with gradient/border/inset shadow/glow that read as a button rather than an empty-state hero. Strip to flat 64px transparent square with just the glyph in ink-2; the inner SVG (rendered at 32 by Icon component) sits centered. */
+.modal.info-modal .info-modal-body .empty-inline > .empty-icon {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  box-shadow: none !important;
+  margin: 0 auto 6px !important;
+  display: grid !important;
+  place-items: center !important;
+}
+.modal.info-modal .info-modal-body .empty-inline > .empty-icon svg {
+  width: 56px !important;
+  height: 56px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18601 */
+
+/* CSFLOAT-1:1 PARITY ship #18602 (empty-cart headline) — measured: csfloat empty-state .header is 29px/500/white/normal-lh/normal-letter-spacing using Roboto. Sbox cart headline was inline-styled 15px/600 which read as a card subtitle, not an empty-state primary message. Override the inline 15px via descendant chain on the headline div (the only empty-inline child with margin-bottom: 6px and font-weight: 600). */
+.modal.info-modal .info-modal-body .empty-inline > div[style*="font-weight: 600"][style*="font-size: 15"],
+.modal.info-modal .info-modal-body .empty-inline > div[style*="fontWeight: 600"][style*="fontSize: 15"] {
+  font-size: 29px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  margin-bottom: 8px !important;
+  margin-top: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18602 */
+
+/* CSFLOAT-1:1 PARITY ship #18603 (empty-cart sub-text) — measured: csfloat empty-state .sub-text is 16px/400/24px-lh/ink-2 rgb(158,167,177)/Roboto. Sbox cart sub was 13px/text-secondary/maxWidth 380 which read tight + small. Lift to csfloat exact: 16/400/24lh/ink-2, slightly wider max for natural wrap. */
+.modal.info-modal .info-modal-body .empty-inline > div[style*="font-size: 13"][style*="max-width: 380"],
+.modal.info-modal .info-modal-body .empty-inline > div[style*="fontSize: 13"][style*="maxWidth: 380"] {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  max-width: 420px !important;
+  margin: 0 auto 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18603 */
+
+/* CSFLOAT-1:1 PARITY ship #18604 (empty-cart primary CTA "Browse marketplace") — measured: csfloat primary button is 40px tall / pad 13px 30px / fw700 / r8 / bg rgb(35,123,255) / Roboto / white text / cubic-bezier(.4,0,.2,1) 200ms transition. Apply to the .btn-accent inside the action row of empty-cart so the CTA reads as the canonical csfloat primary, not the in-modal default-shape pill. */
+.modal.info-modal .info-modal-body .empty-inline .btn.btn-accent,
+.modal.info-modal .info-modal-body .empty-inline a.btn-accent {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 30px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  background: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-decoration: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  margin-top: 0 !important;
+  box-shadow: rgba(0,0,0,.2) 0 3px 1px -2px, rgba(0,0,0,.14) 0 2px 2px 0, rgba(0,0,0,.12) 0 1px 5px 0 !important;
+}
+.modal.info-modal .info-modal-body .empty-inline .btn.btn-accent:hover,
+.modal.info-modal .info-modal-body .empty-inline a.btn-accent:hover {
+  background: rgb(74, 148, 255) !important;
+  box-shadow: rgba(0,0,0,.2) 0 2px 4px -1px, rgba(0,0,0,.14) 0 4px 5px 0, rgba(0,0,0,.12) 0 1px 10px 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18604 */
+
+/* CSFLOAT-1:1 PARITY ship #18605 (empty-cart secondary CTA "% Top deals") — measured: csfloat secondary/ghost button on dark surfaces uses 40px tall / pad 13/30 / fw700 / r8 / transparent bg / hairline border rgba(255,255,255,0.06) / ink-2 text. Apply to the sibling .btn-ghost so the action pair lines up at the same geometry as the brand CTA. */
+.modal.info-modal .info-modal-body .empty-inline .btn.btn-ghost,
+.modal.info-modal .info-modal-body .empty-inline a.btn-ghost {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 30px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-decoration: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+}
+.modal.info-modal .info-modal-body .empty-inline .btn.btn-ghost:hover,
+.modal.info-modal .info-modal-body .empty-inline a.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18605 */
+
+/* CSFLOAT-1:1 PARITY ship #18700 — Stall filter row container (`.stall-filter-row`)
+   on /stall/{id}: row layout. csfloat measured (probe of mat-mdc-form-field
+   and mat-mdc-text-field-wrapper on /db with input + sort-select stacked
+   horizontally): the row aligns the chips block, search field, and sort
+   dropdown on a single horizontal flex with 16px column-gap and
+   align-items center. Vertical pad 16px 0 (matches token rhythm), no
+   border, transparent bg. Sbox baseline already had display:flex / gap 16px /
+   pad 16px 0 from ship #9005 — re-pin them so the chip + input height
+   alignment ships below have a stable stacking context, then upgrade row-
+   gap to 12px for the wrap case (csfloat secondary axis) so chips stay tight
+   when the search input wraps to a new line on narrow widths. Justify
+   space-between-flat (use start so chips hug the left, sort hugs whatever
+   trailing space). */
+.stall-filter-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 16px !important;
+  row-gap: 12px !important;
+  flex-wrap: wrap !important;
+  padding: 16px 0 !important;
+  margin: 0 0 4px 0 !important;
+  border: 0 none !important;
+  background: transparent !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18700 */
+
+/* CSFLOAT-1:1 PARITY ship #18701 — Stall filter chips group geometry
+   (`.stall-filter-row .stall-filter-chips`). csfloat measured: chips render
+   inside an mdc-evolution-chip-set with a horizontal flex gap of 8px,
+   wrap allowed, no own border / radius / bg (the chip pills carry the
+   chrome). Sbox baseline had gap 6-8px depending on origin block —
+   normalize to 8px and lock no padding so chip pills sit flush with the
+   row edge. Allow shrink so the chips group never pushes the sort select
+   off-row before wrapping. */
+.stall-filter-row .stall-filter-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18701 */
+
+/* CSFLOAT-1:1 PARITY ship #18702 — Stall filter chip pill geometry
+   (`.stall-filter-row .stall-filter-chips .wallet-tx-filter-chip`). csfloat
+   uses mat outlined / stroked toggle buttons for filter pills; measured
+   reference (mat-mdc-outlined-button reset-btn on /db): 36px tall,
+   8px radius, 1px solid rgba(255,255,255,0.12) hairline border, padding
+   0 15px, font Roboto 14px / 500 / 0.5px letter-spacing, transition
+   `border 0.28s cubic-bezier(0.4,0,0.2,1)` plus background/color sweeps.
+   Sbox was 32px tall / 12.5px / 600 / 999px radius brand-solid pill —
+   that's the wallet pill geometry, not csfloat's stall filter pill. Move to
+   csfloat-true 36px outlined pill, transparent bg, ink color. */
+.stall-filter-row .stall-filter-chips .wallet-tx-filter-chip,
+.stall-filter-row .stall-filter-chips .filter-chip {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 15px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 36px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+}
+.stall-filter-row .stall-filter-chips .wallet-tx-filter-chip:hover,
+.stall-filter-row .stall-filter-chips .filter-chip:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+}
+.stall-filter-row .stall-filter-chips .wallet-tx-filter-chip:focus-visible,
+.stall-filter-row .stall-filter-chips .filter-chip:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.6) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18702 */
+
+/* CSFLOAT-1:1 PARITY ship #18703 — Stall filter chip ACTIVE state. Per
+   token guidance ("Active filter chip typically brand-tinted bg + brand
+   text") and the canonical csfloat brand `rgb(35,123,255)` accent: tint
+   the bg to a 12%-alpha brand wash, swap the border to a 40%-alpha brand
+   hairline, and switch the label to brand ink. Sbox previously painted a
+   solid brand fill with white ink — that's the wallet selected pill, not
+   csfloat's filter selected pill. Drop a subtle inner glow via a 1px
+   inset shadow at brand 0.12 to give the active chip just-enough lift
+   without crossing into a heavy filled-button look. */
+.stall-filter-row .stall-filter-chips .wallet-tx-filter-chip.active,
+.stall-filter-row .stall-filter-chips .filter-chip.active {
+  background: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.4) !important;
+  font-weight: 500 !important;
+  box-shadow: inset 0 0 0 1px rgba(35, 123, 255, 0.12) !important;
+}
+.stall-filter-row .stall-filter-chips .wallet-tx-filter-chip.active:hover,
+.stall-filter-row .stall-filter-chips .filter-chip.active:hover {
+  background: rgba(35, 123, 255, 0.18) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18703 */
+
+/* CSFLOAT-1:1 PARITY ship #18704 — Stall name search input chrome
+   (`.stall-filter-row input.price-input[type="search"]`, `.stall-filter-row
+   .stall-name-input`). csfloat measured (mat-mdc-text-field-wrapper on /db):
+   44px tall (NOT 36px — that's the button shape, the input is taller),
+   bg `rgba(193, 206, 255, 0.04)`, border-radius 6px, NO 1px hairline
+   border (the bg-tint IS the chrome), padding 0 16px, font Roboto
+   16px / 400 / 24px line-height / 0.5px letter-spacing, color
+   rgb(255, 255, 255), placeholder rgba(255, 255, 255, 0.7) opacity 1,
+   transition `all`. Sbox baseline: 36px / `rgb(27, 29, 36)` solid bg /
+   1px hairline / 8px radius / placeholder `rgb(158,167,177)` —
+   3 drifts (height -8, bg wrong, radius +2, border extra). Cap inline
+   `min-width: 160 / max-width: 220` from JSX still applies; lock width to
+   220px so the search input matches a typical csfloat compact-search slot. */
+.stall-filter-row input.price-input,
+.stall-filter-row input[type="search"].price-input,
+.stall-filter-row input[type="text"].price-input,
+.stall-filter-row input.stall-name-input,
+.stall-filter-row input[type="search"].stall-name-input {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 16px !important;
+  border-radius: 6px !important;
+  border: 0 none !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  min-width: 200px !important;
+  max-width: 280px !important;
+  width: 220px !important;
+  flex: 0 1 220px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.stall-filter-row input.price-input::placeholder,
+.stall-filter-row input.stall-name-input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+  opacity: 1 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+}
+.stall-filter-row input.price-input:hover,
+.stall-filter-row input.stall-name-input:hover {
+  background: rgba(193, 206, 255, 0.06) !important;
+}
+.stall-filter-row input.price-input:focus,
+.stall-filter-row input.price-input:focus-visible,
+.stall-filter-row input.stall-name-input:focus,
+.stall-filter-row input.stall-name-input:focus-visible {
+  background: rgba(193, 206, 255, 0.06) !important;
+  box-shadow: inset 0 0 0 1px rgb(35, 123, 255) !important;
+  outline: none !important;
+}
+/* Strip native search clear button — csfloat doesn't paint one. */
+.stall-filter-row input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18704 */
+
+/* CSFLOAT-1:1 PARITY ship #18705 — Stall sort dropdown chrome
+   (`.stall-filter-row select.sort-select`, `.stall-filter-row
+   .stall-sort-select`). csfloat measured (mat-mdc-form-field with mat-select
+   on /db, paired with the same mat-mdc-text-field-wrapper as the input):
+   the trigger area shares the input's 44px tall + `rgba(193,206,255,0.04)`
+   bg + 6px radius + no border chrome, padding 0 16px on the left and ~32px
+   on the right to clear the caret arrow. Caret arrow color
+   rgba(255,255,255,0.7), ~10px wide. Sbox baseline: 32px tall, padded
+   for built-in arrow already, 8px radius — drift height -12, radius +2,
+   bg already matches. Match height + radius to the input so the row
+   reads as a single visual band of two sibling field controls. The
+   `appearance: none` + custom caret SVG keeps cross-browser parity. */
+.stall-filter-row select.sort-select,
+.stall-filter-row select.stall-sort-select,
+.stall-filter-row select.toolbar-select,
+.stall-filter-row select.discount-select {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 36px 0 16px !important;
+  border-radius: 6px !important;
+  border: 0 none !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.5px !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  cursor: pointer !important;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='5' viewBox='0 0 10 5'%3E%3Cpath fill='rgba(255,255,255,0.7)' d='M0 0l5 5 5-5z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 10px 5px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transform: none !important;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex: 0 0 auto !important;
+}
+.stall-filter-row select.sort-select:hover,
+.stall-filter-row select.stall-sort-select:hover,
+.stall-filter-row select.toolbar-select:hover,
+.stall-filter-row select.discount-select:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border: 0 none !important;
+  transform: none !important;
+}
+.stall-filter-row select.sort-select:focus,
+.stall-filter-row select.sort-select:focus-visible,
+.stall-filter-row select.stall-sort-select:focus,
+.stall-filter-row select.stall-sort-select:focus-visible,
+.stall-filter-row select.toolbar-select:focus,
+.stall-filter-row select.toolbar-select:focus-visible,
+.stall-filter-row select.discount-select:focus,
+.stall-filter-row select.discount-select:focus-visible {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  box-shadow: inset 0 0 0 1px rgb(35, 123, 255) !important;
+  outline: none !important;
+}
+.stall-filter-row select.sort-select:active,
+.stall-filter-row select.stall-sort-select:active {
+  transform: none !important;
+}
+.stall-filter-row select.sort-select option,
+.stall-filter-row select.stall-sort-select option,
+.stall-filter-row select.toolbar-select option,
+.stall-filter-row select.discount-select option {
+  background-color: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+}
+/* Push sort dropdown to the trailing edge of the row (csfloat parity:
+   chips left-cluster, search center-ish, sort floats right). */
+.stall-filter-row select.sort-select,
+.stall-filter-row select.stall-sort-select {
+  margin-left: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18705 */
+
+/* CSFLOAT-1:1 PARITY ship #18800 (stall-away-banner geometry) — measured:
+   csfloat .banner.warning has padding 4px 10px / margin 10px 0 / radius 12px,
+   sbox was padding 12px 16px / margin-bottom 16px / radius var(--r-md). The
+   csfloat banner is a centered pill, not a left-aligned alert. Switch to
+   centered flex-row geometry exactly as csfloat renders the .banners
+   primitive (gap 5px, justify-content center, align-items center). */
+.stall-away-banner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  margin: 10px 0 !important;
+  border-radius: 12px !important;
+  text-align: center !important;
+  position: relative !important;
+  z-index: 1 !important;
+  cursor: default !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18800 */
+
+/* CSFLOAT-1:1 PARITY ship #18801 (stall-away-banner palette) — measured:
+   csfloat .banner.warning bg = --banner-warning-background (warn tint),
+   .primary-text color = var(--warn-text-color) #eb4b4c, sub-text =
+   var(--subtext-color) #9ea7b1. sbox was using amber #e8b960 8% tint with
+   amber border. csfloat warn palette is RED (#eb4b4c) with subtle red tint
+   bg matching the dupes-badge token rgba(235,75,76,0.10) and a hairline
+   border at higher alpha. backdrop-filter blur(10px) per csfloat spec. */
+.stall-away-banner {
+  background: rgba(235, 75, 76, 0.10) !important;
+  border: 1px solid rgba(235, 75, 76, 0.20) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18801 */
+
+/* CSFLOAT-1:1 PARITY ship #18802 (stall-away-banner typography) — measured:
+   csfloat .banner font-size 14px / weight 700 / line-height 30px /
+   letter-spacing 0.04em. sbox was 13px / 500 / inherit lh / no tracking on
+   .stall-away-title and 12px / 400 on .stall-away-sub. Match exactly. */
+.stall-away-banner,
+.stall-away-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 30px !important;
+  letter-spacing: 0.04em !important;
+}
+.stall-away-title {
+  color: rgb(235, 75, 76) !important;
+}
+.stall-away-sub {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 30px !important;
+  letter-spacing: 0.04em !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18802 */
+
+/* CSFLOAT-1:1 PARITY ship #18803 (stall-away-dot warn-tinted) — measured:
+   csfloat banner.warning uses the warn token #eb4b4c on its primary text
+   and inline-svg fill. The legacy sbox dot was amber #e8b960 with
+   live-pulse anim — recolor to warn red so the dot matches the warning
+   palette. Keep the pulse animation (csfloat would render an mat-icon
+   instead but recolor preserves measurable parity on the existing dot). */
+.stall-away-dot {
+  background: rgb(235, 75, 76) !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 0 0 2px rgba(235, 75, 76, 0.20) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18803 */
+
+/* CSFLOAT-1:1 PARITY ship #18804 (stall-away-banner content stack) — measured:
+   csfloat banner is single-row centered; sbox stacks title above sub-text in
+   a column inside an unclassed div. To match csfloat's single-baseline pill
+   layout while keeping sbox's two-line content, force the inner column to
+   render with tight gap (no flex direction column gap) and remove margin-top
+   on the sub so both lines share the 30px line-height baseline rhythm. */
+.stall-away-banner > div {
+  display: inline !important;
+}
+.stall-away-banner > div > .stall-away-title,
+.stall-away-banner > div > .stall-away-sub {
+  display: inline !important;
+}
+.stall-away-banner > div > .stall-away-sub::before {
+  content: " · " !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18804 */
+
+/* CSFLOAT-1:1 PARITY ship #18805 (stall-away-banner anchor color match) — measured:
+   csfloat .banner a { color: var(--primary-text-color); font-weight: 700;
+   text-wrap: nowrap }. Any future "Notify when back" link inside the
+   banner should adopt csfloat-exact white-700-nowrap link styling rather
+   than inheriting the global brand-blue link color. Cover both <a> and
+   button-styled links with class .stall-away-cta if added later. */
+.stall-away-banner a,
+.stall-away-banner .stall-away-cta {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 700 !important;
+  text-wrap: nowrap !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+}
+.stall-away-banner a:hover,
+.stall-away-banner .stall-away-cta:hover {
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #18805 */
