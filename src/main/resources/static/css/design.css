@@ -167295,7 +167295,7 @@ html body .wallet-modal .wallet-timing-footer strong {
 }
 /* END CSFLOAT-1:1 PARITY ship #19505 */
 
-/* CSFLOAT-1:1 PARITY ship #19500 (footer link grid — link-outer flex container)
+/* CSFLOAT-1:1 PARITY ship #20000 (footer link grid — link-outer flex container)
    measured: csfloat app-full-footer .link-outer is a flex ROW that contains
    logo (40x40) on the LEFT, the .links column-grid in the MIDDLE, and the
    .social SVG row on the RIGHT, with justify-content: space-between and
@@ -167326,9 +167326,9 @@ html body footer.site-footer .site-footer-col:not(.site-footer-brand) {
   flex: 0 0 auto !important;
   min-width: 120px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19500 */
+/* END CSFLOAT-1:1 PARITY ship #20000 */
 
-/* CSFLOAT-1:1 PARITY ship #19501 (footer link-group rows — vertical link list)
+/* CSFLOAT-1:1 PARITY ship #20001 (footer link-group rows — vertical link list)
    measured: csfloat .link-group has a header on top and a `.rows` flex column
    beneath. The .rows is display: flex; flex-flow: column; gap: 12px between
    each <a>. Each link sits at 16/400 with a tight 12px vertical rhythm, no
@@ -167350,9 +167350,9 @@ html body footer.site-footer .site-footer-col a + a {
 html body footer.site-footer .site-footer-col .site-footer-title + a {
   margin-top: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19501 */
+/* END CSFLOAT-1:1 PARITY ship #20001 */
 
-/* CSFLOAT-1:1 PARITY ship #19502 (footer link color — canonical brand blue)
+/* CSFLOAT-1:1 PARITY ship #20002 (footer link color — canonical brand blue)
    measured: csfloat footer column anchors render in the canonical brand
    accent rgb(35, 123, 255). Earlier ship #12 painted them rgb(30, 144, 255)
    (#1E90FF DodgerBlue) which is close but slightly more cyan-tilted; the
@@ -167369,9 +167369,9 @@ html body footer.site-footer .site-footer-col a:focus-visible {
   color: rgb(35, 123, 255) !important;
   text-decoration: underline !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19502 */
+/* END CSFLOAT-1:1 PARITY ship #20002 */
 
-/* CSFLOAT-1:1 PARITY ship #19503 (footer card geometry — inner panel)
+/* CSFLOAT-1:1 PARITY ship #20003 (footer card geometry — inner panel)
    measured: csfloat app-full-footer .card is the visible darker rectangle
    inside the footer. It has bg rgb(27, 29, 36) (var(--bg-2) panel token),
    12px border-radius, 30px padding all around, max-width 1337px centered
@@ -167404,9 +167404,9 @@ html body footer.site-footer .site-footer-inner {
     rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
     rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19503 */
+/* END CSFLOAT-1:1 PARITY ship #20003 */
 
-/* CSFLOAT-1:1 PARITY ship #19504 (footer brand logo size — 40x40)
+/* CSFLOAT-1:1 PARITY ship #20004 (footer brand logo size — 40x40)
    measured: csfloat app-full-footer .logo img is rendered with attribute
    width=40 height=40 (the actual displayed size, no CSS scaling). The same
    square logo appears in the navbar at 32px; in the footer it's bumped to
@@ -167422,9 +167422,9 @@ html body footer.site-footer .site-footer-logo img {
   height: 40px !important;
   flex: 0 0 40px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19504 */
+/* END CSFLOAT-1:1 PARITY ship #20004 */
 
-/* CSFLOAT-1:1 PARITY ship #19505 (footer social row — geometry + gap)
+/* CSFLOAT-1:1 PARITY ship #20005 (footer social row — geometry + gap)
    measured: csfloat app-full-footer .social is a flex row right-aligned in
    the .link-outer, with gap 16-20px between the 5 SVG icons (Discord,
    Twitter, GitHub, Steam Group, Chrome Extension). Each .link wrapper has
@@ -167479,9 +167479,9 @@ html body footer.site-footer .site-footer-social .material-icons {
   font-size: 24px !important;
   fill: currentColor !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19505 */
+/* END CSFLOAT-1:1 PARITY ship #20005 */
 
-/* CSFLOAT-1:1 PARITY ship #19506 (footer brand block — vertical stack rhythm)
+/* CSFLOAT-1:1 PARITY ship #20006 (footer brand block — vertical stack rhythm)
    measured: csfloat .link-outer .logo block is a single 40x40 image with
    no caption next to it (csfloat brand is the icon alone on this footer).
    sboxmarket has logo + wordmark + tagline + Stripe badge stacked. To
@@ -167518,14 +167518,14 @@ html body footer.site-footer .site-footer-badges {
   margin: 0 !important;
   margin-top: 4px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19506 */
+/* END CSFLOAT-1:1 PARITY ship #20006 */
 
-/* CSFLOAT-1:1 PARITY ship #19507 (footer column rail — distinct min-spacing)
+/* CSFLOAT-1:1 PARITY ship #20007 (footer column rail — distinct min-spacing)
    measured: csfloat .links is a flex row of 4 .link-group columns with
    gap 60px between each column (so the four headers sit at very even
    visual rhythm — Products | Tools | Resources | Company). sboxmarket
    has 4 link columns + brand column and was using the parent flex gap
-   (40px 60px from ship #19500) which collapses brand+links spacing. To
+   (40px 60px from ship #20000) which collapses brand+links spacing. To
    guarantee the link rail itself uses 60px column gaps regardless of how
    the brand+rail+social row breaks, set a minimum column-gap on the
    inner row at the wide breakpoint. Where wrap is unavoidable on small
@@ -167538,9 +167538,9 @@ html body footer.site-footer .site-footer-badges {
     margin-left: 0 !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #19507 */
+/* END CSFLOAT-1:1 PARITY ship #20007 */
 
-/* CSFLOAT-1:1 PARITY ship #19508 (footer bottom row — copyright single-line)
+/* CSFLOAT-1:1 PARITY ship #20008 (footer bottom row — copyright single-line)
    measured: csfloat doesn't render a separate "bottom" strip with copy +
    meta + socials inside app-full-footer — its socials live in the
    .link-outer above and there is no separate bottom legal bar; the entire
@@ -167573,9 +167573,9 @@ html body footer.site-footer .site-footer-bottom {
     padding: 16px 30px 0 !important;
   }
 }
-/* END CSFLOAT-1:1 PARITY ship #19508 */
+/* END CSFLOAT-1:1 PARITY ship #20008 */
 
-/* CSFLOAT-1:1 PARITY ship #19509 (footer column header — drop residual uppercase
+/* CSFLOAT-1:1 PARITY ship #20009 (footer column header — drop residual uppercase
    from earlier global typography overrides)
    measured: csfloat .header text on app-full-footer column titles is
    "Products", "Tools", "Resources", "Company" rendered LITERALLY in
@@ -167604,9 +167604,9 @@ html body footer.site-footer h4.site-footer-title {
   margin: 0 0 25px !important;
   padding: 0 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #19509 */
+/* END CSFLOAT-1:1 PARITY ship #20009 */
 
-/* csfloat-1:1 ships #19500-#19509 — footer link grid pixel-to-pixel:
+/* csfloat-1:1 ships #20000-#20009 — footer link grid pixel-to-pixel:
    - inner card geometry (rgb(27,29,36) bg, 12px radius, 30px pad, 1337 max,
      mat-elev-2 shadow centered in transparent outer footer)
    - link-outer flex tri-pane (brand left, links middle, socials right)
@@ -167619,3 +167619,157 @@ html body footer.site-footer h4.site-footer-title {
    - bottom strip flex row 1337 max, no border, 30px pad, 20px gap-top
    - defensive header text-transform/font-family pin against late cascade
 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #19800-#19805 — listing duration picker.
+   csfloat's auction-duration / range / listing-type primitive is a
+   mat-button-toggle-group: a CONTAINER with a 7px outer radius and a
+   subtle white-tinted fill (rgba(193,206,255,0.04)), zero internal
+   gap, and segmented children that read as 4px-rounded pills. Active
+   state is NOT a brand-color solid — both selected and unselected
+   pills are transparent (the selected pill compounds the same 0.04
+   group fill on top of itself for a barely-perceptible 0.08 effective
+   tint). The visible CUE is the label color: white on selected,
+   ink-2 (rgb(158,167,177)) on unselected. Label is 14px / 500 fw /
+   24-32px lh / 0.42px letter-spacing / 0 12px padding / Roboto.
+   Transition is `padding 0.15s cubic-bezier(0.4,0,0.2,1) 0.045s` on
+   the inner button.
+
+   Sboxmarket's sell modal renders the duration picker as a flex row of
+   .price-suggest-chip buttons inside <div style="display:flex;gap:6;
+   flexWrap:wrap"> — directly under the .wallet-input-label "Auction
+   duration". Existing ships #10802 (active fills with #1f7be3 solid)
+   and #10803 (chip is a 30h pill with 12px/600 type) gave it a chip-
+   style look that doesnt match csfloats Material toggle group.
+   These ships override #10802/#10803s geometry+coloring inside the
+   sell modal to match csfloat verbatim. Scope: any flex row that sits
+   directly after the duration label inside the sell modal, AND a flex
+   row whose children are .price-suggest-chip with no -label/-amt
+   inner spans (which means its the duration row, not the price row).
+   ===================================================================== */
+
+/* Ship #19800 — segmented container (the wrapping flex div).
+   csfloat group: 38h / 7px radius / inline-flex / rgba(193,206,255,0.04)
+   fill / 0 padding / no border. Sboxmarket: flex with gap:6 and no
+   container styling. Replace gap with 0, drop flex-wrap (segmented
+   groups dont wrap on csfloat — they are inline-flex no-wrap), add the
+   csfloat container fill + 7px radius + the 3px vertical inset that
+   keeps a 32h toggle inside a 38h shell (3 + 32 + 3 = 38). */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  gap: 0 !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 3px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19800 */
+
+/* Ship #19801 — individual toggle pill geometry inside the segmented
+   group. csfloat toggle: 32h, 4px radius, 0 padding (label owns the
+   pad), transparent bg, no border, block display. Override the
+   existing #10803 30h/14px-pad/999-radius pill spec only inside the
+   wrapping segmented div. The ":has(> .price-suggest-chip)" guard
+   ensures we dont touch the .price-suggest-row chips (which carry
+   .price-suggest-chip-label children). */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19801 */
+
+/* Ship #19802 — pill label typography. csfloat: 14px / 500 fw /
+   line-height 32px (matches the toggle h, vertically centers the
+   text) / letter-spacing 0.42px / Roboto / no text-transform.
+   Sboxmarket #10803 was 12px/600/28lh/0.1px ls — denser-but-shorter.
+   Match csfloat exactly. The pills text is its own content (no
+   inner span on these chips) so the rule applies on the button. */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.42px !important;
+  text-transform: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19802 */
+
+/* Ship #19803 — selected (.active) pill. csfloat: bg
+   rgba(193,206,255,0.04) compounding on the same group fill (visual
+   ~0.08), label color white. NOT a brand-color solid. This overrides
+   #10802 which painted .active with #1f7be3 solid. Inline style on
+   the button (modals.js sets borderColor:var(--accent), color:
+   var(--accent) when active) is also defeated with !important on
+   color. */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip.active,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip.active {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  color: rgb(255, 255, 255) !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19803 */
+
+/* Ship #19804 — unselected pill text color. csfloat: rgb(158,167,177)
+   (canonical ink-2 / secondary text). Sboxmarket default chip color
+   is var(--ink-3) which renders close but isnt the exact csfloat
+   ink-2. Pin the exact value. Hover on unselected: bring text closer
+   to white, no bg fill (csfloat does not paint a hover bg on the
+   toggle-button; the hover cue is color only via the focus-overlay
+   which sits at opacity 0 by default). */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip:not(.active),
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip:not(.active) {
+  color: rgb(158, 167, 177) !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip:not(.active):hover,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip:not(.active):hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19804 */
+
+/* Ship #19805 — transitions + focus ring. csfloats button transition
+   is `padding 0.15s cubic-bezier(0.4,0,0.2,1) 0.045s`. Use the
+   broader spec on color/bg here so the hover-color ease is also
+   smooth. csfloat focus styling uses an absolutely-positioned
+   .mat-button-toggle-focus-overlay span at opacity 0; on focus the
+   overlay fades to a subtle white at low alpha. We dont have that
+   pseudo-element here — emulate with an inset 1px brand-tinted
+   focus-visible ring so keyboard users still see the focus. */
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip {
+  transition:
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.045s,
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.045s,
+    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0s !important;
+  outline: 0 !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip:focus-visible,
+.info-modal:has(.offer-tab[title*="flat price"]) .wallet-input-label + div:has(> .price-suggest-chip) > .price-suggest-chip:focus-visible {
+  box-shadow: inset 0 0 0 1px rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19805 */
