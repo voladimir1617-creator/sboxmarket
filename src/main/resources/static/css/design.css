@@ -162901,3 +162901,212 @@ html body .auction-details .mdc-linear-progress__bar-inner {
   transition: background 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #16521 */
+
+/* CSFLOAT-1:1 PARITY ship #16522 (mobile bottom nav — bar background color rebased to csfloat semi-transparent token — measured: csfloat .container inside <app-nav-tabs> renders rgba(21, 23, 28, 0.8) so the backdrop-filter blur(10px) reads through and the bar visually fuses with the page underneath. sbox was rgba(15, 18, 26, 0.96) which is darker AND nearly opaque, killing the read-through entirely. Snap to csfloat exact 0.8 alpha + canonical body-bg token rgb(21,23,28).) */
+@media (max-width: 720px) {
+  body app-nav-tabs > div > .container,
+  body APP-NAV-TABS > div > .container,
+  body app-nav-tabs .container,
+  body .mobile-bottom-nav,
+  body .app-mobile-nav,
+  body nav.mobile-bottom-nav {
+    background-color: rgba(21, 23, 28, 0.8) !important;
+    background: rgba(21, 23, 28, 0.8) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16522 */
+
+/* CSFLOAT-1:1 PARITY ship #16523 (mobile bottom nav — backdrop-filter blur radius rebased to csfloat — measured: csfloat .container computed backdropFilter is blur(10px) (and -webkit-backdrop-filter mirrors it). sbox was blur(12px) which over-frosts the bar and softens contrast against the underlying market grid. Lock to csfloat exact 10px on both prefixed + unprefixed properties so iOS Safari renders identically.) */
+@media (max-width: 720px) {
+  body app-nav-tabs > div > .container,
+  body APP-NAV-TABS > div > .container,
+  body app-nav-tabs .container,
+  body .mobile-bottom-nav,
+  body .app-mobile-nav,
+  body nav.mobile-bottom-nav {
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16523 */
+
+/* CSFLOAT-1:1 PARITY ship #16524 (mobile bottom nav — top hairline divider rebased to csfloat exact — measured: csfloat .container computed borderTop is 1px solid rgba(193, 206, 255, 0.07). sbox was rgba(193, 206, 255, 0.06) which is one alpha step too low and made the bar visually float without the subtle separation csfloat ships. Snap to csfloat exact 0.07 alpha + the canonical cool-tinted hairline token.) */
+@media (max-width: 720px) {
+  body app-nav-tabs > div > .container,
+  body APP-NAV-TABS > div > .container,
+  body app-nav-tabs .container,
+  body .mobile-bottom-nav,
+  body .app-mobile-nav,
+  body nav.mobile-bottom-nav {
+    border-top: 1px solid rgba(193, 206, 255, 0.07) !important;
+    border-bottom: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    box-shadow: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16524 */
+
+/* CSFLOAT-1:1 PARITY ship #16525 (mobile bottom nav — bar geometry & layout rebased to csfloat exact — measured: csfloat .container is a flex row with padding 0 10px, justify-content: space-between, height 53px, full-viewport width. The outer <app-nav-tabs> is position:fixed left:0 right:0 bottom:0 z-index:997. sbox baseline #11815 set height calc(53px + safe-area) on the host but never re-asserted the inner container's flex layout or the bar's exact 0 10px gutter. Lock both layers: host fixed-bottom with 53px+safe-area-inset, inner container flex-row space-between with 0 10px padding. Tap-target row stays 53px tall.) */
+@media (max-width: 720px) {
+  body app-nav-tabs,
+  body APP-NAV-TABS,
+  body .mobile-bottom-nav,
+  body .app-mobile-nav,
+  body nav.mobile-bottom-nav {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    z-index: 997 !important;
+  }
+  body app-nav-tabs > div > .container,
+  body APP-NAV-TABS > div > .container,
+  body app-nav-tabs .container,
+  body .mobile-bottom-nav,
+  body .app-mobile-nav,
+  body nav.mobile-bottom-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    height: 53px !important;
+    padding: 0 10px !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16525 */
+
+/* CSFLOAT-1:1 PARITY ship #16526 (mobile bottom nav — per-tab .item geometry, icon, label typography rebased to csfloat exact — measured: csfloat .mat-ripple.item children are flex column / align-items center / justify-content center / gap 5px / padding 8px / flex 1 1 0% / height 52px. Each renders an SVG icon 18x18 color rgb(255,255,255) and a label span 11px/400 rgb(158,167,177) Roboto with normal letter-spacing + line-height. sbox had no per-item rules at the bottom-nav layer so labels and icons inherited generic body styles (16px ink-1) which destroyed the compact tab footprint. Lock the full csfloat triplet: item box, icon size + color, label typography. Tap-target row stays >= 44px even at the inner 52px clamp because the host height is 53px+safe-area.) */
+@media (max-width: 720px) {
+  body app-nav-tabs .container .mat-ripple.item,
+  body app-nav-tabs .container .item,
+  body APP-NAV-TABS .container .mat-ripple.item,
+  body APP-NAV-TABS .container .item,
+  body .mobile-bottom-nav .nav-item,
+  body .mobile-bottom-nav > a,
+  body .mobile-bottom-nav > button,
+  body .app-mobile-nav .nav-item,
+  body .app-mobile-nav > a,
+  body .app-mobile-nav > button {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 8px !important;
+    margin: 0 !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    height: 52px !important;
+    color: rgb(255, 255, 255) !important;
+    background-color: transparent !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    text-decoration: none !important;
+    box-sizing: border-box !important;
+    font-family: Roboto, "Helvetica Neue", sans-serif !important;
+    cursor: pointer !important;
+  }
+  body app-nav-tabs .container .mat-ripple.item svg,
+  body app-nav-tabs .container .item svg,
+  body APP-NAV-TABS .container .mat-ripple.item svg,
+  body APP-NAV-TABS .container .item svg,
+  body .mobile-bottom-nav .nav-item svg,
+  body .mobile-bottom-nav .nav-item .material-icon,
+  body .mobile-bottom-nav .nav-item .material-symbols-outlined,
+  body .app-mobile-nav .nav-item svg,
+  body .app-mobile-nav .nav-item .material-icon,
+  body .app-mobile-nav .nav-item .material-symbols-outlined {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 18px !important;
+    color: rgb(255, 255, 255) !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
+  }
+  body app-nav-tabs .container .mat-ripple.item span,
+  body app-nav-tabs .container .item span,
+  body APP-NAV-TABS .container .mat-ripple.item span,
+  body APP-NAV-TABS .container .item span,
+  body .mobile-bottom-nav .nav-item .label,
+  body .mobile-bottom-nav .nav-item > span,
+  body .app-mobile-nav .nav-item .label,
+  body .app-mobile-nav .nav-item > span {
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    line-height: normal !important;
+    letter-spacing: normal !important;
+    color: rgb(158, 167, 177) !important;
+    margin: 0 !important;
+    font-family: Roboto, "Helvetica Neue", sans-serif !important;
+    text-transform: none !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16526 */
+
+/* CSFLOAT-1:1 PARITY ship #16527 (mobile bottom nav — active tab indicator (.selected / .active) rebased to csfloat exact — measured: csfloat applies routerLinkActive="selected" on the active .item; the active item's icon switches to brand rgb(35, 123, 255) and the active item's label switches from rgb(158, 167, 177) to rgb(35, 123, 255). There is NO underline bar, no background fill, no border — the color shift IS the indicator. sbox baseline never set the active state at the mobile-nav layer so active tabs were visually identical to idle ones. Snap active state to csfloat brand-blue color shift on icon + label only. No box-shadow, no underline, no chip background.) */
+@media (max-width: 720px) {
+  body app-nav-tabs .container .mat-ripple.item.selected,
+  body app-nav-tabs .container .mat-ripple.item.active,
+  body app-nav-tabs .container .item.selected,
+  body app-nav-tabs .container .item.active,
+  body APP-NAV-TABS .container .mat-ripple.item.selected,
+  body APP-NAV-TABS .container .item.selected,
+  body .mobile-bottom-nav .nav-item.active,
+  body .mobile-bottom-nav .nav-item.selected,
+  body .mobile-bottom-nav .nav-item[aria-current="page"],
+  body .app-mobile-nav .nav-item.active,
+  body .app-mobile-nav .nav-item.selected,
+  body .app-mobile-nav .nav-item[aria-current="page"] {
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+  body app-nav-tabs .container .mat-ripple.item.selected svg,
+  body app-nav-tabs .container .mat-ripple.item.active svg,
+  body app-nav-tabs .container .item.selected svg,
+  body app-nav-tabs .container .item.active svg,
+  body APP-NAV-TABS .container .mat-ripple.item.selected svg,
+  body APP-NAV-TABS .container .item.selected svg,
+  body .mobile-bottom-nav .nav-item.active svg,
+  body .mobile-bottom-nav .nav-item.active .material-icon,
+  body .mobile-bottom-nav .nav-item.selected svg,
+  body .mobile-bottom-nav .nav-item[aria-current="page"] svg,
+  body .app-mobile-nav .nav-item.active svg,
+  body .app-mobile-nav .nav-item.active .material-icon,
+  body .app-mobile-nav .nav-item.selected svg,
+  body .app-mobile-nav .nav-item[aria-current="page"] svg {
+    color: rgb(35, 123, 255) !important;
+    fill: rgb(35, 123, 255) !important;
+  }
+  body app-nav-tabs .container .mat-ripple.item.selected span,
+  body app-nav-tabs .container .mat-ripple.item.active span,
+  body app-nav-tabs .container .item.selected span,
+  body app-nav-tabs .container .item.active span,
+  body APP-NAV-TABS .container .mat-ripple.item.selected span,
+  body APP-NAV-TABS .container .item.selected span,
+  body .mobile-bottom-nav .nav-item.active .label,
+  body .mobile-bottom-nav .nav-item.active > span,
+  body .mobile-bottom-nav .nav-item.selected .label,
+  body .mobile-bottom-nav .nav-item.selected > span,
+  body .mobile-bottom-nav .nav-item[aria-current="page"] .label,
+  body .mobile-bottom-nav .nav-item[aria-current="page"] > span,
+  body .app-mobile-nav .nav-item.active .label,
+  body .app-mobile-nav .nav-item.active > span,
+  body .app-mobile-nav .nav-item.selected .label,
+  body .app-mobile-nav .nav-item.selected > span,
+  body .app-mobile-nav .nav-item[aria-current="page"] .label,
+  body .app-mobile-nav .nav-item[aria-current="page"] > span {
+    color: rgb(35, 123, 255) !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #16527 */
