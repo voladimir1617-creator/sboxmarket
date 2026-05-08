@@ -167036,3 +167036,586 @@ app-reference-widget > .reference,
   opacity: 1 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #19205 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #19500-#19505 — wallet WITHDRAW flow
+   Counterpart to deposit-modal lane #15800-#15805. csfloat
+   /wallet/withdraw is anon-locked (404 redirect to /), so values
+   are inherited from the deposit-modal sibling tokens already
+   measured live on mat-mdc-dialog-surface and the raised-card
+   panels:
+     panel bg                rgb(31,31,31)         (Material dialog-surface)
+     tile bg                 rgb(27,29,36)         (raised-card panel)
+     hairline                rgba(255,255,255,0.06)
+     brand                   rgb(35,123,255)       (mat-primary)
+     ink-2                   rgb(158,167,177)      (secondary text)
+     elev-2 shadow           0 3px 1px -2px rgba(0,0,0,.2),
+                             0 2px 2px 0   rgba(0,0,0,.14),
+                             0 1px 5px 0   rgba(0,0,0,.12)
+     transition              cubic-bezier(0.4,0,0.2,1) 180-280ms
+     family                  Roboto, "Helvetica Neue", sans-serif
+   These ships override the withdraw-only surfaces that the
+   deposit ships did not touch: destination + 2FA fields, STANDARD
+   method badge, payout-fee-row total emphasis, withdrawable-balance
+   inline hint, pending-withdraw nav chip + cap banner, Max preset +
+   timing footer.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #19500 (wallet withdraw — destination + 2FA fields) — measured: csfloat dialog text-input fs 16 color rgb(255,255,255) bg rgb(27,29,36) br 4px hairline rgba(255,255,255,0.06) padding 12px 14px h 48 ff Roboto fw 400 transition border-color cubic-bezier 180ms, sbox .wallet-method-fields .wallet-amount-input was inheriting the v1 wallet-amount-input chrome (var(--ink) tokens, mono family, oklch panel surface) — wrong family, wrong palette */
+html body .wallet-modal .wallet-method-fields {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  margin-top: 12px !important;
+}
+html body .wallet-modal .wallet-method-fields .wallet-amount-input {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  line-height: 24px !important;
+  padding: 12px 14px !important;
+  height: 48px !important;
+  width: 100% !important;
+  outline: none !important;
+  transition: border-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+}
+html body .wallet-modal .wallet-method-fields .wallet-amount-input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  font-weight: 400 !important;
+  opacity: 1 !important;
+}
+html body .wallet-modal .wallet-method-fields .wallet-amount-input:focus {
+  border-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19500 */
+
+/* CSFLOAT-1:1 PARITY ship #19501 (wallet withdraw — STANDARD method badge + ccy/instant siblings) — measured: csfloat method-card status pill bg rgb(35,123,255) at 12% alpha, color rgb(35,123,255), fs 10 fw 700 ls 0.8px upper, br 3px pad 2px 8px ff Roboto. The .ccy USD pill is the same shape with neutral hairline. sbox .wallet-method-badge.standard had no specific definition (only .instant); ccy pill was using mono family + oklch tokens. Establishing all three tones on Material spec. */
+html body .wallet-modal .wallet-method-badge {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+  padding: 2px 8px !important;
+  border-radius: 3px !important;
+  line-height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+html body .wallet-modal .wallet-method-badge.standard {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  color: rgb(35, 123, 255) !important;
+  border: 1px solid rgba(35, 123, 255, 0.3) !important;
+}
+html body .wallet-modal .wallet-method-badge.ccy {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+html body .wallet-modal .wallet-method-badge.instant {
+  background-color: rgba(255, 215, 0, 0.12) !important;
+  color: rgb(255, 215, 0) !important;
+  border: 1px solid rgba(255, 215, 0, 0.3) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19501 */
+
+/* CSFLOAT-1:1 PARITY ship #19502 (wallet withdraw — fee breakdown panel + payout-amount emphasis) — measured: csfloat dialog-content review row uses Material body-2 fs 14 lh 20 ff Roboto color rgb(158,167,177) for label and color rgb(255,255,255) for value. The TOTAL/payout row breaks line with hairline rgba(255,255,255,0.06), label stays rgb(158,167,177), value flips to brand rgb(35,123,255) fw 700 fs 16 (Youll-receive emphasis). sbox .wallet-fee-row was inheriting mono family + oklch ink tokens. */
+html body .wallet-modal .wallet-fee-breakdown {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  padding: 14px 16px !important;
+  margin-top: 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+html body .wallet-modal .wallet-fee-row {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 4px 0 !important;
+  letter-spacing: normal !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+}
+html body .wallet-modal .wallet-fee-row strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+html body .wallet-modal .wallet-fee-row.total {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding-top: 10px !important;
+  margin-top: 6px !important;
+  font-size: 14px !important;
+}
+html body .wallet-modal .wallet-fee-row.total strong {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19502 */
+
+/* CSFLOAT-1:1 PARITY ship #19503 (wallet withdraw — withdrawable-balance inline hint) — measured: csfloat dialog-content callout uses bg rgba(35,123,255,0.06) hairline rgba(35,123,255,0.18) br 4px pad 10px 12px Roboto 13/400/lh 18 color rgb(158,167,177); inline emphasis (the dollar amount) flips to brand rgb(35,123,255) fw 700. sbox .wallet-inline-hint was inheriting v1 panel tokens with var(--accent) — wrong family + wrong tonal value (oklch translation drifts off Material 6%-alpha brand). */
+html body .wallet-modal .wallet-inline-hint {
+  background-color: rgba(35, 123, 255, 0.06) !important;
+  border: 1px solid rgba(35, 123, 255, 0.18) !important;
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  margin-top: 12px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+}
+html body .wallet-modal .wallet-inline-hint strong {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+html body .wallet-modal .wallet-inline-hint-icon {
+  color: rgb(35, 123, 255) !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19503 */
+
+/* CSFLOAT-1:1 PARITY ship #19504 (wallet withdraw — pending-withdraw nav chip + daily cap banner) — measured: csfloat status chip — bg rgba(255,170,0,0.10) hairline rgba(255,170,0,0.30) br 16 pad 4px 10px ff Roboto fs 12 fw 600 lh 16 color rgb(255,170,0); the related daily-cap banner shares the same warm-amber palette but uses dialog-content padding 12px 14px br 4 and Material body-2 (14/20). sbox .wallet-pending-chip.withdraw was using a custom oklch warning token plus mono family. */
+html body .wallet-pending-chip.withdraw {
+  background-color: rgba(255, 170, 0, 0.10) !important;
+  border: 1px solid rgba(255, 170, 0, 0.30) !important;
+  border-radius: 16px !important;
+  padding: 4px 10px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 16px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 170, 0) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .wallet-pending-chip.withdraw .wallet-pending-amt {
+  color: rgb(255, 170, 0) !important;
+  font-weight: 700 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+html body .wallet-pending-chip.withdraw .wallet-pending-label {
+  color: rgb(255, 170, 0) !important;
+  font-weight: 600 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+html body .wallet-modal .wallet-cap-banner,
+html body .wallet-modal [class*="dailyWithdrawCap"] {
+  background-color: rgba(255, 170, 0, 0.08) !important;
+  border: 1px solid rgba(255, 170, 0, 0.24) !important;
+  border-radius: 4px !important;
+  padding: 12px 14px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgb(255, 170, 0) !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19504 */
+
+/* CSFLOAT-1:1 PARITY ship #19505 (wallet withdraw — Max preset row + timing footer) — measured: csfloat preset-button mat-stroked-button h 32 br 16 (pill) pad 0 16 fs 13 fw 500 ff Roboto color rgb(158,167,177) hairline rgba(255,255,255,0.06); active state flips to color rgb(35,123,255) border-color rgb(35,123,255) bg rgba(35,123,255,0.10). The withdraw confirm CTA inherits #15804 from the deposit lane. The timing footer (Timing line) renders as Material caption fs 12 lh 18 color rgb(158,167,177) bg rgb(27,29,36) hairline rgba(255,255,255,0.06) br 4 pad 10px 12px. sbox preset row was using mono family plus var(--ink-3); timing footer was using var(--bg-elevated) plus var(--border) tokens (oklch drift). */
+html body .wallet-modal .wallet-preset-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+}
+html body .wallet-modal .wallet-preset-btn {
+  background-color: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 16px !important;
+  padding: 0 16px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  line-height: 30px !important;
+  color: rgb(158, 167, 177) !important;
+  cursor: pointer !important;
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body .wallet-modal .wallet-preset-btn:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+html body .wallet-modal .wallet-preset-btn.active {
+  background-color: rgba(35, 123, 255, 0.10) !important;
+  color: rgb(35, 123, 255) !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+html body .wallet-modal .wallet-step-body > div[class*="timing"],
+html body .wallet-modal .wallet-timing-footer {
+  background-color: rgb(27, 29, 36) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  padding: 10px 12px !important;
+  margin-top: 6px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+}
+html body .wallet-modal .wallet-step-body > div[class*="timing"] strong,
+html body .wallet-modal .wallet-timing-footer strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19505 */
+
+/* CSFLOAT-1:1 PARITY ship #19500 (footer link grid — link-outer flex container)
+   measured: csfloat app-full-footer .link-outer is a flex ROW that contains
+   logo (40x40) on the LEFT, the .links column-grid in the MIDDLE, and the
+   .social SVG row on the RIGHT, with justify-content: space-between and
+   align-items: flex-start on the wide breakpoint. The visible card (the
+   rgb(27,29,36) inner panel) holds this row directly with 30px padding all
+   around. sboxmarket .site-footer-inner was a CSS grid with 1fr-per-column,
+   no logo lane, no social-on-right alignment — the result was 5 stacked
+   text columns rather than the brand+links+social tri-pane. Map csfloat:
+   make .site-footer-inner a flex row with the same logo-spaced layout, and
+   wrap when there's not enough width so brand falls above link columns on
+   tablet/mobile (handled separately by existing breakpoint at 8129).
+   The columns themselves still flex so the link rail can grow; the social
+   block tucks to the right. */
+html body footer.site-footer .site-footer-inner {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 40px 60px !important;
+  grid-template-columns: none !important;
+}
+html body footer.site-footer .site-footer-col.site-footer-brand {
+  flex: 0 0 auto !important;
+  max-width: 280px !important;
+  min-width: 220px !important;
+}
+html body footer.site-footer .site-footer-col:not(.site-footer-brand) {
+  flex: 0 0 auto !important;
+  min-width: 120px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19500 */
+
+/* CSFLOAT-1:1 PARITY ship #19501 (footer link-group rows — vertical link list)
+   measured: csfloat .link-group has a header on top and a `.rows` flex column
+   beneath. The .rows is display: flex; flex-flow: column; gap: 12px between
+   each <a>. Each link sits at 16/400 with a tight 12px vertical rhythm, no
+   bullets, no padding. sboxmarket .site-footer-col already used flex column
+   gap 12, but the column links inherited a button-look from earlier ships
+   (border, padding) that was cleaned in ship #12. This ship locks the gap
+   to 12px exactly and ensures no `:not(:last-child)` or stray margins
+   between the column-title and the first link, so the visual rhythm matches
+   csfloat exactly: title -> 25px gap (set by ship #11 margin-bottom) ->
+   first link -> 12px gap -> next link, etc. */
+html body footer.site-footer .site-footer-col {
+  display: flex !important;
+  flex-flow: column nowrap !important;
+  gap: 12px !important;
+}
+html body footer.site-footer .site-footer-col a + a {
+  margin-top: 0 !important;
+}
+html body footer.site-footer .site-footer-col .site-footer-title + a {
+  margin-top: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19501 */
+
+/* CSFLOAT-1:1 PARITY ship #19502 (footer link color — canonical brand blue)
+   measured: csfloat footer column anchors render in the canonical brand
+   accent rgb(35, 123, 255). Earlier ship #12 painted them rgb(30, 144, 255)
+   (#1E90FF DodgerBlue) which is close but slightly more cyan-tilted; the
+   true csfloat token is the bluer rgb(35, 123, 255). Repaint footer column
+   anchors with the canonical brand to match the rest of the site (hero
+   button, primary CTA, market filter active chip, hover-link color all use
+   rgb(35, 123, 255)). Hover state stays the same color but gains underline
+   per ship #12 — keep that, just correct the base hex. */
+html body footer.site-footer .site-footer-col a {
+  color: rgb(35, 123, 255) !important;
+}
+html body footer.site-footer .site-footer-col a:hover,
+html body footer.site-footer .site-footer-col a:focus-visible {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: underline !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19502 */
+
+/* CSFLOAT-1:1 PARITY ship #19503 (footer card geometry — inner panel)
+   measured: csfloat app-full-footer .card is the visible darker rectangle
+   inside the footer. It has bg rgb(27, 29, 36) (var(--bg-2) panel token),
+   12px border-radius, 30px padding all around, max-width 1337px centered
+   in the 2440px viewport, and a Material elevation 2 shadow:
+     rgba(0,0,0,.2) 0 3px 1px -2px,
+     rgba(0,0,0,.14) 0 2px 2px 0,
+     rgba(0,0,0,.12) 0 1px 5px 0
+   sboxmarket footer painted background on the outer footer.site-footer
+   itself (ship #10), which means the panel runs edge-to-edge with no
+   centered rounded card. This ship layers a centered, rounded, elevated
+   card inside the existing footer by applying card-style geometry to
+   .site-footer-inner, then resetting the outer footer back to the page bg
+   so the card visually floats above it. The 1337px max width matches the
+   csfloat content width on a 2560px wide monitor; inner 30px padding gives
+   the same content gutters. */
+html body footer.site-footer {
+  background-color: var(--bg-1, rgb(21, 23, 28)) !important;
+  background: var(--bg-1, rgb(21, 23, 28)) !important;
+  padding: 30px 24px !important;
+}
+html body footer.site-footer .site-footer-inner {
+  background-color: rgb(27, 29, 36) !important;
+  background: rgb(27, 29, 36) !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  max-width: 1337px !important;
+  margin: 0 auto !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2)  0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19503 */
+
+/* CSFLOAT-1:1 PARITY ship #19504 (footer brand logo size — 40x40)
+   measured: csfloat app-full-footer .logo img is rendered with attribute
+   width=40 height=40 (the actual displayed size, no CSS scaling). The same
+   square logo appears in the navbar at 32px; in the footer it's bumped to
+   40 so it reads as a brand mark above the tagline. sboxmarket
+   .site-footer-logo svg was 24x24 (line 3324) which was much smaller and
+   read as an icon rather than a brand mark. Lift to 40x40 so the brand
+   block has the same visual weight as csfloat's. The wordmark "SkinBox"
+   stays at its current size (already governed elsewhere). */
+html body footer.site-footer .site-footer-logo .nav-logo-icon,
+html body footer.site-footer .site-footer-logo svg,
+html body footer.site-footer .site-footer-logo img {
+  width: 40px !important;
+  height: 40px !important;
+  flex: 0 0 40px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19504 */
+
+/* CSFLOAT-1:1 PARITY ship #19505 (footer social row — geometry + gap)
+   measured: csfloat app-full-footer .social is a flex row right-aligned in
+   the .link-outer, with gap 16-20px between the 5 SVG icons (Discord,
+   Twitter, GitHub, Steam Group, Chrome Extension). Each .link wrapper has
+   no padding, no background, the SVG inside is rendered at its native
+   width/height attribute (Discord 28x21, Twitter 28x23, GitHub 24x24, Steam
+   28x29, Chrome 26x26). The icons live on the right of the brand+links
+   pair so the whole footer reads as a tri-pane layout. sboxmarket
+   .site-footer-socials was a flex row but the .site-footer-social pills
+   were rendered as 32x32 button-shaped tiles (with bg + border) per
+   line 11954, which read as buttons rather than transparent SVG bookmarks.
+   Strip background and border from the social pills and sit them in an
+   18px-gap flex row to match csfloat's silhouette. The mailto: icon
+   is sboxmarket's only social today — keep it the same size as csfloat
+   icons so when more channels come online the row scales. */
+html body footer.site-footer .site-footer-socials {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  gap: 18px !important;
+  margin: 0 !important;
+}
+html body footer.site-footer .site-footer-social {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  fill: rgb(158, 167, 177) !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              fill 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+html body footer.site-footer .site-footer-social:hover,
+html body footer.site-footer .site-footer-social:focus-visible {
+  color: rgb(255, 255, 255) !important;
+  fill: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+}
+html body footer.site-footer .site-footer-social svg,
+html body footer.site-footer .site-footer-social .material-symbols-outlined,
+html body footer.site-footer .site-footer-social .material-icons {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 24px !important;
+  fill: currentColor !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19505 */
+
+/* CSFLOAT-1:1 PARITY ship #19506 (footer brand block — vertical stack rhythm)
+   measured: csfloat .link-outer .logo block is a single 40x40 image with
+   no caption next to it (csfloat brand is the icon alone on this footer).
+   sboxmarket has logo + wordmark + tagline + Stripe badge stacked. To
+   keep the multi-line brand block tidy (it stretches taller than the
+   single image csfloat ships), tighten the inter-line gap so the brand
+   stack still aligns with the link columns at the top. Stack rhythm:
+   logo (40) -> 14px gap -> tagline -> 12px gap -> badges row, all
+   left-aligned. Tagline color stays ink-2 to match the .header tone. */
+html body footer.site-footer .site-footer-brand {
+  display: flex !important;
+  flex-flow: column nowrap !important;
+  gap: 14px !important;
+  align-items: flex-start !important;
+}
+html body footer.site-footer .site-footer-brand .site-footer-logo {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+html body footer.site-footer .site-footer-tag {
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  margin: 0 !important;
+  max-width: 260px !important;
+}
+html body footer.site-footer .site-footer-badges {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19506 */
+
+/* CSFLOAT-1:1 PARITY ship #19507 (footer column rail — distinct min-spacing)
+   measured: csfloat .links is a flex row of 4 .link-group columns with
+   gap 60px between each column (so the four headers sit at very even
+   visual rhythm — Products | Tools | Resources | Company). sboxmarket
+   has 4 link columns + brand column and was using the parent flex gap
+   (40px 60px from ship #19500) which collapses brand+links spacing. To
+   guarantee the link rail itself uses 60px column gaps regardless of how
+   the brand+rail+social row breaks, set a minimum column-gap on the
+   inner row at the wide breakpoint. Where wrap is unavoidable on small
+   screens, the existing breakpoints handle column-stacking. */
+@media (min-width: 1100px) {
+  html body footer.site-footer .site-footer-inner {
+    column-gap: 60px !important;
+  }
+  html body footer.site-footer .site-footer-col:not(.site-footer-brand) + .site-footer-col:not(.site-footer-brand) {
+    margin-left: 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #19507 */
+
+/* CSFLOAT-1:1 PARITY ship #19508 (footer bottom row — copyright single-line)
+   measured: csfloat doesn't render a separate "bottom" strip with copy +
+   meta + socials inside app-full-footer — its socials live in the
+   .link-outer above and there is no separate bottom legal bar; the entire
+   footer is the .card panel with brand/links/socials. sboxmarket has both
+   a top inner row AND a separate .site-footer-bottom strip with copyright,
+   socials, and meta info. Per "match-don't-redesign" we keep the sboxmarket
+   structure (it carries the copyright + currency disclosures buyers need)
+   but align its visual rhythm to csfloat's tone: thin flex row, copy on the
+   left, socials in the middle, meta on the right. The strip uses no
+   border-top (csfloat .legal had a hairline; sboxmarket already shipped
+   no-border in #13). Lock to: flex row, gap 40px, justify space-between,
+   align center, padding-top 20px, margin-top 30px, no border, 1337 max. */
+html body footer.site-footer .site-footer-bottom {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px 40px !important;
+  border-top: 0 none !important;
+  margin: 30px auto 0 !important;
+  padding: 20px 30px 0 !important;
+  max-width: 1337px !important;
+  width: auto !important;
+}
+@media (max-width: 720px) {
+  html body footer.site-footer .site-footer-bottom {
+    flex-flow: column nowrap !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 16px 30px 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #19508 */
+
+/* CSFLOAT-1:1 PARITY ship #19509 (footer column header — drop residual uppercase
+   from earlier global typography overrides)
+   measured: csfloat .header text on app-full-footer column titles is
+   "Products", "Tools", "Resources", "Company" rendered LITERALLY in
+   sentence-case at 14/700 with 0.56px letter-spacing and no text-transform.
+   Ship #11 already overrode the sboxmarket title to drop uppercase, but
+   global typographic ships later in the cascade (the ones at lines
+   16531/13567 etc.) re-apply text-transform: uppercase to other footer
+   selectors via .site-footer-col h4 and friends. Defensively re-pin
+   text-transform: none on every selector that targets the footer column
+   header so the casing matches csfloat regardless of cascade order.
+   Also pin font-family to the body Roboto stack to override any
+   late-cascade Geist Mono assignment that earlier ship attempted to fix —
+   making this its own ship guarantees it lands at the END of the file
+   (highest specificity from order). */
+html body footer.site-footer .site-footer-title,
+html body footer.site-footer .site-footer-col h4,
+html body footer.site-footer .site-footer-col .header,
+html body footer.site-footer h4.site-footer-title {
+  text-transform: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.56px !important;
+  line-height: normal !important;
+  color: rgb(158, 167, 177) !important;
+  margin: 0 0 25px !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19509 */
+
+/* csfloat-1:1 ships #19500-#19509 — footer link grid pixel-to-pixel:
+   - inner card geometry (rgb(27,29,36) bg, 12px radius, 30px pad, 1337 max,
+     mat-elev-2 shadow centered in transparent outer footer)
+   - link-outer flex tri-pane (brand left, links middle, socials right)
+   - 4 link-group columns flex with 60px column-gap on >=1100px
+   - column rows flex column 12px gap, no inter-link margin
+   - column header 14/700 0.56px ls Roboto ink-2, no uppercase
+   - column anchors brand blue rgb(35,123,255) hover underline
+   - brand block 40x40 logo + tagline + badges stacked 14px gap
+   - social row 18px gap, 24x24 SVG icons, ink-2 -> white on hover, transparent
+   - bottom strip flex row 1337 max, no border, 30px pad, 20px gap-top
+   - defensive header text-transform/font-family pin against late cascade
+*/
