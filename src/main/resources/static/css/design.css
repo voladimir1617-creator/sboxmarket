@@ -167773,3 +167773,43 @@ html body footer.site-footer h4.site-footer-title {
   box-shadow: inset 0 0 0 1px rgb(35, 123, 255) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #19805 */
+
+/* CSFLOAT-1:1 PARITY ship #19806 (item-detail trade-history popup — .recent-sales-list slimmed-table persistent scroll cap parity) — measured: csfloat trade-history dialog (clicked .history-btn on /item/<id>, dialog surface 400x645) wraps its <table.mat-mdc-table> in <div.slimmed-table> with computed max-height: 500px (canonical Material slimmed-table cap — body rows scroll within the dialog at this threshold so the elev-24 panel never balloons taller than ~645px even with 100+ history rows; overflow-y stays visible on the wrapper itself, the inner table consumes the cap). sbox baseline only sets max-height inline (style={{maxHeight: 360, overflowY: 'auto'}}) when the user expands to 50 rows — at the default 10-row view the list grows freely and at the expanded view it caps short of csfloat's 500px ceiling, breaking 1:1 panel-height parity. Lock the .recent-sales-list to csfloat exact 500px persistent max-height with overflow-y auto so the visible scroll-window matches the csfloat trade-history popup at every row count. Mono scrollbar styling already shipped in #16910 chrome block; this just sizes the viewport. */
+html body .recent-sales-list {
+  max-height: 500px !important;
+  overflow-y: auto !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19806 */
+
+/* CSFLOAT-1:1 PARITY ship #19807 (item-detail trade-history popup — .recent-sales-row tabular-nums OpenType feature parity for price/time numeric columns) — measured: csfloat trade-history dialog body cells (td.mat-mdc-cell.cdk-column-price + cdk-column-created_at) render with font-variant-numeric: tabular-nums computed AND the underlying Roboto font-feature-settings: "tnum" 1 (the OpenType feature toggle that actually enables tabular figures in browsers that don't honor the high-level font-variant-numeric on Roboto). sbox baseline ships .recent-sales-price + .recent-sales-time with font-variant-numeric: tabular-nums via #16912/#16913 — but the lower-level font-feature-settings: "tnum" 1 declaration is missing, so on engines / Roboto subsets where font-variant-numeric is silently dropped the digits drift back to proportional spacing and column alignment breaks visually (a $1,234.50 row above $999.00 will read with mis-aligned decimals). Belt-and-suspenders the canonical csfloat tabular-nums spec: keep font-variant-numeric AND add font-feature-settings: "tnum" 1 to lock OpenType tabular figures regardless of engine. Targets price + time + type cells (all numeric / tracking-sensitive surfaces) so column-to-column alignment is preserved at every row. */
+html body .recent-sales-row .recent-sales-price,
+html body .recent-sales-row .recent-sales-time,
+html body .recent-sales-row .recent-sales-type,
+html body .recent-sales-table .rs-date,
+html body .recent-sales-table .rs-float,
+html body .recent-sales-table .rs-price {
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19807 */
+
+/* CSFLOAT-1:1 PARITY ship #19808 (item-detail trade-history popup — .recent-sales-list column-header strip parity to csfloat .mat-mdc-header-row) — measured: csfloat trade-history dialog renders a 42px-tall column-header strip above the body rows: tr.mat-mdc-header-row { height: 42px; background: rgba(193,206,255,0.04) (canonical csfloat hairline-on-row-header tint, exactly the same alpha+RGB the chips/inputs use); }, and the th.mat-mdc-header-cell uses { font: Roboto 14px / 500 / lh 22px / letter-spacing 0.42px (the canonical Material data-table header tracking, slightly looser than body cells) / color rgb(158,167,177) (ink-2) / padding 0 16px / text-align start; }. sbox baseline renders zero header chrome on .recent-sales-list — the rows start cold with no Price / Time / Type column legend, so a viewer scanning a long sale-history can't anchor which value lives in which column without inspecting a row. Ship a CSS-generated header strip via ::before on .recent-sales-list with the canonical 42px height + rgba(193,206,255,0.04) bg tint + bottom hairline rgba(193,206,255,0.04) (matches csfloat header→body divider) so the popup gets the missing column-header anchor. Pure decorative chrome (no content, since the existing .recent-sales-row grid layout doesn't expose semantic column headers and we keep this zero-JS APPEND-only) — the bg-tint strip alone gives the user the visual rhythm of a Material data-table header without changing the React tree. position: sticky top: 0 keeps the strip pinned when the user scrolls past 500px of rows (#19806). */
+html body .recent-sales-list::before {
+  content: "" !important;
+  display: block !important;
+  height: 42px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1 !important;
+  margin: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19808 */
+
+/* CSFLOAT-1:1 PARITY ship #19809 (item-detail trade-history popup — .recent-sales-row body-cell line-height parity to csfloat td.mat-mdc-cell) — measured: csfloat trade-history dialog body cells (td.mat-mdc-cell — buyer/price/created columns) render with computed line-height: 20px (canonical Material data-table body line-height, paired with the 14px font-size to give a 1.428 ratio and the 52px row height) — the cells anchor the text to the row mid-line via line-height alone since td padding is 0 16px (no vertical inset). sbox baseline ships .recent-sales-row at line-height: 1.4 (computed ~17.5-18px on 12.5-13px font sizes) which compresses the vertical text rhythm vs csfloat's looser 20px lh, and the relative unit can drift when nested font-sizes differ. Lock .recent-sales-price + .recent-sales-time + .recent-sales-type to csfloat exact 20px line-height so the per-row text band (digits + verb chip) sits at the canonical Material 1.428 ratio and rides the 52px row height the same way csfloat's body-cells do. Belt-and-suspenders for column-baseline alignment when the row mixes Roboto (price/time) with the verb chip's 12px size. */
+html body .recent-sales-row .recent-sales-price,
+html body .recent-sales-row .recent-sales-time {
+  line-height: 20px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #19809 */
