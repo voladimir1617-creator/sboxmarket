@@ -190247,3 +190247,583 @@ body .cart-confirm-backdrop {
   background: rgba(0, 0, 0, 0.48) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128547 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128520-#128526 — SEARCH SORT ROW CHROME
+   csfloat.com/search sort row (live measured 2026-05-08 viewport 1440):
+     .container          flex row, gap 10, ai center, padding 0
+     .preset/.refresh    38x36 mat-flat-buttons, bg rgba(193,206,255,0.04),
+                         border-radius 8, padding 0 10, min-width 36,
+                         icon 18x18, color #fff
+     .toggle-group       bg rgba(193,206,255,0.04), border-radius 7,
+                         items 32h, font 14/500, padding 0 12
+     .sort               170x38 mat-form-field, bg rgba(193,206,255,0.04),
+                         padding 0 16, border-radius 6
+     paginator           NONE (infinite scroll)
+   Sboxmarket .toolbar / .sort-picker-chip / .toolbar-refresh diverge on
+   surface, radius, padding, dimensions; this batch APPENDS corrections
+   to land the row at CSFloat's measured geometry while keeping sbox's
+   own brand rhythm where divergence is intentional (results-meta copy
+   below the row, Geist font family preserved).
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128520 — strip .toolbar wrapper chrome
+   csfloat .search-bar .container has padding:0, no background, no border,
+   no border-radius — the row floats raw above the grid with the controls
+   themselves carrying the visual weight (each control has its own
+   panel-tinted bg). Sbox .toolbar wraps in a panel card (bg var(--bg-1),
+   border, radius 10, padding 10/12) which double-stacks the panel
+   surface. Strip the wrapper to a transparent flex shell so the
+   individual chips read as the surface, like csfloat.
+*/
+.market-toolbar.toolbar,
+.toolbar:not(nav .toolbar):not(.csfloat-subnav .toolbar):not(.market-stats-strip .toolbar) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128520 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128521 — toolbar flex gap to 10
+   csfloat .container uses gap:10 between flex children. Sbox .toolbar
+   used gap:8 which collapsed the controls 2px tighter than csfloat's
+   measured rhythm. Pin gap to 10 for parity with csfloat's row spacing.
+*/
+.market-toolbar.toolbar,
+.toolbar:not(nav .toolbar):not(.csfloat-subnav .toolbar):not(.market-stats-strip .toolbar) {
+  gap: 10px !important;
+  align-items: center !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128521 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128522 — sort-picker chip surface
+   csfloat .sort > mat-form-field uses bg rgba(193,206,255,0.04) — the
+   panel-tint that all sort-row chips share. Sbox .sort-picker-chip used
+   var(--bg-1) (a solid panel) with a 1px hairline border. Strip the
+   border and replace the bg with the CSFloat panel-tint so the chip
+   reads as inset on the page rather than as an overlay panel.
+*/
+.sort-picker-chip {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+}
+.sort-picker-chip:hover,
+.sort-picker.open .sort-picker-chip {
+  background: rgba(193, 206, 255, 0.08) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128522 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128523 — sort-picker chip geometry
+   csfloat .sort wrapper measures 170x38 with padding 0 16 and
+   border-radius 6. Sbox .sort-picker-chip measured min-width 200
+   (too wide), padding 8 10 8 12 (asymmetric), border-radius 8.
+   Pin to csfloat's measured geometry so the chip's silhouette and
+   padding rhythm match the rest of the row (preset/refresh use 8,
+   toggle-group uses 7, sort uses 6 — the sort field is intentionally
+   the lowest radius to read as a form-field rather than a button).
+*/
+.sort-picker-chip {
+  min-width: 170px !important;
+  height: 38px !important;
+  padding: 0 16px !important;
+  border-radius: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128523 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128524 — sort-picker chip typography
+   csfloat .sort > mat-select value is font-size 16 (Roboto) — but the
+   row's mat-button-toggle labels which sit immediately to its left use
+   font-size 14/500. The two co-exist because csfloat's sort field uses
+   the Material default while the toggle uses a smaller label. For sbox
+   we keep our Geist family but bump the chip label from 12 to 14 to
+   match the toggle group's label weight + size — the larger text reads
+   correctly against the new 38h chip from ship #128523.
+*/
+.sort-picker-chip,
+.sort-picker-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: rgb(255, 255, 255) !important;
+}
+.sort-picker-caret {
+  font-size: 11px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128524 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128525 — toolbar-refresh button geometry
+   csfloat .refresh button measures 38x36 with bg rgba(193,206,255,0.04),
+   border-radius 8, padding 0 10, min-width 36 — a rounded RECTANGLE,
+   not a circle. Sbox .toolbar-refresh was 36x36 with border-radius 999
+   (full circle) and a 1px hairline border on var(--bg-1). Pin to
+   csfloat's measured rectangle so the refresh button's silhouette
+   matches the preset button (also 38x36) and the row's overall rhythm.
+   Drop the hairline since the panel-tint bg carries the affordance.
+*/
+.toolbar-refresh {
+  width: 38px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  padding: 0 10px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  color: rgb(255, 255, 255) !important;
+}
+.toolbar-refresh:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+  border: 0 !important;
+}
+.toolbar-refresh:focus-visible {
+  outline: none;
+  border: 0 !important;
+  box-shadow: 0 0 0 2px rgba(35, 123, 255, 0.55) !important;
+}
+/* The refresh icon inside lands at csfloat's 18px metric */
+.toolbar-refresh svg,
+.toolbar-refresh .material-icon,
+.toolbar-refresh .material-symbols-rounded {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  color: rgb(255, 255, 255) !important;
+  fill: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128525 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128526 — results-meta line below the row
+   csfloat /search does NOT print a "X listings found" line on its sort
+   row — the toggle group ("All Items / Sticker Combos / Unique Items")
+   carries that semantic load. Sbox keeps the textual count for clarity
+   (it's a useful filter-feedback signal) but should drop the count line
+   into a quieter typographic position so it reads as PAGE METADATA
+   instead of competing with the sort controls. Pin .results-meta to
+   13/500, ink-3 color, padding 12 0 6 (tighter top, room above the
+   grid), and remove the flex-between justification so the count
+   anchors flush-left under the sort row instead of stretching across
+   the panel.
+*/
+.results-meta {
+  padding: 12px 0 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+.results-meta b,
+.results-meta strong {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128526 */
+
+/* CSFLOAT-1:1 PARITY ship #128580 - Loadout overview gallery: header strip per loadout-card.
+   csfloat measured (2026-05-08 against signed-in csfloat /loadout/overview, viewport
+   1440x900): each loadout entry in the discover gallery prints a
+   .loadout-entry-header strip ABOVE the loadout-card image grid carrying:
+     left side  -> .favorite-button (heart icon, 30x30 ghost) + .favorite-count (12/500 ink-2)
+     right side -> .faction-toggle (mat-button-toggle T/CT swap, 28h, 11/500)
+   Strip is a single 32px-tall flex row, justify-content: space-between, padding 0 4px,
+   margin-bottom 8px sitting flush above the .loadout-card-content grid. sboxmarket emits
+   loadout cards with a name+meta+owner stack but no header strip. Pin .loadout-entry-header
+   chrome so any future renderer that emits it inherits the canonical geometry; gated
+   under .loadout-list .loadout-card so non-loadout pages stay untouched. */
+body .loadout-list .loadout-card .loadout-entry-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 32px !important;
+  padding: 0 4px !important;
+  margin: 0 0 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+body .loadout-list .loadout-card .loadout-entry-header-left,
+body .loadout-list .loadout-card .loadout-entry-header-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128580 */
+
+/* CSFLOAT-1:1 PARITY ship #128581 - .favorite-button heart icon canonical chrome.
+   csfloat measured: .favorite-button is a 30x30 mat-mdc-button with 0 padding,
+   0 border, transparent background, default mat-icon at 20px / ink-2 fill that
+   shifts to brand-blue rgb(35,123,255) when the loadout is favorited. Hover lifts
+   bg to rgba(193,206,255,0.10). Identifier .favorite-button is unique enough that
+   no other surface reuses it. */
+body .favorite-button,
+body .loadout-card .favorite-button {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+body .favorite-button:hover,
+body .loadout-card .favorite-button:hover {
+  background: rgba(193, 206, 255, 0.10) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .favorite-button.favorited,
+body .favorite-button[aria-pressed="true"],
+body .loadout-card .favorite-button.favorited {
+  color: rgb(35, 123, 255) !important;
+}
+body .favorite-button .material-icons,
+body .favorite-button .mat-icon,
+body .favorite-button i,
+body .loadout-card .favorite-button .material-icons,
+body .loadout-card .favorite-button i {
+  font-size: 20px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128581 */
+
+/* CSFLOAT-1:1 PARITY ship #128582 - .favorite-count number label beside heart.
+   csfloat measured: integer count adjacent to .favorite-button is 12px / 500 Roboto
+   ink-2 rgb(158,167,177), padding 0, no transform, single-line. Pin .favorite-count
+   selector so when the renderer migrates to the canonical csfloat structure
+   (separate count span beside the button) it inherits the correct typography
+   rather than falling back to mono. */
+body .favorite-count,
+body .loadout-card .favorite-count,
+body .loadout-entry-header .favorite-count {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(158, 167, 177) !important;
+  line-height: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  letter-spacing: 0.2px !important;
+  white-space: nowrap !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128582 */
+
+/* CSFLOAT-1:1 PARITY ship #128583 - .faction-toggle T/CT swap chrome on each loadout card.
+   csfloat measured: .faction-toggle is a 56x28 mat-button-toggle group sitting
+   top-right of each loadout entry, two segments (CT/T) with the active segment
+   carrying brand-blue 8% bg + brand-blue 45% border + white text, inactive
+   segment transparent + ink-2 + hairline border. Roboto 11/500 + 0.4px tracking
+   + no text-transform inside each segment. Compact 4px radius around the group. */
+body .faction-toggle,
+body .loadout-card .faction-toggle,
+body .loadout-entry-header .faction-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: transparent !important;
+}
+body .faction-toggle button,
+body .faction-toggle .mat-button-toggle,
+body .loadout-card .faction-toggle button {
+  appearance: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  padding: 0 10px !important;
+  height: 26px !important;
+  line-height: 26px !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+body .faction-toggle button.active,
+body .faction-toggle button[aria-pressed="true"],
+body .faction-toggle .mat-button-toggle-checked {
+  background: rgba(35, 123, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128583 */
+
+/* CSFLOAT-1:1 PARITY ship #128584 - .loadout-placeholder empty-slot tile inside loadout-card grid.
+   csfloat measured: each empty slot inside a loadout-card surface ("2 empty slots"
+   indicator on the discover cards) renders as a placeholder tile - bg
+   rgba(255,255,255,0.025), 1px hairline rgba(255,255,255,0.06), 6px radius,
+   matching slot tile dimensions, no inner content (just the empty rectangle).
+   On hover the bg lifts to rgba(193,206,255,0.04) signaling tap-to-fill (owner only). */
+body .loadout-placeholder,
+body .loadout-card .loadout-placeholder,
+body .loadout-card-content .loadout-placeholder {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s ease !important;
+  cursor: default !important;
+}
+body .loadout-placeholder:hover,
+body .loadout-card .loadout-placeholder:hover,
+body .loadout-card-content .loadout-placeholder:hover {
+  background: rgba(193, 206, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128584 */
+
+/* CSFLOAT-1:1 PARITY ship #128585 - .month-filter-container + .discover-sort-container row.
+   csfloat measured (loadout/overview discover view): the filter row above the gallery
+   carries a Last 1/3/6/12 Month chip-cluster (.month-filter-container) on the left
+   and a Popular/Random/Newest sort cluster (.discover-sort-container) on the right.
+   Each cluster is a mat-button-toggle-group: 40px tall, 8px outer radius, 1px
+   hairline rgba(255,255,255,0.12), inner segments 14px/500 Roboto with 16px
+   horizontal padding. The two clusters sit in a flex row with margin-bottom 16px
+   above the grid. */
+body .month-filter-container,
+body .discover-sort-container,
+body .header-filter,
+body .filter-container {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 0 16px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+}
+body .header-filter {
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+}
+body .month-filter-container .mat-button-toggle-group,
+body .discover-sort-container .mat-button-toggle-group,
+body .month-filter-container .toggle-group,
+body .discover-sort-container .toggle-group {
+  height: 40px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+  display: inline-flex !important;
+  overflow: hidden !important;
+}
+body .month-filter-container .mat-button-toggle,
+body .discover-sort-container .mat-button-toggle,
+body .month-filter-container .toggle-group button,
+body .discover-sort-container .toggle-group button {
+  appearance: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 0 16px !important;
+  height: 38px !important;
+  line-height: 38px !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+body .month-filter-container .mat-button-toggle-checked,
+body .discover-sort-container .mat-button-toggle-checked,
+body .month-filter-container .toggle-group button.active,
+body .discover-sort-container .toggle-group button.active {
+  background: rgba(35, 123, 255, 0.08) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128585 */
+
+/* CSFLOAT-1:1 PARITY ship #128586 - .loadout-card-content inner image grid.
+   csfloat measured: each loadout-card content area is a 4-column grid that holds
+   the slot thumbnails (or empty placeholders). Grid is 4x2 = 8 slots, gap 4px,
+   padding 0 (the wrapper card already provides 14px), filling the remaining height
+   below the .loadout-entry-header strip. Image cells are square, ~48x48 with
+   8px radius. */
+body .loadout-card-content,
+body .loadout-card .loadout-card-content,
+body .loadout-list .loadout-card .loadout-card-content {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  grid-auto-rows: 1fr !important;
+  gap: 4px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+body .loadout-card-content > * {
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  aspect-ratio: 1 / 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128586 */
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128560-#128566 — HOME ROUTE PAGE CHROME
+   Real signed-in csfloat.com `/` (live measured 2026-05-08, viewport
+   1440):
+     body         padding 0 60px, bg rgb(21,23,28), Roboto 16px #fff
+     app-root     1320w (= viewport - 120), x=60
+     header       70h
+     content      starts y=70
+     app-market-search       starts y=85   (15-px gap below header)
+       .skin-bar-container   38h, margin 15px 0 0
+       app-search            starts y=123
+     NO HERO, NO FEATURED RAIL, NO TRUST SECTION, NO FOOTER on `/`.
+   Sboxmarket diverges by:
+     - no body horizontal gutter
+     - 'Geist' 14px (csfloat is Roboto 16px)
+     - renders csfloat-home-hero on `/`
+     - renders SiteFooter on every route
+   APPEND below pulls page chrome to the measured csfloat baseline.
+
+   Route scoping: app.js does NOT set a per-route body class, but the
+   home route is the only one that renders `.csfloat-home-hero` as a
+   child of `.site-root:not(.full-page-mode)`. We scope all rules with
+   the :has() selector below so they only fire on `/`. /market,
+   /profile, /wallet etc. remain untouched.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128560 — home route body horizontal gutter
+   csfloat body computes padding: 0px 60px. The 60-px page gutter is
+   body-level, not nested inside a wrapper. Sbox body has no horizontal
+   padding so the marketplace grid sits flush against the viewport
+   edges, where csfloat insets the entire app shell by 60px each side.
+*/
+html body:has(.site-root:not(.full-page-mode) > .csfloat-home-hero) {
+  padding-left: 60px !important;
+  padding-right: 60px !important;
+}
+@media (max-width: 900px) {
+  html body:has(.site-root:not(.full-page-mode) > .csfloat-home-hero) {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #128560 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128561 — body BG = literal rgb(21, 23, 28)
+   csfloat body backgroundColor computed as rgb(21, 23, 28). Sbox uses
+   var(--bg) which is oklch-derived (~0.13 0.012 260) and resolves to a
+   slightly different swatch under the browser's color profile. Pin the
+   exact rgb literal so the page background matches csfloat byte-for-
+   byte under any color profile.
+*/
+html body:has(.site-root:not(.full-page-mode) > .csfloat-home-hero) {
+  background-color: rgb(21, 23, 28) !important;
+  background-image: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128561 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128562 — body font Roboto/16/white
+   csfloat body computes:
+     font-family Roboto, "Helvetica Neue", sans-serif
+     font-size   16px
+     color       rgb(255, 255, 255)
+   Sbox body uses Geist 14px var(--ink). At body level this only
+   affects elements that explicitly inherit (rare since most surfaces
+   pin px). Where it matters: tooltip text, loose copy, and the bare
+   page that doesn't override fontSize. Pin the measured 16px + Roboto
+   + #fff exactly on the home route so the base matches csfloat's
+   signed-in body.
+*/
+html body:has(.site-root:not(.full-page-mode) > .csfloat-home-hero) {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128562 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128563 — hide .csfloat-home-hero on `/`
+   Real csfloat `/` redirects to /search and shows ONLY: header + 15px
+   gap + skin-bar + grid. There is NO marketing hero, NO stacked
+   feature card cluster, NO headline copy. Sbox renders a 700-line
+   `csfloat-home-hero` section as the first child of HomePage — hide
+   it on the home route so the measured chrome reads through. The JSX
+   stays in app.js (zero JS source change) so the hero can be
+   re-enabled later if the spec changes; this ship just blanks it
+   visually to match csfloat's bare-grid landing.
+*/
+html body .site-root:not(.full-page-mode) > section.csfloat-home-hero {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128563 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128564 — hide .homepage-trust on `/`
+   The `.homepage-trust` callout (fee calculator + marketing copy) is
+   gated `routeName !== 'home'` in app.js so it doesn't render on `/`,
+   but if the gate is ever flipped the section would still violate
+   csfloat parity (csfloat has zero marketing on `/`). Defensive hide
+   so any future re-render still respects the bare-grid baseline.
+*/
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) section.homepage-trust {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128564 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128565 — hide SiteFooter on `/`
+   csfloat `/` renders an EMPTY .footer slot (height 0). The
+   marketplace grid scrolls to the very bottom of the document with no
+   footer chrome. Sbox SiteFooter (links + branding band) shows on
+   every route including home. Hide on the home route so the document
+   bottom matches csfloat's measured 0-height footer slot.
+*/
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) > footer.site-footer,
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) > .site-footer {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128565 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128566 — 15px gap header→content on `/`
+   csfloat layout chain:
+     header 70h ends at y=70
+     .content starts at y=70 (no margin)
+     app-market-search starts at y=85 (gap of 15)
+     .skin-bar-container computed margin: 15px 0 0
+   The 15-px gap below the header is achieved by the FIRST child of
+   .content carrying margin-top:15. With the hero (#128563) and trust
+   (#128564) hidden, the next visible child of .site-root on `/` is
+   the marketplace surface itself. Pin its top margin to the measured
+   15px so the grid lands at exactly the y-coordinate csfloat lands
+   its skin-bar at.
+
+   The hero is `display:none` (still in DOM) so we use sibling combinator
+   to add the margin to whatever comes next. We also fall through to
+   the first .market-page / .grid container so the rule fires whether
+   the hero is hidden or fully removed in a later JS-source change.
+*/
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) > section.csfloat-home-hero ~ *:not(section.csfloat-home-hero):not(section.homepage-trust):not(footer):first-of-type {
+  margin-top: 15px !important;
+}
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) > .market-page,
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) > .market,
+html body .site-root:not(.full-page-mode):has(> section.csfloat-home-hero) > main {
+  margin-top: 15px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128566 */
