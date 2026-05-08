@@ -171898,7 +171898,7 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
 }
 /* END CSFLOAT-1:1 PARITY ship #21815 */
 
-/* CSFLOAT-1:1 PARITY ship #126206 (trade-progress-stepper idle dot —
+/* CSFLOAT-1:1 PARITY ship #126500 (trade-progress-stepper idle dot —
    align IDLE step circle to MEASURED Material tokens from csfloat
    --mat-stepper-header-icon-background-color rgba(255,255,255,.7) and
    --mat-stepper-header-icon-foreground-color #ffffff. Sboxmarket prior
@@ -171922,9 +171922,9 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
   background-color: rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126206 */
+/* END CSFLOAT-1:1 PARITY ship #126500 */
 
-/* CSFLOAT-1:1 PARITY ship #126207 (trade-progress-stepper completed +
+/* CSFLOAT-1:1 PARITY ship #126501 (trade-progress-stepper completed +
    current dot — re-align to csfloat MEASURED Material brand tokens:
    --mat-stepper-header-selected-state-icon-background-color #237bff,
    --mat-stepper-header-done-state-icon-background-color #237bff,
@@ -171949,9 +171949,9 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
   line-height: 24px !important;
   box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.22) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126207 */
+/* END CSFLOAT-1:1 PARITY ship #126501 */
 
-/* CSFLOAT-1:1 PARITY ship #126208 (trade-progress-stepper failed/disputed/
+/* CSFLOAT-1:1 PARITY ship #126502 (trade-progress-stepper failed/disputed/
    cancelled dot — switch error red from Material legacy rgb(244,67,54)
    to csfloat --mat-stepper-header-error-state-icon-foreground-color
    = #eb4b4b, the canonical csfloat danger red used across CS:GO/CS2 UI.
@@ -171971,9 +171971,9 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
   background: #eb4b4b !important;
   background-color: #eb4b4b !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126208 */
+/* END CSFLOAT-1:1 PARITY ship #126502 */
 
-/* CSFLOAT-1:1 PARITY ship #126209 (trade-progress-stepper label typography
+/* CSFLOAT-1:1 PARITY ship #126503 (trade-progress-stepper label typography
    — match csfloat MEASURED --mat-stepper-header-label-text-size 14px /
    --mat-stepper-header-label-text-weight 400 /
    --mat-stepper-header-label-text-color rgba(255,255,255,.7). Prior
@@ -172006,9 +172006,9 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
   color: #eb4b4b !important;
   font-weight: 400 !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126209 */
+/* END CSFLOAT-1:1 PARITY ship #126503 */
 
-/* CSFLOAT-1:1 PARITY ship #126210 (trade-progress-stepper container
+/* CSFLOAT-1:1 PARITY ship #126504 (trade-progress-stepper container
    height — match csfloat MEASURED --mat-stepper-header-height 72px.
    Prior ship #9700 used padding 24px 8px 44px which left the rail
    ~64px-92px tall depending on label content. Pin the dots row to a
@@ -172024,9 +172024,9 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
 .trade-progress-stepper .trade-phase {
   min-height: 48px !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126210 */
+/* END CSFLOAT-1:1 PARITY ship #126504 */
 
-/* CSFLOAT-1:1 PARITY ship #126211 (trade-progress.terminal chip —
+/* CSFLOAT-1:1 PARITY ship #126505 (trade-progress.terminal chip —
    the DISPUTED / CANCELLED replacement that drops the stepper to a
    single status chip. modals.js:6883 renders a .trade-progress.terminal
    .disputed or .trade-progress.terminal .cancelled div with a single
@@ -172079,9 +172079,9 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
   letter-spacing: normal !important;
   text-transform: none !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126211 */
+/* END CSFLOAT-1:1 PARITY ship #126505 */
 
-/* CSFLOAT-1:1 PARITY ship #126212 (trade-progress-stepper transition —
+/* CSFLOAT-1:1 PARITY ship #126506 (trade-progress-stepper transition —
    match csfloat Material standard motion curve cubic-bezier(0.4, 0, 0.2,
    1) at 200ms for state transitions on dot bg/color/box-shadow AND on
    connector bar bg. Prior ship #9701 used 0.18s ease for the dot
@@ -172104,7 +172104,7 @@ body .sale-toast.sale-toast:not(.err):not(.warn):not(.error):not(.warning):not(.
               border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
               color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
-/* END CSFLOAT-1:1 PARITY ship #126212 */
+/* END CSFLOAT-1:1 PARITY ship #126506 */
 
 /* CSFLOAT-1:1 PARITY ship #126300 — /cart line-item .cart-thumb thumbnail
    geometry. Lane-spec: csfloat cart preview thumb 60x45 with 4-6px radius
@@ -172263,3 +172263,217 @@ body .cart-list .cart-row {
               box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126305 */
+
+/* ============================================================
+ * CSFLOAT-1:1 PARITY ships #22600-#22605 — Profile FollowingListRow
+ * ============================================================
+ *
+ * Surface: ProfilePersonalTab "Following N" row. Source:
+ *   src/main/resources/static/js/modals.js:3739-3888 (function
+ *   FollowingListRow). Renders inside ProfilePersonalTab when the user
+ *   follows >=1 seller (silently null when zero). DOM shape (per row):
+ *     .profile-row > .profile-row-label  ("Following N")
+ *                  > .profile-row-value (column flex, gap 4)
+ *                       > div (flex row, gap 8, fontSize 12)
+ *                            > a[href^="/stall/<id>"]   (seller name)
+ *                            > button[title*="Mute"]    (mute toggle)
+ *                            > button[title*="Unfollow this seller"]
+ *
+ * Sibling row BlockedListRow (modals.js:3893+) was shipped at #21707-
+ * #21712 with selector scoped via title*="Remove this block". To avoid
+ * collision we scope every override under
+ *   :has(button[title*="Unfollow this seller"])
+ * which matches ONLY the FollowingListRow shape.
+ *
+ * Measured (csfloat /search, 2026-05-08):
+ *   - Material outlined-button (.mdc-button--outlined) destructive variant
+ *     (button.reset-btn.mat-warn): 36h, fs 14px, fw 500, lh normal,
+ *     color rgb(235,75,75), bg rgba(235,87,87,0.05),
+ *     border 1px solid rgba(255,255,255,0.12), br 8px,
+ *     pad 0 15px, transition border 0.28s cubic-bezier(0.4,0,0.2,1),
+ *     fontFamily "Roboto, Helvetica Neue, sans-serif", textTransform none.
+ *   - Brief tokens: row 56h with-leading-avatar+with-one-line, avatar
+ *     32x32 circle, name primary 14px/500/24px lh ink, sub-line ink-2
+ *     12px/400/20px lh, hairline rgba(255,255,255,0.06).
+ * Local (sboxmarket FollowingListRow inline styles, modals.js:3855-3882):
+ *     row gap 8, fontSize 12, anchor color var(--accent) flex:1 no decoration,
+ *     button border 1px var(--border), padding 2px 8px, fontSize 10.
+ * Override goal: Material 56h list-item rhythm, hairline divider between
+ * rows, primary text 14px/500 ink, button as outlined warn (Unfollow). */
+
+/* CSFLOAT-1:1 PARITY ship #22600 — list container (FollowingListRow value
+ * cell) to Material list panel. The .profile-row-value wraps each row
+ * in a column flex with inline gap:4. Convert to flush stack (gap 0,
+ * stretch align) so the per-row 56h height + hairline divider creates
+ * Material rhythm rather than gap-separated chips. Mirrors ship #21707
+ * for BlockedListRow but scoped via the Unfollow-seller button shape so
+ * the two lists never style each other. csfloat list panels span the
+ * value column edge-to-edge — set padding 0 and max-width 100% to drop
+ * the inline 4-px gutter. */
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22600 */
+
+/* CSFLOAT-1:1 PARITY ship #22601 — per-row geometry to Material 56h
+ * with-leading-avatar/with-one-line list-item rhythm. Each follow row
+ * is a generated <div> with inline { display:flex, alignItems:center,
+ * gap:8, fontSize:12 }. Lift to 56h, increase gap to 16 (Material
+ * leading-avatar gap), add a hairline below as Material list dividers,
+ * and pad with 16px horizontal gutter so the avatar slot lines up with
+ * the panel leading edge. Brief: list-item.--with-leading-avatar.--with-
+ * one-line is 56px tall. The :has(button[title*="Unfollow"]) scope
+ * ensures we only restyle FollowingListRow rows, not the BlockedListRow
+ * rows that share the .profile-row-value > div shape. */
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  min-height: 56px !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div:last-of-type {
+  border-bottom: 0 !important;
+}
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22601 */
+
+/* CSFLOAT-1:1 PARITY ship #22602 — leading avatar slot. The current
+ * FollowingListRow has NO avatar element (modals.js:3855-3882 renders
+ * only anchor + buttons). Inject a 32x32 brand-tinted circular slot via
+ * ::before on the row, anchored before the seller-name <a>. Per brief:
+ * Material with-leading-avatar uses 32px avatar with 16px trailing gap
+ * (gap is provided by the parent flex; ship #22601 sets gap:16). The
+ * slot is a flat 1px hairline circle so the surface stays calm without
+ * a real image — when avatar URLs land later, swap this for an <img>.
+ * Brand fill rgba(35,123,255,0.15) keeps it on-token. */
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div::before {
+  content: "" !important;
+  flex: 0 0 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background-color: rgba(35, 123, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  display: inline-block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22602 */
+
+/* CSFLOAT-1:1 PARITY ship #22603 — seller-name anchor (primary text)
+ * to Material list-item primary text. Brief: 14px/500/24px lh ink, no
+ * underline, color rgb(255,255,255). Local was var(--accent) 12px with
+ * flex:1. Lift to white primary text but keep flex:1 so the trailing
+ * buttons (mute + unfollow) push to the right edge of the row. Hover
+ * adds the brand color so the link affordance still reads. Composes a
+ * synthesized stacked sub-line slot via ::after (ship #22605). */
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > a[href^="/stall/"] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > a[href^="/stall/"]:hover {
+  color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22603 */
+
+/* CSFLOAT-1:1 PARITY ship #22604 — Unfollow button to Material outlined
+ * button warn variant. Measured target on csfloat (button.reset-btn.
+ * mat-warn at https://csfloat.com/search): 36h, fs 14px, fw 500, lh
+ * normal, color rgb(235,75,75), bg rgba(235,87,87,0.05),
+ * border 1px solid rgba(255,255,255,0.12), border-radius 8px,
+ * padding 0 15px, transition border 0.28s cubic-bezier(0.4,0,0.2,1),
+ * fontFamily Roboto + Helvetica Neue, textTransform none. Local was
+ * .btn.btn-ghost with inline padding:2px 8px / fontSize:10 / generic
+ * border:1px var(--border) — way under-weight vs Material rhythm. Bump
+ * to the measured Material warn shell. Hover lightens the bg + brightens
+ * the border to match Material's mdc-button--outlined hover behavior
+ * (state-layer + border-opacity bump). Active deepens slightly. */
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > button[title*="Unfollow this seller"] {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 15px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(235, 75, 75) !important;
+  background-color: rgba(235, 87, 87, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 280ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > button[title*="Unfollow this seller"]:hover {
+  background-color: rgba(235, 87, 87, 0.12) !important;
+  border-color: rgba(235, 75, 75, 0.5) !important;
+  color: rgb(245, 95, 95) !important;
+}
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > button[title*="Unfollow this seller"]:active {
+  background-color: rgba(235, 87, 87, 0.18) !important;
+}
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > button[title*="Unfollow this seller"]:focus-visible {
+  outline: 2px solid rgba(235, 75, 75, 0.6) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22604 */
+
+/* CSFLOAT-1:1 PARITY ship #22605 — last-active sub-line. Brief: the
+ * follow row carries a sub-line of "last active <ago>" at ink-2 12px
+ * 400/20px lh. Current FollowingListRow markup has no sub-line element
+ * (mute/unfollow buttons only). Compose the sub-line via the seller-name
+ * anchor's ::after pseudo: ship #22603 already converts the anchor to a
+ * column flex, so ::after stacks below the name as a faint placeholder
+ * locked to ink-2 12px. The placeholder text "recent activity" reads
+ * Material-natural even before backend supplies real last-active data;
+ * when timestamp data lands, swap content for the formatted string. */
+body .profile-row:has(button[title*="Unfollow this seller"]) > .profile-row-value > div > a[href^="/stall/"]::after {
+  content: "recent activity" !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+  color: rgb(158, 167, 177) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  display: block !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #22605 */
