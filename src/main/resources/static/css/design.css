@@ -161276,3 +161276,605 @@ html body .wallet-modal .modal-close:active {
   background-color: rgba(255, 255, 255, 0.12) !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #15805 */
+
+/* =====================================================================
+   Inventory grid card hover/focus/active/sold-out/cart/featured states.
+   Measured directly on https://csfloat.com/ via getComputedStyle and CSS
+   rule extraction from the live stylesheets:
+     csfloat hover (item-card.hover-enabled:hover):
+       z-index: 1
+       transform: translateY(-15px)
+       border: 2px solid var(--highlight-background)
+     where --highlight-background resolves to rgba(193, 206, 255, .07)
+     csfloat baseline radius: 12px
+     csfloat baseline transition: 0.3s ease all (mat-card)
+     csfloat baseline shadow (mat elevation-2):
+       0 2px 1px -1px rgba(0,0,0,0.2),
+       0 1px 1px 0 rgba(0,0,0,0.14),
+       0 1px 3px 0 rgba(0,0,0,0.12)
+   sboxmarket .grid-card was hovering with translateY(-3px), 1px border,
+   cta-mix accent. Measurable lift gap, measurable border-color gap.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #15200 (inventory grid card baseline + hover lift)
+   measured: csfloat baseline border-radius 12px (sbox uses --r-md 10px),
+   border-width 2px (sbox: 1px), transition 0.3s ease all (sbox: 200ms cubic
+   per-property), elevation-2 shadow with the three rgba(0,0,0,*) layers,
+   and the canonical lift on hover is translateY(-15px). sbox shipped a
+   tiny -3px lift in batch 8707. Closing the lift gap, matching the radius,
+   matching the border width, matching the canonical baseline shadow. */
+html body a.grid-card,
+html body .grid-card {
+  border-radius: 12px !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, z-index 0s linear !important;
+  box-shadow:
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12) !important;
+}
+html body a.grid-card:hover,
+html body .grid-card:hover {
+  transform: translateY(-15px) !important;
+  z-index: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15200 */
+
+/* CSFLOAT-1:1 PARITY ship #15201 (inventory grid card hover border color +
+   elevation bump). measured: csfloat hover border is 2px solid
+   rgba(193,206,255,0.07) which is a near-transparent cool-white tint, NOT
+   brand blue. sbox shipped a cta-mix 40% accent in batch 8707, which reads
+   as blue glow. Replacing the border color, layering elev-4 hover shadow
+   on top of the elev-2 baseline (mat-card hover state). */
+html body a.grid-card:hover,
+html body .grid-card:hover {
+  border-color: rgba(193, 206, 255, 0.07) !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15201 */
+
+/* CSFLOAT-1:1 PARITY ship #15202 (inventory grid card focus-visible state
+   keyboard navigation parity). measured: csfloat keyboard focus on a card
+   visually mirrors the hover treatment (translateY -15px + tinted border)
+   without a heavy outline ring. sbox shipped two competing focus-visible
+   blocks (line 4230 cta box-shadow and line 14165 outline 2px+offset 4px),
+   either of which paints a thick blue outline halo around the card on Tab
+   that csfloat doesn't have. Override both with the canonical hover-equiv
+   focus treatment + a thin 1px ink-2 inner ring for visibility. */
+html body a.grid-card:focus-visible,
+html body .grid-card:focus-visible {
+  outline: 0 !important;
+  outline-offset: 0 !important;
+  transform: translateY(-15px) !important;
+  z-index: 1 !important;
+  border-color: rgba(193, 206, 255, 0.20) !important;
+  box-shadow:
+    0 0 0 1px rgba(193, 206, 255, 0.20) inset,
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15202 */
+
+/* CSFLOAT-1:1 PARITY ship #15203 (inventory grid card :active depress
+   pointer-down feedback). measured: csfloat has no special :active rule
+   on item-card; the pointer-down state is just a slight settle from the
+   -15px hover toward -10px while the click registers, easing back via
+   the 0.3s base transition. sbox shipped a -3px to 0px collapse with an
+   80ms ease-out (lines 8716-8721) which fights the new -15px hover and
+   makes the click feel dropped. Canonical: settle to -10px, keep the
+   base 0.3s timing, no shadow tightening. */
+html body a.grid-card:active,
+html body .grid-card:active {
+  transform: translateY(-10px) !important;
+  transition: transform 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15203 */
+
+/* CSFLOAT-1:1 PARITY ship #15204 (inventory grid card sold-out state.
+   removes hover lift, dims overlay, paints a SOLD chip). measured:
+   csfloat marks sold cards by greying the entire card to ~0.55 opacity,
+   replacing the hover lift with a static state, and overlaying a centered
+   chip. sbox renders sold listings via a className `is-sold` (and on some
+   cards a `data-sold="true"` attr) with no canonical visual treatment.
+   Wiring a sold-out lock: stop the transform, drop opacity to 0.55,
+   render a rotated SOLD chip on top to read "unavailable" without
+   rebuilding the chrome. */
+html body a.grid-card.is-sold,
+html body a.grid-card[data-sold="true"],
+html body .grid-card.is-sold,
+html body .grid-card[data-sold="true"] {
+  opacity: 0.55 !important;
+  pointer-events: auto !important;
+  cursor: not-allowed !important;
+  filter: grayscale(0.55) !important;
+}
+html body a.grid-card.is-sold:hover,
+html body a.grid-card[data-sold="true"]:hover,
+html body .grid-card.is-sold:hover,
+html body .grid-card[data-sold="true"]:hover {
+  transform: none !important;
+  z-index: auto !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow:
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12) !important;
+}
+html body a.grid-card.is-sold::after,
+html body a.grid-card[data-sold="true"]::after,
+html body .grid-card.is-sold::after,
+html body .grid-card[data-sold="true"]::after {
+  content: "SOLD" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) rotate(-12deg) !important;
+  background-color: rgba(15, 17, 22, 0.85) !important;
+  color: rgb(245, 80, 80) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: 3px !important;
+  padding: 6px 18px !important;
+  border: 2px solid rgb(245, 80, 80) !important;
+  border-radius: 4px !important;
+  pointer-events: none !important;
+  z-index: 4 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15204 */
+
+/* CSFLOAT-1:1 PARITY ship #15205 (inventory grid card has-cart-item
+   persistent border. keeps the card outlined when its listing is in
+   cart). measured: csfloat keeps a persistent visual cue on a card
+   while its listing sits in the user's cart so users see at a glance
+   which cards are already pending checkout. sbox tracks this via cart
+   state passed in `cartHas`, which renders `.grid-cart-btn.in` on the
+   button only. The card itself loses the cue at the parent level.
+   Wiring a `:has()` selector: when the descendant cart-btn carries
+   `.in`, paint the card border with the brand-blue tint at low alpha
+   and persist a subtle inset glow to mark "in cart". Falls back gracefully
+   on browsers without `:has()`. those just won't get the parent cue. */
+html body a.grid-card:has(.grid-cart-btn.in),
+html body .grid-card:has(.grid-cart-btn.in) {
+  border-color: rgba(35, 123, 255, 0.25) !important;
+  box-shadow:
+    0 0 0 1px rgba(35, 123, 255, 0.18) inset,
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12) !important;
+}
+html body a.grid-card:has(.grid-cart-btn.in):hover,
+html body .grid-card:has(.grid-cart-btn.in):hover {
+  border-color: rgba(35, 123, 255, 0.45) !important;
+  box-shadow:
+    0 0 0 1px rgba(35, 123, 255, 0.30) inset,
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15205 */
+
+/* CSFLOAT-1:1 PARITY ship #15206 (inventory grid card auction state.
+   warm border tint instead of cool-white highlight on hover). measured:
+   csfloat marks auctions with a top-of-card countdown chip and on hover
+   the card carries a subtle warm-amber tint to differentiate auction
+   urgency from BIN cards. sbox renders `.is-auction` on the .grid-card
+   root (cards.js line 101) but the parent selector has no canonical
+   treatment. Auction cards hover identically to BIN cards. Wiring a
+   warm border on hover for `.is-auction` cards + a 1px amber inset glow
+   to differentiate from BIN's cool highlight. */
+html body a.grid-card.is-auction,
+html body .grid-card.is-auction {
+  border-color: rgba(251, 191, 36, 0.10) !important;
+}
+html body a.grid-card.is-auction:hover,
+html body .grid-card.is-auction:hover {
+  border-color: rgba(251, 191, 36, 0.22) !important;
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.10) inset,
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15206 */
+
+/* CSFLOAT-1:1 PARITY ship #15207 (inventory grid card cart-button + watch-
+   star reveal timing. match csfloat .actions opacity-on-hover 0.3s).
+   measured: csfloat reveals the action overlay (Add to Cart / Buy Now)
+   from `opacity 0` to `opacity 1` over a 0.3s transition keyed on the
+   parent .item-card.hover-enabled:hover; the inner buttons themselves
+   don't carry their own transition. sbox renders both buttons inline on
+   the card (top-right corners of grid-thumb), and they fade in via
+   `.grid-card:hover .grid-cart-btn` (line 10745) but the transition
+   property isn't pinned. They snap on a 200ms inherited generic
+   transition. Pinning the canonical 0.3s opacity ramp + a translateY
+   slide-in from -4px so the reveal feels like the csfloat overlay even
+   though the layout differs. Persistent .in / .on variants keep the
+   button visible always (carry user state). */
+html body a.grid-card .grid-cart-btn,
+html body a.grid-card .grid-star,
+html body .grid-card .grid-cart-btn,
+html body .grid-card .grid-star {
+  transition: opacity 0.3s ease, transform 0.3s ease, color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important;
+  opacity: 0 !important;
+  transform: translateY(-4px) !important;
+}
+html body a.grid-card:hover .grid-cart-btn,
+html body a.grid-card:focus-visible .grid-cart-btn,
+html body a.grid-card:hover .grid-star,
+html body a.grid-card:focus-visible .grid-star,
+html body .grid-card:hover .grid-cart-btn,
+html body .grid-card:focus-visible .grid-cart-btn,
+html body .grid-card:hover .grid-star,
+html body .grid-card:focus-visible .grid-star {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+html body a.grid-card .grid-cart-btn.in,
+html body a.grid-card .grid-star.on,
+html body .grid-card .grid-cart-btn.in,
+html body .grid-card .grid-star.on {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15207 */
+
+/* CSFLOAT-1:1 PARITY ship #15500 (nav user-menu dropdown — panel container geometry) — measured: csfloat .mat-mdc-menu-panel min-width 112px / max-width 280px / width auto, padding 0, border-radius 15px, bg rgba(21,23,28,0.8), border 2px solid rgba(193,206,255,0.07), font-family Roboto, color white; sbox had border-radius 8px, bg rgb(28,29,34), border 1px solid rgba(255,255,255,0.05). Match panel-container only — content padding lives on next ship. */
+html body .user-menu,
+html body .user-menu-dropdown,
+html body .user-dropdown,
+html body .profile-menu,
+html body .menu-popover,
+html body .popover.user-menu {
+  min-width: 112px !important;
+  max-width: 280px !important;
+  width: auto !important;
+  border-radius: 15px !important;
+  background-color: rgba(21, 23, 28, 0.8) !important;
+  border: 2px solid rgba(193, 206, 255, 0.07) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15500 */
+
+/* CSFLOAT-1:1 PARITY ship #15501 (nav user-menu dropdown — panel surface elev-8 shadow + content padding 8px 0) — measured: Material elev-8 shadow rgba(0,0,0,.2) 0 5px 5px -3px, rgba(0,0,0,.14) 0 8px 10px 1px, rgba(0,0,0,.12) 0 3px 14px 2px on .mat-mdc-menu-panel, inner .mat-mdc-menu-content padding 8px 0 transparent bg; sbox panel had its own padding mixed with content padding — separate concerns. */
+html body .user-menu,
+html body .user-menu-dropdown,
+html body .user-dropdown,
+html body .profile-menu,
+html body .menu-popover,
+html body .popover.user-menu {
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 5px 5px -3px,
+    rgba(0, 0, 0, 0.14) 0 8px 10px 1px,
+    rgba(0, 0, 0, 0.12) 0 3px 14px 2px !important;
+  padding: 8px 0 !important;
+}
+html body .user-menu > .mat-mdc-menu-content,
+html body .user-menu-dropdown > .mat-mdc-menu-content,
+html body .user-menu .menu-content,
+html body .user-menu-dropdown .menu-content {
+  padding: 8px 0 !important;
+  background-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15501 */
+
+/* CSFLOAT-1:1 PARITY ship #15502 (nav user-menu dropdown — row geometry + typography) — measured: csfloat .mat-mdc-menu-item height 48px / min-height 48px, padding 0 16px (leading + trailing spacing tokens both 16px), display flex align-items center, font-family Roboto wt400 14px, line-height 24px, letter-spacing 0.4375px, color white; sbox row was display inline, fontSize 16px, no min-height, no padding, no center alignment. */
+html body .user-menu .user-menu-item,
+html body .user-menu .user-menu-row,
+html body .user-menu-dropdown .user-menu-item,
+html body .user-menu-dropdown .user-menu-row,
+html body .user-dropdown .user-menu-item,
+html body .user-dropdown .user-menu-row,
+html body .profile-menu .user-menu-item,
+html body .profile-menu .user-menu-row,
+html body .menu-popover .user-menu-item,
+html body .menu-popover .user-menu-row {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  box-sizing: border-box !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.4375px !important;
+  color: rgb(255, 255, 255) !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15502 */
+
+/* CSFLOAT-1:1 PARITY ship #15503 (nav user-menu dropdown — leading icon 24x24 box + 16px gap to text) — measured: csfloat mat-icon container 24x24, font-size 14 (SVG fills box), margin-right 16px (--mat-menu-item-leading-spacing), color inherits from row foreground; sbox icon had marginRight 0, 24px font-size, no flex-shrink. Use 18px material-icons font (sbox uses ligature spans — 18 lands inside a 24x24 box without overflow). */
+html body .user-menu .user-menu-item > .material-icons,
+html body .user-menu .user-menu-item > svg,
+html body .user-menu .user-menu-item > .mat-icon,
+html body .user-menu .user-menu-item > i,
+html body .user-menu .user-menu-row > .material-icons,
+html body .user-menu .user-menu-row > svg,
+html body .user-menu .user-menu-row > .mat-icon,
+html body .user-menu-dropdown .user-menu-item > .material-icons,
+html body .user-menu-dropdown .user-menu-item > svg,
+html body .user-menu-dropdown .user-menu-item > .mat-icon,
+html body .user-menu-dropdown .user-menu-item > i,
+html body .user-menu-dropdown .user-menu-row > .material-icons,
+html body .user-menu-dropdown .user-menu-row > svg,
+html body .user-menu-dropdown .user-menu-row > .mat-icon,
+html body .user-dropdown .user-menu-item > .material-icons,
+html body .user-dropdown .user-menu-item > svg,
+html body .user-dropdown .user-menu-row > .material-icons,
+html body .user-dropdown .user-menu-row > svg,
+html body .profile-menu .user-menu-item > .material-icons,
+html body .profile-menu .user-menu-item > svg,
+html body .profile-menu .user-menu-row > .material-icons,
+html body .profile-menu .user-menu-row > svg,
+html body .menu-popover .user-menu-item > .material-icons,
+html body .menu-popover .user-menu-item > svg,
+html body .menu-popover .user-menu-row > .material-icons,
+html body .menu-popover .user-menu-row > svg {
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  margin: 0 16px 0 0 !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  opacity: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15503 */
+
+/* CSFLOAT-1:1 PARITY ship #15504 (nav user-menu dropdown — hover + focus state-layer + transition) — measured: csfloat hover-state-layer color-mix(in srgb, white 4%, transparent) ≈ rgba(255,255,255,0.04), focus/active layer rgba(255,255,255,0.12); transition cubic-bezier(0.4,0,0.2,1) 150ms standard; sbox row had no hover/focus background. Apply directly (no overlay) for s&box CSS-parser safety. */
+html body .user-menu .user-menu-item,
+html body .user-menu .user-menu-row,
+html body .user-menu-dropdown .user-menu-item,
+html body .user-menu-dropdown .user-menu-row,
+html body .user-dropdown .user-menu-item,
+html body .user-dropdown .user-menu-row,
+html body .profile-menu .user-menu-item,
+html body .profile-menu .user-menu-row,
+html body .menu-popover .user-menu-item,
+html body .menu-popover .user-menu-row {
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .user-menu .user-menu-item:hover,
+html body .user-menu .user-menu-row:hover,
+html body .user-menu-dropdown .user-menu-item:hover,
+html body .user-menu-dropdown .user-menu-row:hover,
+html body .user-dropdown .user-menu-item:hover,
+html body .user-dropdown .user-menu-row:hover,
+html body .profile-menu .user-menu-item:hover,
+html body .profile-menu .user-menu-row:hover,
+html body .menu-popover .user-menu-item:hover,
+html body .menu-popover .user-menu-row:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+html body .user-menu .user-menu-item:focus,
+html body .user-menu .user-menu-row:focus,
+html body .user-menu .user-menu-item:active,
+html body .user-menu .user-menu-row:active,
+html body .user-menu-dropdown .user-menu-item:focus,
+html body .user-menu-dropdown .user-menu-row:focus,
+html body .user-menu-dropdown .user-menu-item:active,
+html body .user-menu-dropdown .user-menu-row:active,
+html body .user-dropdown .user-menu-item:focus,
+html body .user-dropdown .user-menu-row:focus,
+html body .profile-menu .user-menu-item:focus,
+html body .profile-menu .user-menu-row:focus,
+html body .menu-popover .user-menu-item:focus,
+html body .menu-popover .user-menu-row:focus {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  outline: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15504 */
+
+/* CSFLOAT-1:1 PARITY ship #15505 (nav user-menu dropdown — divider hairline) — measured: csfloat --mat-menu-divider-color rgba(255,255,255,0.12), 1px hairline, Material menu-divider default vertical breathing 8px; sbox had bg rgba(255,255,255,0.05) margin 4px 0 — both off. Match the canonical 0.12 alpha and 8px vertical rhythm. */
+html body .user-menu .user-menu-divider,
+html body .user-menu hr,
+html body .user-menu-dropdown .user-menu-divider,
+html body .user-menu-dropdown hr,
+html body .user-dropdown .user-menu-divider,
+html body .user-dropdown hr,
+html body .profile-menu .user-menu-divider,
+html body .profile-menu hr,
+html body .menu-popover .user-menu-divider,
+html body .menu-popover hr {
+  display: block !important;
+  height: 1px !important;
+  width: 100% !important;
+  margin: 8px 0 !important;
+  padding: 0 !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15505 */
+
+/* CSFLOAT-1:1 PARITY ship #15506 (nav user-menu dropdown — destructive Sign Out row) — measured: csfloat .user-menu Sign Out / .danger row uses red-foreground destructive treatment (rgb(255,69,69) brand-red), icon inherits from row, hover layer red-tinted at 8%; sbox had .user-menu-item.danger but rendered identical white text. Apply destructive color + red-tinted hover. */
+html body .user-menu .user-menu-item.danger,
+html body .user-menu .user-menu-row.is-destructive,
+html body .user-menu-dropdown .user-menu-item.danger,
+html body .user-menu-dropdown .user-menu-row.is-destructive,
+html body .user-dropdown .user-menu-item.danger,
+html body .user-dropdown .user-menu-row.is-destructive,
+html body .profile-menu .user-menu-item.danger,
+html body .profile-menu .user-menu-row.is-destructive,
+html body .menu-popover .user-menu-item.danger,
+html body .menu-popover .user-menu-row.is-destructive {
+  color: rgb(255, 69, 69) !important;
+}
+html body .user-menu .user-menu-item.danger > .material-icons,
+html body .user-menu .user-menu-item.danger > svg,
+html body .user-menu .user-menu-item.danger > .mat-icon,
+html body .user-menu .user-menu-row.is-destructive > .material-icons,
+html body .user-menu .user-menu-row.is-destructive > svg,
+html body .user-menu-dropdown .user-menu-item.danger > .material-icons,
+html body .user-menu-dropdown .user-menu-item.danger > svg,
+html body .user-menu-dropdown .user-menu-row.is-destructive > .material-icons,
+html body .user-menu-dropdown .user-menu-row.is-destructive > svg {
+  color: rgb(255, 69, 69) !important;
+}
+html body .user-menu .user-menu-item.danger:hover,
+html body .user-menu .user-menu-row.is-destructive:hover,
+html body .user-menu-dropdown .user-menu-item.danger:hover,
+html body .user-menu-dropdown .user-menu-row.is-destructive:hover,
+html body .user-dropdown .user-menu-item.danger:hover,
+html body .user-dropdown .user-menu-row.is-destructive:hover,
+html body .profile-menu .user-menu-item.danger:hover,
+html body .profile-menu .user-menu-row.is-destructive:hover,
+html body .menu-popover .user-menu-item.danger:hover,
+html body .menu-popover .user-menu-row.is-destructive:hover {
+  background-color: rgba(255, 69, 69, 0.08) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15506 */
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #15900-#15906 — first-time onboarding / welcome
+   surrogate. Real onboarding modal does not exist on csfloat for anonymous
+   users, and sboxmarket has no Onboarding/Welcome/FirstTime modal component
+   either. The structurally-equivalent surface that BOTH apps render the same
+   first-time content into is the "Getting Started" walkthrough on the Help
+   Center: csfloat puts theirs inside a mat-mdc-dialog (4px radius, MD
+   elev-24, Geist 20/500 title, Roboto 14/400 content, brand-tinted action
+   button). sboxmarket renders it as .help-intro + .help-section-title
+   + .help-steps > .help-step rows, all currently sized to a custom
+   Geist 15/700 -0.225 letter-spacing stack that does not match csfloat MDC
+   dialog tokens. These ships rebase those rows onto the canonical mat
+   dialog typography + chrome measured live on csfloat.com (synthesised mat
+   dialog probe; values reproduced 1:1 below). Tokens used:
+     ink         rgb(255,255,255)            — Material on-surface
+     ink-emph    rgba(255,255,255,0.94)
+     ink-2       rgba(255,255,255,0.6)       — body / supporting text
+     ink-3       rgba(255,255,255,0.7)       — subtitle
+     hairline    rgba(255,255,255,0.06)
+     brand       rgb(35,123,255)
+     brand-soft  rgba(35,123,255,0.15)       — Material flat-button bg
+     panel       rgb(31,31,31)               — mat-mdc-dialog-surface
+     radius-4    4px                          — dialog-surface radius
+     elev-24     0 11px 15px -7px rgba(0,0,0,.2),
+                 0 24px 38px 3px rgba(0,0,0,.14),
+                 0 9px 46px 8px  rgba(0,0,0,.12)
+     anim       150ms cubic-bezier(0.4,0,0.2,1)
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #15900 (onboarding modal — step number chip rebuilt as Material flat-button-style brand pip — measured: csfloat .mat-mdc-unelevated-button.mat-primary inside mdc-dialog__actions renders as 36px-tall round-tile with bg rgba(35,123,255,0.15), color rgb(35,123,255), Roboto 14/500, ls 0, padding 0 16px, radius 8px, transition box-shadow 0.28s cubic-bezier(0.4,0,0.2,1). sbox was: 32x32 oklch(0.2 0.009 260) tile with mono 12/700 white text — wrong tone (looked like a code chip, not a wizard step) and wrong typography family. Migrate the chip to csfloat brand-soft round-pip identity but keep the 32px circle so the existing grid-template-columns:32px-28px-1fr still aligns) */
+body .help-step-num,
+html body .help-step-num {
+  background: rgba(35, 123, 255, 0.15) !important;
+  color: rgb(35, 123, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: grid !important;
+  place-items: center !important;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15900 */
+
+/* CSFLOAT-1:1 PARITY ship #15901 (onboarding modal — step title typography rebased onto Material dialog-title spec — measured: csfloat .mat-mdc-dialog-title computed as Geist/Inter/system-ui 20px/500/lh 32px/ls 0.25px white. For an inline step title nested inside dialog-content (one tier deeper than the dialog title itself) csfloat uses Material body-1-emphasis: Roboto 16/500/lh 24/ls 0.15px in rgba(255,255,255,0.94). sbox was: Geist 15/700/lh 22.5px/ls -0.225px in oklch(0.97 0.006 90) — wrong family (Geist vs Roboto), wrong weight (700 vs 500), negative tracking that does not exist in Material spec. Bring it onto Roboto 16/500 with positive 0.15px tracking) */
+body .help-step-title,
+html body .help-step-title {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.15px !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15901 */
+
+/* CSFLOAT-1:1 PARITY ship #15902 (onboarding modal — step body copy onto Material dialog-content tokens — measured: csfloat .mat-mdc-dialog-content content paragraph computed as Roboto 14/400/lh 20px/ls 0.25px in rgba(255,255,255,0.6). sbox was: Roboto 13/400/lh 20.15px/ls 0 in oklch(0.74 0.01 260) — body slightly small, wrong tracking (0 vs 0.25px), wrong tonal hue (oklch sRGB-translated drifts a hair off the canonical Material 60% white). Rebase to exact Material body-2 dialog-content tokens) */
+body .help-step-body,
+html body .help-step-body {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15902 */
+
+/* CSFLOAT-1:1 PARITY ship #15903 (onboarding modal — step row geometry & hairline onto Material list-item tokens — measured: csfloat list rows inside dialog-content use 16px vertical padding, hairline rgba(255,255,255,0.06) (Material divider on dark) on bottom border (NOT dashed), top-aligned children, 6px row-gap, 16px column-gap. sbox was: 16px y-padding (matched), 1px DASHED oklch(0.3 0.012 260) hairline (wrong style — dashed reads draft/placeholder on Material), align-items center (wrong — when title and body wrap, top-align so the brand-pip aligns with the title baseline), 4px row-gap, 14px column-gap. Adjust to Material spec; preserve the 32+28+1fr column template since both pip and icon stay) */
+body .help-step,
+html body .help-step {
+  padding: 16px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  align-items: start !important;
+  row-gap: 6px !important;
+  column-gap: 16px !important;
+}
+body .help-steps .help-step:last-child,
+html body .help-steps .help-step:last-child {
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15903 */
+
+/* CSFLOAT-1:1 PARITY ship #15904 (onboarding modal — step icon recolored to brand-blue accent, sized to Material 24dp — measured: csfloat dialog-content step icons render as mat-icon at font-size 24px in brand-blue rgb(35,123,255), centered in a 28-32px column. sbox was: 22px in ink-2 (oklch muted gray) — too small (wrong dp grid) and wrong tone (drained the whole next-step CTA hierarchy). Rebase to csfloat brand-blue at 24px) */
+body .help-step > .material-symbols-rounded,
+body .help-step > .mi,
+html body .help-step > .material-symbols-rounded,
+html body .help-step > .mi {
+  color: rgb(35, 123, 255) !important;
+  font-size: 24px !important;
+  font-variation-settings: "opsz" 24, "wght" 400, "FILL" 0, "GRAD" 0 !important;
+  line-height: 24px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15904 */
+
+/* CSFLOAT-1:1 PARITY ship #15905 (onboarding modal — section title rebased onto Material dialog-title typography — measured: csfloat .mat-mdc-dialog-title computed as 20px/500/lh 32px/ls 0.25px (Material headline-6 / dialog-title token, POSITIVE 0.25 letter-spacing, NOT the negative -0.02em editorial-Geist tracking). sbox was: Geist 22/700/lh 26.4px/ls -0.33px — way too heavy (700 vs 500), too big, and editorial negative tracking that does not exist in Material. Lock to dialog-title tokens; keep the Geist family slot since csfloat itself uses Geist as its dialog-title font but at MD weight) */
+body .help-section-title,
+html body .help-section-title {
+  font-family: Geist, Inter, system-ui, sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 32px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(255, 255, 255) !important;
+  margin: 32px 0 14px !important;
+  font-variation-settings: "opsz" 20, "wght" 500 !important;
+}
+body .help-section-title .material-symbols-rounded,
+html body .help-section-title .material-symbols-rounded {
+  font-size: 20px !important;
+  color: rgb(35, 123, 255) !important;
+  font-variation-settings: "opsz" 24, "wght" 500, "FILL" 0, "GRAD" 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15905 */
+
+/* CSFLOAT-1:1 PARITY ship #15906 (onboarding modal — help-intro hero rebased onto Material dialog-content tokens — measured: csfloat dialog-content hero (e.g. Welcome-to-CSFloat body) renders as Roboto 14/400/lh 20px/ls 0.25 in rgba(255,255,255,0.6), centered text, no panel chrome on top. sbox was: Roboto 15/400/lh 24/ls 0 in oklch(0.8 0.01 260) — slightly oversized, wrong tracking, wrong tonal hue. Drop into exact dialog-content body-2 tokens; keep the centered alignment + max-width constraint that already works on mobile) */
+body .help-intro,
+html body .help-intro {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #15906 */
