@@ -177637,3 +177637,232 @@ html body .notif-feed-row .notif-feed-dot {
   margin-left: 4px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126947 */
+
+
+/* ================================================================ */
+/* CSFLOAT 1:1 PARITY ship #127001 — listing card seller online/    */
+/* offline indicator. Measured live on csfloat.com/search           */
+/* (app-seller-details-widget). LOCKED VALUES:                      */
+/*   container .seller-details: display:flex / align-items:center / */
+/*     gap:6px / flex-direction:row / padding:0                     */
+/*   svg dot: 13x13 (10x10 viewBox)                                 */
+/*     inner circle r=3 fill=#9EA7B1 (offline) / #64EC42 (online)   */
+/*     outer ring   r=4 stroke=<sameColor> opacity 0.15 width=2     */
+/*   label .text: white #fff / 14px / 400 / lh:normal /             */
+/*     ls:normal / Roboto, "Helvetica Neue", sans-serif             */
+/*                                                                  */
+/* sboxmarket renders this as a single .grid-status-dot span (no    */
+/* nested SVG), so reproduce the inner-dot + halo-ring with         */
+/* background + box-shadow. Inner = 7px solid (matches r=3 of a     */
+/* 13px box at 1:1 px ratio); outer halo = 2px transparent ring     */
+/* at the same color, opacity 0.15 — produced via box-shadow with   */
+/* color-mix-equivalent rgba so it lands at exactly 15% alpha.      */
+/* APPEND-only override — sits at end of design.css.                */
+/* ================================================================ */
+.grid-card .grid-status,
+.grid-status {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 0 0 !important;
+  margin: 8px 0 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  letter-spacing: normal !important;
+  color: rgb(255, 255, 255) !important;
+  width: 100% !important;
+  min-height: 26px !important;
+}
+
+.grid-card .grid-status-dot,
+.grid-status-dot {
+  display: inline-block !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background-color: rgb(158, 167, 177) !important;
+  box-shadow: 0 0 0 2px rgba(158, 167, 177, 0.15) !important;
+  flex: 0 0 7px !important;
+  margin: 2px !important;
+  animation: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.grid-card .grid-status-dot.online,
+.grid-status-dot.online {
+  background-color: rgb(100, 236, 66) !important;
+  box-shadow: 0 0 0 2px rgba(100, 236, 66, 0.15) !important;
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-card .grid-status-dot.online,
+  .grid-status-dot.online {
+    animation: none !important;
+  }
+}
+/* ================================================================ */
+
+/* CSFLOAT-1:1 PARITY ship #127060 — cart row Save-for-later button height
+   bump 28 -> 32 toward Material text-button baseline. Prior ship #9600
+   sized it 28px which read as a chip; csfloat's mat-mdc-button text variant
+   measured today on FloatDB lives on a 36px frame, but the cart row's
+   adjacent X remove button (#9601) is a 32x32 square — so 32 is the
+   correct hybrid for THIS row context (matches the X remove height while
+   still climbing toward the Material baseline). Eliminates the 4px height
+   shear between the two affordances side by side. */
+html body .cart-row > button.btn-ghost:nth-of-type(1) {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127060 */
+
+/* CSFLOAT-1:1 PARITY ship #127061 — cart row Save-for-later radius bump
+   6 -> 8px to match csfloat's mat-mdc-outlined-button which uses 8px
+   borderRadius (measured on FloatDB "Reset All Filters" stroked button
+   = border-radius 8px). The 6px was carried over from the early ghost-
+   pill token; csfloat consistently runs 8px on every interactive ghost
+   in the same neighbourhood as this row. */
+html body .cart-row > button.btn-ghost:nth-of-type(1) {
+  border-radius: 8px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127061 */
+
+/* CSFLOAT-1:1 PARITY ship #127062 — cart row Save-for-later hover state
+   pivot from neutral pink/red to brand 35,123,255. Save-for-later is a
+   positive commit-to-track action in csfloat's visual hierarchy (kept
+   item, deferred purchase) — the prior pink heart wash from #9600 read
+   as destructive and collided with the X remove sitting next to it.
+   Pivot the hover to the brand axis so a buyer reads "Save" as
+   preserve-intent, not delete. Resting state (set by #9600) stays
+   neutral ink-3 so it doesn't compete with the Checkout CTA. */
+html body .cart-row > button.btn-ghost:nth-of-type(1):hover {
+  color: rgb(35, 123, 255) !important;
+  border-color: rgba(35, 123, 255, 0.35) !important;
+  background: rgba(35, 123, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127062 */
+
+/* CSFLOAT-1:1 PARITY ship #127063 — cart row Save-for-later focus-visible
+   ring pivots from pink to brand. Keyboard navigation (Tab through cart
+   rows) now matches the new hover affordance: the row's Save button
+   announces itself with the same brand 35,123,255 ring used by every
+   other primary commit-action focus state in the app. Mirrors the
+   focus-visible rule used by the cart Checkout button so focus
+   navigation feels of-a-piece across the row. */
+html body .cart-row > button.btn-ghost:nth-of-type(1):focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.7) !important;
+  outline-offset: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127063 */
+
+/* CSFLOAT-1:1 PARITY ship #127064 — cart row Save-for-later transition
+   easing standardized to Material standard cubic-bezier(0.4,0,0.2,1) at
+   200ms across color, border, background, and transform. Prior #9600
+   used "ease 140ms" which was faster than csfloat's mat-mdc-button
+   default and felt twitchy on quick hover-out. The longer 200ms with
+   the Material standard easing gives the brand-blue wash a perceptible
+   in-out matching the rest of the row's hover language (cart-row hover
+   itself uses 200ms cubic-bezier across the codebase). */
+html body .cart-row > button.btn-ghost:nth-of-type(1) {
+  transition:
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127064 */
+
+/* CSFLOAT-1:1 PARITY ship #127065 — cart row Save-for-later active press
+   feedback. Prior shipped state had no :active rule on the Save button,
+   only on the X remove button (#9601). Mirror the X remove's scale(0.94)
+   compress with a brand-tinted background flash so the button reads as
+   actually consuming the click — important because a successful Save
+   moves the item out of the cart immediately and the button vanishes,
+   so the brief press feedback is the only acknowledgement before the
+   row is gone. Pairs with the toast that fires post-action. */
+html body .cart-row > button.btn-ghost:nth-of-type(1):active {
+  transform: scale(0.94) !important;
+  background: rgba(35, 123, 255, 0.14) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127065 */
+
+/* CSFLOAT-1:1 PARITY ship #127066 — cart row Save-for-later font weight
+   bump 600 -> 500 to align with csfloat's mat-mdc-button label weight
+   (measured "Reset All Filters" stroked button on FloatDB = font-weight
+   500). The prior 600 was the generic ghost-pill weight and read
+   heavier than the Material text-button reference. Keep the 11px size +
+   0.01em letter spacing so kerning stays identical — only the weight
+   changes, but it's enough to drop the visual mass into the Material
+   family the rest of the row already lives in. */
+html body .cart-row > button.btn-ghost:nth-of-type(1) {
+  font-weight: 500 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127066 */
+
+
+/* ─── CSFLOAT-1:1 PARITY SHIP #127020 — top-rated seller star color/size match
+   Lane: listing card favorite/star icon.
+   Ground-truth measured at https://csfloat.com/search on 21/40 visible cards
+   (~52% of sellers carry the badge):
+     - SVG viewBox 0 0 24 24, classic 5-point star path
+     - Rendered at 18x18 px
+     - Fill literal #ff8c00 on the path (NOT a CSS class — set as fill attr)
+     - Lives at trailing edge of app-seller-details-widget row (after a
+       flex-grow:1 spacer pushes it past "Offline" text)
+     - opacity:1 idle, cursor:auto (decorative trust badge, not a button)
+     - Tooltip: "Top Rated Seller — Recognized for their fast and reliable delivery"
+   sboxmarket equivalent: .grid-status-verified inside .grid-status row,
+   currently rendering var(--cta) blue shield-check at 12x12. Recolor to
+   csfloat orange, upsize to 18x18, push to trailing edge with margin-left:auto
+   so the layout mirrors csfloat's flex-grow:1 spacer pattern. */
+.grid-card .grid-status-verified {
+  color: #ff8c00 !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  opacity: 1 !important;
+  cursor: help !important;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              filter 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.grid-card .grid-status-verified svg {
+  width: 18px !important;
+  height: 18px !important;
+  fill: #ff8c00 !important;
+  color: #ff8c00 !important;
+  display: block !important;
+}
+.grid-card .grid-status-verified svg path {
+  fill: #ff8c00 !important;
+}
+/* Hover: brighter orange (csfloat lifts saturation slightly on hover) */
+.grid-card:hover .grid-status-verified,
+.grid-card .grid-status-verified:hover {
+  filter: brightness(1.18) saturate(1.1) !important;
+}
+/* Click: csfloat-style scale pop (per spec: cubic-bezier(0.4,0,0.2,1) 150-300ms) */
+.grid-card .grid-status-verified:active {
+  transform: scale(1.18) !important;
+  transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid-card .grid-status-verified,
+  .grid-card .grid-status-verified:active {
+    transition: none !important;
+    transform: none !important;
+  }
+  .grid-card:hover .grid-status-verified,
+  .grid-card .grid-status-verified:hover {
+    filter: none !important;
+  }
+}
+/* END ship #127020 */
