@@ -167813,3 +167813,200 @@ html body .recent-sales-row .recent-sales-time {
   line-height: 20px !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #19809 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20100 (auction starting-bid + buy-now-optional
+   input chrome) — measured: csfloat mat-mdc-text-field-wrapper has
+   bg rgba(193,206,255,0.04), border-radius 6px, padding 0 16px, with
+   the underlying input at 16px Roboto/400, line-height 24px, color
+   white, letter-spacing 0.5px (re-confirmed on /search mat-form-field:
+   wrap=h36 br6 bg(193,206,255,0.04) pad 0 16px; inp=16/400 lh24
+   ls0.5px white). sboxmarket .wallet-amount-input on the auction-mode
+   SellModal was: var(--mono) 18px/500, padding 14px 14px 14px 0, no
+   bg/border (relies on parent row chrome). For the auction starting-
+   bid + Buy-Now-optional inputs specifically (scoped via the AUCTION
+   offer-tab being active in the .info-modal), repaint the input
+   itself to a self-contained Material text-field — bg fill, radius,
+   Roboto 16/400, fixed 44px tall row (canonical csfloat per handoff),
+   ink-2 letter-spacing. Scoped to the SellModal auction branch ONLY
+   so BUY_NOW pricing keeps its existing chrome (mono price-input is
+   fine for BUY_NOW; csfloat reserves the Material-fill chrome for
+   the auction-bid inputs because they are paired with helper-hint
+   text below).
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"].active) .wallet-amount-input,
+.info-modal:has(.offer-tab[title*="Auction"].active) .wallet-amount-input-v2 {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 0 16px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: 0.5px !important;
+  color: rgb(255, 255, 255) !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  transition:
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20100 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20101 (auction-mode dollar prefix glyph) —
+   csfloat mat-icon-prefix sits inside the same mat-mdc-text-field-
+   wrapper at 16px Roboto/400, color rgba(255,255,255,0.7) (canonical
+   ink-2 alpha — measured at the search bar prefix family). sboxmarket
+   renders the dollar-sign as a sibling SPAN with inline style
+   { color: var(--text-muted), fontWeight: 700 }. fontWeight 700 is
+   loud — csfloat keeps the prefix at 400. Force the same Roboto
+   16/400 + ink-2 color so the dollar-sign reads as a quiet glyph
+   rather than a bold accent. Scoped to the auction branch row that
+   contains the .wallet-amount-input (Buy-Now-optional row).
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> .wallet-amount-input) > span:first-child {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  letter-spacing: 0.5px !important;
+  margin-right: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20101 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20102 (auction-mode helper-text — mat-form-
+   field-hint analog) — csfloat hint typography is 12px / 400 / Roboto,
+   color rgb(158,167,177) (canonical ink-2), letter-spacing 0.5px,
+   margin-top 4px below input. sboxmarket renders the "Bids are locked
+   in..." and "Optional ceiling..." copy as inline-styled divs at
+   { fontSize: 11, color: var(--text-muted), marginTop: 6 } — close
+   but 1px under csfloat hint size and uses the wrong margin. Pin
+   the exact csfloat values. Targets the auction branch's two helper-
+   text divs by their position (immediate sibling of the duration-chip
+   row and the buy-now input row).
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  .wallet-input-label + div:has(> .price-suggest-chip) + div,
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> .wallet-amount-input) + div {
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.5px !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20102 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20103 (auction-mode input row layout) —
+   csfloat groups its mat-mdc-text-field-wrapper as a single 44h
+   container with the prefix glyph living INSIDE the wrapper, not as
+   an external sibling with its own gap. sboxmarket auction Buy-Now
+   optional input wraps `dollar-sign + .wallet-amount-input` in a flex
+   row with gap:8 + alignItems:center, which leaves the dollar-sign
+   floating outside the painted fill. Repaint the row container so the
+   fill extends across the whole row (prefix + input together = one
+   44h pill), matching csfloat wrapper visual. Selector targets the
+   row that directly contains both span + .wallet-amount-input
+   siblings.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> span:first-child + .wallet-amount-input) {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border-radius: 6px !important;
+  padding: 0 16px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  transition:
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* When the row container becomes the wrapper, the inner input no
+   longer needs its own bg/padding/height — it inherits from the row.
+   Reset so the visual is one flat fill, not a fill-in-fill. */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> span:first-child + .wallet-amount-input) > .wallet-amount-input {
+  background: transparent !important;
+  padding: 0 !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  border-radius: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20103 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20104 (auction-mode input focus state) —
+   csfloat mat-mdc-text-field-wrapper on focus brightens the fill
+   from rgba(193,206,255,0.04) to ~0.08 and adds an inset 2px brand
+   border at the bottom (mdc-line-ripple) — at the simplified level
+   it reads as a brand-tinted bottom edge + slightly elevated bg.
+   sboxmarket inputs had no scoped focus state on the auction branch.
+   Add the same focus-within treatment so keyboard + click focus is
+   visible on both the standalone Starting-bid input and the wrapped
+   Buy-Now-optional row.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  .wallet-amount-input:focus,
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  .wallet-amount-input:focus-visible {
+  background: rgba(193, 206, 255, 0.08) !important;
+  box-shadow: inset 0 -2px 0 0 rgb(35, 123, 255) !important;
+}
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> span:first-child + .wallet-amount-input):focus-within {
+  background: rgba(193, 206, 255, 0.08) !important;
+  box-shadow: inset 0 -2px 0 0 rgb(35, 123, 255) !important;
+}
+/* The input INSIDE the wrapped row should not paint its own focus
+   bg/shadow (the parent wrapper handles it). Override the standalone
+   focus rule above to keep wrapped-input focus flat. */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> span:first-child + .wallet-amount-input)
+  > .wallet-amount-input:focus,
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> span:first-child + .wallet-amount-input)
+  > .wallet-amount-input:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20104 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #20105 (auction-mode label-to-input gap +
+   row-to-label gap) — csfloat mat-mdc-form-field stack is:
+   floating-label (margin-bottom 6px) → text-field-wrapper (44h) →
+   subscript-wrapper hint (margin-top 4px) → next form-field
+   (margin-top 14-16px). sboxmarket inline styles on the auction
+   branch use marginBottom:14 between blocks but no consistent gap
+   between label and input. Pin the spacing primitives so the
+   vertical rhythm matches csfloat Material stack exactly.
+   ===================================================================== */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  .wallet-input-label {
+  margin: 0 0 6px 0 !important;
+}
+/* Add the canonical 14px stack-gap between an input row (or its
+   helper-text below) and the NEXT label. The "+ .wallet-input-label"
+   selector matches a label that appears immediately after an input
+   row, after a helper-text, or after the duration-chip row. */
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  .wallet-amount-input + .wallet-input-label,
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> .wallet-amount-input) + .wallet-input-label,
+.info-modal:has(.offer-tab[title*="Auction"].active)
+  div:has(> .price-suggest-chip) + .wallet-input-label {
+  margin-top: 14px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #20105 */
