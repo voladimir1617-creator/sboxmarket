@@ -177866,3 +177866,152 @@ html body .cart-row > button.btn-ghost:nth-of-type(1) {
   }
 }
 /* END ship #127020 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #127040 — /settings high-contrast
+   accessibility toggle row sibling refinements
+   ----------------------------------------------------------------
+   Lane brief: scoped to the High contrast toggle row that lives as
+   the sibling of Reduce motion in the SettingsModal Accessibility
+   & appearance section (modals.js:3050-3051). Six measurable,
+   append-only refinements that pull the row geometry, label/sub-
+   label typography, focus-ring, and active-state preview hint
+   closer to csfloat's mat-mdc-list-item + mat-slide-toggle pair.
+
+   Tokens sampled live from csfloat: panel rgb(27,29,36), brand
+   rgb(35,123,255), ink-2 rgb(158,167,177), ink-1 rgb(255,255,255),
+   hairline rgba(255,255,255,0.06), body Roboto on rgb(21,23,28).
+   Material standard motion cubic-bezier(0.4,0,0.2,1) 150-200ms.
+
+   Lane scoping — to avoid collision with ship #126920 (reduce-
+   motion lane, currently running concurrently and operating on
+   `.info-modal-body .settings-row:has(.toggle-switch)` broadly),
+   every selector below uses a precise structural hook that
+   isolates the High contrast row exclusively:
+
+     .settings-row:has(> div > .toggle-switch)
+       :has(+ .settings-row:not(:has(.toggle-switch)))
+
+   This matches a toggle-bearing row that is directly followed by
+   a non-toggle row. In SettingsModal Accessibility ordering this
+   is uniquely the High contrast row — reduce-motion is followed
+   by another toggle row (high-contrast itself), and high-contrast
+   is followed by the static "Accent colour" sentence row
+   (Toggle-less). The Notifications section's toggle rows are all
+   followed by other toggle rows or chip rows, never by a static
+   text-only row, so the selector cannot leak there.
+   ================================================================ */
+
+/* (1) Sublabel ink colour — pull the High-contrast row's sublabel
+   from var(--ink-4) (rgb ~110,118,128) up to csfloat's ink-2
+   rgb(158,167,177). The sublabel "Boost text / border contrast
+   for readability" should read as informative supporting copy
+   (legible at-a-glance) rather than the secondary muted utility
+   shade currently rendered. csfloat's mat-mdc-list-item secondary
+   line uses ink-2 specifically because the label/sublabel pair
+   functions as the row's full payload — both lines need to clear
+   WCAG AA on the panel rgb(27,29,36) backdrop. */
+.info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel,
+.full-page-mode .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel {
+  color: rgb(158, 167, 177) !important;
+}
+
+/* (2) Sublabel typography — csfloat's mat-mdc-list-item secondary
+   line is 12/400 with 16px line-height and 0.1px tracking on
+   Roboto. The current rule (line 4680-4683) sets 12px / line-
+   height 1.5 (= 18px) which feels too airy paired against the
+   tightened ship #126920 row min-height 56px. Pin to the canonical
+   16px line-height + Material tracking + Roboto so the row reads
+   as a Material two-line list-item rather than a custom card. */
+.info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel,
+.full-page-mode .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-sublabel {
+  font-size: 12px !important;
+  line-height: 16px !important;
+  letter-spacing: 0.1px !important;
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  margin-top: 4px !important;
+  max-width: 38ch !important;
+}
+
+/* (3) Label state preview when High-contrast is active — when the
+   user enables the toggle, JS adds class `high-contrast` to the
+   <html> element (modals.js:2873). Reflect this in the row label
+   itself so the row functions as its own preview: ink-1 pure
+   white at 600 weight + 0.2px tracking, matching the boosted
+   contrast appearance the toggle is about to apply globally. The
+   row stays live-readable even with surrounding ink shifts. */
+html.high-contrast .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-label,
+html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) .settings-label {
+  color: rgb(255, 255, 255) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              font-weight 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (4) Inline preview chip — render an "AA boosted" contrast-grade
+   chip via a generated `::after` on the High-contrast row's first
+   column, so the row carries a visible legend showing the high-
+   contrast pair. csfloat-style brand pill: brand-tinted background,
+   brand border, ink-1 text, mono small caps. Visible only when the
+   toggle is on, acting as a live confirmation of the boosted
+   contrast outcome. */
+.info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) > div:first-child {
+  position: relative !important;
+}
+html.high-contrast .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) > div:first-child::after,
+html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))) > div:first-child::after {
+  content: "AA boosted" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-top: 6px !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  background-color: rgba(35, 123, 255, 0.14) !important;
+  color: rgb(255, 255, 255) !important;
+  border: 1px solid rgba(35, 123, 255, 0.5) !important;
+  font-family: Roboto, "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  width: max-content !important;
+  line-height: 1.4 !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (5) Row focus-within ring — when the keyboard pivots into the
+   High-contrast row's toggle, csfloat's mat-mdc-list-item gains a
+   2px brand outline-offset ring. Add the same on focus-within so
+   keyboard a11y users see a clear focus indication that respects
+   high-contrast mode (the ring stays brand-tinted regardless of
+   the row hover state from ship #126920). 150ms cubic-bezier
+   matches Material standard. */
+.info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):focus-within,
+.full-page-mode .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):focus-within {
+  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px !important;
+  transition: outline-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (6) Toggle on-state brand outline ring — csfloat's mdc-switch
+   on-state thumb gains a 2px brand-tinted outer ring at 0.18
+   alpha when its parent row is hovered. Ship #126920 already
+   pinned the elev-1 thumb shadow but did not add an outer brand
+   halo. Add it, scoped only to this row's `:not(.off)` toggle, so
+   the active state reads as a Material brand-tinted "boosted"
+   pill — the exact visual cue csfloat uses to confirm a high-
+   contrast-style toggle is live. Only fires on hover, matching
+   csfloat's ripple-overlay pattern. */
+.info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):hover .toggle-switch:not(.off),
+.full-page-mode .info-modal-body .settings-row:has(> div > .toggle-switch):has(+ .settings-row:not(:has(.toggle-switch))):hover .toggle-switch:not(.off) {
+  outline: 2px solid rgba(35, 123, 255, 0.18) !important;
+  outline-offset: 1px !important;
+  transition: outline-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* END CSFLOAT-1:1 PARITY ship #127040 */
+
