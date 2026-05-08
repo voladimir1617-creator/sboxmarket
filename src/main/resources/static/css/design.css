@@ -185677,3 +185677,338 @@ body div[role="dialog"] > .modal-card > header > div:first-child {
   text-transform: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128129 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128170 — /search filter sidebar panel real
+   measurement. Earlier ships #15300+ approximated the container based
+   on the surface tokens but never verified the exact rect against
+   the live csfloat /search route. Re-measured today via Playwright
+   against signed-in session: outer shell .advanced-search is
+   width 350px (FIXED, not a viewport fraction), background
+   panel-token rgb(27,29,36), padding 20px on every edge, gap 15px
+   between stacked rows, border-radius 12px, no border / no shadow.
+   The .filter.sticky parent is a transparent positioning wrapper
+   (bg rgba(0,0,0,0)) — DO NOT paint it. The visible rounded panel
+   is the inner .advanced-search div. Sbox sidebar shell drifts to
+   wider (>350) on some breakpoints and to a smaller padding (16),
+   pin to csfloat-exact 350 / 20 / 15 / 12 so the column rhythm
+   matches the ship-cards grid to the right.
+*/
+body aside.filter-sidebar > .advanced-search,
+body .filter.sticky > .advanced-search,
+body .filter-sidebar .advanced-search,
+body .search-filter .advanced-search {
+  width: 350px !important;
+  max-width: 350px !important;
+  background: rgb(27, 29, 36) !important;
+  padding: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+body aside.filter-sidebar,
+body .filter.sticky {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 350px !important;
+  max-width: 350px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128170 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128171 — /search facet section header
+   ("Price" / "Wear" / "Special" / "Patterns" / "Stickers" / "Charms"
+   / "Rarity" / "Collection" / "Listing") row real measurement.
+   Earlier ships approximated this as an h4 / .filter-title / details
+   summary at 14–15px uppercase. Re-measured today on csfloat live:
+   header is a 27px-tall flex row, padding 6px 0 (NOT padded
+   horizontally), justify-content space-between, align-items center,
+   font-size 16px (NOT 14), font-weight 400 (NOT 600 / NOT bold),
+   color pure white rgb(255,255,255), text-transform none (NOT
+   uppercase), letter-spacing normal, cursor pointer. The header
+   wraps two children: .name (the label) and .icon (the chevron,
+   15x15). Sbox baseline drifts to bold/uppercase headers — pin to
+   csfloat-exact regular-weight title-case 16px. Width is sidebar
+   inner width (350 minus 2x20 padding = 310px), which matches the
+   measured row width of 310.
+*/
+body .advanced-search app-search-row .row,
+body .advanced-search app-search-row .row.expanded,
+body .filter-sidebar .filter-section > .filter-title,
+body .filter-sidebar .csfloat-filter-section > .filter-title,
+body .filter-sidebar details.filter-section > summary {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 6px 0 !important;
+  height: 27px !important;
+  min-height: 27px !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  line-height: normal !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  width: 100% !important;
+}
+body .advanced-search app-search-row .row > .name,
+body .filter-sidebar .filter-section > .filter-title > .name,
+body .filter-sidebar details.filter-section > summary > .name {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+body .advanced-search app-search-row .row > .icon,
+body .filter-sidebar .filter-section > .filter-title::after,
+body .filter-sidebar details.filter-section > summary::after {
+  width: 15px !important;
+  height: 15px !important;
+  font-size: 15px !important;
+  color: rgb(158, 167, 177) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128171 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128172 — /search hairline gap separator
+   between facet sections. csfloat structures the sidebar as
+   alternating <app-search-row> + <div class="gap"> elements; the
+   .gap is the visual divider between sections, NOT margin-bottom
+   on the section itself. Measured: height EXACTLY 1px, background
+   rgba(193,206,255,0.04) (which resolves equivalent to the
+   hairline token rgba(255,255,255,0.06) at the panel surface
+   level — csfloat uses an ultra-faint blue-tinted hairline rather
+   than a pure white one). No top/bottom margin — the parent flex
+   gap of 15px provides the breathing room. Sbox baseline uses
+   border-bottom on the section which double-counts margin and
+   produces too-tall section gutters. Pin a literal 1px hairline
+   div + zero margin so the rhythm matches csfloat exactly.
+*/
+body .advanced-search > .gap,
+body .filter-sidebar .filter-divider,
+body .filter-sidebar .filter-section + .filter-divider,
+body .filter-sidebar .csfloat-filter-section + .filter-divider {
+  height: 1px !important;
+  min-height: 1px !important;
+  max-height: 1px !important;
+  width: 100% !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+}
+body .advanced-search app-search-row + .gap + app-search-row,
+body .filter-sidebar .filter-section + .filter-divider + .filter-section {
+  border-top: none !important;
+}
+body .advanced-search app-search-row,
+body .filter-sidebar .filter-section,
+body .filter-sidebar .csfloat-filter-section {
+  border-bottom: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128172 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128173 — /search Wear chip-row
+   (mat-button-toggle-group containing the FN / MW / FT / WW / BS
+   chips, plus the All / StatTrak / Souvenir wear-toggle group).
+   Re-measured today on csfloat live: outer mat-button-toggle-group
+   is 310px wide x 38px tall, background rgba(193,206,255,0.04)
+   (panel-tinted ink-2 surface), border-radius 7px, NO border,
+   contains the toggles edge-to-edge with zero gap. Each
+   mat-button-toggle inside is the inner-button width (panel-width
+   / N toggles), height 32px (NOT 36 / NOT 40), border-radius 4px
+   for the active fill, font-size 16px regular weight, color
+   rgb(255,255,255), bg transparent UNTIL active (then the same
+   ink-2 panel tint paints behind the active chip). Sbox baseline
+   used pill-style buttons with white-on-blue active state and
+   border 1px hairline — drift away from csfloat flat segmented-
+   control look. Pin to the segmented-control geometry.
+*/
+body .advanced-search mat-button-toggle-group,
+body .filter-sidebar .wear-toggle-group,
+body .filter-sidebar .segmented-toggle-group,
+body .filter-sidebar .chip-toggle-group {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  height: 38px !important;
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: none !important;
+  border-radius: 7px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+body .advanced-search mat-button-toggle-group mat-button-toggle,
+body .filter-sidebar .wear-toggle-group > button,
+body .filter-sidebar .segmented-toggle-group > button {
+  flex: 1 1 0 !important;
+  height: 32px !important;
+  margin: 3px !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 32px !important;
+  border: none !important;
+  padding: 0 !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  transition: background 120ms ease !important;
+}
+body .advanced-search mat-button-toggle-group mat-button-toggle.mat-button-toggle-checked,
+body .filter-sidebar .wear-toggle-group > button.active,
+body .filter-sidebar .segmented-toggle-group > button.active,
+body .filter-sidebar .segmented-toggle-group > button[aria-pressed="true"] {
+  background: rgba(193, 206, 255, 0.04) !important;
+  color: rgb(255, 255, 255) !important;
+  font-weight: 400 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128173 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128174 — /search Reset All Filters
+   button at the very bottom of the sidebar. Re-measured today on
+   csfloat live: the button reads literally "Reset All Filters",
+   width spans the full inner sidebar (310px), height 36px,
+   background rgba(235,87,87,0.05) (warning-red @ 5% opacity, the
+   destructive-action subtle wash), color rgb(235,75,75) (slightly
+   redder than the bg for AA contrast), border 1px solid
+   rgba(255,255,255,0.12) (the hairline token at button-focus
+   intensity, NOT a brand-color border), border-radius 8px
+   (button-medium token, not the panel-12 / chip-4), font-size
+   14px, font-weight 500. Sbox baseline ship #15300+ approximated
+   this as a brand-blue text button — pin to csfloat-exact warn
+   variant so the destructive intent reads clearly to users who
+   are about to clear their hard-won filter state.
+*/
+body .advanced-search button.reset-btn,
+body .advanced-search > button.reset-btn,
+body .filter-sidebar .reset-all-btn,
+body .filter-sidebar button.reset-filters,
+body .filter-sidebar .filter-reset-btn,
+body .csfloat-filter-reset {
+  width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  background: rgba(235, 87, 87, 0.05) !important;
+  color: rgb(235, 75, 75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background 120ms ease, border-color 120ms ease !important;
+  box-shadow: none !important;
+}
+body .advanced-search button.reset-btn:hover,
+body .filter-sidebar .reset-all-btn:hover,
+body .filter-sidebar button.reset-filters:hover,
+body .filter-sidebar .filter-reset-btn:hover {
+  background: rgba(235, 87, 87, 0.10) !important;
+  border-color: rgba(235, 87, 87, 0.28) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128174 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128175 — /search "Search for items..."
+   input field at the top of the filter sidebar (the per-section
+   search-within input, distinct from the global header search).
+   Re-measured today on csfloat live: the wrapper .search-bar is
+   59px tall (matches the auto height of the row at index 0), the
+   actual <input> inside is 271px wide x 24px tall (the wrapper
+   .mat-mdc-form-field-infix adds the 6px top/bottom inset for an
+   effective 36px touch target), placeholder literally
+   "Search for items...", placeholder color ink-2 rgb(158,167,177),
+   text color white, font-size 16px (NOT 14), background transparent
+   (the wrapper paints the surface), no border on the input itself,
+   no border-radius on the input (the wrapper handles the rounded
+   corners). The wrapper itself uses the panel-tinted surface
+   rgba(193,206,255,0.04) and border-radius 8px to read as a
+   subtly-elevated chip on top of the panel. There is also a
+   keyboard-shortcut "/" hint pill on the right edge — measure
+   shows it as 24x24 with 1px hairline border. Sbox baseline ships
+   the input at fs 14 with a brand-tinted bg — pin to csfloat
+   exact transparent-input on ink-2 surface.
+*/
+body .advanced-search .search-bar,
+body .advanced-search > .search-bar,
+body .filter-sidebar .filter-search-input-wrapper,
+body .filter-sidebar .search-within-section {
+  background: rgba(193, 206, 255, 0.04) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 0 12px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+body .advanced-search .search-bar input,
+body .advanced-search .search-bar input[type="text"],
+body .filter-sidebar .filter-search-input-wrapper > input,
+body .filter-sidebar .search-within-section > input {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  color: rgb(255, 255, 255) !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 24px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  border-radius: 0 !important;
+}
+body .advanced-search .search-bar input::placeholder,
+body .filter-sidebar .filter-search-input-wrapper > input::placeholder,
+body .filter-sidebar .search-within-section > input::placeholder {
+  color: rgb(158, 167, 177) !important;
+  opacity: 1 !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+}
+body .advanced-search .search-bar .keyboard-shortcut,
+body .advanced-search .search-bar .kbd,
+body .filter-sidebar .filter-search-input-wrapper > .kbd,
+body .filter-sidebar .search-within-section > .kbd {
+  width: 24px !important;
+  height: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 12px !important;
+  flex-shrink: 0 !important;
+  background: transparent !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128175 */
