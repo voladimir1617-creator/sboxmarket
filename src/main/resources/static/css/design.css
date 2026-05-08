@@ -196071,3 +196071,95 @@ body .csfloat-cart-drawer:has([data-empty="true"]) .csfloat-cart-drawer-foot {
 }
 /* END CSFLOAT-1:1 PARITY ship #129070 */
 
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #128932-#128937 — header trigger micro-states
+   captured live on csfloat: inter-trigger gap 25px (vs sbox 8px),
+   arrow rest color 70% white (not 100%), pseudo-checkbox invisibility
+   lock, cursor + transition declarations.
+   ===================================================================== */
+
+/* CSFLOAT-1:1 PARITY ship #128932 — inter-trigger spacing 25px.
+   csfloat measured 25.00px between USD trigger right (1072.16) and
+   EN trigger left (1097.16). Sbox sets `.nav-right > .nav-picker +
+   .nav-icon-btn { margin-left: 8px }` — but the picker-to-picker
+   spacing wasn't covered. Use selector chain so adjacent navpickers
+   in the .nav-right region get the csfloat-measured 25px gap. */
+body nav.nav .nav-right .nav-picker + .nav-picker {
+  margin-left: 25px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128932 */
+
+/* CSFLOAT-1:1 PARITY ship #128933 — arrow REST color 70% white.
+   csfloat .mat-mdc-select-arrow path computes
+   `color: rgba(255,255,255,0.7)` at idle (no hover, no focus) and
+   transitions to `rgb(255,255,255)` on hover/open. Ship #128922
+   set the mask background to full white statically. Soften to 0.7
+   at rest so the chip reads with the same Material 2 secondary-
+   text alpha as csfloat. */
+body nav.nav .nav-picker .nav-picker-chip .nav-picker-caret {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+}
+/* On hover or open, bump to full white to mirror csfloat's hover
+   bump. */
+body nav.nav .nav-picker .nav-picker-chip:hover .nav-picker-caret,
+body nav.nav .nav-picker.open .nav-picker-chip .nav-picker-caret {
+  background-color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128933 */
+
+/* CSFLOAT-1:1 PARITY ship #128934 — trigger cursor + transition lock.
+   csfloat trigger has `cursor: pointer` + Material's global
+   `transition: all` (resolved to ~80ms linear via Material's
+   animations module). Sbox button is interactive so cursor:pointer
+   is the default but assert explicitly so future changes can't
+   drift. Transition matches the caret rotate timing of #22104. */
+body nav.nav .nav-picker .nav-picker-chip {
+  cursor: pointer !important;
+  transition: color 80ms linear, opacity 80ms linear !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128934 */
+
+/* CSFLOAT-1:1 PARITY ship #128935 — lang panel max-width bump for
+   long labels. csfloat lang options include "Português (Portuguese)"
+   which renders ~190px wide at 16/0.5px Roboto. Sbox max-width was
+   220 in #128923 — cuts the row to 220 even though csfloat allows
+   the panel to grow further. Bump to 240 so any future-added lang
+   row fits without horizontal clipping. */
+body nav.nav .nav-picker[aria-label="Language selector"].open .nav-picker-panel {
+  max-width: 240px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128935 */
+
+/* CSFLOAT-1:1 PARITY ship #128936 — pseudo-checkbox invisibility
+   lock on selected rows. csfloat's selected option includes
+   `<mat-pseudo-checkbox state="checked" appearance="minimal">` —
+   the `appearance="minimal"` token is what suppresses the visual
+   check icon. Sbox doesn't render a mat-pseudo-checkbox but if a
+   future template adds one (or we pull in a Material partial), this
+   selector ensures the check stays hidden so the row reads as
+   csfloat does — selection conveyed only via bg color. */
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .mat-pseudo-checkbox,
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .mat-pseudo-checkbox-checked,
+body nav.nav .nav-picker.open .nav-picker-panel .nav-picker-row .mat-pseudo-checkbox-minimal {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128936 */
+
+/* CSFLOAT-1:1 PARITY ship #128937 — trigger user-select prevention.
+   csfloat .mat-mdc-select-trigger has `user-select: none` so
+   clicking on the trigger doesn't accidentally start a text
+   selection (which the operator would see as a 1-frame highlight
+   flicker). Sbox button has user-select:auto by default — lock
+   to none for the same crisp click feel. */
+body nav.nav .nav-picker .nav-picker-chip,
+body nav.nav .nav-picker .nav-picker-chip .nav-picker-label,
+body nav.nav .nav-picker .nav-picker-chip .nav-picker-caret {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128937 */
+
+/* =====================================================================
+   END CSFLOAT-1:1 PARITY ships #128932-#128937
+   ===================================================================== */
