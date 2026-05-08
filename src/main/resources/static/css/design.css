@@ -168764,3 +168764,365 @@ html body .cart-confirm-panel:has(.price-suggest-chip):has(.wallet-amount-input)
   box-shadow: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #20406 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ships #20700-#20706 (stall inline action button row
+   — variant disambiguation + states not covered by #20608-#20613)
+   Lane recap: app.js:7588-7641 renders 4-6 sibling buttons (Contact,
+   Share, Follow/Unfollow, Block, Report, optional Manage stall) directly
+   into the 3rd grid column of .stall-hero. Ships #20608-#20613 already
+   pinned the row's column-gap, default ink-2 color, hairline border,
+   brand-bloom hover, 200ms transition, and the hairline divider before
+   the Follow button. This batch covers the variants + states #20608-13
+   left untouched: filled Manage-stall self-view, destructive Report
+   tint, disabled Follow loading state, :active pressed feedback, the
+   Following-vs-Notify visual differentiation, the share-icon sizing
+   inside the row, and the keyboard focus-visible ring offset for
+   high-contrast a11y. Measured against canonical csfloat tokens from
+   CODEX_HANDOFF.md: brand rgb(35,123,255), ink-2 rgb(158,167,177),
+   hairline rgba(255,255,255,0.06), Material elev2 shadow, transition
+   cubic-bezier(0.4,0,0.2,1) 200ms standard.
+   ===================================================================== */
+
+/* Ship #20700 — Manage-stall (self-view) filled variant geometry pin.
+   app.js:7602-7615 sets inline `background: var(--accent); color:
+   #051018; fontWeight: 700` on the self-view <a>. Ship #20611 hover
+   would re-tint it to brand-bloom (rgba(35,123,255,0.06) bg + brand
+   text), which destroys the filled CTA appearance. Re-pin the filled
+   look + raised-button shadow + 36h/0-16 row geometry so it sits
+   flush in the row but reads as the primary action. Hover lifts the
+   bg one shade and bumps elevation, matching csfloat raised-button
+   spec (Material elevation 2 → elevation 4 on hover). */
+.stall-hero > a.stall-share-btn[href*="/me/stall"],
+.stall-hero > a.stall-share-btn[href*="/mystall"],
+.stall-hero > a.stall-share-btn[style*="background: var(--accent)"] {
+  height: 36px !important;
+  min-width: 64px !important;
+  padding: 0 16px !important;
+  font-weight: 700 !important;
+  color: rgb(5, 16, 24) !important;
+  background-color: rgb(35, 123, 255) !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 3px 1px -2px,
+              rgba(0, 0, 0, 0.14) 0 2px 2px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 5px 0 !important;
+  text-decoration: none !important;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.stall-hero > a.stall-share-btn[href*="/me/stall"]:hover,
+.stall-hero > a.stall-share-btn[href*="/mystall"]:hover,
+.stall-hero > a.stall-share-btn[style*="background: var(--accent)"]:hover {
+  background-color: rgb(67, 142, 255) !important;
+  color: rgb(5, 16, 24) !important;
+  border: 0 !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 2px 4px -1px,
+              rgba(0, 0, 0, 0.14) 0 4px 5px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 10px 0 !important;
+}
+.stall-hero > a.stall-share-btn[href*="/me/stall"] .stall-share-icon,
+.stall-hero > a.stall-share-btn[href*="/mystall"] .stall-share-icon {
+  color: rgb(5, 16, 24) !important;
+}
+.stall-hero > a.stall-share-btn[href*="/me/stall"]:hover .stall-share-icon,
+.stall-hero > a.stall-share-btn[href*="/mystall"]:hover .stall-share-icon {
+  color: rgb(5, 16, 24) !important;
+}
+
+/* Ship #20701 — destructive Report button visual disambiguation.
+   Ship #20611's brand-bloom hover applies to ALL .stall-share-btn
+   including Report (title="Report this user to support"), which
+   makes the destructive action read identical to neutral chips.
+   csfloat tints destructive intent with a faint warm hairline so
+   it's visible as a distinct semantic class without hijacking the
+   row's tonal cohesion. Resting: warm-red 18% hairline + warm-red
+   85% text. Hover: warm-red 42% hairline + warm-red tint bg + full
+   warm-red text. */
+.stall-hero > button.stall-share-btn[title*="Report"],
+.stall-hero > .stall-share-btn[title*="Report this user"] {
+  border: 1px solid rgba(244, 92, 92, 0.18) !important;
+  color: rgba(244, 154, 154, 0.85) !important;
+  background-color: transparent !important;
+  opacity: 1 !important;
+}
+.stall-hero > button.stall-share-btn[title*="Report"]:hover,
+.stall-hero > button.stall-share-btn[title*="Report"]:focus-visible,
+.stall-hero > .stall-share-btn[title*="Report this user"]:hover,
+.stall-hero > .stall-share-btn[title*="Report this user"]:focus-visible {
+  border-color: rgba(244, 92, 92, 0.42) !important;
+  background-color: rgba(244, 92, 92, 0.08) !important;
+  color: rgb(244, 154, 154) !important;
+}
+
+/* Ship #20702 — disabled Follow button loading state geometry pin.
+   app.js:2072 renders `h('button', { className: 'stall-share-btn',
+   disabled: true }, '…')` while the follow-status fetch is in flight.
+   Ship #20611's hover bloom would still fire on a disabled button via
+   pointer events (some browsers); cursor stays default and the chip
+   reads "interactive but useless". Pin disabled visual: ink-3 text,
+   transparent bg, hairline at 4% (half the resting alpha so it reads
+   as suppressed), cursor not-allowed, no hover bloom. Material spec
+   for disabled outlined button: 38% opacity on text + outline, no
+   pointer interaction. */
+.stall-hero > .stall-share-btn[disabled],
+.stall-hero > .stall-share-btn:disabled,
+.stall-hero > button.stall-share-btn[disabled],
+.stall-hero > button.stall-share-btn:disabled {
+  color: rgba(158, 167, 177, 0.38) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+  background-color: transparent !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+}
+.stall-hero > .stall-share-btn[disabled]:hover,
+.stall-hero > .stall-share-btn:disabled:hover {
+  color: rgba(158, 167, 177, 0.38) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+  background-color: transparent !important;
+}
+
+/* Ship #20703 — :active pressed-state feedback. csfloat Material
+   buttons darken one shade on mouse-down to confirm the press; the
+   row currently has no :active treatment, so a fast click feels
+   unresponsive. Apply a slightly deeper bg-tint than hover for the
+   pressed frame. Outlined variants get rgba(35,123,255,0.12); the
+   filled Manage-stall variant gets a darker brand bg. The 80ms
+   transition on :active makes the press feel snappy (vs the 200ms
+   ease used for hover entry/exit). */
+.stall-hero > .stall-share-btn:active,
+.stall-hero > button.stall-share-btn:active {
+  background-color: rgba(35, 123, 255, 0.12) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  color: rgb(35, 123, 255) !important;
+  transition-duration: 80ms !important;
+}
+.stall-hero > a.stall-share-btn[href*="/me/stall"]:active,
+.stall-hero > a.stall-share-btn[href*="/mystall"]:active,
+.stall-hero > a.stall-share-btn[style*="background: var(--accent)"]:active {
+  background-color: rgb(28, 103, 224) !important;
+  color: rgb(5, 16, 24) !important;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 1px 1px 0,
+              rgba(0, 0, 0, 0.14) 0 1px 1px 0,
+              rgba(0, 0, 0, 0.12) 0 1px 3px 0 !important;
+  transition-duration: 80ms !important;
+}
+.stall-hero > button.stall-share-btn[title*="Report"]:active,
+.stall-hero > .stall-share-btn[title*="Report this user"]:active {
+  background-color: rgba(244, 92, 92, 0.14) !important;
+  border-color: rgba(244, 92, 92, 0.6) !important;
+  color: rgb(244, 154, 154) !important;
+}
+
+/* Ship #20704 — Following ("Click to unfollow") variant
+   differentiation. The FollowSellerButton (app.js:2014-2087) toggles
+   between two stable titles: "Get notified ..." (not following — CTA
+   state) and "Click to unfollow" (following — toggle state).
+   Currently both render identically (ink-2 base + brand-bloom hover).
+   csfloat shows the FOLLOWING state with a faint brand-tint resting
+   bg + brand hairline so the user can see "you're already following
+   this seller" at a glance. Hover on a Following button shifts to a
+   warm-tinted "click to unfollow" feedback so the destructive
+   action is clearly previewed. */
+.stall-hero > .stall-share-btn[title*="Click to unfollow"]:not(:hover):not(:focus-visible) {
+  border-color: rgba(35, 123, 255, 0.32) !important;
+  color: rgb(35, 123, 255) !important;
+  background-color: rgba(35, 123, 255, 0.04) !important;
+}
+.stall-hero > .stall-share-btn[title*="Click to unfollow"]:not(:hover):not(:focus-visible) .stall-share-icon {
+  color: rgb(35, 123, 255) !important;
+}
+.stall-hero > .stall-share-btn[title*="Click to unfollow"]:hover {
+  border-color: rgba(244, 92, 92, 0.42) !important;
+  color: rgb(244, 154, 154) !important;
+  background-color: rgba(244, 92, 92, 0.08) !important;
+}
+.stall-hero > .stall-share-btn[title*="Click to unfollow"]:hover .stall-share-icon {
+  color: rgb(244, 154, 154) !important;
+}
+
+/* Ship #20705 — share-icon sizing + alignment inside the row. The
+   .stall-share-icon spans (app.js:7613 emits `h('span', {
+   className: 'stall-share-icon' }, '—')`) inherit the parent button's
+   font-size (14px from #9004) but sit inline-baseline by default,
+   which lets em-dashes drop below the centerline of the label. Pin
+   the icon to inline-flex centered, fixed 16x16 box, line-height 1
+   so the glyph centers on the row's 36h cross-axis regardless of the
+   underlying glyph metrics. Margin 0 (gap on parent #9004 handles
+   spacing). */
+.stall-hero > .stall-share-btn .stall-share-icon,
+.stall-hero > a.stall-share-btn .stall-share-icon,
+.stall-hero > button.stall-share-btn .stall-share-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  line-height: 1 !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+/* Ship #20706 — keyboard focus-visible ring with 2px outline-offset.
+   Ship #20611 reused :focus-visible to apply the brand-bloom hover,
+   but a keyboard user needs an EXPLICIT outline ring to pick out
+   which chip is focused — the bg-tint alone is too subtle especially
+   for the destructive Report variant which has its own warm-tint
+   focus state. Add a 2px brand outline at 2px offset on top of the
+   variant-specific :focus-visible bg. Standard csfloat keyboard a11y
+   pattern. The outline-offset:2 keeps the ring outside the border so
+   a hairline + ring don't collapse into a doubled stroke. */
+.stall-hero > .stall-share-btn:focus-visible,
+.stall-hero > a.stall-share-btn:focus-visible,
+.stall-hero > button.stall-share-btn:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+}
+.stall-hero > button.stall-share-btn[title*="Report"]:focus-visible,
+.stall-hero > .stall-share-btn[title*="Report this user"]:focus-visible {
+  outline-color: rgb(244, 92, 92) !important;
+}
+/* END CSFLOAT-1:1 PARITY ships #20700-#20706 */
+
+/* CSFLOAT-1:1 PARITY ship #21100 — .buyorder-cap text-transform + letter-spacing repair
+   Existing legacy §20 BUY ORDERS rule at design.css:7253 paints
+   .buyorder-cap as a cap-style metadata token (text-transform:
+   uppercase, letter-spacing: 0.12em ≈ 1.68px). csfloat displays the
+   max-price cell as a pure mixed-case currency figure (no caps, no
+   tracking) since it's a numeric primary value, not a label. The
+   ship #2901 typography pin (line 134996) only set font-family /
+   font-size / font-weight / variant-numeric / color / line-height
+   / white-space but NEVER reset text-transform or letter-spacing,
+   so the legacy uppercase + 1.68px letter-spacing leaks into the
+   final computed style (verified: tt=uppercase, ls=1.68px). Snap
+   to natural casing + normal letter-spacing so "≤ $1,250.00" reads
+   as a price, not a SHOUTED LABEL. Same lane as the trade-row /
+   wallet-tx tabular-nums spec (ship #1305). */
+body .buyorder-row .buyorder-cap {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21100 */
+
+/* CSFLOAT-1:1 PARITY ship #21101 — .buyorder-cap right-column rhythm reset
+   The same legacy §20 rule (design.css:7257) sets margin-top: 8px
+   on .buyorder-cap. That made sense when the cap sat below the
+   title in a single-column row, but the modal/page renders the
+   right column as its OWN flex stack (price on top, status
+   chip below). Inheriting margin-top: 8px from the legacy rule
+   pushes the price line 8px DOWN inside its parent → the right
+   column starts lower than the left column's title baseline,
+   producing visible misalignment in the row's vertical center.
+   csfloat snaps the right column primary line flush to the row
+   center (margin-top: 0) and adds the gap on the SECONDARY
+   (status chip) line. Reset cap top-margin and pin the status
+   chip top-margin to 6px to mirror csfloat's title→meta rhythm
+   (same 6px gap used in the .item-card price→title slot). */
+body .buyorder-row .buyorder-cap {
+  margin-top: 0 !important;
+}
+body .buyorder-row .buyorder-status {
+  margin-top: 6px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21101 */
+
+/* CSFLOAT-1:1 PARITY ship #21102 — .buyorder-list standalone-page wrapper polish
+   Ship #2900 moved /buyorders rows to a standalone-card stack
+   (gap: 12px, transparent bg, 0 border) but the legacy §20 rule
+   at design.css:7228 still paints the wrapper with
+   border-radius: 10px + overflow: hidden — leftover from when
+   the list was a single bordered card with rows inside. Now
+   that each row is its own card with its own 8px radius +
+   hairline border (ship #2900), the wrapper-level radius does
+   nothing visible BUT the overflow: hidden clips any future
+   row-hover elevation lift (ship #21103) since the lift-shadow
+   would extend past the wrapper bounds. Reset both: 0 radius +
+   visible overflow so each row owns its full elevation surface.
+   Modal version (NOT scoped to .full-page-mode) keeps the
+   legacy chrome via the existing :not(.full-page-mode) cascade,
+   so this only affects the standalone-page surface. */
+body .full-page-mode .buyorder-list {
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21102 */
+
+/* CSFLOAT-1:1 PARITY ship #21103 — .buyorder-row hover elevation lift
+   Existing ship #2900 hover state only swaps bg + border-color
+   (rgb(31,33,41) bg + rgb(50,52,62) border). csfloat row-hover
+   on standalone-card list rows (auctions, trades, profile-tabs)
+   adds a Material elevation-z1 box-shadow on top of the bg/border
+   change, plus a 1px translateY lift, telegraphing
+   "this row is interactive" with the canonical token from the
+   handoff: rgba(0,0,0,.2) 0 2px 1px -1px, rgba(0,0,0,.14) 0 1px 1px 0,
+   rgba(0,0,0,.12) 0 1px 3px 0. Keep the 250ms cubic-bezier(0.4,0,0.2,1)
+   transition canon from the handoff so the lift+shadow ease together,
+   not the existing 140ms linear ease. Also snap the cursor to pointer
+   to match csfloat's row-as-card affordance. */
+body .full-page-mode .buyorder-list > .buyorder-row,
+body .full-page-mode .buyorder-list > .buy-order-row,
+body .full-page-mode .buyorder-list > .bo-row {
+  cursor: pointer !important;
+  transition:
+    background 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 250ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .full-page-mode .buyorder-list > .buyorder-row:hover,
+body .full-page-mode .buyorder-list > .buy-order-row:hover,
+body .full-page-mode .buyorder-list > .bo-row:hover {
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0 2px 1px -1px,
+    rgba(0, 0, 0, 0.14) 0 1px 1px 0,
+    rgba(0, 0, 0, 0.12) 0 1px 3px 0 !important;
+  transform: translateY(-1px) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21103 */
+
+/* CSFLOAT-1:1 PARITY ship #21104 — .buyorder-row :focus-visible brand ring
+   Keyboard navigation was invisible on the row card — no outline,
+   no shadow, no border swap. csfloat surfaces a 2px brand-blue
+   focus ring (rgb(35,123,255) at 50% alpha) with a 2px offset on
+   keyboard-focused list-row cards (auctions, trades, profile rows).
+   Pin :focus-visible explicitly so mouse-clicks don't show the
+   ring (UX standard) but Tab navigation does. Use the canonical
+   brand token. */
+body .full-page-mode .buyorder-list > .buyorder-row:focus-visible,
+body .full-page-mode .buyorder-list > .buy-order-row:focus-visible,
+body .full-page-mode .buyorder-list > .bo-row:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
+  outline-offset: 2px !important;
+  border-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21104 */
+
+/* CSFLOAT-1:1 PARITY ship #21105 — .buyorder-row.cancelled / .filled / .expired
+   row-state low-emphasis treatment
+   Buy-order rows in non-active states (filled, cancelled, expired)
+   are historical records, not interactive. csfloat dims them with
+   opacity 0.72 (matching the past-bubble token from the offer
+   thread, ship #20602) so the eye gravitates to ACTIVE rows that
+   still need the user's attention. The cancel button only renders
+   on ACTIVE rows (csfloat-modals.js:844), so non-active rows have
+   no action affordance — the dim state telegraphs "read-only."
+   Also drop the cursor: pointer (ship #21103) on these row states
+   since there's no hover destination, and remove the hover-lift
+   so non-active rows don't pop on hover. */
+body .full-page-mode .buyorder-list > .buyorder-row.filled,
+body .full-page-mode .buyorder-list > .buyorder-row.cancelled,
+body .full-page-mode .buyorder-list > .buyorder-row.expired {
+  opacity: 0.72 !important;
+  cursor: default !important;
+}
+body .full-page-mode .buyorder-list > .buyorder-row.filled:hover,
+body .full-page-mode .buyorder-list > .buyorder-row.cancelled:hover,
+body .full-page-mode .buyorder-list > .buyorder-row.expired:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  background: rgb(27, 29, 36) !important;
+  border-color: rgb(38, 40, 48) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #21105 */
