@@ -176578,3 +176578,1062 @@ body .settings-row:has(.toggle-switch.off) > .toggle-switch::before {
   content: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #126785 */
+
+/* CSFLOAT-1:1 PARITY ship #126840 — /settings Local data destructive
+   surface. Goal: align the "Local data" section's destructive button
+   ("✕ Clear all local data") and warning sub-text with csfloat's
+   material mat-warn standard.
+
+   Pre-fix (measured at http://localhost:8082/settings):
+     Section heading        : H2.settings-section-heading 14/500
+                              rgba(255,255,255,0.62) (sentence-case, no tracking)
+     Helper sub-text        : DIV 11/400 oklch(0.66 0.012 260) lh 16.5px
+     Destructive button     : btn-danger-ghost 142x32, bg rgba(244,71,71,.06),
+                              color rgb(255,125,125) (rose tint),
+                              border 1px rgba(244,71,71,.28), radius 6px
+     Sibling ghost button   : btn.btn-ghost 32, bg rgba(255,255,255,.04),
+                              color rgba(255,255,255,.85)
+
+   csfloat mat-mdc warn target (per spec brief + /search measurements):
+     - Destructive accent  : #eb4b4c / rgb(235,75,76)
+     - Bordered button     : red-on-tinted-bg with explicit hairline
+     - Sub-text            : 12/400 ink-2 rgb(158,167,177)
+     - Section label       : 11/600 uppercase ink-2 with 0.06em tracking
+     - Standard transition : cubic-bezier(0.4,0,0.2,1) ~150-300ms
+     - Border-radius       : 4px on warn pills (Material baseline)
+
+   Override surface: SettingsModal `Local data` section, scoped via the
+   info-modal-body container so the ruleset can't bleed onto unrelated
+   .btn-danger-ghost instances elsewhere. Uses :has() to target the
+   exact section block following the heading. Append-only, !important
+   to win over inline-style props from modals.js.
+*/
+
+/* Section heading — uppercase muted-ink label, csfloat danger-zone style */
+.info-modal-body div[style*="margin-top: 24px"][style*="border-top"] > h2.settings-section-heading,
+.info-modal-body div[style*="marginTop: 24"][style*="borderTop"] > h2.settings-section-heading,
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(> h2 + div + div .btn-danger-ghost)
+  > h2.settings-section-heading {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 8px !important;
+  line-height: 1.2 !important;
+}
+
+/* Helper / warning sub-text — 12/400 ink-2, csfloat hint-text spec */
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  > div[style*="font-size: 11"],
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  > div[style*="fontSize: 11"],
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  > div[style*="color: var(--text-muted)"] {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 18px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-bottom: 12px !important;
+  letter-spacing: 0 !important;
+}
+
+/* Destructive button — material mat-warn red-on-tinted-bg */
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 32px !important;
+  border-radius: 4px !important;
+  background: rgba(235, 75, 76, 0.10) !important;
+  border: 1px solid rgba(235, 75, 76, 0.45) !important;
+  color: rgb(235, 75, 76) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+  transition:
+    background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:hover,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:hover {
+  background: rgba(235, 75, 76, 0.18) !important;
+  border-color: rgba(235, 75, 76, 0.65) !important;
+  color: rgb(248, 130, 131) !important;
+  box-shadow: 0 0 0 1px rgba(235, 75, 76, 0.08) !important;
+}
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:active,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:active {
+  background: rgba(235, 75, 76, 0.22) !important;
+  border-color: rgba(235, 75, 76, 0.75) !important;
+  transform: translateY(0.5px) !important;
+}
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:focus-visible,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:focus-visible {
+  outline: 2px solid rgba(235, 75, 76, 0.55) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(235, 75, 76, 0.10) !important;
+}
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:disabled,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn-danger-ghost:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  background: rgba(235, 75, 76, 0.06) !important;
+  border-color: rgba(235, 75, 76, 0.25) !important;
+}
+
+/* Companion ghost button ("Reset UI preferences") — keep height parity
+   with the destructive sibling, soften the surface to csfloat's hint-
+   chip standard so the row sits flush. */
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn.btn-ghost,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn.btn-ghost {
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  letter-spacing: 0 !important;
+  line-height: 32px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  transition:
+    background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  button.btn.btn-ghost:hover,
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost)
+  button.btn.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+/* Button row — explicit gap + flex-wrap for narrow viewports so the
+   destructive button never collides with the ghost sibling. */
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost)
+  > div[style*="display: flex"][style*="gap"] {
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-top: 4px !important;
+}
+
+/* Container hairline alignment with csfloat panel hairline token */
+.info-modal-body
+  div[style*="margin-top: 24px"][style*="border-top"]:has(.btn-danger-ghost),
+.info-modal-body
+  div[style*="marginTop: 24"][style*="borderTop"]:has(.btn-danger-ghost) {
+  border-top-color: rgba(255, 255, 255, 0.06) !important;
+  margin-top: 24px !important;
+  padding-top: 18px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126840 */
+
+/* Ship #126900 — SellModal AUCTION duration helper text + Buy-Now-ceiling
+   helper text aligned to CSFloat's Material hint primitive (12px / 400 /
+   ink-2 / 0.4px letter-spacing / 20px line-height with 4px margin under
+   the control row). The two helper rows in SellModal sit directly below
+   the duration chip group and below the optional Buy-Now-price input.
+
+   Reference (CSFloat /search, .mat-mdc-form-field-hint computed):
+     font-size      : 12px
+     font-weight    : 400
+     font-family    : Roboto, "Helvetica Neue", sans-serif
+     line-height    : 20px
+     letter-spacing : 0.4px
+     padding        : 0 16px (subscript wrapper)
+
+   Local React renders these helpers with inline
+     style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}
+   which serializes to
+     style="font-size: 11px; color: var(--text-muted); margin-top: 6px;"
+   The selector below scopes inside .info-modal-body to the AUCTION
+   wrapper (`div[style*="margin-bottom: 14px"]` containing a
+   `.wallet-input-label` direct child) and matches just the helper rows
+   by their inline-style fingerprint — so the BUY_NOW fee-receipt panel
+   and the Steam-suggested-price chip are not affected. */
+.info-modal-body
+  div[style*="margin-bottom: 14px"]:has(> .wallet-input-label)
+  > div[style*="font-size: 11px"][style*="margin-top: 6px"][style*="color: var(--text-muted)"] {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.4px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 4px !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  transition: color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #126880 — Wallet WITHDRAW step-2 method-tile +
+   destination input rebased to csfloat MATERIAL FILLED text-field +
+   selected mat-mdc-card brand-tinted treatment.
+   --------------------------------------------------------------------
+   REAL surface: modals.js:14315-14370 (Step 2: payment method).
+   Tile: <div class="wallet-method-card selected"> (only option, hardcoded
+   "Bank Account / Stripe").
+   Destination input: <input class="wallet-amount-input" placeholder="
+   Stripe Connect ID or bank reference"> inside .wallet-method-fields.
+   2FA input: <input class="wallet-amount-input" autocomplete="one-time-
+   code" placeholder="6-digit 2FA code (if enabled)"> sibling.
+   --------------------------------------------------------------------
+   MEASURED on csfloat.com/search live (anon-viewable filled mat-form-
+   field + mat-mdc-card primitives use the IDENTICAL chrome the wallet/
+   withdraw dialog ships):
+     mat-mdc-card             bg rgb(27,29,36) br 12px (item-card)
+     mat-form-field-appearance-fill .mat-mdc-text-field-wrapper:
+       bg                rgba(193,206,255,0.04)
+       br                6px
+       padding           0 0 0 16px (left-only, fill style)
+       borderTopWidth    0 (no outline border in fill appearance)
+     .mat-mdc-form-field-flex
+       padding           0
+       alignItems        baseline
+     .mat-mdc-form-field-infix
+       padding           10px 0
+       minHeight         44px (44h Material text-field canon)
+     input.mat-mdc-input-element
+       color             rgb(255,255,255)
+       fontSize          16
+       fontWeight        400
+       letterSpacing     0.5px
+       lineHeight        24
+       padding           0
+       backgroundColor   transparent
+       caretColor        rgb(35,123,255) (brand caret)
+     hint                fs 12 ls 0.4 color rgba(158,167,177,0.6)
+   --------------------------------------------------------------------
+   PRIOR sboxmarket SHIPS THIS REPLACES/REFINES:
+     #19500 (167071-167095) — destination + 2FA chrome:
+        bg rgb(27,29,36) br 4px hairline rgba(255,255,255,0.06)
+        padding 12px 14px h 48 — modeled on csfloat dialog input
+        (closer to OUTLINED appearance). But csfloat's wallet dialog
+        text-fields ship FILLED appearance — wrapper bg rgba(193,206,
+        255,0.04), br 6, no border, infix min-h 44 — per live measure.
+        Re-snap: panel-bg → field-fill-tint, br 4 → 6, h 48 → 44,
+        outline border → none (fill has no outline, relies on bg tint
+        + bottom underline), padding 12/14 → 10/16.
+     #15801 (161162-161174) — .wallet-method-card panel chrome + selected
+        treatment: panel bg + 4px br + hairline + elev-2 shadow + brand
+        border + brand 1px inset on .selected. KEPT, augmented with
+        brand-tinted bg cue rgba(35,123,255,0.04) on .selected per spec
+        ("Selected method-tile typically brand-tinted bg + brand border"
+        — bg-tint matches the field-fill tone direction csfloat uses on
+        every filled mat-form-field wrapper). Transition timing
+        normalized to 200ms cubic-bezier(0.4,0,0.2,1) per spec
+        ("Standard transition cubic-bezier(0.4,0,0.2,1) 150-300ms").
+   ===================================================================== */
+
+/* 1. Selected method-tile: brand-tinted bg cue + 200ms cubic-bezier.
+   The withdraw step-2 tile is HARDCODED .selected (single option). */
+html body .wallet-modal .wallet-method-card.selected {
+  background-color: rgba(35, 123, 255, 0.04) !important;
+  border-color: rgb(35, 123, 255) !important;
+  box-shadow:
+    rgba(0, 0, 0, 0.2) 0px 3px 1px -2px,
+    rgba(0, 0, 0, 0.14) 0px 2px 2px 0px,
+    rgba(0, 0, 0, 0.12) 0px 1px 5px 0px,
+    0 0 0 1px rgb(35, 123, 255) inset !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color    200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow      200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 2. Destination input + 2FA: rebase to MATERIAL FILLED text-field. */
+html body .wallet-modal .wallet-method-fields .wallet-amount-input {
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  color: rgb(255, 255, 255) !important;
+  caret-color: rgb(35, 123, 255) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  line-height: 24px !important;
+  padding: 10px 16px !important;
+  height: 44px !important;
+  width: 100% !important;
+  outline: none !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-bottom-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+}
+
+html body .wallet-modal .wallet-method-fields .wallet-amount-input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px !important;
+  opacity: 1 !important;
+}
+
+/* Hover: lift wrapper bg toward 6% — matches csfloat fill mat-form-
+   field hover (subtle tone bump, no border change). */
+html body .wallet-modal .wallet-method-fields .wallet-amount-input:hover {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+}
+
+/* Focus: brand bottom border (2px) per Material fill focus indicator. */
+html body .wallet-modal .wallet-method-fields .wallet-amount-input:focus,
+html body .wallet-modal .wallet-method-fields .wallet-amount-input:focus-visible {
+  background-color: rgba(193, 206, 255, 0.06) !important;
+  border-bottom: 2px solid rgb(35, 123, 255) !important;
+  /* keep height stable when border thickness flips 1→2 */
+  padding-bottom: 9px !important;
+  outline: none !important;
+}
+
+/* 3. Helper-text fallback: any small text-node sibling immediately
+   inside .wallet-method-fields picks up Material hint chrome
+   (fs 12, ls 0.4, ink-2 rgba(158,167,177,0.6)). No-op when none. */
+html body .wallet-modal .wallet-method-fields > div,
+html body .wallet-modal .wallet-method-fields > small,
+html body .wallet-modal .wallet-method-fields > p {
+  color: rgba(158, 167, 177, 0.6) !important;
+  font-family: Roboto, "Helvetica Neue", sans-serif !important;
+  font-size: 12px !important;
+  letter-spacing: 0.4px !important;
+  line-height: 16px !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126880 */
+
+
+/* CSFLOAT-1:1 PARITY ship #126881 — item-image lightbox parity.
+   --------------------------------------------------------------------
+   REAL surface: modals.js:2120-2137 — .item-lightbox + frame + close X +
+   caption. Triggered by .modal-preview-zoom magnifier (modals.js:427)
+   ONLY in /item page-mode (isPageMode true). Backed by useState
+   (zoomOpen, setZoomOpen at modals.js:94) with Escape-key dismissal
+   inside the useEffect at modals.js:95-…
+   --------------------------------------------------------------------
+   sboxmarket items are SINGLE-image (one .item-image per row, no gallery
+   array on the item record). csfloat's gallery-only chrome (prev/next
+   arrows, "1 of 4" counter, zoom-in / zoom-out controls) does not apply
+   here — there is nothing to step through. Match only the surfaces this
+   single-image lightbox actually shows: backdrop, frame, close X, cap.
+   --------------------------------------------------------------------
+   csfloat conventions used here:
+     backdrop          rgba(0,0,0,0.85)  (pure black, no color-mix)
+     backdrop blur     2px (subtle, not the 6px the panel modal uses)
+     close X box       40x40 at top:24 right:24
+     close X chrome    panel-bg 0.72 + hairline 0.06 + ink-2 glyph
+     close X hover     brand-tinted bg + brand border (no scale)
+     transitions       cubic-bezier(0.4,0,0.2,1) at 180–220ms
+     frame max         min(90vw, 1080px) / 85vh
+     image radius      8px (lightbox is tighter than the 14px panel)
+     caption           panel-bg pill, fs 12, ink-2, no uppercase
+   --------------------------------------------------------------------
+   PRIOR sboxmarket lightbox CSS being refined (design.css:12551-12615):
+     bg color-mix(bg, black) → straight rgba(0,0,0,0.85) for csfloat-
+       pure-black flatness. The color-mix path resolves brighter than
+       csfloat's true black on dark themes.
+     close X background color-mix(bg-1, transparent) → rgba(27,29,36,0.72).
+       color-mix on a tinted token reads slightly warm; csfloat is neutral.
+     close X font-weight 600 → 500 (csfloat icon-buttons ship medium).
+     close X transition 140ms ease → 180ms cubic-bezier(0.4,0,0.2,1) per
+       spec ("Standard transition cubic-bezier(0.4,0,0.2,1) 150-300ms").
+     close X hover transform scale(1.06) → none (csfloat icon-buttons do
+       not pop on hover; they only flip color).
+     image filter drop-shadow(0 14px 24px) → none + box-shadow only
+       (the drop-shadow doubled the ambient and washed out the image).
+     caption font-family Geist → inherit (the lightbox cap inherits the
+       page font; Geist override was a stale token from an earlier ship).
+   ===================================================================== */
+
+html body .item-lightbox {
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+  padding: 56px 24px 72px !important;
+  animation: lightbox-fade-in-csfloat 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@keyframes lightbox-fade-in-csfloat {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+html body .item-lightbox-frame {
+  max-width: min(90vw, 1080px) !important;
+  max-height: 85vh !important;
+  animation: lightbox-frame-pop-csfloat 220ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@keyframes lightbox-frame-pop-csfloat {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+html body .item-lightbox-frame img,
+html body .item-lightbox-frame .item-image,
+html body .item-lightbox-frame .item-image img {
+  max-height: 80vh !important;
+  border-radius: 8px !important;
+  box-shadow: 0 24px 56px -16px rgba(0, 0, 0, 0.7) !important;
+  filter: none !important;
+}
+
+/* Close X — csfloat icon-button: 40x40, neutral hairline, no scale on
+   hover, brand-tint flip only. Replaces the prior color-mix tokens with
+   straight rgba so the value matches the csfloat-measured tone. */
+html body .item-lightbox-close {
+  top: 24px !important;
+  right: 24px !important;
+  width: 40px !important;
+  height: 40px !important;
+  background: rgba(27, 29, 36, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgb(158, 167, 177) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition:
+    background 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+html body .item-lightbox-close:hover {
+  background: rgba(35, 123, 255, 0.18) !important;
+  border-color: rgba(35, 123, 255, 0.45) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+html body .item-lightbox-close:focus-visible {
+  outline: 2px solid rgba(35, 123, 255, 0.6) !important;
+  outline-offset: 2px !important;
+}
+
+/* Caption — quiet bottom label per csfloat. Drop the Geist override and
+   the uppercase letter-spacing; csfloat ships sentence-case here. */
+html body .item-lightbox-cap {
+  bottom: 24px !important;
+  font-size: 12px !important;
+  letter-spacing: 0.03em !important;
+  color: rgb(158, 167, 177) !important;
+  padding: 5px 12px !important;
+  background: rgba(27, 29, 36, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  font-family: inherit !important;
+}
+
+/* Magnifier launcher — tighter chip in the corner of the hero image with
+   a single icon glyph. csfloat's launcher fades in on hover only; the
+   pointer-events:none prevents intercepting the parent image click. */
+html body .modal.item-page .modal-preview-zoom {
+  width: 36px !important;
+  height: 36px !important;
+  right: 14px !important;
+  bottom: 14px !important;
+  background: rgba(27, 29, 36, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 16px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  opacity: 0 !important;
+  transition:
+    opacity 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html body .modal.item-page .modal-preview:hover .modal-preview-zoom {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+
+/* When the lightbox is open, hide the in-frame magnifier launcher
+   (csfloat removes it while the overlay is up to avoid duplication). */
+html body .modal.item-page .modal-preview.zoom-active .modal-preview-zoom {
+  opacity: 0 !important;
+}
+
+/* Mobile — keep close X reachable and shrink padding so the image fills. */
+@media (max-width: 600px) {
+  html body .item-lightbox {
+    padding: 48px 12px 56px !important;
+  }
+  html body .item-lightbox-frame {
+    max-width: 96vw !important;
+    max-height: 78vh !important;
+  }
+  html body .item-lightbox-frame img,
+  html body .item-lightbox-frame .item-image,
+  html body .item-lightbox-frame .item-image img {
+    max-height: 72vh !important;
+  }
+  html body .item-lightbox-close {
+    top: 16px !important;
+    right: 16px !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+  html body .item-lightbox-cap {
+    bottom: 16px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* END CSFLOAT-1:1 PARITY ship #126881 */
+
+
+/* ================================================================
+   CSFLOAT-1:1 PARITY ship #126920 — /settings Accessibility section
+   ----------------------------------------------------------------
+   Six measurable refinements that bring the Accessibility &
+   appearance group closer to csfloat's mat-mdc-list-item density.
+   Lane brief: match section header, toggle row geometry (label +
+   sublabel + toggle), info-icon tooltip, divider hairlines, group
+   label "Accessibility & appearance". Tokens sampled live from
+   csfloat: panel rgb(27,29,36), brand rgb(35,123,255), ink-2
+   rgb(158,167,177), hairline rgba(255,255,255,0.06), body Roboto
+   on rgb(21,23,28). All rules scoped to .settings-section-heading
+   siblings inside the accessibility group so the broader settings
+   page stays untouched.
+   ================================================================ */
+
+/* (1) Hairline divider above every settings section heading except
+   the first. csfloat groups each Material list block with a 1px
+   rgba(255,255,255,0.06) hairline that visually separates the
+   group label from the previous row. The current heading sits
+   flush against the prior row — adding a top hairline + matching
+   top padding gives the group a distinct frame matching csfloat's
+   mat-mdc-list grouping. */
+.info-modal-body h2.settings-section-heading + .settings-row,
+.full-page-mode .info-modal-body h2.settings-section-heading + .settings-row {
+  border-top: 0 !important;
+}
+.info-modal-body h2.settings-section-heading:not(:first-of-type),
+.full-page-mode .info-modal-body h2.settings-section-heading:not(:first-of-type) {
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding-top: 22px !important;
+  margin-top: 8px !important;
+}
+
+/* (2) Section heading typography — micro-tightening of the existing
+   14/500 token. csfloat's actual mat-list section header is 14/500
+   with 0.1px tracking and rgb(158,167,177) ink-2 instead of the
+   muted rgba(255,255,255,0.62) currently used. Harmonises with the
+   ink-2 utility colour elsewhere on the page. */
+.info-modal-body h2.settings-section-heading,
+.full-page-mode .info-modal-body h2.settings-section-heading {
+  color: rgb(158, 167, 177) !important;
+  letter-spacing: 0.1px !important;
+}
+
+/* (3) Settings row vertical rhythm — csfloat mat-mdc-list-item with
+   two-line density is 64-68px tall (12/14 padding, 20px label
+   line-height, 16px sublabel line-height, 4px label-sublabel gap).
+   sboxmarket currently lands at 71px with no explicit gap reset.
+   Pin gap, padding and a min-height precisely so single-line and
+   two-line rows share the same baseline. */
+.info-modal-body .settings-row,
+.full-page-mode .info-modal-body .settings-row {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  min-height: 56px !important;
+}
+.info-modal-body .settings-row > div:first-child,
+.full-page-mode .info-modal-body .settings-row > div:first-child {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  justify-content: center !important;
+}
+
+/* (4) Reduce-motion + High-contrast row hover — csfloat highlights
+   the row with a 2% white wash and shifts the label to ink-1 on
+   hover so the click target reads as actionable. 150ms cubic-bezier
+   matches Material's standard motion token. Scoped via :has() to
+   the toggle-bearing rows so the static "Accent colour" sentence
+   row stays inert. */
+.info-modal-body .settings-row:has(.toggle-switch),
+.full-page-mode .info-modal-body .settings-row:has(.toggle-switch) {
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.info-modal-body .settings-row:has(.toggle-switch):hover,
+.full-page-mode .info-modal-body .settings-row:has(.toggle-switch):hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+.info-modal-body .settings-row:has(.toggle-switch):hover .settings-label,
+.full-page-mode .info-modal-body .settings-row:has(.toggle-switch):hover .settings-label {
+  color: rgba(255, 255, 255, 1) !important;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* (5) Toggle thumb micro-elevation refinement. csfloat's mdc-switch
+   handle uses Material's elev-1 token: layered 0/1/1 + 0/2/1 with
+   tighter alpha — a flatter shadow than the current 0 1px 2px
+   rgba(0,0,0,0.4). Replace with the canonical elev-1 stack so the
+   thumb reads as a flat Material disc rather than a heavy floating
+   dot. The on-state gets a faint brand-tinted shadow so the active
+   state has visible depth on the brand fill. */
+.settings-row .toggle-switch::after,
+.settings-row .toggle-switch::before,
+.info-modal-body .settings-row .toggle-switch::after,
+.info-modal-body .settings-row .toggle-switch::before {
+  box-shadow:
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 2px 1px -1px rgba(0, 0, 0, 0.12),
+    0 1px 3px 0 rgba(0, 0, 0, 0.20) !important;
+}
+.settings-row .toggle-switch.on::after,
+.settings-row .toggle-switch.on::before,
+.settings-row .toggle-switch:not(.off)::after,
+.settings-row .toggle-switch:not(.off)::before,
+.info-modal-body .settings-row .toggle-switch.on::after,
+.info-modal-body .settings-row .toggle-switch.on::before,
+.info-modal-body .settings-row .toggle-switch:not(.off)::after,
+.info-modal-body .settings-row .toggle-switch:not(.off)::before {
+  box-shadow:
+    0 1px 1px 0 rgba(0, 0, 0, 0.20),
+    0 2px 1px -1px rgba(35, 123, 255, 0.30),
+    0 1px 3px 0 rgba(35, 123, 255, 0.24) !important;
+}
+
+/* (6) Toggle off-state track refinement — csfloat's mdc-switch
+   off-track is rgba(255,255,255,0.14) (ink-3 alpha), one notch
+   below the current 0.18 which read as too prominent against the
+   panel rgb(27,29,36). Lower opacity to match the canonical
+   Material disabled-track ink, and add a subtle 1px inset ring at
+   rgba(255,255,255,0.04) for the inset edge csfloat uses. */
+.settings-row .toggle-switch.off,
+.info-modal-body .settings-row .toggle-switch.off {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04) !important;
+}
+
+/* END CSFLOAT-1:1 PARITY ship #126920 */
+
+
+/* ============================================================
+   CSFLOAT-1:1 PARITY ship #126960 — /settings "Send test
+   notification" pill button (Sound effects row).
+
+   Reference: CSFloat outlined Material chip primitive
+     - Geometry: 28-32h transparent, 1px hairline border, 6-8px radius
+     - Type: Roboto 12-13/500, normal letter-spacing
+     - Hover: faint brand-tint fill + brand border + brand text
+     - Transition: standard cubic-bezier(0.4, 0, 0.2, 1) ~180ms
+     - Reset UI preferences sibling pill (peer chip on this same
+       page) is 32h / 14px H pad / 12/500 / 6px radius / hairline
+       rgba(255,255,255,0.1) — we align to that family so the two
+       pills sit in the same visual register.
+
+   Local source (modals.js batch 819 / Boss QA G7):
+     <button class="btn btn-ghost"
+             aria-label="Send a test notification ding"
+             style="border:1px solid var(--border); padding:3px 10px;
+                    fontSize:11">
+       Send test notification
+     </button>
+
+   Issue before: inline 11px font + 3/10 pad rendered ~22h, far below
+   the 28-32h CSFloat outlined-chip target — the pill looked cramped
+   and out of register with its sibling "Reset UI preferences" pill.
+
+   Fix: scope override to the aria-label so we don't catch every
+   btn-ghost on the page. Use !important to beat the inline style
+   coming from h(...) JSX. APPEND-only — no edits to the JSX itself
+   (the inline style still fires; we just override the rendered
+   computed values). The aria-live status <span> sibling stays
+   untouched.
+
+   Brand-tint hover: rgb(35, 123, 255) at ~10% fill, full brand
+   border + text. Mirrors the hover treatment used elsewhere on
+   outlined chips in the codebase.
+   ============================================================ */
+
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"] {
+  /* Geometry — 30h, mid-band of the 28-32 spec. Mirrors sibling
+     "Reset UI preferences" 32h / 14px H pad family but a touch
+     tighter so it nests beside the toggle without over-dominating. */
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  /* Hairline border — replaces the inline var(--border) which on
+     this build resolves to a slightly green-tinted oklch token. We
+     swap to the white hairline (0.10 alpha) used by the sibling
+     pill so both chips share one visual register. */
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  /* Soft white-tint background per the sibling Reset UI pill so
+     the two chips read as one family on this page. */
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  /* Type — Roboto 12/500 lands inside spec (12-13). Resets the
+     inline 11px font down-tier and clears the inherited line-height
+     so vertical centering reads clean inside the 30px box. */
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.1px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-transform: none !important;
+  /* Layout — inline-flex so the label centers vertically with the
+     hairline box and keeps the toggle on the right hand side
+     properly aligned in the parent flex row. */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  /* Standard Material easing curve — matches every other
+     hover-tint micro-interaction on the page. */
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 180ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Hover — brand-tint fill + brand border + brand text. 10% alpha
+   on the fill keeps the panel readable underneath. */
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"]:hover {
+  background-color: rgba(35, 123, 255, 0.10) !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+  color: rgb(35, 123, 255) !important;
+}
+
+/* Active — push fill toward 16% so the click registers visually
+   without bouncing the button geometry. */
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"]:active {
+  background-color: rgba(35, 123, 255, 0.16) !important;
+  border-color: rgb(35, 123, 255) !important;
+  color: rgb(35, 123, 255) !important;
+}
+
+/* Focus-visible — brand outline ring (2px) at 2px offset, matches
+   the Material focus indicator used across the rest of the app. */
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"]:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 2px !important;
+  border-color: rgba(35, 123, 255, 0.55) !important;
+}
+
+/* Disabled — soften to ink-2 (rgba 158,167,177,0.6) and kill the
+   pointer; mirrors btn-ghost:disabled treatment elsewhere. */
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"]:disabled,
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"][aria-disabled="true"] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(158, 167, 177, 0.6) !important;
+}
+
+/* Status <span> sibling (aria-live=polite). Inline style sets
+   font-size 11 / line-height 1.2 / min-height 14 — clamp the height
+   so pressing the test button doesn't bump the row vertically when
+   the status text appears or disappears. min-height 14 means a
+   single line of 11px text (~13.2h) just barely fits — push to 18
+   so descenders never clip and the row stays stable. */
+html body button.btn.btn-ghost[aria-label="Send a test notification ding"] + span[aria-live="polite"][role="status"] {
+  min-height: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 11px !important;
+  letter-spacing: 0.2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126960 */
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ships #126940-#126947 — notification-dropdown ROW
+   geometry. The earlier sweep (#16000-#16005) restyled the panel chrome,
+   header divider, mark-all-read link state, and the unread dot+tint, but
+   left the individual ROW geometry on the legacy 12px/24px/64h flex with
+   13px primary text. The CSFloat material primitive that owns these rows
+   is mat-mdc-list-item.--with-leading-icon.--with-two-lines (canonical
+   72h, 16px horizontal padding, 16px gap, 16/500 primary, 14/400 0.25px
+   letter-spacing secondary, 40px circular leading icon). These ships
+   rebase .notif-item AND .notif-feed-row onto that canonical geometry
+   verbatim; nothing creative, only what mat-mdc renders today. Tokens:
+     panel-bg     rgba(21,23,28,0.8)        — themed-menu surface
+     ink          rgb(255,255,255)          — primary text on dark
+     ink-2        rgb(158,167,177)          — secondary text / timestamp
+     ink-icon     rgba(255,255,255,0.7)     — leading-icon glyph
+     icon-bg      rgba(255,255,255,0.08)    — leading-icon disc
+     hairline     rgba(255,255,255,0.06)    — between-row divider
+     brand        rgb(35,123,255)           — unread dot + indicator
+     ease         cubic-bezier(0.4,0,0.2,1) — Material standard
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* CSFLOAT-1:1 PARITY ship #126940 (notif row — Material 72h two-line geometry)
+   measured: csfloat .mat-mdc-list-item.mdc-list-item--with-leading-icon
+   .mdc-list-item--with-two-lines renders min-height 72px with horizontal
+   padding 16px (start anchor for the 40px leading icon disc + 16px gap +
+   text column + 16px end padding). sbox .notif-item shipped 12px 24px
+   with min-height 64px so rows sat 8px shorter and the 24px end-padding
+   wasted right-edge real estate vs the canonical 16px. Lift to the spec
+   72h / 16px horizontals — this is the foundational dimension every
+   Material list-item spec sheet anchors to. */
+html body .notif-dropdown .notif-item,
+html body .notif-dropdown .notif {
+  min-height: 72px !important;
+  padding: 12px 16px !important;
+  gap: 16px !important;
+  align-items: center !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+html body .notif-dropdown .notif-item:last-of-type,
+html body .notif-dropdown .notif:last-of-type {
+  border-bottom: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126940 */
+
+/* CSFLOAT-1:1 PARITY ship #126941 (notif row — leading-icon disc 40px)
+   measured: csfloat .mdc-list-item__start (the leading-icon slot inside
+   a list-item.--with-leading-icon) renders 40x40 with border-radius 50%
+   and background-color rgba(255,255,255,0.08), centring a 20px glyph
+   inside via flex. sbox .notif-icon shipped 32x32 / rgba(255,255,255,
+   0.06) which sat tight against text and disappeared into the panel
+   under the new translucent #16000 backdrop. Lift to Material 40px disc
+   spec + 20px glyph + 0.08 alpha for surface contrast. */
+html body .notif-dropdown .notif-item .notif-icon,
+html body .notif-dropdown .notif .notif-icon {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 50% !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  flex-shrink: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126941 */
+
+/* CSFLOAT-1:1 PARITY ship #126942 (notif row — primary text 16/500 ink)
+   measured: csfloat .mdc-list-item__primary-text inside a two-line
+   list-item renders Roboto 16/500 line-height 24px color rgb(255,255,255)
+   letter-spacing 0.15px (Material body-large spec). sbox .notif-text
+   shipped 13/500 line-height 18.2 color rgba(255,255,255,0.87) — a full
+   3px below spec, suppressing the row's visual weight relative to the
+   panel chrome. Lift to canonical body-large + full-opacity ink. */
+html body .notif-dropdown .notif-item .notif-text,
+html body .notif-dropdown .notif .notif-text {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.15px !important;
+  color: rgb(255, 255, 255) !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126942 */
+
+/* CSFLOAT-1:1 PARITY ship #126943 (notif row — secondary text 12/400 ink-2)
+   measured: csfloat .mdc-list-item__secondary-text renders Roboto 14/400
+   line-height 20px letter-spacing 0.25px color rgb(158,167,177) (Material
+   body-medium on dark). sbox renders the body line via inline style at
+   11px / var(--text-muted) which leaves it under-weight and tonally off
+   from the canonical ink-2 token. Re-stamp the inline-style body line
+   (children of .notif-text that carry inline color/font-size). */
+html body .notif-dropdown .notif-item .notif-text > div[style],
+html body .notif-dropdown .notif .notif-text > div[style] {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 2px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126943 */
+
+/* CSFLOAT-1:1 PARITY ship #126944 (notif row — timestamp 11/400 ink-2 caption)
+   measured: csfloat below-line timestamp on a notification row renders
+   Roboto 12/400 line-height 16px letter-spacing 0.4px color
+   rgb(158,167,177) (Material caption / label-small on dark). sbox
+   .notif-time shipped 11/400 line-height 15.4 color rgba(255,255,255,
+   0.5) which sat one step below the canonical caption + faded to half-
+   opacity instead of the rgb(158,167,177) ink-2 token. Re-stamp. */
+html body .notif-dropdown .notif-item .notif-time,
+html body .notif-dropdown .notif .notif-time {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126944 */
+
+/* CSFLOAT-1:1 PARITY ship #126945 (notif row — unread dot 8px top-right)
+   measured: csfloat unread-row indicator dot is a 8x8 brand circle
+   pinned absolute top-right 16px from the right edge, vertically
+   centred on the leading-icon midline (Material list-item trailing
+   meta convention). sbox .notif-item.unread::after shipped at 6x6
+   right:14 top:18 in #16005 — that sat one step below the canonical
+   8px disc and read as a faded artefact at 1x. Lift to spec. */
+html body .notif-dropdown .notif-item.unread,
+html body .notif-dropdown .notif.unread {
+  position: relative !important;
+}
+html body .notif-dropdown .notif-item.unread::after,
+html body .notif-dropdown .notif.unread::after {
+  content: "" !important;
+  position: absolute !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background-color: rgb(35, 123, 255) !important;
+  right: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+  pointer-events: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126945 */
+
+/* CSFLOAT-1:1 PARITY ship #126946 (notif row — Material standard ease 200ms)
+   measured: csfloat row hover background-color transitions on the 200ms
+   cubic-bezier(0.4,0,0.2,1) Material standard easing curve, not the
+   linear 120ms sbox shipped (transition: background 0.12s). The 0.12
+   linear felt snappy at the cost of feeling un-Material; the 200ms
+   ease pulls it into the same family as every other mat-mdc-menu-item
+   hover on the page. */
+html body .notif-dropdown .notif-item,
+html body .notif-dropdown .notif {
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126946 */
+
+/* CSFLOAT-1:1 PARITY ship #126947 (notif feed-row — modal twin geometry)
+   The /notifications full-page modal renders rows under .notif-feed-row
+   instead of .notif-item (csfloat-modals.js NotificationsModal). The
+   rows there share the same Material list-item primitive heritage so
+   we mirror the entire #126940-#126946 sweep onto .notif-feed-row +
+   children so the two surfaces look identical when the user moves
+   from the bell to the full inbox. Same 72h / 16px / 40px-disc /
+   16/500 primary / 14/400 ink-2 secondary / 11px caption / 8px brand
+   dot — verbatim port. */
+html body .notif-feed-row {
+  min-height: 72px !important;
+  padding: 12px 16px !important;
+  gap: 16px !important;
+  align-items: center !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  transition:
+    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html body .notif-feed-row:last-child {
+  border-bottom: 0 !important;
+}
+html body .notif-feed-row .notif-feed-icon {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 50% !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  flex-shrink: 0 !important;
+}
+html body .notif-feed-row .notif-feed-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0.15px !important;
+  color: rgb(255, 255, 255) !important;
+}
+html body .notif-feed-row .notif-feed-body {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.25px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 2px !important;
+}
+html body .notif-feed-row .notif-feed-time {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  letter-spacing: 0.4px !important;
+  color: rgb(158, 167, 177) !important;
+  margin-top: 4px !important;
+}
+html body .notif-feed-row.unread {
+  background-color: rgba(35, 123, 255, 0.08) !important;
+}
+html body .notif-feed-row.unread:hover {
+  background-color: rgba(35, 123, 255, 0.14) !important;
+}
+html body .notif-feed-row .notif-feed-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background-color: rgb(35, 123, 255) !important;
+  box-shadow: 0 0 0 3px rgba(35, 123, 255, 0.18) !important;
+  flex-shrink: 0 !important;
+  margin-left: 4px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126947 */
