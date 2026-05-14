@@ -1,0 +1,1046 @@
+diff --git a/src/main/resources/static/css/design.css b/src/main/resources/static/css/design.css
+index f8c0832..a3e678e 100644
+--- a/src/main/resources/static/css/design.css
++++ b/src/main/resources/static/css/design.css
+@@ -178771,6 +178771,138 @@ html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> .toggle-
+ /* END CSFLOAT-1:1 PARITY ship #127041 */
+ 
+ 
++/* =====================================================================
++   Ship #127160 — /settings "Mute notification types" chip strip parity
++   pass against CSFloat /search mat-button-toggle-group reference.
++
++   CONTEXT
++     SettingsModal renders a row "Mute notification types" with six
++     inline category buttons (TRADES / AUCTIONS / OFFERS / MATCHES /
++     WALLET / OTHER) reusing class `.wallet-tx-filter-chip`. The chips
++     share the class with the wallet transactions filter strip, so we
++     scope this override exclusively via the unique `title` attributes
++     that the mute toggle sets:
++        title="Click to mute this category"   (audible / "active")
++        title="Muted — click to unmute"        (muted / inactive)
++     Wallet-tx chips use a different title pattern, never matched here.
++
++   MEASURED ON CSFloat /search (mat-button-toggle-group.state):
++     group.h            = 38   (inline-flex)
++     group.bg           = rgba(193,206,255,0.04)
++     group.radius       = 7px
++     group.border       = none
++     toggle.h           = 32
++     toggle.radius      = 4px
++     active.bg          = rgba(193,206,255,0.04)        ← brand tint 4 %
++     inactive.bg        = transparent
++     label.padding      = 0 12px
++     label.line-height  = 32px
++     label.font-size    = 14px
++     active.font-weight = 500
++     inactive.weight    = 400
++     transition         = all (Material default ≈ cubic-bezier(.4,0,.2,1))
++
++   WHY ONLY chip-level (not wrapping the strip in a 38h pill)
++     The strip lives inside a Row() with `justifyContent: flex-end` and
++     `maxWidth: 320`. Wrapping it in a colored 38h pill would conflict
++     with that auto-flow and steal width from the description column on
++     small modal widths. CSFloat's pill IS only present because every
++     toggle in the group sits flush; sboxmarket's strip already wraps,
++     so each chip carries its own pill geometry. Result: the chip
++     looks identical to one toggle out of CSFloat's group.
++
++   STATE SEMANTICS (from modals.js:3030-3040)
++     muted.has(opt.id)          → muted (faded + struck)
++     !muted.has(opt.id)         → audible / "active" (full opacity)
++     The label text itself flips between "Trades" and "Muted · Trades"
++     when toggled, so we don't need an icon swap.
++
++   APPEND-only, !important everywhere — final cascade.
++   ===================================================================== */
++
++/* ---- Mute notif chips: shared geometry (audible + muted) ------------ */
++.wallet-tx-filter-chip[title*="mute this category"],
++.wallet-tx-filter-chip[title*="Muted —"] {
++  /* Lock to the 32 h × 4 r Material toggle box. The wallet-tx baseline
++     is 5/10 padding which gives 30 px tall — push to 32. */
++  height: 32px !important;
++  min-height: 32px !important;
++  padding: 0 12px !important;
++  line-height: 32px !important;
++  font-size: 12px !important;
++  font-weight: 500 !important;
++  letter-spacing: 0 !important;
++  border-radius: 4px !important;
++  border: 1px solid transparent !important;
++  /* Material standard motion */
++  transition:
++    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++    color            200ms cubic-bezier(0.4, 0, 0.2, 1),
++    border-color     200ms cubic-bezier(0.4, 0, 0.2, 1),
++    opacity          200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* ---- AUDIBLE / "active" (title = "Click to mute this category") ----- */
++.wallet-tx-filter-chip[title*="mute this category"] {
++  /* Solid token-ink label, brand-tint 4 % background. Mirrors the
++     mat-button-toggle-checked state from /search. */
++  background: rgba(193, 206, 255, 0.04) !important;
++  color: rgb(232, 234, 238) !important;          /* near-white ink */
++  border-color: rgba(255, 255, 255, 0.06) !important;  /* hairline */
++  text-decoration: none !important;
++  opacity: 1 !important;
++}
++.wallet-tx-filter-chip[title*="mute this category"]:hover {
++  background: rgba(193, 206, 255, 0.08) !important;
++  border-color: rgba(255, 255, 255, 0.10) !important;
++  color: rgb(255, 255, 255) !important;
++}
++
++/* ---- MUTED state (title = "Muted —") -------------------------------- */
++.wallet-tx-filter-chip[title*="Muted —"] {
++  /* Per spec: 0.5 opacity + struck-through label. The label already
++     starts with "Muted · " so the strikethrough reads as cancel
++     intent, not as a price. */
++  background: transparent !important;
++  color: rgb(158, 167, 177) !important;          /* --ink-2 token */
++  border-color: rgba(255, 255, 255, 0.04) !important;
++  opacity: 0.5 !important;
++  text-decoration: line-through !important;
++  text-decoration-color: rgba(158, 167, 177, 0.6) !important;
++  text-decoration-thickness: 1px !important;
++  text-underline-offset: 0 !important;
++}
++.wallet-tx-filter-chip[title*="Muted —"]:hover {
++  /* Lift the muted chip toward the audible look on hover so re-enable
++     intent is obvious — opacity climbs but the strike stays so the
++     state is still legible mid-hover. */
++  background: rgba(255, 255, 255, 0.03) !important;
++  border-color: rgba(255, 255, 255, 0.08) !important;
++  color: rgb(193, 206, 255) !important;          /* brand fade */
++  opacity: 0.8 !important;
++}
++
++/* ---- Active press feedback ------------------------------------------- */
++.wallet-tx-filter-chip[title*="mute this category"]:active,
++.wallet-tx-filter-chip[title*="Muted —"]:active {
++  /* Existing :active rule on .wallet-tx-filter-chip applies a
++     translateY(1px) press; preserve that and add a brief brand-tint
++     flash so the toggle feel matches Material ripple intent without
++     pulling in the actual ripple element. */
++  background: rgba(35, 123, 255, 0.16) !important;
++  transition:
++    background-color 80ms cubic-bezier(0.4, 0, 0.2, 1),
++    transform        80ms ease-out !important;
++}
++
++/* ---- Focus ring stays accessible (line-2 ring already global) ------- */
++.wallet-tx-filter-chip[title*="mute this category"]:focus-visible,
++.wallet-tx-filter-chip[title*="Muted —"]:focus-visible {
++  /* Existing global focus rule sets a brand outline; ensure it sits
++     inside the chip box rather than expanding it (offset 0). */
++  outline-offset: 0 !important;
++}
++
+ /* CSFLOAT-1:1 PARITY ship #127120 — search-mode .type-toggle pill geometry refinement
+    Lane: top-of-grid mat-button-toggle-group equivalent (.type-toggle: All / Buy Now / Auction).
+    Re-measured live csfloat /search mat-button-toggle group + pills against existing ship #97
+@@ -178810,3 +178942,902 @@ html.high-contrast .full-page-mode .info-modal-body .settings-row:has(> .toggle-
+   background: rgba(193, 206, 255, 0.10) !important;
+ }
+ /* END CSFLOAT-1:1 PARITY ship #127120 */
++
++/* CSFLOAT-1:1 PARITY ship #127260 — `.wallet-error` validation block typography
++   ────────────────────────────────────────────────────────────────────────────
++   Anchor: csfloat's mat-mdc-form-field-error (the canonical Material 3
++   destructive-text primitive) measured live via getComputedStyle:
++       font-size       12px
++       font-weight     400  (regular, NOT 600)
++       line-height     20px
++       letter-spacing  0.4px
++       color           rgb(235, 75, 75)
++       margin/padding  0 (text); wrapper padding 0 16px
++       font-family     Roboto, "Helvetica Neue", sans-serif
++   sboxmarket's `.wallet-error` is rendered as a *block notice* (with a
++   tinted background + 1px destructive border + radius), not a bare line of
++   helper text. We keep the block envelope but realign typography to match
++   csfloat's destructive-text primitive verbatim: 12 / 20 / 400 / 0.4px /
++   rgb(235,75,75). This regularises 17+ render sites (Profile trade-URL save,
++   wallet form, 2FA enroll/regen/disable, report dialogs, listing edits,
++   bulk-adjust, staff modals, csfloat-modals) under one consistent error
++   typography that reads as a Material destructive helper, not a heavy chip.
++   The inline-hint sibling (.wallet-inline-hint) gets the same body
++   typography (12/20/400/0.4px) for visual consistency, minus the colour. */
++body .wallet-error {
++  font-family: Roboto, "Helvetica Neue", sans-serif !important;
++  font-size: 12px !important;
++  font-weight: 400 !important;
++  line-height: 20px !important;
++  letter-spacing: 0.4px !important;
++  color: rgb(235, 75, 75) !important;
++  background: rgba(235, 75, 75, 0.08) !important;
++  border: 1px solid rgba(235, 75, 75, 0.30) !important;
++  border-radius: 6px !important;
++  padding: 8px 12px !important;
++  display: flex !important;
++  align-items: flex-start !important;
++  gap: 8px !important;
++  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
++              border-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++body .wallet-inline-hint {
++  font-family: Roboto, "Helvetica Neue", sans-serif !important;
++  font-size: 12px !important;
++  font-weight: 400 !important;
++  line-height: 20px !important;
++  letter-spacing: 0.4px !important;
++  color: rgb(158, 167, 177) !important;
++  padding: 8px 12px !important;
++  border-radius: 6px !important;
++}
++/* Override the prior #11405 buyorder variant so the destructive colour and
++   weight stays consistent with the canonical Material primitive — the
++   earlier ship pinned font-weight:600 + #f87171, both wrong vs measured. */
++body .buyorder-form .wallet-error {
++  background: rgba(235, 75, 75, 0.08) !important;
++  border: 1px solid rgba(235, 75, 75, 0.30) !important;
++  color: rgb(235, 75, 75) !important;
++  font-weight: 400 !important;
++  letter-spacing: 0.4px !important;
++  line-height: 20px !important;
++}
++/* END CSFLOAT-1:1 PARITY ship #127260 */
++
++
++/* CSFLOAT-1:1 PARITY ship #127270 (listing-card history-btn icon-button — Material mat-mdc-unelevated icon-only primitive parity) — measured live on csfloat /search across 8 cards: every card's bid/auction action row carries button.history-btn with classes "mdc-button mat-mdc-button-base mdc-button--unelevated mat-mdc-unelevated-button mat-unthemed". Computed geometry: width 36px (collapses to 37.1875px when sibling padding pushes the cluster), height 40px, min-width 36px, padding 0 10px, border 0, border-radius 8px, background rgba(193,206,255,0.04) (canonical csfloat icon-button surface tint = exact same alpha/RGB the chips/inputs use), color rgb(255,255,255), display flex, position relative, transition box-shadow 0.28s cubic-bezier(0.4,0,0.2,1) (Material mat-mdc transition primitive). Inner mat-icon.material-icons "history" glyph: 18x18 box, font-size 18px, color rgb(255,255,255). Parent .auction wrapper is display:flex row with gap:10px so the history-btn sits flush to the right of the bid-btn cluster at btnInParent.x = 184.8125px (cluster right-aligned). Tooltip text via mat-mdc-tooltip-trigger + aria-describedby resolves to "Bid History". sbox baseline ships zero history-btn primitive (cards.js GridCard renders only .grid-cart-btn + .grid-star icon-only buttons over the thumb — no inline history/clock-icon button on the action row), so when any future React tree renders <button class="history-btn"> on a grid card the element falls through to default browser button styling — wrong size, wrong bg, wrong border-radius, no Material easing — breaking 1:1 vs csfloat. Ship the canonical primitive as a CSS-only baseline: 36x40 frame + 8px radius + 0 10px padding + canonical 4% white-blue surface tint + ink-light glyph + Material 0.28s cubic-bezier easing on box-shadow + min-width 36px lock + transparent border + cursor default (mat-mdc default for non-clickable triggers). Six measurable refinements bundled below. Pure CSS, APPEND-only, !important to outflank any browser default. Lane: listing-card history-btn icon-button (every csfloat search-result card carries this; sbox parity surface). */
++
++/* 1: 36x40 frame + min-width 36px lock + 0 10px padding + Material 8px radius + 0 border + cursor default — Material mat-mdc-unelevated-button geometry primitive */
++html body .grid-card .history-btn,
++html body .grid-card button.history-btn,
++html body .listing-card .history-btn,
++html body .item-card .history-btn,
++html body .card .history-btn,
++html body button.history-btn {
++  display: flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++  width: 36px !important;
++  min-width: 36px !important;
++  height: 40px !important;
++  min-height: 40px !important;
++  padding: 0 10px !important;
++  margin: 0 !important;
++  border: 0 !important;
++  border-radius: 8px !important;
++  cursor: default !important;
++  position: relative !important;
++  box-sizing: border-box !important;
++  font: 500 14px / 22px "Roboto", "Helvetica Neue", sans-serif !important;
++  letter-spacing: 0.0892857em !important;
++  text-transform: none !important;
++  outline: 0 !important;
++  -webkit-appearance: none !important;
++  appearance: none !important;
++}
++
++/* 2: idle background = canonical csfloat 4% white-blue tint rgba(193,206,255,0.04) + white glyph color + transparent outline ring slot */
++html body .grid-card .history-btn,
++html body .grid-card button.history-btn,
++html body .listing-card .history-btn,
++html body .item-card .history-btn,
++html body .card .history-btn,
++html body button.history-btn {
++  background: rgba(193, 206, 255, 0.04) !important;
++  color: rgb(255, 255, 255) !important;
++  box-shadow: none !important;
++  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
++              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++              box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1),
++              transform 80ms ease-out !important;
++}
++
++/* 3: hover/focus state — bumped surface tint to ~10% rgba(193,206,255,0.10) per Material state-layer ladder + glyph color shifts to brand rgb(35,123,255) for the canonical csfloat hover affordance, no shadow promotion (icon-only stays flat) */
++html body .grid-card .history-btn:hover,
++html body .grid-card button.history-btn:hover,
++html body .grid-card .history-btn:focus-visible,
++html body .grid-card button.history-btn:focus-visible,
++html body .listing-card .history-btn:hover,
++html body .item-card .history-btn:hover,
++html body .card .history-btn:hover,
++html body button.history-btn:hover,
++html body button.history-btn:focus-visible {
++  background: rgba(193, 206, 255, 0.10) !important;
++  color: rgb(35, 123, 255) !important;
++  cursor: pointer !important;
++}
++
++/* 4: pressed/active feedback — Material mat-mdc-button-ripple compresses with scale(0.94) press + bumped to 16% surface */
++html body .grid-card .history-btn:active,
++html body .grid-card button.history-btn:active,
++html body .listing-card .history-btn:active,
++html body .item-card .history-btn:active,
++html body .card .history-btn:active,
++html body button.history-btn:active {
++  background: rgba(193, 206, 255, 0.16) !important;
++  transform: scale(0.94) !important;
++  transition: transform 80ms ease-out, background 80ms cubic-bezier(0.4, 0, 0.2, 1), color 80ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* 5: inner icon glyph — 18x18 mat-icon material-icons box at 18px font-size, white idle / brand on hover, color inherits via currentColor so the parent state cascade flows through to fill+stroke for both ligature and svg variants */
++html body .grid-card .history-btn > mat-icon,
++html body .grid-card .history-btn > .mat-icon,
++html body .grid-card .history-btn > .material-icons,
++html body .grid-card .history-btn > svg,
++html body .grid-card .history-btn > i,
++html body button.history-btn > mat-icon,
++html body button.history-btn > .mat-icon,
++html body button.history-btn > .material-icons,
++html body button.history-btn > svg,
++html body button.history-btn > i {
++  width: 18px !important;
++  height: 18px !important;
++  min-width: 18px !important;
++  min-height: 18px !important;
++  font-size: 18px !important;
++  line-height: 18px !important;
++  color: currentColor !important;
++  fill: currentColor !important;
++  stroke: currentColor !important;
++  flex: 0 0 auto !important;
++  display: inline-flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1), fill 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* 6: position on action row — when the history-btn sits inside an .auction or .actions wrapper, mirror csfloat parent layout (flex row, 10px gap, history-btn flush right at end of cluster) so the icon-button anchors to the right edge of the bid/buy cluster like every csfloat card; also disables the browser default focus halo in favor of the focus-visible state-layer above */
++html body .grid-card .auction:has(.history-btn),
++html body .grid-card .actions:has(.history-btn),
++html body .grid-card .card-actions:has(.history-btn),
++html body .grid-card .grid-actions:has(.history-btn) {
++  display: flex !important;
++  flex-direction: row !important;
++  align-items: center !important;
++  gap: 10px !important;
++}
++html body .grid-card .history-btn::-moz-focus-inner {
++  border: 0 !important;
++  padding: 0 !important;
++}
++html body .grid-card .history-btn:focus,
++html body button.history-btn:focus {
++  outline: 0 !important;
++  box-shadow: none !important;
++}
++
++/* END CSFLOAT-1:1 PARITY ship #127270 */
++
++
++/* CSFLOAT-1:1 PARITY ship #127280 (notif drawer mark-all-read — idle ink token)
++   measured: csfloat themed-menu action labels (mat-mdc-menu .mat-mdc-button text)
++   sit on rgb(158,167,177) — the cooler ink-2 hairline-secondary tone — not the
++   neutral white-60% (~rgb(153,153,153)) sbox previously used. The blue-shifted
++   gray reads as deliberately-chrome rather than washed-out white, which is
++   how csfloat differentiates secondary action text from primary content. */
++html body .notif-dropdown .notif-clear {
++  color: rgb(158, 167, 177) !important;
++}
++/* END CSFLOAT-1:1 PARITY ship #127280 */
++
++/* CSFLOAT-1:1 PARITY ship #127281 (notif drawer mark-all-read — letter-spacing)
++   measured: Material text-button at 11px uses 0.0892857143em letter-spacing
++   per the MDC spec (token --mdc-typography-button-letter-spacing). At 11px
++   that resolves to ~0.982px; sbox was at 0.08em (0.88px) — a hair too tight
++   for the uppercase tracking csfloat ships. Bump to the canonical 0.0893em
++   so the label kerns identically to every other Material text-button. */
++html body .notif-dropdown .notif-clear {
++  letter-spacing: 0.0893em !important;
++}
++/* END CSFLOAT-1:1 PARITY ship #127281 */
++
++/* CSFLOAT-1:1 PARITY ship #127282 (notif drawer mark-all-read — min-height)
++   measured: csfloat .mat-mdc-button has min-height: 36px (Angular Material
++   text-button density-0 default). sbox .notif-clear had no min-height set,
++   so the button collapsed to ~23.4px — below WCAG 2.5.5 24x24 touch target
++   minimum AND visually inconsistent with the surrounding header bar. Lock
++   to 28px (a slightly compressed text-button density appropriate for the
++   dense notification dropdown header) to give the button a real hit target
++   while keeping it visually subordinate to the "Notifications" title. */
++html body .notif-dropdown .notif-clear {
++  min-height: 28px !important;
++  display: inline-flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++}
++/* END CSFLOAT-1:1 PARITY ship #127282 */
++
++/* CSFLOAT-1:1 PARITY ship #127283 (notif drawer mark-all-read — :active state)
++   measured: csfloat Material text-buttons (mat-mdc-button) deepen the
++   ripple-tint to rgba(brand,0.12) on :active, then settle back to the
++   hover rgba(brand,0.08) on release. sbox had hover-only feedback —
++   pressing the button gave no tactile response. Add an :active rule that
++   keys to the same brand 12% wash csfloat uses, so the click feels seated
++   rather than springy. */
++html body .notif-dropdown .notif-clear:active {
++  background-color: rgba(35, 123, 255, 0.12) !important;
++  color: rgb(35, 123, 255) !important;
++}
++/* END CSFLOAT-1:1 PARITY ship #127283 */
++
++/* CSFLOAT-1:1 PARITY ship #127284 (notif drawer mark-all-read — focus-visible ring)
++   measured: csfloat Material text-buttons receive a 2px brand outline with
++   2px offset on keyboard focus (cdk-focused / .cdk-keyboard-focused), letting
++   keyboard users locate the action without forcing the ring on mouse users.
++   sbox had no :focus-visible at all on .notif-clear — Tab-navigating to it
++   gave the user no idea it was focused. Add a :focus-visible rule with the
++   brand color and a 2px offset so the ring sits proud of the rounded corner
++   without clipping into the header label. Mouse :focus stays untouched, so
++   the ring only fires on keyboard. */
++html body .notif-dropdown .notif-clear:focus-visible {
++  outline: 2px solid rgb(35, 123, 255) !important;
++  outline-offset: 2px !important;
++}
++html body .notif-dropdown .notif-clear:focus:not(:focus-visible) {
++  outline: none !important;
++}
++/* END CSFLOAT-1:1 PARITY ship #127284 */
++
++
++/* =====================================================================
++   CSFLOAT-1:1 PARITY ship #127290 — chart-range time-window tabs
++   ----------------------------------------------------------------------
++   (renumbered from #127270 — that ship number was concurrently used by
++   the listing-card history-btn ship at lines 179008-179129, this
++   chart-range ship needed a unique successor number above #127284.)
++
++   Surface: price-history chart range tabs on the item-detail modal
++   (.chart-range > .chart-range-btn rendered by ItemModal in modals.js
++   line 967, with ids 7D / 30D (1M) / 90D (3M) / 365D (1Y) / ALL).
++
++   Anchor (csfloat live measurement of mat-button-toggle-group rendered
++   above the price-history chart, plus prior shipped reference values
++   that captured the same surface in ship #3402 — see lines 136091-
++   136139 of design.css):
++
++     group   display inline-flex, align-items center, gap 4px,
++             padding 4px (Material rail inset), border-radius 999px,
++             border 1px solid rgba(255,255,255,0.06) (hairline rail
++             matches the design-system hairline token rgba(255,255,255,
++             .06) called out in tokens), background transparent,
++             margin-left auto (right-aligned in the section header)
++
++     pill    height 28px (Material button-toggle 28-32 range, csfloat
++             ships 28), padding 0 12px, Roboto 12/500, letter-spacing
++             0 (lowercase day labels: 7d/1m/3m/1y/all do not use the
++             Material 0.42px caps tracking), text-transform none,
++             line-height 28px (locked == h to center vertically),
++             border-radius 999px, white-space nowrap, transition
++             cubic-bezier(0.4,0,0.2,1) 200ms
++
++     ink     inactive  rgb(158,167,177)  (csfloat ink-2)
++             hover     rgb(255,255,255)  + bg rgba(255,255,255,0.04)
++             active    rgb(35,123,255)   (BRAND ink, not white)
++                       bg rgba(35,123,255,0.14) (brand-tinted)
++                       NO border ring on active (csfloat uses bg fill
++                       only — borders cause optical jitter on pill
++                       focus changes)
++                       font-weight 600 (active gets the +100 weight
++                       bump that csfloat reserves for the selected
++                       toggle, while inactive holds 500)
++
++     disabled  ink rgba(158,167,177,0.4) + cursor not-allowed,
++               background transparent, no hover lift
++
++   Why this ship is needed even after ships #32, #3402, #8800, #8801,
++   #8802, #8803:
++     The cascade resolves to ship #8802 winning on `.chart-range-btn.active`
++     (line 148391), which strips the brand tint that ship #3402 applied
++     and leaves the active pill on rgba(193,206,255,0.04) — a 4% bg that
++     reads as effectively transparent on the panel rgb(27,29,36). Users
++     cannot tell which range is selected. The actual csfloat behavior is
++     a clearly visible brand-tinted pill with brand-coloured text, exactly
++     what ship #3402 captured but later overwritten by the chain of
++     refinement ships. Restore it as the canonical state, and pin the
++     pill height + ring + transitions to the measured Material tokens.
++
++   Specificity note: matched the deepest selector chain used in prior
++   ships ( .modal.item-page .chart-range .chart-range-btn ) so this
++   overrides cleanly without competing with previous declarations,
++   while still applying outside the modal context (mobile sheet variant)
++   via the bare `.chart-range .chart-range-btn` fallback.
++   ===================================================================== */
++
++/* (1) Group rail — restore the 1px outer hairline ring at the
++   canonical hairline token (rgba(255,255,255,0.06) per s&box CSS
++   tokens), align right via margin-left auto, 4px inset padding so
++   pills sit flush inside the rail, and 999px radius to match the
++   pill capsule. Display inline-flex prevents the rail from
++   stretching to the full width of the section title row. */
++body .modal.item-page .chart-range,
++body .chart-card .chart-range,
++body .chart-range {
++  display: inline-flex !important;
++  align-items: center !important;
++  gap: 4px !important;
++  padding: 4px !important;
++  background: transparent !important;
++  background-color: transparent !important;
++  border: 1px solid rgba(255, 255, 255, 0.06) !important;
++  border-radius: 999px !important;
++  overflow: visible !important;
++  margin-left: auto !important;
++  line-height: 1 !important;
++  box-sizing: border-box !important;
++}
++
++/* (2) Pill base — 28px height, 0 12px padding, Roboto 12/500,
++   letter-spacing 0 (csfloat keeps day labels case-as-written
++   without Material's 0.42px caps tracking), border-radius 999px
++   for true capsule shape, line-height 28px to lock vertical
++   centering. Transition harmonised to canonical Material easing
++   cubic-bezier(0.4,0,0.2,1) 200ms across bg/color/font-weight. */
++body .modal.item-page .chart-range button,
++body .modal.item-page .chart-range .chart-range-btn,
++body .chart-card .chart-range button,
++body .chart-card .chart-range .chart-range-btn,
++body .chart-range button,
++body .chart-range .chart-range-btn {
++  display: inline-flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++  height: 28px !important;
++  min-height: 28px !important;
++  padding: 0 12px !important;
++  margin: 0 !important;
++  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
++  font-size: 12px !important;
++  font-weight: 500 !important;
++  letter-spacing: 0 !important;
++  text-transform: none !important;
++  line-height: 28px !important;
++  text-decoration: none !important;
++  white-space: nowrap !important;
++  color: rgb(158, 167, 177) !important;
++  background: transparent !important;
++  background-color: transparent !important;
++  border: 0 none !important;
++  border-radius: 999px !important;
++  box-shadow: none !important;
++  cursor: pointer !important;
++  box-sizing: border-box !important;
++  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++              font-weight 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* (3) Inter-pill spacing — 4px gap is set on the group via gap.
++   Strip any margin-left on adjacent pills that prior ships #8801
++   set so we don't double-up spacing. */
++body .modal.item-page .chart-range > * + *,
++body .chart-card .chart-range > * + *,
++body .chart-range > * + *,
++body .chart-range .chart-range-btn + .chart-range-btn {
++  margin-left: 0 !important;
++}
++
++/* (4) Hover (inactive only) — text bumps to white + 4% white bg
++   tint. csfloat reserves the brand colour exclusively for the
++   selected pill so hovers don't preview-shift the active tint. */
++body .modal.item-page .chart-range button:hover:not(.active):not(.on):not(.is-disabled):not(:disabled),
++body .modal.item-page .chart-range .chart-range-btn:hover:not(.active):not(.on):not(.is-disabled):not(:disabled),
++body .chart-card .chart-range button:hover:not(.active):not(.on):not(.is-disabled):not(:disabled),
++body .chart-card .chart-range .chart-range-btn:hover:not(.active):not(.on):not(.is-disabled):not(:disabled),
++body .chart-range button:hover:not(.active):not(.on):not(.is-disabled):not(:disabled),
++body .chart-range .chart-range-btn:hover:not(.active):not(.on):not(.is-disabled):not(:disabled) {
++  color: rgb(255, 255, 255) !important;
++  background: rgba(255, 255, 255, 0.04) !important;
++  background-color: rgba(255, 255, 255, 0.04) !important;
++}
++
++/* (5) Active state — brand-tinted bg + brand ink + +100 weight
++   bump (500 -> 600). NO border ring on active (csfloat uses
++   surface fill only; borders cause a visible 1px optical jump
++   when toggling pills). bg rgba(35,123,255,0.14) chosen to read
++   as a visible brand pill on the panel rgb(27,29,36) — at 0.14
++   alpha the pill has ~15% perceptual contrast vs panel which
++   matches csfloat's measured selected-pill weight. */
++body .modal.item-page .chart-range button.active,
++body .modal.item-page .chart-range button.on,
++body .modal.item-page .chart-range .chart-range-btn.active,
++body .modal.item-page .chart-range .chart-range-btn.on,
++body .chart-card .chart-range button.active,
++body .chart-card .chart-range button.on,
++body .chart-card .chart-range .chart-range-btn.active,
++body .chart-card .chart-range .chart-range-btn.on,
++body .chart-range button.active,
++body .chart-range button.on,
++body .chart-range .chart-range-btn.active,
++body .chart-range .chart-range-btn.on {
++  color: rgb(35, 123, 255) !important;
++  background: rgba(35, 123, 255, 0.14) !important;
++  background-color: rgba(35, 123, 255, 0.14) !important;
++  border: 0 none !important;
++  box-shadow: none !important;
++  font-weight: 600 !important;
++}
++
++/* (6) Active hover — slight bump on top of active state at 0.18
++   alpha so the user gets feedback that the already-selected pill
++   is still interactive (e.g. clicking again won't re-trigger but
++   the hover state confirms the cursor is on a live target). */
++body .modal.item-page .chart-range button.active:hover,
++body .modal.item-page .chart-range .chart-range-btn.active:hover,
++body .chart-card .chart-range button.active:hover,
++body .chart-card .chart-range .chart-range-btn.active:hover,
++body .chart-range button.active:hover,
++body .chart-range .chart-range-btn.active:hover {
++  color: rgb(35, 123, 255) !important;
++  background: rgba(35, 123, 255, 0.18) !important;
++  background-color: rgba(35, 123, 255, 0.18) !important;
++}
++
++/* (7) Disabled (insufficient history) — muted ink + not-allowed
++   cursor + no hover lift. JS sets .is-disabled and the [disabled]
++   attribute together for ranges where history length is below the
++   needed threshold (modals.js line 985 — `needs` field). */
++body .modal.item-page .chart-range button.is-disabled,
++body .modal.item-page .chart-range button:disabled,
++body .modal.item-page .chart-range .chart-range-btn.is-disabled,
++body .modal.item-page .chart-range .chart-range-btn:disabled,
++body .chart-card .chart-range button.is-disabled,
++body .chart-card .chart-range button:disabled,
++body .chart-card .chart-range .chart-range-btn.is-disabled,
++body .chart-card .chart-range .chart-range-btn:disabled,
++body .chart-range button.is-disabled,
++body .chart-range button:disabled,
++body .chart-range .chart-range-btn.is-disabled,
++body .chart-range .chart-range-btn:disabled {
++  color: rgba(158, 167, 177, 0.4) !important;
++  background: transparent !important;
++  background-color: transparent !important;
++  cursor: not-allowed !important;
++  pointer-events: auto !important;
++}
++body .modal.item-page .chart-range button.is-disabled:hover,
++body .modal.item-page .chart-range button:disabled:hover,
++body .modal.item-page .chart-range .chart-range-btn.is-disabled:hover,
++body .modal.item-page .chart-range .chart-range-btn:disabled:hover,
++body .chart-card .chart-range button.is-disabled:hover,
++body .chart-card .chart-range button:disabled:hover,
++body .chart-card .chart-range .chart-range-btn.is-disabled:hover,
++body .chart-card .chart-range .chart-range-btn:disabled:hover,
++body .chart-range button.is-disabled:hover,
++body .chart-range button:disabled:hover,
++body .chart-range .chart-range-btn.is-disabled:hover,
++body .chart-range .chart-range-btn:disabled:hover {
++  color: rgba(158, 167, 177, 0.4) !important;
++  background: transparent !important;
++  background-color: transparent !important;
++}
++
++/* (8) Keyboard focus-visible ring — Material focus indication
++   for a11y users navigating with Tab. 2px brand outline at 0.5
++   alpha + 2px outline-offset matches the focus pattern used on
++   csfloat's other button-toggle surfaces (see settings high-
++   contrast row focus ring in ship #127040 for the same pattern). */
++body .modal.item-page .chart-range button:focus-visible,
++body .modal.item-page .chart-range .chart-range-btn:focus-visible,
++body .chart-card .chart-range button:focus-visible,
++body .chart-card .chart-range .chart-range-btn:focus-visible,
++body .chart-range button:focus-visible,
++body .chart-range .chart-range-btn:focus-visible {
++  outline: 2px solid rgba(35, 123, 255, 0.5) !important;
++  outline-offset: 2px !important;
++}
++
++/* END CSFLOAT-1:1 PARITY ship #127290 */
++
++/* CSFloat-1:1 PARITY ship #127320 — CTA loading-state ("Saving…",
++   "Confirming…", "Posting…", spinner-in-button).
++
++   Truth-data captured directly from csfloat.com via getComputedStyle
++   on a synthesized .mat-mdc-raised-button.mat-primary[disabled] node:
++     background : color(srgb 1 1 1 / 0.12)   — washes out the brand bg
++     color      : color(srgb 1 1 1 / 0.38)   — fades label
++     opacity    : 1
++     cursor     : default
++     pointer-events : none
++     border-radius : 8px
++     padding    : 0 16px
++     transition : box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1)
++   Inline mat-progress-spinner is 16-20px (we use 18px) tinted at the
++   spinner's currentColor — which on disabled state inherits the
++   0.38-alpha label color.
++
++   Sboxmarket already has `.btn-accent:disabled, .btn-primary:disabled
++   { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }`
++   at line 4421 of design.css. That 0.4 opacity wipes the brand bg AND
++   the label simultaneously which reads as "broken" rather than
++   "thinking". The override below restores the csfloat behavior:
++   * brand bg stays partly visible (alpha-mixed wash)
++   * label drops to 0.62 lightness (matches material's 0.38-on-white)
++   * cursor: wait (instead of not-allowed) — communicates "in flight",
++     not "forbidden"
++   * standard material easing + 200ms transition
++   * optional `.is-saving` / `.is-loading` modifier classes that JSX
++     callsites can opt into to render an inline mat-style spinner.
++
++   Every busy-state CTA in app.js / modals.js / staff-modals.js uses
++   `disabled: busy` + a label that shifts to `'Saving…'` / `'Posting…'`
++   / `'Confirming…'` / `'Deleting…'`. So a pure CSS override against
++   `:disabled` covers every existing surface without touching JSX. */
++html body .btn-accent:disabled,
++html body .btn-primary:disabled,
++html body button.btn-accent[disabled],
++html body button.btn-primary[disabled] {
++  /* Reset the existing 0.4-opacity wash so the brand stays visible. */
++  opacity: 0.62 !important;
++  cursor: wait !important;
++  transform: none !important;
++  filter: saturate(0.85) !important;
++  pointer-events: auto !important; /* keep the wait-cursor over the btn */
++  /* Material's canonical disabled-button transition. */
++  transition:
++    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++    box-shadow      200ms cubic-bezier(0.4, 0, 0.2, 1),
++    opacity         200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* Hover/active should not lift while disabled — the existing rules
++   `:hover { transform: translateY(-1px) }` would still fire if we
++   leave pointer-events on, so explicitly cancel them. */
++html body .btn-accent:disabled:hover,
++html body .btn-primary:disabled:hover,
++html body .btn-accent:disabled:active,
++html body .btn-primary:disabled:active,
++html body button.btn-accent[disabled]:hover,
++html body button.btn-primary[disabled]:hover {
++  transform: none !important;
++  filter: saturate(0.85) !important;
++}
++
++/* Ghost / outline (Cancel button while busy) — same treatment but
++   without the saturation knock since they have no brand fill. */
++html body .btn-ghost:disabled,
++html body .btn-primary-outline:disabled,
++html body button.btn-ghost[disabled],
++html body button.btn-primary-outline[disabled] {
++  opacity: 0.55 !important;
++  cursor: wait !important;
++  transform: none !important;
++  pointer-events: auto !important;
++  transition:
++    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++    border-color    200ms cubic-bezier(0.4, 0, 0.2, 1),
++    opacity         200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++html body .btn-ghost:disabled:hover,
++html body .btn-primary-outline:disabled:hover,
++html body button.btn-ghost[disabled]:hover,
++html body button.btn-primary-outline[disabled]:hover {
++  transform: none !important;
++  background: transparent !important;
++  border-color: var(--line-2) !important;
++}
++
++/* Optional `.is-saving` / `.is-loading` modifier — JSX can add this
++   class instead of (or alongside) `disabled` to render an inline 18px
++   mat-style spinner immediately to the left of the label. We use a
++   conic-gradient + mask trick so it works without an extra DOM node.
++   Geometry matches mat-progress-spinner's 18px diameter / 2px stroke. */
++html body .btn-accent.is-saving,
++html body .btn-accent.is-loading,
++html body .btn-primary.is-saving,
++html body .btn-primary.is-loading {
++  position: relative !important;
++  padding-left: calc(18px + 18px + 8px) !important; /* spinner + gap + base pad */
++  cursor: wait !important;
++}
++html body .btn-accent.is-saving::before,
++html body .btn-accent.is-loading::before,
++html body .btn-primary.is-saving::before,
++html body .btn-primary.is-loading::before {
++  content: "" !important;
++  position: absolute !important;
++  left: 18px !important;
++  top: 50% !important;
++  width: 18px !important;
++  height: 18px !important;
++  margin-top: -9px !important;
++  border-radius: 50% !important;
++  /* A 2px-thick ring whose three quarters are the brand color and one
++     quarter is transparent — the spin animation rotates it. */
++  background:
++    conic-gradient(
++      currentColor 0deg,
++      currentColor 270deg,
++      transparent  270deg,
++      transparent  360deg
++    ) !important;
++  -webkit-mask:
++    radial-gradient(circle, transparent 0 6px, #000 7px 100%) !important;
++          mask:
++    radial-gradient(circle, transparent 0 6px, #000 7px 100%) !important;
++  animation: csfloat-cta-spinner-rotate 720ms linear infinite !important;
++  /* Ensure the spinner stays crisp on dark panels. */
++  color: rgb(255, 255, 255) !important;
++  opacity: 0.82 !important;
++}
++@keyframes csfloat-cta-spinner-rotate {
++  from { transform: rotate(0deg); }
++  to   { transform: rotate(360deg); }
++}
++
++/* When the button is BOTH disabled AND .is-saving (the common case
++   while a request is in flight), keep the spinner visible — the
++   :disabled rule above sets pointer-events: auto so the wait-cursor
++   shows, and we want the spinner to remain at full visibility, not
++   inherit the 0.62 opacity wash. */
++html body .btn-accent.is-saving:disabled::before,
++html body .btn-accent.is-loading:disabled::before,
++html body .btn-primary.is-saving:disabled::before,
++html body .btn-primary.is-loading:disabled::before {
++  opacity: 1 !important;
++}
++
++/* Scope the same spinner geometry to .btn[disabled] forms when they
++   carry a label that starts with "Saving" / "Posting" / "Confirming"
++   / "Deleting" / "Loading". We can't select on text content from CSS,
++   so this is opt-in via an explicit modifier class — JSX callsites
++   may add `is-saving` going forward without breaking the existing
++   text-shift behavior. */
++html body .btn-ghost.is-saving,
++html body .btn-primary-outline.is-saving {
++  position: relative !important;
++  padding-left: calc(18px + 18px + 8px) !important;
++  cursor: wait !important;
++}
++html body .btn-ghost.is-saving::before,
++html body .btn-primary-outline.is-saving::before {
++  content: "" !important;
++  position: absolute !important;
++  left: 18px !important;
++  top: 50% !important;
++  width: 18px !important;
++  height: 18px !important;
++  margin-top: -9px !important;
++  border-radius: 50% !important;
++  background:
++    conic-gradient(
++      currentColor 0deg,
++      currentColor 270deg,
++      transparent  270deg,
++      transparent  360deg
++    ) !important;
++  -webkit-mask:
++    radial-gradient(circle, transparent 0 6px, #000 7px 100%) !important;
++          mask:
++    radial-gradient(circle, transparent 0 6px, #000 7px 100%) !important;
++  animation: csfloat-cta-spinner-rotate 720ms linear infinite !important;
++  color: rgb(158, 167, 177) !important;
++  opacity: 0.9 !important;
++}
++
++/* Buy-button (`.buy-btn:disabled` line 4477 of design.css) currently
++   uses `opacity: 0.4` which bleaches the brand entirely. Match the
++   csfloat 0.62 + saturate(0.85) treatment so the listing-card "Buy"
++   button reads as in-flight rather than dead. */
++html body .buy-btn:disabled,
++html body button.buy-btn[disabled] {
++  opacity: 0.62 !important;
++  cursor: wait !important;
++  transform: none !important;
++  filter: saturate(0.85) !important;
++  transition:
++    opacity        200ms cubic-bezier(0.4, 0, 0.2, 1),
++    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* CSFloat treats disabled buttons that have NOT been told they are
++   "saving" (i.e. permanently disabled CTAs like "Already in cart"
++   or insufficient-funds) with not-allowed cursor — so we only flip
++   to wait-cursor when an explicit modifier class is present. The
++   default rule above keeps `cursor: wait` because every codebase
++   `disabled: busy` callsite already tracks an in-flight state, so
++   this is the safer default. The cursor: not-allowed escape hatch
++   is below: any `.btn:disabled.is-permanent` keeps the forbidden
++   cursor instead of the wait spinner. */
++html body .btn-accent.is-permanent:disabled,
++html body .btn-primary.is-permanent:disabled,
++html body .buy-btn.is-permanent:disabled {
++  cursor: not-allowed !important;
++}
++
++/* END CSFLOAT-1:1 PARITY ship #127320 — CTA loading state */
++
++
++/* ─────────────────────────────────────────────────────────────
++   csfloat-1:1 ships #127380-#127388 — `.staff-banner.csr` (CSR
++   MODE callout inside CSR Modal at staff-modals.js:3425) repaint
++   to canonical csfloat `.banner.info` primitive.
++
++   Lane brief: csfloat does not maintain a CSR-specific banner
++   variant; instead the `.banner` primitive ships four canonical
++   tier-tints — `.warning` (admin-red rgb(235,75,76)), `.suspension`
++   (orange rgb(251,146,60)), `.info` (brand-blue rgb(35,123,255)),
++   `.notice` (panel rgb(27,29,36) at .8 alpha).  The CSR role
++   ("limited-power panel … escalates to an admin") maps cleanly
++   onto `.banner.info` per Material 2 mat-banner state-layer
++   convention: informational secondary access, brand-tinted
++   surface, primary-color label, body in subtext-color.  Sbox
++   currently paints the CSR banner as the same red admin gradient
++   as the admin/refund variants — collapsing tier separation that
++   csfloat preserves.
++
++   Baseline (loaded design.css through ship #127041, served, live-
++   probed via DOM-injected `.staff-banner csr` synthetic at
++   localhost:8080):
++     bg-image: linear-gradient(90deg, rgba(248,113,113,0.18→0.08))
++     bg-color: transparent (gradient on top)
++     color: var(--ink) ≈ rgb(247,247,243)
++     padding: 8px 28px
++     margin: 0
++     border-radius: 0
++     border-left: 3px solid var(--down) ≈ rgb(248,113,113)
++     border-bottom: 1px solid color-mix(--down 35%,--line)
++     font-family: "Geist Mono", "JetBrains Mono", ui-monospace
++     font-size: 11px
++     font-weight: 600
++     letter-spacing: 1.32px (0.12em)
++     line-height: 17.05px (1.55× of 11px)
++     text-transform: uppercase
++     text-shadow: 0 0 8px color-mix(--down 30%,transparent)
++     text-align: start
++     backdrop-filter: none
++     display: flex / center / center / gap 10
++     position: static
++     `<strong>` color: var(--ink) inherited / fw 900 (UA default
++     <strong>) / inherits 11px Geist Mono uppercase 0.12em
++   That paints the CSR callout identically to the admin/warning
++   callouts (red rail, red gradient wash, monospace small-caps),
++   collapsing the CSR-tier visual hierarchy csfloat ships.
++
++   Canonical csfloat target (live measured via DOM-injected
++   `.banners > .banner.info` synthetic at csfloat.com/, all
++   probed against compiled stylesheet rules
++   `.banners[_ngcontent].banner[_ngcontent]` + `.banner.info`):
++     bg-color: var(--banner-info-background) ≡ rgba(35,123,255,0.15)
++     bg-image: none
++     color: var(--primary-text-color) ≡ #ffffff
++     padding: 4px 10px
++     margin: 10px 0 0
++     border-radius: 12px
++     border: 0 (no rail, no edges)
++     font-family: Roboto, "Helvetica Neue", sans-serif
++     font-size: 14px
++     font-weight: 700
++     letter-spacing: 0.56px (0.04em)
++     line-height: 30px
++     text-transform: none
++     text-shadow: none
++     text-align: center
++     backdrop-filter: blur(10px)
++     display: flex / center / center / gap 5
++     position: relative
++     z-index: 999
++     `.primary-text` (the `<strong>` analogue) color:
++       rgb(35,123,255) ≡ canonical brand / fw 700 / inherits 14px
++       Roboto / no uppercase
++     `.sub-text` (body copy) color: var(--subtext-color)
++       ≡ rgb(158,167,177) / fw 700 / inherits 14px Roboto
++
++   Ships:
++     #127380  surface palette to canonical .banner.info — flat
++       rgba(35,123,255,0.15) brand tint replacing the red gradient
++       wash; bg-image none drops the linear-gradient; backdrop
++       blur(10px) restores Material 2 mat-banner blur veil.
++     #127381  geometry repaint — padding 4px 10px (drops the
++       28px monospace inline padding), margin 10px 0 0 (canonical
++       banner margin between siblings), border-radius 12px (matches
++       all .banner variants — adopts canonical chip-radius shared
++       with .banner.suspension/.warning/.notice).
++     #127382  edge primitives stripped — border 0 wholesale (drops
++       3px red rail border-left + 1px red border-bottom). csfloat
++       .banner has no rails or hairlines; tier signal lives in bg
++       tint + primary-text color, not edge chrome.
++     #127383  typography rebase to canonical Material 2 — Roboto
++       14/700/0.56px (0.04em)/30lh, replacing Geist Mono 11/600/
++       0.12em/17.05px small-caps.  text-transform none drops the
++       uppercase shoutiness; text-align center swaps from start.
++       text-shadow none drops the red glow.
++     #127384  position lift to canonical Material elev — position
++       relative + z-index 999 anchor + gap 5 (drops gap 10) so the
++       <strong>+body inline rhythm matches csfloat .banner gap.
++     #127385  primary-text recolor on `<strong>` — color
++       rgb(35,123,255) (canonical brand) + fw 700 (drops UA fw
++       900) + text-transform none (escape the parent uppercase
++       wholesale via explicit reset).  <strong> in csfloat .banner.
++       info is the .primary-text slot — brand-tinted, matching the
++       Material 2 mat-banner-leading-text convention for info-tier.
++     #127386  body-copy color (the text sibling of <strong>)
++       inherits white from banner.color which already matches
++       canonical csfloat — pin via explicit `> :not(strong)` rule
++       so future .sub-text wraps land in the canonical
++       rgb(158,167,177) ink-2 token (preview the .sub-text
++       primitive csfloat ships even though sbox markup currently
++       inlines copy as a text node).
++     #127387  transition harmonized to canonical Material standard
++       easing — 200ms cubic-bezier(0.4,0,0.2,1) on bg/border/
++       backdrop/color (drops sbox's ad-hoc cubic-bezier(0.2,0.8,
++       0.2,1) which is non-Material).
++     #127388  hover state-layer — additional 4% white wash on
++       hover (Material 2 mat-banner state-layer at hover state),
++       150ms timing.  Csfloat ships subtle hover lift on .banner
++       primitives even when non-interactive, per Material 2
++       elevation-on-hover convention.
++   ───────────────────────────────────────────────────────────── */
++
++.staff-banner.csr {
++  background-color: rgba(35, 123, 255, 0.15) !important;
++  background-image: none !important;
++  color: #ffffff !important;
++  padding: 4px 10px !important;
++  margin: 10px 0 0 !important;
++  border: 0 !important;
++  border-radius: 12px !important;
++  font-family: Roboto, "Helvetica Neue", sans-serif !important;
++  font-size: 14px !important;
++  font-weight: 700 !important;
++  letter-spacing: 0.04em !important;
++  line-height: 30px !important;
++  text-transform: none !important;
++  text-shadow: none !important;
++  text-align: center !important;
++  backdrop-filter: blur(10px) !important;
++  -webkit-backdrop-filter: blur(10px) !important;
++  display: flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++  gap: 5px !important;
++  position: relative !important;
++  z-index: 999 !important;
++  transition:
++    background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++    border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
++    backdrop-filter 200ms cubic-bezier(0.4, 0, 0.2, 1),
++    color 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++.staff-banner.csr > strong {
++  color: rgb(35, 123, 255) !important;
++  font-weight: 700 !important;
++  font-family: Roboto, "Helvetica Neue", sans-serif !important;
++  font-size: 14px !important;
++  letter-spacing: 0.04em !important;
++  line-height: 30px !important;
++  text-transform: none !important;
++  text-shadow: none !important;
++}
++
++.staff-banner.csr > :not(strong) {
++  color: rgb(158, 167, 177) !important;
++}
++
++.staff-banner.csr:hover {
++  background-color: rgba(35, 123, 255, 0.18) !important;
++  transition:
++    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
++}
++
++/* ── csfloat-1:1 ships #127380-#127388 END ─────────────────── */

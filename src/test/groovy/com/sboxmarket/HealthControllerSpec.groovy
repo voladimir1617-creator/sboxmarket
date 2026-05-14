@@ -2,11 +2,14 @@ package com.sboxmarket
 
 import com.sboxmarket.controller.HealthController
 import org.springframework.http.HttpStatus
+import org.springframework.mock.env.MockEnvironment
 import spock.lang.Specification
 import spock.lang.Subject
 
 import javax.sql.DataSource
 import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.ResultSet
 import java.sql.SQLException
 
 /**
@@ -109,6 +112,81 @@ class HealthControllerSpec extends Specification {
         resp.statusCode == HttpStatus.OK
         resp.body.status == 'UP'
         resp.body.db == 'unknown'
+    }
+
+    def "cookieAware() reports UP when JDBC sessions are intentionally disabled"() {
+        given:
+        controller.environment = new MockEnvironment()
+            .withProperty('spring.session.store-type', 'none')
+        controller.dataSource = null
+
+        when:
+        def resp = controller.cookieAware()
+
+        then:
+        resp.statusCode == HttpStatus.OK
+        resp.body.status == 'UP'
+        resp.body.sessionStore == 'tomcat-memory'
+        resp.body.probes == ['jdbc-session-disabled']
+        resp.headers.getFirst('Cache-Control')?.contains('no-store')
+    }
+
+    def "cookieAware() runs both SPRING_SESSION probes when JDBC sessions are explicitly enabled"() {
+        given:
+        Connection conn = Mock()
+        PreparedStatement goodPs = Mock()
+        PreparedStatement poisonedPs = Mock()
+        ResultSet goodRs = Mock()
+        ResultSet poisonedRs = Mock()
+        DataSource ds = Mock()
+        controller.dataSource = ds
+        controller.environment = new MockEnvironment()
+            .withProperty('spring.session.store-type', 'jdbc')
+
+        when:
+        def resp = controller.cookieAware()
+
+        then:
+        1 * ds.getConnection() >> conn
+        2 * conn.prepareStatement('SELECT 1 FROM SPRING_SESSION WHERE SESSION_ID = ?') >>> [goodPs, poisonedPs]
+        1 * goodPs.setString(1, '00000000-0000-0000-0000-000000000000')
+        1 * goodPs.executeQuery() >> goodRs
+        1 * goodRs.next() >> false
+        1 * goodRs.close()
+        1 * goodPs.close()
+        1 * poisonedPs.setString(1, '11111111-2222-3333-4444-555555555555')
+        1 * poisonedPs.executeQuery() >> poisonedRs
+        1 * poisonedRs.next() >> false
+        1 * poisonedRs.close()
+        1 * poisonedPs.close()
+        1 * conn.close()
+        resp.statusCode == HttpStatus.OK
+        resp.body.status == 'UP'
+        resp.body.probes == ['good-uuid', 'poisoned-uuid']
+    }
+
+    def "cookieAware() returns 503 when JDBC sessions are enabled but the session table probe throws"() {
+        given:
+        Connection conn = Mock()
+        PreparedStatement ps = Mock()
+        DataSource ds = Mock()
+        controller.dataSource = ds
+        controller.environment = new MockEnvironment()
+            .withProperty('spring.session.store-type', 'jdbc')
+
+        when:
+        def resp = controller.cookieAware()
+
+        then:
+        1 * ds.getConnection() >> conn
+        1 * conn.prepareStatement('SELECT 1 FROM SPRING_SESSION WHERE SESSION_ID = ?') >> ps
+        1 * ps.setString(1, '00000000-0000-0000-0000-000000000000')
+        1 * ps.executeQuery() >> { throw new SQLException('table missing') }
+        1 * ps.close()
+        1 * conn.close()
+        resp.statusCode == HttpStatus.SERVICE_UNAVAILABLE
+        resp.body.status == 'DOWN'
+        resp.body.reason == 'good-uuid-threw'
     }
 
     def "version() surfaces the injected appVersion"() {

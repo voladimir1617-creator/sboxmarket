@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.env.Environment
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
@@ -32,6 +33,7 @@ class HealthController {
     String appVersion
 
     @Autowired(required = false) DataSource dataSource
+    @Autowired(required = false) Environment environment
 
     // Batch 970 — register both slash variants. Docker HEALTHCHECK,
     // some k8s probe configs, and curl invocations append a trailing
@@ -160,6 +162,12 @@ class HealthController {
     @GetMapping(['/api/health/cookie-aware', '/api/health/cookie-aware/'])
     ResponseEntity<Map> cookieAware() {
         def noStore = 'no-store, no-cache, must-revalidate'
+        if (!jdbcSessionProbeRequired()) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', noStore)
+                .body([status: 'UP', sessionStore: 'tomcat-memory',
+                       probes: ['jdbc-session-disabled']])
+        }
         if (dataSource == null) {
             return ResponseEntity.status(503)
                 .header('Cache-Control', noStore)
@@ -236,5 +244,16 @@ class HealthController {
         ResponseEntity.ok()
             .header('Cache-Control', noStore)
             .body([status: 'UP', probes: ['good-uuid', 'poisoned-uuid']])
+    }
+
+    private boolean jdbcSessionProbeRequired() {
+        def explicit = environment?.getProperty('sbox.health.cookie-aware.require-jdbc')
+        if (explicit != null) {
+            return explicit.equalsIgnoreCase('true')
+        }
+        def storeType = environment?.getProperty('spring.session.store-type')
+            ?: System.getenv('SPRING_SESSION_STORE_TYPE')
+            ?: ''
+        storeType.equalsIgnoreCase('jdbc')
     }
 }

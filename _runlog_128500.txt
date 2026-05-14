@@ -1,0 +1,71 @@
+> Task :compileJava NO-SOURCE
+> Task :compileGroovy UP-TO-DATE
+> Task :processResources
+> Task :classes
+> Task :resolveMainClassName
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.3)
+
+2026-05-07T21:39:08.641-07:00  INFO 44060 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Starting SboxMarketApplication using Java 17 with PID 44060 (C:\Users\WW\Desktop\sboxmarket\build\classes\groovy\main started by WW in C:\Users\WW\Desktop\sboxmarket)
+2026-05-07T21:39:08.642-07:00 DEBUG 44060 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Running with Spring Boot v3.2.3, Spring v6.1.4
+2026-05-07T21:39:08.642-07:00  INFO 44060 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : No active profile set, falling back to 1 default profile: "default"
+2026-05-07T21:39:09.261-07:00  INFO 44060 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-07T21:39:09.333-07:00  INFO 44060 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 68 ms. Found 29 JPA repository interfaces.
+2026-05-07T21:39:09.790-07:00  INFO 44060 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-05-07T21:39:09.796-07:00  INFO 44060 --- [sboxmarket] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-07T21:39:09.796-07:00  INFO 44060 --- [sboxmarket] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-05-07T21:39:09.830-07:00  INFO 44060 --- [sboxmarket] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-07T21:39:09.830-07:00  INFO 44060 --- [sboxmarket] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1159 ms
+2026-05-07T21:39:10.114-07:00  INFO 44060 --- [sboxmarket] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-07T21:39:10.144-07:00  INFO 44060 --- [sboxmarket] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-05-07T21:39:10.165-07:00  INFO 44060 --- [sboxmarket] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-07T21:39:10.306-07:00  INFO 44060 --- [sboxmarket] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-07T21:39:10.325-07:00  INFO 44060 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-07T21:39:10.384-07:00  INFO 44060 --- [sboxmarket] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:file:./data/sboxmarket user=SA
+2026-05-07T21:39:10.386-07:00  INFO 44060 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-05-07T21:39:11.238-07:00  INFO 44060 --- [sboxmarket] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-07T21:39:11.278-07:00  INFO 44060 --- [sboxmarket] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-05-07T21:39:11.426-07:00  INFO 44060 --- [sboxmarket] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-07T21:39:12.005-07:00  WARN 44060 --- [sboxmarket] [           main] com.sboxmarket.service.EmailService      : EmailService: no SMTP host configured — running in LOG-SINK mode. Verification tokens will appear in the server log. Set SMTP_HOST to enable delivery.
+2026-05-07T21:39:12.093-07:00 DEBUG 44060 --- [sboxmarket] [           main] com.sboxmarket.config.RateLimitFilter    : Filter 'rateLimitFilter' configured for use
+2026-05-07T21:39:12.094-07:00 DEBUG 44060 --- [sboxmarket] [           main] com.sboxmarket.config.CsrfFilter         : Filter 'csrfFilter' configured for use
+2026-05-07T21:39:12.094-07:00 DEBUG 44060 --- [sboxmarket] [           main] c.sboxmarket.config.CorrelationIdFilter  : Filter 'correlationIdFilter' configured for use
+2026-05-07T21:39:12.095-07:00 DEBUG 44060 --- [sboxmarket] [           main] com.sboxmarket.config.ApiKeyAuthFilter   : Filter 'apiKeyAuthFilter' configured for use
+2026-05-07T21:39:12.095-07:00 DEBUG 44060 --- [sboxmarket] [           main] c.sboxmarket.config.SessionEpochFilter   : Filter 'sessionEpochFilter' configured for use
+2026-05-07T21:39:12.095-07:00 DEBUG 44060 --- [sboxmarket] [           main] c.s.config.OutageObservabilityFilter     : Filter 'outageObservabilityFilter' configured for use
+2026-05-07T21:39:12.095-07:00 DEBUG 44060 --- [sboxmarket] [           main] c.sboxmarket.config.BodySizeLimitFilter  : Filter 'bodySizeLimitFilter' configured for use
+2026-05-07T21:39:12.095-07:00 DEBUG 44060 --- [sboxmarket] [           main] com.sboxmarket.config.PresenceFilter     : Filter 'presenceFilter' configured for use
+2026-05-07T21:39:13.162-07:00  INFO 44060 --- [sboxmarket] [           main] com.sboxmarket.service.StripeService     : Stripe initialised (key prefix: sk_test…)
+2026-05-07T21:39:13.612-07:00  INFO 44060 --- [sboxmarket] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-05-07T21:39:14.133-07:00  INFO 44060 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-05-07T21:39:14.147-07:00  INFO 44060 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Started SboxMarketApplication in 5.711 seconds (process running for 6.141)
+2026-05-07T21:39:14.218-07:00  INFO 44060 --- [sboxmarket] [           main] com.sboxmarket.service.SeedService       : Skipping public-loadout seed (only 0 items in catalogue)
+2026-05-07T21:39:14.229-07:00  INFO 44060 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : 🎮 SBoxMarket started — http://localhost:8080 (profiles: default)
+2026-05-07T21:39:15.890-07:00  INFO 44060 --- [sboxmarket] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-07T21:39:15.890-07:00  INFO 44060 --- [sboxmarket] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-05-07T21:39:15.892-07:00  INFO 44060 --- [sboxmarket] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+2026-05-07T21:39:44.173-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-5] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 11ms
+2026-05-07T21:40:44.181-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-2] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T21:41:14.633-07:00  WARN 44060 --- [sboxmarket] [nio-8080-exec-2] c.s.controller.ClientErrorController     : CLIENT-ERROR uid=anon url=http://localhost:8080/market ua='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36' msg='Uncaught ReferenceError: resolve is not defined' stack=ReferenceError: resolve is not defined     at eval (eval at <anonymous> (eval at evaluate (:302:30)), <anonymous>:40:5)
+2026-05-07T21:41:44.193-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-1] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 1ms
+2026-05-07T21:42:44.196-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-5] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 1ms
+2026-05-07T21:43:44.200-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-6] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T21:44:48.402-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-4] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 4190ms
+2026-05-07T21:45:48.415-07:00  INFO 44060 --- [sboxmarket] [   sbox-sched-1] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 1ms
+
+> Task :bootRun FAILED
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.5/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+4 actionable tasks: 3 executed, 1 up-to-date

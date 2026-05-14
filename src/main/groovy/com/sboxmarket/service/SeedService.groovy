@@ -39,8 +39,99 @@ class SeedService {
             walletRepository.save(new Wallet(username: "demo", balance: new BigDecimal("250.00"), currency: "USD"))
             log.info("Seeded demo wallet (\$250.00 starting balance)")
         }
+        seedCatalogueItems()
         backfillDemoSales()
         backfillPublicLoadouts()
+    }
+
+    /**
+     * Day-1 launch seed for the item catalogue. The architectural intent
+     * (per the class header) is for catalogue rows to populate organically
+     * from real Steam-inventory listings — but on a fresh production boot
+     * with zero sellers yet, /db (catalogue browse), /loadout (Loadout Lab
+     * Discover tab), and the home grid all render empty. This seed plants
+     * a curated, generic set of s&box-flavored cosmetic items so first
+     * visitors see a real catalogue, the Loadout Lab demo loadouts can
+     * fill their slots, and SEO crawlers see real /db pages instead of an
+     * empty grid.
+     *
+     * IDEMPOTENT: only fires when the catalogue is completely empty
+     * (itemRepository.count() == 0). Once a real seller lists an item,
+     * the catalogue is no longer "empty" and this seed will never run
+     * again — even on subsequent boots after a partial wipe.
+     *
+     * Items are catalogue-only — `isListed: false`, no Listing rows
+     * created. Real sellers populate Listing rows from their Steam
+     * inventory via the normal /api/listings POST flow. No demo Listings
+     * are created because we cannot back them with real Steam items, and
+     * a "buy" attempt on a phantom listing would fail at trade-creation
+     * with no recovery path for the buyer.
+     *
+     * Names + emojis chosen to be generic enough not to imply any
+     * partner/affiliate relationship with another game's marketplace.
+     */
+    private void seedCatalogueItems() {
+        if (itemRepository == null) return
+        try {
+            if (itemRepository.count() > 0) return
+            // Format: [name, category, rarity, iconEmoji, accentColor, lowestPriceUSD]
+            // Categories: Clothing, Hats, Accessories, Workshop (per Item model contract)
+            // Rarities: Standard (white), Limited (orange), Off-Market (purple) (per Item model contract)
+            def fixtures = [
+                // Hats
+                ['Beanie',                    'Hats',        'Standard',   '🧢', '#7a8b9c', '0.50'],
+                ['Hard Hat',                  'Hats',        'Standard',   '⛑',  '#f5c116', '1.20'],
+                ['Top Hat',                   'Hats',        'Limited',    '🎩', '#1a1a1a', '8.40'],
+                ['Witch Hat',                 'Hats',        'Limited',    '🧙', '#4a2370', '12.10'],
+                ['Crown of Thorns',           'Hats',        'Off-Market', '👑', '#c89b3c', '64.00'],
+                // Clothing
+                ['Hoodie',                    'Clothing',    'Standard',   '👕', '#2c3e50', '0.80'],
+                ['Lab Coat',                  'Clothing',    'Standard',   '🥼', '#ecf0f1', '1.45'],
+                ['Leather Jacket',            'Clothing',    'Limited',    '🧥', '#3a2417', '6.80'],
+                ['Trench Coat',               'Clothing',    'Limited',    '🧥', '#5a4632', '11.50'],
+                ['Hawaiian Shirt',            'Clothing',    'Standard',   '👔', '#ff6b6b', '2.10'],
+                ['Tactical Vest',             'Clothing',    'Limited',    '🦺', '#3d5a3a', '14.20'],
+                ['Cape of the Wanderer',      'Clothing',    'Off-Market', '🦸', '#7b1fa2', '89.00'],
+                // Accessories
+                ['Sunglasses',                'Accessories', 'Standard',   '🕶', '#1a1a1a', '0.65'],
+                ['Pocket Watch',              'Accessories', 'Limited',    '⌚', '#c0a062', '5.30'],
+                ['Backpack',                  'Accessories', 'Standard',   '🎒', '#2c3e50', '1.15'],
+                ['Gas Mask',                  'Accessories', 'Limited',    '😷', '#3a3f47', '7.90'],
+                ['Engineer Goggles',          'Accessories', 'Limited',    '🥽', '#a87b3a', '4.40'],
+                ['Bone Necklace',             'Accessories', 'Limited',    '💀', '#ddd6c7', '3.20'],
+                ['Halo of the Forsaken',      'Accessories', 'Off-Market', '🌟', '#ffd700', '120.00'],
+                // Workshop
+                ['Map: Foundry',              'Workshop',    'Standard',   '🏭', '#5a5a5a', '0.99'],
+                ['Map: Lakeside',             'Workshop',    'Standard',   '🏞', '#3a7d44', '0.99'],
+                ['Vehicle Wrap: Cyber',       'Workshop',    'Limited',    '🚗', '#9b59b6', '4.50'],
+                ['Vehicle Wrap: Camo',        'Workshop',    'Standard',   '🚗', '#5b6e3d', '1.80'],
+                ['Decal Pack: Graffiti',      'Workshop',    'Standard',   '🎨', '#e74c3c', '0.75'],
+                ['Workshop Pass: Founders',   'Workshop',    'Off-Market', '🎟', '#237bff', '250.00']
+            ]
+            long now = System.currentTimeMillis()
+            int idx = 0
+            fixtures.each { fx ->
+                def item = new com.sboxmarket.model.Item()
+                item.name         = fx[0]
+                item.category     = fx[1]
+                item.rarity       = fx[2]
+                item.iconEmoji    = fx[3]
+                item.accentColor  = fx[4]
+                item.lowestPrice  = new BigDecimal(fx[5])
+                item.steamPrice   = item.lowestPrice * new BigDecimal('1.20')  // pretend Steam list is 20% above market
+                item.supply       = 0      // no Listings exist yet
+                item.totalSold    = 0
+                item.viewCount    = 0L
+                item.trendPercent = 0
+                item.isListed     = false  // catalogue-only; real Listing rows come from real sellers
+                item.createdAt    = now - (idx * 60_000L)  // stagger so /db sort-by-newest looks natural
+                itemRepository.save(item)
+                idx++
+            }
+            log.info("Seeded ${fixtures.size()} catalogue items (day-1 launch, isListed=false, real sellers populate Listings)")
+        } catch (Exception e) {
+            log.warn("Catalogue seed skipped: ${e.message}", e)
+        }
     }
 
     /**

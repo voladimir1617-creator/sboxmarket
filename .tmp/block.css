@@ -1,0 +1,129 @@
+
+/* CSFLOAT-1:1 PARITY ship #126680 — email-verify banner brand-tint parity.
+   Measure (csfloat.com main.js scoped CSS, --banner-info-background var):
+   when csfloat shows the unverified-email prompt it renders an info-typed
+   .banner.info inside app-banners with bg rgba(35,123,255,0.15) plus
+   backdrop-filter blur(10px). The local EmailVerifyNag mounts as
+   .announce-banner.sev-warn (app.js:518) — but csfloat treats the
+   email-verify prompt as an INFO action-required tone, not warn. Convert
+   the bg + accent rail to csfloat info-banner spec while keeping local
+   sev-warn class hook so React state stays untouched. Selector includes
+   :has(strong) so this ONLY narrows to the email-verify nag (which
+   embeds <strong>email</strong>) and never touches generic AnnouncementBanner
+   sev-warn renders. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) {
+  background: rgba(35, 123, 255, 0.15) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom-color: rgba(35, 123, 255, 0.36) !important;
+  border-left: 3px solid rgba(35, 123, 255, 0.92) !important;
+  padding-left: 21px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126680 */
+
+/* CSFLOAT-1:1 PARITY ship #126681 — email-verify banner primary-text color.
+   Measure (csfloat .banner.info .primary-text { color: var(--primary-color) }
+   = #237bff): the verify-email banner text in csfloat keeps the body copy
+   in --primary-text-color (#fff) but lifts the actionable strong/link to
+   the brand color. Local nag has the email <strong> embedded, plus a
+   "Confirm it" anchor. Tint both to brand-blue per csfloat. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text strong {
+  color: rgb(35, 123, 255) !important;
+  font-weight: 700 !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text a {
+  color: rgb(35, 123, 255) !important;
+  text-decoration-color: rgba(35, 123, 255, 0.6) !important;
+  text-underline-offset: 3px !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text a:hover {
+  text-decoration-color: rgb(35, 123, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126681 */
+
+/* CSFLOAT-1:1 PARITY ship #126682 — email-verify banner icon brand color.
+   Measure (csfloat .banner.info svg { fill: var(--primary-color) }): info
+   banners color the leading svg icon brand-blue. Local renders a plain
+   ✉ glyph in .announce-banner-icon — currently inherits sev-warn amber
+   #e8b960. Override to brand-blue + lift weight a touch (csfloat icon is
+   ~16px in a 14px banner). */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-icon {
+  color: rgb(35, 123, 255) !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126682 */
+
+/* CSFLOAT-1:1 PARITY ship #126683 — email-verify resend button parity.
+   Measure (csfloat in-banner CTA, "Verify Now" / inline action): brand-tinted
+   bg rgba(35,123,255,0.12), brand text rgb(35,123,255), brand 1px border at
+   0.32 alpha, 6px radius, 4px 12px padding, 12px font, 600 weight. Local
+   .btn.btn-ghost inside the banner uses inline-style border:1px currentColor
+   plus 4px 10px / 11px which inherits banner ink color (currently subtext
+   gray) — kill the inheritance and pin to csfloat brand pill. Selector
+   targets the resend button via .btn.btn-ghost descendant of email-banner. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .btn.btn-ghost {
+  background: rgba(35, 123, 255, 0.12) !important;
+  border: 1px solid rgba(35, 123, 255, 0.32) !important;
+  color: rgb(35, 123, 255) !important;
+  border-radius: 6px !important;
+  padding: 4px 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .btn.btn-ghost:hover {
+  background: rgba(35, 123, 255, 0.2) !important;
+  border-color: rgba(35, 123, 255, 0.6) !important;
+  color: rgb(255, 255, 255) !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .btn.btn-ghost:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126683 */
+
+/* CSFLOAT-1:1 PARITY ship #126684 — email-verify banner close glyph parity.
+   Measure (csfloat .banners .banner .close .inner): 32px x 32px circle
+   (border-radius 100%) with bg rgba(0,0,0,0.1) and primary-text-color
+   glyph. Local close was bumped to 32x32 4px-square in ship #5003, but
+   csfloat's banner-close is specifically circular. Match the round form
+   on email-verify variant only (general announce-banner-close stays at
+   the existing 4px square that ship #5003 set for AnnouncementBanner). */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-close {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 100% !important;
+  background: rgba(0, 0, 0, 0.1) !important;
+  color: rgb(255, 255, 255) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-close:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  color: rgb(255, 255, 255) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126684 */
+
+/* CSFLOAT-1:1 PARITY ship #126685 — email-verify banner type spec parity.
+   Measure (csfloat .banners .banner): 14px font, 700 weight, 0.04em
+   letter-spacing, 30px line-height, centered. Local .announce-banner is
+   500 weight / normal letter-spacing per ship #5001. The email-verify
+   variant is the closest analog to a csfloat info-banner — promote it to
+   csfloat banner type spec. Keep the body text :has-scoped so generic
+   AnnouncementBanner copy stays at sboxmarket's normal 500/0 metrics. */
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text {
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1.6 !important;
+  text-align: left !important;
+}
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text strong,
+body .announce-banner.sev-warn:has(.announce-banner-text strong) .announce-banner-text a {
+  letter-spacing: 0.04em !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #126685 */

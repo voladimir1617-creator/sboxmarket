@@ -21,12 +21,11 @@ const CHECKS = [
     sub: 'Item lookups', ok: (r) => r.ok },
   { id: 'auctions',  name: 'Auction engine',  endpoint: '/api/listings/ending-soon',
     sub: 'Bid placement + anti-snipe', ok: (r) => r.ok },
-  // Added with the structural session-JDBC fix: this endpoint runs a
-  // synthetic poisoned-cookie probe against the session store to make
-  // sure the sanitiser is rejecting malformed UUIDs without taking the
-  // pool down. Two-probe response: good-uuid + poisoned-uuid.
+  // Session health: returns UP for the current Tomcat-memory session
+  // mode; if JDBC sessions are explicitly re-enabled, this same endpoint
+  // runs the synthetic good/stale UUID SELECT probes against SPRING_SESSION.
   { id: 'session-sanitiser', name: 'Session sanitiser', endpoint: '/api/health/cookie-aware',
-    sub: '/api/health/cookie-aware · poisoned-cookie probe', ok: (r) => r.ok },
+    sub: '/api/health/cookie-aware · session mode probe', ok: (r) => r.ok },
   // Surfaces ListingFloorRefreshService's 60s sweep + Steam Market price
   // pull. Subtext is overridden in render() to show "data is Xs old"
   // derived from response.floor.finishedAt; status downgrades to WARN

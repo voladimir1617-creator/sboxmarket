@@ -1,0 +1,310 @@
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127900 — /profile Trades trade-list flat-row container
+   Real measure (csfloat /profile Trades tab table.mat-mdc-table inside
+   .container.profile-card): single panel hosts ALL trade rows; no per-row
+   chrome. Panel = bg rgb(27,29,36), pad 30px, radius 12px (already pinned
+   #127820). Inside, the trade list itself is bg transparent, no border, no
+   gap between rows — rows touch directly because each row has its own bottom
+   hairline. Sboxmarket prior #1305 layered each .trade-row with bg
+   rgb(27,29,36) + 1px border rgb(38,40,48) + 8px radius + 12px gap, which
+   double-stacks card chrome inside the parent .profile-panel. Override
+   .trade-list back to flat (no gap, no panel chrome) and strip the per-row
+   card surface so rows render flush like csfloat. The row hairline below
+   takes over the visual divider duty. */
+body .profile-panel .trade-list,
+body .container .trade-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+body .profile-panel .trade-list > .trade-row,
+body .container .trade-list > .trade-row,
+body .profile-panel > .trade-row {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 16px 0 !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  transition: background 140ms ease !important;
+  box-shadow: none !important;
+}
+body .profile-panel .trade-list > .trade-row:last-child,
+body .container .trade-list > .trade-row:last-child {
+  border-bottom: 0 !important;
+}
+body .profile-panel .trade-list > .trade-row:hover,
+body .container .trade-list > .trade-row:hover {
+  background: rgba(193, 206, 255, 0.02) !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127900 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127901 — Trades column-header row typography
+   Real measure (csfloat thead.mat-mdc-header-row > th.mat-mdc-header-cell):
+   row height 42px, cell padding 0px 16px (first child 0px 0px 0px 16px),
+   color rgb(158, 167, 177) (ink-2), Roboto 14px / 500, line-height 22px,
+   letter-spacing 0.42px, text-align start, no border on the row itself but
+   the cell carries 1px solid rgba(0,0,0,0) (transparent — keeps layout
+   stable as rows scroll). Sboxmarket has no semantic .trade-list-header
+   element; modals.js renders rows directly. Synthesize header chrome via
+   ::before pseudo on the .trade-list, so the user reading the panel sees
+   consistent column hint typography even though sboxmarket's .trade-row
+   layout is divs not table-cells. Use grid template that mirrors the row
+   columns from #126640 (1fr auto auto). Pin label tokens to the csfloat
+   measured spec. */
+body .profile-panel .trade-list::before,
+body .container .trade-list::before {
+  content: "Trade   Status   Action" !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto auto !important;
+  column-gap: 16px !important;
+  padding: 0 0 10px 0 !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 22px !important;
+  letter-spacing: 0.42px !important;
+  color: rgb(158, 167, 177) !important;
+  text-align: start !important;
+  border-bottom: 1px solid rgba(193, 206, 255, 0.04) !important;
+  margin-bottom: 8px !important;
+  white-space: pre !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127901 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127902 — .trade-state status-text typography parity
+   Real measure (csfloat .state span.ng-star-inserted carrying VERIFIED /
+   CANCELLED / PENDING text): font Roboto 14/400, line-height 20px,
+   text-transform NONE, letter-spacing 0, NO border, NO background pill.
+   The csfloat status indicator is a plain colored TEXT label (rgb(100,236,66)
+   green for Verified, rgb(0,191,255) deep-sky-blue for Cancelled, plus
+   semantic colors for pending states). Sboxmarket prior #1306 ships the
+   .trade-state as an UPPERCASE 11/700 chip with 4px radius + tinted overlay
+   bg/border — that reads as a bold tag, not csfloat's quiet semantic text.
+   Pin to the csfloat plain-text token: kill the chip chrome (bg/border/
+   border-radius/padding all reset), pin font tokens, preserve the per-state
+   color coding via the existing .pending/.completed/.cancelled/.disputed
+   classes (already at #7032-7034). */
+body .profile-panel .trade-state,
+body .container .trade-state,
+body .trade-row .trade-state {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  height: auto !important;
+  white-space: nowrap !important;
+}
+/* Per-state color overrides — pin the csfloat semantic palette directly so
+   the existing pending/completed/cancelled classes inherit the right tones
+   instead of the legacy yellow/up/down derived colors that don't match
+   csfloat's measured greens/blues. */
+body .trade-row .trade-state.pending,
+body .trade-row .trade-state.pending_buyer_confirm,
+body .trade-row .trade-state.pending_seller_send,
+body .trade-row .trade-state.pending_seller_accept {
+  color: rgb(232, 185, 96) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body .trade-row .trade-state.verified,
+body .trade-row .trade-state.completed {
+  color: rgb(100, 236, 66) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body .trade-row .trade-state.cancelled {
+  color: rgb(0, 191, 255) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+body .trade-row .trade-state.disputed,
+body .trade-row .trade-state.failed {
+  color: rgb(248, 113, 113) !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127902 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127903 — .trade-title item name + thumb measurements
+   Real measure (csfloat td.cdk-column-item > img): 66x50 thumb, no radius,
+   transparent bg. Item name is Roboto 14/400 white inside the same cell.
+   Sboxmarket modals.js (line 6760) renders the thumb at 36x36 with 4px
+   radius via inline style and the title in a flex row. The thumb is too
+   small + too rounded vs csfloat's flat 66x50 photo; pin the visible
+   measurements. Also kill the inline border-radius via the inner img
+   selector so the photo reads as a flat product shot. Title font already
+   matches at the parent level via #127902-adjacent rules. */
+body .trade-row .trade-title img,
+body .trade-row a.trade-title img,
+body .trade-row .trade-title > a img {
+  width: 66px !important;
+  height: 50px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  object-fit: contain !important;
+  margin-right: 16px !important;
+  flex-shrink: 0 !important;
+}
+body .trade-row .trade-title {
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgb(255, 255, 255) !important;
+  letter-spacing: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127903 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127904 — .trade-counterparty-url action-row anchor parity
+   Real measure (csfloat /profile/trades — counterparty-link buttons that
+   surface "Inspect Link" / "Listing" / Steam URL): rendered as flat text-only
+   anchors with brand-blue rgb(35,123,255) text, no underline at rest,
+   underline on hover, Roboto 13px/500, no padding, no border, no background.
+   Sboxmarket prior #2904 styles .trade-counterparty-link with token vars
+   (--ink-2, --line, --r-sm) but the resulting compute is ink-2 muted text
+   with hairline underline. csfloat foregrounds these as ACTIONS — bright
+   blue text inviting click — not muted captions. Pin the brand-blue color
+   token + 13/500 Roboto + crisp underline-on-hover treatment. */
+body .trade-row .trade-counterparty-link,
+body .trade-row .trade-counterparty-url a:not(.trade-counterparty-copy) {
+  color: rgb(35, 123, 255) !important;
+  text-decoration: none !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: color 100ms ease, text-decoration-color 100ms ease !important;
+}
+body .trade-row .trade-counterparty-link:hover,
+body .trade-row .trade-counterparty-url a:not(.trade-counterparty-copy):hover {
+  color: rgb(58, 137, 255) !important;
+  text-decoration: underline solid rgb(58, 137, 255) !important;
+}
+/* The trade-counterparty-url wrapper itself: csfloat row-meta line is a
+   single horizontal flex strip with 8px gap, ink-2 caption + brand-blue
+   action anchor + small copy glyph button. Override the wrapper to flex-row
+   layout (existing rule may force column). */
+body .trade-row .trade-counterparty-url {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 4px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127904 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127905 — .trade-copy-id glyph-button minimal chrome
+   Real measure (csfloat row-meta copy buttons + general inline icon-button
+   pattern across the site): 20x20 box, transparent bg, ink-2 rgb(158,167,177)
+   color at rest, brand-blue rgb(35,123,255) on hover, NO border, NO radius
+   beyond the natural line-box. The glyph itself is a single Material
+   "content_copy" character at 16px. Sboxmarket prior #2904 ships the
+   .trade-counterparty-copy + .trade-copy-id with var(--ink-2) color + 1px
+   solid var(--line) border + var(--r-sm) radius + 4px padding — that reads
+   as a mini-button with chrome. csfloat uses bare glyph icons. Strip the
+   border + radius + padding so the glyph floats inline next to its label,
+   keep the ink-2 → brand-blue color transition. */
+body .trade-row .trade-counterparty-copy,
+body .trade-row .trade-copy-id,
+body .trade-row > .trade-side .trade-copy-id {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: rgb(158, 167, 177) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition:
+    color 100ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 100ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .trade-row .trade-counterparty-copy:hover,
+body .trade-row .trade-copy-id:hover {
+  color: rgb(35, 123, 255) !important;
+  background: rgba(35, 123, 255, 0.08) !important;
+  border: 0 !important;
+}
+body .trade-row .trade-counterparty-copy:focus-visible,
+body .trade-row .trade-copy-id:focus-visible {
+  outline: 2px solid rgb(35, 123, 255) !important;
+  outline-offset: 1px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127905 */
+
+/* ─────────────────────────────────────────────────────────────────────
+   CSFLOAT-1:1 PARITY ship #127906 — Trades pagination footer chrome
+   Real measure (csfloat mat-paginator at bottom of trade table): full-width
+   1176px, height 56px, bg rgb(27,29,36) (same as panel — visually flush),
+   color rgb(255,255,255), 12px font. Sboxmarket modals.js renders a
+   pagination footer below .trade-list (search for "Items per page" /
+   "1 - 10 of N"); the inline emit lacks the canonical bottom-of-panel
+   chrome that csfloat ships. Synthesize a .trade-pagination wrapper and
+   any inline-style div with "Items per page" hint matches the csfloat
+   token: 56px tall row, 12px Roboto, ink-1 white text, 16px horizontal
+   padding, hairline top divider. The row anchor is the inline style emit
+   that matches the trades pagination block — using the "Items per page"
+   text content selector lookalike via attribute pattern. */
+body .profile-panel .trade-pagination,
+body .container .trade-pagination,
+body .profile-panel .trades-paginator,
+body .profile-panel > .trade-list + div[style*="Items per page"],
+body .profile-panel div.trade-paginator {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  height: 56px !important;
+  padding: 0 16px !important;
+  background: rgb(27, 29, 36) !important;
+  color: rgb(255, 255, 255) !important;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  border-top: 1px solid rgba(193, 206, 255, 0.04) !important;
+  margin-top: 0 !important;
+  border-radius: 0 0 12px 12px !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #127906 */

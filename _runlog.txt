@@ -7,38 +7,62 @@
  =========|_|==============|___/=/_/_/_/
  :: Spring Boot ::                (v3.2.3)
 
-2026-05-07T18:05:05.916-07:00  INFO 46100 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Starting SboxMarketApplication v1.0.0 using Java 17 with PID 46100 (C:\Users\WW\Desktop\sboxmarket\build\libs\sboxmarket-1.0.0.jar started by WW in C:\Users\WW\Desktop\sboxmarket)
-2026-05-07T18:05:05.918-07:00 DEBUG 46100 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Running with Spring Boot v3.2.3, Spring v6.1.4
-2026-05-07T18:05:05.918-07:00  INFO 46100 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : No active profile set, falling back to 1 default profile: "default"
-2026-05-07T18:05:07.381-07:00  INFO 46100 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-05-07T18:05:07.530-07:00  INFO 46100 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 140 ms. Found 29 JPA repository interfaces.
-2026-05-07T18:05:09.218-07:00  INFO 46100 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-05-07T18:05:09.227-07:00  INFO 46100 --- [sboxmarket] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-05-07T18:05:09.227-07:00  INFO 46100 --- [sboxmarket] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.19]
-2026-05-07T18:05:09.274-07:00  INFO 46100 --- [sboxmarket] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-05-07T18:05:09.275-07:00  INFO 46100 --- [sboxmarket] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 3285 ms
-2026-05-07T18:05:10.672-07:00  INFO 46100 --- [sboxmarket] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-05-07T18:05:10.876-07:00  INFO 46100 --- [sboxmarket] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
-2026-05-07T18:05:10.936-07:00  INFO 46100 --- [sboxmarket] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-05-07T18:05:11.172-07:00  INFO 46100 --- [sboxmarket] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-05-07T18:05:11.195-07:00  INFO 46100 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-05-07T18:05:15.465-07:00  INFO 46100 --- [sboxmarket] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn1: url=jdbc:h2:file:./data/sboxmarket user=SA
-2026-05-07T18:05:15.467-07:00  INFO 46100 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-05-07T18:05:17.283-07:00  INFO 46100 --- [sboxmarket] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-05-07T18:05:17.332-07:00  INFO 46100 --- [sboxmarket] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-05-07T18:05:17.859-07:00  INFO 46100 --- [sboxmarket] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
-2026-05-07T18:05:19.074-07:00  WARN 46100 --- [sboxmarket] [           main] com.sboxmarket.service.EmailService      : EmailService: no SMTP host configured — running in LOG-SINK mode. Verification tokens will appear in the server log. Set SMTP_HOST to enable delivery.
-2026-05-07T18:05:19.262-07:00 DEBUG 46100 --- [sboxmarket] [           main] com.sboxmarket.config.RateLimitFilter    : Filter 'rateLimitFilter' configured for use
-2026-05-07T18:05:19.263-07:00 DEBUG 46100 --- [sboxmarket] [           main] com.sboxmarket.config.CsrfFilter         : Filter 'csrfFilter' configured for use
-2026-05-07T18:05:19.263-07:00 DEBUG 46100 --- [sboxmarket] [           main] c.sboxmarket.config.CorrelationIdFilter  : Filter 'correlationIdFilter' configured for use
-2026-05-07T18:05:19.269-07:00 DEBUG 46100 --- [sboxmarket] [           main] com.sboxmarket.config.ApiKeyAuthFilter   : Filter 'apiKeyAuthFilter' configured for use
-2026-05-07T18:05:19.269-07:00 DEBUG 46100 --- [sboxmarket] [           main] c.sboxmarket.config.SessionEpochFilter   : Filter 'sessionEpochFilter' configured for use
-2026-05-07T18:05:19.270-07:00 DEBUG 46100 --- [sboxmarket] [           main] c.s.config.OutageObservabilityFilter     : Filter 'outageObservabilityFilter' configured for use
-2026-05-07T18:05:19.270-07:00 DEBUG 46100 --- [sboxmarket] [           main] c.sboxmarket.config.BodySizeLimitFilter  : Filter 'bodySizeLimitFilter' configured for use
-2026-05-07T18:05:19.270-07:00 DEBUG 46100 --- [sboxmarket] [           main] com.sboxmarket.config.PresenceFilter     : Filter 'presenceFilter' configured for use
-2026-05-07T18:05:20.790-07:00  INFO 46100 --- [sboxmarket] [           main] com.sboxmarket.service.StripeService     : Stripe initialised (key prefix: sk_test…)
-2026-05-07T18:05:21.662-07:00  INFO 46100 --- [sboxmarket] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
-2026-05-07T18:05:22.673-07:00  INFO 46100 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
-2026-05-07T18:05:22.701-07:00  INFO 46100 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Started SboxMarketApplication in 17.234 seconds (process running for 18.05)
-2026-05-07T18:05:22.936-07:00  INFO 46100 --- [sboxmarket] [           main] com.sboxmarket.service.SeedService       : Skipping public-loadout seed (only 0 items in catalogue)
-2026-05-07T18:05:22.949-07:00  INFO 46100 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : ? SBoxMarket started — http://localhost:8080 (profiles: default)
+2026-05-07T21:47:48.660-07:00  INFO 21864 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Starting SboxMarketApplication v1.0.0 using Java 17 with PID 21864 (C:\Users\WW\Desktop\sboxmarket\build\libs\sboxmarket-1.0.0.jar started by WW in C:\Users\WW\Desktop\sboxmarket)
+2026-05-07T21:47:48.662-07:00 DEBUG 21864 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Running with Spring Boot v3.2.3, Spring v6.1.4
+2026-05-07T21:47:48.663-07:00  INFO 21864 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : No active profile set, falling back to 1 default profile: "default"
+2026-05-07T21:47:49.960-07:00  INFO 21864 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-07T21:47:50.090-07:00  INFO 21864 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 123 ms. Found 29 JPA repository interfaces.
+2026-05-07T21:47:52.138-07:00  INFO 21864 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8082 (http)
+2026-05-07T21:47:52.147-07:00  INFO 21864 --- [sboxmarket] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-07T21:47:52.149-07:00  INFO 21864 --- [sboxmarket] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-05-07T21:47:52.199-07:00  INFO 21864 --- [sboxmarket] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-07T21:47:52.200-07:00  INFO 21864 --- [sboxmarket] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 3467 ms
+2026-05-07T21:47:53.267-07:00  INFO 21864 --- [sboxmarket] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-07T21:47:53.318-07:00  INFO 21864 --- [sboxmarket] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-05-07T21:47:53.353-07:00  INFO 21864 --- [sboxmarket] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-07T21:47:53.598-07:00  INFO 21864 --- [sboxmarket] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-07T21:47:53.628-07:00  INFO 21864 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-07T21:47:53.714-07:00  INFO 21864 --- [sboxmarket] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:file:./data/sboxmarket user=SA
+2026-05-07T21:47:53.716-07:00  INFO 21864 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-05-07T21:47:55.493-07:00  INFO 21864 --- [sboxmarket] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-07T21:47:55.553-07:00  INFO 21864 --- [sboxmarket] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-05-07T21:47:55.994-07:00  INFO 21864 --- [sboxmarket] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-07T21:47:57.284-07:00  WARN 21864 --- [sboxmarket] [           main] com.sboxmarket.service.EmailService      : EmailService: no SMTP host configured — running in LOG-SINK mode. Verification tokens will appear in the server log. Set SMTP_HOST to enable delivery.
+2026-05-07T21:47:57.453-07:00 DEBUG 21864 --- [sboxmarket] [           main] com.sboxmarket.config.RateLimitFilter    : Filter 'rateLimitFilter' configured for use
+2026-05-07T21:47:57.455-07:00 DEBUG 21864 --- [sboxmarket] [           main] com.sboxmarket.config.CsrfFilter         : Filter 'csrfFilter' configured for use
+2026-05-07T21:47:57.455-07:00 DEBUG 21864 --- [sboxmarket] [           main] c.sboxmarket.config.CorrelationIdFilter  : Filter 'correlationIdFilter' configured for use
+2026-05-07T21:47:57.459-07:00 DEBUG 21864 --- [sboxmarket] [           main] com.sboxmarket.config.ApiKeyAuthFilter   : Filter 'apiKeyAuthFilter' configured for use
+2026-05-07T21:47:57.460-07:00 DEBUG 21864 --- [sboxmarket] [           main] c.sboxmarket.config.SessionEpochFilter   : Filter 'sessionEpochFilter' configured for use
+2026-05-07T21:47:57.460-07:00 DEBUG 21864 --- [sboxmarket] [           main] c.s.config.OutageObservabilityFilter     : Filter 'outageObservabilityFilter' configured for use
+2026-05-07T21:47:57.460-07:00 DEBUG 21864 --- [sboxmarket] [           main] c.sboxmarket.config.BodySizeLimitFilter  : Filter 'bodySizeLimitFilter' configured for use
+2026-05-07T21:47:57.461-07:00 DEBUG 21864 --- [sboxmarket] [           main] com.sboxmarket.config.PresenceFilter     : Filter 'presenceFilter' configured for use
+2026-05-07T21:47:59.398-07:00  INFO 21864 --- [sboxmarket] [           main] com.sboxmarket.service.StripeService     : Stripe initialised (key prefix: sk_test…)
+2026-05-07T21:48:00.435-07:00  INFO 21864 --- [sboxmarket] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-05-07T21:48:01.600-07:00  INFO 21864 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8082 (http) with context path ''
+2026-05-07T21:48:01.683-07:00  INFO 21864 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Started SboxMarketApplication in 13.42 seconds (process running for 14.177)
+2026-05-07T21:48:01.797-07:00  INFO 21864 --- [sboxmarket] [nio-8082-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-07T21:48:01.797-07:00  INFO 21864 --- [sboxmarket] [nio-8082-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-05-07T21:48:01.800-07:00  INFO 21864 --- [sboxmarket] [nio-8082-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+2026-05-07T21:48:02.007-07:00  INFO 21864 --- [sboxmarket] [           main] com.sboxmarket.service.SeedService       : Skipping public-loadout seed (only 0 items in catalogue)
+2026-05-07T21:48:02.030-07:00  INFO 21864 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : ? SBoxMarket started — http://localhost:8082 (profiles: default)
+2026-05-07T21:48:02.466-07:00  WARN 21864 --- [sboxmarket] [nio-8082-exec-2] o.a.c.util.SessionIdGeneratorBase        : Creation of SecureRandom instance for session ID generation using [SHA1PRNG] took [142] milliseconds.
+2026-05-07T21:48:31.708-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-5] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 13ms
+2026-05-07T21:49:31.726-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-2] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T21:50:31.744-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-3] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T21:51:31.755-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-5] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T21:52:31.767-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-6] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T21:53:31.780-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-1] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T21:54:31.795-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-3] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T21:55:31.804-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-3] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T21:56:31.811-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-6] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T21:57:31.828-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-2] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T21:58:31.832-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-4] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T21:59:31.842-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-1] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T22:00:31.853-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-2] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T22:01:31.869-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-6] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 3ms
+2026-05-07T22:02:31.886-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-3] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 1ms
+2026-05-07T22:03:31.900-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-1] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 4ms
+2026-05-07T22:04:31.918-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-2] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 1ms
+2026-05-07T22:05:31.936-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-2] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T22:06:31.953-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-1] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms
+2026-05-07T22:07:31.969-07:00  INFO 21864 --- [sboxmarket] [   sbox-sched-4] c.s.service.ListingFloorRefreshService   : Listing-floor refresh — checked=0 changed=0 in 2ms

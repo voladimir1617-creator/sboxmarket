@@ -1,0 +1,77 @@
+> Task :compileJava NO-SOURCE
+> Task :compileGroovy UP-TO-DATE
+> Task :processResources
+> Task :classes
+> Task :resolveMainClassName UP-TO-DATE
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.3)
+
+2026-05-07T21:31:11.723-07:00  INFO 53484 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Starting SboxMarketApplication using Java 17 with PID 53484 (C:\Users\WW\Desktop\sboxmarket\build\classes\groovy\main started by WW in C:\Users\WW\Desktop\sboxmarket)
+2026-05-07T21:31:11.724-07:00 DEBUG 53484 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Running with Spring Boot v3.2.3, Spring v6.1.4
+2026-05-07T21:31:11.724-07:00  INFO 53484 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : No active profile set, falling back to 1 default profile: "default"
+2026-05-07T21:31:12.313-07:00  INFO 53484 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-07T21:31:12.393-07:00  INFO 53484 --- [sboxmarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 74 ms. Found 29 JPA repository interfaces.
+2026-05-07T21:31:12.842-07:00  INFO 53484 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-05-07T21:31:12.848-07:00  INFO 53484 --- [sboxmarket] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-07T21:31:12.848-07:00  INFO 53484 --- [sboxmarket] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-05-07T21:31:12.884-07:00  INFO 53484 --- [sboxmarket] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-07T21:31:12.884-07:00  INFO 53484 --- [sboxmarket] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1131 ms
+2026-05-07T21:31:13.125-07:00  INFO 53484 --- [sboxmarket] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-07T21:31:13.151-07:00  INFO 53484 --- [sboxmarket] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-05-07T21:31:13.165-07:00  INFO 53484 --- [sboxmarket] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-07T21:31:13.277-07:00  INFO 53484 --- [sboxmarket] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-07T21:31:13.289-07:00  INFO 53484 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-07T21:31:17.512-07:00  INFO 53484 --- [sboxmarket] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn1: url=jdbc:h2:file:./data/sboxmarket user=SA
+2026-05-07T21:31:17.512-07:00  INFO 53484 --- [sboxmarket] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-05-07T21:31:18.423-07:00  INFO 53484 --- [sboxmarket] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-07T21:31:18.461-07:00  INFO 53484 --- [sboxmarket] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-05-07T21:31:18.594-07:00  INFO 53484 --- [sboxmarket] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-07T21:31:19.129-07:00  WARN 53484 --- [sboxmarket] [           main] com.sboxmarket.service.EmailService      : EmailService: no SMTP host configured — running in LOG-SINK mode. Verification tokens will appear in the server log. Set SMTP_HOST to enable delivery.
+2026-05-07T21:31:19.206-07:00 DEBUG 53484 --- [sboxmarket] [           main] com.sboxmarket.config.RateLimitFilter    : Filter 'rateLimitFilter' configured for use
+2026-05-07T21:31:19.206-07:00 DEBUG 53484 --- [sboxmarket] [           main] com.sboxmarket.config.CsrfFilter         : Filter 'csrfFilter' configured for use
+2026-05-07T21:31:19.206-07:00 DEBUG 53484 --- [sboxmarket] [           main] c.sboxmarket.config.CorrelationIdFilter  : Filter 'correlationIdFilter' configured for use
+2026-05-07T21:31:19.208-07:00 DEBUG 53484 --- [sboxmarket] [           main] com.sboxmarket.config.ApiKeyAuthFilter   : Filter 'apiKeyAuthFilter' configured for use
+2026-05-07T21:31:19.208-07:00 DEBUG 53484 --- [sboxmarket] [           main] c.sboxmarket.config.SessionEpochFilter   : Filter 'sessionEpochFilter' configured for use
+2026-05-07T21:31:19.208-07:00 DEBUG 53484 --- [sboxmarket] [           main] c.s.config.OutageObservabilityFilter     : Filter 'outageObservabilityFilter' configured for use
+2026-05-07T21:31:19.208-07:00 DEBUG 53484 --- [sboxmarket] [           main] c.sboxmarket.config.BodySizeLimitFilter  : Filter 'bodySizeLimitFilter' configured for use
+2026-05-07T21:31:19.208-07:00 DEBUG 53484 --- [sboxmarket] [           main] com.sboxmarket.config.PresenceFilter     : Filter 'presenceFilter' configured for use
+2026-05-07T21:31:20.213-07:00  INFO 53484 --- [sboxmarket] [           main] com.sboxmarket.service.StripeService     : Stripe initialised (key prefix: sk_test…)
+2026-05-07T21:31:20.623-07:00  INFO 53484 --- [sboxmarket] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-05-07T21:31:21.079-07:00  INFO 53484 --- [sboxmarket] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-05-07T21:31:21.095-07:00  INFO 53484 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : Started SboxMarketApplication in 9.579 seconds (process running for 9.891)
+2026-05-07T21:31:21.159-07:00  INFO 53484 --- [sboxmarket] [           main] com.sboxmarket.service.SeedService       : Skipping public-loadout seed (only 0 items in catalogue)
+2026-05-07T21:31:21.167-07:00  INFO 53484 --- [sboxmarket] [           main] com.sboxmarket.SboxMarketApplication     : 🎮 SBoxMarket started — http://localhost:8080 (profiles: default)
+2026-05-07T21:31:21.341-07:00  INFO 53484 --- [sboxmarket] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-07T21:31:21.341-07:00  INFO 53484 --- [sboxmarket] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-05-07T21:31:21.342-07:00  INFO 53484 --- [sboxmarket] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+
+> Task :bootRun FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':bootRun'.
+> Process 'command 'C:\Program Files\Java\jdk-17\bin\java.exe'' finished with non-zero exit value -1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.5/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 18s
+4 actionable tasks: 2 executed, 2 up-to-date

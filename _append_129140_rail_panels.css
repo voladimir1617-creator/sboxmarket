@@ -1,0 +1,209 @@
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129140 — item-detail GRID container reflow.
+   Measured on csfloat /item/<id> mat-dialog-container > .container:
+     display: grid
+     grid-template-columns: 250px 506px 210px
+     grid-template-rows: 665.5px 300px
+     grid-template-areas: "summary item similar" "history history history"
+     gap: 10px 20px (row 10, col 20)
+     padding: 20px
+     background: transparent
+     border-radius: 0 (radius lives on mdc-dialog-surface = 12px)
+   sboxmarket .modal.item-page currently uses 2-col 1fr/0.85fr with 24px
+     gap and 22px padding — the column track is fluid, the inter-panel
+     gap is 24px (csfloat is 10px row / 20px col), and the right rail is
+     a single overflow-y stack instead of three named grid tracks.
+   Override: when the modal hosts the right-rail layout, force csfloat's
+     three-track grid sizing + 10px row / 20px col gap + 20px padding so
+     the visual rhythm matches csfloat at the modal level. Constrain to
+     viewports >= 1100px to keep the existing single-column collapse for
+     mobile (ship #6068).
+   ===================================================================== */
+@media (min-width: 1100px) {
+  html body main.modal.item-page {
+    grid-template-columns: 250px minmax(0, 1fr) 210px !important;
+    grid-template-rows: minmax(666px, auto) auto !important;
+    grid-template-areas:
+      "summary item similar"
+      "history history history" !important;
+    column-gap: 20px !important;
+    row-gap: 10px !important;
+    gap: 10px 20px !important;
+    padding: 20px !important;
+    align-items: start !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #129140 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129141 — right-rail STACK becomes column-flex
+     with 10px gap between panel cards.
+   Measured: csfloat .grid-summary
+     display: flex
+     flex-direction: column
+     gap: 10px
+     padding: 0
+     width: 250px
+     children = 4 panel cards (item-schema-details / seller-details /
+       item-actions / buy-orders), no per-child margin (gap handles
+       spacing).
+   sboxmarket right rail (.modal-header > div:nth-child(2)) currently has
+     no explicit gap; child panels rely on individual margins which drift.
+   Pin display:flex + column + 10px gap; remove any stray margins from
+     the children so the rhythm is governed by gap only.
+   ===================================================================== */
+@media (min-width: 1100px) {
+  html body main.modal.item-page > .modal-header > div:nth-child(2) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 0 !important;
+    padding-right: 4px !important;
+    width: 250px !important;
+    max-width: 250px !important;
+    min-width: 250px !important;
+    grid-area: summary !important;
+    align-self: start !important;
+  }
+  html body main.modal.item-page > .modal-header > div:nth-child(2) > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #129141 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129142 — center column (image area) sizing.
+   Measured: csfloat .grid-item
+     width: 506px (fixed track from grid-template-columns 250 506 210)
+     height: 666px (row 1 track)
+     display: block
+     padding: 0
+     background: transparent
+   sboxmarket .modal-preview already had its chrome stripped in ship #15.
+   This ship places the preview into the named "item" grid track and
+     constrains it to the csfloat 506-wide track so the image aspect
+     stays measured-and-matched (not allowed to inflate via 1fr).
+   ===================================================================== */
+@media (min-width: 1100px) {
+  html body main.modal.item-page > .modal-header > .modal-preview {
+    grid-area: item !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    width: 506px !important;
+    max-width: 506px !important;
+    min-width: 0 !important;
+    justify-self: start !important;
+    align-self: start !important;
+    padding: 0 !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #129142 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129143 — body (history + similar) tracks.
+   Measured: csfloat
+     .grid-history (1006x300) sits at row 2 spanning all 3 columns;
+       inside: column-flex with 10px gap (header 38, history-component 252)
+     .grid-similar (210x666) sits at row 1 col 3.
+   sboxmarket .modal-body is currently grid-column 1, grid-row 2/span 99.
+   Map .modal-body to the named "history" track, force the 10px column
+     gap inside it, and surface a placeholder rule for an explicit
+     ".csfloat-grid-similar" container so when sboxmarket renders the
+     similar-items rail it slots into the correct named track.
+   ===================================================================== */
+@media (min-width: 1100px) {
+  html body main.modal.item-page > .modal-body {
+    grid-area: history !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding-bottom: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  html body main.modal.item-page .csfloat-grid-similar,
+  html body main.modal.item-page > .modal-header > .csfloat-grid-similar {
+    grid-area: similar !important;
+    width: 210px !important;
+    max-width: 210px !important;
+    align-self: start !important;
+    justify-self: start !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #129143 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129144 — panel CARD chrome canonical.
+   Measured per csfloat .grid-summary children:
+     [0] .card.item-schema-details: bg rgba(193,206,255,0.04), padding 15px,
+         radius 6px, border 0, box-shadow none, height 120px
+     [1] a.card.seller-details: bg transparent, padding 20px 15px,
+         radius 6px, gap 10px, height 62px
+     [2] .card.item-actions: bg rgba(193,206,255,0.04), padding 10px,
+         radius 6px, gap 10px (flex), height 56px
+     [3] .buy-orders: bg transparent, padding 0, radius 0 (group, not card)
+   sboxmarket panel chrome was canonicalized for .modal-stat-box in
+     ship #16 already (rgba 193,206,255,0.04 + 6px + 15px). This ship
+     extends the same chrome to the seller card variant and the
+     item-actions row card so all three tinted panels match csfloat
+     pixel-for-pixel; the buy-orders group stays transparent.
+   ===================================================================== */
+html body main.modal.item-page .modal-stat-box.is-seller,
+html body main.modal.item-page .item-rail-actions {
+  background: rgba(193, 206, 255, 0.04) !important;
+  background-color: rgba(193, 206, 255, 0.04) !important;
+  border: 0 none !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+html body main.modal.item-page .item-rail-actions {
+  padding: 10px !important;
+  display: flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+html body main.modal.item-page .modal-stat-box.is-seller {
+  padding: 20px 15px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+/* The buy-orders group is intentionally NOT a card on csfloat. */
+html body main.modal.item-page .buy-orders,
+html body main.modal.item-page .modal-stat-box.is-buy-orders {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #129144 */
+
+/* =====================================================================
+   CSFLOAT-1:1 PARITY ship #129145 — DIALOG SURFACE radius pin.
+   Measured: csfloat mat-dialog-container border-radius: 12px (the radius
+     lives on the dialog surface, not the inner .container which is 0).
+   sboxmarket .modal.item-page is the surface in our SPA. Pin its outer
+     radius to 12px so when the modal floats on the scrim the corner
+     curvature matches csfloat's mat-dialog look.
+   ===================================================================== */
+html body main.modal.item-page {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+@media (max-width: 1099.98px) {
+  /* mobile: full-bleed surface, no rounded corners */
+  html body main.modal.item-page {
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+}
+/* END CSFLOAT-1:1 PARITY ship #129145 */

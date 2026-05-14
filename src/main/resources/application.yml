@@ -167,14 +167,14 @@ stripe:
   secret-key:     ${STRIPE_SECRET_KEY:sk_test_replace_me}
   publishable-key: ${STRIPE_PUBLISHABLE_KEY:pk_test_replace_me}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_replace_me}
-  success-url:    ${STRIPE_SUCCESS_URL:http://localhost:8080/?deposit=success}
-  cancel-url:     ${STRIPE_CANCEL_URL:http://localhost:8080/?deposit=cancel}
+  success-url:    ${STRIPE_SUCCESS_URL:${app.public-url}/?deposit=success}
+  cancel-url:     ${STRIPE_CANCEL_URL:${app.public-url}/?deposit=cancel}
   currency:       usd
 
 steam:
   api-key:    ${STEAM_API_KEY:}
-  realm:      ${STEAM_REALM:http://localhost:8080/}
-  return-url: ${STEAM_RETURN_URL:http://localhost:8080/api/auth/steam/return}
+  realm:      ${STEAM_REALM:${app.public-url}/}
+  return-url: ${STEAM_RETURN_URL:${app.public-url}/api/auth/steam/return}
 
 admin:
   # Comma-separated list of Steam ID 64s that get auto-promoted to ADMIN on
@@ -200,7 +200,7 @@ app:
   email:
     from:      ${EMAIL_FROM:no-reply@skinbox.local}
     from-name: ${EMAIL_FROM_NAME:SkinBox}
-  public-url:  ${APP_PUBLIC_URL:http://localhost:8080}
+  public-url:  ${APP_PUBLIC_URL:http://localhost:${server.port}}
   # Listing-floor refresh sweep — recomputes every catalogue item's
   # `lowestPrice` from active listings every 60s. ON by default; ops
   # can flip it off via APP_PRICE_REFRESH_ENABLED=false without a
