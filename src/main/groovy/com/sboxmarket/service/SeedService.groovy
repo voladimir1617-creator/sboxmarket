@@ -77,22 +77,42 @@ class SeedService {
             // Format: [name, category, rarity, iconEmoji, accentColor, lowestPriceUSD]
             // Categories: Clothing, Hats, Accessories, Workshop (per Item model contract)
             // Rarities: Standard (white), Limited (orange), Off-Market (purple) (per Item model contract)
+            // CATEGORY CONTRACT: the UI filter chips (defined in 3 places —
+            // app.js:3158, app.js:4558, csfloat-modals.js:131) are the
+            // source of truth. Allowed categories: Hats, Jackets, Shirts,
+            // Pants, Gloves, Boots, Accessories. Workshop is also rendered
+            // by the icon map (8 places in JS) but isn't filterable via
+            // chips — Workshop items only appear under "All". The Item
+            // model's `// Clothing, Hats, Accessories, Workshop` comment is
+            // misleading and out of date. Every chip-allowed category gets
+            // at least one item below so no chip click returns an empty grid.
             def fixtures = [
-                // Hats
+                // Hats — 5
                 ['Beanie',                    'Hats',        'Standard',   '🧢', '#7a8b9c', '0.50'],
                 ['Hard Hat',                  'Hats',        'Standard',   '⛑',  '#f5c116', '1.20'],
                 ['Top Hat',                   'Hats',        'Limited',    '🎩', '#1a1a1a', '8.40'],
                 ['Witch Hat',                 'Hats',        'Limited',    '🧙', '#4a2370', '12.10'],
                 ['Crown of Thorns',           'Hats',        'Off-Market', '👑', '#c89b3c', '64.00'],
-                // Clothing
-                ['Hoodie',                    'Clothing',    'Standard',   '👕', '#2c3e50', '0.80'],
-                ['Lab Coat',                  'Clothing',    'Standard',   '🥼', '#ecf0f1', '1.45'],
-                ['Leather Jacket',            'Clothing',    'Limited',    '🧥', '#3a2417', '6.80'],
-                ['Trench Coat',               'Clothing',    'Limited',    '🧥', '#5a4632', '11.50'],
-                ['Hawaiian Shirt',            'Clothing',    'Standard',   '👔', '#ff6b6b', '2.10'],
-                ['Tactical Vest',             'Clothing',    'Limited',    '🦺', '#3d5a3a', '14.20'],
-                ['Cape of the Wanderer',      'Clothing',    'Off-Market', '🦸', '#7b1fa2', '89.00'],
-                // Accessories
+                // Jackets — 4
+                ['Leather Jacket',            'Jackets',     'Limited',    '🧥', '#3a2417', '6.80'],
+                ['Trench Coat',               'Jackets',     'Limited',    '🧥', '#5a4632', '11.50'],
+                ['Tactical Vest',             'Jackets',     'Limited',    '🦺', '#3d5a3a', '14.20'],
+                ['Cape of the Wanderer',      'Jackets',     'Off-Market', '🦸', '#7b1fa2', '89.00'],
+                // Shirts — 3
+                ['Hoodie',                    'Shirts',      'Standard',   '👕', '#2c3e50', '0.80'],
+                ['Lab Coat',                  'Shirts',      'Standard',   '🥼', '#ecf0f1', '1.45'],
+                ['Hawaiian Shirt',            'Shirts',      'Standard',   '👔', '#ff6b6b', '2.10'],
+                // Pants — 3
+                ['Cargo Pants',               'Pants',       'Standard',   '👖', '#5b6e3d', '0.95'],
+                ['Denim Jeans',               'Pants',       'Standard',   '👖', '#2456a8', '0.70'],
+                ['Hazmat Trousers',           'Pants',       'Limited',    '👖', '#d4a72c', '4.80'],
+                // Gloves — 2
+                ['Wool Mittens',              'Gloves',      'Standard',   '🧤', '#a83d3d', '0.60'],
+                ['Tactical Gloves',           'Gloves',      'Limited',    '🧤', '#3a3f47', '5.40'],
+                // Boots — 2
+                ['Combat Boots',              'Boots',       'Standard',   '🥾', '#3a2417', '1.30'],
+                ['Steel-Toe Boots',           'Boots',       'Limited',    '🥾', '#5a5a5a', '6.20'],
+                // Accessories — 7
                 ['Sunglasses',                'Accessories', 'Standard',   '🕶', '#1a1a1a', '0.65'],
                 ['Pocket Watch',              'Accessories', 'Limited',    '⌚', '#c0a062', '5.30'],
                 ['Backpack',                  'Accessories', 'Standard',   '🎒', '#2c3e50', '1.15'],
@@ -100,7 +120,7 @@ class SeedService {
                 ['Engineer Goggles',          'Accessories', 'Limited',    '🥽', '#a87b3a', '4.40'],
                 ['Bone Necklace',             'Accessories', 'Limited',    '💀', '#ddd6c7', '3.20'],
                 ['Halo of the Forsaken',      'Accessories', 'Off-Market', '🌟', '#ffd700', '120.00'],
-                // Workshop
+                // Workshop — 6 (only visible under "All" chip — Workshop has no chip)
                 ['Map: Foundry',              'Workshop',    'Standard',   '🏭', '#5a5a5a', '0.99'],
                 ['Map: Lakeside',             'Workshop',    'Standard',   '🏞', '#3a7d44', '0.99'],
                 ['Vehicle Wrap: Cyber',       'Workshop',    'Limited',    '🚗', '#9b59b6', '4.50'],
