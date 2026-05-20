@@ -7244,7 +7244,7 @@ export function App() {
                   sub   = 'Try a broader search, clear the filters, or list one of your own items.';
                 } else {
                   title = 'Marketplace is empty';
-                  sub   = 'Be the first to list an item — or spin up simulated listings from the admin panel for QA.';
+                  sub   = 'Be the first to list an item — head to Sell to put one of your skins up for grabs.';
                 }
                 const showClear = !isError && (hasQueryFilters || hasClientFilters || onlyTypeFilter);
                 return h('div', { className: 'empty-state' },
