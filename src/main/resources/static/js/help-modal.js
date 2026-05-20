@@ -25,7 +25,7 @@ const FAQ = [
   },
   {
     q: 'How does depositing money work?',
-    a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically. In dev mode without Stripe keys, deposits credit instantly so you can click through the UI."
+    a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically."
   },
   {
     q: 'How do withdrawals work?',
@@ -69,7 +69,7 @@ const FAQ = [
   },
   {
     q: 'Is there a Chrome / Edge extension to value my Steam inventory?',
-    a: "Yes — the SkinBox Inventory Valuer extension adds a per-tile price badge on your Steam inventory page and a floating panel with Steam Market vs SkinBox totals. Install it from the Chrome Web Store (link on the site footer when it ships), or load it locally for testing: open chrome://extensions, enable Developer mode, click Load unpacked, and pick the `extension/` folder from the SkinBox repo. No account is required — the extension uses Steam's public priceoverview endpoint + the SkinBox public listings API."
+    a: "Yes — the SkinBox Inventory Valuer extension adds a per-tile price badge on your Steam inventory page and a floating panel with Steam Market vs SkinBox totals. Install it from the Chrome Web Store (link on the site footer when it ships). No account is required — the extension uses Steam's public priceoverview endpoint + the SkinBox public listings API."
   },
   {
     q: 'Can I cancel a pending withdrawal?',
