@@ -197432,3 +197432,48 @@ html body .modal.item-page .item-detail-stickers {
   margin: 0 !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #129066 */
+
+/* ---------------------------------------------------------------------
+   MOBILE NAV RESCUE v2 (2026-05-19) — re-assert at html-nav specificity.
+   The 2026-04-29 mobile-nav-rescue block (@media max-width:768px) stacks
+   .nav-inner into a clean vertical column, but desktop csfloat-parity
+   ships #128888 (zeroed .nav-inner padding/gap) and #128889 (forced
+   .nav-inner flex-direction:row) landed LATER in this file with
+   `nav.nav .nav-inner` specificity and won the cascade. On phone widths
+   that left .nav-inner a nowrap row that couldn't fit logo + 5 nav-links
+   + the right-cluster: .nav-links collapsed to width:0 and wrapped into
+   a ~280px-tall column, ballooning .nav-inner to 280px so the logo and
+   controls spilled down over the hero. This block is last in the file
+   and uses `html nav.nav …` (0,2,2) so no earlier ship can override it. */
+@media (max-width: 768px) {
+  html nav.nav {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+  html nav.nav .nav-inner {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  html nav.nav .nav-inner > .nav-logo {
+    align-self: flex-start !important;
+  }
+  html nav.nav .nav-links {
+    width: 100% !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+  }
+  html nav.nav .nav-links::-webkit-scrollbar { display: none !important; }
+  html nav.nav .nav-right {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+  }
+}
+/* END MOBILE NAV RESCUE v2 */
