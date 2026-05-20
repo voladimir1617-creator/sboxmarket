@@ -39,11 +39,16 @@ class SupportController {
     ResponseEntity<SupportTicket> create(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Safe-navigate the body — an explicit JSON `null` payload parses
+        // to a null Map and would otherwise NPE → 500 here. Matches the
+        // body?.field convention every sibling controller already uses;
+        // SupportService rejects the resulting null subject/body with a
+        // clean 400 (INVALID_SUBJECT / INVALID_BODY).
         ResponseEntity.ok(supportService.create(
             uid, user.displayName ?: "Player",
-            body.subject as String,
-            body.category as String,
-            body.body as String
+            body?.subject as String,
+            body?.category as String,
+            body?.body as String
         ))
     }
 
@@ -51,7 +56,7 @@ class SupportController {
     ResponseEntity<SupportMessage> reply(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
-        ResponseEntity.ok(supportService.reply(uid, user.displayName ?: "Player", id, body.body as String))
+        ResponseEntity.ok(supportService.reply(uid, user.displayName ?: "Player", id, body?.body as String))
     }
 
     @PostMapping("/tickets/{id}/resolve")

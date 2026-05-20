@@ -198,6 +198,38 @@ class SupportControllerSpec extends Specification {
         0 * supportService.create(_, _, _, _, _)
     }
 
+    def "create() tolerates a null body (explicit JSON null payload) — forwards nulls, no NPE"() {
+        given:
+        // An explicit JSON `null` request body parses to a null Map and
+        // reaches the controller. Safe-navigation must keep this off the
+        // 500 path; the service then rejects the null subject/body with
+        // a clean 400 (INVALID_SUBJECT).
+        def user = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * supportService.create(100L, 'alice', null, null, null) >> new SupportTicket()
+
+        when:
+        controller.create(null, req)
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "reply() tolerates a null body — forwards a null message body, no NPE"() {
+        given:
+        def user = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * supportService.reply(100L, 'alice', 9L, null) >> new SupportMessage(id: 1L)
+
+        when:
+        controller.reply(9L, null, req)
+
+        then:
+        noExceptionThrown()
+    }
+
     // ── reply ────────────────────────────────────────────────────
 
     def "reply() resolves the display name + delegates"() {

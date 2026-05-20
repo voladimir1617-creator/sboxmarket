@@ -100,6 +100,48 @@ class ItemController {
         builder.body(items)
     }
 
+    /** Bulk item lookup — `GET /api/items/batch?ids=1,2,3`. Resolves a
+     *  CSV of catalogue ids in one round-trip via a single
+     *  `findAllById`, eliminating the frontend N+1 where the
+     *  recently-viewed rail/pills fired one `GET /api/items/{id}` per
+     *  cached id (~18 GETs per navigation).
+     *
+     *  Contract:
+     *   - Returns a JSON array of the same raw `Item` shape `/{id}`
+     *     returns — callers reuse their existing item-field mapping.
+     *   - Missing ids are simply OMITTED (no `{notFound:true}`
+     *     sentinel). Order is not guaranteed; callers re-sort by their
+     *     own key (the rail sorts by `viewedAt`).
+     *   - Id count is capped at 50 — the rail caches at most ~18, and a
+     *     hard cap stops a crafted `?ids=1,2,...,100000` from pulling
+     *     the catalogue in one request.
+     *   - Anon-accessible (catalogue items are public) with the same
+     *     `public, max-age=30` cache posture as `/{id}`. No view-count
+     *     bump here: this is a list-refresh path, not a detail view,
+     *     and bumping a counter from a background validate would
+     *     inflate counts on every navigation.
+     *   - Blank/garbage `ids` yields an empty array, not an error. */
+    private static final int BATCH_MAX_IDS = 50
+
+    @GetMapping("/batch")
+    ResponseEntity<List<Item>> getBatch(@RequestParam(required = false) String ids) {
+        List<Long> parsed = []
+        if (ids != null && !ids.isBlank()) {
+            for (String tok : ids.split(',')) {
+                String t = tok?.trim()
+                if (t) {
+                    try { parsed << Long.parseLong(t) } catch (NumberFormatException ignore) { /* skip junk */ }
+                }
+            }
+        }
+        // De-dupe (a caller could repeat an id) and cap before the DB hit.
+        List<Long> wanted = parsed.unique(false).take(BATCH_MAX_IDS)
+        List<Item> items = wanted.isEmpty() ? [] : itemRepository.findAllById(wanted).toList()
+        ResponseEntity.ok()
+            .header('Cache-Control', 'public, max-age=30')
+            .body(items)
+    }
+
     @GetMapping("/{id}")
     ResponseEntity<?> getById(@PathVariable Long id, HttpServletRequest req) {
         // 200 + `{notFound: true}` sentinel for missing ids instead of a

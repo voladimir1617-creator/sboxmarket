@@ -62,6 +62,57 @@ class ItemControllerSpec extends Specification {
         response.body?.notFound == true
     }
 
+    def "GET /api/items/batch returns the items for the given ids in one response"() {
+        given: "two real catalogue ids"
+        def all = itemRepository.findAll().toList()
+        // The seeded test catalogue always has at least a couple of items.
+        def ids = all.take(2).collect { it.id }
+
+        when:
+        def response = rest.getForEntity(
+            "http://localhost:$port/api/items/batch?ids=${ids.join(',')}", List)
+
+        then:
+        response.statusCode == HttpStatus.OK
+        response.body instanceof List
+        response.body.size() == ids.size()
+        response.body.collect { it.id }.toSet() == ids.toSet()
+    }
+
+    def "GET /api/items/batch omits ids that do not resolve instead of a notFound sentinel"() {
+        given:
+        def real = itemRepository.findAll().toList().first().id
+
+        when: "one real id mixed with a missing id"
+        def response = rest.getForEntity(
+            "http://localhost:$port/api/items/batch?ids=${real},99999999", List)
+
+        then: "only the real item comes back — the missing id is silently dropped"
+        response.statusCode == HttpStatus.OK
+        response.body.size() == 1
+        response.body[0].id == real
+    }
+
+    def "GET /api/items/batch returns an empty list for blank or missing ids"() {
+        expect:
+        rest.getForEntity("http://localhost:$port/api/items/batch", List).body == []
+        rest.getForEntity("http://localhost:$port/api/items/batch?ids=", List).body == []
+        rest.getForEntity("http://localhost:$port/api/items/batch?ids=notanumber", List).body == []
+    }
+
+    def "GET /api/items/batch caps the number of ids at 50"() {
+        given: "more than 50 ids requested"
+        def ids = (1..120).collect { it as String }
+
+        when:
+        def response = rest.getForEntity(
+            "http://localhost:$port/api/items/batch?ids=${ids.join(',')}", List)
+
+        then: "request still succeeds and never returns more than the cap"
+        response.statusCode == HttpStatus.OK
+        response.body.size() <= 50
+    }
+
     def "GET /api/items/stats returns market stats structure"() {
         when:
         def response = rest.getForEntity("http://localhost:$port/api/items/stats", Map)

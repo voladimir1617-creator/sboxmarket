@@ -395,6 +395,29 @@ class OpenGraphControllerSpec extends Specification {
         body.contains('by Neo')
     }
 
+    def "loadoutPage injects og:image:alt + CreativeWork JSON-LD for SEO parity with item + stall"() {
+        given:
+        // Parity gap: /item emits og:image:alt + Product JSON-LD and
+        // /stall emits Store JSON-LD, but /loadout shipped neither —
+        // so loadout shares had no screen-reader alt and Google had no
+        // structured snapshot to surface as a rich result.
+        def loadout = new Loadout(id: 11L, name: 'Street Runner', ownerName: 'Neo',
+            visibility: 'PUBLIC', totalValue: new BigDecimal('123.45'))
+        loadoutRepository.findById(11L) >> Optional.of(loadout)
+
+        when:
+        def body = controller.loadoutPage('11', req()).body as String
+
+        then:
+        body.contains('<meta property="og:image:alt" content="Street Runner loadout on SkinBox">')
+        body.contains('"@type":"CreativeWork"')
+        body.contains('"name":"Street Runner"')
+        body.contains('"url":"https://skinbox.test/loadout/11"')
+        body.contains('"author":{"@type":"Person","name":"Neo"}')
+        body.contains('"brand":{"@type":"Brand","name":"SkinBox"}')
+        body.contains('<script type="application/ld+json">')
+    }
+
     def "loadoutPage omits value line when the loadout has zero total"() {
         given:
         def loadout = new Loadout(id: 11L, name: 'Empty Rack', ownerName: 'Alice',

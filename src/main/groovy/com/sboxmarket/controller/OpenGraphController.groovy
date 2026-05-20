@@ -538,10 +538,46 @@ class OpenGraphController {
             .replaceFirst(/<meta name="twitter:image"[^>]*>/,       Q("<meta name=\"twitter:image\" content=\"${escape(image)}\">"))
             .replaceFirst(/<meta name="description"[^>]*>/,        Q("<meta name=\"description\" content=\"${escape(desc)}\">"))
 
+        // og:image:alt — screen-reader story for the social-card image,
+        // mirroring the item + stall paths. The static template ships no
+        // placeholder for it (every other route would render an empty
+        // meta), so inject it inline before </head> alongside the JSON-LD.
+        def ogLoadoutTags = new StringBuilder()
+        ogLoadoutTags.append('  <meta property="og:image:alt" content="').append(escape(name)).append(' loadout on SkinBox">\n')
+
+        // schema.org CreativeWork JSON-LD — gives Google / Bing a
+        // structured snapshot of the loadout so loadout URLs can surface
+        // as rich results. Kept minimal (same spirit as the Store JSON-LD
+        // on /stall): name, URL, image, author, and a brand pointer back
+        // to SkinBox. No per-slot ItemList — the slot image pipeline for
+        // previews doesn't exist yet, so an ItemList would have no items.
+        def jsonLd = loadoutJsonLd(loadout, url, image)
+        out = out.replace('</head>',
+            "${ogLoadoutTags}  <script type=\"application/ld+json\">${jsonLd}</script>\n</head>")
+
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
             .header('Cache-Control', 'public, max-age=300')
             .body(out)
+    }
+
+    /**
+     * Build a schema.org CreativeWork JSON-LD string for a loadout.
+     * Lives as a private method so the test suite can exercise the
+     * edge cases without needing the full loadoutPage round-trip.
+     */
+    private static String loadoutJsonLd(com.sboxmarket.model.Loadout loadout, String url, String image) {
+        def sb = new StringBuilder()
+        sb.append('{"@context":"https://schema.org","@type":"CreativeWork"')
+        sb.append(',"name":"').append(jsonEscape(loadout.name ?: 'Loadout')).append('"')
+        sb.append(',"url":"').append(jsonEscape(url)).append('"')
+        sb.append(',"image":"').append(jsonEscape(image)).append('"')
+        if (loadout.ownerName) {
+            sb.append(',"author":{"@type":"Person","name":"').append(jsonEscape(loadout.ownerName)).append('"}')
+        }
+        sb.append(',"brand":{"@type":"Brand","name":"SkinBox"}')
+        sb.append('}')
+        sb.toString()
     }
 
     /**
