@@ -243,9 +243,15 @@ export async function fetchSimilar(itemId) {
   return Array.isArray(data) ? data : [];
 }
 
-/** Indexed counts of SOLD listings over rolling 7d + 30d windows. */
+/** Indexed counts of SOLD listings over rolling 24h/7d/30d windows,
+ *  plus 30d volume and the most-recent sold price + timestamp. The
+ *  failure fallback returns the COMPLETE shape (numeric fields 0,
+ *  nullable fields null) so the ItemModal velocity consumer never sees
+ *  `undefined` for soldLast24h / volumeLast30d / lastSoldPrice /
+ *  lastSoldAt on a failed fetch. */
 export async function fetchItemVelocity(itemId) {
-  return (await safeJson(`${API}/items/${itemId}/velocity`)) || { soldLast7d: 0, soldLast30d: 0 };
+  return (await safeJson(`${API}/items/${itemId}/velocity`))
+    || { soldLast24h: 0, soldLast7d: 0, soldLast30d: 0, volumeLast30d: 0, lastSoldPrice: null, lastSoldAt: null };
 }
 
 /** Buy a listing by id. Optional `expectedPrice` pins what the user

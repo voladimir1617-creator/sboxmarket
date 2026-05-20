@@ -3594,6 +3594,10 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
             else if (e.key === 'Home') next = 0;
             else if (e.key === 'End') next = TABS.length - 1;
             setTab(TABS[next].id);
+            // CSFloat-1:1: mirror the click handler — keyboard tab
+            // switching must also sync the URL + document.title via the
+            // SPA router, otherwise arrow-keying leaves them stale.
+            navigate('/profile/' + TABS[next].id);
           }
         }
       },

@@ -565,7 +565,14 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   // upfront so the buyer fixes Profile before committing to a standing
   // order. Only renders when the viewer actually has no URL set.
   const tradeUrlMissing = me && !(me.tradeUrl && String(me.tradeUrl).trim());
-  return h(InfoModal, { title: `Buy Orders · ${(orders?.length) || 0}`, onClose },
+  // Title count must mirror the list shown below, which is filtered by
+  // orderStatusFilter (default ACTIVE). Counting raw orders.length would
+  // include FILLED/CANCELLED/EXPIRED rows the user can't see — header
+  // and list would disagree. Apply the same filter used at render time.
+  const visibleOrderCount = orderStatusFilter === 'ALL'
+    ? ((orders && orders.length) || 0)
+    : ((orders || []).filter(o => (o.status || '').toUpperCase() === orderStatusFilter).length);
+  return h(InfoModal, { title: `Buy Orders · ${visibleOrderCount}`, onClose },
     tradeUrlMissing && h('div', {
       style: {
         margin: '0 0 14px', padding: '10px 14px',
@@ -1433,7 +1440,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                       color: s.locked ? 'var(--accent)' : 'var(--text-muted)',
                       opacity: s.locked ? 1 : 0.55
                     }
-                  }, s.locked ? '—' : '—'),
+                  }, h(MaterialIcon, { name: s.locked ? 'lock' : 'lock_open', size: 14 })),
                   isOwner && h('button', { className: 'loadout-slot-clear', onClick: () => handleSlot(slotName, null), title: 'Clear', 'aria-label': `Clear ${slotName} slot` }, '✕')
                 )
               : h('div', { className: 'loadout-slot-empty' },
