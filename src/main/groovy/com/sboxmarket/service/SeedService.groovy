@@ -218,13 +218,49 @@ class SeedService {
             }
             def slotsList = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories','Wild']
             // Curated names so Discover doesn't read like a Lorem-Ipsum dump.
+            // Each fixture has an explicit `tier` 0..4 used as the base index
+            // into per-category steamPrice-sorted pools. Combined with a
+            // per-slot offset this produces 5 visually distinct loadouts
+            // instead of all picking the cheapest item per slot (the prior
+            // bug shipped 5 identical $11.85 loadouts on Discover).
             def fixtures = [
-                [name: 'Cardboard Connoisseur', desc: 'Budget-tier brown-aesthetic build, under $30 total.',                  owner: 'CardKing'],
-                [name: 'Cybernetic Drifter',    desc: 'Sci-fi loadout - neon helmet, polymer plates, glow accents.',           owner: 'NeonArc'],
-                [name: 'Plague Doctor',         desc: 'Victorian-noir set - long coat, beak mask, leather gloves.',            owner: 'BoneTender'],
-                [name: 'WW1 Trench Soldier',    desc: 'Period-correct kit pulling from the WW1 collection.',                   owner: 'TrenchVet'],
-                [name: 'OG Streetwear',         desc: 'Casual-fit loadout: sneakers, joggers, crossbody bag, plain tee.',      owner: 'Frame']
+                [name: 'Cardboard Connoisseur', desc: 'Budget-tier brown-aesthetic build, under $30 total.',                  owner: 'CardKing',    tier: 0],
+                [name: 'Cybernetic Drifter',    desc: 'Sci-fi loadout - neon helmet, polymer plates, glow accents.',           owner: 'NeonArc',     tier: 4],
+                [name: 'Plague Doctor',         desc: 'Victorian-noir set - long coat, beak mask, leather gloves.',            owner: 'BoneTender',  tier: 3],
+                [name: 'WW1 Trench Soldier',    desc: 'Period-correct kit pulling from the WW1 collection.',                   owner: 'TrenchVet',   tier: 2],
+                [name: 'OG Streetwear',         desc: 'Casual-fit loadout: sneakers, joggers, crossbody bag, plain tee.',      owner: 'Frame',       tier: 1]
             ]
+            // Bug #3 (2026-05-13) — diversity self-heal. If the named fixtures
+            // already exist BUT they were seeded with the legacy
+            // "always-cheapest" algorithm (every fixture has the same
+            // totalValue and the same itemId in slot 0), wipe them so the
+            // diversified seed below repopulates. Detect by checking the
+            // public fixtures' totalValue + slot[0].itemId; identical
+            // values across all 5 means they were the broken seed.
+            def all = []
+            try { all = loadoutRepository.findAll().findAll { it != null && it.visibility == 'PUBLIC' && it.ownerUserId != null && it.ownerUserId < 0L } }
+            catch (Exception ignored) { all = [] }
+            if (all.size() >= 2) {
+                def totals = all.collect { (it.totalValue ?: BigDecimal.ZERO).stripTrailingZeros() }.toUnique()
+                def firstItemIds = all.collect {
+                    try { (loadoutSlotRepository.findByLoadout(it.id) ?: []).find { s -> s.slot == 'Hats' }?.itemId }
+                    catch (Exception _) { null }
+                }.findAll { it != null }.toUnique()
+                if (totals.size() == 1 && firstItemIds.size() <= 1) {
+                    log.info("Public-loadout self-heal: detected ${all.size()} legacy-identical fixtures, wiping for re-seed")
+                    all.each { l ->
+                        // Fetch + deleteAll avoids the @Transactional requirement
+                        // of Spring Data derived `deleteByLoadoutId` queries —
+                        // SeedService runs outside an open transaction at boot
+                        // so the derived form would TransactionRequiredException.
+                        try {
+                            def slots = loadoutSlotRepository.findByLoadout(l.id) ?: []
+                            if (!slots.isEmpty()) loadoutSlotRepository.deleteAll(slots)
+                        } catch (Exception _) {}
+                        try { loadoutRepository.delete(l) } catch (Exception _) {}
+                    }
+                }
+            }
             // Prune fixtures that already exist — match by name +
             // negative synthetic owner id so a user's own real loadout
             // with the same name (positive owner id) doesn't suppress
@@ -247,39 +283,81 @@ class SeedService {
                 log.info("Public-loadout seed: all curated fixtures already present, skipping")
                 return
             }
-            def onePage = org.springframework.data.domain.PageRequest.of(0, 1)
+            // Build a category→[items sorted by effective price DESC] map
+            // once. Effective price = max(lowestPrice, steamPrice) so a
+            // catalogue-only item without listings still gets ranked by
+            // its Steam authoritative price (otherwise everything would
+            // tie at $0 and the tier index would no-op). DESC so
+            // tier=0 (Cardboard Connoisseur) maps to "cheapest end" via
+            // (size-1-tier) and tier=4 (Cybernetic Drifter) to "premium
+            // end" — see picker below.
+            def allItems = itemRepository.findAll()
+            def byCat = [:]
+            allItems.each { it ->
+                def cat = it.category ?: ''
+                byCat[cat] = byCat[cat] ?: []
+                byCat[cat] << it
+            }
+            byCat.each { k, list ->
+                list.sort { a, b ->
+                    BigDecimal pa = (a.lowestPrice && a.lowestPrice > BigDecimal.ZERO) ? a.lowestPrice : (a.steamPrice ?: BigDecimal.ZERO)
+                    BigDecimal pb = (b.lowestPrice && b.lowestPrice > BigDecimal.ZERO) ? b.lowestPrice : (b.steamPrice ?: BigDecimal.ZERO)
+                    return pb.compareTo(pa)  // DESC
+                }
+            }
+            // Wild slot draws from any category — flatten and sort once.
+            def wildPool = allItems.toList()
+            wildPool.sort { a, b ->
+                BigDecimal pa = (a.lowestPrice && a.lowestPrice > BigDecimal.ZERO) ? a.lowestPrice : (a.steamPrice ?: BigDecimal.ZERO)
+                BigDecimal pb = (b.lowestPrice && b.lowestPrice > BigDecimal.ZERO) ? b.lowestPrice : (b.steamPrice ?: BigDecimal.ZERO)
+                return pb.compareTo(pa)
+            }
             long now = System.currentTimeMillis()
-            fixtures.eachWithIndex { fx, i ->
+            fixtures.eachWithIndex { fx, fxIdx ->
                 def loadout = new Loadout(
-                    ownerUserId: -100L - i,  // synthetic owner ids, never collide with real Steam ids
+                    ownerUserId: -100L - fxIdx,  // synthetic owner ids, never collide with real Steam ids
                     ownerName:   fx.owner,
                     name:        fx.name,
                     description: fx.desc,
                     visibility:  'PUBLIC',
-                    favorites:   (5 - i) * 7,  // descending so Discover sort is sensible
-                    createdAt:   now - (i + 1) * 86_400_000L,
-                    updatedAt:   now - (i + 1) * 3_600_000L
+                    favorites:   (5 - fxIdx) * 7,  // descending so Discover sort is sensible
+                    createdAt:   now - (fxIdx + 1) * 86_400_000L,
+                    updatedAt:   now - (fxIdx + 1) * 3_600_000L
                 )
                 loadoutRepository.save(loadout)
                 BigDecimal total = BigDecimal.ZERO
-                slotsList.each { slotName ->
+                int tier = (fx.tier as Integer) ?: 0
+                slotsList.eachWithIndex { slotName, slotIdx ->
                     def slot = new LoadoutSlot(loadoutId: loadout.id, slot: slotName)
-                    def category = slotName == 'Wild' ? '' : slotName
-                    def pool = itemRepository.findCheapestInBudget(category, new BigDecimal("1000"), onePage)
-                    def pick = pool.isEmpty() ? null : pool.first()
+                    def pool = (slotName == 'Wild') ? wildPool : (byCat[slotName] ?: [])
+                    def pick = null
+                    if (!pool.isEmpty()) {
+                        // Diversification: each fixture's `tier` (0..4) plus a
+                        // per-slot offset addresses a different rank in the
+                        // category pool. Modulo wraps so small categories
+                        // (e.g. Boots with 2 items) still resolve, while
+                        // larger categories (Accessories, 7 items) get full
+                        // spread. Result: no two fixtures pick the same item
+                        // for the same slot unless the category has fewer
+                        // items than fixtures.
+                        int idx = (tier + slotIdx) % pool.size()
+                        pick = pool[idx]
+                    }
                     if (pick != null) {
+                        BigDecimal effective = (pick.lowestPrice && pick.lowestPrice > BigDecimal.ZERO)
+                            ? pick.lowestPrice : (pick.steamPrice ?: BigDecimal.ZERO)
                         slot.itemId        = pick.id
                         slot.itemName      = pick.name
                         slot.itemEmoji     = pick.iconEmoji
-                        slot.snapshotPrice = pick.lowestPrice ?: BigDecimal.ZERO
-                        total = total + (pick.lowestPrice ?: BigDecimal.ZERO)
+                        slot.snapshotPrice = effective
+                        total = total + effective
                     }
                     loadoutSlotRepository.save(slot)
                 }
                 loadout.totalValue = total
                 loadoutRepository.save(loadout)
             }
-            log.info("Seeded ${fixtures.size()} public loadouts so /loadout/{id} renders on first boot")
+            log.info("Seeded ${fixtures.size()} public loadouts (diversified) so /loadout/{id} renders on first boot")
         } catch (Exception e) {
             log.warn("Public-loadout seed skipped: ${e.message}", e)
         }

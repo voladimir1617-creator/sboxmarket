@@ -2274,13 +2274,57 @@ function RecentlyViewedRail({ watchlist, onToggleStar, currentItemId }) {
   // Re-read when any navigation happens (the recently-viewed list is written
   // from the item-detail effect, so popstate catches every update). Saves us
   // from a cross-component event bus.
+  //
+  // Cache-staleness fix (2026-05-13): the cached snapshot stores a
+  // full item record (name + imageUrl + lowestPrice + ...). If an item
+  // id is reused (dev DB wipe + re-seed, or admin delete + new item with
+  // same id) the cached fields mismatch what the id now resolves to —
+  // the rail card displays "Item A" but clicking it routes to "Item B".
+  // On mount, refetch each cached id against the current catalogue,
+  // replace fields with fresh API data, and drop entries whose id no
+  // longer resolves (404). Network errors keep the stale entry — better
+  // a slightly-old card than an empty rail. localStorage write is
+  // best-effort so a failed update never crashes the rail.
   useEffect(() => {
     const reload = () => {
       try { setRows(JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]')); }
       catch { setRows([]); }
     };
     window.addEventListener('popstate', reload);
-    return () => window.removeEventListener('popstate', reload);
+    let cancelled = false;
+    (async () => {
+      let cached;
+      try { cached = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
+      catch { return; }
+      if (!Array.isArray(cached) || cached.length === 0) return;
+      let validated;
+      try {
+        const fresh = await Promise.all(cached.map(async (c) => {
+          try {
+            const r = await fetch('/api/items/' + encodeURIComponent(c.id), { credentials: 'same-origin' });
+            if (!r.ok) return null;          // 404 etc — drop
+            const item = await r.json();
+            // /api/items/:id returns 200 with {notFound:true,id} for missing
+            // ids — drop those alongside true 404s and any payload missing
+            // a name (nothing meaningful to render).
+            if (!item || item.notFound || item.id == null || !item.name) return null;
+            return {
+              id: item.id, name: item.name, category: item.category,
+              rarity: item.rarity, imageUrl: item.imageUrl,
+              iconEmoji: item.iconEmoji, accentColor: item.accentColor,
+              lowestPrice: item.lowestPrice, steamPrice: item.steamPrice,
+              viewedAt: c.viewedAt || Date.now()  // preserve original viewedAt for sort stability
+            };
+          } catch { return c; }                // network blip — keep cached entry
+        }));
+        validated = fresh.filter(Boolean);
+      } catch { return; }                      // unexpected — keep cached state
+      if (cancelled) return;
+      setRows(validated);
+      try { localStorage.setItem('sb_recently_viewed', JSON.stringify(validated)); }
+      catch { /* quota/disabled — in-memory only */ }
+    })();
+    return () => { cancelled = true; window.removeEventListener('popstate', reload); };
   }, []);
   // Filter out the item the user is currently viewing — CSFloat hides
   // the active item from the "recently viewed" strip so the rail acts
@@ -2315,6 +2359,102 @@ function RecentlyViewedRail({ watchlist, onToggleStar, currentItemId }) {
         h('div', { className: 'recently-viewed-price' },
           it.lowestPrice != null ? fmt(it.lowestPrice) : '—')
       ))
+    )
+  );
+}
+
+// ── Recently-viewed pills — compact horizontal pill row used by the
+// empty-cart nudge (batch 427) and the item-not-found recovery rail
+// (batch 1021). Both surfaces previously read sb_recently_viewed
+// directly via inline IIFEs and rendered the cached snapshot — which
+// silently displayed stale labels when an item id was reused (dev DB
+// wipe + reseed, admin delete + insert with same id). This component
+// applies the same refetch-and-validate logic as RecentlyViewedRail
+// so a returning visitor never sees a pill labelled "Mob Boss
+// Waistcoat" routing to a Witch Hat. Kind selects the section heading
+// ('cart' = "Recently viewed", 'recovery' = "Try one of these
+// instead"); both render identical pill markup.
+function RecentlyViewedPills({ kind, privacy }) {
+  const [rows, setRows] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]').slice(0, 6); }
+    catch { return []; }
+  });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let cached;
+      try { cached = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
+      catch { return; }
+      if (!Array.isArray(cached) || cached.length === 0) return;
+      let validated;
+      try {
+        const fresh = await Promise.all(cached.map(async (c) => {
+          try {
+            const r = await fetch('/api/items/' + encodeURIComponent(c.id), { credentials: 'same-origin' });
+            if (!r.ok) return null;
+            const item = await r.json();
+            // /api/items/:id returns 200 with {notFound:true,id} for missing
+            // ids — drop those alongside true 404s and any malformed payload
+            // (no name = nothing to render). The notFound flag is the
+            // controller's contract; checking it is the only correct way to
+            // detect a stale-id cache entry.
+            if (!item || item.notFound || item.id == null || !item.name) return null;
+            return {
+              id: item.id, name: item.name, category: item.category,
+              rarity: item.rarity, imageUrl: item.imageUrl,
+              iconEmoji: item.iconEmoji, accentColor: item.accentColor,
+              lowestPrice: item.lowestPrice, steamPrice: item.steamPrice,
+              viewedAt: c.viewedAt || Date.now()
+            };
+          } catch { return c; }
+        }));
+        validated = fresh.filter(Boolean);
+      } catch { return; }
+      if (cancelled) return;
+      setRows(validated.slice(0, 6));
+      try { localStorage.setItem('sb_recently_viewed', JSON.stringify(validated)); }
+      catch { /* quota/disabled */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  if (!rows || rows.length === 0) return null;
+  const heading = kind === 'recovery' ? '⟲ Try one of these instead' : '⟲ Recently viewed';
+  const wrapStyle = kind === 'recovery'
+    ? { marginTop: 30, position: 'relative', zIndex: 1 }
+    : { marginTop: 28 };
+  return h('div', { style: wrapStyle },
+    h('h2', {
+      style: {
+        fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase',
+        letterSpacing: 0.5, fontWeight: 700, margin: '0 0 10px', textAlign: 'center'
+      }
+    }, heading),
+    h('div', {
+      style: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }
+    },
+      rows.map(it => {
+        const priceVal = it.lowestPrice != null ? parseFloat(it.lowestPrice) : null;
+        return h('a', {
+          key: 'rv-pill-' + it.id,
+          href: '/item/' + it.id,
+          style: {
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '6px 12px', borderRadius: 999,
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            textDecoration: 'none', color: 'var(--text-primary)',
+            fontSize: 12, fontWeight: 600
+          },
+          title: it.name + (priceVal != null ? ' · ' + (privacy ? '$•••••' : fmt(priceVal)) : '')
+        },
+          it.imageUrl && h('img', {
+            src: it.imageUrl, alt: '',
+            style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
+          }),
+          h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
+          priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, privacy ? '$•••••' : fmt(priceVal))
+        );
+      })
     )
   );
 }
@@ -8201,53 +8341,10 @@ export function App() {
         // Batch 1021 — recovery rail. A user who lands on /item/99999 (dead
         // link from an old share, expired stall URL, etc.) gets their last
         // few clicked items surfaced so they can resume where they left
-        // off. Pure localStorage — zero network. Silent for fresh visitors
-        // with no view history. Mirrors the empty-cart recently-viewed rail
-        // (batch 427) so the recovery UX is consistent across dead-ends.
-        (() => {
-          let recent = [];
-          try { recent = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
-          catch { recent = []; }
-          recent = (recent || []).slice(0, 6);
-          if (recent.length === 0) return null;
-          return h('div', { style: { marginTop: 30, position: 'relative', zIndex: 1 } },
-            h('div', {
-              style: {
-                fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase',
-                letterSpacing: 0.5, fontWeight: 700, marginBottom: 10, textAlign: 'center'
-              }
-            }, '⟲ Try one of these instead'),
-            h('div', {
-              style: {
-                display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center'
-              }
-            },
-              recent.map(it => {
-                const priceVal = it.lowestPrice != null ? parseFloat(it.lowestPrice) : null;
-                return h('a', {
-                  key: 'nf-rv-' + it.id,
-                  href: '/item/' + it.id,
-                  style: {
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '6px 12px', borderRadius: 999,
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    textDecoration: 'none', color: 'var(--text-primary)',
-                    fontSize: 12, fontWeight: 600
-                  },
-                  title: it.name + (priceVal != null ? ' · ' + (privacy ? '$•••••' : fmt(priceVal)) : '')
-                },
-                  it.imageUrl && h('img', {
-                    src: it.imageUrl, alt: '',
-                    style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
-                  }),
-                  h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
-                  priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, privacy ? '$•••••' : fmt(priceVal))
-                );
-              })
-            )
-          );
-        })()
+        // off. Refactored 2026-05-13 to use the shared RecentlyViewedPills
+        // component so the cache-staleness refetch (Bug #2) covers both
+        // this rail and the empty-cart pills with a single code path.
+        h(RecentlyViewedPills, { kind: 'recovery', privacy })
       )
     );
     })(),
@@ -8272,58 +8369,12 @@ export function App() {
             ),
             // Recently-viewed nudge (batch 427). When the cart is empty,
             // surface the last few items the user clicked into so they
-            // can re-find what they were considering. Pure localStorage —
-            // zero network. Silent for fresh visitors with empty history.
-            (() => {
-              let recent = [];
-              try { recent = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
-              catch { recent = []; }
-              recent = (recent || []).slice(0, 6);
-              if (recent.length === 0) return null;
-              return h('div', { style: { marginTop: 28 } },
-                h('h2', {
-                  style: {
-                    fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase',
-                    letterSpacing: 0.5, fontWeight: 700, margin: '0 0 10px', textAlign: 'center'
-                  }
-                }, '⟲ Recently viewed'),
-                h('div', {
-                  style: {
-                    display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center'
-                  }
-                },
-                  recent.map(it => {
-                    // Batch 912 — read `imageUrl` + `lowestPrice` to match
-                    // the shape the /item/:id effect writes to localStorage
-                    // at app.js:3803. Prior code read `it.thumb` + `it.price`
-                    // which never exist on the stored records, so the
-                    // thumbnail and price chip silently never rendered
-                    // despite the pill otherwise being wired up.
-                    const priceVal = it.lowestPrice != null ? parseFloat(it.lowestPrice) : null;
-                    return h('a', {
-                    key: 'rv-empty-' + it.id,
-                    href: '/item/' + it.id,
-                    style: {
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '6px 12px', borderRadius: 999,
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)',
-                      textDecoration: 'none', color: 'var(--text-primary)',
-                      fontSize: 12, fontWeight: 600
-                    },
-                    title: it.name + (priceVal != null ? ' · ' + (privacy ? '$•••••' : fmt(priceVal)) : '')
-                  },
-                    it.imageUrl && h('img', {
-                      src: it.imageUrl, alt: '',
-                      style: { width: 18, height: 18, borderRadius: 4, objectFit: 'cover' }
-                    }),
-                    h('span', { style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
-                    priceVal != null && h('span', { style: { color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, privacy ? '$•••••' : fmt(priceVal))
-                  );
-                  })
-                )
-              );
-            })(),
+            // can re-find what they were considering. Refactored
+            // 2026-05-13 to use the shared RecentlyViewedPills component
+            // so the cache-staleness refetch (Bug #2) covers both this
+            // rail and the item-not-found recovery pills with a single
+            // code path. Component is silent for fresh visitors.
+            h(RecentlyViewedPills, { kind: 'cart', privacy }),
             /* Empty-cart trending rail — fills the dead space below the
                CTA + recently-viewed pills with live marketplace listings.
                Mirrors csfloat's empty-cart "Top Deals" surfacing so a
