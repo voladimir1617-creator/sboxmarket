@@ -352,7 +352,9 @@ class ListingServiceSpec extends Specification {
         given:
         def listing = listingFor()
         listingRepository.findTopSoldItemIds(_, _) >> [[1L, 5L] as Object[]]
-        listingRepository.findCheapestForItem(1L) >> [listing]
+        // Batch 1089 — rails now bulk-fetch the cheapest active listing
+        // per item id in a single findActiveForItemIds round-trip.
+        listingRepository.findActiveForItemIds([1L]) >> [listing]
 
         when:
         def rows = service.findHottest(8)
@@ -373,7 +375,7 @@ class ListingServiceSpec extends Specification {
         def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
         service.watchlistItemRepository = watchRepo
         watchRepo.findTopWatchedItemIds(_) >> [[9L, 3L] as Object[]]
-        listingRepository.findCheapestForItem(9L) >> [listing]
+        listingRepository.findActiveForItemIds([9L]) >> [listing]
 
         when:
         def rows = service.findHottest(8)
@@ -393,7 +395,7 @@ class ListingServiceSpec extends Specification {
         watchRepo.findTopWatchedItemIds(_) >> []
         // Most-viewed has one item:
         itemRepository.findTopViewedItemIds(_) >> [[12L] as Object[]]
-        listingRepository.findCheapestForItem(12L) >> [listing]
+        listingRepository.findActiveForItemIds([12L]) >> [listing]
 
         when:
         def rows = service.findHottest(8)
@@ -413,13 +415,64 @@ class ListingServiceSpec extends Specification {
         def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
         service.watchlistItemRepository = watchRepo
         watchRepo.findTopWatchedItemIds(_) >> [[5L, 4L] as Object[]]
-        listingRepository.findCheapestForItem(5L) >> [listing]
+        listingRepository.findActiveForItemIds([5L]) >> [listing]
 
         when:
         def rows = service.findHottest(8)
 
         then:
         rows.size() == 1
+    }
+
+    // ── homepage rails: bulk cheapest-per-item projection (batch 1089) ──
+
+    def "findMostWatched projects the cheapest active listing per item in one bulk query"() {
+        given:
+        def cheap = listingFor(id: 1L, item: itemFor(7L), price: new BigDecimal('5'))
+        def dear  = listingFor(id: 2L, item: itemFor(7L), price: new BigDecimal('9'))
+        def other = listingFor(id: 3L, item: itemFor(8L), price: new BigDecimal('4'))
+        def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
+        service.watchlistItemRepository = watchRepo
+        watchRepo.findTopWatchedItemIds(_) >> [[7L, 9L] as Object[], [8L, 3L] as Object[]]
+        // Repo returns the flat (item.id, price)-ordered list; service
+        // picks the first row per item id.
+        1 * listingRepository.findActiveForItemIds([7L, 8L]) >> [cheap, dear, other]
+
+        when:
+        def rows = service.findMostWatched(8)
+
+        then:
+        // One row per item, candidate order preserved, cheapest picked.
+        rows*.id == [1L, 3L]
+    }
+
+    def "findMostWatched skips items with no active listing"() {
+        given:
+        def listing = listingFor(id: 1L, item: itemFor(7L))
+        def watchRepo = Mock(com.sboxmarket.repository.WatchlistItemRepository)
+        service.watchlistItemRepository = watchRepo
+        watchRepo.findTopWatchedItemIds(_) >> [[7L, 9L] as Object[], [8L, 3L] as Object[]]
+        // Item 8 has no active listing — only item 7 comes back.
+        listingRepository.findActiveForItemIds([7L, 8L]) >> [listing]
+
+        when:
+        def rows = service.findMostWatched(8)
+
+        then:
+        rows*.id == [1L]
+    }
+
+    def "findMostViewed projects via the bulk query too"() {
+        given:
+        def listing = listingFor(id: 5L, item: itemFor(3L))
+        itemRepository.findTopViewedItemIds(_) >> [[3L] as Object[]]
+        listingRepository.findActiveForItemIds([3L]) >> [listing]
+
+        when:
+        def rows = service.findMostViewed(8)
+
+        then:
+        rows*.id == [5L]
     }
 
     def "a freshly-constructed Item defaults isListed=false (bug #105 regression)"() {

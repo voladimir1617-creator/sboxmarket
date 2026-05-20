@@ -77,15 +77,29 @@ class DatabaseController {
             case 'rarest':
             default:            sortOrder = Sort.by(Sort.Direction.ASC,  'supply');      break
         }
+        // Every sort key above is tie-heavy on a fresh catalogue (e.g.
+        // every seeded item has supply 0, viewCount 0). Without a stable
+        // tiebreaker the DB is free to return a different row order per
+        // page, so rows duplicate or vanish across the offset window.
+        // Appending `id ASC` makes the total order deterministic.
+        sortOrder = sortOrder.and(Sort.by(Sort.Direction.ASC, 'id'))
 
-        // Spring Data's PageRequest expects page number, not offset. The
-        // frontend sends offset as a multiple of limit so integer division
-        // is safe here.
-        int pageNumber = safeOffset / safeLimit as int
+        // Spring Data's PageRequest is page-indexed. The frontend sends
+        // offset as a multiple of limit, but a hand-built / non-aligned
+        // offset must still be honoured exactly — bare `offset / limit`
+        // integer division silently rounds a non-aligned offset DOWN to
+        // the start of the enclosing page. Snap the offset down to a
+        // page boundary so `page * size` reproduces the requested offset
+        // and the response `offset` echoes the value actually applied.
         int pageSize   = safeLimit
+        int pageNumber = (int) (safeOffset / pageSize)
+        int alignedOffset = pageNumber * pageSize
         // Sentinel empty strings mean "no filter". Real nulls would crash
         // the JPQL with a Postgres type-inference error on lower(?::bytea).
-        def qTrimmed = (q != null && !q.isEmpty()) ? q : ''
+        // Escape SQL LIKE wildcards (% _ \) in the bound term so a search
+        // for a literal `_` or `%` matches that character instead of every
+        // catalogue row — the JPQL query carries a matching `ESCAPE '\'`.
+        def qTrimmed = (q != null && !q.isEmpty()) ? escapeLike(q) : ''
         def catFilter = (category && category != 'All') ? category : ''
         def rarFilter = (rarity && rarity != 'All') ? rarity : ''
 
@@ -119,8 +133,22 @@ class DatabaseController {
                 items:   result.content,
                 total:   result.totalElements,
                 limit:   safeLimit,
-                offset:  safeOffset,
+                // Echo the offset actually applied (snapped down to a
+                // page boundary) so a client that sent a non-aligned
+                // offset can see what the server paged from.
+                offset:  alignedOffset,
                 indexed: itemRepository.count()
             ])
+    }
+
+    /** Escape SQL LIKE special characters so a user-typed `_` / `%` / `\`
+     *  is matched literally instead of as a wildcard. Backslash first so
+     *  the escapes we add aren't themselves re-escaped. Pairs with the
+     *  `ESCAPE '\'` clause on `ItemRepository.searchCatalogue`. */
+    private static String escapeLike(String s) {
+        if (s == null) return null
+        s.replace('\\', '\\\\')
+         .replace('%', '\\%')
+         .replace('_', '\\_')
     }
 }

@@ -58,6 +58,28 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     List<Listing> findCheapestForItem(@Param("itemId") Long itemId)
 
     /**
+     * Bulk variant of `findCheapestForItem` — every visible ACTIVE listing
+     * for a SET of item ids in ONE round-trip. Drives the homepage rails
+     * (`findHottest` / `findMostWatched` / `findMostViewed`) which used to
+     * loop `findCheapestForItem` once per item id — up to ~180 queries on
+     * a single `/hottest` hit (batch 1089).
+     *
+     * Ordered by item id then price ASC so the service can walk the flat
+     * list and take the first row per item id as that item's cheapest
+     * active listing. JOIN FETCHes the item so the rail render stays
+     * N+1-free. Empty input is the caller's responsibility — `IN ()` is
+     * illegal SQL.
+     */
+    @Query("""
+        SELECT l FROM Listing l JOIN FETCH l.item
+        WHERE l.item.id IN :itemIds
+          AND l.status = 'ACTIVE'
+          AND (l.hidden IS NULL OR l.hidden = false)
+        ORDER BY l.item.id ASC, l.price ASC
+    """)
+    List<Listing> findActiveForItemIds(@Param("itemIds") Collection<Long> itemIds)
+
+    /**
      * Inverse of `BuyOrderRepository.findMatching` — finds the cheapest
      * ACTIVE BUY_NOW listings (excluding hidden, non-self) that satisfy
      * a buy order's filter and price ceiling. Drives
@@ -352,7 +374,7 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
         SELECT l FROM Listing l JOIN FETCH l.item
         WHERE l.status = 'ACTIVE'
           AND (l.hidden IS NULL OR l.hidden = false)
-          AND (:q           = '' OR LOWER(l.item.name) LIKE LOWER(CONCAT('%', :q, '%')))
+          AND (:q           = '' OR LOWER(l.item.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\')
           AND (:category    = '' OR l.item.category = :category)
           AND (:rarity      = '' OR l.item.rarity   = :rarity)
           AND (:listingType = '' OR l.listingType   = :listingType)

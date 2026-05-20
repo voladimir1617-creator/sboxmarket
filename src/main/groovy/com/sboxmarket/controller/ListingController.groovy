@@ -121,7 +121,11 @@ class ListingController {
         // `auction`, `Auction`, `AUCTION` all map to AUCTION. Junk
         // values return null (filter disabled).
         def typeParam = ListingEnums.canonListingType(listingType)
-        def all = listingService.getActiveListings(sort, category, rarity, min, max, search, typeParam)
+        // Escape SQL LIKE wildcards (% _ \) so a search for a literal `_`
+        // or `%` matches that character instead of every listing — the
+        // findActivePublic JPQL carries a matching `ESCAPE '\'` clause.
+        def searchEscaped = (search != null && !search.isEmpty()) ? escapeLike(search) : search
+        def all = listingService.getActiveListings(sort, category, rarity, min, max, searchEscaped, typeParam)
         // Block-list filter (batch 345). Signed-in viewers don't see
         // listings from sellers they've blocked. Applied AFTER the
         // service query — the block set is a small per-user thing (cap
@@ -676,6 +680,17 @@ class ListingController {
      * anyone skip the filter entirely — a single session lookup +
      * one repo probe per request.
      */
+    /** Escape SQL LIKE special characters so a user-typed `_` / `%` / `\`
+     *  is matched literally instead of as a wildcard. Backslash first so
+     *  the escapes we add aren't themselves re-escaped. Pairs with the
+     *  `ESCAPE '\'` clause on `ListingRepository.findActivePublic`. */
+    private static String escapeLike(String s) {
+        if (s == null) return null
+        s.replace('\\', '\\\\')
+         .replace('%', '\\%')
+         .replace('_', '\\_')
+    }
+
     private List<Listing> filterBlocked(List<Listing> rows, HttpServletRequest req) {
         if (rows == null || rows.isEmpty()) return rows
         def viewer = req?.session?.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -749,15 +764,23 @@ class ListingController {
     @GetMapping("/top-sellers")
     ResponseEntity<List<Map>> topSellers() {
         def rows = listingService.topSellers(5L, 8)
+        // Bulk-hydrate every seller user + rating summary in two queries
+        // instead of one findById + one summaryForUser per row (was ~2N
+        // round-trips). steam_users by PK + the aggregate GROUP BY.
+        def sellerIds = rows.collect { it.userId }.findAll { it != null }.toSet()
+        def usersById = sellerIds.isEmpty() ? [:]
+            : steamUserRepository.findAllById(sellerIds).collectEntries { [(it.id): it] }
+        def summariesById = (reviewService != null && !sellerIds.isEmpty())
+            ? (reviewService.summariesForUsers(sellerIds) ?: [:]) : [:]
         def out = rows.collect { r ->
-            def user = steamUserRepository.findById(r.userId).orElse(null)
+            def user = usersById[r.userId]
             if (user == null) return null
             // Batch 352 — banned sellers shouldn't appear on the homepage
             // "Top Sellers" rail. Filter at render time so a staff ban
             // immediately removes them from the leaderboard without
             // needing to recompute the underlying aggregate.
             if (Boolean.TRUE.equals(user.banned)) return null
-            def ratingSummary = reviewService?.summaryForUser(user.id) ?: [count: 0, average: null]
+            def ratingSummary = summariesById[user.id] ?: [count: 0, average: null]
             [
                 id:          user.id,
                 displayName: user.displayName,

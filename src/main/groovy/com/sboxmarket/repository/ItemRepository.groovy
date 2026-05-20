@@ -91,7 +91,7 @@ interface ItemRepository extends JpaRepository<Item, Long> {
      */
     @Query("""
         SELECT i FROM Item i
-        WHERE (:q        = '' OR LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')))
+        WHERE (:q        = '' OR LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\')
           AND (:category = '' OR i.category = :category)
           AND (:rarity   = '' OR i.rarity   = :rarity)
           AND (:minPrice IS NULL OR i.lowestPrice >= :minPrice)
@@ -116,7 +116,7 @@ interface ItemRepository extends JpaRepository<Item, Long> {
      *  the main searchCatalogue query. */
     @Query("""
         SELECT i FROM Item i
-        WHERE (:q        = '' OR LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')))
+        WHERE (:q        = '' OR LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\')
           AND (:category = '' OR i.category = :category)
           AND (:rarity   = '' OR i.rarity   = :rarity)
           AND (:minPrice IS NULL OR i.lowestPrice >= :minPrice)

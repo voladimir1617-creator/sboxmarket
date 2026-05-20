@@ -328,4 +328,42 @@ class DatabaseControllerSpec extends Specification {
         capPageable.pageNumber == 2
         capPageable.pageSize == 60
     }
+
+    def "every sort carries a stable id-ASC tiebreaker so tie-heavy pages don't drift"() {
+        given:
+        Pageable capPageable = null
+        1 * itemRepository.searchCatalogue(_, _, _, _, _, _) >> { args ->
+            capPageable = args[5]
+            pageOf([])
+        }
+        _ * itemRepository.count() >> 0L
+
+        when: 'rarest sort — every seeded item shares supply 0'
+        controller.list(null, null, 'All', 'All', 'rarest', false, null, null, 60, 0)
+
+        then: 'primary sort is supply ASC, with id ASC appended as the tiebreaker'
+        def orders = capPageable.sort.toList()
+        orders.size() == 2
+        orders[0].property == 'supply'
+        orders[1].property == 'id'
+        orders[1].direction == Sort.Direction.ASC
+    }
+
+    def "non-aligned offset is snapped down to a page boundary and echoed back"() {
+        given:
+        Pageable capPageable = null
+        1 * itemRepository.searchCatalogue(_, _, _, _, _, _) >> { args ->
+            capPageable = args[5]
+            pageOf([])
+        }
+        _ * itemRepository.count() >> 0L
+
+        when: 'offset=130, limit=60 → snaps to page 2 (offset 120)'
+        def resp = controller.list(null, null, 'All', 'All', 'rarest', false, null, null, 60, 130)
+
+        then: 'page is computed from the aligned offset and the body echoes it'
+        capPageable.pageNumber == 2
+        capPageable.pageSize == 60
+        resp.body.offset == 120
+    }
 }

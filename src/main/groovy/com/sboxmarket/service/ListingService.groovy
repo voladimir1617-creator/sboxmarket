@@ -258,15 +258,40 @@ class ListingService {
         def rows = watchlistItemRepository.findTopWatchedItemIds(
             org.springframework.data.domain.PageRequest.of(0, lim * 2))
         if (rows == null || rows.isEmpty()) return []
-        def out = []
-        for (Object[] row : rows) {
-            if (out.size() >= lim) break
-            def itemId = row[0] as Long
-            if (itemId == null) continue
-            def cheapest = listingRepository.findCheapestForItem(itemId)
-            if (cheapest != null && !cheapest.isEmpty()) {
-                out << cheapest[0]
+        projectCheapestPerItem(rows.collect { it[0] as Long }, lim)
+    }
+
+    /**
+     * Shared projection for the homepage rails: given an ORDERED list of
+     * candidate item ids, return the cheapest active visible listing for
+     * each (in the same order), skipping items with no active listing,
+     * capped at `lim`. One bulk `findActiveForItemIds` round-trip instead
+     * of one `findCheapestForItem` per id — the N+1 the homepage rails
+     * were paying (batch 1089). Preserves the candidate order (the rail's
+     * ranking) and de-dupes repeated item ids.
+     */
+    private List<Listing> projectCheapestPerItem(List<Long> candidateItemIds, int lim) {
+        if (candidateItemIds == null) return []
+        def ordered = []
+        def seen = new HashSet<Long>()
+        for (Long id : candidateItemIds) {
+            if (id != null && seen.add(id)) ordered << id
+        }
+        if (ordered.isEmpty()) return []
+        // Flat list ordered by (item.id, price) — first row seen per
+        // item id is that item's cheapest active listing.
+        def cheapestByItem = [:] as Map<Long, Listing>
+        (listingRepository.findActiveForItemIds(ordered) ?: []).each { Listing l ->
+            def iid = l?.item?.id
+            if (iid != null && !cheapestByItem.containsKey(iid)) {
+                cheapestByItem[iid] = l
             }
+        }
+        def out = []
+        for (Long id : ordered) {
+            if (out.size() >= lim) break
+            def l = cheapestByItem[id]
+            if (l != null) out << l
         }
         out
     }
@@ -285,17 +310,7 @@ class ListingService {
         def rows = itemRepository.findTopViewedItemIds(
             org.springframework.data.domain.PageRequest.of(0, lim * 2))
         if (rows == null || rows.isEmpty()) return []
-        def out = []
-        for (Object[] row : rows) {
-            if (out.size() >= lim) break
-            def itemId = row[0] as Long
-            if (itemId == null) continue
-            def cheapest = listingRepository.findCheapestForItem(itemId)
-            if (cheapest != null && !cheapest.isEmpty()) {
-                out << cheapest[0]
-            }
-        }
-        out
+        projectCheapestPerItem(rows.collect { it[0] as Long }, lim)
     }
 
     /** Bulk recent-sales count per item — passes through to the repo's
@@ -334,14 +349,11 @@ class ListingService {
         def out = []
         def seenItemIds = new HashSet<Long>()
         if (rows != null && !rows.isEmpty()) {
-            for (Object[] row : rows) {
-                if (out.size() >= lim) break
-                def itemId = row[0] as Long
-                if (itemId == null || !seenItemIds.add(itemId)) continue
-                def cheapest = listingRepository.findCheapestForItem(itemId)
-                if (cheapest != null && !cheapest.isEmpty()) {
-                    out << cheapest[0]
-                }
+            // One bulk round-trip for the cheapest active listing per
+            // sold-item id (was one findCheapestForItem per id).
+            projectCheapestPerItem(rows.collect { it[0] as Long }, lim).each { Listing l ->
+                def itemId = l?.item?.id
+                if (itemId != null && seenItemIds.add(itemId)) out << l
             }
         }
         if (out.size() >= lim) return out
