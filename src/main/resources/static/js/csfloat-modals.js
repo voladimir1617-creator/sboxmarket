@@ -1605,7 +1605,25 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
               h('div', { className: 'loadout-card-name' }, highlightMatch(l.name || '', search)),
               h('div', { className: 'loadout-card-meta' },
                 h('span', null, '❤ ', l.favorites),
-                h('span', null, fmt(l.totalValue))
+                h('span', null, fmt(l.totalValue)),
+                l.filledSlots != null && h('span', null, l.filledSlots, l.filledSlots === 1 ? ' item' : ' items')
+              ),
+              // Item-preview strip (csfloat app-overview-entry pattern) — a
+              // row of the loadout's equipped items so the card shows its
+              // contents at a glance instead of rendering as an empty block.
+              // previewItems is decorated server-side; absent on any legacy
+              // payload, in which case the strip self-hides.
+              Array.isArray(l.previewItems) && l.previewItems.length > 0 && h('div', { className: 'loadout-card-preview' },
+                l.previewItems.slice(0, 8).map((pi, idx) => h('div', {
+                  key: 'lcp-' + l.id + '-' + idx,
+                  className: 'loadout-card-preview-tile',
+                  title: (pi.itemName || pi.slot || '') + (pi.snapshotPrice != null ? ' · ' + fmt(pi.snapshotPrice) : ''),
+                  style: pi.accentColor ? { borderColor: pi.accentColor } : null
+                },
+                  pi.imageUrl
+                    ? h('img', { className: 'loadout-card-preview-img', src: pi.imageUrl, alt: '', loading: 'lazy' })
+                    : h('span', { className: 'loadout-card-preview-emoji' }, pi.itemEmoji || '◆')
+                ))
               ),
               l.ownerName && h('div', { className: 'loadout-card-owner' },
                 'by ', highlightMatch(l.ownerName, search)),

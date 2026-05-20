@@ -107,6 +107,68 @@ class LoadoutService {
     }
 
     /**
+     * Attach a compact item preview to each loadout for the Discover /
+     * Mine / Favorites card grid. The raw Loadout entity carries no
+     * slots, so the cards rendered as empty blocks — csfloat's loadout
+     * overview shows each set's items inline. One bulk slot query plus
+     * one bulk item-decor query keeps this O(1) regardless of how many
+     * loadouts are on the page. `previewItems` is the filled slots in
+     * canonical slot order; empty slots are dropped so the strip only
+     * shows what's actually equipped.
+     */
+    List<Map> decorate(List<Loadout> loadouts) {
+        if (!loadouts) return []
+        def ids = loadouts.collect { it?.id }.findAll { it != null }
+        Map<Long, List<LoadoutSlot>> slotsByLoadout = [:]
+        if (!ids.isEmpty()) {
+            loadoutSlotRepository.findByLoadoutIdIn(ids).each { LoadoutSlot s ->
+                (slotsByLoadout[s.loadoutId] = slotsByLoadout[s.loadoutId] ?: []) << s
+            }
+        }
+        def allItemIds = slotsByLoadout.values().flatten()
+            .findAll { it?.itemId != null }
+            .collect { it.itemId }
+            .unique()
+        Map<Long, Map> itemDecor = [:]
+        if (!allItemIds.isEmpty()) {
+            itemRepository.findAllById(allItemIds).each { Item it ->
+                itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor]
+            }
+        }
+        loadouts.collect { Loadout l ->
+            def bySlot = (slotsByLoadout[l.id] ?: []).collectEntries { [(it.slot): it] }
+            def filled = SLOTS.collect { bySlot[it] }.findAll { it != null && it.itemId != null }
+            def preview = filled.collect { LoadoutSlot s ->
+                def deco = itemDecor[s.itemId]
+                [
+                    slot         : s.slot,
+                    itemId       : s.itemId,
+                    itemName     : s.itemName,
+                    itemEmoji    : s.itemEmoji,
+                    imageUrl     : deco?.imageUrl,
+                    accentColor  : deco?.accentColor,
+                    snapshotPrice: s.snapshotPrice
+                ]
+            }
+            [
+                id          : l.id,
+                ownerUserId : l.ownerUserId,
+                ownerName   : l.ownerName,
+                name        : l.name,
+                description : l.description,
+                visibility  : l.visibility,
+                totalValue  : l.totalValue,
+                favorites   : l.favorites,
+                createdAt   : l.createdAt,
+                updatedAt   : l.updatedAt,
+                previewItems: preview,
+                filledSlots : filled.size(),
+                slotCount   : SLOTS.size()
+            ]
+        }
+    }
+
+    /**
      * Fetch a loadout with its slots. PRIVATE loadouts are only visible
      * to their owner — any other viewer (anonymous or otherwise) gets a
      * NotFoundException so we neither confirm nor deny the loadout's

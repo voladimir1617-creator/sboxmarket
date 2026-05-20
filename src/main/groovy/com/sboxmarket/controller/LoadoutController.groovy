@@ -27,7 +27,7 @@ class LoadoutController {
     }
 
     @GetMapping("/discover")
-    ResponseEntity<List<Loadout>> discover(@RequestParam(required = false) String search,
+    ResponseEntity<List<Map>> discover(@RequestParam(required = false) String search,
                                            // Batch 987 — `q` alias for cross-endpoint
                                            // param consistency (batches 985-986).
                                            @RequestParam(required = false) String q) {
@@ -36,12 +36,12 @@ class LoadoutController {
         if (search != null && search.length() > 100) search = search.substring(0, 100)
         ResponseEntity.ok()
                 .header("Cache-Control", "public, max-age=60")
-                .body(loadoutService.listPublic(search))
+                .body(loadoutService.decorate(loadoutService.listPublic(search)))
     }
 
     @GetMapping("/mine")
-    ResponseEntity<List<Loadout>> mine(HttpServletRequest req) {
-        ResponseEntity.ok(loadoutService.listMine(requireUser(req)))
+    ResponseEntity<List<Map>> mine(HttpServletRequest req) {
+        ResponseEntity.ok(loadoutService.decorate(loadoutService.listMine(requireUser(req))))
     }
 
     /** Loadouts the caller has favorited, newest-favorite first. Closes
@@ -50,8 +50,8 @@ class LoadoutController {
      *  only; anon viewers get 401 because the favorite-set is per-user
      *  PII. Private re-privatized loadouts are filtered server-side. */
     @GetMapping("/favorites")
-    ResponseEntity<List<Loadout>> favorites(HttpServletRequest req) {
-        ResponseEntity.ok(loadoutService.listFavorites(requireUser(req)))
+    ResponseEntity<List<Map>> favorites(HttpServletRequest req) {
+        ResponseEntity.ok(loadoutService.decorate(loadoutService.listFavorites(requireUser(req))))
     }
 
     @GetMapping("/{id}")

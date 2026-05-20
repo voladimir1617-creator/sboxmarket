@@ -67,13 +67,15 @@ class LoadoutControllerSpec extends Specification {
     def "discover() defaults to empty search and returns public CDN-cached list"() {
         given:
         def rows = [new Loadout(id: 1L)]
+        def decorated = [[id: 1L, previewItems: []]]
         1 * loadoutService.listPublic(null) >> rows
+        1 * loadoutService.decorate(rows) >> decorated
 
         when:
         def resp = controller.discover(null, null)
 
         then:
-        resp.body.is(rows)
+        resp.body.is(decorated)
         def cc = resp.headers.getFirst('Cache-Control')
         cc?.contains('public')
         cc?.contains('max-age=60')
@@ -146,27 +148,31 @@ class LoadoutControllerSpec extends Specification {
     def "mine() returns the service's loadouts"() {
         given:
         def rows = [new Loadout(id: 1L)]
+        def decorated = [[id: 1L, previewItems: []]]
         authedSession(100L)
         1 * loadoutService.listMine(100L) >> rows
+        1 * loadoutService.decorate(rows) >> decorated
 
         when:
         def resp = controller.mine(req)
 
         then:
-        resp.body.is(rows)
+        resp.body.is(decorated)
     }
 
     def "favorites() returns the service's list"() {
         given:
         def rows = [new Loadout(id: 1L)]
+        def decorated = [[id: 1L, previewItems: []]]
         authedSession(100L)
         1 * loadoutService.listFavorites(100L) >> rows
+        1 * loadoutService.decorate(rows) >> decorated
 
         when:
         def resp = controller.favorites(req)
 
         then:
-        resp.body.is(rows)
+        resp.body.is(decorated)
     }
 
     // ── /{id} get ───────────────────────────────────────────────

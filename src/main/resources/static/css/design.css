@@ -188761,6 +188761,12 @@ body .info-modal-body .loadout-list > .loadout-card {
   padding: 16px !important;
   min-height: 232px !important;
   width: 100% !important;
+  /* Ship #128320's intent is a full-width csfloat app-overview-entry
+     row. The old ship #2806 adapter still pins max-width:226px +
+     height:140px on .loadout-card — neutralise both here so the row
+     actually spans the list and grows with its item-preview strip. */
+  max-width: none !important;
+  height: auto !important;
   box-shadow: none !important;
   position: relative !important;
   overflow: hidden !important;
@@ -188803,11 +188809,17 @@ body .info-modal-body .loadout-list .loadout-card-name {
   color: rgb(255, 255, 255) !important;
   font-variation-settings: normal !important;
   font-style: normal !important;
-  padding: 0 !important;
+  /* Right padding reserves space for the absolute top-right share
+     button (32px @ right:12px); single-line ellipsis truncates a long
+     name at that padded edge so it never runs under the button — on a
+     narrow phone-width card the name overflowed the reserved space
+     when it was a flex container with a non-shrinking text child. */
+  padding: 0 44px 0 0 !important;
   margin: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 16px !important;
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128322 */
 
@@ -188866,7 +188878,14 @@ body .full-page-mode .loadout-list .loadout-card-owner,
 body .info-modal-body .loadout-list .loadout-card-owner {
   display: block !important;
   padding: 0 !important;
-  margin: 0 !important;
+  /* Left-aligned to match the name/meta/preview cluster above — the
+     caption was inheriting a centered text-align and reading as a
+     stray mid-card element. */
+  text-align: left !important;
+  /* margin-top:auto pins the owner caption to the card's bottom edge
+     so the name/meta/preview cluster and the attribution don't leave
+     a dead gap in the middle of the 232px row. */
+  margin: auto 0 0 !important;
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif !important;
   font-size: 13px !important;
   font-weight: 400 !important;
@@ -188944,6 +188963,59 @@ body .info-modal-body .loadout-list .loadout-card-owner mark {
   text-decoration: none !important;
 }
 /* END CSFLOAT-1:1 PARITY ship #128326 */
+
+/* ---------------------------------------------------------------------
+   CSFLOAT-1:1 PARITY ship #128328 — /loadout discover card item-preview
+   strip. Ships #128320-#128321 sized the discover card as a flat 232px
+   csfloat app-overview-entry row, but the JS never rendered the items
+   row that fills that height — so the card showed as an empty block.
+   The discover / mine / favorites payloads now carry server-decorated
+   `previewItems`, and csfloat-modals.js renders a .loadout-card-preview
+   strip of equipped-item tiles. Style it as a left-aligned row of 56px
+   square tiles (item image, emoji fallback) that wraps if a loadout
+   somehow carries more tiles than the card width holds. */
+body .full-page-mode .loadout-list .loadout-card-preview,
+body .info-modal-body .loadout-list .loadout-card-preview,
+body .loadout-list .loadout-card .loadout-card-preview {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 2px 0 0 !important;
+  padding: 0 !important;
+}
+body .full-page-mode .loadout-list .loadout-card-preview-tile,
+body .info-modal-body .loadout-list .loadout-card-preview-tile,
+body .loadout-list .loadout-card .loadout-card-preview-tile {
+  width: 56px !important;
+  height: 56px !important;
+  flex: 0 0 56px !important;
+  border-radius: 8px !important;
+  background: rgb(20, 22, 28) !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-color: rgba(255, 255, 255, 0.07);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+body .full-page-mode .loadout-list .loadout-card-preview-img,
+body .info-modal-body .loadout-list .loadout-card-preview-img,
+body .loadout-list .loadout-card .loadout-card-preview-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+body .full-page-mode .loadout-list .loadout-card-preview-emoji,
+body .info-modal-body .loadout-list .loadout-card-preview-emoji,
+body .loadout-list .loadout-card .loadout-card-preview-emoji {
+  font-size: 26px !important;
+  line-height: 1 !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #128328 */
 
 /* ---------------------------------------------------------------------
    CSFLOAT-1:1 PARITY ship #128327 — Loadout Lab page header GRID +
