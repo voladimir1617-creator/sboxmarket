@@ -13010,7 +13010,12 @@ body:has(.full-page-mode) { overflow: visible !important; }
 .modal.item-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.85fr);
-  grid-template-rows: auto 1fr;
+  /* Three explicit rows: preview, body, action bar. The recently-viewed
+     rail auto-flows into an implicit row 4. Previously this was `auto 1fr`
+     and children used span-99 / row-200 placements as "infinity" hacks —
+     that generated ~200 grid rows and the 24px gap between every pair
+     ballooned the page with ~4800px of empty space. */
+  grid-template-rows: auto auto auto;
   gap: 24px;
   align-items: start;
   padding: 22px;
@@ -13026,7 +13031,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .modal.item-page > .modal-header > div:nth-child(2) {
   grid-column: 2;
-  grid-row: 1 / span 99;
+  grid-row: 1 / span 2;
   position: sticky;
   top: 80px;
   align-self: start;
@@ -13043,7 +13048,7 @@ body:has(.full-page-mode) { overflow: visible !important; }
 }
 .modal.item-page > .modal-body {
   grid-column: 1;
-  grid-row: 2 / span 99;
+  grid-row: 2;
   padding-bottom: 64px;
 }
 /* I7/I8 Boss QA — explicitly place .modal-actions into col 1 spanning
@@ -13053,9 +13058,15 @@ body:has(.full-page-mode) { overflow: visible !important; }
    Steam Market + ♥ no longer crammed into 340px). */
 .modal.item-page > .modal-actions {
   grid-column: 1 / -1;
-  grid-row: 200;
+  grid-row: 3;
   align-self: end;
   margin-top: 16px;
+}
+/* Recently-viewed rail sits full-width below the action bar — it
+   auto-flows into the implicit row 4; the column span keeps it from
+   collapsing into column 1 only. */
+.modal.item-page > .recently-viewed {
+  grid-column: 1 / -1;
 }
 @media (max-width: 1100px) {
   /* M1m fix: minmax(0, 1fr) so the single grid track can SHRINK below
@@ -13078,6 +13089,9 @@ body:has(.full-page-mode) { overflow: visible !important; }
     min-width: 0;
   }
   .modal.item-page > .modal-body { grid-column: 1; grid-row: 3; min-width: 0; }
+  /* Single-column stack — action bar after the body, not at desktop's
+     row 3 (which would collide with the body's row 3 here). */
+  .modal.item-page > .modal-actions { grid-column: 1; grid-row: 4; }
 }
 
 /* CSFloat-1:1: in full-page mode, section titles get bigger sans-serif
