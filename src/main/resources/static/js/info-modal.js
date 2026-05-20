@@ -7,7 +7,6 @@
 // This is how we make /profile, /wallet, /help, /admin, etc. look like real
 // pages in CSFloat's shape without rewriting every modal body.
 import { h, useEffect, useRef, signInWithSteam } from './utils.js';
-import { MaterialIcon } from './primitives.js';
 
 export function InfoModal({ title, onClose, children, wide }) {
   // Batch 821 — a11y: proper focus management + Escape-to-close.
@@ -40,6 +39,26 @@ export function InfoModal({ title, onClose, children, wide }) {
       if (e.key === 'Escape' && typeof onClose === 'function') {
         e.stopPropagation();
         onClose();
+        return;
+      }
+      // Focus trap: aria-modal alone does NOT keep Tab inside the dialog,
+      // so without this a keyboard user tabs straight out into the
+      // background page. Cycle focus across the panel's focusables.
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusables = panelRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && (active === first || !panelRef.current.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !panelRef.current.contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     document.addEventListener('keydown', onKey);
@@ -56,7 +75,12 @@ export function InfoModal({ title, onClose, children, wide }) {
       } catch (_) {}
     };
   }, [onClose]);
-  const headerId = 'info-modal-h-' + (title || '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+  // Only wire aria-labelledby when there's a real title — otherwise it
+  // would point screen readers at an empty <h1> and announce nothing.
+  const hasTitle = title != null && String(title).trim() !== '';
+  const headerId = hasTitle
+    ? 'info-modal-h-' + String(title).replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    : null;
   /* In full-page mode (.site-root.full-page-mode), the .modal-backdrop is
      `position: static` and fills normal page flow — clicking anywhere on
      the page outside the .modal would otherwise navigate back to /. Skip
@@ -73,7 +97,7 @@ export function InfoModal({ title, onClose, children, wide }) {
       onClick: e => e.stopPropagation(),
       role: 'dialog',
       'aria-modal': 'true',
-      'aria-labelledby': headerId
+      'aria-labelledby': headerId || undefined
     },
       h('button', {
         ref: closeRef,
@@ -81,7 +105,7 @@ export function InfoModal({ title, onClose, children, wide }) {
         onClick: onClose,
         'aria-label': 'Close'
       }, '✕'),
-      h('h1', { className: 'info-modal-header', id: headerId }, title),
+      h('h1', { className: 'info-modal-header', id: headerId || undefined }, title),
       h('div', { className: 'info-modal-body' }, children)
     )
   );

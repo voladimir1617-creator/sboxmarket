@@ -128,6 +128,12 @@ export function SteamMarketLink({ item, compact }) {
 export function ItemImage({ item, alt, variant = 'card' }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Reset the failed/loaded flags when the underlying image URL changes.
+  // Without this, a React-recycled ItemImage (same DOM slot, new `item`
+  // prop after a grid sort / list refresh) keeps a stale `failed: true`
+  // and renders the poster glyph for a perfectly valid new image.
+  const srcKey = item && item.imageUrl;
+  useEffect(() => { setFailed(false); setLoaded(false); }, [srcKey]);
   if (!item) return h('span', null, '—');
 
   const url = item.imageUrl && !failed
@@ -181,6 +187,10 @@ export function ItemImage({ item, alt, variant = 'card' }) {
  */
 export function Avatar({ src, name, alt, className, style }) {
   const [failed, setFailed] = useState(false);
+  // Clear the failed flag when `src` changes — a React-recycled Avatar
+  // (same seller-cell DOM slot, new seller after a marketplace refresh)
+  // would otherwise stay stuck on the initials chip for a valid new URL.
+  useEffect(() => { setFailed(false); }, [src]);
   const safeName = (name || '').trim() || 'U';
   const initials = safeName.substring(0, 2).toUpperCase();
   if (!src || failed) {

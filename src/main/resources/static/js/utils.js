@@ -49,7 +49,11 @@ export const fmt = (n) => {
   const raw = Number(n);
   const num = Number.isFinite(raw) ? raw * rate : 0;
   const min = code === 'JPY' ? 0 : 2;
-  return FX_SYMBOL[code] + num.toLocaleString('en-US', { minimumFractionDigits: min, maximumFractionDigits: min });
+  // Render the sign OUTSIDE the currency symbol so a negative amount
+  // (e.g. a wallet shortfall `fmt(need - bal)`) reads "-$12.00", not
+  // the malformed "$-12.00".
+  const sign = num < 0 ? '-' : '';
+  return sign + FX_SYMBOL[code] + Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: min, maximumFractionDigits: min });
 };
 
 export const fmtCompact = (n) => {
@@ -58,8 +62,20 @@ export const fmtCompact = (n) => {
   const raw = Number(n);
   const num = Number.isFinite(raw) ? raw * rate : 0;
   const sym = FX_SYMBOL[code];
-  if (num >= 1e6) return sym + (num / 1e6).toFixed(2) + 'M';
-  if (num >= 1e3) return sym + (num / 1e3).toFixed(1) + 'K';
+  // Use the magnitude for threshold tests + division so negatives
+  // compact correctly and the sign stays outside the symbol
+  // ("-$1.2M", not "$-1200000.00").
+  const sign = num < 0 ? '-' : '';
+  const abs = Math.abs(num);
+  // Pick the suffix from the value AFTER rounding to that suffix's
+  // displayed precision, so a magnitude that rounds up across a
+  // boundary (e.g. 999_999 → "999.999K" → "1000.0K") promotes to the
+  // next suffix instead of rendering the nonsensical "$1000.0K".
+  const mRounded = Math.round(abs / 1e6 * 100) / 100; // M, 2dp
+  if (mRounded >= 1) return sign + sym + mRounded.toFixed(2) + 'M';
+  const kRounded = Math.round(abs / 1e3 * 10) / 10;   // K, 1dp
+  if (kRounded >= 1000) return sign + sym + (abs / 1e6).toFixed(2) + 'M';
+  if (kRounded >= 1) return sign + sym + kRounded.toFixed(1) + 'K';
   return fmt(n);
 };
 

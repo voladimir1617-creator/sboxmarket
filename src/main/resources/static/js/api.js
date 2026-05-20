@@ -267,9 +267,13 @@ export async function buyListing(id, expectedPrice) {
   });
 }
 
-/** GET a single listing by id. Returns null on 404 (listing sold / cancelled). */
+/** GET a single listing by id. Returns null on 404 (listing sold / cancelled).
+ *  The 404 is an expected outcome here — the cart-stub refresh flow probes
+ *  ids that may have been bought/cancelled since they were carted — so it's
+ *  muted to keep the console clean (same opt-out as the other read-by-id
+ *  endpoints: item / stall / loadout). */
 export async function fetchListingById(id) {
-  return safeJson(`${API}/listings/${id}`);
+  return safeJson(`${API}/listings/${id}`, undefined, { expect: [404] });
 }
 
 /** User-facing report. Returns { reportCount, thanks } on success, or

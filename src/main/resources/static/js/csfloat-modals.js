@@ -68,6 +68,11 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         if (isStarred) next.add(id); else next.delete(id);
         return next;
       });
+      // Pre-fix: a network failure here reverted the optimistic ★ but
+      // showed nothing — the star silently snapped back with no reason,
+      // reading as a dead toggle. The API-error branch above already
+      // toasts; mirror that on the exception path.
+      toast('Could not update watchlist — check your connection and retry.', 'err');
     }
   };
   const [loading, setLoading] = useState(true);
@@ -2223,6 +2228,13 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // long-running auction doesn't flood the panel; any row count above 8
   // gets a "Show all N bids" expand button.
   const [showAllHistory, setShowAllHistory] = useState(false);
+  // Busy flag for the "cancel auto-bid" action. Declared up here with
+  // the other hooks — it must run on EVERY render. It previously sat
+  // below the `if (!listing ...) return null` early-return, so a render
+  // for a non-AUCTION / null listing skipped this useState while an
+  // auction render ran it, tripping React's "rendered fewer hooks than
+  // expected" crash (Rules of Hooks).
+  const [cancellingCap, setCancellingCap] = useState(false);
 
   const load = useCallback(async () => {
     if (!listing?.id) return;
@@ -2447,7 +2459,6 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     const winning = auto.find(b => b.status === 'WINNING');
     return (winning || auto[0]).id;
   })();
-  const [cancellingCap, setCancellingCap] = useState(false);
   const stopAutoBid = async () => {
     if (!yourActiveAutoBidId || cancellingCap) return;
     if (!confirm(`Stop auto-raising on this auction? Your current bid (${fmt(view.currentBid || view.price)}) stays live.`)) return;

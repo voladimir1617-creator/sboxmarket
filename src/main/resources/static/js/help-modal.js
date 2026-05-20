@@ -268,6 +268,7 @@ export function HelpModal({ onClose }) {
           filteredFaq.map(item => {
             const isOpen = openIdx === item.origIdx;
             const panelId = `help-faq-panel-${item.origIdx}`;
+            const btnId = `help-faq-q-${item.origIdx}`;
             return h('div', {
               key: item.origIdx, className: `help-faq-row ${isOpen ? 'open' : ''}`
             },
@@ -276,6 +277,7 @@ export function HelpModal({ onClose }) {
               // and can jump to the panel. Without these, blind users
               // hear an unlabelled button with no state.
               h('button', {
+                id: btnId,
                 className: 'help-faq-q',
                 'aria-expanded': isOpen,
                 'aria-controls': panelId,
@@ -288,7 +290,10 @@ export function HelpModal({ onClose }) {
                 highlightMatch(item.q, q),
                 h(MaterialIcon, { name: isOpen ? 'expand_less' : 'expand_more', size: 20 })
               ),
-              isOpen && h('div', { id: panelId, role: 'region', className: 'help-faq-a' }, highlightMatch(item.a, q))
+              // role=region needs a discernible name or axe flags it; point
+              // aria-labelledby at the question button so SR announces the
+              // panel as "<question>, region".
+              isOpen && h('div', { id: panelId, role: 'region', 'aria-labelledby': btnId, className: 'help-faq-a' }, highlightMatch(item.a, q))
             );
           })
         ),

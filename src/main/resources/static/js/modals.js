@@ -4540,7 +4540,7 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           h('div', { className: 'mono', style: { fontSize: 11, color: 'var(--accent)', marginBottom: 6 } }, emailResult.token),
           h('div', { style: { display: 'flex', gap: 6 } },
             h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Paste token', value: emailToken, onChange: e => setEmailToken(e.target.value) }),
-            h('button', { className: 'buy-btn', onClick: confirmEmail }, 'Verify')
+            h('button', { className: 'buy-btn', onClick: () => confirmEmail() }, 'Verify')
           )
         ),
         emailResult?.verified && h('div', { style: { fontSize: 11, color: 'var(--green)' } }, 'Email verified'),
@@ -12077,7 +12077,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
             href: itemHref,
             className: 'item-thumb',
             style: { width: 56, height: 56, display: 'block' },
-            onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
+            onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
             title: 'Open ' + (offer.itemName || 'item')
           }, thumbInner)
         : h('div', { className: 'item-thumb', style: { width: 56, height: 56 } }, thumbInner),
@@ -12087,7 +12087,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
               href: itemHref,
               className: 'item-name',
               style: { color: 'inherit', textDecoration: 'none' },
-              onClick: (e) => { if (isPageMode) return; e.stopPropagation(); onClose && onClose(); },
+              onClick: (e) => { e.stopPropagation(); onClose && onClose(); },
               title: 'Open ' + (offer.itemName || 'item')
             }, offer.itemName || ('Listing #' + offer.listingId))
           : h('div', { className: 'item-name' }, offer.itemName || ('Listing #' + offer.listingId)),

@@ -1896,7 +1896,9 @@ function AdminDashboardTab({ onNavTab }) {
       onClick: navTarget && onNavTab ? () => onNavTab(navTarget) : null,
       role: navTarget ? 'button' : null,
       tabIndex: navTarget ? 0 : null,
-      onKeyDown: navTarget && onNavTab ? (e) => { if (e.key === 'Enter') onNavTab(navTarget); } : null,
+      onKeyDown: navTarget && onNavTab
+        ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavTab(navTarget); } }
+        : null,
       title: navTarget ? `Click to open the ${navTarget} tab` : null
     },
       h('div', { className: 'admin-stat-label' }, label),
@@ -2432,9 +2434,13 @@ function AdminUsersTab({ me }) {
         // Batch 579 — pull the user's audit-log timeline (subject
         // filter) so staff sees a chronological activity feed inline
         // instead of bouncing to the Audit tab.
+        // Every leg has a .catch fallback — without one on the two raw
+        // fetches, a network failure rejected the whole Promise.all, the
+        // outer catch swallowed it, and detailData stayed null → the
+        // drawer spinner hung forever with no way out but closing it.
         const [stall, reviews, notes, summary, transactions, activity] = await Promise.all([
-          fetch(`/api/listings/stall/${detailUser.id}`, { credentials: 'same-origin' }).then(r => r.ok ? r.json() : null),
-          fetch(`/api/reviews/user/${detailUser.id}`,   { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []),
+          fetch(`/api/listings/stall/${detailUser.id}`, { credentials: 'same-origin' }).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(`/api/reviews/user/${detailUser.id}`,   { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []).catch(() => []),
           adminReadNotes(detailUser.id).catch(() => null),
           adminUserSummary(detailUser.id),
           adminUserTransactions(detailUser.id),
@@ -3171,7 +3177,14 @@ function AdminTicketsTab() {
     return () => clearTimeout(h);
   }, [load, search]);
 
-  const open = async (id) => setView(await adminTicket(id));
+  // Guard against a null return (safeJson yields null on 404/5xx) — an
+  // unguarded setView(null) made a row click a silent no-op. Also guard
+  // a missing `ticket` field so the detail view never renders half-data.
+  const open = async (id) => {
+    const t = await adminTicket(id);
+    if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
+    setView(t);
+  };
   const sendReply = async () => {
     if (!reply.trim() || !viewing?.ticket) return;
     const t = viewing.ticket;
@@ -3377,9 +3390,26 @@ function AdminRefundsTab() {
   const [result, setRes]  = useState(null);
 
   const run = async () => {
+    if (busy) return;
+    // Validate before firing — a NaN tx id or amount would otherwise be
+    // posted straight to an irreversible Stripe refund call.
+    const tx = parseInt(txId, 10);
+    if (!Number.isFinite(tx) || tx <= 0) { toast('Enter a valid deposit transaction id', 'err'); return; }
+    let amt = null;
+    if (amount.trim()) {
+      amt = parseFloat(amount);
+      if (!Number.isFinite(amt) || amt <= 0) { toast('Refund amount must be a positive number, or blank for a full refund', 'err'); return; }
+    }
+    // Confirm — the banner warns this hits Stripe with no undo, but the
+    // button fired immediately. Every other destructive action in this
+    // file gates behind a confirm; the irreversible one must too.
+    if (!confirm(
+      `Refund deposit transaction #${tx}` +
+      (amt != null ? ` for $${amt.toFixed(2)}` : ' in full') +
+      `?\n\nThis hits Stripe immediately and cannot be undone.`)) return;
     setBusy(true); setRes(null);
     try {
-      const res = await adminRefundDeposit(parseInt(txId, 10), amount ? parseFloat(amount) : null);
+      const res = await adminRefundDeposit(tx, amt);
       setRes(res);
     } finally { setBusy(false); }
   };
@@ -3541,7 +3571,18 @@ function CsrFlagTab() {
 
 function CsrDashboardTab() {
   const [stats, setStats] = useState(null);
-  useEffect(() => { csrStats().then(setStats); }, []);
+  const [err, setErr]     = useState('');
+  // Pre-fix: bare `.then(setStats)` — no cleanup (setState fired after
+  // the modal closed) and no `.catch` (a rejected csrStats() left the
+  // spinner up forever). Guard with an `alive` flag + surface the error.
+  useEffect(() => {
+    let alive = true;
+    csrStats()
+      .then(s => { if (alive) setStats(s); })
+      .catch(e => { if (alive) setErr(e?.message || 'Failed to load queue stats'); });
+    return () => { alive = false; };
+  }, []);
+  if (err) return h('div', { className: 'profile-panel' }, h('div', { className: 'wallet-error' }, err));
   if (!stats) return h('div', { className: 'spinner' });
   const waitingHours = stats.oldestWaitingAgeMs ? Math.floor(stats.oldestWaitingAgeMs / 3_600_000) : 0;
   const Stat = (label, val, cls) =>
@@ -3573,9 +3614,13 @@ function CsrLookupTab() {
   const giveCredit = async (u) => {
     const amt = prompt(`Goodwill credit for ${u.displayName || u.steamId64} (max per CSR adjustment applies):`, '5.00');
     if (!amt) return;
+    // Guard the parse — a non-numeric entry would otherwise post NaN to
+    // the goodwill endpoint. Mirrors AdminUsersTab.doCredit.
+    const value = parseFloat(amt);
+    if (!Number.isFinite(value) || value <= 0) { toast('Enter a positive number', 'err'); return; }
     const note = prompt('Reason / note (required for audit):', '');
     if (!note || !note.trim()) return;
-    const res = await csrGoodwill(u.id, parseFloat(amt), note);
+    const res = await csrGoodwill(u.id, value, note);
     if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
     toast(`Credited. New balance: $${res.newBalance}`, 'ok');
     search();
@@ -3632,9 +3677,11 @@ function CsrLookupTab() {
             )
           ),
           h('div', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 } }, 'Recent activity'),
-          u.recentTx.length === 0
+          // Guard recentTx — an omitted/null array would otherwise throw
+          // on `.length` and crash the whole match list render.
+          (u.recentTx || []).length === 0
             ? h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } }, 'No transactions.')
-            : h('div', null, u.recentTx.slice(0, 6).map(t => h('div', { key: t.id, className: 'csr-tx-row' },
+            : h('div', null, (u.recentTx || []).slice(0, 6).map(t => h('div', { key: t.id, className: 'csr-tx-row' },
                 h('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', width: 110 } }, t.type),
                 h('span', { style: { flex: 1, fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.description || '—'),
                 h('span', { className: 'db-mono', style: { fontSize: 11, fontWeight: 700 } }, fmt(t.amount))
@@ -3663,7 +3710,12 @@ function CsrTicketsTab() {
     const h = setTimeout(() => { load(); }, search ? 300 : 0);
     return () => clearTimeout(h);
   }, [load, search]);
-  const open = async (id) => setView(await csrTicket(id));
+  // Guard a null/empty return — matches AdminTicketsTab.open.
+  const open = async (id) => {
+    const t = await csrTicket(id);
+    if (!t || !t.ticket) { toast('Could not open that ticket — it may have been removed.', 'err'); return; }
+    setView(t);
+  };
   const sendReply = async () => {
     if (!reply.trim() || !viewing?.ticket) return;
     const t = viewing.ticket;
@@ -3767,7 +3819,15 @@ function CsrTicketsTab() {
               return h('tr', {
                 key: t.id,
                 className: `db-row${urgent ? ' urgent-row' : ''}`,
-                onClick: () => open(t.id)
+                onClick: () => open(t.id),
+                // Keyboard access parity with the admin Tickets tab — the
+                // CSR rows were mouse-only (no role/tabIndex/onKeyDown).
+                role: 'button',
+                tabIndex: 0,
+                'aria-label': `Open ticket #${t.id} — ${t.subject} from ${t.username || 'user #' + t.userId} (${t.status})`,
+                onKeyDown: (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(t.id); }
+                }
               },
                 h('td', { className: 'db-rank' }, '#' + t.id),
                 h('td', null, t.subject),

@@ -441,11 +441,21 @@ function StallReviewRow({ review, isOwner, isAuthor, me, onSaved }) {
               body:     `Review ${review.id} (${review.rating}★) by ${review.fromDisplayName || 'anonymous'}:\n\n> ${excerpt.split('\n').join('\n> ')}\n\nReporter's note:\n\n${reason}`
             });
             if (res && (res.error || res.code)) {
-              showToast(res.message || res.error || 'Could not file the report — try again later.', 'err');
+              try {
+                window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+                  text: res.message || res.error || 'Could not file the report — try again later.',
+                  kind: 'err'
+                }}));
+              } catch (_) {}
               return;
             }
             setReportDraft(null);
-            showToast('Report filed — staff will reach out if needed.', 'ok');
+            try {
+              window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+                text: 'Report filed — staff will reach out if needed.',
+                kind: 'ok'
+              }}));
+            } catch (_) {}
           } finally { setBusy(false); }
         }
       })
@@ -1439,9 +1449,16 @@ function StallBioBlock({ bio, canEdit, onSaved }) {
       // Batch 923 — surface save success. Previously the block collapsed
       // back to read-mode silently, and a user who'd scrolled away while
       // the save was in flight had no way to know it landed. Toast copy
-      // differentiates first-time add vs. edit.
+      // differentiates first-time add vs. edit. Dispatched on the global
+      // `sb:toast` bus since this top-level component has no `showToast`
+      // in scope (that const lives inside the App component).
       const wasEmpty = !bio;
-      showToast(wasEmpty ? 'Bio added — buyers see it on your stall.' : 'Bio updated.', 'ok');
+      try {
+        window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+          text: wasEmpty ? 'Bio added — buyers see it on your stall.' : 'Bio updated.',
+          kind: 'ok'
+        }}));
+      } catch (_) {}
     } finally { setBusy(false); }
   };
   if (!bio && !canEdit) return null;
@@ -2125,10 +2142,20 @@ function ContactSellerButton({ seller }) {
         body:     `Seller stall: /stall/${seller.id}\n\n${trimmed}`
       });
       if (res && (res.error || res.code)) {
-        showToast(res.message || res.error || 'Could not open ticket.', 'err');
+        try {
+          window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+            text: res.message || res.error || 'Could not open ticket.',
+            kind: 'err'
+          }}));
+        } catch (_) {}
         return;
       }
-      showToast('Message sent through support — track it in /support.', 'ok');
+      try {
+        window.dispatchEvent(new CustomEvent('sb:toast', { detail: {
+          text: 'Message sent through support — track it in /support.',
+          kind: 'ok'
+        }}));
+      } catch (_) {}
       setOpen(false);
       setBody('');
     } finally { setBusy(false); }
@@ -3863,7 +3890,7 @@ export function App() {
       } catch (_) {}
     })();
     return () => { alive = false; };
-  }, [routeName, route.params?.id, me?.user?.id]);
+  }, [routeName, route.params?.id, me?.id]);
 
   // Inline review form state (lives on the stall page).
   const [reviewTradeId, setReviewTradeId] = useState(null);
@@ -4456,7 +4483,7 @@ export function App() {
         setIsCsrRole(false);
         // Show a non-blocking notification instead of silent 401s
         try {
-          const ev = new CustomEvent('sbx-toast', { detail: { text: 'Session expired — please sign in again', kind: 'warn' } });
+          const ev = new CustomEvent('sb:toast', { detail: { text: 'Session expired — please sign in again', kind: 'warn' } });
           window.dispatchEvent(ev);
         } catch {}
       }
