@@ -168,19 +168,22 @@ class PublicEndpointsHttpSpec extends Specification {
         r.response.status == 401 || r.response.status == 403
     }
 
-    def "GET /api/loadouts/999 returns 200 with a notFound sentinel for an unknown loadout id"() {
+    def "GET /api/loadouts/999 returns 200 (never 404) for an unknown loadout id"() {
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/api/loadouts/999')).andReturn()
 
         then:
-        // Contract change: missing/private loadout reads now return 200 with
-        // `{notFound: true}` instead of 404. Reason: Chrome auto-logs every
-        // fetch 404 to the browser console regardless of JS handling, which
-        // made every dead-share-link landing read as a phantom bug. The SPA's
-        // `fetchLoadout` translates the sentinel back to null so callers
-        // still get the same null-on-missing semantics.
+        // Contract: missing/private loadout reads return 200, never 404 —
+        // Chrome auto-logs every fetch 404 to the browser console regardless
+        // of JS handling, which made every dead-share-link landing read as a
+        // phantom bug. Two recoverable 200 shapes satisfy the contract: when
+        // public loadouts exist (the normal seeded state) LoadoutController
+        // serves the lowest-id public loadout as a fallback carrying
+        // `redirectedFrom`; when none exist it returns the `{notFound:true}`
+        // sentinel. The SPA's `fetchLoadout` handles both — never a 404.
         r.response.status == 200
-        r.response.contentAsString.contains('"notFound":true')
+        (r.response.contentAsString.contains('"notFound":true')
+            || r.response.contentAsString.contains('"redirectedFrom":999'))
     }
 
     def "GET /api/items/999999999 returns 200 with a notFound sentinel for an unknown item id"() {
