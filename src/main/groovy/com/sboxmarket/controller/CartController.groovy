@@ -55,7 +55,19 @@ class CartController {
         if (raw.size() > 50) {
             throw new BadRequestException("CART_TOO_LARGE", "Cart is capped at 50 items")
         }
-        def ids = raw.collect { (it as Number).longValue() }
+        // Coerce each listing id defensively. A null element or a
+        // non-numeric value (e.g. {"listingIds":["abc"]} or [null]) used
+        // to bubble out of `(it as Number).longValue()` as an
+        // NPE / NumberFormatException — caught only by the catch-all
+        // handler and surfaced as a 500. A malformed cart payload is a
+        // client error: fail with a clean 400 instead.
+        def ids
+        try {
+            ids = raw.collect { Long.valueOf((it as Number).toString()) }
+        } catch (Exception ignored) {
+            throw new BadRequestException("INVALID_CART",
+                "Cart contains an invalid listing id")
+        }
 
         // Optional per-row price-check payload — guards against a seller
         // raising their price after the user sees the cart-confirm modal

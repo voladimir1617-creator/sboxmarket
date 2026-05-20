@@ -863,6 +863,76 @@ class BidServiceSpec extends Specification {
         listing.buyerUserId == 10L
     }
 
+    def "settle closes out every live bid when the winner is banned (no orphaned WINNING rows)"() {
+        // No-sale settle path: a winner banned between bid-time and
+        // settle-time returns the item to the seller. Every bid on the
+        // listing — the banned winner's AND every loser's — must flip to
+        // LOST, else they linger in WINNING on a SOLD listing and the
+        // bidders' Active Bids tab shows the dead auction as live forever.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        def winnerBid = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')
+        def loserBid = new Bid(id: 2L, listingId: 100L, bidderUserId: 20L,
+            amount: new BigDecimal("45"), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [winnerBid, loserBid]
+        // Winner is banned → no-sale branch.
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'winner', banned: true))
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        // Both the banned winner's bid and the loser's bid are closed.
+        winnerBid.status == 'LOST'
+        loserBid.status == 'LOST'
+        // Item returned to the seller.
+        listing.status == 'SOLD'
+        listing.buyerUserId == 99L
+    }
+
+    def "settle closes out every live bid when the winner can't pay (no orphaned WINNING rows)"() {
+        // No-sale settle path: winner's balance dropped below their bid
+        // between bid-time and settle-time. The item goes back to the
+        // seller and every bid must flip to LOST.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        def winnerBid = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')
+        def loserBid = new Bid(id: 2L, listingId: 100L, bidderUserId: 20L,
+            amount: new BigDecimal("45"), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [winnerBid, loserBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'winner', banned: false))
+        // Winner's wallet now holds only $5 — can't cover the $50 bid.
+        walletRepository.findByUsername('steam_winner') >> new com.sboxmarket.model.Wallet(
+            id: 500L, username: 'steam_winner', balance: new BigDecimal("5"))
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        winnerBid.status == 'LOST'
+        loserBid.status == 'LOST'
+        listing.status == 'SOLD'
+        listing.buyerUserId == 99L
+    }
+
     def "sweepEndingSoon filters banned users out of the recipient set (batch 320)"() {
         given:
         def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),

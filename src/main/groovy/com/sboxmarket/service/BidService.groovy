@@ -768,6 +768,14 @@ class BidService {
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            // Close out every live bid on the now-SOLD listing. Without
+            // this, a banned/deleted winner leaves not just their own
+            // bid but every other bidder's bid stuck in WINNING — so
+            // Profile → Active Bids shows the closed auction as still
+            // live forever for all of them, and it never appears under
+            // Past Bids. Same stale-row class batch 324 fixed for the
+            // happy path; the no-sale branches were missed.
+            closeOutLiveBids(listing.id)
             if (listing.sellerUserId != null) {
                 try {
                     notificationService.push(listing.sellerUserId, 'AUCTION_EXPIRED_NO_BIDS',
@@ -793,6 +801,11 @@ class BidService {
             listing.buyerUserId = listing.sellerUserId
             listing.soldAt = System.currentTimeMillis()
             listingRepository.save(listing)
+            // Close out every live bid — the auction is over even
+            // though no trade opened. Mirrors the winner-invalid branch
+            // above; otherwise losing bidders' bids stay WINNING and
+            // haunt their Active Bids tab indefinitely.
+            closeOutLiveBids(listing.id)
             try {
                 notificationService.push(winnerId, 'AUCTION_LOST',
                     "Auction lost — insufficient balance", listing.item?.name, listing.id,
@@ -931,6 +944,29 @@ class BidService {
         }
 
         log.info("Auction ${listing.id} settled — winner=${winnerId}, price=\$${listing.currentBid}")
+    }
+
+    /** Flip every still-live bid (WINNING / OUTBID) on a closed listing
+     *  to LOST. Called by the two no-sale settle branches (banned /
+     *  deleted winner, winner-can't-pay) so a settle that opens no
+     *  trade still terminates every bidder's bid — otherwise those
+     *  bids stay WINNING on a SOLD listing and the bidder's
+     *  Profile → Active Bids tab shows the dead auction as live forever
+     *  (findLiveBidsForUser filters on WINNING/OUTBID). The happy path
+     *  already does its own winner→WON / loser→LOST flip inline.
+     *  Best-effort and isolated: a save failure is logged, not fatal —
+     *  the listing itself is already the authoritative SOLD record. */
+    private void closeOutLiveBids(Long listingId) {
+        if (listingId == null) return
+        try {
+            def live = bidRepository.findByListing(listingId)
+                .findAll { it.status in ['WINNING', 'OUTBID'] }
+            if (live.isEmpty()) return
+            live.each { it.status = 'LOST' }
+            bidRepository.saveAll(live)
+        } catch (Exception e) {
+            log.warn("closeOutLiveBids failed for listing ${listingId}: ${e.message}")
+        }
     }
 
     /** Fire AUCTION_EXPIRED email to the seller (batch 607). Shared by

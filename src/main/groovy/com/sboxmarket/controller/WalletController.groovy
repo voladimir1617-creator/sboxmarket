@@ -396,24 +396,6 @@ class WalletController {
                 "Verify your email address before requesting a withdrawal. Check Profile → Personal Info for the verify link.")
         }
 
-        // If the user has 2FA enabled, require a fresh 6-digit code on the
-        // request. This is our second-factor gate on the most sensitive
-        // money-out flow — session cookies alone are not enough.
-        if (user.totpSecret) {
-            def code = (body.totpCode as String ?: '').trim()
-            if (!code) {
-                throw new com.sboxmarket.exception.BadRequestException("TOTP_REQUIRED",
-                    "Two-factor code required for withdrawals")
-            }
-            def step = totpService.verify(user.totpSecret, code, user.lastTotpStep)
-            if (step < 0) {
-                throw new com.sboxmarket.exception.BadRequestException("TOTP_INVALID",
-                    "Invalid or reused 2FA code")
-            }
-            user.lastTotpStep = step
-            steamUserRepository.save(user)
-        }
-
         if (wallet.balance < body.amount) {
             throw new InsufficientBalanceException(body.amount, wallet.balance)
         }
@@ -448,6 +430,34 @@ class WalletController {
                     "Try again in 24h or contact support for a manual payout.")
             }
         }
+        // If the user has 2FA enabled, require a fresh 6-digit code on the
+        // request. This is our second-factor gate on the most sensitive
+        // money-out flow — session cookies alone are not enough.
+        //
+        // Verified LAST, immediately before the wallet debit: the TOTP
+        // replay-guard advances `lastTotpStep` and persists it, which
+        // burns the code. If this ran before the balance / dispute-hold /
+        // daily-cap checks (its previous position), a user who entered a
+        // valid code but then tripped one of those read-only gates would
+        // have their code consumed anyway and be forced to wait ~30s for
+        // the next authenticator code just to retry a corrected amount.
+        // All the gates above are side-effect-free throws, so deferring
+        // the TOTP consumption to here is safe.
+        if (user.totpSecret) {
+            def code = (body.totpCode as String ?: '').trim()
+            if (!code) {
+                throw new com.sboxmarket.exception.BadRequestException("TOTP_REQUIRED",
+                    "Two-factor code required for withdrawals")
+            }
+            def step = totpService.verify(user.totpSecret, code, user.lastTotpStep)
+            if (step < 0) {
+                throw new com.sboxmarket.exception.BadRequestException("TOTP_INVALID",
+                    "Invalid or reused 2FA code")
+            }
+            user.lastTotpStep = step
+            steamUserRepository.save(user)
+        }
+
         def tx = stripeService.requestWithdrawal(wallet.id, body.amount, body.destination ?: "")
         def reloaded = walletRepository.findById(wallet.id)
                 .orElseThrow { new NotFoundException("Wallet", wallet.id) }
