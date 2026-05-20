@@ -235,6 +235,11 @@ const RARITY_COLORS = {
   'Legendary':  '#8b5cf6'  // purple
 };
 export function RarityBadge({ rarity }) {
+  // Guard: a missing rarity (non-entity payload / partial DTO) otherwise
+  // rendered an empty colored pill with a meaningless `rarity-undefined`
+  // class. Render nothing instead — matches how the other primitives bail
+  // on absent data.
+  if (!rarity) return null;
   // Boss QA D3 — items priced and live on the market were rendering an
   // "OFF-Market" badge because the schema's `rarity = 'Off-Market'` value
   // means low-supply (<5% of total) for s&box items. The badge text was

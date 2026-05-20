@@ -238,6 +238,24 @@ export async function fetchItem(itemId) {
   return data || null;
 }
 
+/** Bulk item lookup — one round-trip for a list of ids instead of one
+ *  `GET /api/items/{id}` per id. Drives the recently-viewed rail/pills
+ *  refetch-and-validate pass (kills the ~18-GET N+1 on navigation).
+ *  The batch endpoint OMITS ids that no longer resolve (no
+ *  `{notFound:true}` sentinel — that's the per-id contract), so the
+ *  returned array can be shorter than `ids`. Callers diff against
+ *  their input to detect dropped ids. Returns [] on any failure or
+ *  empty input. Server caps the id count at 50. */
+export async function fetchItemsByIds(ids) {
+  const list = Array.isArray(ids)
+    ? ids.map(x => x).filter(x => x != null && x !== '')
+    : [];
+  if (list.length === 0) return [];
+  const csv = list.map(x => encodeURIComponent(x)).join(',');
+  const data = await safeJson(`${API}/items/batch?ids=${csv}`);
+  return Array.isArray(data) ? data : [];
+}
+
 export async function fetchSimilar(itemId) {
   const data = await safeJson(`${API}/items/${itemId}/similar`);
   return Array.isArray(data) ? data : [];

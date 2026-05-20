@@ -10880,9 +10880,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           style: { maxWidth: 480 },
           onClick: e => e.stopPropagation(),
           role: 'dialog',
-          'aria-modal': true
+          'aria-modal': true,
+          'aria-labelledby': 'bulk-adjust-title'
         },
-          h('div', { className: 'cart-confirm-title' }, '⚖ Bulk price adjust'),
+          h('div', { className: 'cart-confirm-title', id: 'bulk-adjust-title' }, '⚖ Bulk price adjust'),
           h('div', { className: 'cart-confirm-sub', style: { marginBottom: 10 } },
             'Apply a percentage to every active ',
             h('strong', null, 'BUY NOW'),
@@ -11331,13 +11332,25 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           key: id,
           className: `offer-tab ${tab === id ? 'active' : ''}`,
           role: 'tab',
+          id: 'mystall-tab-' + id,
           'aria-selected': tab === id,
+          'aria-controls': 'mystall-panel-' + id,
           tabIndex: tab === id ? 0 : -1,
           onClick: () => pickTab(id),
           onKeyDown: onKey
         }, labels[id], counts[id] != null && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, counts[id])))
       );
     })(),
+    // Tab-switched content region. Wrapped in a single role="tabpanel"
+    // node (id + aria-labelledby track the active tab) so each MyStall
+    // tab button has a matching panel target — mirroring the Profile /
+    // Offers / Wallet tab panels. The match-ready prompt above stays
+    // outside this panel: it's a header summary, not tab content.
+    h('div', {
+      role: 'tabpanel',
+      id: 'mystall-panel-' + tab,
+      'aria-labelledby': 'mystall-tab-' + tab
+    },
     tab === 'analytics' && (
       analytics === null
         ? h('div', { className: 'spinner' })
@@ -11939,6 +11952,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
           })()
         )
     )
+    ) // close role="tabpanel" content region
   );
 }
 
@@ -13116,27 +13130,31 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
                           style: { padding: '1px 6px', fontSize: 10, border: '1px solid var(--border)' },
                           disabled: serverAlertBusy,
                           onClick: () => saveEditServerAlert(a),
-                          title: 'Save new target'
+                          title: 'Save new target',
+                          'aria-label': 'Save new target'
                         }, '✓'),
                         h('button', {
                           className: 'btn btn-ghost',
                           style: { padding: '1px 6px', fontSize: 10, border: '1px solid var(--border)' },
                           disabled: serverAlertBusy,
                           onClick: () => { setEditingServerAlertId(null); setServerAlertDraft(''); },
-                          title: 'Cancel edit'
+                          title: 'Cancel edit',
+                          'aria-label': 'Cancel alert edit'
                         }, '✕')
                       )
                     : h('button', {
                         className: 'btn btn-ghost',
                         style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
                         onClick: () => startEditServerAlert(a),
-                        title: 'Change the target price for this alert'
+                        title: 'Change the target price for this alert',
+                        'aria-label': 'Change the target price for this alert'
                       }, '✎'),
                   editingServerAlertId !== a.id && h('button', {
                     className: 'btn btn-ghost',
                     style: { padding: '2px 8px', fontSize: 10, border: '1px solid var(--border)' },
                     onClick: () => cancelServerAlert(a.id),
-                    title: 'Cancel this price alert'
+                    title: 'Cancel this price alert',
+                    'aria-label': 'Cancel this price alert'
                   }, '✕')
                   );
                 }),

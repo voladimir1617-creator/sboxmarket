@@ -42,17 +42,17 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
   const inCart = cartHas ? cartHas(listing.id) : false;
   // Auction participation chip — only shown when the viewer is signed in
-  // AND is a known bidder on this auction. Green "You're winning" when
-  // you're the top bidder, amber "Outbid" when someone's above you.
-  // Computed per render; `currentBid`+`bidCount` already come down in
-  // the listing payload so no extra fetch is needed.
+  // AND is the current top bidder on this auction. Green "You're winning"
+  // when `currentBidderId` matches the viewer. Computed per render;
+  // `currentBidderId`+`bidCount` already come down in the listing payload
+  // so no extra fetch is needed.
+  // NOTE: an "Outbid" variant was removed — it depended on `listing.yourMaxBid`,
+  // a field the Listing payload never carries (per-viewer bid status lives
+  // only on the Bid entity / /profile/bids). The branch could never fire, so
+  // it rendered nothing silently; the My Bids panel already surfaces "Outbid".
   let auctionBadge = null;
-  if (isAuction && meId && listing.bidCount > 0) {
-    if (listing.currentBidderId === meId) {
-      auctionBadge = { label: "✓ You're winning", cls: 'win' };
-    } else if (listing.yourMaxBid && listing.currentBidderId !== meId) {
-      auctionBadge = { label: '↑ Outbid',          cls: 'loss' };
-    }
+  if (isAuction && meId && listing.bidCount > 0 && listing.currentBidderId === meId) {
+    auctionBadge = { label: "✓ You're winning", cls: 'win' };
   }
   // Anchor-based card (batch 422). Left click runs the SPA onClick
   // (state-based navigation); middle-click / Ctrl+click fall through to
@@ -348,7 +348,11 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
 export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerAvatarUrl, searchQuery }) {
   const item = listing?.item;
   if (!item) return null;
-  const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
+  // Normalize trendPercent: a null/undefined value (legacy rows, non-entity
+  // payloads) otherwise fell through to the "down" branch and rendered the
+  // broken "▼ NaN%" because Math.abs(undefined) is NaN.
+  const trend = Number.isFinite(Number(item.trendPercent)) ? Number(item.trendPercent) : 0;
+  const trendUp = trend > 0, trendFlat = trend === 0;
   const disc = discountPct(listing.price, item.steamPrice);
   // Batch 931 — keyboard-accessible list rows. The row is clickable
   // (opens the item detail modal) but `<tr onClick>` is pointer-only.
@@ -388,7 +392,7 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
     ),
     h('td', { className: 'center' },
       h('span', { className: `trend ${trendFlat ? 'flat' : trendUp ? 'up' : 'down'}` },
-        trendFlat ? '━' : trendUp ? `▲ ${item.trendPercent}%` : `▼ ${Math.abs(item.trendPercent)}%`
+        trendFlat ? '━' : trendUp ? `▲ ${trend}%` : `▼ ${Math.abs(trend)}%`
       )
     ),
     h('td', null,
@@ -421,7 +425,11 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
     h('td', { className: 'right' },
       h('div', { className: 'price-cell' },
         h('div', { className: 'price-val' }, fmt(listing.price)),
-        h('div', { className: 'price-supply' }, `${Number(item.supply).toLocaleString()} supply`)
+        // Guard: `item.supply` is absent on some payloads — Number(undefined)
+        // is NaN, which rendered the broken "NaN supply" label. Coerce a
+        // finite fallback so the row always reads a real number.
+        h('div', { className: 'price-supply' },
+          `${(Number.isFinite(Number(item.supply)) ? Number(item.supply) : 0).toLocaleString()} supply`)
       )
     ),
     h('td', { className: 'center' },
@@ -470,7 +478,10 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
 export function TrendCard({ listing, onClick }) {
   const item = listing?.item;
   if (!item) return null;
-  const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
+  // Normalize trendPercent — see ListingRow: a null value otherwise
+  // rendered the broken "NaN%" delta string.
+  const trend = Number.isFinite(Number(item.trendPercent)) ? Number(item.trendPercent) : 0;
+  const trendUp = trend > 0, trendFlat = trend === 0;
   // Batch 934 — keyboard-accessible trend card. Was a plain clickable
   // <div>; not in the tab order, not announced as a button. Add
   // role=button + tabIndex + Enter/Space keydown so keyboard users
@@ -499,7 +510,7 @@ export function TrendCard({ listing, onClick }) {
     h('div', { className: 'trend-meta' },
       h('div', { className: 'trend-price' }, fmt(item.lowestPrice)),
       h('div', { className: `trend-delta ${trendFlat ? 'flat' : trendUp ? 'up' : 'down'}` },
-        trendFlat ? '━' : trendUp ? `+${item.trendPercent}%` : `${item.trendPercent}%`
+        trendFlat ? '━' : trendUp ? `+${trend}%` : `${trend}%`
       )
     )
   );

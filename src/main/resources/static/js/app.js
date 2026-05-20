@@ -2,7 +2,7 @@
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
 import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast as domToast, linkifyText, currencySymbol, fxConvertUsd } from './utils.js';
 import {
-  fetchListings, fetchListingsForItem, fetchHistory, fetchItem, buyListing,
+  fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
   adminCheck, csrCheck, checkoutCart, fetchListingById, fetchPlatformRecentSales, fetchPublicStall, fetchPublicStallSold, fetchReviewsForUser,
   fetchEligibleReviews, leaveReview, fetchAuctionsEndingSoon, fetchOfferCounts,
@@ -2324,29 +2324,35 @@ function RecentlyViewedRail({ watchlist, onToggleStar, currentItemId }) {
       try { cached = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
       catch { return; }
       if (!Array.isArray(cached) || cached.length === 0) return;
-      let validated;
-      try {
-        const fresh = await Promise.all(cached.map(async (c) => {
-          try {
-            const r = await fetch('/api/items/' + encodeURIComponent(c.id), { credentials: 'same-origin' });
-            if (!r.ok) return null;          // 404 etc — drop
-            const item = await r.json();
-            // /api/items/:id returns 200 with {notFound:true,id} for missing
-            // ids — drop those alongside true 404s and any payload missing
-            // a name (nothing meaningful to render).
-            if (!item || item.notFound || item.id == null || !item.name) return null;
-            return {
-              id: item.id, name: item.name, category: item.category,
-              rarity: item.rarity, imageUrl: item.imageUrl,
-              iconEmoji: item.iconEmoji, accentColor: item.accentColor,
-              lowestPrice: item.lowestPrice, steamPrice: item.steamPrice,
-              viewedAt: c.viewedAt || Date.now()  // preserve original viewedAt for sort stability
-            };
-          } catch { return c; }                // network blip — keep cached entry
-        }));
-        validated = fresh.filter(Boolean);
-      } catch { return; }                      // unexpected — keep cached state
+      // N+1 fix: one batched GET /api/items/batch instead of one
+      // GET /api/items/:id per cached id. The batch endpoint OMITS ids
+      // that no longer resolve (no {notFound} sentinel — that's the
+      // per-id contract), so a missing id is simply absent from `fresh`.
+      let fresh;
+      try { fresh = await fetchItemsByIds(cached.map(c => c.id)); }
+      catch { return; }                        // unexpected — keep cached state
       if (cancelled) return;
+      // Empty response = either the fetch failed (network blip) or every
+      // id is gone. Can't distinguish, so keep the stale cache rather
+      // than blanking the rail on a transient failure.
+      if (!Array.isArray(fresh) || fresh.length === 0) return;
+      const byId = new Map();
+      for (const item of fresh) {
+        if (item && item.id != null && item.name) byId.set(String(item.id), item);
+      }
+      // Walk the cached array in its existing order so viewedAt sort
+      // stability is preserved; drop ids the batch didn't return.
+      const validated = cached.map((c) => {
+        const item = byId.get(String(c.id));
+        if (!item) return null;                // id no longer resolves — drop
+        return {
+          id: item.id, name: item.name, category: item.category,
+          rarity: item.rarity, imageUrl: item.imageUrl,
+          iconEmoji: item.iconEmoji, accentColor: item.accentColor,
+          lowestPrice: item.lowestPrice, steamPrice: item.steamPrice,
+          viewedAt: c.viewedAt || Date.now()   // preserve original viewedAt for sort stability
+        };
+      }).filter(Boolean);
       setRows(validated);
       try { localStorage.setItem('sb_recently_viewed', JSON.stringify(validated)); }
       catch { /* quota/disabled — in-memory only */ }
@@ -2413,31 +2419,34 @@ function RecentlyViewedPills({ kind, privacy }) {
       try { cached = JSON.parse(localStorage.getItem('sb_recently_viewed') || '[]'); }
       catch { return; }
       if (!Array.isArray(cached) || cached.length === 0) return;
-      let validated;
-      try {
-        const fresh = await Promise.all(cached.map(async (c) => {
-          try {
-            const r = await fetch('/api/items/' + encodeURIComponent(c.id), { credentials: 'same-origin' });
-            if (!r.ok) return null;
-            const item = await r.json();
-            // /api/items/:id returns 200 with {notFound:true,id} for missing
-            // ids — drop those alongside true 404s and any malformed payload
-            // (no name = nothing to render). The notFound flag is the
-            // controller's contract; checking it is the only correct way to
-            // detect a stale-id cache entry.
-            if (!item || item.notFound || item.id == null || !item.name) return null;
-            return {
-              id: item.id, name: item.name, category: item.category,
-              rarity: item.rarity, imageUrl: item.imageUrl,
-              iconEmoji: item.iconEmoji, accentColor: item.accentColor,
-              lowestPrice: item.lowestPrice, steamPrice: item.steamPrice,
-              viewedAt: c.viewedAt || Date.now()
-            };
-          } catch { return c; }
-        }));
-        validated = fresh.filter(Boolean);
-      } catch { return; }
+      // N+1 fix: one batched GET /api/items/batch instead of one
+      // GET /api/items/:id per cached id. The batch endpoint OMITS ids
+      // that no longer resolve, so a stale-id cache entry is simply
+      // absent from `fresh` — no {notFound} sentinel to check.
+      let fresh;
+      try { fresh = await fetchItemsByIds(cached.map(c => c.id)); }
+      catch { return; }
       if (cancelled) return;
+      // Empty = fetch failure or every id gone; can't tell which, so
+      // keep the stale cache rather than blanking the pills.
+      if (!Array.isArray(fresh) || fresh.length === 0) return;
+      const byId = new Map();
+      for (const item of fresh) {
+        if (item && item.id != null && item.name) byId.set(String(item.id), item);
+      }
+      // Walk cached in order to preserve viewedAt sort stability; drop
+      // ids the batch didn't return.
+      const validated = cached.map((c) => {
+        const item = byId.get(String(c.id));
+        if (!item) return null;
+        return {
+          id: item.id, name: item.name, category: item.category,
+          rarity: item.rarity, imageUrl: item.imageUrl,
+          iconEmoji: item.iconEmoji, accentColor: item.accentColor,
+          lowestPrice: item.lowestPrice, steamPrice: item.steamPrice,
+          viewedAt: c.viewedAt || Date.now()
+        };
+      }).filter(Boolean);
       setRows(validated.slice(0, 6));
       try { localStorage.setItem('sb_recently_viewed', JSON.stringify(validated)); }
       catch { /* quota/disabled */ }
