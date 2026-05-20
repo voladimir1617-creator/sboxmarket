@@ -197477,3 +197477,20 @@ html body .modal.item-page .item-detail-stickers {
   }
 }
 /* END MOBILE NAV RESCUE v2 */
+
+/* ---------------------------------------------------------------------
+   ITEM-PAGE MOBILE PREVIEW FIX (2026-05-19) — a csfloat-1:1 ship pinned
+   the item-detail preview to a measured desktop width via
+   `html body .modal.item-page .modal-preview { width:494px!important }`
+   with NO @media guard, so the 494px leaked to phone widths and forced
+   ~210px of horizontal page overflow. Re-fit the preview + poster to
+   the column on <=1100px at `html body main.modal.item-page` (0,3,3)
+   specificity so the unguarded (0,3,2) base rule loses. */
+@media (max-width: 1100px) {
+  html body main.modal.item-page .modal-preview,
+  html body main.modal.item-page .item-poster {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+/* END ITEM-PAGE MOBILE PREVIEW FIX */
