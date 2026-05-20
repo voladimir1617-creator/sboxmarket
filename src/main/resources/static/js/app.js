@@ -4499,6 +4499,12 @@ export function App() {
       setTransactions(Array.isArray(tx) ? tx : []);
     } catch (e) {
       console.error('loadWallet failed:', e);
+      // Batch 668 — surface fetch failures so the /wallet route can
+      // render an error panel with a Retry CTA instead of a blank page.
+      // Only flag an error sentinel if we have nothing to show; a prior
+      // successful load is kept so a transient refresh failure (e.g. a
+      // tab-focus refetch) doesn't blow away a working wallet view.
+      setWallet(prev => (prev && !prev.__error) ? prev : { __error: true });
     }
   }, []);
   useEffect(() => { loadWallet(); }, [loadWallet]);
@@ -7480,13 +7486,41 @@ export function App() {
     /* ROUTE-DRIVEN PAGES — each one has a real URL. Closing any of them
        navigates back to /. Some (wallet, profile) need the shared wallet
        state, others are self-contained. */
-    routeName === 'wallet' && wallet && h(WalletModal, {
-      wallet, transactions, me,
-      onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); },
-      onRefresh: loadWallet,
-      initialTab: route.params?.tab || walletInitialTab,
-      prefillAmount: walletPrefillAmount
-    }),
+    /* Batch 668 — /wallet previously gated on `wallet && …`, so a null
+       wallet (first paint, or a fetchWallet failure swallowed by
+       loadWallet's catch) rendered a fully blank page with no spinner,
+       error, or retry. Now mirrors the `stall` route just below:
+       null → spinner, __error sentinel → error panel + Retry,
+       otherwise → WalletModal. Spinner/error are wrapped in an
+       InfoModal so the page stays closeable in every state. */
+    routeName === 'wallet' && (
+      (wallet && !wallet.__error)
+        ? h(WalletModal, {
+            wallet, transactions, me,
+            onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); },
+            onRefresh: loadWallet,
+            initialTab: route.params?.tab || walletInitialTab,
+            prefillAmount: walletPrefillAmount
+          })
+        : h(InfoModal, {
+            title: 'Wallet',
+            onClose: () => { setWalletPrefillAmount(null); navigate(paths.market()); }
+          },
+            wallet === null
+              ? h('div', { className: 'spinner' })
+              : h('div', { className: 'empty-inline', style: { padding: '32px 16px' } },
+                  h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'cloud_off', size: 26 })),
+                  h('h2', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' } }, "Couldn't load your wallet"),
+                  h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+                    'The request failed — check your connection and try again.'),
+                  h('button', {
+                    className: 'btn btn-accent',
+                    style: { display: 'inline-flex', minWidth: '220px', maxWidth: '280px', margin: '0 auto', padding: '10px 22px' },
+                    onClick: () => { setWallet(null); loadWallet(); }
+                  }, 'Retry')
+                )
+          )
+    ),
     routeName === 'stall' && h(InfoModal, {
       title: stallData?.seller?.displayName
         ? `${stallData.seller.displayName}'s Stall`

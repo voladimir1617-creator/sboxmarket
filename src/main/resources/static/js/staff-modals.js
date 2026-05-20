@@ -88,9 +88,11 @@ export function AdminModal({ onClose, me }) {
     h('div', { className: 'profile-tabs', role: 'tablist', 'aria-label': 'Admin sections' },
       TABS.map(t => h('button', {
         key: t.id,
+        id: `admin-tab-${t.id}`,
         className: `profile-tab ${tab === t.id ? 'active' : ''}`,
         role: 'tab',
         'aria-selected': tab === t.id,
+        'aria-controls': 'admin-tabpanel',
         tabIndex: tab === t.id ? 0 : -1,
         onKeyDown: (e) => {
           if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
@@ -130,21 +132,26 @@ export function AdminModal({ onClose, me }) {
         }, t.badge > 99 ? '99+' : t.badge)
       ))
     ),
-    tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: setTab }),
-    tab === 'withdrawals' && h(AdminWithdrawalsTab, null),
-    tab === 'trades'      && h(AdminTradesTab, null),
-    tab === 'users'       && h(AdminUsersTab, { me }),
-    tab === 'tickets'     && h(AdminTicketsTab, null),
-    tab === 'refunds'     && h(AdminRefundsTab, null),
-    tab === 'catalogue'   && h(AdminCatalogueTab, null),
-    tab === 'simulator'   && h(AdminSimulatorTab, null),
-    tab === 'fraud'       && h(AdminFraudTab, null),
-    tab === 'disputes'    && h(AdminDisputesTab, null),
-    tab === 'reported'    && h(AdminReportedTab, null),
-    tab === 'deletions'   && h(AdminDeletionsTab, null),
-    tab === 'announce'    && h(AdminAnnouncementsTab, null),
-    tab === 'health'      && h(AdminHealthTab, null),
-    tab === 'audit'       && h(AdminAuditTab, null),
+    // Single tabpanel host for the active tab's content — `aria-labelledby`
+    // tracks the active tab button so screen readers announce the right
+    // section name. One stable id is fine since only one tab renders at a time.
+    h('div', { role: 'tabpanel', id: 'admin-tabpanel', 'aria-labelledby': `admin-tab-${tab}` },
+      tab === 'dashboard'   && h(AdminDashboardTab, { onNavTab: setTab }),
+      tab === 'withdrawals' && h(AdminWithdrawalsTab, null),
+      tab === 'trades'      && h(AdminTradesTab, null),
+      tab === 'users'       && h(AdminUsersTab, { me }),
+      tab === 'tickets'     && h(AdminTicketsTab, null),
+      tab === 'refunds'     && h(AdminRefundsTab, null),
+      tab === 'catalogue'   && h(AdminCatalogueTab, null),
+      tab === 'simulator'   && h(AdminSimulatorTab, null),
+      tab === 'fraud'       && h(AdminFraudTab, null),
+      tab === 'disputes'    && h(AdminDisputesTab, null),
+      tab === 'reported'    && h(AdminReportedTab, null),
+      tab === 'deletions'   && h(AdminDeletionsTab, null),
+      tab === 'announce'    && h(AdminAnnouncementsTab, null),
+      tab === 'health'      && h(AdminHealthTab, null),
+      tab === 'audit'       && h(AdminAuditTab, null),
+    ),
   );
 }
 
@@ -1993,6 +2000,18 @@ function AdminWithdrawalsTab() {
 
   const approve = async (row) => {
     if (busy) return;
+    // `who` resolution shared by the confirm + the success toast — the
+    // shape from `adminWithdrawals` carries `ownerDisplayName` /
+    // `ownerUserId` / `walletUsername` (verified against
+    // AdminController#withdrawals.csv columns).
+    const who = row.ownerDisplayName ? `@${row.ownerDisplayName}`
+              : row.walletUsername ? `@${row.walletUsername}`
+              : row.ownerUserId ? `user #${row.ownerUserId}`
+              : 'wallet';
+    // Confirm before releasing real money — reject returns funds to the
+    // wallet and is reversible, but approve pays out and is not. Spell
+    // out amount + recipient so the admin can catch a wrong-row click.
+    if (!confirm(`Approve withdrawal #${row.id}?\n\nThis pays out ${fmt(row.amount)} to ${who}. Withdrawals cannot be reversed once approved.`)) return;
     const ref = prompt('Stripe/Connect payout reference (optional):', row.destination || '') || '';
     setBusy(true);
     try {
@@ -2002,13 +2021,7 @@ function AdminWithdrawalsTab() {
       // sibling reject path (line 1952) confirms with amount + user
       // context, so an admin processing a queue could tell which click
       // landed. Approve was the inconsistent outlier — same toast pattern
-      // applied for symmetry. The shape from `adminWithdrawals` carries
-      // `ownerDisplayName` / `ownerUserId` / `walletUsername` (verified
-      // against AdminController#withdrawals.csv columns).
-      const who = row.ownerDisplayName ? `@${row.ownerDisplayName}`
-                : row.walletUsername ? `@${row.walletUsername}`
-                : row.ownerUserId ? `user #${row.ownerUserId}`
-                : 'wallet';
+      // applied for symmetry.
       toast(`✓ Approved withdrawal #${row.id} — ${fmt(row.amount)} to ${who}.`, 'ok');
       await load();
     } finally { setBusy(false); }
@@ -2555,12 +2568,19 @@ function AdminUsersTab({ me }) {
     } finally { setBusy(false); }
   };
   const doCredit = async (u) => {
-    const amtStr = prompt(`Adjust wallet for ${u.displayName || u.steamId64} — positive credits, negative debits ($):`, '');
+    const label = u.displayName || u.steamId64;
+    const amtStr = prompt(`Adjust wallet for ${label} — positive credits, negative debits ($):`, '');
     if (!amtStr) return;
     const amt = parseFloat(amtStr);
     if (isNaN(amt)) { toast('Enter a number', 'err'); return; }
+    if (amt === 0) { toast('Amount must be non-zero', 'err'); return; }
     const note = prompt('Note (audit trail):', '');
     if (note == null) return;
+    // Confirm before moving money — a fat-fingered amount debits a user
+    // instantly otherwise. Spell out direction + amount + target so the
+    // admin can catch a mistyped value before it lands in the ledger.
+    const verb = amt >= 0 ? 'CREDIT' : 'DEBIT';
+    if (!confirm(`${verb} ${fmt(Math.abs(amt))} ${amt >= 0 ? 'to' : 'from'} ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
     setBusy(true);
     try {
       const res = await adminCreditWallet(u.id, amt, note);
@@ -2570,7 +2590,6 @@ function AdminUsersTab({ me }) {
       // pre-adjustment number. The toast confirmed the new balance, then
       // the row contradicted it. Refresh keeps both surfaces in sync.
       await load();
-      const label = u.displayName || u.steamId64;
       const direction = amt >= 0 ? 'credited' : 'debited';
       toast(`${label} ${direction} ${fmt(Math.abs(amt))} — new balance ${fmt(res.newBalance)}.`, 'ok');
     } finally { setBusy(false); }
@@ -3461,9 +3480,11 @@ export function CsrModal({ onClose, me }) {
     h('div', { className: 'profile-tabs', role: 'tablist', 'aria-label': 'CSR sections' },
       TABS.map(t => h('button', {
         key: t.id,
+        id: `csr-tab-${t.id}`,
         className: `profile-tab ${tab === t.id ? 'active' : ''}`,
         role: 'tab',
         'aria-selected': tab === t.id,
+        'aria-controls': 'csr-tabpanel',
         tabIndex: tab === t.id ? 0 : -1,
         onKeyDown: (e) => {
           if (!['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) return;
@@ -3487,10 +3508,12 @@ export function CsrModal({ onClose, me }) {
         }
       }, t.label))
     ),
-    tab === 'dashboard' && h(CsrDashboardTab, null),
-    tab === 'lookup'    && h(CsrLookupTab, null),
-    tab === 'tickets'   && h(CsrTicketsTab, null),
-    tab === 'flag'      && h(CsrFlagTab, null),
+    h('div', { role: 'tabpanel', id: 'csr-tabpanel', 'aria-labelledby': `csr-tab-${tab}` },
+      tab === 'dashboard' && h(CsrDashboardTab, null),
+      tab === 'lookup'    && h(CsrLookupTab, null),
+      tab === 'tickets'   && h(CsrTicketsTab, null),
+      tab === 'flag'      && h(CsrFlagTab, null),
+    ),
   );
 }
 

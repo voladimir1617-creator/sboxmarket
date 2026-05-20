@@ -2730,7 +2730,7 @@ export function FaqModal({ onClose }) {
     ['How does depositing work?',
       "Open your Wallet, pick Deposit, enter an amount (anything from $1 to $10,000), and you'll be handed to Stripe's checkout page. Once the payment clears, our webhook credits your balance automatically."],
     ['How do withdrawals work?',
-      "From your Wallet, pick Withdraw, enter a destination (Stripe Connect id, email, or a note) and the amount. Your balance is debited immediately and the payout is processed within 24 hours. A small network fee may apply depending on destination."],
+      "From your Wallet, pick Withdraw, enter a destination (Stripe Connect id, email, or a note) and the amount. Your balance is debited immediately and the payout is processed within 24 hours. Withdrawals are free — 100% of the requested amount reaches you."],
     ['Why is SkinBox cheaper than Steam?',
       "Steam charges 12% in platform fees on Workshop sales and forces sellers into their pricing ladder. On SkinBox, sellers set whatever price they like — usually 10-30% below what the Steam store asks. The green '−%' chip on each card shows exactly how much you save versus Steam."],
     ['Do s&box items have wear levels?',
@@ -3566,9 +3566,11 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
     h('div', { className: 'profile-tabs', role: 'tablist', 'aria-label': 'Profile sections' },
       TABS.map(t => h('button', {
         key: t.id,
+        id: 'profile-tab-' + t.id,
         className: `profile-tab ${tab === t.id ? 'active' : ''}`,
         role: 'tab',
         'aria-selected': tab === t.id,
+        'aria-controls': 'profile-panel-' + t.id,
         tabIndex: tab === t.id ? 0 : -1,
         onClick: () => {
           setTab(t.id);
@@ -3606,21 +3608,31 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
       ))
     ),
 
-    tab === 'personal' && h(ProfilePersonalTab, {
-      me, profile, syncing, onSync: runSync, transactions, privacy,
-      // Batch 929 — lightweight profile refresh for actions that need
-      // to pick up the new `profile.user.deletionRequestedAt` state
-      // without triggering a Steam sync round-trip (onSync does both).
-      refreshProfile: () => fetchProfile().then(setProfile)
-    }),
-    tab === 'transactions' && h(ProfileTransactionsTab, { transactions, privacy }),
-    tab === 'buyorders'   && h(ProfileBuyOrdersTab, null),
-    tab === 'autobids'    && h(ProfileAutoBidsTab, null),
-    tab === 'trades'      && h(ProfileTradesTab, { me, privacy }),
-    tab === 'offers'      && h(ProfileOffersTab, null),
-    tab === 'reviews'     && h(ProfileReviewsTab, { me }),
-    tab === 'support'     && h(ProfileSupportTab, null),
-    tab === 'developers'  && h(ProfileDevelopersTab, null)
+    // Batch 936 — tabpanel wrapper so the active tab button has a matching
+    // role="tabpanel"/aria-labelledby target. One panel node tracks the
+    // active tab (content is single-rendered, so a per-tab panel array
+    // isn't needed).
+    h('div', {
+      role: 'tabpanel',
+      id: 'profile-panel-' + tab,
+      'aria-labelledby': 'profile-tab-' + tab
+    },
+      tab === 'personal' && h(ProfilePersonalTab, {
+        me, profile, syncing, onSync: runSync, transactions, privacy,
+        // Batch 929 — lightweight profile refresh for actions that need
+        // to pick up the new `profile.user.deletionRequestedAt` state
+        // without triggering a Steam sync round-trip (onSync does both).
+        refreshProfile: () => fetchProfile().then(setProfile)
+      }),
+      tab === 'transactions' && h(ProfileTransactionsTab, { transactions, privacy }),
+      tab === 'buyorders'   && h(ProfileBuyOrdersTab, null),
+      tab === 'autobids'    && h(ProfileAutoBidsTab, null),
+      tab === 'trades'      && h(ProfileTradesTab, { me, privacy }),
+      tab === 'offers'      && h(ProfileOffersTab, null),
+      tab === 'reviews'     && h(ProfileReviewsTab, { me }),
+      tab === 'support'     && h(ProfileSupportTab, null),
+      tab === 'developers'  && h(ProfileDevelopersTab, null)
+    )
   );
 }
 
@@ -8048,18 +8060,22 @@ function ProfileOffersTab() {
         return [
           h('button', {
             key: 'incoming',
+            id: 'profile-offers-tab-incoming',
             className: `offer-tab ${tab === 'incoming' ? 'active' : ''}`,
             role: 'tab',
             'aria-selected': tab === 'incoming',
+            'aria-controls': 'profile-offers-panel-incoming',
             tabIndex: tab === 'incoming' ? 0 : -1,
             onClick: () => setTab('incoming'),
             onKeyDown: onKey
           }, 'Incoming', h('span', { className: 'filter-count', style: { marginLeft: 6 } }, data.incoming.filter(o => o.status === 'PENDING').length)),
           h('button', {
             key: 'outgoing',
+            id: 'profile-offers-tab-outgoing',
             className: `offer-tab ${tab === 'outgoing' ? 'active' : ''}`,
             role: 'tab',
             'aria-selected': tab === 'outgoing',
+            'aria-controls': 'profile-offers-panel-outgoing',
             tabIndex: tab === 'outgoing' ? 0 : -1,
             onClick: () => setTab('outgoing'),
             onKeyDown: onKey
@@ -8121,6 +8137,13 @@ function ProfileOffersTab() {
         }, '⇣ CSV');
       })()
     ),
+    // Batch 936 — tabpanel wrapper so each tab button has a matching
+    // role="tabpanel" target (capital summary + offer list per direction).
+    h('div', {
+      role: 'tabpanel',
+      id: tab === 'outgoing' ? 'profile-offers-panel-outgoing' : 'profile-offers-panel-incoming',
+      'aria-labelledby': tab === 'outgoing' ? 'profile-offers-tab-outgoing' : 'profile-offers-tab-incoming'
+    },
     // Batch 855 — pending-offer capital summary, parallel to Buy Orders
     // + Active Bids exposure strips. Offers don't pre-lock funds
     // (PurchaseService.buy fires on accept, not on creation), so
@@ -8175,6 +8198,7 @@ function ProfileOffersTab() {
               : h('a', { className: 'btn btn-accent', href: '/market' }, 'Browse marketplace →')
           ))
       : h('div', { className: 'offer-list' }, list.map(o => row(o, tab === 'incoming')))
+    )
   );
 }
 
@@ -11946,11 +11970,20 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // substrings. Empty = everything. Only surfaces when the list is long
   // enough to warrant it (threshold below), so small inboxes stay clean.
   const [offerSearch, setOfferSearch] = useState('');
+  // Load-failure state. Pre-fix, a rejected fetch left `incoming`/`outgoing`
+  // null forever → the `list === null` branch rendered a spinner with no
+  // way out. Track the error so we can show a retryable message instead.
+  const [loadErr, setLoadErr] = useState(false);
 
   const load = useCallback(async () => {
-    const [i, o] = await Promise.all([fetchIncomingOffers(), fetchOutgoingOffers()]);
-    setIn(i);
-    setOut(o);
+    setLoadErr(false);
+    try {
+      const [i, o] = await Promise.all([fetchIncomingOffers(), fetchOutgoingOffers()]);
+      setIn(i);
+      setOut(o);
+    } catch (_) {
+      setLoadErr(true);
+    }
   }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
@@ -12406,18 +12439,22 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         return [
           h('button', {
             key: 'incoming',
+            id: 'offers-modal-tab-incoming',
             className: `offer-tab ${tab === 'incoming' ? 'active' : ''}`,
             role: 'tab',
             'aria-selected': tab === 'incoming',
+            'aria-controls': 'offers-modal-panel-incoming',
             tabIndex: tab === 'incoming' ? 0 : -1,
             onClick: () => pickTab('incoming'),
             onKeyDown: onKey
           }, 'Incoming', incoming && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, incoming.filter(o => o.status === 'PENDING').length)),
           h('button', {
             key: 'outgoing',
+            id: 'offers-modal-tab-outgoing',
             className: `offer-tab ${tab === 'outgoing' ? 'active' : ''}`,
             role: 'tab',
             'aria-selected': tab === 'outgoing',
+            'aria-controls': 'offers-modal-panel-outgoing',
             tabIndex: tab === 'outgoing' ? 0 : -1,
             onClick: () => pickTab('outgoing'),
             onKeyDown: onKey
@@ -12469,7 +12506,23 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
         }, `${opt.label} · ${count}`);
       })
     ),
-    list === null
+    h('div', {
+      role: 'tabpanel',
+      id: tab === 'outgoing' ? 'offers-modal-panel-outgoing' : 'offers-modal-panel-incoming',
+      'aria-labelledby': tab === 'outgoing' ? 'offers-modal-tab-outgoing' : 'offers-modal-tab-incoming'
+    },
+    loadErr
+      // Load-failure branch — replaces the old never-ending spinner with a
+      // retryable message so a transient network error is recoverable.
+      ? h('div', { className: 'empty-inline' },
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            "Couldn't load your offers"),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 380, margin: '0 auto 16px' } },
+            'Something went wrong fetching your offers. Check your connection and try again.'),
+          h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+            h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry')))
+      : list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
         ? h('div', { className: 'empty-inline' },
@@ -12504,6 +12557,7 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
                     : h('a', { className: 'btn btn-accent', href: '/market' }, 'Browse marketplace →')
             ))
         : h('div', { className: 'offer-list' }, list.map(o => renderOffer(o, tab === 'incoming')))
+    )
   );
 }
 
@@ -13687,16 +13741,23 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
           };
           return WALLET_TABS.map(id => h('button', {
             key: id,
+            id: 'wallet-tab-' + id,
             className: `wallet-tab ${tab === id ? 'active' : ''}`,
             role: 'tab',
             'aria-selected': tab === id,
+            'aria-controls': 'wallet-panel-' + id,
             tabIndex: tab === id ? 0 : -1,
             onClick: () => pickTab(id),
             onKeyDown: onKey
           }, id.charAt(0).toUpperCase() + id.slice(1)));
         })()
       ),
-      h('div', { className: 'wallet-panel' },
+      h('div', {
+        className: 'wallet-panel',
+        role: 'tabpanel',
+        id: 'wallet-panel-' + tab,
+        'aria-labelledby': 'wallet-tab-' + tab
+      },
         tab === 'history'
           ? (() => {
               // 7-day summary — computed over ALL transactions (not the
@@ -14409,7 +14470,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
               },
                 h('strong', { style: { color: 'var(--text-primary)' } }, '⏱ Timing: '),
                 'admin review usually clears within 24h · ',
-                'Stripe payout then lands in your bank in 1–3 business days. ',
+                'Stripe payout then lands in your bank in 1–2 business days. ',
                 'You can cancel a PENDING request from the History tab to refund the balance instantly.'
               ),
               tab === 'deposit' && h('div', { className: 'wallet-note' },

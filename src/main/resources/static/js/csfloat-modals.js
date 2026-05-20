@@ -76,6 +76,12 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
     }
   };
   const [loading, setLoading] = useState(true);
+  // Audit fix — catalogue fetch had try/finally but no catch, so a
+  // rejected /api/database left `data` at its {items:[],total:0}
+  // initial value and the table showed the "Catalogue is empty" copy,
+  // masking the failure as an empty-but-healthy result. `loadErr`
+  // flips on a throw so the render shows a real error + Retry instead.
+  const [loadErr, setLoadErr] = useState(false);
   // Batch 972 — search debounce. `searchInput` is the raw text in the
   // field (updates per-keystroke); `search` is the debounced value
   // used to actually fetch. Previously every keystroke fired a full
@@ -112,6 +118,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadErr(false);
     try {
       // Parse price bounds lazily at fetch time so partial-typed values
       // (trailing dot, empty) don't thrash the query while the user
@@ -128,6 +135,10 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         limit: PAGE_SIZE, offset: page * PAGE_SIZE
       });
       setData(res);
+    } catch (_) {
+      // Network / 5xx — flag so the render swaps the "empty catalogue"
+      // copy for an error panel with a Retry that re-runs this load().
+      setLoadErr(true);
     } finally { setLoading(false); }
   }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice, page]);
   useEffect(() => { load(); }, [load]);
@@ -277,6 +288,23 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
               ))
             )
           )
+        )
+      : loadErr
+      ? h('div', {
+          className: 'empty-state',
+          style: { padding: '32px 16px', textAlign: 'center' },
+          role: 'alert'
+        },
+          h('div', { className: 'empty-state-icon', 'aria-hidden': 'true' },
+            h(MaterialIcon, { name: 'error_outline', size: 26 })),
+          h('div', { className: 'empty-state-title' }, "Couldn't load catalogue"),
+          h('div', { className: 'empty-state-sub' },
+            'The item database failed to load. Check your connection and try again.'),
+          h('div', { className: 'empty-state-actions' },
+            h('button', {
+              className: 'btn btn-accent',
+              onClick: () => load()
+            }, 'Retry'))
         )
       : (data.items.length === 0 && data.total === 0)
       ? (() => {
@@ -459,6 +487,14 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const [qty, setQty]         = useState('1');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
+  // Audit fix — `load()` awaited fetchBuyOrdersWithTotal() with no
+  // catch, so a rejected fetch left `orders` at `null` forever and the
+  // skeleton shimmered indefinitely with no way out. `ordersErr` flips
+  // on a throw so the render shows an error + Retry instead of the
+  // infinite skeleton. `poolErr` does the same for the autocomplete
+  // catalogue pool, whose .then() had no .catch().
+  const [ordersErr, setOrdersErr] = useState(false);
+  const [poolErr, setPoolErr]     = useState(false);
   // Status filter chip (batch 735). The order list returns every status
   // (ACTIVE / FILLED / CANCELLED / EXPIRED). Buyers with a deep history
   // want to see "did order #12 ever fill?" without scrolling past 30
@@ -480,9 +516,16 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   }, [picked?.id, maxPrice]);
 
   const load = useCallback(async () => {
-    const { items, total } = await fetchBuyOrdersWithTotal();
-    setOrders(items);
-    setOrdersTotal(total);
+    setOrdersErr(false);
+    try {
+      const { items, total } = await fetchBuyOrdersWithTotal();
+      setOrders(items);
+      setOrdersTotal(total);
+    } catch (_) {
+      // Network / 5xx — flag so the render swaps the infinite skeleton
+      // for an error panel whose Retry button re-runs this load().
+      setOrdersErr(true);
+    }
   }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
@@ -497,6 +540,12 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
         items.push(l.item);
       });
       setPool(items);
+    }).catch(() => {
+      // Audit fix — without a .catch() a rejected listings fetch left
+      // the autocomplete pool permanently empty with no feedback, so
+      // the picker read as "No matches." for every query. Flag it so
+      // the picker shows a "couldn't load items" hint instead.
+      setPoolErr(true);
     });
   }, []);
 
@@ -620,7 +669,10 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
         }),
         h('div', { className: 'buyorder-picker' },
           filteredPool.length === 0
-            ? h('div', { style: { padding: 12, fontSize: 12, color: 'var(--text-muted)' } }, 'No matches.')
+            ? h('div', { style: { padding: 12, fontSize: 12, color: poolErr ? 'var(--red)' : 'var(--text-muted)' } },
+                poolErr
+                  ? "Couldn't load items — check your connection and reopen this form."
+                  : 'No matches.')
             : filteredPool.map(it => h('div', {
                 key: it.id, className: 'buyorder-picker-row',
                 onClick: () => { setPicked(it); setMaxPrice((parseFloat(it.lowestPrice || 0) * 0.9).toFixed(2)); },
@@ -734,7 +786,19 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       )
     ),
 
-    orders === null
+    ordersErr
+      /* Audit fix — fetchBuyOrdersWithTotal() rejected. Without this
+         branch `orders` stayed null and the skeleton below shimmered
+         forever. Surface a real error with a Retry that re-runs load(). */
+      ? h('div', { className: 'empty-inline', style: { padding: '32px 16px' }, role: 'alert' },
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            "Couldn't load buy orders"),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 16px' } },
+            'Your buy orders failed to load. Check your connection and try again.'),
+          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry')
+        )
+      : orders === null
       /* Boss QA cycle 11 micro-polish — was a centered .spinner pulse,
          leaving the modal as a single dot for the entire wait. Replaced
          with a 4-row .buyorder-row shimmer skeleton that mirrors the
@@ -872,6 +936,14 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
 export function LoadoutLabModal({ onClose, me, loadoutId }) {
   const [tab, setTab]         = useState('discover'); // discover | mine | view
   const [list, setList]       = useState(null);
+  // Audit fix — `load()` did `setList(null)` then awaited
+  // fetchPublicLoadouts/fetchMyLoadouts with no catch, so a rejected
+  // fetch left `list` at `null` and the spinner spun forever. `listErr`
+  // flips on a throw so the list region shows an error + Retry.
+  // `poolErr` does the same for the slot-picker item pool whose
+  // .then() had no .catch().
+  const [listErr, setListErr] = useState(false);
+  const [poolErr, setPoolErr] = useState(false);
   // Batch 973 — debounced search. `searchInput` tracks the visible
   // field; a 300ms setTimeout copies it to `search`, which is the
   // only value that actually triggers the /api/loadouts/discover fetch.
@@ -914,6 +986,12 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     if (!loadoutId) return;
     let alive = true;
     (async () => {
+     // Audit fix — the first fetchLoadout() below was un-caught: a
+     // network reject escaped this IIFE and left `viewing` at null,
+     // spinning forever. Wrap the whole body so any throw falls
+     // through to the __notFound sentinel, which renders a friendly
+     // panel with a "Browse public loadouts" escape.
+     try {
       const data = await fetchLoadout(loadoutId);
       if (!alive) return;
       if (data) {
@@ -957,17 +1035,30 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       } catch (_) {}
       setViewing({ __notFound: true });
       setTab('view');
+     } catch (_) {
+      // Audit fix — any un-handled reject above (first fetchLoadout)
+      // lands here. Show the same friendly not-found panel instead of
+      // leaving `viewing` null and the modal spinning forever.
+      if (alive) { setViewing({ __notFound: true }); setTab('view'); }
+     }
     })();
     return () => { alive = false; };
   }, [loadoutId]);
 
   const load = useCallback(async () => {
     setList(null);
-    if (tab === 'discover') setList(await fetchPublicLoadouts(search));
-    else if (tab === 'mine' && me) setList(await fetchMyLoadouts());
-    else if (tab === 'favorites' && me) {
-      const { fetchFavoriteLoadouts } = await import('./api.js');
-      setList(await fetchFavoriteLoadouts());
+    setListErr(false);
+    try {
+      if (tab === 'discover') setList(await fetchPublicLoadouts(search));
+      else if (tab === 'mine' && me) setList(await fetchMyLoadouts());
+      else if (tab === 'favorites' && me) {
+        const { fetchFavoriteLoadouts } = await import('./api.js');
+        setList(await fetchFavoriteLoadouts());
+      }
+    } catch (_) {
+      // Network / 5xx — flag so the list region swaps the infinite
+      // spinner for an error panel whose Retry re-runs this load().
+      setListErr(true);
     }
   }, [tab, search, me]);
   useEffect(() => { load(); }, [load]);
@@ -983,6 +1074,11 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
         items.push(l.item);
       });
       setAllItems(items);
+    }).catch(() => {
+      // Audit fix — without a .catch() a rejected listings fetch left
+      // the slot picker's item pool permanently empty with no feedback.
+      // Flag it so SlotPicker shows a "couldn't load items" hint.
+      setPoolErr(true);
     });
   }, []);
 
@@ -1450,7 +1546,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                 )
               : h('div', { className: 'loadout-slot-empty' },
                   isOwner
-                    ? h(SlotPicker, { slot: slotName, allItems, onPick: (id) => handleSlot(slotName, id) })
+                    ? h(SlotPicker, { slot: slotName, allItems, poolErr, onPick: (id) => handleSlot(slotName, id) })
                     : h('span', { style: { color: 'var(--text-muted)', fontSize: 11 } }, 'empty')
                 )
           );
@@ -1512,7 +1608,18 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     // Wrap the result-region ternary so the role=tab buttons above can
     // resolve their aria-controls="loadout-results" pointer (WCAG 4.1.2).
     h('div', { id: 'loadout-results' },
-    list === null
+    listErr
+      /* Audit fix — fetchPublicLoadouts/fetchMyLoadouts rejected. Without
+         this branch `list` stayed null and the spinner below spun
+         forever. Surface an error with a Retry that re-runs load(). */
+      ? h('div', { className: 'empty-inline', role: 'alert' },
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            "Couldn't load loadouts"),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
+            'This list failed to load. Check your connection and try again.'),
+          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry'))
+      : list === null
       ? h('div', { className: 'spinner' })
       : list.length === 0
         ? (() => {
@@ -1683,7 +1790,7 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   );
 }
 
-function SlotPicker({ slot, allItems, onPick }) {
+function SlotPicker({ slot, allItems, poolErr, onPick }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const filtered = useMemo(() => {
@@ -1699,6 +1806,15 @@ function SlotPicker({ slot, allItems, onPick }) {
   return h('div', { className: 'loadout-picker' },
     h('input', { className: 'price-input', autoFocus: true, 'aria-label': 'Filter loadouts', placeholder: 'Filter…', value: q, onChange: e => setQ(e.target.value), style: { width: '100%', marginBottom: 6 } }),
     h('div', { className: 'loadout-picker-list' },
+      // Audit fix — when the catalogue pool fetch failed, `allItems` is
+      // empty for every slot. Without a hint the list rendered blank and
+      // read as "no items exist". Surface the load failure instead.
+      filtered.length === 0 && h('div', {
+        style: { padding: 10, fontSize: 11, color: poolErr ? 'var(--red)' : 'var(--text-muted)' }
+      },
+        poolErr
+          ? "Couldn't load items — check your connection and reopen the loadout."
+          : 'No items match.'),
       filtered.map(it => h('div', {
         key: it.id, className: 'loadout-picker-item',
         onClick: () => { onPick(it.id); setOpen(false); },
@@ -1731,7 +1847,24 @@ export function NotificationsModal({ onClose, me }) {
   const [filter, setFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const load = useCallback(async () => { setData(await fetchNotifications()); }, []);
+  // Audit fix — `load()` had no try/catch, and `data` starts as an
+  // empty {items:[],unread:0}, so a rejected fetchNotifications() left
+  // the modal showing the "You're all caught up / Quiet so far" empty
+  // state — a failure disguised as success. `loading` gates a spinner
+  // on first load; `loadErr` flips on a throw so the render shows an
+  // error + Retry instead of the deceptive empty state.
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState(false);
+  const load = useCallback(async () => {
+    setLoadErr(false);
+    try {
+      setData(await fetchNotifications());
+    } catch (_) {
+      setLoadErr(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   useEffect(() => { if (me) load(); }, [me, load]);
 
   // Batch 635 — filter-aware "Mark all read". When the user has
@@ -1971,7 +2104,23 @@ export function NotificationsModal({ onClose, me }) {
         }, `${opt.label} · ${c}`);
       })
     ),
-    count === 0
+    loadErr
+      /* Audit fix — fetchNotifications() rejected. Without this branch
+         the empty `data` fell through to the "all caught up / Quiet so
+         far" empty state, so a failure read as success. Show a real
+         error with a Retry that re-runs load(). */
+      ? h('div', { className: 'empty-inline', role: 'alert' },
+          h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'error_outline', size: 26 })),
+          h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
+            "Couldn't load notifications"),
+          h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 14px' } },
+            'Your notification feed failed to load. Check your connection and try again.'),
+          h('button', { className: 'btn btn-accent', onClick: () => load() }, 'Retry'))
+      : (loading && count === 0)
+      /* First load still in flight — show a spinner instead of briefly
+         flashing the "Quiet so far" empty state before data lands. */
+      ? h('div', { className: 'spinner' })
+      : count === 0
       ? (() => {
           // Batch 916 — distinguish "never had a notification" from
           // "filter narrowed to zero". The unfiltered-zero state on
