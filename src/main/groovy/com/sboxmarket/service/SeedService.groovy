@@ -218,13 +218,14 @@ class SeedService {
             }
             def slotsList = ['Hats','Jackets','Shirts','Pants','Gloves','Boots','Accessories','Wild']
             // Curated names so Discover doesn't read like a Lorem-Ipsum dump.
-            // Each fixture has an explicit `tier` 0..4 used as the base index
-            // into per-category steamPrice-sorted pools. Combined with a
-            // per-slot offset this produces 5 visually distinct loadouts
-            // instead of all picking the cheapest item per slot (the prior
-            // bug shipped 5 identical $11.85 loadouts on Discover).
+            // Each fixture has an explicit `tier`. The tier anchors the fixture
+            // to a price rank in every per-category price-sorted pool, so the 5
+            // loadouts come out visually distinct AND ordered by total value
+            // (tier 0 cheapest, highest tier priciest). The prior bug shipped
+            // 5 identical loadouts because every slot took its category's
+            // cheapest item.
             def fixtures = [
-                [name: 'Cardboard Connoisseur', desc: 'Budget-tier brown-aesthetic build, under $30 total.',                  owner: 'CardKing',    tier: 0],
+                [name: 'Cardboard Connoisseur', desc: 'Budget-tier brown-aesthetic build - the cheapest curated set.',         owner: 'CardKing',    tier: 0],
                 [name: 'Cybernetic Drifter',    desc: 'Sci-fi loadout - neon helmet, polymer plates, glow accents.',           owner: 'NeonArc',     tier: 4],
                 [name: 'Plague Doctor',         desc: 'Victorian-noir set - long coat, beak mask, leather gloves.',            owner: 'BoneTender',  tier: 3],
                 [name: 'WW1 Trench Soldier',    desc: 'Period-correct kit pulling from the WW1 collection.',                   owner: 'TrenchVet',   tier: 2],
@@ -313,6 +314,8 @@ class SeedService {
                 return pb.compareTo(pa)
             }
             long now = System.currentTimeMillis()
+            // Highest tier among the fixtures — normalises the tier->rank map.
+            int maxTier = Math.max(1, fixtures.collect { ((it.tier ?: 0) as Integer) }.max())
             fixtures.eachWithIndex { fx, fxIdx ->
                 def loadout = new Loadout(
                     ownerUserId: -100L - fxIdx,  // synthetic owner ids, never collide with real Steam ids
@@ -327,21 +330,22 @@ class SeedService {
                 loadoutRepository.save(loadout)
                 BigDecimal total = BigDecimal.ZERO
                 int tier = (fx.tier as Integer) ?: 0
-                slotsList.eachWithIndex { slotName, slotIdx ->
+                slotsList.each { slotName ->
                     def slot = new LoadoutSlot(loadoutId: loadout.id, slot: slotName)
                     def pool = (slotName == 'Wild') ? wildPool : (byCat[slotName] ?: [])
                     def pick = null
                     if (!pool.isEmpty()) {
-                        // Diversification: each fixture's `tier` (0..4) plus a
-                        // per-slot offset addresses a different rank in the
-                        // category pool. Modulo wraps so small categories
-                        // (e.g. Boots with 2 items) still resolve, while
-                        // larger categories (Accessories, 7 items) get full
-                        // spread. Result: no two fixtures pick the same item
-                        // for the same slot unless the category has fewer
-                        // items than fixtures.
-                        int idx = (tier + slotIdx) % pool.size()
-                        pick = pool[idx]
+                        // Diversification: the fixture's `tier` anchors it to a
+                        // price rank in the DESC-sorted category pool — tier 0 to
+                        // the cheap end (last index), tier maxTier to the premium
+                        // end (index 0). Every slot of one loadout takes the same
+                        // rank but from a different category pool, so its 8 items
+                        // are still all distinct, and loadout totals come out
+                        // ordered by tier. Two fixtures only collide on a slot
+                        // when that category holds fewer items than the tier span.
+                        int n = pool.size()
+                        int idx = (int) Math.round((double) (maxTier - tier) / maxTier * (n - 1))
+                        pick = pool[Math.max(0, Math.min(n - 1, idx))]
                     }
                     if (pick != null) {
                         BigDecimal effective = (pick.lowestPrice && pick.lowestPrice > BigDecimal.ZERO)
