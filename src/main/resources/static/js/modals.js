@@ -76,14 +76,22 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // or seller has no other active items (batch 312).
   const [otherFromSeller, setOtherFromSeller] = useState(null);
   // Pull the offer thread for the cheapest listing so buyers can see any
-  // existing counter conversation before they bargain themselves.
+  // existing counter conversation before they bargain themselves. The
+  // `alive` guard prevents a stale fetch from an earlier item/listing
+  // resolving last and painting the wrong thread when the user navigates
+  // between /item/:id pages quickly — same pattern as the velocity /
+  // recent-sales / buy-order effects below.
   useEffect(() => {
     if (!listings[0]) return;
-    fetchOfferThread(listings[0].id).then(setThread);
+    let alive = true;
+    fetchOfferThread(listings[0].id).then(t => { if (alive) setThread(t); });
+    return () => { alive = false; };
   }, [listings[0]?.id]);
   useEffect(() => {
     if (!item) return;
-    fetchSimilar(item.id).then(setSimilar);
+    let alive = true;
+    fetchSimilar(item.id).then(s => { if (alive) setSimilar(s); });
+    return () => { alive = false; };
   }, [item?.id]);
   // Report-listing drawer state. `reportTarget` holds the listing the user
   // clicked 🚩 on; null = drawer closed. Reasons whitelist is fetched once on

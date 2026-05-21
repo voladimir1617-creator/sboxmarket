@@ -27,6 +27,21 @@ import org.springframework.web.filter.OncePerRequestFilter
  *
  * Ordered after RateLimitFilter (1) / BodySizeLimitFilter (2) / CsrfFilter
  * (3) so a CSRF-rejected write never reaches the DB lookup.
+ *
+ * API-key requests are exempt. ApiKeyAuthFilter (Order 2) authenticates a
+ * `Bearer sbx_live_…` request by creating a session and stamping it with
+ * SESSION_USER_ID — but NOT with SESSION_EPOCH, because the bearer token
+ * is its own auth factor and has its own kill switch (revoke / revoke-all
+ * in ApiKeyService, enforced by the `key.revoked` check in
+ * authenticateWithScope). The "log out everywhere" epoch governs browser
+ * sessions only; the two kill switches are deliberately decoupled (see
+ * ApiKeyService.revokeAll — the Sign-Out-Everywhere API-key sibling).
+ * Without this exemption an API-key request carries a null stashed epoch,
+ * so once the owning user has EVER used logout-all (which sets the live
+ * epoch to a wall-clock millis value) every `(null ?: 0L) < live` check
+ * trips and permanently 401s every otherwise-valid API key. The
+ * `sbox.apiAuth` request attribute is set server-side by ApiKeyAuthFilter
+ * only — a client cannot forge it — so honouring it here is safe.
  */
 @Component
 @Order(4)
@@ -47,6 +62,15 @@ class SessionEpochFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse resp, FilterChain chain) {
         def path = req.requestURI ?: ''
         if (!path.startsWith('/api/') || SKIP_PREFIXES.any { path.startsWith(it) }) {
+            chain.doFilter(req, resp)
+            return
+        }
+        // API-key-authenticated requests carry no browser-session epoch and
+        // are governed by API-key revocation instead — skip the epoch check
+        // (see the class Javadoc). The attribute is set server-side by
+        // ApiKeyAuthFilter (Order 2, runs before this filter) and cannot be
+        // forged by a client.
+        if (Boolean.TRUE == req.getAttribute('sbox.apiAuth')) {
             chain.doFilter(req, resp)
             return
         }
