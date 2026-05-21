@@ -197648,3 +197648,54 @@ html body .grid-card:focus-visible {
   border-color: rgba(193, 206, 255, 0.07) !important;
 }
 /* END GRID-CARD STRAY WHITE BORDER FIX */
+
+/* ---------------------------------------------------------------------
+   GRID-CARD PRICE FOCAL-SIZE RESTORE (2026-05-20) — csfloat-1:1 parity.
+
+   Concrete divergence: on csfloat's marketplace, the listing-card price
+   is unambiguously the loudest element on the card — visibly larger
+   than every other line, the eye lands on it first. On sboxmarket's
+   grid cards the price was reading as a near-peer of the item name
+   instead of the clear focal point.
+
+   Root cause — two parity blocks in this file contradict each other:
+     • ship #38 (line ~122801) documents csfloat's MEASURED card price
+       as `font-size: 22px; font-weight: 500;` and states verbatim
+       "The price is the loudest element on the card and was visibly
+       dwarfed vs csfloat." Selector `.grid-card .grid-price` (0,2,0).
+     • ship #127883 (line ~181953) later re-pinned the price to
+       `font-size: 18px` via the HIGHER-specificity selector
+       `.grid-card .grid-footer .grid-price` (0,3,1) — its block
+       comment claims "price 18/500" but that mis-measures csfloat
+       (likely a secondary/sub price element, not the card's main
+       `.price`). Being both higher-specificity AND later in source,
+       #127883 wins, silently regressing the price 4px below the
+       value #38 had explicitly corrected it to.
+
+   Verified live via getComputedStyle on /market: `.grid-price`
+   resolves to 18px/500 white, while the sibling `.grid-name` is
+   16px/500 white — only a 2px gap and identical weight, so the
+   price fails to dominate.
+
+   Fix: restore csfloat's measured 22px (ship #38's value). Keep
+   font-weight 500 — csfloat's card price is large+medium, NOT bold,
+   so weight is unchanged; the SIZE jump is what re-establishes it as
+   the focal point. line-height set to `normal` (ship #38's measured
+   value, ~25px at 22px) so the larger glyphs get correct breathing
+   room. tabular-nums + Roboto carried over from #127883 so digit
+   alignment and family are untouched. The card is min-height
+   403.625px with overflow:hidden and the footer is a flex column —
+   a 4px-taller price line sits comfortably inside that envelope.
+
+   Selector `html body .grid-card .grid-footer .grid-price` is
+   specificity (0,4,2) — outranks ship #127883's `.grid-card
+   .grid-footer .grid-price` (0,3,1) — and this block is last in the
+   file so source order wins too. Accent hue untouched (price stays
+   csfloat's white card-price; the green Steam-saving badge and the
+   blue CTA accent are deliberately left as-is). */
+html body .grid-card .grid-footer .grid-price {
+  font-size: 22px !important;
+  font-weight: 500 !important;
+  line-height: normal !important;
+}
+/* END GRID-CARD PRICE FOCAL-SIZE RESTORE */

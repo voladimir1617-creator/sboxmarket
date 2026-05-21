@@ -297,6 +297,39 @@ class BidServiceSpec extends Specification {
         1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, _, _)
     }
 
+    def "placeBid AUTO bid that already clears the prior cap: no bot raise, no extra row"() {
+        // Branch B no-raise sub-case. A (MANUAL) leads at $20. B places an
+        // AUTO bid amount=$30 cap=$50. aMax = $20 (A's amount). B's submitted
+        // amount ($30) already exceeds aMax + INC ($20.05), so the bot has
+        // nothing to do — B's own bid stands and only ONE Bid row is saved.
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
+                               amount: new BigDecimal('20'), kind: 'MANUAL', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [existing]
+        def saved = []
+        bidRepository.save(_) >> { Bid b -> b.id = (700L + saved.size()); saved << b; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'B', 100L, new BigDecimal('30'), new BigDecimal('50'))
+
+        then:
+        // B wins at their submitted amount — the bot did not re-raise.
+        listing.currentBid == new BigDecimal('30')
+        listing.currentBidderId == 10L
+        result.amount == new BigDecimal('30')
+        result.kind == 'AUTO'
+        // Exactly one Bid row saved — no bot row.
+        saved.size() == 1
+        // A's prior WINNING row is still demoted to OUTBID.
+        existing.status == 'OUTBID'
+        // A gets the plain outbid push.
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, _)
+    }
+
     def "placeBid extends expiresAt when bid lands inside the 30s anti-snipe window"() {
         given:
         def now = System.currentTimeMillis()
@@ -640,6 +673,146 @@ class BidServiceSpec extends Specification {
         then:
         def e = thrown(BadRequestException)
         e.code == 'NO_BUY_NOW'
+    }
+
+    def "buyNowAuction rejects a non-AUCTION listing with NOT_AUCTION"() {
+        given:
+        listingRepository.findById(100L) >> Optional.of(buyNowListing(type: 'BUY_NOW'))
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'NOT_AUCTION'
+    }
+
+    def "buyNowAuction rejects a hidden auction with NOT_ACTIVE"() {
+        given:
+        def hidden = buyNowListing()
+        hidden.hidden = true
+        listingRepository.findById(100L) >> Optional.of(hidden)
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'NOT_ACTIVE'
+    }
+
+    def "buyNowAuction rejects an already-expired auction with EXPIRED"() {
+        given:
+        listingRepository.findById(100L) >> Optional.of(
+            buyNowListing(expiresAt: System.currentTimeMillis() - 1000L))
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'EXPIRED'
+    }
+
+    def "buyNowAuction forbids the seller buying out their own auction"() {
+        given:
+        listingRepository.findById(100L) >> Optional.of(buyNowListing(seller: 10L))
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "buyNowAuction rejects a buyer who can't afford the Buy Now price"() {
+        given:
+        listingRepository.findById(100L) >> Optional.of(
+            buyNowListing(buyNowPrice: new BigDecimal('50')))
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10'))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('5.00'))
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INSUFFICIENT_BALANCE'
+        0 * bidRepository.saveAll(_)
+    }
+
+    def "buyNowAuction settles to the buyer and flips losing bidders to LOST"() {
+        // Happy path: an auction with one losing bidder gets bought out.
+        // settle() must mark the listing SOLD to the buyer at buyNowPrice,
+        // debit the buyer's wallet, and the losing bidder's row must end LOST.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        def loserBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L,
+            bidderName: 'Bob', amount: new BigDecimal('20'), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [loserBid]
+        // Buyer wallet covers the Buy Now price.
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        // Seller-side wiring for settle's fee/credit path.
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        def result = service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        result.status == 'SOLD'
+        result.buyerUserId == 10L
+        result.currentBid == new BigDecimal('50')
+        // The losing bidder's row is terminated.
+        loserBid.status == 'LOST'
+        // The displaced bidder is told it was a Buy Now, not an outbid.
+        1 * notificationService.push(7L, 'AUCTION_LOST', _, _, 100L, _)
+    }
+
+    def "buyNowAuction leaves the buyer's own prior bid live so settle awards it WON (not LOST)"() {
+        // A buyer who bid earlier and then hits Buy Now actually WINS the
+        // item — their own bid row must NOT be branded LOST. settle()'s
+        // happy path resolves the buyer's highest non-terminal row to WON.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('20'), currentBidderId: 10L, bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        // The buyer (user 10) has an earlier bid on this same auction.
+        def buyerOwnBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 10L,
+            bidderName: 'Alice', amount: new BigDecimal('20'), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [buyerOwnBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        def result = service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        result.status == 'SOLD'
+        result.buyerUserId == 10L
+        // The buyer's own row is WON — never LOST.
+        buyerOwnBid.status == 'WON'
     }
 
     // ── cancelAutoBid ──────────────────────────────────────────────
@@ -1271,5 +1444,85 @@ class BidServiceSpec extends Specification {
         listing.buyerUserId == 10L
         // Loser gets exactly one AUCTION_LOST push.
         1 * notificationService.push(20L, 'AUCTION_LOST', _, _, 100L, _)
+    }
+
+    def "settle returns a no-bid auction to the seller's inventory"() {
+        // An auction whose timer runs out with zero bids must flip to SOLD
+        // with buyerUserId = sellerUserId so the item lands back in the
+        // seller's inventory (findOwnedBy) and they can relist it.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(id: 100L, seller: 99L, expiresAt: now - 1000L)
+        // No currentBidderId → the no-bids branch.
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        listing.status == 'SOLD'
+        listing.buyerUserId == 99L
+        listing.soldAt != null
+        // Seller is told the auction expired with no bids.
+        1 * notificationService.push(99L, 'AUCTION_EXPIRED_NO_BIDS', _, _, 100L, _)
+        // No trade / wallet movement on a no-bid expiry.
+        0 * walletRepository.save(_)
+    }
+
+    def "sweepExpired keeps going when one auction's settle throws"() {
+        // The sweeper closes a batch of expired auctions on each tick; a
+        // failure settling one must not abort the rest of the batch.
+        given:
+        def now = System.currentTimeMillis()
+        def good = auctionListing(id: 100L, seller: 99L, expiresAt: now - 1000L)
+        def bad  = auctionListing(id: 200L, seller: 99L, expiresAt: now - 1000L)
+        // `bad` is processed first and blows up; `good` must still settle.
+        listingRepository.findExpiredAuctions(_) >> [bad, good]
+        listingRepository.save({ Listing l -> l.id == 200L }) >> {
+            throw new RuntimeException('DB write failed')
+        }
+        listingRepository.save({ Listing l -> l.id == 100L }) >> { Listing l -> l }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        // The healthy auction still closed despite the sibling failure.
+        good.status == 'SOLD'
+        noExceptionThrown()
+    }
+
+    // ── cancelAllAutoBidsForUser ───────────────────────────────────
+
+    def "cancelAllAutoBidsForUser clears every active auto-raise the user owns"() {
+        given:
+        def a = new Bid(id: 1L, bidderUserId: 10L, kind: 'AUTO', status: 'WINNING',
+            maxAmount: new BigDecimal('50'))
+        def b = new Bid(id: 2L, bidderUserId: 10L, kind: 'AUTO', status: 'WINNING',
+            maxAmount: new BigDecimal('80'))
+        bidRepository.findActiveAutoBidsForUser(10L) >> [a, b]
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+
+        when:
+        def n = service.cancelAllAutoBidsForUser(10L)
+
+        then:
+        n == 2
+        a.maxAmount == null && a.kind == 'MANUAL'
+        b.maxAmount == null && b.kind == 'MANUAL'
+        1 * bidRepository.saveAll(_)
+    }
+
+    def "cancelAllAutoBidsForUser is a no-op when the user has no active auto-bids"() {
+        given:
+        bidRepository.findActiveAutoBidsForUser(10L) >> []
+
+        when:
+        def n = service.cancelAllAutoBidsForUser(10L)
+
+        then:
+        n == 0
+        0 * bidRepository.saveAll(_)
     }
 }

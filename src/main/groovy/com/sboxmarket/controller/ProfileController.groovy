@@ -396,6 +396,19 @@ class ProfileController {
         if (!EMAIL_RE.matcher(emailRaw).matches()) {
             throw new BadRequestException("INVALID_EMAIL", "Please enter a valid email address")
         }
+        // Refuse while a 2FA enrollment is staged in the overloaded
+        // emailVerificationToken column. Writing the fresh random email
+        // token here would clobber "totp_pending:<secret>" and strand the
+        // user mid-enrollment — /2fa/confirm would then throw NOT_ENROLLING
+        // even though the authenticator app still holds the staged entry.
+        // This mirrors the identical guards on /email/resend, /email/verify
+        // and (inverse) /2fa/enroll; PUT /email is the fourth writer of the
+        // overloaded column and needs the same protection. Finish or cancel
+        // 2FA setup (POST /2fa/cancel) before changing the email.
+        if (user.emailVerificationToken?.startsWith('totp_pending:')) {
+            throw new BadRequestException('TWOFA_IN_PROGRESS',
+                "Finish or cancel two-factor setup before changing your email address.")
+        }
         // Email-uniqueness check (batch 477). Refuse when another account
         // already owns this email — closes the multi-account vector
         // (chargeback evasion, spam ticket flood, password-reset fishing).

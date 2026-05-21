@@ -64,6 +64,47 @@
   <meta name="color-scheme" content="dark">
   <meta name="format-detection" content="telephone=no">
   <meta name="robots" content="index, follow">
+  <!-- JSON-LD structured data for the marketplace home. Two graphs:
+       (1) Organization — gives Google a knowledge-panel anchor (logo,
+       name, canonical URL) so brand searches for "SkinBox" resolve to
+       this site. (2) WebSite + SearchAction — declares the site's
+       internal search endpoint so Google can render a sitelinks
+       search box directly in the results page. The `urlTemplate`
+       points at /market?q= (the canonical marketplace route, same as
+       the OpenSearch descriptor) with `{search_term_string}` as the
+       query placeholder. OpenGraphController injects route-specific
+       JSON-LD (Product / Store / CreativeWork / FAQPage) on the deep
+       pages — this block is the site-wide default the home page ships. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://skinbox.market/#organization",
+        "name": "SkinBox",
+        "url": "https://skinbox.market/",
+        "logo": "https://skinbox.market/img/favicon-512.png",
+        "description": "Peer-to-peer marketplace for s&box cosmetic skins — Workshop items, hats, and clothing with escrowed Stripe checkout and 2% fees."
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://skinbox.market/#website",
+        "name": "SkinBox",
+        "url": "https://skinbox.market/",
+        "publisher": { "@id": "https://skinbox.market/#organization" },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://skinbox.market/market?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://unpkg.com">

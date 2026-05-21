@@ -137,7 +137,11 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
       // Mirrors csfloat's "👁 3" overlay. Hidden when no watchers so
       // empty state doesn't render a "0" chip.
       watcherCount > 0 && h('div', { className: 'grid-views', title: `${watcherCount} watching` },
-        h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+        // a11y: the eye glyph is decorative — the watcher count is already
+        // conveyed by the adjacent number + the chip's `title`. Without
+        // aria-hidden the SVG announces as an unnamed graphic (matches the
+        // grid-zoom / grid-status-verified SVG treatment).
+        h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
           h('path', { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
           h('circle', { cx: 12, cy: 12, r: 3 })
         ),

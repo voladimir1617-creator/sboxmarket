@@ -589,15 +589,18 @@ class BidService {
                 losingBidders.add(b.bidderUserId as Long)
             }
         }
-        // Flip every existing bid to LOST — buy-now closes the auction
-        // so nobody else wins. Buyer's own prior bids (unlikely path but
-        // possible if they previously bid AND used Buy Now) are also
-        // flipped; settle() would replace currentBidderId anyway and the
-        // buyer's charge is at buyNowPrice, not their old bid.
-        existingBids.each { b ->
-            if (b.status in ['WINNING', 'OUTBID']) b.status = 'LOST'
+        // Flip every *losing* bidder's live bid to LOST — buy-now closes
+        // the auction so nobody else wins. The buyer's OWN prior bids
+        // (unlikely path, but possible if they bid earlier AND then used
+        // Buy Now) are deliberately left untouched: settle()'s happy path
+        // resolves the buyer's highest non-terminal row to WON, the rest
+        // to OUTBID. Flipping them to LOST here would brand the buyer's
+        // history as a loss on an auction they actually won.
+        def buyNowRowsToSave = existingBids.findAll {
+            it.bidderUserId != buyerUserId && it.status in ['WINNING', 'OUTBID']
         }
-        if (!existingBids.isEmpty()) bidRepository.saveAll(existingBids)
+        buyNowRowsToSave.each { it.status = 'LOST' }
+        if (!buyNowRowsToSave.isEmpty()) bidRepository.saveAll(buyNowRowsToSave)
 
         // Override the listing so settle() awards it to the buyer at
         // buyNowPrice with immediate expiry.
