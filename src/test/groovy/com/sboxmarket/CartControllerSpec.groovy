@@ -645,6 +645,82 @@ class CartControllerSpec extends Specification {
         resp.body.successful == 1
     }
 
+    def "a PRICE_CHANGED row is NOT scrubbed from the cart — the buyer can refresh and retry"() {
+        given:
+        def cartService = Mock(CartService)
+        def ctrl = controllerWithCart(cartService)
+        def req = reqFor(10L)
+        steamUserRepository.findById(10L) >> Optional.of(user())
+        walletRepository.findByUsername('steam_111') >> wallet()
+        // Listing 1's price moved — the row fails PRICE_CHANGED before buy().
+        listingRepository.findById(1L) >> Optional.of(
+            new com.sboxmarket.model.Listing(id: 1L, price: new BigDecimal('12.00')))
+
+        when:
+        def resp = ctrl.checkout([
+            listingIds: [1L],
+            expectedPrices: ['1': '10.00']
+        ], req)
+
+        then:
+        // buy() never ran, and the row stays in the cart so the buyer can
+        // re-confirm at the new price — scrubbing it would silently drop a
+        // listing the buyer still wants.
+        0 * purchaseService.buy(_, _, _)
+        0 * cartService.remove(_, _)
+        resp.body.results[0].code == 'PRICE_CHANGED'
+    }
+
+    def "a duplicate listing id checked out twice scrubs the cart exactly once"() {
+        given:
+        def cartService = Mock(CartService)
+        def ctrl = controllerWithCart(cartService)
+        def req = reqFor(10L)
+        steamUserRepository.findById(10L) >> Optional.of(user())
+        walletRepository.findByUsername('steam_111') >> wallet()
+        // First buy of listing 1 succeeds; the second sees it already SOLD.
+        def soldAlready = false
+
+        when:
+        def resp = ctrl.checkout([listingIds: [1L, 1L]], req)
+
+        then:
+        2 * purchaseService.buy(500L, 10L, 1L) >> {
+            if (soldAlready) throw new ListingNotAvailableException(1L)
+            soldAlready = true
+            [newBalance: new BigDecimal('490'),
+             listing:    new com.sboxmarket.model.Listing(price: new BigDecimal('10'))]
+        }
+        // Only the OK row triggers a scrub — the FAILED duplicate row does
+        // not, so remove() runs exactly once even though the id appears
+        // twice in the payload.
+        1 * cartService.remove(10L, 1L)
+        resp.body.successful == 1
+        resp.body.failed == 1
+    }
+
+    def "the post-checkout scrub is scoped to the calling user's id"() {
+        given:
+        def cartService = Mock(CartService)
+        def ctrl = controllerWithCart(cartService)
+        // Caller is user 77, not the default 10 — the scrub must target 77.
+        def req = reqFor(77L)
+        steamUserRepository.findById(77L) >> Optional.of(user(77L))
+        walletRepository.findByUsername('steam_111') >> wallet()
+        purchaseService.buy(500L, 77L, 1L) >> [
+            newBalance: new BigDecimal('490'),
+            listing:    new com.sboxmarket.model.Listing(price: new BigDecimal('10'))
+        ]
+
+        when:
+        ctrl.checkout([listingIds: [1L]], req)
+
+        then:
+        // The scrub removes from user 77's cart — never a cross-user wipe.
+        1 * cartService.remove(77L, 1L)
+        0 * cartService.remove({ it != 77L }, _)
+    }
+
     // ── cart persistence endpoints: list ─────────────────────────────
 
     def "GET cart returns the service list"() {

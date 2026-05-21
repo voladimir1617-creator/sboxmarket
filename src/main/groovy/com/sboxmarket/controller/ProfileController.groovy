@@ -759,6 +759,26 @@ class ProfileController {
     }
 
     /**
+     * Coerce a JSON `enabled` field to a real boolean. A bare Groovy
+     * `value as Boolean` is unsafe here: Jackson maps an untyped Map's
+     * JSON string to a `String`, and Groovy-truth makes EVERY non-empty
+     * string truthy — so `{"enabled":"false"}` would coerce to `true`
+     * and silently RE-ENABLE notifications a user was trying to mute.
+     * Handle the real `Boolean` and the string-encoded forms explicitly;
+     * anything else is a 400. Mirrors SellerFollowController.parseMutedFlag.
+     */
+    private static boolean parseEnabledFlag(Object raw) {
+        if (raw instanceof Boolean) return raw
+        if (raw instanceof String) {
+            def s = raw.trim().toLowerCase()
+            if (s == 'true')  return true
+            if (s == 'false') return false
+        }
+        throw new BadRequestException('INVALID_FIELD',
+            "'enabled' must be a boolean (true/false)")
+    }
+
+    /**
      * Toggle the email-notifications preference. Doesn't affect
      * security/operational emails (verification, password reset).
      * Body: { enabled: boolean }.
@@ -771,7 +791,7 @@ class ProfileController {
         if (body == null || body.enabled == null) {
             throw new BadRequestException('MISSING_FIELD', "'enabled' (boolean) is required")
         }
-        user.emailNotificationsEnabled = (body.enabled as Boolean)
+        user.emailNotificationsEnabled = parseEnabledFlag(body.enabled)
         steamUserRepository.save(user)
         log.info("User ${uid} set emailNotificationsEnabled=${user.emailNotificationsEnabled}")
         ResponseEntity.ok([emailNotificationsEnabled: user.emailNotificationsEnabled])

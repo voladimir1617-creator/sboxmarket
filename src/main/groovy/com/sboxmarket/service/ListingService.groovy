@@ -426,6 +426,18 @@ class ListingService {
                 }
                 user.awayModeUntil = null
                 steamUserRepository.save(user)
+                // Re-compute the denormalised Item.lowestPrice / isListed
+                // for every item these un-hidden listings touch — same
+                // fix as the manual setAwayMode path (batch 306). Without
+                // it, a listing that WAS the public floor before vacation
+                // hid it stays excluded from the catalogue grid price
+                // until some unrelated listing mutation happens to
+                // re-trigger the aggregate. Best-effort per item.
+                def touched = new HashSet<Long>()
+                listings.each { if (it.item?.id != null) touched.add(it.item.id) }
+                touched.each { itemId ->
+                    try { updateItemFloorPrice(itemId) } catch (Exception ignore) {}
+                }
             } catch (Exception e) {
                 log.warn("sweepExpiredAwayMode failed for user ${user.id}: ${e.message}")
             }

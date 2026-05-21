@@ -3602,6 +3602,15 @@ export function App() {
       document.body.classList.remove('mobile-filters-open');
     };
   }, [mobileFiltersOpen]);
+  // 2026-05-20 — close the mobile filter drawer whenever we leave the
+  // marketplace route. The sidebar + drawer only render on /market, so
+  // an open drawer that survived a navigation to /profile (etc.) would
+  // silently re-appear the next time the user returned to /market — a
+  // drawer they never re-opened. Resetting on route change keeps the
+  // open state honest.
+  useEffect(() => {
+    if (routeName !== 'market' && mobileFiltersOpen) setMobileFiltersOpen(false);
+  }, [routeName]);
   const [minPrice, setMinPrice]         = useState(__initialMin);
   const [maxPrice, setMaxPrice]         = useState(__initialMax);
   // Listing-type filter. Three values: 'ALL' | 'BUY_NOW' | 'AUCTION'. We
@@ -3844,6 +3853,23 @@ export function App() {
     if (routeName !== 'stall' || !route.params?.id) {
       setStallData(null); setStallReviews(null); setEligibleTrades([]); setStallSold([]); return;
     }
+    // 2026-05-20 — reset per-stall ephemeral UI state on every stall id
+    // change. Without this, navigating from stall A (filtered to e.g.
+    // "Limited" rarity, or with a name search typed, or with the listing
+    // sort / reviews strip changed) to stall B carried that state over —
+    // stall B showed "No listings match this filter" even though it had
+    // inventory, or a half-typed review form from stall A's trade
+    // lingered. stallReviewSort is the one exception: it is localStorage-
+    // backed (an explicit cross-stall user preference) so it is NOT reset.
+    setStallRarity('All');
+    setStallSort('price_asc');
+    setStallSearch('');
+    setStallStarFilter(0);
+    setStallReviewsExpanded(false);
+    setStallSoldExpanded(false);
+    setReviewTradeId(null);
+    setReviewText('');
+    setReviewStars(5);
     let alive = true;
     (async () => {
       // Two-phase fetch. Phase 1: probe whether the seller exists. Phase 2
@@ -4828,8 +4854,21 @@ export function App() {
   }, [routeName, search, sort, category, rarity, minPrice, maxPrice,
       minDiscountPct, dealsOnly, newOnly, affordableOnly, listingTypeFilter]);
 
+  // 2026-05-20 — monotonic load generation. Bumped on every fresh
+  // (non-silent) listings fetch so an in-flight loadMore() can detect
+  // that the filter set changed underneath it and abandon its append.
+  // Without this, clicking "Load more" and then immediately changing a
+  // filter let the page-2 response of the OLD filter set get appended
+  // onto the freshly-loaded NEW filter set, corrupting the grid.
+  const loadSeqRef = useRef(0);
   const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    // 2026-05-20 — only a fresh (non-silent) load bumps the generation:
+    // that's a filter change / explicit refresh, the only event that can
+    // invalidate an in-flight loadMore() append or a stale silent poll.
+    // Routine same-filter polls capture the seq but don't advance it, so
+    // a poll firing mid-loadMore doesn't needlessly cancel the append.
+    if (!silent) { setLoading(true); loadSeqRef.current++; }
+    const seqAtStart = loadSeqRef.current;
     try {
       // 'discount' is sorted server-side — ListingController whitelists
       // it. Sending it straight to the backend means page 2 from
@@ -4850,6 +4889,10 @@ export function App() {
         maxPrice: maxPrice || null,
         search:   search   || null
       });
+      // A newer load (filter change / explicit refresh) superseded this
+      // one while the request was in flight — drop the stale response so
+      // the grid keeps the newer filter set's data.
+      if (seqAtStart !== loadSeqRef.current) return;
       // Conservative hasMore — a full 100-item page means there MAY be
       // a second page. Only the "Load more" click can confirm by trying
       // to fetch offset=100 and checking the response.
@@ -4893,6 +4936,10 @@ export function App() {
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
+    // 2026-05-20 — snapshot the load generation so a filter change that
+    // fires a fresh load() while this page-2 fetch is in flight makes us
+    // discard the (now-mismatched) response instead of appending it.
+    const seqAtStart = loadSeqRef.current;
     try {
       const next = await fetchListings({
         sort,
@@ -4905,6 +4952,9 @@ export function App() {
         limit:    100,
         offset:   listings.length
       });
+      // Filters changed mid-flight — load() already replaced `listings`
+      // with the new set. Appending this stale page would corrupt it.
+      if (seqAtStart !== loadSeqRef.current) return;
       if (!Array.isArray(next) || next.length === 0) {
         setHasMore(false);
         return;

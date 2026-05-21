@@ -1714,20 +1714,33 @@ class AdminService {
                 "${listing.item?.name}: ${cleanReason}", listing.id,
                 listing.item?.id != null ? "/item/${listing.item.id}" : '/me/stall')
         }
-        // Pending-offer cleanup — same pattern as SellService.cancelListing
-        // (batch 193). Offer rows whose listing got force-cancelled should
-        // flip to CANCELLED so the buyer's Offers tab reflects reality.
+        // Live-offer cleanup — same pattern as SellService.cancelListing.
+        // Offer rows whose listing got force-cancelled should flip to
+        // CANCELLED so the buyer's Offers tab reflects reality.
+        //
+        // "Live" is PENDING *or* COUNTERED — both are negotiation states
+        // the buyer can still act on. The old findPendingForListing swept
+        // PENDING-only: a COUNTERED buyer original was left dangling (its
+        // child SELLER counter got cancelled but the COUNTERED parent
+        // never reached a terminal state), so the buyer kept seeing a live
+        // offer on a removed listing. findByListingId returns every offer
+        // in one indexed query; we filter to the live pair here. (2026-05-20)
         try {
-            def pending = offerRepository.findPendingForListing(listingId)
+            def live = offerRepository.findByListingId(listingId)
+                .findAll { it.status == 'PENDING' || it.status == 'COUNTERED' }
             def itemName = listing.item?.name ?: 'this item'
             def itemId = listing.item?.id
-            pending.each { o ->
+            live.each { o ->
                 o.status = 'CANCELLED'
                 o.updatedAt = System.currentTimeMillis()
             }
-            if (!pending.isEmpty()) offerRepository.saveAll(pending)
-            pending.each { o ->
-                if (o.buyerUserId == null) return
+            if (!live.isEmpty()) offerRepository.saveAll(live)
+            // Dedup per buyer — a buyer holding both a COUNTERED original
+            // and its PENDING child counter has two rows on this listing
+            // but should get one "offer cancelled" ping, not two.
+            def notified = new HashSet<Long>()
+            live.each { o ->
+                if (o.buyerUserId == null || !notified.add(o.buyerUserId as Long)) return
                 try {
                     notificationService?.push(o.buyerUserId, 'OFFER_REJECTED',
                         "Offer cancelled · ${itemName}",

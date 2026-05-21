@@ -2193,12 +2193,28 @@ function useEscapeToClose(onEscape) {
 
 function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
   useEscapeToClose(onCancel);
-  const [reason, setReason] = useState('Suspicious pricing');
+  // 2026-05-20 — seed `reason` from the first server-supplied reason
+  // rather than a hard-coded string. The <select> options come from the
+  // fetched `reasons` list; if that list doesn't contain the literal
+  // 'Suspicious pricing' the select rendered its own first option while
+  // `reason` state still held the stale hard-coded value — so submit
+  // sent a reason the reporter never saw selected. Effect below also
+  // corrects the value if `reasons` resolves after this first render.
+  const [reason, setReason] = useState(() =>
+    (Array.isArray(reasons) && reasons.length > 0) ? reasons[0] : 'Suspicious pricing');
   const [note, setNote]     = useState('');
   const [busy, setBusy]     = useState(false);
   const [err, setErr]       = useState('');
   const [done, setDone]     = useState('');
   const MAX_NOTE = 500;
+  // Keep `reason` consistent with the available options. Runs when the
+  // reasons list changes (e.g. arrives async); leaves a valid current
+  // selection untouched so the user's pick isn't clobbered.
+  useEffect(() => {
+    if (Array.isArray(reasons) && reasons.length > 0 && !reasons.includes(reason)) {
+      setReason(reasons[0]);
+    }
+  }, [reasons]);
   // Batch 909 — autofocus the Reason select on mount so the reporter
   // can arrow-key + Enter or just Tab straight into the details box
   // without fishing for the first control.
@@ -3166,6 +3182,20 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
   useEffect(() => {
     localStorage.setItem('sb_privacy', privacy ? '1' : '0');
   }, [privacy]);
+
+  // 2026-05-20 — sync the active tab with the route param. The modal
+  // stays mounted across /profile/trades → /profile/offers (same
+  // routeName), and `useState(initialTab)` only reads its argument on
+  // the first render. Without this effect, browser back/forward changed
+  // the URL but left the displayed tab stale — contradicting the
+  // "browser back/forward steps tab-by-tab" parity goal noted on the
+  // tab onClick below. Mirrors the WalletModal initialTab sync effect.
+  // Allowlist is inlined (rather than referencing TAB_TITLES, which is
+  // declared below the anon guard) so the effect is self-contained.
+  useEffect(() => {
+    const VALID = ['personal','transactions','buyorders','autobids','trades','offers','reviews','support','developers'];
+    if (initialTab && VALID.includes(initialTab)) setTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     if (!me) return;
@@ -10501,6 +10531,16 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
     setStallTypeFilter(v);
     try { localStorage.setItem('sb_mystall_filter', v); } catch (_) {}
   };
+  // 2026-05-20 — sync the active tab with the route param. pickTab
+  // navigates to /me/stall/<tab>, and the modal stays mounted across
+  // tab routes, so browser back/forward changed initialTab but left the
+  // displayed tab stale (useState only reads its argument once).
+  // Mirrors the WalletModal initialTab sync effect.
+  useEffect(() => {
+    if (initialTab === 'active' || initialTab === 'sold' || initialTab === 'analytics') {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
   const [editing, setEditing] = useState(null); // listing id being edited inline
   const [editPrice, setEditPrice] = useState('');
   const [editDesc, setEditDesc]   = useState('');
@@ -12050,6 +12090,15 @@ export function OffersModal({ onClose, me, onRefresh, initialTab }) {
   // way out. Track the error so we can show a retryable message instead.
   const [loadErr, setLoadErr] = useState(false);
 
+  // 2026-05-20 — keep the active tab in sync with the route param.
+  // pickTab navigates to /offers/<tab>, so browser back/forward changes
+  // initialTab while the modal stays mounted; useState only reads its
+  // argument once. Without this the URL and the highlighted tab drifted
+  // apart on back/forward. Mirrors the WalletModal initialTab sync.
+  useEffect(() => {
+    if (initialTab === 'incoming' || initialTab === 'outgoing') setTab(initialTab);
+  }, [initialTab]);
+
   const load = useCallback(async () => {
     setLoadErr(false);
     try {
@@ -12656,6 +12705,17 @@ export function WatchlistModal({ onClose, me, watchlist, allListings, onOpen, on
     setShowDropsOnlyRaw(v);
     try { localStorage.setItem('sb_watchlist_drops_only', v ? '1' : '0'); } catch (_) {}
   };
+  // 2026-05-20 — sync the Drops-only filter with the route param. The
+  // toggle navigates to /watchlist/drops or /watchlist/all, and the
+  // modal stays mounted across those routes, so browser back/forward
+  // changed initialTab but left the filter (and its highlighted tab)
+  // stale. Only react to the explicit drops/all params — matches the
+  // initial-state precedence above so a localStorage-only visit is
+  // untouched. Mirrors the WalletModal initialTab sync effect.
+  useEffect(() => {
+    if (initialTab === 'drops') setShowDropsOnlyRaw(true);
+    else if (initialTab === 'all') setShowDropsOnlyRaw(false);
+  }, [initialTab]);
   // Category chip filter — lets users with 50+ starred items drill to a
   // single slice (Hats / Pants / Shirts / Accessories / …) without hunting.
   // 'All' is the default. Chip set is derived from the watchlist's own

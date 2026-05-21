@@ -197757,3 +197757,73 @@ html body .modal.item-page > .modal-actions {
   -webkit-backdrop-filter: none !important;
 }
 /* END ITEM-PAGE STICKY ACTION-BAR OVERLAP FIX */
+
+/* ---------------------------------------------------------------------
+   ITEM-RAIL ACTION-BUTTON ROW HEIGHT/RADIUS PARITY (2026-05-20) — csfloat 1:1.
+
+   Concrete divergence (verified live via getComputedStyle + bounding
+   rects on /item/32): the item-page action group — Buy, Cart and
+   Bargain (`.item-rail-actions-buy`, `.item-rail-actions-cart`,
+   `.item-rail-actions-bargain`) — renders with MISMATCHED button
+   heights and MISMATCHED corner radii inside one flex/grid row:
+     • Buy    → height 36px, border-radius  8px
+     • Cart   → height 40px, border-radius 20px (full pill)
+     • Bargain→ height 40px, border-radius 20px (full pill)
+   The Buy and Cart buttons share the SAME row of `.item-rail-actions`
+   (both top:168) but their bottom edges land at y=204 vs y=208 — a
+   visible 4px vertical misalignment — and Buy is a squared 8px box
+   sitting next to two 20px stadium pills. csfloat's item-page buy
+   group is uniform: every action button is the same height and shares
+   one corner radius. csfloat's own stylesheet (csfloat-styles.css)
+   defines `mdc-button { border-radius: 8px; font-weight: 500 }` — its
+   action buttons are all 8px-radius Material buttons, never pills.
+
+   Root cause — an OLD parity block outranks a NEWER, better-measured
+   one purely on selector specificity:
+     • ship #17 (line ~122227) sets Buy to `height:36px;
+       min-height:36px` via `.modal.item-page .item-rail-actions-buy`
+       — specificity (0,3,0).
+     • ship #18 (line ~122260) sets Cart + Bargain to
+       `border-radius:20px` via `.modal.item-page
+       .item-rail-actions-cart, .modal.item-page
+       .item-rail-actions-bargain` — specificity (0,3,0).
+     • ship #3300 / #3301 (lines ~135613 / ~135680) are the LATER,
+       explicitly re-measured blocks — #3301's comment states verbatim
+       "csfloat /item Bargain: 40px tall ... radius 8px" — and correctly
+       pin ALL THREE buttons to `height:40px; border-radius:8px`. But
+       their selectors are only `body .item-rail-actions-buy` /
+       `body button.item-rail-actions-buy` etc. — specificity (0,2,0)
+       / (0,1,1).
+     (0,3,0) beats (0,2,0), so the older ship #17/#18 win: Buy stays
+     36px and Cart/Bargain stay 20px pills — silently regressing
+     ship #3300/#3301's measured csfloat geometry.
+
+   Fix: re-assert csfloat's measured uniform geometry — all three
+   action buttons 40px tall with an 8px radius (ship #3300/#3301's
+   values; also matching csfloat's `mdc-button` 8px radius). This
+   bottom-aligns the Buy/Cart row and replaces the stray stadium
+   pills with csfloat's rounded-rect buttons. ONLY height/min-height
+   and border-radius are touched — backgrounds, colours, fonts,
+   padding and the accent hue are all left exactly as the existing
+   blocks set them.
+
+   Selectors are prefixed `html body .modal.item-page ...` (0,4,0) —
+   one step above ship #17/#18's `.modal.item-page ...` (0,3,0) — and
+   `html body .item-rail-actions-* , html body button.item-rail-actions-*`
+   (0,3,0 / 0,2,1) for the non-modal rail context, all decisively
+   above ship #17/#18, and this block is last in the file so source
+   order wins too. */
+html body .item-rail-actions-buy,
+html body button.item-rail-actions-buy,
+html body .modal.item-page .item-rail-actions-buy,
+html body .item-rail-actions-cart,
+html body button.item-rail-actions-cart,
+html body .modal.item-page .item-rail-actions-cart,
+html body .item-rail-actions-bargain,
+html body button.item-rail-actions-bargain,
+html body .modal.item-page .item-rail-actions-bargain {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 8px !important;
+}
+/* END ITEM-RAIL ACTION-BUTTON ROW HEIGHT/RADIUS PARITY */

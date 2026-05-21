@@ -229,7 +229,17 @@ class FraudAnalysisService {
                 ip:        cb.ipAddress,
                 count:     1L,
                 summary:   "Stripe chargeback opened: ${cb.summary ?: 'see audit log'}",
-                createdAt: cb.createdAt
+                createdAt: cb.createdAt,
+                // Per-chargeback dedup discriminator. The Stripe webhook
+                // writes CHARGEBACK_OPENED audit rows with a null
+                // subjectUserId AND null ipAddress, so without this every
+                // chargeback collapses to the identical sweeper signature
+                // (CHARGEBACK_IN_WINDOW|||1) and only the FIRST one in the
+                // process lifetime would ever raise an admin alert. The
+                // audit row id is unique per chargeback event yet stable
+                // across the 30-min sweeps, so each distinct chargeback
+                // alerts exactly once. (2026-05-20)
+                dedupKey:  cb.id
             ]
         }
     }
@@ -292,7 +302,11 @@ class FraudAnalysisService {
             try {
                 def rawCount = (sig.count instanceof Number) ? (sig.count as long) : 1L
                 def bucket = bucketize(rawCount)
-                def signature = "${sig.type}|${sig.userId ?: ''}|${sig.ip ?: ''}|${bucket}".toString()
+                // dedupKey (optional) makes the signature unique per
+                // event when userId+ip are both null — see detectChargebacks.
+                // Detectors that don't set it get a trailing `|` uniformly,
+                // so their dedup behaviour is unchanged.
+                def signature = "${sig.type}|${sig.userId ?: ''}|${sig.ip ?: ''}|${bucket}|${sig.dedupKey ?: ''}".toString()
                 synchronized (seenSignatures) {
                     if (seenSignatures.contains(signature)) return
                     if (seenSignatures.size() >= SEEN_SIG_CAP) {

@@ -218,4 +218,96 @@ class ApiKeyAuthFilterSpec extends Specification {
         resp.status == 500
         resp.contentAsString.contains('"code":"INTERNAL_ERROR"')
     }
+
+    // --- Regression: cross-user session contamination / fixation ---------
+    // A bearer call that arrives carrying a pre-existing browser session
+    // belonging to a DIFFERENT user must not silently rewrite that
+    // session's steamUserId. The filter rotates the session (invalidate +
+    // fresh) so the API user lands on a clean, isolated session and the
+    // old session id is killed (it cannot be ridden afterwards).
+    def "bearer call rotates a pre-existing session owned by a different user"() {
+        given:
+        def req = new MockHttpServletRequest('GET', '/api/wallet')
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        // Simulate a logged-in browser session for user 7 (+ its epoch).
+        def stale = req.getSession(true)
+        stale.setAttribute(SteamAuthController.SESSION_USER_ID, 7L)
+        stale.setAttribute(SteamAuthController.SESSION_EPOCH, 123456789L)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        1 * chain.doFilter(req, resp)
+        // Old session was invalidated — a fresh one now serves the request.
+        stale.isInvalid()
+        def fresh = req.getSession(false)
+        !fresh.is(stale)
+        // Fresh session carries ONLY the API user — no contamination, and
+        // crucially no stale epoch riding along.
+        fresh.getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+        fresh.getAttribute(SteamAuthController.SESSION_EPOCH) == null
+        req.getAttribute('sbox.apiUserId') == 42L
+    }
+
+    def "bearer call reuses a pre-existing session already owned by the same user"() {
+        given:
+        def req = new MockHttpServletRequest('GET', '/api/wallet')
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        def existing = req.getSession(true)
+        existing.setAttribute(SteamAuthController.SESSION_USER_ID, 42L)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        1 * chain.doFilter(req, resp)
+        // Same user — no need to rotate; the existing session is reused.
+        !existing.isInvalid()
+        req.getSession(false).is(existing)
+        req.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+    }
+
+    def "bearer call with no pre-existing session creates a fresh one"() {
+        given:
+        def req = new MockHttpServletRequest('GET', '/api/wallet')
+        req.addHeader('Authorization', 'Bearer sbx_live_validtoken')
+        def resp = new MockHttpServletResponse()
+        assert req.getSession(false) == null   // no session before the filter runs
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope('sbx_live_validtoken') >> [userId: 42L, scope: 'RW']
+        1 * chain.doFilter(req, resp)
+        req.getSession(false) != null
+        req.getSession(false).getAttribute(SteamAuthController.SESSION_USER_ID) == 42L
+    }
+
+    // --- Regression: corrupt ctx with a null userId fails closed ---------
+    // authenticateWithScope is documented to return null on a bad key, but
+    // a resolved context with a null userId is corrupt state — the filter
+    // must reject it (401) rather than stamp a null SESSION_USER_ID.
+    def "resolved context with a null userId is rejected 401, not stamped"() {
+        given:
+        def req = new MockHttpServletRequest('GET', '/api/wallet')
+        req.addHeader('Authorization', 'Bearer sbx_live_corrupt')
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        1 * apiKeyService.authenticateWithScope(_) >> [userId: null, scope: 'RW']
+        0 * chain.doFilter(_, _)
+        resp.status == 401
+        resp.contentAsString.contains('"code":"INVALID_API_KEY"')
+        req.getSession(false) == null
+        req.getAttribute('sbox.apiAuth') == null
+    }
 }

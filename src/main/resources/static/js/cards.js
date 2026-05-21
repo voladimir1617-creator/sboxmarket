@@ -1,6 +1,8 @@
 // Item card components: grid, table row, trending carousel.
 import { h, React, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch } from './utils.js';
-import { ItemImage, RarityBadge, SteamMarketLink, Avatar, FloatBar } from './primitives.js';
+// (2026-05-20) Dropped `FloatBar` from this import — its only call site
+// in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
+import { ItemImage, RarityBadge, SteamMarketLink, Avatar } from './primitives.js';
 
 // ── Countdown — shared 1s ticker so cards + item modal stay in sync ──
 function formatRemaining(ms) {
@@ -160,13 +162,19 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
         ' ', watcherCount
       ),
       // Batch 1068 — editorial sweep: deleted the NEW / BEST PRICE /
-       // 👁 watcher-count / 🔥 sales-velocity chips from the card. The
-       // operator called the colorful stack of chips noise ("we don't
-       // want all of that fs"). The freshness + best-price + demand
-       // signals are already carried by the parent rail headers ("TOP
-       // DEALS TODAY", "JUST LISTED", "MOST VIEWED RIGHT NOW"), so the
-       // per-card chip duplication was redundant visual load. Rarity
-       // and discount stay — they're primary info, not ornament.
+      // 🔥 sales-velocity chips from the card body. The operator called
+      // the colorful stack of chips noise ("we don't want all of that
+      // fs"). Those freshness + best-price + demand signals are already
+      // carried by the parent rail headers ("TOP DEALS TODAY", "JUST
+      // LISTED", "MOST VIEWED RIGHT NOW"), so the per-card chip
+      // duplication was redundant visual load. Rarity and discount stay
+      // — they're primary info, not ornament.
+      // (2026-05-20) Corrected this comment: it previously also claimed
+      // the 👁 watcher-count chip was deleted. It was not — the
+      // `grid-views` thumbnail overlay above still renders (and app.js
+      // still feeds it `watcherCount`). It's the single corner overlay
+      // csfloat itself shows in the thumb, so it was kept on purpose;
+      // only the body-row chips went.
       isAuction && h(AuctionCountdown, { expiresAt: listing.expiresAt }),
       auctionBadge && h('div', {
         className: 'grid-auction-badge',
@@ -229,12 +237,12 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
           title: 'This auction has a Buy Now ceiling — skip the timer and settle instantly.'
         }, 'BIN ' + fmt(listing.buyNowPrice))
       ),
-      // CSFloat-1:1 decorative wear bar — gradient track with thumb at
-      // a deterministic position derived from rarity + listing id. s&box
-      // has no float values so this is a structural mirror of csfloat's
-      // wear bar; the data underneath is rarity, but the chrome reads
-      // identical so the grid card looks csfloat-shaped at a glance.
-      h(FloatBar, { rarity: item.rarity, listingId: listing.id }),
+      // (2026-05-20) Removed the dead `h(FloatBar, …)` call. s&box items
+      // have no float/wear mechanic, so FloatBar was already gutted to a
+      // permanent `return null` in primitives.js — the call rendered
+      // nothing while its comment still claimed a "gradient track with
+      // thumb" was drawn. Dropping the no-op call + stale comment leaves
+      // the card output byte-identical and removes a misleading breadcrumb.
       // CSFloat-1:1 seller status row — mirrors csfloat's "● Online ✓"
       // line on every card. V61 ship: real presence comes from
       // `listing.sellerLastSeenAt` (epoch ms), bumped by PresenceFilter

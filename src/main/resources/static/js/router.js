@@ -138,6 +138,15 @@ if (typeof window !== 'undefined') {
     // navigate() fires its own synthetic 'popstate'; skip that one or it
     // would immediately cancel the matching pushState increment.
     if (!dispatchingInternalPop && internalPushes > 0) internalPushes--;
+    // Scroll-restore fix (2026-05-20): only restore on a *real* browser
+    // back/forward. navigate() dispatches an identical synthetic
+    // 'popstate', but it already owns forward-navigation scroll itself
+    // (clears the saved entry + jumps to top after this listener runs).
+    // Letting restoreScrollFor() run during the synthetic dispatch
+    // queued a second, redundant requestAnimationFrame that raced
+    // navigate()'s own scrollTop=0 write. Skip it — same guard the
+    // counter decrement already uses.
+    if (dispatchingInternalPop) return;
     // On browser back/forward, restore the scroll position we saved for
     // the URL we're arriving at.
     const key = window.location.pathname + window.location.search;
@@ -294,6 +303,14 @@ function routeProgressKick() {
 }
 // Browser back/forward should also surface the bar so the same feedback
 // is consistent whether the user clicks an in-app link or hits ⌘[.
+// Double-kick fix (2026-05-20): navigate() already calls
+// routeProgressKick() directly, then dispatches a synthetic 'popstate'.
+// Without this guard that synthetic event re-kicked the bar a second
+// time in the same tick (restarting the keyframe from 0%). Skip the
+// synthetic dispatch so the bar fires exactly once per navigation.
 if (typeof window !== 'undefined') {
-  window.addEventListener('popstate', () => routeProgressKick());
+  window.addEventListener('popstate', () => {
+    if (dispatchingInternalPop) return;
+    routeProgressKick();
+  });
 }

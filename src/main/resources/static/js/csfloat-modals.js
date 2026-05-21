@@ -1387,6 +1387,16 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
             const res = await updateLoadout(viewing.loadout.id, { visibility: nextVis });
             if (res && (res.error || res.code)) { toast(res.message || res.error || 'Could not change visibility', 'err'); return; }
             toast(`Loadout is now ${nextVis}.`, 'ok');
+            // 2026-05-20 audit fix — `load()` refetches the Discover/Mine
+            // *list*, not the open `viewing` loadout, so the toggle's own
+            // label + tooltip stayed stale and a second click recomputed
+            // nextVis from the old value (sending the wrong target).
+            // Reflect the new visibility in `viewing` in place, matching
+            // the favorite handler's optimistic-update pattern above.
+            setViewing(prev => prev ? {
+              ...prev,
+              loadout: { ...prev.loadout, visibility: nextVis }
+            } : prev);
             await load();
           }
         }, viewing.loadout.visibility === 'PUBLIC' ? 'Public' : 'Private'),
@@ -1494,6 +1504,14 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                   return;
                 }
                 setRenaming(false);
+                // 2026-05-20 audit fix — `load()` refetches the list, not
+                // the open loadout, so the modal title (viewing.loadout.name)
+                // and the Save-disabled comparison stayed on the old name
+                // despite the "renamed" toast. Update `viewing` in place.
+                setViewing(prev => prev ? {
+                  ...prev,
+                  loadout: { ...prev.loadout, name: trimmed }
+                } : prev);
                 toast('Loadout renamed.', 'ok');
                 await load();
               } finally { setRenameBusy(false); }
@@ -1521,6 +1539,13 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
                 return;
               }
               setRenaming(false);
+              // 2026-05-20 audit fix — see the Enter-key handler above:
+              // `load()` doesn't refresh the open loadout, so the title
+              // stayed stale. Update `viewing` in place.
+              setViewing(prev => prev ? {
+                ...prev,
+                loadout: { ...prev.loadout, name: trimmed }
+              } : prev);
               toast('Loadout renamed.', 'ok');
               await load();
             } finally { setRenameBusy(false); }
@@ -2631,7 +2656,15 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     return `${String(h_).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
   };
   const floor = parseFloat(view.currentBid || view.price);
-  const minNext = (floor + 0.05).toFixed(2);
+  // 2026-05-20 audit fix — off-by-one against BidService. The backend's
+  // FIRST-bid floor is the starting price EXACTLY (BidService: when
+  // `currentBid == null`, minRequired = listing.price); only SUBSEQUENT
+  // bids must clear `currentBid + $0.05`. The old unconditional
+  // `floor + 0.05` told a buyer on a 0-bid auction the minimum was
+  // price+$0.05 and the submit guard below then rejected a perfectly
+  // valid first bid placed at the starting price. Split the two cases.
+  const hasBid = view.currentBid != null;
+  const minNext = (hasBid ? (floor + 0.05) : floor).toFixed(2);
 
   const submit = async () => {
     setErr('');
@@ -2835,7 +2868,9 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         // "CURRENT BID" (≥1 placed). Without the split, a 0-bid auction
         // looked like someone had already bid the reserve and a buyer
         // had to outbid it, when in reality the first bid only has to
-        // clear `reserve + 0.05`.
+        // MEET the starting price (BidService: first-bid floor = price
+        // exactly; the $0.05 increment applies to subsequent bids only —
+        // see the minNext fix dated 2026-05-20).
         h('div', { className: 'auction-label' },
           (view.bidCount > 0 || view.currentBid != null) ? 'CURRENT BID' : 'STARTING BID'),
         h('div', { className: 'auction-bid' }, fmt(view.currentBid || view.price)),

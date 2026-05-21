@@ -33,8 +33,22 @@ import org.springframework.web.filter.OncePerRequestFilter
  * is safe because possession of the bearer token is itself the auth
  * factor (equivalent to a password in the OAuth2 sense).
  *
- * Runs at @Order(0) — BEFORE CorrelationId + CSRF + RateLimit so every
- * downstream filter sees the authenticated session context.
+ * Session handling: a bearer-token call is stateless by nature, so we
+ * never inherit or mutate a pre-existing browser session. If the
+ * request happens to carry a `JSESSIONID` cookie we ROTATE it
+ * (invalidate + fresh session) before stamping SESSION_USER_ID — the
+ * same session-fixation defence SteamAuthController applies on login.
+ * Without the rotation an API request carrying someone else's (or a
+ * fixated) `JSESSIONID` would permanently rewrite that browser
+ * session's `steamUserId` to the API key's owner — a cross-user
+ * identity-confusion bug. The fresh session also guarantees no stale
+ * `steamSessionEpoch` rides along (SessionEpochFilter skips API-key
+ * requests via `sbox.apiAuth`, but a clean session is correct anyway).
+ *
+ * Runs at @Order(2) — AFTER CorrelationId (@Order(0)) + BodySizeLimit
+ * (@Order(1)) but BEFORE CSRF (@Order(3)), SessionEpoch (@Order(4)) and
+ * RateLimit (@Order(5)) so every downstream filter sees the
+ * authenticated session context and the `sbox.apiAuth` marker.
  */
 @Component
 @Order(2)
@@ -79,14 +93,21 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
             resp.writer.write('{"code":"INTERNAL_ERROR","message":"Authentication error"}')
             return
         }
-        if (ctx == null) {
+        if (ctx == null || ctx.userId == null) {
+            // ctx == null: unknown / revoked key. ctx.userId == null:
+            // a resolved key with no owning user id is corrupt state —
+            // reject rather than stamp a null SESSION_USER_ID. Both
+            // fail closed with the same 401 (no oracle).
             resp.status = 401
             resp.contentType = 'application/json'
             resp.writer.write('{"code":"INVALID_API_KEY","message":"Invalid or revoked API key"}')
             return
         }
         def method = req.method?.toUpperCase()
-        boolean isWrite = method != null && !SAFE_METHODS.contains(method)
+        // Fail CLOSED on the RO write-gate: an unknown (null) method is
+        // treated as a write so a read-only key can never slip a
+        // mutation through on a pathological request with no method.
+        boolean isWrite = method == null || !SAFE_METHODS.contains(method)
         String scope = (ctx.scope ?: 'RW') as String
         if (scope == 'RO' && isWrite) {
             resp.status = 403
@@ -97,13 +118,33 @@ class ApiKeyAuthFilter extends OncePerRequestFilter {
         }
         // Populate the session + request attributes so every downstream
         // controller's requireUser(req) sees the authenticated user.
-        // Creating a session here is cheap — it's a short-lived in-memory
-        // object and the caller almost certainly has no JSESSIONID cookie
-        // anyway. Also set the request attributes the CSRF filter reads
-        // to skip its double-submit check.
+        //
+        // Session-fixation / cross-user-contamination guard: a bearer
+        // call is stateless, so we must NOT clobber whatever session the
+        // request happened to arrive with. If a `JSESSIONID` cookie is
+        // present, `getSession(true)` would hand back THAT session and
+        // `setAttribute(SESSION_USER_ID, …)` would permanently rewrite
+        // its `steamUserId` — switching a logged-in browser to the API
+        // key's owner, or writing auth state onto an attacker-fixated
+        // session id. So: if a session already exists and is NOT already
+        // owned by this exact user, rotate it (invalidate + fresh) — the
+        // same defence SteamAuthController applies on Steam login. A
+        // session that already belongs to this user is reused untouched.
         try {
-            req.getSession(true).setAttribute(SteamAuthController.SESSION_USER_ID, ctx.userId as Long)
+            def existing = req.getSession(false)
+            def session
+            if (existing == null) {
+                session = req.getSession(true)
+            } else if ((existing.getAttribute(SteamAuthController.SESSION_USER_ID) as Long) == (ctx.userId as Long)) {
+                session = existing
+            } else {
+                try { existing.invalidate() } catch (Exception ignore) {}
+                session = req.getSession(true)
+            }
+            session.setAttribute(SteamAuthController.SESSION_USER_ID, ctx.userId as Long)
         } catch (Exception e) {
+            // A session failure here means requireUser(req) downstream
+            // will throw UnauthorizedException — fail closed, no leak.
             log.warn("Failed to populate session for API key uid=${ctx.userId}: ${e.message}")
         }
         req.setAttribute('sbox.apiAuth', Boolean.TRUE)

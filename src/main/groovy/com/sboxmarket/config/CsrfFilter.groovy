@@ -108,8 +108,9 @@ class CsrfFilter extends OncePerRequestFilter {
         def isApi   = path?.startsWith('/api/')
         def isExempt = EXEMPT_PREFIXES.any { path.startsWith(it) }
 
-        // Batch 676 — bearer-token bypass. ApiKeyAuthFilter (Order 0)
-        // sets `sbox.apiAuth=true` when a valid `Authorization: Bearer`
+        // Batch 676 — bearer-token bypass. ApiKeyAuthFilter (Order 2,
+        // i.e. ahead of this CsrfFilter at Order 3) sets `sbox.apiAuth=true`
+        // when a valid `Authorization: Bearer`
         // has already authenticated the request. Bearer callers have no
         // session cookie to pair with a CSRF header, and possession of
         // the bearer token itself is the auth factor. Safe to skip the

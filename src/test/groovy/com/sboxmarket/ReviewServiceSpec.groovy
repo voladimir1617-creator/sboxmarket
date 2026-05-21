@@ -808,6 +808,27 @@ class ReviewServiceSpec extends Specification {
         0 * helpfulRepo.existsByReviewAndUser(_, _)
     }
 
+    def "toggleHelpful rejects the reviewed seller upvoting reviews of their own stall"() {
+        given:
+        // review.toUserId is the seller the review is ABOUT. The author
+        // guard only blocks the review WRITER (fromUserId); the seller
+        // has the same incentive to self-boost their helpful-sort, so
+        // they must be blocked too. Viewer 20 == review.toUserId 20.
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 10L, toUserId: 20L, rating: 5))
+
+        when:
+        service.toggleHelpful(20L, 100L)
+
+        then:
+        1 * banGuard.assertNotBanned(20L)
+        def e = thrown(BadRequestException)
+        e.code == 'SELF_VOTE'
+        0 * helpfulRepo.existsByReviewAndUser(_, _)
+        0 * helpfulRepo.save(_)
+    }
+
     def "toggleHelpful refuses when the banGuard trips"() {
         given:
         def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)

@@ -153,14 +153,18 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
      *  the /api/wallet/withdraw controller (batch 357). Includes
      *  PENDING + COMPLETED statuses so a pending payout counts toward
      *  the cap too (otherwise an attacker could queue 100 pending
-     *  withdrawals). Excludes REJECTED + CANCELLED — those never
-     *  resulted in funds leaving the wallet. Supports both legacy
-     *  `WITHDRAW` and the canonical `WITHDRAWAL` type spellings. */
+     *  withdrawals). Excludes REJECTED + CANCELLED + FAILED — none of
+     *  those resulted in funds leaving the wallet. FAILED is the status
+     *  AdminService.rejectWithdrawal stamps when staff reject a payout
+     *  and refund the wallet (REJECTED is a legacy spelling no code
+     *  emits); without excluding FAILED a staff-rejected withdrawal
+     *  whose funds were fully returned still burned the user's 24h cap.
+     *  Supports legacy `WITHDRAW` + canonical `WITHDRAWAL`. (2026-05-20) */
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
         WHERE t.walletId = :walletId
           AND t.type IN ('WITHDRAW', 'WITHDRAWAL')
-          AND t.status NOT IN ('REJECTED', 'CANCELLED')
+          AND t.status NOT IN ('REJECTED', 'CANCELLED', 'FAILED')
           AND t.createdAt >= :since
     """)
     BigDecimal sumWithdrawalsSince(@Param('walletId') Long walletId,
@@ -207,7 +211,7 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
         SELECT MIN(t.createdAt) FROM Transaction t
         WHERE t.walletId = :walletId
           AND t.type IN ('WITHDRAW', 'WITHDRAWAL')
-          AND t.status NOT IN ('REJECTED', 'CANCELLED')
+          AND t.status NOT IN ('REJECTED', 'CANCELLED', 'FAILED')
           AND t.createdAt >= :since
     """)
     Long earliestWithdrawalSince(@Param('walletId') Long walletId,

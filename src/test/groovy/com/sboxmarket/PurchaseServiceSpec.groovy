@@ -1031,4 +1031,112 @@ class PurchaseServiceSpec extends Specification {
         1 * walletRepo.save({ Wallet w -> w.balance == new BigDecimal("70.00") })
         buyer.balance == new BigDecimal("70.00")
     }
+
+    // ── Double-purchase guard: a second buy on the now-SOLD row is rejected ──
+
+    def "buy on a listing this same call already flipped to SOLD is rejected on retry (no double-spend)"() {
+        // Regression: the status-gate is the in-process double-purchase
+        // guard. After a successful buy the listing row carries
+        // status='SOLD'; a second buy() on the SAME row (e.g. an
+        // impatient double-click that the @Version race didn't catch
+        // because the first request already committed) must fail the
+        // `status != 'ACTIVE'` gate — NOT debit the wallet a second
+        // time. Cross-request races are covered separately by the
+        // @Version optimistic-lock specs above; this nails the
+        // sequential case the version token can't see.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("40.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when: "first buy succeeds and flips the row to SOLD"
+        def first = service.buy(1L, 999L, 5L)
+
+        then: "exactly one debit + one listing flush + one purchase tx for the successful buy"
+        first.newBalance == new BigDecimal("60.00")
+        listing.status == 'SOLD'
+        1 * walletRepo.save({ Wallet w -> w.balance == new BigDecimal("60.00") })
+        1 * listingRepo.saveAndFlush(_)
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+
+        when: "a second buy on the very same (now SOLD) row"
+        service.buy(1L, 999L, 5L)
+
+        then: "the status gate throws — the buyer is not charged twice"
+        thrown(ListingNotAvailableException)
+        // Balance untouched by the rejected retry — still the post-first-buy figure.
+        buyer.balance == new BigDecimal("60.00")
+        // The rejected retry performs no debit, no listing transition, no ledger row.
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        0 * txRepo.save(_)
+    }
+
+    // ── Escrow ordering: the Trade opens only after the sale is committed ──
+
+    def "buy opens the escrow Trade only after the wallet debit, listing SOLD flip, and PURCHASE tx"() {
+        // Money-path ordering invariant: the P2P escrow Trade must be
+        // created strictly AFTER the buyer is debited, the listing is
+        // flushed to SOLD, and the buyer-side PURCHASE ledger row is
+        // written. If TradeService.open ran first, a failure between
+        // open() and the debit would leave an escrow Trade with no
+        // funds behind it.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("200.00"), currency: 'USD')
+        def seller = new SteamUser(id: 2L, steamId64: '222')
+        def sellerWallet = new Wallet(id: 500L, username: 'steam_222', balance: new BigDecimal("0.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Wizard Hat'),
+            price: new BigDecimal("100.00"), status: 'ACTIVE',
+            sellerName: 'Bob', sellerUserId: 2L)
+        def tradeService = Mock(TradeService)
+        service.tradeService = tradeService
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(2L) >> Optional.of(seller)
+        walletRepo.findByUsername('steam_222') >> sellerWallet
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "strict call order — debit, then SOLD flush, then PURCHASE tx, then escrow open"
+        1 * walletRepo.save({ Wallet w -> w.balance == new BigDecimal("100.00") })
+
+        then:
+        1 * listingRepo.saveAndFlush({ Listing l -> l.status == 'SOLD' })
+
+        then:
+        1 * txRepo.save({ Transaction t -> t.type == 'PURCHASE' })
+
+        then:
+        1 * tradeService.open(5L, 10L, 'Wizard Hat', 999L, 1L, 2L, 500L, new BigDecimal("100.00"))
+    }
+
+    // ── buy always charges listing.price as read at call time ──────
+
+    def "buy charges exactly listing.price even when the price was lowered just before the call (OfferService accept path)"() {
+        // OfferService.acceptOffer lowers listing.price to the accepted
+        // offer amount, saves, then re-enters PurchaseService.buy. This
+        // pins the contract OfferService relies on: buy() debits and
+        // records whatever listing.price reads at call time — not some
+        // stale or original figure.
+        given: "a listing whose price was just rewritten to the offer amount"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"), currency: 'USD')
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("63.50"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "debit + ledger row + result all reflect the at-call-time price exactly"
+        result.newBalance == new BigDecimal("36.50")
+        buyer.balance == new BigDecimal("36.50")
+        1 * txRepo.save({ Transaction t -> t.amount == new BigDecimal("63.50") })
+    }
 }

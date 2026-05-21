@@ -34,7 +34,13 @@ const RATE_PERCENT = 2;
 const MIN_FEE = 0.25;
 function computeFee(price) {
   const p = parseFloat(price) || 0;
-  return Math.max(MIN_FEE, p * (RATE_PERCENT / 100));
+  // 2026-05-20: round the 2% cut to cents half-up before applying the
+  // $0.25 floor, mirroring the backend's quote() (setScale(2,
+  // ROUND_HALF_UP)). Without the round, a price like $33.33 left an
+  // unrounded 0.6666 in state — fmt() masked it on screen, but the
+  // fallback no longer matches the authoritative quote bit-for-bit.
+  const pct = Math.round(p * RATE_PERCENT) / 100;
+  return Math.max(MIN_FEE, pct);
 }
 
 // Map a server error `code` onto friendly inline copy. Anything not

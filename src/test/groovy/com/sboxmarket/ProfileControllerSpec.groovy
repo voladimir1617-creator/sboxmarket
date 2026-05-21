@@ -540,6 +540,106 @@ class ProfileControllerSpec extends Specification {
         1 * steamUserRepository.save(user)
     }
 
+    // ── /email-notifications boolean coercion ───────────────────────
+    //
+    // Regression guard: the `enabled` field arrives in an untyped Map, so
+    // Jackson hands it back as a String when the client sends a JSON
+    // string. A bare `value as Boolean` makes EVERY non-empty string
+    // truthy, so `{"enabled":"false"}` used to silently RE-ENABLE
+    // notifications a user was deliberately trying to mute. Fixed via
+    // parseEnabledFlag (mirrors SellerFollowController.parseMutedFlag).
+
+    def "updateEmailNotifications honours a real boolean false"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1', emailNotificationsEnabled: true)
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when:
+        def resp = controller.updateEmailNotifications([enabled: false], req)
+
+        then:
+        resp.statusCode.value() == 200
+        user.emailNotificationsEnabled == false
+        resp.body.emailNotificationsEnabled == false
+        1 * steamUserRepository.save(user)
+    }
+
+    def "updateEmailNotifications honours the string 'false' — does NOT re-enable"() {
+        given: 'a client that JSON-encodes the flag as a string'
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1', emailNotificationsEnabled: true)
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when: 'the user tries to mute via {"enabled":"false"}'
+        def resp = controller.updateEmailNotifications([enabled: 'false'], req)
+
+        then: 'the string is parsed correctly — notifications actually turn OFF'
+        resp.statusCode.value() == 200
+        user.emailNotificationsEnabled == false
+        resp.body.emailNotificationsEnabled == false
+        1 * steamUserRepository.save(user)
+    }
+
+    def "updateEmailNotifications honours the string 'true'"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1', emailNotificationsEnabled: false)
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when:
+        def resp = controller.updateEmailNotifications([enabled: 'true'], req)
+
+        then:
+        resp.statusCode.value() == 200
+        user.emailNotificationsEnabled == true
+        1 * steamUserRepository.save(user)
+    }
+
+    def "updateEmailNotifications rejects a non-boolean junk value"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1', emailNotificationsEnabled: true)
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when: 'a value that is neither a boolean nor a true/false string'
+        controller.updateEmailNotifications([enabled: 'yes'], req)
+
+        then: 'rejected — the stored preference is not touched'
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_FIELD'
+        user.emailNotificationsEnabled == true
+        0 * steamUserRepository.save(_)
+    }
+
+    def "updateEmailNotifications rejects a missing 'enabled' field"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1', emailNotificationsEnabled: true)
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when:
+        controller.updateEmailNotifications([:], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'MISSING_FIELD'
+        0 * steamUserRepository.save(_)
+    }
+
+    def "updateEmailNotifications requires sign-in"() {
+        given:
+        req.session >> ses
+        ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+
+        when:
+        controller.updateEmailNotifications([enabled: false], req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * steamUserRepository.save(_)
+    }
+
     // ── auth gate sanity ────────────────────────────────────────────
 
     def "2fa/cancel requires sign-in"() {

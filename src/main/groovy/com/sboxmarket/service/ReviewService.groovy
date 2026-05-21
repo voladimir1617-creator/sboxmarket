@@ -368,6 +368,16 @@ class ReviewService {
             throw new BadRequestException('SELF_VOTE',
                 "You can't upvote your own review")
         }
+        // The seller being reviewed must not upvote helpful-votes on
+        // reviews of their OWN stall — that games the helpful-sort to
+        // float their best reviews to the top. The author guard above
+        // only blocks the review WRITER; `toUserId` is the subject
+        // (seller), and they have just as much incentive to self-boost.
+        // (2026-05-20)
+        if (review.toUserId == userId) {
+            throw new BadRequestException('SELF_VOTE',
+                "You can't upvote reviews of your own stall")
+        }
         boolean nowVoted
         if (helpfulVoteRepository.existsByReviewAndUser(reviewId, userId)) {
             helpfulVoteRepository.deleteByReviewAndUser(reviewId, userId)

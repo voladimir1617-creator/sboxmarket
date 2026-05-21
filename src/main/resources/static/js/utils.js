@@ -52,8 +52,16 @@ export const fmt = (n) => {
   // Render the sign OUTSIDE the currency symbol so a negative amount
   // (e.g. a wallet shortfall `fmt(need - bal)`) reads "-$12.00", not
   // the malformed "$-12.00".
-  const sign = num < 0 ? '-' : '';
-  return sign + FX_SYMBOL[code] + Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: min, maximumFractionDigits: min });
+  // 2026-05-20: derive the sign from the value AFTER rounding to the
+  // displayed precision. A sub-cent negative (rounding noise from
+  // `need - bal` wallet math, e.g. fmt(-0.001)) used to render the
+  // malformed "-$0.00"; csfloat never shows a negative zero. Rounding
+  // first means a value that displays as 0 carries no sign.
+  const abs = Math.abs(num);
+  const factor = Math.pow(10, min);
+  const rounded = Math.round(abs * factor) / factor;
+  const sign = rounded > 0 && num < 0 ? '-' : '';
+  return sign + FX_SYMBOL[code] + rounded.toLocaleString('en-US', { minimumFractionDigits: min, maximumFractionDigits: min });
 };
 
 export const fmtCompact = (n) => {

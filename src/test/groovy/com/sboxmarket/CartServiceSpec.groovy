@@ -89,6 +89,25 @@ class CartServiceSpec extends Specification {
         0 * repository.save(_)
     }
 
+    def "add scopes the cap check to the calling user — only that user's rows count"() {
+        given:
+        // The cap probe must query findListingIdsByUser for THIS user id.
+        // A repo call that dropped the uid filter and returned every cart
+        // row on the platform could wrongly trip CART_FULL; pinning the
+        // arg to 10L is the per-user-scoping guard.
+        repository.existsByUserAndListing(10L, 500L) >> false
+        repository.findListingIdsByUser(10L) >> [1L, 2L, 3L]   // only 3 rows for user 10
+
+        when:
+        def added = service.add(10L, 500L)
+
+        then:
+        added == true
+        // The save row is stamped with the caller's user id — never a
+        // different user's — so the new row lands in the right cart.
+        1 * repository.save({ it.userId == 10L && it.listingId == 500L })
+    }
+
     // ── remove ───────────────────────────────────────────────────────
 
     def "remove returns true on hit / false on miss"() {
@@ -310,6 +329,45 @@ class CartServiceSpec extends Specification {
         then:
         // The violation propagates — it is NOT caught and logged away.
         thrown(DataIntegrityViolationException)
+    }
+
+    def "bulkMerge derives headroom from the live row COUNT, not the deduped input size"() {
+        given:
+        // Input has 3 brand-new ids, but the user already holds 49 rows —
+        // headroom is 1. headroom must come from countByUser (49), NOT
+        // from cleaned.size() (3); a size()-based calc would wrongly admit
+        // all 3 and blow past MAX_PER_USER.
+        def incoming = [301L, 302L, 303L]
+        repository.findExistingListingIds(10L, incoming) >> []
+        repository.countByUser(10L) >> 49L                       // headroom == 1
+        repository.findListingIdsByUser(10L) >> ((1L..49L) + [301L]).collect { it as Long }
+
+        when:
+        service.bulkMerge(10L, incoming)
+
+        then:
+        // Exactly one row saved — the cap is respected against the live
+        // table count, so the user ends at MAX_PER_USER, not 52.
+        1 * repository.save({ it.listingId == 301L })
+        0 * repository.save({ it.listingId == 302L })
+        0 * repository.save({ it.listingId == 303L })
+    }
+
+    def "bulkMerge stamps every backfilled row with the calling user's id"() {
+        given:
+        // Per-user scoping: every CartItem the merge persists must carry
+        // the userId passed in — a cross-user leak here would inject rows
+        // into the wrong cart.
+        repository.findExistingListingIds(33L, [70L, 71L]) >> []
+        repository.countByUser(33L) >> 0L
+        repository.findListingIdsByUser(33L) >> [70L, 71L]
+
+        when:
+        service.bulkMerge(33L, [70L, 71L])
+
+        then:
+        2 * repository.save({ it.userId == 33L })
+        0 * repository.save({ it.userId != 33L })
     }
 
     // ── sweepStaleCartRows ───────────────────────────────────────────

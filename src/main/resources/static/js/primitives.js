@@ -265,12 +265,25 @@ export function RarityBadge({ rarity }) {
   // Map the underlying Off-Market rarity to a clearer "Scarce" label
   // while keeping the data layer + filter chips on the original token.
   const display = tier === 'Off-Market' ? 'Scarce' : tier;
+  // 2026-05-20: the CSFloat-1:1 parity tooltip (design.css ship #10304 —
+  // `.db-table .rarity-badge[title]::after`) was wired up CSS-side but never
+  // fired because RarityBadge emitted no `title`. Supply a concise tier
+  // description (mirrors the cf-rarity-legend copy in csfloat-modals.js) so
+  // the hover tooltip works on /db rows as the stylesheet intends. Keyed on
+  // the canonical `tier`, not the relabelled `display`, so an Off-Market
+  // pill explains the underlying scarcity tier.
+  const RARITY_TITLE = {
+    'Standard':   'Standard — common items everyone can craft.',
+    'Off-Market': 'Off-Market — scarce items not currently sold by Steam.',
+    'Limited':    'Limited — capped supply, hardest to find.'
+  };
   // a11y: the gradient + text alone don't tell assistive tech this pill
   // is a rarity tier — give it an explicit role + label.
   const base = {
     className: `rarity-badge rarity-${tier}`,
     role: 'img',
-    'aria-label': `Rarity: ${display}`
+    'aria-label': `Rarity: ${display}`,
+    title: RARITY_TITLE[tier] || `${display} rarity`
   };
   // CSS-covered tier → class only; the stylesheet draws the pill.
   if (CSS_STYLED_RARITIES.has(tier)) return h('span', base, display);
@@ -421,10 +434,15 @@ export function Sparkline({ data, color, height }) {
         )
       ),
       // Gridlines at 25% / 50% / 75%
+      // 2026-05-20: stroke was hardcoded `rgba(255,255,255,0.04)` — invisible
+      // on a light theme (white-on-white). Use the design-token border colour
+      // at low opacity so the gridlines render correctly in every theme,
+      // consistent with the var(--bg)/var(--up)/var(--down) tokens this
+      // component already uses for every other stroke/fill.
       [0.25, 0.5, 0.75].map(f => h('line', {
         key: f,
         x1: 0, x2: W, y1: padTop + bandH * f, y2: padTop + bandH * f,
-        stroke: 'rgba(255,255,255,0.04)', strokeWidth: 1
+        stroke: 'var(--line, var(--border))', strokeOpacity: 0.5, strokeWidth: 1
       })),
       h('polygon',  { points: area,     fill: `url(#${gradId})` }),
       h('polyline', { points: polyline, fill: 'none', stroke: colorSafe, strokeWidth: '2.2',

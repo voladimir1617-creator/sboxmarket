@@ -1188,6 +1188,59 @@ class ListingServiceSpec extends Specification {
         0 * steamUserRepo.save(_)
     }
 
+    def "sweepExpiredAwayMode recomputes Item.lowestPrice for every un-hidden item"() {
+        given:
+        // Auto-un-hide on vacation expiry must re-run the floor-price
+        // aggregate for each distinct item, exactly like the manual
+        // setAwayMode path (batch 306). Without it, a listing that WAS
+        // the public floor before vacation hid it keeps the catalogue
+        // grid showing the stale higher price after the sweep flips it
+        // back to visible.
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def user = new com.sboxmarket.model.SteamUser(id: 7L,
+            awayModeUntil: System.currentTimeMillis() - 60_000L)
+        steamUserRepo.findExpiredAwayMode(_) >> [user]
+        // Two listings on DIFFERENT items.
+        def itemA = itemFor(1L)
+        def itemB = itemFor(2L)
+        def a = listingFor(id: 10L, item: itemA, hidden: true)
+        def b = listingFor(id: 11L, item: itemB, hidden: true)
+        listingRepository.findActiveBySeller(7L) >> [a, b]
+        itemRepository.findById(1L) >> Optional.of(itemA)
+        itemRepository.findById(2L) >> Optional.of(itemB)
+
+        when:
+        service.sweepExpiredAwayMode()
+
+        then:
+        // Floor recompute fired once per distinct item the un-hidden
+        // listings touch.
+        1 * listingRepository.minPriceForItem(1L) >> new BigDecimal("15")
+        1 * listingRepository.minPriceForItem(2L) >> new BigDecimal("20")
+    }
+
+    def "sweepExpiredAwayMode dedupes the floor-recompute when two listings share one item"() {
+        given:
+        def steamUserRepo = Mock(com.sboxmarket.repository.SteamUserRepository)
+        service.steamUserRepository = steamUserRepo
+        def user = new com.sboxmarket.model.SteamUser(id: 7L,
+            awayModeUntil: System.currentTimeMillis() - 60_000L)
+        steamUserRepo.findExpiredAwayMode(_) >> [user]
+        def shared = itemFor(1L)
+        def a = listingFor(id: 10L, item: shared, hidden: true)
+        def b = listingFor(id: 11L, item: shared, hidden: true)
+        listingRepository.findActiveBySeller(7L) >> [a, b]
+        itemRepository.findById(1L) >> Optional.of(shared)
+
+        when:
+        service.sweepExpiredAwayMode()
+
+        then:
+        // One recompute for the shared item, not two.
+        1 * listingRepository.minPriceForItem(1L) >> new BigDecimal("10")
+    }
+
     def "countHiddenActive forwards to the indexed COUNT query"() {
         given:
         listingRepository.countHiddenActiveBySeller(5L) >> 2L

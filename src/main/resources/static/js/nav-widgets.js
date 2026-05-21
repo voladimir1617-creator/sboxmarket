@@ -353,11 +353,22 @@ export function NotificationBell({ me }) {
     };
   }, [unread]);
 
+  // 2026-05-20 — close on outside click AND Escape. Previously this only
+  // bound a 'click' listener (no Escape), so the bell dropdown was the one
+  // nav widget that ignored the keyboard dismiss the sibling NavPicker
+  // currency/language chips honour. Gate both listeners on `open` to match
+  // NavPicker's pattern — no point listening while the panel is closed.
   useEffect(() => {
+    if (!open) return;
     const onDoc = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const onKey = e => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('click', onDoc);
-    return () => document.removeEventListener('click', onDoc);
-  }, []);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   // Opening the bell auto-clears the unread badge — CSFloat/Slack/GitHub
   // pattern. The rows keep their visual unread accent (blue border) so

@@ -274,4 +274,248 @@ class ItemServiceSpec extends Specification {
         stats.floorPrice == BigDecimal.ZERO
         stats.highestPrice == BigDecimal.ZERO
     }
+
+    // ── getStats — defensive branches ─────────────────────────────
+    // A scalar `SELECT COUNT(),SUM(),MIN(),MAX()` always returns one
+    // row, but the service still guards an empty/null aggregate result.
+    // Pin those branches so a future refactor can't NPE on them.
+
+    def "getStats survives an empty catalogueSummary result (no head row)"() {
+        given:
+        itemRepository.catalogueSummary() >> []
+        itemRepository.countByCategory() >> []
+
+        when:
+        def stats = service.getStats()
+
+        then:
+        stats.totalItems == 0L
+        stats.limitedCount == 0L
+        stats.floorPrice == BigDecimal.ZERO
+        stats.highestPrice == BigDecimal.ZERO
+        stats.categories == [:]
+    }
+
+    def "getStats survives a null catalogueSummary result"() {
+        given:
+        itemRepository.catalogueSummary() >> null
+        itemRepository.countByCategory() >> []
+
+        when:
+        def stats = service.getStats()
+
+        then:
+        stats.totalItems == 0L
+        stats.floorPrice == BigDecimal.ZERO
+        stats.highestPrice == BigDecimal.ZERO
+    }
+
+    def "getStats keeps shipping totals when the category breakdown query throws"() {
+        given: "the GROUP BY query fails — stats must still ship without the breakdown"
+        itemRepository.catalogueSummary() >> [([4L, 2L, new BigDecimal("3"), new BigDecimal("80")] as Object[])]
+        itemRepository.countByCategory() >> { throw new RuntimeException("boom") }
+
+        when:
+        def stats = service.getStats()
+
+        then: "the aggregate row still surfaces; categories degrades to empty"
+        stats.totalItems == 4L
+        stats.limitedCount == 2L
+        stats.floorPrice == new BigDecimal("3")
+        stats.highestPrice == new BigDecimal("80")
+        stats.categories == [:]
+    }
+
+    def "getStats skips category rows with a null/blank category key"() {
+        given:
+        itemRepository.catalogueSummary() >> [([2L, 0L, new BigDecimal("1"), new BigDecimal("9")] as Object[])]
+        itemRepository.countByCategory() >> [
+            (['Hats', 2L] as Object[]),
+            ([null,  5L] as Object[]),   // null category — must be dropped
+        ]
+
+        when:
+        def stats = service.getStats()
+
+        then:
+        stats.categories == [Hats: 2L]
+    }
+
+    def "getStats tolerates a null count in a category row (coerced to 0)"() {
+        given:
+        itemRepository.catalogueSummary() >> [([1L, 0L, new BigDecimal("2"), new BigDecimal("2")] as Object[])]
+        itemRepository.countByCategory() >> [
+            (['Workshop', null] as Object[]),
+        ]
+
+        when:
+        def stats = service.getStats()
+
+        then:
+        stats.categories == [Workshop: 0L]
+    }
+
+    def "getStats handles a non-null high with a null floor"() {
+        given: "MIN came back null but MAX did not — each extreme resolved independently"
+        itemRepository.catalogueSummary() >> [([3L, 1L, null, new BigDecimal("42")] as Object[])]
+        itemRepository.countByCategory() >> []
+
+        when:
+        def stats = service.getStats()
+
+        then:
+        stats.floorPrice == BigDecimal.ZERO
+        stats.highestPrice == new BigDecimal("42")
+    }
+
+    // ── search — additional sort modes + filters ──────────────────
+
+    def "sort=rarity orders by ascending supply (rarest first)"() {
+        given:
+        itemRepository.findAll() >> [
+            new Item(id: 1L, name: 'Common', category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("10"), supply: 9000, totalSold: 0, createdAt: 0L),
+            new Item(id: 2L, name: 'Rare', category: 'Hats', rarity: 'Limited',
+                     lowestPrice: new BigDecimal("10"), supply: 50, totalSold: 0, createdAt: 0L),
+        ]
+
+        when:
+        def result = service.search(null, null, null, 'rarity', null, null)
+
+        then:
+        result*.name == ['Rare', 'Common']
+    }
+
+    def "sort=newest orders by descending createdAt"() {
+        given:
+        itemRepository.findAll() >> [
+            item(1L, 'Old', 'Hats', 'Standard', new BigDecimal("10"), 0, 1_000L),
+            item(2L, 'New', 'Hats', 'Standard', new BigDecimal("10"), 0, 9_000L),
+        ]
+
+        when:
+        def result = service.search(null, null, null, 'newest', null, null)
+
+        then:
+        result*.name == ['New', 'Old']
+    }
+
+    def "an unknown sort token falls through to price_desc"() {
+        given:
+        itemRepository.findAll() >> [
+            item(1L, 'A', 'Hats', 'Standard', new BigDecimal("10")),
+            item(2L, 'B', 'Hats', 'Standard', new BigDecimal("50")),
+        ]
+
+        when: "a garbage sort value — the controller lowercases but does not whitelist"
+        def result = service.search(null, null, null, 'sideways', null, null)
+
+        then:
+        result*.name == ['B', 'A']
+    }
+
+    def "minPrice and maxPrice together keep only the in-band items"() {
+        given:
+        itemRepository.findAll() >> [
+            item(1L, 'Below', 'Hats', 'Standard', new BigDecimal("5")),
+            item(2L, 'In', 'Hats', 'Standard', new BigDecimal("25")),
+            item(3L, 'Above', 'Hats', 'Standard', new BigDecimal("90")),
+        ]
+
+        when:
+        def result = service.search(null, null, null, null, new BigDecimal("10"), new BigDecimal("50"))
+
+        then:
+        result*.name == ['In']
+    }
+
+    def "price filter bounds are inclusive on both ends"() {
+        given:
+        itemRepository.findAll() >> [
+            item(1L, 'Floor', 'Hats', 'Standard', new BigDecimal("10")),
+            item(2L, 'Ceiling', 'Hats', 'Standard', new BigDecimal("20")),
+        ]
+
+        when: "an item priced exactly at the floor or the ceiling survives"
+        def result = service.search(null, null, null, 'price_asc', new BigDecimal("10"), new BigDecimal("20"))
+
+        then:
+        result*.name == ['Floor', 'Ceiling']
+    }
+
+    def "a q-search still honours the price filter"() {
+        given: "searchByName is the source; the price filter runs on top of it"
+        itemRepository.searchByName('hat') >> [
+            item(1L, 'Cheap Hat', 'Hats', 'Standard', new BigDecimal("5")),
+            item(2L, 'Pricey Hat', 'Hats', 'Standard', new BigDecimal("80")),
+        ]
+
+        when:
+        def result = service.search('hat', null, null, null, new BigDecimal("10"), null)
+
+        then: "the sub-floor hat is dropped even though it matched the name query"
+        result*.name == ['Pricey Hat']
+    }
+
+    def "search returns an empty list when the repository yields nothing"() {
+        given:
+        itemRepository.findAll() >> []
+
+        when:
+        def result = service.search(null, null, null, 'price_asc', null, null)
+
+        then:
+        result == []
+    }
+
+    // ── getPriceHistory — 400-day cutoff window (batch 1022) ───────
+
+    def "getPriceHistory passes a cutoff roughly 400 days in the past"() {
+        given:
+        Long seenCutoff = null
+        priceHistoryRepository.findByItemIdSince(7L, _) >> { args ->
+            seenCutoff = args[1] as Long
+            []
+        }
+        long expected = System.currentTimeMillis() - (400L * 24L * 60L * 60L * 1000L)
+
+        when:
+        service.getPriceHistory(7L)
+
+        then: "cutoff is the 400-day window — within a few seconds of the expected value"
+        seenCutoff != null
+        Math.abs(seenCutoff - expected) < 5_000L
+        // Sanity: a 400-day window is well clear of any overflow/underflow.
+        seenCutoff > 0L
+        seenCutoff < System.currentTimeMillis()
+    }
+
+    def "getPriceHistory keys the lookup off the requested item id"() {
+        when:
+        service.getPriceHistory(123L)
+
+        then:
+        1 * priceHistoryRepository.findByItemIdSince(123L, _) >> []
+        0 * priceHistoryRepository.findByItemIdSince({ it != 123L }, _)
+    }
+
+    // ── getAll + save passthroughs ────────────────────────────────
+
+    def "getAll delegates straight to the repository"() {
+        given:
+        def rows = [item(1L, 'A', 'Hats', 'Standard', new BigDecimal("10"))]
+        itemRepository.findAll() >> rows
+
+        expect:
+        service.getAll() == rows
+    }
+
+    def "save delegates to the repository and returns the persisted item"() {
+        given:
+        def toSave = item(1L, 'A', 'Hats', 'Standard', new BigDecimal("10"))
+        itemRepository.save(toSave) >> toSave
+
+        expect:
+        service.save(toSave).is(toSave)
+    }
 }

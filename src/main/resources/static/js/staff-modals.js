@@ -2977,7 +2977,10 @@ function AdminUsersTab({ me }) {
                       ? fmt(detailData.summary.walletBalance)
                       : '—'),
                   h('div', { className: 'health-card-hint',
-                    style: detailData.summary.walletFrozen ? { color: 'var(--err)', fontWeight: 600 } : null },
+                    // 2026-05-20 — was `var(--err)`, an undefined CSS var, so
+                    // the FROZEN hint never got its red emphasis. `--red` is
+                    // the app-wide danger token (used everywhere else here).
+                    style: detailData.summary.walletFrozen ? { color: 'var(--red)', fontWeight: 600 } : null },
                     detailData.summary.walletFrozen
                       ? '❄ FROZEN' + (detailData.summary.walletFrozenReason ? ' · ' + detailData.summary.walletFrozenReason : '')
                       : 'Active')
@@ -2985,7 +2988,11 @@ function AdminUsersTab({ me }) {
                 h('div', { className: 'health-card' },
                   h('div', { className: 'health-card-label' }, 'Disputes'),
                   h('div', { className: 'health-card-value',
-                    style: (detailData.summary.activeDisputes || 0) > 0 ? { color: 'var(--warn)' } : null },
+                    // 2026-05-20 — was `var(--warn)`, an undefined CSS var, so
+                    // a non-zero active-dispute count never got its amber
+                    // emphasis. Use the #fbbf24 literal the rest of this
+                    // file already uses for every other amber accent.
+                    style: (detailData.summary.activeDisputes || 0) > 0 ? { color: '#fbbf24' } : null },
                     (detailData.summary.activeDisputes ?? 0).toString()),
                   h('div', { className: 'health-card-hint' },
                     `active · ${detailData.summary.lifetimeDisputes ?? 0} lifetime`)
