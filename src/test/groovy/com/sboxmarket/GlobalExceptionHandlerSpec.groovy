@@ -7,11 +7,17 @@ import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.InsufficientBalanceException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.orm.ObjectOptimisticLockingFailureException
+import org.springframework.web.HttpMediaTypeNotAcceptableException
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -209,6 +215,92 @@ class GlobalExceptionHandlerSpec extends Specification {
         resp.statusCode == HttpStatus.BAD_REQUEST
         resp.body.code == 'MISSING_PARAMETER'
         resp.body.message.contains('amount')
+    }
+
+    // ── Protocol-level mappings (must NOT fall through to 500) ─────
+
+    def "HttpRequestMethodNotSupportedException maps to 405, not a generic 500"() {
+        given:
+        def ex = new HttpRequestMethodNotSupportedException('POST', ['GET', 'HEAD'])
+
+        when:
+        def resp = handler.handleMethodNotSupported(ex, req('/api/listings/42'))
+
+        then:
+        resp.statusCode == HttpStatus.METHOD_NOT_ALLOWED
+        resp.body.code == 'METHOD_NOT_ALLOWED'
+        resp.body.path == null
+        // The 405 carries an Allow header so clients can self-correct
+        resp.headers.getFirst(HttpHeaders.ALLOW) != null
+        resp.headers.getAllow().contains(HttpMethod.GET)
+    }
+
+    def "405 response never leaks the raw exception message"() {
+        given:
+        def ex = new HttpRequestMethodNotSupportedException('DELETE')
+
+        when:
+        def resp = handler.handleMethodNotSupported(ex, req())
+
+        then:
+        resp.statusCode == HttpStatus.METHOD_NOT_ALLOWED
+        // Generic copy only — no servlet/framework internals
+        resp.body.message == 'HTTP method not allowed for this endpoint'
+        !resp.body.message.contains('DELETE')
+    }
+
+    def "HttpMediaTypeNotSupportedException maps to 415, not a generic 500"() {
+        given:
+        def ex = new HttpMediaTypeNotSupportedException('text/plain not supported')
+
+        when:
+        def resp = handler.handleMediaTypeNotSupported(ex, req('/api/offers'))
+
+        then:
+        resp.statusCode == HttpStatus.UNSUPPORTED_MEDIA_TYPE
+        resp.body.code == 'UNSUPPORTED_MEDIA_TYPE'
+        resp.body.message == 'Request media type is not supported'
+        resp.body.path == null
+    }
+
+    def "HttpMediaTypeNotAcceptableException maps to 406, not a generic 500"() {
+        given:
+        def ex = new HttpMediaTypeNotAcceptableException('cannot produce text/csv')
+
+        when:
+        def resp = handler.handleMediaTypeNotAcceptable(ex, req('/api/listings'))
+
+        then:
+        resp.statusCode == HttpStatus.NOT_ACCEPTABLE
+        resp.body.code == 'NOT_ACCEPTABLE'
+        resp.body.path == null
+    }
+
+    def "MaxUploadSizeExceededException maps to 413, not a generic 500"() {
+        given:
+        def ex = new MaxUploadSizeExceededException(2L * 1024L * 1024L)
+
+        when:
+        def resp = handler.handleMaxUpload(ex, req('/api/profile/avatar'))
+
+        then:
+        resp.statusCode == HttpStatus.PAYLOAD_TOO_LARGE
+        resp.body.code == 'PAYLOAD_TOO_LARGE'
+        resp.body.message == 'Request body is too large'
+        resp.body.path == null
+    }
+
+    def "protocol-level handlers echo the path only in verbose mode"() {
+        given:
+        def verbose = new GlobalExceptionHandler(verboseErrors: true)
+
+        when:
+        def resp = verbose.handleMethodNotSupported(
+            new HttpRequestMethodNotSupportedException('PUT'), req('/api/listings/7'))
+
+        then:
+        resp.statusCode == HttpStatus.METHOD_NOT_ALLOWED
+        resp.body.path == '/api/listings/7'
     }
 
     // ── Catch-all ─────────────────────────────────────────────────

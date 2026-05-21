@@ -1928,6 +1928,17 @@ export function NotificationsModal({ onClose, me }) {
       const ids = groups.flatMap(g => g.items).filter(n => !n.read).map(n => n.id);
       if (ids.length === 0) { load(); return; }
       const res = await markNotificationsReadBatch(ids);
+      // markNotificationsReadBatch goes through writeJson — a failed
+      // request returns `{error, code}` with no `flipped` field. The
+      // old fallback `: ids.length` then printed a green "Marked N
+      // read" toast on a request that actually failed. Detect the
+      // error shape and surface it instead, mirroring the full-view
+      // branch below.
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not mark notifications read — try again.', 'err');
+        load();
+        return;
+      }
       const n = (res && typeof res.flipped === 'number') ? res.flipped : ids.length;
       if (n > 0) toast(`Marked ${n} notification${n === 1 ? '' : 's'} read.`, 'ok');
     } else {
@@ -1954,6 +1965,16 @@ export function NotificationsModal({ onClose, me }) {
       const ids = groups.flatMap(g => g.items).filter(n => n.read).map(n => n.id);
       if (ids.length === 0) { load(); return; }
       const res = await deleteNotificationsBatch(ids);
+      // deleteNotificationsBatch goes through writeJson — a failed
+      // request returns `{error, code}` with no `deleted` field, so
+      // the old `: ids.length` fallback printed a false "Deleted N"
+      // success toast. Surface the error instead, matching the
+      // full-view branch below.
+      if (res && (res.error || res.code)) {
+        toast(res.message || res.error || 'Could not clear read notifications — try again.', 'err');
+        load();
+        return;
+      }
       const n = (res && typeof res.deleted === 'number') ? res.deleted : ids.length;
       if (n > 0) toast(`Deleted ${n} read notification${n === 1 ? '' : 's'}.`, 'ok');
       load();

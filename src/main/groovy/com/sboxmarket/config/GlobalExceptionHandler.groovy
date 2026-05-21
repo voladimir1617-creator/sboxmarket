@@ -11,12 +11,16 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.orm.ObjectOptimisticLockingFailureException
+import org.springframework.web.HttpMediaTypeNotAcceptableException
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingPathVariableException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 /**
@@ -150,6 +154,92 @@ class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException)
     ResponseEntity<Void> handleStaticMiss(NoResourceFoundException ignored) {
         ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+    }
+
+    /**
+     * Wrong HTTP verb for the route — e.g. POST to a GET-only endpoint, or
+     * DELETE on a read surface. Spring throws this from the dispatcher
+     * before the controller method runs. Previously it fell through to the
+     * catch-all and surfaced as a 500 INTERNAL_ERROR — wrong (it is a
+     * client mistake, not a server fault) and noisy: the catch-all logs
+     * every 500 at ERROR with a full stack trace, so verb-probing scanners
+     * spammed the error log and any PagerDuty wired to ERROR. Map to a
+     * proper 405 and echo the `Allow` header so well-behaved clients can
+     * self-correct (the set of verbs a route accepts is not sensitive).
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException)
+    ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+                                                          HttpServletRequest req) {
+        log.debug("Method not allowed at ${req.method} ${req.requestURI}: ${ex.message}")
+        def body = new ErrorResponse(
+            code         : 'METHOD_NOT_ALLOWED',
+            message      : 'HTTP method not allowed for this endpoint',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        def builder = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+        // RFC 9110 §15.5.6 — a 405 SHOULD carry an Allow header.
+        def allowed = ex.supportedHttpMethods
+        if (allowed) builder.allow(allowed as org.springframework.http.HttpMethod[])
+        builder.body(body)
+    }
+
+    /**
+     * Request body declared an unsupported Content-Type — e.g. a client
+     * POSTs `text/plain` or `application/xml` to a JSON-only endpoint.
+     * Previously bubbled to the catch-all as a 500. Maps to 415, the
+     * correct status, with no server internals leaked.
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException)
+    ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
+                                                             HttpServletRequest req) {
+        log.debug("Unsupported media type at ${req.method} ${req.requestURI}: ${ex.contentType}")
+        def body = new ErrorResponse(
+            code         : 'UNSUPPORTED_MEDIA_TYPE',
+            message      : 'Request media type is not supported',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body)
+    }
+
+    /**
+     * The route cannot produce any media type the client's Accept header
+     * will take. Previously bubbled to the catch-all as a 500. Maps to the
+     * correct 406 Not Acceptable.
+     */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException)
+    ResponseEntity<ErrorResponse> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex,
+                                                              HttpServletRequest req) {
+        log.debug("Not acceptable at ${req.method} ${req.requestURI}: ${ex.message}")
+        def body = new ErrorResponse(
+            code         : 'NOT_ACCEPTABLE',
+            message      : 'No acceptable representation for the requested media type',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(body)
+    }
+
+    /**
+     * Multipart upload exceeded `spring.servlet.multipart.max-*` (2MB).
+     * BodySizeLimitFilter rejects oversize raw bodies up front by their
+     * Content-Length header, but Spring's multipart parser enforces its
+     * own ceiling while streaming a `multipart/form-data` body and throws
+     * this — which previously bubbled to the catch-all as a 500. Map to
+     * 413, matching the filter's own response for the raw-body case.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException)
+    ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException ex,
+                                                  HttpServletRequest req) {
+        log.warn("Upload too large at ${req.method} ${req.requestURI}: ${ex.message}")
+        def body = new ErrorResponse(
+            code         : 'PAYLOAD_TOO_LARGE',
+            message      : 'Request body is too large',
+            path         : verboseErrors ? req.requestURI : null,
+            correlationId: MDC.get("cid")
+        )
+        ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body)
     }
 
     /**
