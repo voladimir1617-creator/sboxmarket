@@ -28,8 +28,15 @@ class NotificationService {
         def n = new Notification(
             userId: userId,
             kind:   kind,
-            title:  title,
-            body:   body,
+            // Truncate to the column caps (Notification.title VARCHAR(200),
+            // body VARCHAR(500)). An over-length title/body — e.g. a long
+            // interpolated item name or a verbose fraud summary — would
+            // otherwise throw a DataException at save() time, and since
+            // push() joins the caller's @Transactional, that poisons the
+            // whole parent operation. Truncating keeps the bell best-effort.
+            // (2026-05-20)
+            title:  title?.take(200),
+            body:   body?.take(500),
             refId:  refId,
             path:   path
         )
