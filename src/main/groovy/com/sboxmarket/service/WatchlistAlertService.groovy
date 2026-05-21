@@ -167,8 +167,18 @@ class WatchlistAlertService {
         try {
             WatchlistAlert a = row[0] as WatchlistAlert
             BigDecimal currentFloor = (row[1] as BigDecimal) ?: BigDecimal.ZERO
-            def item = itemRepository.findById(a.itemId).orElse(null)
-            def name = item?.name ?: "Item #${a.itemId}"
+            // The item name is the third projection column of
+            // findTriggered() / findTriggeredForItem() — both already
+            // JOIN Item, so re-fetching with itemRepository.findById
+            // per triggered row was a pointless N+1. Fall back to a
+            // lookup only when the projection didn't carry a name (a
+            // 2-element row, e.g. an older stub) so behaviour is
+            // unchanged for any caller passing a short row.
+            String name = (row.length > 2 ? row[2] as String : null)
+            if (name == null || name.isEmpty()) {
+                def item = itemRepository.findById(a.itemId).orElse(null)
+                name = item?.name ?: "Item #${a.itemId}"
+            }
             def user = steamUserRepository?.findById(a.userId)?.orElse(null)
             boolean userBanned = user != null && Boolean.TRUE.equals(user.banned)
             if (!userBanned) {

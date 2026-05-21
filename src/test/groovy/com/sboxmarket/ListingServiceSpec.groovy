@@ -194,6 +194,26 @@ class ListingServiceSpec extends Specification {
         result*.id == [1L, 2L, 3L, 4L]
     }
 
+    def "sort=discount treats an AUCTION as 0% off so a low-opener can't top the deals view"() {
+        given:
+        // An AUCTION with a $0.01 opening bid on a $10-steam item would,
+        // if its starting price were treated as a real discount, read as
+        // ~100% off and dominate. The auction's price is just the opening
+        // bid — not a binding sale price — so it must rank as 0%.
+        def auction = new Listing(id: 1L, item: itemWithSteamPrice(1L, new BigDecimal('10.00')),
+            price: new BigDecimal('0.01'), status: 'ACTIVE', hidden: false, listingType: 'AUCTION')
+        def buyNow  = listingFor(id: 2L, item: itemWithSteamPrice(2L, new BigDecimal('10.00')),
+            price: new BigDecimal('6.00'))  // a real 40%-off BUY_NOW
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [auction, buyNow]
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, null, null)
+
+        then:
+        // The genuine BUY_NOW discount outranks the auction (0%).
+        result*.id == [2L, 1L]
+    }
+
     def "sort=ending_soon orders AUCTION listings by expiresAt asc, BUY_NOW rows last"() {
         given:
         // Two auctions (one ending sooner) plus a BUY_NOW. The BUY_NOW has
@@ -226,6 +246,263 @@ class ListingServiceSpec extends Specification {
 
         then:
         result*.id == [2L, 1L]
+    }
+
+    def "sort=price_asc keeps the JPQL price-ASC order untouched"() {
+        given:
+        // The repo already returns price ASC. sort=price_asc must be a
+        // no-op pass-through — proves the explicit case doesn't reorder.
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
+            listingFor(id: 1L, price: new BigDecimal("10")),
+            listingFor(id: 2L, price: new BigDecimal("25")),
+            listingFor(id: 3L, price: new BigDecimal("99")),
+        ]
+
+        when:
+        def result = service.getActiveListings('price_asc', null, null, null, null, null, null)
+
+        then:
+        result*.id == [1L, 2L, 3L]
+    }
+
+    def "an unrecognised sort value falls through to the JPQL price-ASC order"() {
+        given:
+        // The controller whitelists sort before this point, but the
+        // service switch must still degrade gracefully on the default
+        // branch rather than throw.
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
+            listingFor(id: 1L, price: new BigDecimal("3")),
+            listingFor(id: 2L, price: new BigDecimal("7")),
+        ]
+
+        when:
+        def result = service.getActiveListings('totally_bogus', null, null, null, null, null, null)
+
+        then:
+        result*.id == [1L, 2L]
+    }
+
+    def "a null sort value falls through to the JPQL price-ASC order"() {
+        given:
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
+            listingFor(id: 1L, price: new BigDecimal("3")),
+            listingFor(id: 2L, price: new BigDecimal("7")),
+        ]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, null, null, null)
+
+        then:
+        result*.id == [1L, 2L]
+    }
+
+    private Item itemWithCounters(long id, long totalSold, long viewCount) {
+        def it = itemFor(id, 'Item ' + id, 'Standard', 100)
+        it.totalSold = totalSold as int
+        it.viewCount = viewCount
+        it
+    }
+
+    def "sort=popularity orders by item.totalSold desc, zero-sales rows last"() {
+        given:
+        // c has the most sales, a is mid, b has none. b also has the
+        // lowest price — if popularity fell through to price ASC it
+        // would lead, proving the totalSold comparator really runs.
+        def a = listingFor(id: 1L, item: itemWithCounters(1L, 5L, 0L),  price: new BigDecimal("50"))
+        def b = listingFor(id: 2L, item: itemWithCounters(2L, 0L, 0L),  price: new BigDecimal("5"))
+        def c = listingFor(id: 3L, item: itemWithCounters(3L, 99L, 0L), price: new BigDecimal("80"))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [a, b, c]
+
+        when:
+        def result = service.getActiveListings('popularity', null, null, null, null, null, null)
+
+        then:
+        result*.id == [3L, 1L, 2L]
+    }
+
+    def "sort=popularity breaks ties by ascending price"() {
+        given:
+        // Two listings on equally-popular items — the cheaper one wins.
+        def dear  = listingFor(id: 1L, item: itemWithCounters(1L, 10L, 0L), price: new BigDecimal("40"))
+        def cheap = listingFor(id: 2L, item: itemWithCounters(2L, 10L, 0L), price: new BigDecimal("12"))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [dear, cheap]
+
+        when:
+        def result = service.getActiveListings('popularity', null, null, null, null, null, null)
+
+        then:
+        result*.id == [2L, 1L]
+    }
+
+    def "sort=views orders by item.viewCount desc, zero-view rows last"() {
+        given:
+        // c is most-viewed, a mid, b unviewed. b is cheapest so a
+        // price-ASC fall-through would surface it first.
+        def a = listingFor(id: 1L, item: itemWithCounters(1L, 0L, 30L),  price: new BigDecimal("50"))
+        def b = listingFor(id: 2L, item: itemWithCounters(2L, 0L, 0L),   price: new BigDecimal("5"))
+        def c = listingFor(id: 3L, item: itemWithCounters(3L, 0L, 500L), price: new BigDecimal("80"))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [a, b, c]
+
+        when:
+        def result = service.getActiveListings('views', null, null, null, null, null, null)
+
+        then:
+        result*.id == [3L, 1L, 2L]
+    }
+
+    def "sort=views breaks ties by ascending price"() {
+        given:
+        def dear  = listingFor(id: 1L, item: itemWithCounters(1L, 0L, 7L), price: new BigDecimal("40"))
+        def cheap = listingFor(id: 2L, item: itemWithCounters(2L, 0L, 7L), price: new BigDecimal("12"))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [dear, cheap]
+
+        when:
+        def result = service.getActiveListings('views', null, null, null, null, null, null)
+
+        then:
+        result*.id == [2L, 1L]
+    }
+
+    def "sort=price_desc breaks an equal-price pair without throwing"() {
+        given:
+        // Two listings at the exact same price — the comparator must be
+        // a total order (no IllegalArgumentException from Collections.sort).
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [
+            listingFor(id: 1L, price: new BigDecimal("10")),
+            listingFor(id: 2L, price: new BigDecimal("10")),
+        ]
+
+        when:
+        def result = service.getActiveListings('price_desc', null, null, null, null, null, null)
+
+        then:
+        result.size() == 2
+        noExceptionThrown()
+    }
+
+    def "getActiveListings returns an empty list when the query matches nothing"() {
+        given:
+        listingRepository.findActivePublic('zzz', '', '', '', null, null) >> []
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, 'zzz', null)
+
+        then:
+        result == []
+        noExceptionThrown()
+    }
+
+    def "getActiveListings forwards only minPrice when maxPrice is absent"() {
+        given:
+        def min = new BigDecimal("25")
+        listingRepository.findActivePublic('', '', '', '', min, null) >> [listingFor(id: 3L)]
+
+        when:
+        def result = service.getActiveListings(null, null, null, min, null, null, null)
+
+        then:
+        result*.id == [3L]
+    }
+
+    def "getActiveListings forwards only maxPrice when minPrice is absent"() {
+        given:
+        def max = new BigDecimal("75")
+        listingRepository.findActivePublic('', '', '', '', null, max) >> [listingFor(id: 4L)]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, max, null, null)
+
+        then:
+        result*.id == [4L]
+    }
+
+    def "getActiveListings collapses listingType 'All' to the empty sentinel"() {
+        given:
+        // 'All' is the frontend's "no filter" value — must not be passed
+        // through as a literal listingType (no listing has type 'All').
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [listingFor()]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, null, null, 'All')
+
+        then:
+        result.size() == 1
+    }
+
+    def "getActiveListings forwards BUY_NOW as a whitelisted listingType"() {
+        given:
+        listingRepository.findActivePublic('', '', '', 'BUY_NOW', null, null) >> [listingFor(id: 6L)]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, null, null, 'BUY_NOW')
+
+        then:
+        result*.id == [6L]
+    }
+
+    def "getActiveListings collapses category 'All' to the empty sentinel"() {
+        given:
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [listingFor()]
+
+        when:
+        def result = service.getActiveListings(null, 'All', null, null, null, null, null)
+
+        then:
+        result.size() == 1
+    }
+
+    def "getActiveListings collapses rarity 'All' to the empty sentinel"() {
+        given:
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [listingFor()]
+
+        when:
+        def result = service.getActiveListings(null, null, 'All', null, null, null, null)
+
+        then:
+        result.size() == 1
+    }
+
+    def "getActiveListings collapses an empty-string search to the empty sentinel"() {
+        given:
+        // An empty (but non-null) search must not become a LIKE '%%' that
+        // the service treats as a real filter token.
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [listingFor()]
+
+        when:
+        def result = service.getActiveListings(null, null, null, null, null, '', null)
+
+        then:
+        result.size() == 1
+    }
+
+    // ── findTopDeals / findNewestActive passthroughs ──────────────
+
+    def "findTopDeals forwards a capped page request to the repo"() {
+        given:
+        org.springframework.data.domain.Pageable seen = null
+        listingRepository.findTopDeals(_) >> { args -> seen = args[0]; [listingFor(id: 1L)] }
+
+        when:
+        def rows = service.findTopDeals(12)
+
+        then:
+        seen != null
+        seen.pageSize == 12
+        rows.size() == 1
+    }
+
+    def "findNewestActive truncates the repo result to the requested cap"() {
+        given:
+        listingRepository.findActiveOrderByNewest() >> [
+            listingFor(id: 1L), listingFor(id: 2L), listingFor(id: 3L), listingFor(id: 4L),
+        ]
+
+        when:
+        def rows = service.findNewestActive(2)
+
+        then:
+        rows.size() == 2
+        rows*.id == [1L, 2L]
     }
 
     // ── setAwayMode ───────────────────────────────────────────────

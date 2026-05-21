@@ -18,6 +18,7 @@ class SupportController {
 
     @Autowired SupportService supportService
     @Autowired SteamUserRepository steamUserRepository
+    @Autowired com.sboxmarket.service.security.BanGuard banGuard
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -92,6 +93,11 @@ class SupportController {
             throw new com.sboxmarket.exception.BadRequestException("SELF_REPORT",
                 "You can't report yourself")
         }
+        // Banned users can still log in to appeal, but they must not be
+        // able to spam FRAUD reports — each one fans a notification to
+        // every admin/CSR. Gate ONLY this endpoint; a banned user must
+        // still be able to file/reply to a normal ticket to appeal.
+        banGuard.assertNotBanned(uid)
         def target = steamUserRepository.findById(targetUserId)
             .orElseThrow { new com.sboxmarket.exception.NotFoundException("SteamUser", targetUserId) }
         def me = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }

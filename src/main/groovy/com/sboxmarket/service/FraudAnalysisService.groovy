@@ -146,8 +146,16 @@ class FraudAnalysisService {
 
     // ── Signal 3: deposit -> withdraw within 15m ──────────────────
     private List<Map> detectRapidWithdrawAfterDeposit(List<AuditLog> rows) {
-        def deposits  = rows.findAll { it.eventType == AuditService.DEPOSIT_COMPLETE }
-        def withdraws = rows.findAll { it.eventType == AuditService.WITHDRAW_REQUESTED }
+        // Correlate by actorUserId — so require a non-null actor on BOTH
+        // sides. The audit row's actorUserId is genuinely null for some
+        // wallet events (the Stripe webhook has no servlet user context),
+        // and Groovy's `null == w.actorUserId` is `true` when both are
+        // null. Without this filter an unrelated null-actor deposit
+        // matches an unrelated null-actor withdrawal and the rule fires a
+        // bogus cross-product of HIGH signals on every userbase that has
+        // any deposit + withdrawal activity inside the same 15m window.
+        def deposits  = rows.findAll { it.eventType == AuditService.DEPOSIT_COMPLETE && it.actorUserId }
+        def withdraws = rows.findAll { it.eventType == AuditService.WITHDRAW_REQUESTED && it.actorUserId }
         def out = []
         withdraws.each { w ->
             def matchedDeposit = deposits.find {

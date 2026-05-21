@@ -294,7 +294,21 @@ class ItemController {
 
     @GetMapping("/{id}/similar")
     ResponseEntity<List<Item>> getSimilar(@PathVariable Long id) {
-        def base = itemService.getById(id)
+        // A missing/stale id returns an empty list with a 200, NOT a 404.
+        // The ItemModal fires /similar alongside /velocity, /history and
+        // /recent-sales on open; those three already degrade to empty 200s
+        // for a dead id, and GET /api/items/{id} itself returns the
+        // `{notFound:true}` sentinel rather than a 404 (Chrome console-logs
+        // every fetch 404). Routing through itemService.getById() here threw
+        // NotFoundException → 404, making /similar the lone sub-resource
+        // that emitted a phantom console error on a dead-link landing.
+        def opt = itemRepository.findById(id)
+        if (!opt.isPresent()) {
+            return ResponseEntity.ok()
+                .header('Cache-Control', 'public, max-age=300')
+                .body([] as List<Item>)
+        }
+        def base = opt.get()
         def basePrice = base.lowestPrice ?: BigDecimal.ZERO
         def similar = itemRepository.findSimilar(
             base.id,

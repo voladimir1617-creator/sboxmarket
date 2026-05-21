@@ -622,6 +622,15 @@ class ProfileController {
                 id: o.id, listingId: o.listingId, amount: o.amount,
                 status: o.status, createdAt: o.createdAt
             ] } ?: [],
+            // Offers OTHER users placed on this user's listings. Already
+            // surfaced in the /offers.csv?role=SELLER export — included
+            // here for GDPR parity so a single /export bundle is the
+            // complete picture. Counterparty id only, same disclosure
+            // level the offers CSV and OffersModal already expose.
+            offersIncoming: offerRepository?.findBySeller(uid)?.collect { o -> [
+                id: o.id, listingId: o.listingId, amount: o.amount,
+                status: o.status, buyerUserId: o.buyerUserId, createdAt: o.createdAt
+            ] } ?: [],
             buyOrders: buyOrderRepository?.findByBuyer(uid)?.collect { b -> [
                 id: b.id, itemName: b.itemName, category: b.category, rarity: b.rarity,
                 maxPrice: b.maxPrice, quantity: b.quantity, status: b.status,
@@ -919,6 +928,15 @@ class ProfileController {
         if (user.emailVerified) {
             return ResponseEntity.ok([email: user.email, verified: true, resent: false])
         }
+        // Refuse while a 2FA enrollment is staged in the overloaded
+        // emailVerificationToken column — a blind resend here would
+        // clobber "totp_pending:<secret>" with a fresh random token and
+        // leave /2fa/confirm permanently throwing NOT_ENROLLING. The
+        // user should finish or cancel 2FA setup first.
+        if (user.emailVerificationToken?.startsWith('totp_pending:')) {
+            throw new BadRequestException('TWOFA_IN_PROGRESS',
+                "Finish or cancel two-factor setup before resending the email verification.")
+        }
         // 60s per-user cooldown (batch 602). Prevents a UI that double-
         // fires the button or a refresh-spam pattern from flooding
         // SMTP. Separate from the global 20/10s rate limit — this
@@ -956,6 +974,21 @@ class ProfileController {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
         def token = (body?.token as String ?: '').trim()
+        // The emailVerificationToken column is overloaded as the 2FA
+        // enrollment staging slot ("totp_pending:<secret>"). A user mid-
+        // 2FA-enroll has that staged value sitting in the column — and
+        // the <secret> portion is shown back to them in the /2fa/enroll
+        // response. Without this guard, submitting the literal staged
+        // string here would (a) flip emailVerified=true with no proof of
+        // mailbox control — bypassing a gate that real security alerts,
+        // email uniqueness, and the canSendSecurityTo check all rely on —
+        // and (b) silently wipe the pending 2FA secret. Real verification
+        // tokens are 32 hex chars from randomToken() and never carry this
+        // prefix, so rejecting it costs a legitimate flow nothing.
+        if (user.emailVerificationToken?.startsWith('totp_pending:')) {
+            throw new BadRequestException("INVALID_TOKEN",
+                "Finish or cancel two-factor setup before verifying your email.")
+        }
         if (!user.emailVerificationToken || token != user.emailVerificationToken) {
             throw new BadRequestException("INVALID_TOKEN", "Verification token does not match")
         }
@@ -993,6 +1026,26 @@ class ProfileController {
     ResponseEntity<Map> enroll2fa(HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Refuse if 2FA is already active. The staging slot only becomes
+        // the live secret on /2fa/confirm; re-enrolling on top of an
+        // active secret strands a "totp_pending:" value in the column
+        // with no confirm path (the user has no app entry for it) and
+        // would block email verify/resend. Re-keying = disable, then
+        // enroll fresh.
+        if (user.totpSecret) {
+            throw new BadRequestException("ALREADY_ENABLED",
+                "Two-factor authentication is already on. Disable it first to enroll a new device.")
+        }
+        // Refuse if a REAL email-verification token is in flight — the
+        // staging slot is overloaded onto emailVerificationToken, so
+        // enrolling here would silently destroy a token the user is
+        // about to click. A token already in 2FA-staging form is fine
+        // to overwrite (re-enroll before confirm is a legitimate retry).
+        def pendingTok = user.emailVerificationToken
+        if (pendingTok && !pendingTok.startsWith('totp_pending:')) {
+            throw new BadRequestException("EMAIL_VERIFICATION_PENDING",
+                "Verify your email (or wait for that link to expire) before enabling two-factor authentication.")
+        }
         def secret = totpService.generateSecret()
         // Store the pending secret but leave totpSecret == null until
         // confirmation succeeds. Use the verificationToken column as a
@@ -1003,6 +1056,29 @@ class ProfileController {
             secret:     secret,
             otpauthUrl: totpService.otpauthUrl(secret, user.email ?: user.steamId64)
         ])
+    }
+
+    /**
+     * Abandon an in-progress 2FA enrollment — clears the staged secret
+     * from the overloaded emailVerificationToken column so the user
+     * isn't permanently wedged out of email verify / resend after
+     * starting (and not finishing) 2FA setup. No-op + 200 when nothing
+     * is staged so a double-click is harmless. Only clears the staging
+     * slot; an already-confirmed totpSecret is untouched (that's what
+     * /2fa/disable is for, which requires a code).
+     */
+    @PostMapping("/2fa/cancel")
+    @Transactional
+    ResponseEntity<Map> cancel2faEnrollment(HttpServletRequest req) {
+        def uid = requireUser(req)
+        def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        boolean wasStaged = user.emailVerificationToken?.startsWith('totp_pending:')
+        if (wasStaged) {
+            user.emailVerificationToken = null
+            steamUserRepository.save(user)
+            log.info("User ${uid} cancelled an in-progress 2FA enrollment")
+        }
+        ResponseEntity.ok([cancelled: wasStaged, enabled: user.totpSecret != null])
     }
 
     @PostMapping("/2fa/confirm")
@@ -1022,8 +1098,9 @@ class ProfileController {
         }
         user.totpSecret = secret
         user.lastTotpStep = step
-        // Clear the staging slot — if the user had a pending email token
-        // they'll have to re-enter their email, which is acceptable rare UX.
+        // Clear the staging slot. enroll2fa rejects starting 2FA while a
+        // real email-verification token is in flight, so this only ever
+        // clears a "totp_pending:" value — no genuine email token is lost.
         user.emailVerificationToken = null
         // Mint backup codes atomically with enrollment so the user can never
         // be in the "2FA on, no recovery path" state. Shown exactly once in
@@ -1062,6 +1139,16 @@ class ProfileController {
         user.totpSecret = null
         user.lastTotpStep = null
         user.totpRecoveryCodes = null
+        // Disabling 2FA is a security DOWNGRADE — invalidate every other
+        // live session by bumping sessionEpoch. The send2faDisabled email
+        // below tells the user to "sign out of every session" as the
+        // first recovery step; this makes that real instead of advisory.
+        // Matches AdminService's force-2FA-reset which also bumps the
+        // epoch. The caller's own cookie is killed too (acceptable — the
+        // user just performed a deliberate sensitive action and can sign
+        // back in), and if an attacker holding a stolen cookie disabled
+        // 2FA, kicking every session including theirs is the goal.
+        user.sessionEpoch = System.currentTimeMillis()
         steamUserRepository.save(user)
         // Security alert (batch 512). Disabling 2FA is a significant
         // account-security downgrade — notify the verified email so an

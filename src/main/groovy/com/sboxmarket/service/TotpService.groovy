@@ -61,13 +61,18 @@ class TotpService {
         def cleaned = code.replaceAll(/\s+/, '')
         if (!(cleaned ==~ /\d{6}/)) return -1L
 
+        def secret = unbase32(secretBase32)
+        // A secret that decodes to nothing (empty / all non-Base32 chars)
+        // cannot key an HMAC — SecretKeySpec rejects an empty key. Fail the
+        // verification cleanly instead of throwing out of the auth path.
+        if (!secret) return -1L
+
         def now = System.currentTimeMillis() / 1000L
         def currentStep = (now / STEP_SECONDS) as long
-        def secret = unbase32(secretBase32)
         for (int offset = -WINDOW; offset <= WINDOW; offset++) {
             long step = currentStep + offset
             if (lastStep != null && step <= lastStep) continue   // replay guard
-            if (codeFor(secret, step) == cleaned) return step
+            if (constantTimeEquals(codeFor(secret, step), cleaned)) return step
         }
         -1L
     }
@@ -132,8 +137,20 @@ class TotpService {
         if (!normalized) return null
         def wantHash = sha256Hex(normalized)
         def parts = storedHashes.split(/\s+/).findAll { it }
-        if (!parts.contains(wantHash)) return null
-        parts.findAll { it != wantHash }.join(' ')
+        // Match with a constant-time compare so a timing side-channel can't
+        // be used to probe which recovery hashes are stored. Scan every
+        // entry (no early break) for the same reason.
+        boolean matched = false
+        def remaining = []
+        parts.each { hash ->
+            if (constantTimeEquals(hash, wantHash)) {
+                matched = true
+            } else {
+                remaining << hash
+            }
+        }
+        if (!matched) return null
+        remaining.join(' ')
     }
 
     /** SHA-256 lowercase hex — exposed so the ProfileController can hash
@@ -142,6 +159,17 @@ class TotpService {
         def md = MessageDigest.getInstance('SHA-256')
         def out = md.digest(input.getBytes('UTF-8'))
         out.collect { String.format('%02x', it) }.join('')
+    }
+
+    /**
+     * Length-independent constant-time string compare. Used for both the TOTP
+     * code check and recovery-hash matching so verification time does not leak
+     * how many leading characters of a guess were correct. Returns false for
+     * any null argument.
+     */
+    private static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) return false
+        MessageDigest.isEqual(a.getBytes('UTF-8'), b.getBytes('UTF-8'))
     }
 
     // ── Base32 codec (RFC 4648 — authenticator-app compatible) ──────

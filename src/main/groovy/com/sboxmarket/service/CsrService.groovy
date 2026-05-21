@@ -274,6 +274,17 @@ class CsrService {
                 log.warn("Support-reply email failed for ticket ${t.id}: ${e.message}")
             }
         }
+        // Audit-log the CSR reply (matches the CSR_CREDIT audit pattern
+        // below). A CSR reading and replying to a user's ticket is a
+        // staff mutation and needs the same forensic trail as bans /
+        // credits / force-cancels. Failure-tolerant — a bad audit write
+        // must not block the reply from saving.
+        try {
+            auditService?.log(AuditService.TICKET_REPLIED, csrUserId, t.userId, ticketId,
+                "Replied to ticket #${ticketId}: ${t.subject}")
+        } catch (Exception e) {
+            log.warn("TICKET_REPLIED audit-log failed for csr=${csrUserId} ticket=${ticketId}: ${e.message}")
+        }
         msg
     }
 
@@ -282,9 +293,23 @@ class CsrService {
         requireCsr(csrUserId)
         def t = supportTicketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
+        // State-machine guard — mirror SupportService.resolve. Re-resolving
+        // an already-RESOLVED ticket silently bumped updatedAt and could be
+        // used to churn the row; a stale CSR tab / double-click now gets a
+        // clean 400 instead.
+        if (t.status == 'RESOLVED') {
+            throw new BadRequestException("ALREADY_RESOLVED", "Ticket is already resolved")
+        }
         t.status = 'RESOLVED'
         t.updatedAt = System.currentTimeMillis()
         supportTicketRepository.save(t)
+        try {
+            auditService?.log(AuditService.TICKET_CLOSED, csrUserId, t.userId, ticketId,
+                "Closed ticket #${ticketId}: ${t.subject}")
+        } catch (Exception e) {
+            log.warn("TICKET_CLOSED audit-log failed for csr=${csrUserId} ticket=${ticketId}: ${e.message}")
+        }
+        t
     }
 
     // ── Goodwill credit ─────────────────────────────────────────────

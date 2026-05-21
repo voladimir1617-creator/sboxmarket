@@ -151,7 +151,13 @@ class SteamInventoryController {
         Long after = steamInventoryService.blockedUntilMs(user.steamId64)
         Long signal = (blockedUntil != null) ? blockedUntil : after
         if (signal != null && enriched.isEmpty()) {
-            long retryInSec = Math.max(1L, (signal - System.currentTimeMillis()) / 1000L)
+            // intdiv() keeps this as long-division — Groovy's `/` on two
+            // longs yields a BigDecimal, and Math.max(long, BigDecimal)
+            // has no unambiguous overload (it throws GroovyRuntimeException
+            // "Ambiguous method overloading for Math#max"). That escape
+            // 500s GET /api/steam/inventory the instant a user is genuinely
+            // rate-limited — exactly when this branch runs.
+            long retryInSec = Math.max(1L, (signal - System.currentTimeMillis()).intdiv(1000L))
             resp.blocked = true
             resp.blockedUntil = signal
             resp.retryInSec = retryInSec

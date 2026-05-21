@@ -143,9 +143,16 @@ class ListingService {
     /** Discount ratio for a listing — 0..1 where 0 means no discount (or
      *  no Steam reference price) and 1 means free. Safe against null
      *  steamPrice / price and against price >= steamPrice (returns 0 in
-     *  both cases so those rows don't outrank real discounts). */
+     *  both cases so those rows don't outrank real discounts).
+     *
+     *  AUCTION rows return 0: an auction's `price` is the *starting bid*,
+     *  not a binding sale price, so a $0.01-opener auction would otherwise
+     *  read as ~100% off and dominate the discount sort even though its
+     *  live bid may be at or above the Steam reference. This matches the
+     *  `findTopDeals` repo query, which is already BUY_NOW-only. */
     private static BigDecimal discountRatio(Listing l) {
         if (l == null) return BigDecimal.ZERO
+        if (l.listingType == 'AUCTION') return BigDecimal.ZERO
         def steam = l.item?.steamPrice
         def price = l.price
         if (steam == null || price == null) return BigDecimal.ZERO

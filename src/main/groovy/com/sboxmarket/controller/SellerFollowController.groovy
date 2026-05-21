@@ -22,6 +22,25 @@ class SellerFollowController {
         uid
     }
 
+    /**
+     * Coerce a JSON `muted` field to a real boolean. A bare Groovy
+     * `value as Boolean` is unsafe here: Jackson maps an untyped Map's
+     * JSON string to a `String`, and Groovy-truth makes EVERY non-empty
+     * string truthy — so `{"muted":"false"}` would coerce to `true` and
+     * mute instead of un-mute. Handle the real `Boolean` and the
+     * string-encoded forms explicitly; anything else is a 400.
+     */
+    private static boolean parseMutedFlag(Object raw) {
+        if (raw instanceof Boolean) return raw
+        if (raw instanceof String) {
+            def s = raw.trim().toLowerCase()
+            if (s == 'true')  return true
+            if (s == 'false') return false
+        }
+        throw new com.sboxmarket.exception.BadRequestException('INVALID_FIELD',
+            "'muted' must be a boolean (true/false)")
+    }
+
     @GetMapping
     ResponseEntity<List<Map>> list(HttpServletRequest req) {
         def uid = requireUser(req)
@@ -49,7 +68,7 @@ class SellerFollowController {
             throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
                 "'muted' (boolean) is required")
         }
-        def muted = body.muted as Boolean
+        def muted = parseMutedFlag(body.muted)
         def row = service.setNotificationsMuted(uid, sellerId, muted)
         ResponseEntity.ok([
             sellerUserId:        row.sellerUserId,
@@ -91,7 +110,7 @@ class SellerFollowController {
             throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
                 "'muted' (boolean) is required")
         }
-        def muted = body.muted as Boolean
+        def muted = parseMutedFlag(body.muted)
         int n = service.setAllMuted(requireUser(req), muted)
         ResponseEntity.ok([touched: n, muted: muted])
     }

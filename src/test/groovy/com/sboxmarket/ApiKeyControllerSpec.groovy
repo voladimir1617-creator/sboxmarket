@@ -153,6 +153,23 @@ class ApiKeyControllerSpec extends Specification {
         0 * apiKeyService.revoke(_, _)
     }
 
+    def "revoke() of someone else's key surfaces as 404 (no key-id enumeration)"() {
+        given:
+        authedSession(100L)
+        // Service hides "not yours" behind the same NotFoundException it
+        // throws for a missing id — the controller must propagate that
+        // unchanged so the response is 404, not 403.
+        1 * apiKeyService.revoke(100L, 9L) >> {
+            throw new com.sboxmarket.exception.NotFoundException('ApiKey', 9L)
+        }
+
+        when:
+        controller.revoke(9L, req)
+
+        then:
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
     def "revokeAll() is idempotent — zero-key caller gets {revoked: 0}"() {
         given:
         authedSession(100L)

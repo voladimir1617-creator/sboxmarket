@@ -92,6 +92,15 @@ class WatchlistService {
         def cleaned = (incoming ?: []).findAll { it != null }.unique()
         if (cleaned.size() > MAX_PER_USER) cleaned = cleaned.take(MAX_PER_USER)
         if (cleaned.isEmpty()) return list(userId)
+        // Pre-filter against the rows the user already has. This MUST be
+        // the only guard against the UNIQUE (userId, itemId) constraint:
+        // a JPA constraint violation marks the whole transaction
+        // rollback-only, so a swallowed try/catch around `save` would
+        // still poison this @Transactional — every subsequent save and
+        // the closing `list(userId)` would then throw
+        // UnexpectedRollbackException and the entire first-sign-in merge
+        // would fail. By only saving ids confirmed absent, no violation
+        // can be raised in the first place, so no try/catch is needed.
         def existing = repository.findExistingItemIds(userId, cleaned).toSet()
         def toAdd = cleaned.findAll { !existing.contains(it) }
         // Truncate at the per-user cap including pre-existing rows.
@@ -100,15 +109,7 @@ class WatchlistService {
         toAdd = toAdd.take(headroom)
         def now = System.currentTimeMillis()
         toAdd.each { itemId ->
-            try {
-                // Catch the rare race where a concurrent star slipped in
-                // between findExistingItemIds and save — UNIQUE constraint
-                // will reject; we swallow because the desired state is
-                // already true.
-                repository.save(new WatchlistItem(userId: userId, itemId: itemId, createdAt: now))
-            } catch (Exception e) {
-                log.debug("watchlist merge skipped item ${itemId} for user ${userId}: ${e.message}")
-            }
+            repository.save(new WatchlistItem(userId: userId, itemId: itemId, createdAt: now))
         }
         list(userId)
     }

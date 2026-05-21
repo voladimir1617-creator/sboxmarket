@@ -39,6 +39,16 @@ class EmailServiceSpec extends Specification {
             smtpHost:     args.smtpHost ?: '',
             fromAddress:  args.fromAddress ?: 'no-reply@skinbox.local',
             fromName:     'SkinBox',
+            // The @Value defaults on replyToAddress / unsubscribeSecret
+            // only apply under Spring — the plain Groovy map constructor
+            // leaves them null. Supply them here so the reply-to and
+            // one-click-unsubscribe (HMAC) paths behave as in prod.
+            // `replyToAddress` is only set when the caller passes it, so
+            // the blank-reply-to case can still exercise a null/blank.
+            replyToAddress: args.containsKey('replyToAddress')
+                                ? args.replyToAddress
+                                : 'support@skinbox.market',
+            unsubscribeSecret: args.unsubscribeSecret ?: 'test-unsubscribe-secret',
             publicUrl:    args.publicUrl ?: 'http://localhost:8080'
         )
         svc.init()
@@ -50,14 +60,21 @@ class EmailServiceSpec extends Specification {
      *  bodies which is what all current senders produce. */
     private static Map fields(MimeMessage msg) {
         def froms = (msg.getFrom() ?: [] as Object[]).collect { it.toString() }
+        def replyTos = (msg.getReplyTo() ?: [] as Object[]).collect { it.toString() }
         [
             to:       (msg.getRecipients(Message.RecipientType.TO) ?: [] as Object[]).collect { it.toString() },
             // `from` exposed as a bare string so tests can compare to a
             // single address without wrapping in a list — SkinBox only
             // ever has one From.
             from:     froms.isEmpty() ? null : froms[0],
+            replyTo:  replyTos.isEmpty() ? null : replyTos[0],
             subject:  msg.getSubject() ?: '',
             text:     (msg.getContent() ?: '').toString(),
+            // contentType is asserted by the plain-text/XSS tests below:
+            // every SkinBox email must stay text/plain so a user-supplied
+            // display name / item name / dispute note cannot be parsed as
+            // HTML by the recipient's mail client.
+            contentType: msg.getContentType() ?: '',
             listUnsub: (msg.getHeader('List-Unsubscribe') ?: []).join(' ')
         ]
     }
@@ -677,6 +694,329 @@ class EmailServiceSpec extends Specification {
             f.text.contains('30 days') &&
             f.text.contains('50') &&
             f.text.contains('/item/42')
+        })
+    }
+
+    // ── plain-text / no-HTML-injection (the email-XSS property) ───────
+    //
+    // Every SkinBox email is built as plain text — send() calls
+    // helper.setText(body, false). That `false` is the load-bearing
+    // anti-XSS control: a user-supplied display name / item name /
+    // dispute note that contains `<script>` is delivered verbatim and
+    // the recipient's mail client renders it as literal text, never as
+    // markup. These tests pin that contract so a future change to an
+    // HTML body can't silently land without also adding escaping.
+
+    def "emails are sent as text/plain, never text/html"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            // MimeMessageHelper.setText(text, false) yields a text/plain
+            // part; an accidental switch to setText(text, true) would
+            // make this read text/html and the assertion would fail.
+            f.contentType.toLowerCase().startsWith('text/plain') &&
+            !f.contentType.toLowerCase().contains('text/html')
+        })
+    }
+
+    def "a script-tag display name is delivered verbatim (no HTML to escape, no corruption)"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+        def evil = '<script>alert(1)</script>'
+
+        when:
+        svc.sendAuctionWon('user@example.com', evil, 'Wizard Hat',
+            new BigDecimal('12.00'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            // Body stays text/plain, so the angle brackets are literal
+            // characters in the recipient's client — they must NOT be
+            // HTML-entity-escaped (that would corrupt a plain-text body
+            // into showing `&lt;script&gt;`) and must NOT be stripped.
+            f.contentType.toLowerCase().startsWith('text/plain') &&
+            f.text.contains(evil) &&
+            !f.text.contains('&lt;') &&
+            !f.text.contains('&amp;')
+        })
+    }
+
+    def "user-supplied item name + dispute note pass through unmodified"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+        def itemName = 'AK-47 | <b>Redline</b>'
+        def note = 'seller said "ship it" & never did — <img src=x>'
+
+        when:
+        svc.sendTradeDisputed('bob@example.com', 'Bob', itemName,
+            'BUYER', note, 7L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.contentType.toLowerCase().startsWith('text/plain') &&
+            f.subject.contains(itemName) &&
+            f.text.contains(note)
+        })
+    }
+
+    // ── exception isolation (a mail failure must not break the caller) ─
+
+    def "a security-alert send swallows an SMTP failure"() {
+        given:
+        mailSender.send(_) >> { throw new RuntimeException('relay timeout') }
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendWalletFrozen('user@example.com', 'Alice', 'fraud review')
+        svc.awaitSmtpForTests()
+
+        then:
+        // The async worker logs + swallows; nothing propagates to the
+        // caller that triggered the security alert.
+        noExceptionThrown()
+    }
+
+    def "a transactional send swallows an SMTP failure"() {
+        given:
+        mailSender.send(_) >> { throw new IllegalStateException('mailbox full') }
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendSaleCompleted('seller@example.com', 'Sam', 'Wizard Hat',
+            new BigDecimal('48.00'), '/wallet')
+        svc.awaitSmtpForTests()
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "createMimeMessage blowing up does not break the caller"() {
+        given:
+        // Some JavaMailSender configs touch the session eagerly; if that
+        // throws, the failure happens inside the async worker's try block
+        // and must still be swallowed.
+        def boomSender = Mock(JavaMailSender)
+        boomSender.createMimeMessage() >> { throw new RuntimeException('no mail session') }
+        def svc = new EmailService(
+            mailSender: boomSender, smtpHost: 'smtp.example.com',
+            fromAddress: 'no-reply@skinbox.local', fromName: 'SkinBox',
+            publicUrl: 'http://localhost:8080')
+        svc.init()
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        noExceptionThrown()
+    }
+
+    // ── reply-to + footer + unsubscribe wiring ────────────────────────
+
+    def "every email carries the support reply-to address"() {
+        given:
+        // newService() stubs createMimeMessage() — required now that
+        // send() builds a MimeMessage — and supplies a non-Spring
+        // unsubscribeSecret so the footer/header HMAC path doesn't abort.
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             replyToAddress: 'support@skinbox.market')
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg ->
+            // A real Reply-To header is set — and it differs from the
+            // no-reply From, which is the whole point of the field.
+            (msg.getHeader('Reply-To') ?: []).join(' ').contains('support@skinbox.market') &&
+            fields(msg).from == 'no-reply@skinbox.local'
+        })
+    }
+
+    def "a blank reply-to config does not break the send and sets no Reply-To header"() {
+        given:
+        // Pass replyToAddress: '' explicitly — newService() only defaults
+        // it when the key is absent, so this exercises the blank-config
+        // branch (helper.setReplyTo is skipped, no Reply-To header).
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             replyToAddress: '')
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        // No explicit Reply-To header written (getReplyTo() would fall
+        // back to From per the JavaMail contract, so assert on the raw
+        // header instead), but the email still goes out fine.
+        1 * mailSender.send({ MimeMessage msg ->
+            fields(msg).to == ['user@example.com'] &&
+            (msg.getHeader('Reply-To') == null)
+        })
+    }
+
+    def "the footer + List-Unsubscribe header are attached to every email"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com',
+                             publicUrl: 'https://skinbox.example')
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            // CAN-SPAM footer + RFC-8058 one-click unsubscribe.
+            f.text.contains('Manage your email preferences') &&
+            f.text.contains('One-click unsubscribe') &&
+            f.listUnsub.contains('/api/unsubscribe?email=') &&
+            f.listUnsub.contains('user%40example.com')
+        })
+    }
+
+    // ── currency formatting + null-safety on money methods ────────────
+
+    def "usd() formats to two decimals with the (USD) suffix"() {
+        expect:
+        EmailService.usd(new BigDecimal('5'))      == '$5.00 (USD)'
+        EmailService.usd(new BigDecimal('5.1'))    == '$5.10 (USD)'
+        EmailService.usd(new BigDecimal('5.125'))  == '$5.13 (USD)'   // HALF_UP
+        EmailService.usd(new BigDecimal('0'))      == '$0.00 (USD)'
+    }
+
+    def "usd() treats a null amount as zero rather than throwing"() {
+        expect:
+        EmailService.usd(null) == '$0.00 (USD)'
+    }
+
+    def "sendWithdrawalApproved short-circuits on a null amount"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendWithdrawalApproved('user@example.com', 'Alice', null, 'ref-1')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendWithdrawalRejected short-circuits on a null amount"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendWithdrawalRejected('user@example.com', 'Alice', null, 'reason')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendWithdrawalApproved surfaces the amount + payout reference"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendWithdrawalApproved('user@example.com', 'Alice',
+            new BigDecimal('75.00'), 'PO-9931')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['user@example.com'] &&
+            f.subject.toLowerCase().contains('approved') &&
+            f.text.contains('75.00') &&
+            f.text.contains('PO-9931')
+        })
+    }
+
+    // ── null displayName / itemName fall back to safe defaults ────────
+
+    def "a null displayName renders as 'there' instead of the literal null"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionWon('user@example.com', null, 'Wizard Hat',
+            new BigDecimal('10.00'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('Hi there,') &&
+            !f.text.contains('Hi null,')
+        })
+    }
+
+    def "a null itemName falls back without printing 'null' in the body"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionWon('user@example.com', 'Alice', null,
+            new BigDecimal('10.00'), null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['user@example.com'] &&
+            !f.text.contains('won the auction for null')
+        })
+    }
+
+    def "sendPriceDrop switches to restock wording when the target is the sentinel"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendPriceDrop('user@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('20.00'), new BigDecimal('99999'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.subject.startsWith('Restock') &&
+            f.text.contains('back in stock') &&
+            // must NOT leak the sentinel target as a literal price
+            !f.text.contains('99999')
+        })
+    }
+
+    def "sendPriceDrop short-circuits when itemName is null"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendPriceDrop('user@example.com', 'Alice', null,
+            new BigDecimal('20.00'), new BigDecimal('10.00'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendAuctionExpired tolerates a null reason"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionExpired('user@example.com', 'Alice', 'Wizard Hat', null, 9L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['user@example.com'] &&
+            f.text.contains('No valid winning bid was recorded')
         })
     }
 }

@@ -121,9 +121,10 @@ export function SteamMarketLink({ item, compact }) {
 /**
  * Lazy-loading image with a proper skeleton and category-based fallback.
  * Variants:
- *   'thumb'  — 330x192  (rows, tickers)
- *   'card'   — 512x384  (grid cards, hero tabs)
- *   'hero'   — 1024x768 (modal hero)
+ *   'mini'   — 96x96     (db rows, picker thumbs)
+ *   'thumb'  — 330x192   (rows, tickers)
+ *   'card'   — 512x384   (grid cards, hero tabs)
+ *   'hero'   — 1024x768  (modal hero)
  */
 export function ItemImage({ item, alt, variant = 'card' }) {
   const [failed, setFailed] = useState(false);
@@ -151,11 +152,24 @@ export function ItemImage({ item, alt, variant = 'card' }) {
     : null;
 
   if (!url) {
-    return h('span', { className: 'item-poster', 'data-variant': variant }, posterGlyph(item));
+    // Poster fallback. The `mini` variant has no dedicated CSS size rule
+    // (design.css styles only thumb / hero); reuse 'thumb' as its data
+    // attribute so the small-cell glyph picks up the 22px sizing instead
+    // of overflowing its 48×48 / 28×28 db-row cell at the default 40px.
+    const posterVariant = variant === 'mini' ? 'thumb' : variant;
+    // a11y: with no image, the glyph IS the only visual for the item —
+    // give it an accessible name so screen readers announce the item
+    // rather than skipping a decorative-looking span.
+    return h('span', {
+      className: 'item-poster',
+      'data-variant': posterVariant,
+      role: 'img',
+      'aria-label': alt || item.name || 'Item image unavailable'
+    }, posterGlyph(item));
   }
   return h('img', {
     src: url,
-    alt: alt || item.name,
+    alt: alt || item.name || '',
     loading: 'lazy',
     decoding: 'async',
     draggable: false,
@@ -216,53 +230,72 @@ export function Avatar({ src, name, alt, className, style }) {
   });
 }
 
-// Boss QA F4 cycle 9 — rarity colour map. Even if only Standard is
-// seeded today, ship the full ladder so future tiers (Scarce / Rare /
-// Legendary) render the boss-spec colours the moment seed data adds
-// them. Apply as inline style so it wins against any prior class CSS
-// without needing a dedicated rule per tier.
+// Rarity colour map — fallback ONLY. The CSFloat-accurate gradient pills
+// for the shipped s&box tiers (Standard / Limited / Off-Market) live in
+// design.css as `.rarity-badge.rarity-{tier}` rules. This map is the
+// inline-style fallback for any tier the stylesheet does NOT cover
+// (future seed data: Scarce / Rare / Legendary) so the badge still gets
+// a sensible colour instead of falling back to flat gray.
 //
-// Boss QA cycle 14 A6 — Standard moved off the hand-rolled gray-300 hex
-// onto var(--ink-2). The literal #d1d5db read fine on the dark body, but
-// on themed surfaces (light theme, accent swap) it stayed cold-gray and
-// fell out of contrast. --ink-2 is the brand "secondary text" token; it
-// re-resolves per theme so contrast holds wherever the badge renders.
+// CRITICAL: do NOT add Standard / Limited / Off-Market here. Emitting an
+// inline `style` for a CSS-covered tier overrides the class gradient
+// (inline beats class specificity) and the badge loses its CSFloat look.
 const RARITY_COLORS = {
-  'Standard':   'var(--ink-2)',  // resolves per theme — see comment above
-  'Off-Market': '#d4a418', // amber (display label = "Scarce")
-  'Scarce':     '#d4a418',
+  'Scarce':     '#d4a418', // amber
   'Rare':       '#1ea5ff', // cta blue
   'Legendary':  '#8b5cf6'  // purple
 };
+// Tiers whose full visual treatment is owned by design.css. For these we
+// emit the class only and pass NO inline style, so the gradient pill,
+// accent left-rail, and per-theme text colour all apply correctly.
+const CSS_STYLED_RARITIES = new Set(['Standard', 'Limited', 'Off-Market']);
 export function RarityBadge({ rarity }) {
   // Guard: a missing rarity (non-entity payload / partial DTO) otherwise
   // rendered an empty colored pill with a meaningless `rarity-undefined`
   // class. Render nothing instead — matches how the other primitives bail
   // on absent data.
   if (!rarity) return null;
+  // Normalise to a string — defensive against a numeric / enum-object
+  // rarity slipping through from an unexpected payload shape.
+  const tier = String(rarity);
   // Boss QA D3 — items priced and live on the market were rendering an
   // "OFF-Market" badge because the schema's `rarity = 'Off-Market'` value
   // means low-supply (<5% of total) for s&box items. The badge text was
   // read as "no longer for sale", which contradicted the visible price.
   // Map the underlying Off-Market rarity to a clearer "Scarce" label
   // while keeping the data layer + filter chips on the original token.
-  const display = rarity === 'Off-Market' ? 'Scarce' : rarity;
-  const color = RARITY_COLORS[rarity] || RARITY_COLORS[display] || RARITY_COLORS.Standard;
+  const display = tier === 'Off-Market' ? 'Scarce' : tier;
+  // a11y: the gradient + text alone don't tell assistive tech this pill
+  // is a rarity tier — give it an explicit role + label.
+  const base = {
+    className: `rarity-badge rarity-${tier}`,
+    role: 'img',
+    'aria-label': `Rarity: ${display}`
+  };
+  // CSS-covered tier → class only; the stylesheet draws the pill.
+  if (CSS_STYLED_RARITIES.has(tier)) return h('span', base, display);
+  // Unknown tier → inline-style fallback so it still reads as a tier.
+  const color = RARITY_COLORS[tier] || RARITY_COLORS[display] || 'var(--ink-2)';
   const tint = `color-mix(in oklab, ${color} 16%, transparent)`;
   const edge = `color-mix(in oklab, ${color} 38%, transparent)`;
-  return h('span', {
-    className: `rarity-badge rarity-${rarity}`,
+  return h('span', Object.assign({}, base, {
     style: { color, background: tint, border: `1px solid ${edge}` }
-  }, display);
+  }), display);
 }
 
 export function RarityBar({ score, compact }) {
-  const pct = Math.round(parseFloat(score || 0) * 100);
+  // Guard: a non-numeric / NaN score (partial DTO, unparseable string)
+  // otherwise rendered `width: NaN%` (bar collapses) and the literal
+  // text "NaN" — matches the NaN-safety pattern in fmt() / timeAgo().
+  const raw = parseFloat(score);
+  const val = Number.isFinite(raw) ? raw : 0;
+  // Clamp to 0–100 so an out-of-range score can't overflow the track.
+  const pct = Math.min(100, Math.max(0, Math.round(val * 100)));
   return h('div', { className: 'rarity-bar-wrap' },
     h('div', { className: 'rarity-bar-outer', style: compact ? { width: 60 } : {} },
       h('div', { className: 'rarity-bar-inner', style: { width: pct + '%' } })
     ),
-    h('span', { className: 'rarity-score-val' }, parseFloat(score || 0).toFixed(4))
+    h('span', { className: 'rarity-score-val' }, val.toFixed(4))
   );
 }
 
@@ -307,16 +340,26 @@ export function Sparkline({ data, color, height }) {
   // the notification feed + profile chips, both of which may render
   // before their color context is resolved.
   const colorSafe = color || '#c8cfe0';
-  const prices = data.map(d => parseFloat(d.price));
+  // Keep the original index alongside the price so the dayLabel lookup
+  // and min/max markers stay correct after we drop bad points. A single
+  // NaN price (malformed history row, in-flight DTO) would otherwise
+  // poison Math.min/Math.max → every coordinate becomes NaN → the SVG
+  // path string is `NaN,NaN …` and the whole chart renders blank.
+  const series = data
+    .map((d, i) => ({ price: parseFloat(d && d.price), label: d && d.dayLabel }))
+    .filter(d => Number.isFinite(d.price));
+  // Need at least two real points to draw a line.
+  if (series.length < 2) return null;
+  const prices = series.map(d => d.price);
   const min = Math.min(...prices), max = Math.max(...prices);
   const range = max - min || 1;
   const W = 600, H = height || 140;
   const padTop = H * 0.09, bandH = H * 0.82;
 
-  const pts = prices.map((p, i) => {
-    const x = (i / (prices.length - 1)) * W;
-    const y = H - ((p - min) / range) * bandH - padTop;
-    return { x, y, price: p, label: data[i].dayLabel };
+  const pts = series.map((d, i) => {
+    const x = (i / (series.length - 1)) * W;
+    const y = H - ((d.price - min) / range) * bandH - padTop;
+    return { x, y, price: d.price, label: d.label };
   });
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
   const area = `0,${H} ${polyline} ${W},${H}`;

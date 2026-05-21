@@ -1820,7 +1820,11 @@ function MarketPulse() {
   // loop seamlessly — by the time the first copy scrolls past, the
   // second copy is positioned to pick up without a visible seam.
   const doubled = [...rows, ...rows];
-  const vol24 = rows.reduce((acc, r) => acc + (parseFloat(r.soldPrice) || 0), 0);
+  // /api/listings/recent-sales returns the sale price in `price`, not
+  // `soldPrice` — reading the wrong field zeroed every row, so the "24H
+  // vol" chip was permanently hidden by the `vol24 > 0` guard below.
+  // Mirror the same `price ?? soldPrice` fallback the pulse rows use.
+  const vol24 = rows.reduce((acc, r) => acc + (parseFloat(r.price ?? r.soldPrice) || 0), 0);
   return h('div', { className: 'pulse', style: { height: 32 } },
     h('span', { className: 'pulse-led' }),
     h('span', { style: { fontWeight: 500, color: 'var(--ink-2)' } }, 'LIVE TAPE'),
@@ -4827,13 +4831,14 @@ export function App() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // 'discount' is a pure client-side sort — backend doesn't know
-      // about it. Fetch with a stable newest-first order and re-sort
-      // by discount percentage below. If we asked the backend for
-      // 'discount' it would 400 (unknown sort value).
-      const backendSort = sort === 'discount' ? 'newest' : sort;
+      // 'discount' is sorted server-side — ListingController whitelists
+      // it. Sending it straight to the backend means page 2 from
+      // loadMore() is ordered against the global set, not re-sorted per
+      // page (which sank page 2's best discount below page 1's worst).
+      // It also makes a shared `?sort=discount` deep link match the
+      // request that's actually issued.
       let data = await fetchListings({
-        sort: backendSort,
+        sort,
         category: category !== 'All' ? category : null,
         rarity:   rarity !== 'All'   ? rarity   : null,
         // Server-side listing-type filter so a "BUY_NOW only" or
@@ -4845,18 +4850,6 @@ export function App() {
         maxPrice: maxPrice || null,
         search:   search   || null
       });
-      if (sort === 'discount') {
-        // Pct discount = (steamPrice - price) / steamPrice, clamped to
-        // zero for listings at or above Steam market. Items without a
-        // Steam reference sink to the bottom.
-        data = [...data].sort((a, b) => {
-          const ap = parseFloat(a.price) || 0, as = parseFloat(a.item?.steamPrice) || 0;
-          const bp = parseFloat(b.price) || 0, bs = parseFloat(b.item?.steamPrice) || 0;
-          const ad = (as > 0 && ap > 0 && ap < as) ? (1 - ap / as) : -1;
-          const bd = (bs > 0 && bp > 0 && bp < bs) ? (1 - bp / bs) : -1;
-          return bd - ad;
-        });
-      }
       // Conservative hasMore — a full 100-item page means there MAY be
       // a second page. Only the "Load more" click can confirm by trying
       // to fetch offset=100 and checking the response.
@@ -4901,9 +4894,8 @@ export function App() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const backendSort = sort === 'discount' ? 'newest' : sort;
       const next = await fetchListings({
-        sort: backendSort,
+        sort,
         category: category !== 'All' ? category : null,
         rarity:   rarity !== 'All'   ? rarity   : null,
         listingType: listingTypeFilter && listingTypeFilter !== 'ALL' ? listingTypeFilter : null,
@@ -4994,17 +4986,28 @@ export function App() {
             localStorage.setItem('sb_recently_viewed', JSON.stringify(deduped));
           } catch (_) {}
         } else {
-          // Item not found — set a meaningful page title so the browser
-          // tab + history reflect the not-found state instead of leaving
-          // the generic "Item · SkinBox" placeholder. Crawlers indexing
-          // a removed item URL get the right signal in the title too.
+          // Item not found — clear any previously-selected item so the
+          // render guard (`!selected`) stops rendering the prior item's
+          // ItemModal under this not-found URL. Without this, navigating
+          // to a dead /item/:id left the last item's modal on screen.
+          setSelected(null);
+          // Set a meaningful page title so the browser tab + history
+          // reflect the not-found state instead of leaving the generic
+          // "Item · SkinBox" placeholder. Crawlers indexing a removed
+          // item URL get the right signal in the title too.
           // Pre-fix bug: the recently-viewed writeback was misnested in
           // this branch and dereferenced `item.id`/`.name` on a null
           // item, throwing TypeError on every dead /item/:id link.
           const currentPrefix = (document.title.match(/^(\([^)]+\)\s+)/) || [, ''])[1];
           document.title = currentPrefix + 'Item not found · SkinBox';
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+        // Fetch failed — same hazard as the not-found branch: drop the
+        // stale selection so a previous item's modal doesn't linger
+        // under a URL whose load just errored.
+        if (alive) setSelected(null);
+      }
       finally { if (alive) setModalLoading(false); }
     })();
     return () => { alive = false; };
@@ -5272,9 +5275,6 @@ export function App() {
   // item id. One round-trip after the listings settle, no per-card
   // fan-out. Items not in the map render no chip (treated as zero-watch).
   const [watcherCounts, setWatcherCounts] = useState({});
-  // Sales-velocity (last 7d) per item — drives the "🔥 N sold" hot
-  // chip on cards (batch 288). Same fetch shape as watcherCounts.
-  const [salesVelocity, setSalesVelocity] = useState({});
   // Bulk Steam avatar URLs per sellerUserId — drives real profile
   // photos on the listing-table seller column instead of the legacy
   // all-caps 2-letter monogram. Sellers without an avatarUrl on file
@@ -5347,14 +5347,13 @@ export function App() {
       .map(e => ({ ...e.listing, __listingCount: counts.get(e.listing.item.id) || 1 }));
   }, [listings, listingTypeFilter, dealsOnly, minDiscountPct, newOnly, affordableOnly, hideMine, me?.id, wallet?.balance]);
 
-  // Bulk-fetch watcher counts AND sales velocity for the visible item
-  // ids whenever the marketplace grid recomputes. One round-trip each,
-  // debounced by the dedup memo so swapping filters doesn't fan out
-  // per change. Anonymous viewers see both — both endpoints are public.
+  // Bulk-fetch watcher counts for the visible item ids whenever the
+  // marketplace grid recomputes. One round-trip, debounced by the dedup
+  // memo so swapping filters doesn't fan out per change. Anonymous
+  // viewers see the counts too — the endpoint is public.
   useEffect(() => {
     if (!dedupedListings || dedupedListings.length === 0) {
       setWatcherCounts({});
-      setSalesVelocity({});
       return;
     }
     let alive = true;
@@ -5368,14 +5367,6 @@ export function App() {
         const data = await r.json();
         if (data && typeof data === 'object') setWatcherCounts(data);
       } catch (_) { /* offline — leave counts empty so cards just render no chip */ }
-    })();
-    (async () => {
-      try {
-        const r = await fetch(`/api/listings/sales-velocity?ids=${idStr}&days=7`, { credentials: 'same-origin' });
-        if (!alive || !r.ok) return;
-        const data = await r.json();
-        if (data && typeof data === 'object') setSalesVelocity(data);
-      } catch (_) { /* offline — chip stays hidden */ }
     })();
     // Steam-avatar bulk lookup keyed on the visible sellers. Replaces
     // the monogram on the table view's Seller column with a real profile
@@ -5636,13 +5627,10 @@ export function App() {
           // A one-click hover tells the user what's in there without
           // opening /cart — useful after bulk-adding items from the grid.
           // `cartTotal` already uses fresh server-reported prices when
-          // available; stale local price is the fallback. Multiplied by
-          // 1.005 to include the 0.5% buyer fee so the tooltip matches the
-          // grand total shown in the order summary + checkout button.
-          // Reverted ship #128720 — copying CSFloat's 2% buyer fee was an
-          // unrequested business-logic change. Restored sboxmarket's
-          // original 0.5% buyer fee per operator decision.
-          const total = (parseFloat(cartTotal) || 0) * 1.005;
+          // available; stale local price is the fallback. The server
+          // debits exactly the item price — no buyer fee — so the
+          // tooltip shows the bare cart total to match what's charged.
+          const total = parseFloat(cartTotal) || 0;
           const tip = cartCount === 0
             ? 'Cart is empty'
             : `Cart · ${cartCount} item${cartCount === 1 ? '' : 's'} · ${privacy ? '$•••••' : fmt(total)}`;
@@ -6408,9 +6396,15 @@ export function App() {
             if (!l || !l.item) return null;
             const rarity = l.item.rarity || 'Standard';
             const rarityClass = rarity.replace(/[^A-Za-z]/g, '');
-            const avg = Number(l.item.avgPrice || l.item.storePrice || 0);
+            /* Discount vs the Steam Market reference. The API returns
+               `steamPrice` on item — `avgPrice` / `storePrice` were
+               never populated, so `pct` was permanently null and the
+               green deal chip below never rendered. Same `steamRefPrice`-
+               style miss fixed elsewhere in this file (heroTabs sort,
+               csfloat-band cards). */
+            const ref = Number(l.item.steamPrice || 0);
             const price = Number(l.price || 0);
-            const pct = (avg > 0 && price > 0) ? Math.round(((price - avg) / avg) * 100) : null;
+            const pct = (ref > 0 && price > 0) ? Math.round(((price - ref) / ref) * 100) : null;
             // V61 ship: real presence from `l.sellerLastSeenAt` (epoch
             // ms), bumped by PresenceFilter on every authenticated
             // request. Falls back to the deterministic-seed pattern
@@ -6458,7 +6452,14 @@ export function App() {
               h('div', { className: 'csfloat-home-preview-card-status' },
                 h('span', { className: 'csfloat-home-preview-card-dot' + (isOnline ? ' online' : '') }),
                 h('span', { className: 'csfloat-home-preview-card-status-label' }, isOnline ? 'Online' : 'Offline'),
-                l.id ? h('span', { className: 'csfloat-home-preview-card-rank' }, '#', l.id) : null
+                /* Was `#<listing id>` — the raw DB id read to users as a
+                   leaderboard rank it isn't. Show the actual seller name
+                   instead (CSFloat cards surface the seller), falling
+                   back silently when the listing has no seller (system
+                   "SkinBox Store" rows). */
+                l.sellerName
+                  ? h('span', { className: 'csfloat-home-preview-card-rank', title: 'Seller: ' + l.sellerName }, l.sellerName)
+                  : null
               )
             );
           }),
@@ -6558,7 +6559,7 @@ export function App() {
             { icon: 'notifications', label: 'Seller notified',  sub: 'Trade request fires within seconds.' },
             { icon: 'send',           label: 'Steam offer sent', sub: 'Bot relays the trade through Steam.' },
             { icon: 'check_circle',   label: 'Confirm in client', sub: 'Both parties accept on Steam mobile.' },
-            { icon: 'verified',       label: 'Verify on-chain',   sub: 'Asset transfer cross-checked.' },
+            { icon: 'verified',       label: 'Transfer verified',  sub: 'SkinBox confirms the item changed hands on Steam.' },
             { icon: 'paid',           label: 'Funds released',     sub: 'Seller paid, buyer keeps the item.' }
           ].map((s, i) => h('li', { key: s.icon, className: 'csfloat-home-journey-step' },
             h('span', { className: 'csfloat-home-journey-step-icon' },
@@ -6582,10 +6583,7 @@ export function App() {
           [
             { q: 'How long until I receive a sold item?',          a: 'A successful trade clears in under a minute once both sides confirm on the Steam mobile app. Most buyers see the item in their inventory in 20–40 seconds.' },
             { q: 'When does the seller see funds?',                a: 'Funds land in the seller wallet the moment Steam confirms the asset transfer. Withdrawals to Stripe-linked cards run on the next payout cycle.' },
-            // Reverted ship #128720 — restored original 0.5% buyer fee
-            // wording. Copying CSFloat's 2% rate was an unrequested
-            // business decision; sboxmarket sets its own pricing.
-            { q: 'What does SkinBox charge?',                       a: 'A small 0.5% buyer fee at checkout, plus a 2% platform fee on the seller side. Both surface in the cart order summary before you pay — no surprise add-ons.' },
+            { q: 'What does SkinBox charge?',                       a: 'Buyers pay exactly the listed price — no buyer fee at checkout. Sellers pay a 2% platform fee, deducted from the sale price after confirmed delivery. No surprise add-ons.' },
             { q: 'Is my Steam account safe?',                       a: 'SkinBox uses Valve’s OpenID flow. We never see your password and never request your mobile authenticator. Trades go through your normal Steam offer screen.' },
             { q: 'Can I cancel a listing?',                          a: 'Yes — anytime before a buyer commits. After a Buy Now or accepted Bargain, the trade is locked and proceeds to Steam confirmation.' }
           ].map((row, i) => h('details', { key: i, className: 'csfloat-home-faq-item' },
@@ -7247,8 +7245,19 @@ export function App() {
                 )
               ))
             )
-          : (listings.length === 0 || dedupedListings.length === 0)
+          : (!hasMore && (listings.length === 0 || dedupedListings.length === 0))
             ? (() => {
+                // The terminal empty-state only renders when there's
+                // genuinely nothing left to show — `!hasMore` guards it.
+                // When `hasMore` is true the server still has unfetched
+                // pages, so a 100-row page that the client-side filters
+                // (dealsOnly / minDiscountPct / newOnly / affordableOnly
+                // / hideMine / listing-type) happen to empty out must
+                // NOT replace the grid + Load-more with a dead end —
+                // that stranded 100+ matching rows on page 2. The grid
+                // branch below handles the "empty page but hasMore"
+                // case with a soft hint and a live Load-more button.
+                //
                 // Batch 654 — empty-state now distinguishes:
                 //   - a fetch error (network / 500) → "Couldn't load listings"
                 //     with a Retry CTA so the user isn't stuck.
@@ -7314,14 +7323,29 @@ export function App() {
                 );
               })()
             : h('div', null,
-                view === 'grid'
+                // Soft hint for the "filters emptied THIS page but the
+                // server still has more" case. We only land here with
+                // dedupedListings empty when hasMore is true (the
+                // terminal empty-state above is guarded by !hasMore), so
+                // the Load-more button below stays live and the user can
+                // page forward to matching rows instead of hitting a
+                // dead end.
+                dedupedListings.length === 0
+                  ? h('div', { className: 'empty-state', style: { padding: '40px 20px' } },
+                      h('div', { className: 'empty-state-icon' },
+                        h(MaterialIcon, { name: 'search', size: 42 })
+                      ),
+                      h('div', { className: 'empty-state-title' }, 'No matches on this page'),
+                      h('div', { className: 'empty-state-sub' },
+                        'None of the first ' + listings.length + ' listings match your filters — load more to keep looking.')
+                    )
+                  : view === 'grid'
                   ? h('div', { className: 'listing-grid' },
                       dedupedListings.map(l => h(GridCard, {
                         key: 'item-' + l.item.id,
                         listing: l,
                         listingCount: l.__listingCount,
                         watcherCount: watcherCounts[l.item.id] || 0,
-                        salesVelocity: salesVelocity[l.item.id] || 0,
                         onClick: () => openModal(l),
                         starred: watchlist.includes(l.item.id),
                         onToggleStar: toggleStar,
@@ -8652,13 +8676,6 @@ export function App() {
                 h('span', null, 'Subtotal'),
                 h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal))
               ),
-              // Reverted ship #128720 — buyer fee restored to sboxmarket's
-              // original 0.5%. Copying CSFloat's 2% was an unrequested
-              // business-logic change.
-              h('div', { className: 'cart-summary-row' },
-                h('span', null, 'Buyer fee · 0.5%'),
-                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal * 0.005))
-              ),
               h('div', { className: 'cart-summary-row' },
                 h('span', null, 'Trade escrow'),
                 h('span', { style: { color: 'var(--ink-3)' } }, '8 days · auto-release')
@@ -8667,10 +8684,12 @@ export function App() {
                 h('span', null, 'Savings vs Steam'),
                 h('span', { className: 'mono' }, privacy ? '$•••••' : ('↓ ' + fmt(cartSavings)))
               ),
-              // Reverted ship #128720 — grand total restored to subtotal + 0.5%.
+              // Total is the bare subtotal — the server debits exactly the
+              // item price with no buyer fee, so this matches the Confirm
+              // button and the single-item Buy modal.
               h('div', { className: 'cart-summary-row cart-summary-total' },
                 h('span', null, 'Total'),
-                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal + cartTotal * 0.005))
+                h('span', { className: 'mono' }, privacy ? '$•••••' : fmt(cartTotal))
               ),
               h('div', { className: 'cart-summary-actions' },
                 h('button', { className: 'btn btn-ghost', style: { border: '1px solid var(--border)' }, onClick: clearCart }, 'Clear'),
@@ -8711,12 +8730,11 @@ export function App() {
                 // to Steam OpenID — the cart persists across the sign-in
                 // roundtrip via localStorage, so they land back on /cart
                 // ready to check out with the same rows.
-                /* Show the same fee-inclusive grand total the order summary
-                   above shows — was rendering subtotal, which read as a
-                   pricing inconsistency next to the Total row.
-                   Reverted ship #128720 — restored 1.005 (0.5% buyer fee). */
+                /* Bare cart total — matches the Total row above, the
+                   Confirm button, and what the server actually debits
+                   (no buyer fee). */
                 (() => {
-                  const grand = (parseFloat(cartTotal) || 0) * 1.005;
+                  const grand = parseFloat(cartTotal) || 0;
                   return !me
                     ? h('button', {
                         className: 'btn btn-accent',
@@ -8861,15 +8879,13 @@ export function App() {
           }),
           cart.length > 12 && h('div', { className: 'cart-confirm-more' }, `+ ${cart.length - 12} more`)
         ),
-        // Reverted ship #128720 — cart-confirm grand restored to subtotal +
-        // 0.5% buyer fee (sboxmarket's original pricing). Still uses the
-        // fee-inclusive grand here so the confirm dialog matches the
-        // order-summary panel and nav cart tooltip — that consistency
-        // fix from #128720 is kept; only the fee RATE is reverted.
+        // The wallet is debited exactly the cart total — no buyer fee —
+        // so this matches the Confirm button below, the order-summary
+        // Total row, and the single-item Buy modal.
         h('div', { className: 'cart-confirm-total' },
           h('div', null,
             h('div', { className: 'cart-confirm-total-label' }, 'Total charged to wallet'),
-            h('div', { className: 'cart-confirm-total-hint' }, 'Includes 0.5% buyer fee. Seller receives price minus 2% platform fee after confirmed delivery.'),
+            h('div', { className: 'cart-confirm-total-hint' }, 'Seller receives price minus 2% platform fee after confirmed delivery.'),
             // Balance-after-checkout preview (batch 458). Shown when the
             // user can afford it — answers "what will I have left?" so
             // the buyer can pace their wallet without flipping to a
@@ -8877,12 +8893,11 @@ export function App() {
             // is already short (the low-balance warning below covers
             // that case with a different signal). Two decimal places to
             // match the wallet hero number format.
-            // Reverted ship #128720 — balance-after preview restored to
-            // 0.5% buyer fee. Keeps the consistency fix (uses fee-inclusive
-            // grand vs bare subtotal) but at sboxmarket's actual rate.
+            // Balance-after uses the bare cart total — that's the exact
+            // amount the server debits.
             (() => {
               const bal = parseFloat(wallet?.balance || 0);
-              const after = bal - cartTotal * 1.005;
+              const after = bal - cartTotal;
               if (privacy || !(bal > 0) || after < 0) return null;
               return h('div', {
                 style: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }
@@ -8893,7 +8908,7 @@ export function App() {
               );
             })()
           ),
-          h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal * 1.005))
+          h('div', { className: 'cart-confirm-total-amt' }, fmt(cartTotal))
         ),
         // Batch 788 — trade-URL preflight. Backend's /api/cart/checkout
         // opens a Trade per row; each trade requires the buyer's Steam
@@ -8927,12 +8942,12 @@ export function App() {
         // Computed client-side from the wallet the app already has; the
         // backend's checkout will still 402 on actual insufficient-funds,
         // but surfacing the gap here saves the user a round-trip.
-        // Reverted ship #128720 — gap restored to 0.5% buyer fee. Keeps
-        // the consistency fix (uses fee-inclusive grand vs bare subtotal)
-        // so deposit prompt amount actually covers checkout.
+        // Gap is measured against the bare cart total — that's the exact
+        // amount checkout debits, and it matches the Confirm button's
+        // own affordability gate below.
         (() => {
           const bal = parseFloat(wallet?.balance || 0);
-          const gap = cartTotal * 1.005 - bal;
+          const gap = cartTotal - bal;
           if (!(gap > 0)) return null;
           return h('div', { className: 'cart-confirm-low-balance' },
             h('div', null,

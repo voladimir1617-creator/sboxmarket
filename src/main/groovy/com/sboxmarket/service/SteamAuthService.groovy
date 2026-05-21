@@ -32,6 +32,59 @@ class SteamAuthService {
     @Autowired(required = false) @Lazy AdminService adminService
     @Autowired(required = false) NotificationService notificationService
 
+    /** One-time-use guard for OpenID assertions (security QA P1).
+     *  Steam's `check_authentication` endpoint returns `is_valid:true`
+     *  REPEATEDLY for the same signed assertion — it does NOT enforce
+     *  one-time use. Without tracking, an attacker who captures a
+     *  victim's full `/return?...` callback URL can replay it verbatim
+     *  and log in as the victim. We record each consumed
+     *  `openid.response_nonce` and reject any assertion whose nonce we
+     *  have already seen. Cap at 5000 with FIFO eviction so a long-lived
+     *  container can't accumulate unbounded state — same pattern as
+     *  StripeService.seenEventIds. */
+    private static final int SEEN_NONCES_CAP = 5000
+    private final java.util.LinkedHashSet<String> seenNonces = new java.util.LinkedHashSet<>()
+
+    /** Atomically check-and-record an OpenID nonce. Returns true if the
+     *  nonce is fresh (and is now recorded as consumed), false if it has
+     *  already been seen — i.e. a replay. A null/blank nonce is treated
+     *  as a replay (rejected): a valid Steam assertion always carries
+     *  `openid.response_nonce`, so its absence means a malformed or
+     *  tampered callback. Synchronized because OpenID returns land on
+     *  the Tomcat worker pool — two concurrent replays could otherwise
+     *  race past the check. */
+    private synchronized boolean consumeNonce(String nonce) {
+        if (nonce == null || nonce.isEmpty()) return false
+        if (seenNonces.contains(nonce)) return false
+        if (seenNonces.size() >= SEEN_NONCES_CAP) {
+            def oldest = seenNonces.iterator().next()
+            seenNonces.remove(oldest)
+        }
+        seenNonces.add(nonce)
+        return true
+    }
+
+    /**
+     * Extract a single parameter's value from a raw, still-URL-encoded
+     * query string and URL-decode it. We parse the raw string (rather
+     * than a servlet-decoded map) so this stays consistent with the
+     * verbatim string we forward to Steam. Returns null if the param is
+     * absent. The key is matched at a parameter boundary (start-of-string
+     * or `&`) so `openid.return_to` can't be matched inside a sibling
+     * like `x_openid.return_to=...`.
+     */
+    private static String paramFromQuery(String rawQueryString, String key) {
+        if (!rawQueryString) return null
+        def m = rawQueryString =~ ('(?:^|&)' + Pattern.quote(key) + '=([^&]*)')
+        if (!m.find()) return null
+        try {
+            return URLDecoder.decode(m.group(1), 'UTF-8')
+        } catch (Exception e) {
+            log.warn("Failed to decode query param ${key}: ${e.message}")
+            return null
+        }
+    }
+
     /** Build the URL we redirect the browser to so Steam can authenticate the user. */
     String buildLoginUrl() {
         def params = [
@@ -60,10 +113,67 @@ class SteamAuthService {
             return null
         }
 
-        // Replace openid.mode=id_res with openid.mode=check_authentication,
-        // without touching any other characters.
-        def body = rawQueryString.replaceFirst(/openid\.mode=[^&]*/, 'openid.mode=check_authentication')
+        // Validate the signed `openid.return_to` (security QA P2) BEFORE
+        // the network round-trip. Steam signs return_to, so a mismatch
+        // already implies a broken signature — but asserting it
+        // explicitly is a standard OpenID relying-party requirement and
+        // defence-in-depth. Checking it up front also avoids a wasted
+        // check_authentication call on an obviously-bad callback. Reject
+        // unless it equals our configured return URL.
+        def returnTo = paramFromQuery(rawQueryString, 'openid.return_to')
+        if (returnTo != returnUrl) {
+            log.warn("Steam OpenID return_to mismatch")
+            return null
+        }
 
+        // Replace openid.mode=id_res with openid.mode=check_authentication,
+        // without touching any other characters. The match is anchored to a
+        // parameter boundary (start-of-string or `&`) so it can only ever
+        // rewrite the real `openid.mode` param — an unanchored pattern would
+        // also match a sibling like `x_openid.mode=...`, leaving the genuine
+        // `openid.mode=id_res` in place and breaking verification.
+        def body = rawQueryString.replaceFirst(/(^|&)openid\.mode=[^&]*/, '$1openid.mode=check_authentication')
+
+        String response = checkAuthentication(body)
+        if (response == null) {
+            // Network/transport failure — already logged in checkAuthentication.
+            return null
+        }
+
+        if (!response.contains('is_valid:true')) {
+            log.warn("Steam OpenID reports invalid")
+            return null
+        }
+
+        // Reject replayed assertions (security QA P1). Steam's
+        // check_authentication returns is_valid:true repeatedly for the
+        // SAME assertion, so a captured /return URL can be replayed
+        // verbatim. consumeNonce records the response_nonce on first use
+        // and returns false on any subsequent sighting (or if the nonce
+        // is missing entirely).
+        def nonce = paramFromQuery(rawQueryString, 'openid.response_nonce')
+        if (!consumeNonce(nonce)) {
+            log.warn("Steam OpenID assertion rejected: nonce missing or already used (replay)")
+            return null
+        }
+
+        def m = claimedIdParam =~ STEAMID_REGEX
+        if (!m.find()) {
+            log.warn("Unexpected claimed_id format: $claimedIdParam")
+            return null
+        }
+        m.group(1)
+    }
+
+    /**
+     * POST the (mode-rewritten) assertion body to Steam's
+     * `check_authentication` endpoint and return the raw text response,
+     * or null on any transport failure. Split out from {@link #verifyReturn}
+     * both for readability and so it can be stubbed in tests — the same
+     * reason {@code fetchViaWebApi}/{@code fetchViaPublicXml} are their
+     * own methods.
+     */
+    protected String checkAuthentication(String body) {
         String response
         int status
         try {
@@ -83,20 +193,8 @@ class SteamAuthService {
             log.warn("Steam verification request threw: ${e.message}", e)
             return null
         }
-
         log.info("Steam verify HTTP $status, body: ${response?.replaceAll(/\s+/, ' ')?.take(200)}")
-
-        if (!response?.contains('is_valid:true')) {
-            log.warn("Steam OpenID reports invalid")
-            return null
-        }
-
-        def m = claimedIdParam =~ STEAMID_REGEX
-        if (!m.find()) {
-            log.warn("Unexpected claimed_id format: $claimedIdParam")
-            return null
-        }
-        m.group(1)
+        return response
     }
 
     /** Find-or-create a Steam user (and their wallet) after a successful login. */

@@ -1,5 +1,6 @@
 package com.sboxmarket.repository
 
+import com.sboxmarket.model.Item
 import com.sboxmarket.model.Loadout
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -20,4 +21,32 @@ interface LoadoutRepository extends JpaRepository<Loadout, Long> {
     List<Loadout> searchPublic(@Param("q") String q, Pageable page)
 
     long countByOwnerUserId(Long ownerUserId)
+
+    /** Cheapest catalogue item in a category that fits a budget ceiling AND
+     *  is not one of the already-picked item ids. Used by
+     *  `LoadoutService.autoGenerate` so the AI-Generate fill never drops the
+     *  same item into two slots — the `Wild` slot uses `category = ''`
+     *  (any category), which without this exclusion almost always lands the
+     *  globally cheapest item that another category slot already holds.
+     *
+     *  Empty string in `category` means "any category" (Wild-card slot).
+     *  JPQL forbids `NOT IN ()`, so the caller always passes a non-empty
+     *  `exclude` collection — a sentinel `[-1L]` on the first pick, since
+     *  item ids are positive IDENTITY values and never collide with -1.
+     *  Caller passes `PageRequest.of(0, 1)` since we only need the cheapest. */
+    @Query("""
+        SELECT i FROM Item i
+        WHERE (:category = '' OR i.category = :category)
+          AND i.lowestPrice IS NOT NULL
+          AND i.lowestPrice > 0
+          AND i.lowestPrice <= :budget
+          AND i.id NOT IN :exclude
+        ORDER BY i.lowestPrice ASC
+    """)
+    List<Item> findCheapestInBudgetExcluding(
+        @Param("category") String category,
+        @Param("budget") BigDecimal budget,
+        @Param("exclude") Collection<Long> exclude,
+        Pageable page
+    )
 }

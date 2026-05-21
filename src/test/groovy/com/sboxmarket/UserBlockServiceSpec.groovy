@@ -72,6 +72,38 @@ class UserBlockServiceSpec extends Specification {
         0 * userBlockRepository.save(_)
     }
 
+    def "block rejects a null blocker or blocked id with INVALID_BLOCK before any repo call"() {
+        when:
+        service.block(blocker, blocked)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_BLOCK'
+        0 * userBlockRepository.existsBlock(_, _)
+        0 * userBlockRepository.save(_)
+
+        where:
+        blocker | blocked
+        null    | 20L
+        10L     | null
+        null    | null
+    }
+
+    def "block accepts the last slot exactly at the cap boundary (count == 99)"() {
+        given: 'caller already has 99 blocks — the 100th is still allowed'
+        userBlockRepository.existsBlock(10L, 20L) >> false
+        steamUserRepository.findById(20L) >> Optional.of(new SteamUser(id: 20L))
+        userBlockRepository.countByBlocker(10L) >> 99L
+        userBlockRepository.save(_) >> { UserBlock b -> b.id = 1L; b }
+
+        when:
+        def block = service.block(10L, 20L)
+
+        then: 'count 99 is below MAX_PER_USER (100) — the row is written'
+        1 * userBlockRepository.save(_)
+        block.blockedUserId == 20L
+    }
+
     def "block 404s when the target user doesn't exist"() {
         given:
         userBlockRepository.existsBlock(10L, 999L) >> false
@@ -142,6 +174,28 @@ class UserBlockServiceSpec extends Specification {
         n == 0
     }
 
+    def "unblock short-circuits on a null id without hitting the repo"() {
+        when:
+        def a = service.unblock(null, 20L)
+        def b = service.unblock(10L, null)
+
+        then:
+        a == 0
+        b == 0
+        0 * userBlockRepository.deleteByPair(_, _)
+    }
+
+    def "unblockAll returns 0 when the caller's block list is already empty"() {
+        given:
+        userBlockRepository.deleteByBlocker(10L) >> 0
+
+        when:
+        def n = service.unblockAll(10L)
+
+        then:
+        n == 0
+    }
+
     def "listBlocked decorates each row with the target's displayName + avatarUrl"() {
         given:
         def b1 = new UserBlock(id: 1L, blockerUserId: 10L, blockedUserId: 20L, createdAt: 1_700_000_000_000L)
@@ -172,6 +226,52 @@ class UserBlockServiceSpec extends Specification {
         then:
         rows == []
         0 * userBlockRepository.findByBlocker(_)
+    }
+
+    def "listBlocked returns an empty list when the caller has blocked nobody"() {
+        given:
+        userBlockRepository.findByBlocker(10L) >> []
+
+        when:
+        def rows = service.listBlocked(10L)
+
+        then:
+        rows == []
+        // No second round-trip when there are no rows to decorate.
+        0 * steamUserRepository.findAllById(_)
+    }
+
+    def "listBlocked tolerates a target user that no longer exists — null name/avatar, no crash"() {
+        given: 'the blocked user row is present but the SteamUser is gone'
+        def orphan = new UserBlock(id: 1L, blockerUserId: 10L, blockedUserId: 20L, createdAt: 1_700_000_000_000L)
+        userBlockRepository.findByBlocker(10L) >> [orphan]
+        steamUserRepository.findAllById(_) >> []
+
+        when:
+        def rows = service.listBlocked(10L)
+
+        then:
+        rows.size() == 1
+        rows[0].blockedUserId == 20L
+        rows[0].displayName == null
+        rows[0].avatarUrl == null
+        rows[0].createdAt == 1_700_000_000_000L
+    }
+
+    def "listBlocked caps the rendered list at MAX_PER_USER even if a race left extra rows"() {
+        given: 'the repo returns 105 rows — more than the 100 cap'
+        def rows105 = (1..105).collect { i ->
+            new UserBlock(id: i as Long, blockerUserId: 10L,
+                blockedUserId: (1000L + i), createdAt: (1_700_000_000_000L + i))
+        }
+        userBlockRepository.findByBlocker(10L) >> rows105
+        steamUserRepository.findAllById(_) >> []
+
+        when:
+        def result = service.listBlocked(10L)
+
+        then: 'truncated to exactly MAX_PER_USER'
+        result.size() == UserBlockService.MAX_PER_USER
     }
 
     def "isBlocked returns false for self-pair without hitting the repo"() {
@@ -214,6 +314,17 @@ class UserBlockServiceSpec extends Specification {
         0 * userBlockRepository.findBlockedIdsForBlocker(_)
     }
 
+    def "blockedIdsFor forwards the id-only projection straight from the repo"() {
+        given:
+        userBlockRepository.findBlockedIdsForBlocker(10L) >> [20L, 30L, 40L]
+
+        when:
+        def ids = service.blockedIdsFor(10L)
+
+        then:
+        ids == [20L, 30L, 40L]
+    }
+
     def "countBlocked forwards to the dedicated COUNT query"() {
         given:
         userBlockRepository.countByBlocker(10L) >> 7L
@@ -223,5 +334,14 @@ class UserBlockServiceSpec extends Specification {
 
         then:
         n == 7L
+    }
+
+    def "countBlocked returns 0 for a null user without hitting the repo"() {
+        when:
+        def n = service.countBlocked(null)
+
+        then:
+        n == 0L
+        0 * userBlockRepository.countByBlocker(_)
     }
 }

@@ -59,6 +59,8 @@ class AdminServiceSpec extends Specification {
     com.sboxmarket.repository.WatchlistAlertRepository watchlistAlertRepository = Mock()
     com.sboxmarket.service.BuyOrderService buyOrderService = Mock()
     com.sboxmarket.repository.OfferRepository offerRepository = Mock()
+    com.sboxmarket.repository.SupportMessageRepository supportMessageRepository = Mock()
+    com.sboxmarket.service.AuditService auditService = Mock()
 
     @Subject
     AdminService service = new AdminService(
@@ -68,12 +70,14 @@ class AdminServiceSpec extends Specification {
         listingRepository        : listingRepository,
         listingReportRepository  : listingReportRepository,
         supportTicketRepository  : supportTicketRepository,
+        supportMessageRepository : supportMessageRepository,
         itemRepository           : itemRepository,
         notificationService      : notificationService,
         textSanitizer            : textSanitizer,
         adminAuthorization       : adminAuthorization,
         banGuard                 : banGuard,
         emailService             : emailService,
+        auditService             : auditService,
         tradeRepository          : tradeRepository,
         tradeService             : tradeService,
         watchlistAlertRepository : watchlistAlertRepository,
@@ -1490,5 +1494,61 @@ class AdminServiceSpec extends Specification {
         1 * notificationService.push(11L, 'ADMIN_BROADCAST', _, _, _, _)
         // Failing push doesn't count toward `sent`, the rest still do.
         res.sent == 1
+    }
+
+    // ── Support ticket actions: audit trail + double-resolve guard ───
+
+    def "staffReply writes a TICKET_REPLIED audit row (actor=admin, subject=ticket owner)"() {
+        given:
+        textSanitizer.body(_) >> { String s -> s }
+        textSanitizer.cleanShort(_) >> { String s -> s }
+        steamUserRepository.findById(1L) >> Optional.of(new SteamUser(id: 1L, role: 'ADMIN', displayName: 'Root'))
+        def ticket = new com.sboxmarket.model.SupportTicket(id: 7L, userId: 30L, status: 'WAITING_STAFF', subject: 'help')
+        supportTicketRepository.findById(7L) >> Optional.of(ticket)
+        supportTicketRepository.save(_) >> { args -> args[0] }
+        supportMessageRepository.save(_) >> { args -> def m = args[0]; m.id = 1L; m }
+
+        when:
+        service.staffReply(1L, 7L, 'sorted for you')
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        ticket.status == 'WAITING_USER'
+        1 * auditService.log('TICKET_REPLIED', 1L, 30L, 7L, _ as String)
+    }
+
+    def "closeTicket flips status to RESOLVED and writes a TICKET_CLOSED audit row"() {
+        given:
+        steamUserRepository.findById(1L) >> Optional.of(new SteamUser(id: 1L, role: 'ADMIN'))
+        def ticket = new com.sboxmarket.model.SupportTicket(id: 7L, userId: 30L, status: 'WAITING_STAFF')
+        supportTicketRepository.findById(7L) >> Optional.of(ticket)
+        supportTicketRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.closeTicket(1L, 7L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        result.status == 'RESOLVED'
+        1 * auditService.log('TICKET_CLOSED', 1L, 30L, 7L, _ as String)
+    }
+
+    def "closeTicket rejects an already-RESOLVED ticket (no silent re-resolve)"() {
+        given:
+        def ticket = new com.sboxmarket.model.SupportTicket(id: 7L, userId: 30L, status: 'RESOLVED', updatedAt: 1000L)
+        supportTicketRepository.findById(7L) >> Optional.of(ticket)
+
+        when:
+        service.closeTicket(1L, 7L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        def e = thrown(BadRequestException)
+        e.code == 'ALREADY_RESOLVED'
+
+        and: 'the row is neither re-saved nor re-audited'
+        ticket.updatedAt == 1000L
+        0 * supportTicketRepository.save(_)
+        0 * auditService.log(*_)
     }
 }

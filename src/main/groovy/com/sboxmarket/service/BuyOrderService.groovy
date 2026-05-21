@@ -332,6 +332,21 @@ class BuyOrderService {
         if (o.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }
+        // Already cancelled — idempotent no-op so a double-click / retry
+        // doesn't error. Return the row untouched.
+        if (o.status == 'CANCELLED') {
+            return o
+        }
+        // FILLED / EXPIRED are terminal. Blindly stamping CANCELLED here
+        // would rewrite history — a fulfilled order (buyer paid, items
+        // delivered) would masquerade as cancelled in the Profile tab and
+        // CSV export, and an auto-expired order would lose its EXPIRED
+        // reason. Only an ACTIVE order can be cancelled, mirroring
+        // update()'s NOT_ACTIVE guard and OfferService.withdrawOffer.
+        if (o.status != 'ACTIVE') {
+            throw new BadRequestException("NOT_ACTIVE",
+                "Only active buy orders can be cancelled")
+        }
         o.status = "CANCELLED"
         o.updatedAt = System.currentTimeMillis()
         buyOrderRepository.save(o)
@@ -405,10 +420,17 @@ class BuyOrderService {
         }
         if (newQuantity != null) {
             int q = Math.min(Math.max(1, newQuantity), 100)
-            // Don't let the buyer grow the order above their original
-            // quantity — that would let them dodge the cap retroactively.
-            // Shrinking is fine (drops the remaining fills).
-            int cap = o.originalQuantity ?: o.quantity ?: 100
+            // Cap at the order's CURRENT remaining quantity — never the
+            // original. For a partially-filled order, fills already
+            // consumed (originalQuantity − quantity) are locked in, so
+            // the most the buyer may still receive is the remaining
+            // `o.quantity`. Capping at originalQuantity instead would let
+            // a buyer who placed qty 5, took 3 fills, then edited back up
+            // to 5 receive 3 + 5 = 8 items total — past the original cap
+            // they committed to. Shrinking is always fine (drops the
+            // remaining fills); for an untouched order quantity ==
+            // originalQuantity so the ceiling is unchanged.
+            int cap = (o.quantity != null && o.quantity > 0) ? o.quantity : 1
             q = Math.min(q, cap)
             o.quantity = q
         }

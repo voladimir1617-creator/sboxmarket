@@ -7,6 +7,7 @@ import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SteamUser
+import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
@@ -65,7 +66,11 @@ class PurchaseServiceSpec extends Specification {
         listing.buyerUserId == 999L
         listing.soldAt != null
         1 * walletRepo.save({ it.balance == new BigDecimal("50.00") })
-        1 * listingRepo.save(listing)
+        // The listing transition is persisted via saveAndFlush (not plain
+        // save) so the @Version optimistic-lock check fires deterministically
+        // OUTSIDE the cosmetic try/catch blocks — see PurchaseService.buy.
+        1 * listingRepo.saveAndFlush(listing)
+        0 * listingRepo.save(_)
         1 * txRepo.save({ it.type == 'PURCHASE' && it.amount == new BigDecimal("50.00") })
         1 * priceHistoryService.record(item, new BigDecimal("50.00"), 1)
         1 * itemRepo.incrementTotalSold(10L)
@@ -456,6 +461,276 @@ class PurchaseServiceSpec extends Specification {
         buyer.balance == new BigDecimal("500.00")
         0 * walletRepo.save(_)
         0 * listingRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
         0 * txRepo.save(_)
+    }
+
+    // ── Listing-not-found guard ───────────────────────────────────
+
+    def "buy throws NotFoundException when the listing id doesn't exist"() {
+        given:
+        def buyer = new Wallet(id: 1L, balance: new BigDecimal("100.00"))
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.empty()
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        thrown(NotFoundException)
+
+        and: "nothing moved"
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        0 * txRepo.save(_)
+    }
+
+    // ── Banned-buyer gate ─────────────────────────────────────────
+
+    def "buy refuses a banned buyer before any wallet/listing probe"() {
+        given: "the ban guard rejects this user"
+        banGuard.assertNotBanned(999L) >> { throw new BadRequestException("USER_BANNED", "Account suspended") }
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'USER_BANNED'
+
+        and: "ban check short-circuits — no wallet lookup, no money moved"
+        0 * walletRepo.findById(_)
+        0 * listingRepo.findById(_)
+        0 * walletRepo.save(_)
+        0 * txRepo.save(_)
+    }
+
+    // ── ALREADY_OWNED guard ───────────────────────────────────────
+
+    def "buy refuses a listing the caller already bought (ALREADY_OWNED)"() {
+        given: "an ACTIVE listing whose buyerUserId is already the caller"
+        def buyer = new Wallet(id: 1L, balance: new BigDecimal("500.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE',
+            sellerName: 'Bot', buyerUserId: 999L)
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'ALREADY_OWNED'
+
+        and: "no debit, no persist"
+        buyer.balance == new BigDecimal("500.00")
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        0 * txRepo.save(_)
+    }
+
+    // ── Trade-URL gate for P2P listings ───────────────────────────
+
+    def "buy refuses a P2P purchase when the buyer has no Steam trade URL set"() {
+        given: "a P2P listing and a buyer whose tradeUrl is blank"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("500.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE',
+            sellerName: 'Bob', sellerUserId: 500L)
+        def buyerUser = new SteamUser(id: 999L, displayName: 'Alice', tradeUrl: '   ')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(999L) >> Optional.of(buyerUser)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_URL_MISSING'
+
+        and: "fails BEFORE the wallet is touched — no buy-then-stuck"
+        buyer.balance == new BigDecimal("500.00")
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        0 * txRepo.save(_)
+    }
+
+    def "buy does NOT require a trade URL for system listings (sellerUserId == null)"() {
+        given: "a system listing (no seller) and a buyer with no trade URL"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("500.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE',
+            sellerName: 'System')  // sellerUserId stays null
+        def buyerUser = new SteamUser(id: 999L, displayName: 'Alice')  // no tradeUrl
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(999L) >> Optional.of(buyerUser)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "buy completes — system listings resolve in-platform, no Steam trade"
+        result.newBalance == new BigDecimal("450.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+    }
+
+    // ── Money math: exact-balance boundary + sub-cent precision ────
+
+    def "buy succeeds when the wallet balance exactly equals the price (boundary)"() {
+        given: "balance == price to the cent"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("50.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "the `balance < price` check is strict-less-than, so exact balance is allowed"
+        result.newBalance == new BigDecimal("0.00")
+        buyer.balance == new BigDecimal("0.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ it.amount == new BigDecimal("50.00") })
+    }
+
+    def "buy debits a fractional price exactly — no sub-cent drift"() {
+        given: "a listing priced at \$9.99 against a \$10.00 wallet"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("10.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("9.99"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "balance is exactly 0.01 — BigDecimal subtract, no rounding"
+        result.newBalance == new BigDecimal("0.01")
+        buyer.balance == new BigDecimal("0.01")
+        // The transaction records the price to the exact cent, not a rounded value.
+        1 * txRepo.save({ Transaction t -> t.amount == new BigDecimal("9.99") })
+    }
+
+    def "buy throws InsufficientBalance when short by a single cent"() {
+        given: "wallet is \$49.99, listing is \$50.00"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("49.99"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(InsufficientBalanceException)
+        e.required == new BigDecimal("50.00")
+        e.available == new BigDecimal("49.99")
+
+        and: "no partial debit"
+        buyer.balance == new BigDecimal("49.99")
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+    }
+
+    // ── CANCELLED listing is not buyable ──────────────────────────
+
+    def "buy throws ListingNotAvailable for a CANCELLED listing"() {
+        given:
+        def buyer = new Wallet(id: 1L, balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("10.00"), status: 'CANCELLED', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        thrown(ListingNotAvailableException)
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+    }
+
+    // ── Cosmetic side-effects never break the money path ──────────
+
+    def "buy still completes when the price-history write throws (cosmetic, swallowed)"() {
+        given: "priceHistoryService.record blows up"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def item = new Item(id: 10L, name: 'Hat')
+        def listing = new Listing(
+            id: 5L, item: item, price: new BigDecimal("50.00"),
+            status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        priceHistoryService.record(_, _, _) >> { throw new RuntimeException("history table down") }
+
+        when: "the sale still goes through — the chart write is best-effort"
+        def result = service.buy(1L, 999L, 5L)
+
+        then:
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+        1 * listingRepo.saveAndFlush(listing)
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+    }
+
+    def "buy still completes when the totalSold bump throws (cosmetic, swallowed)"() {
+        given: "itemRepository.incrementTotalSold blows up"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def item = new Item(id: 10L, name: 'Hat')
+        def listing = new Listing(
+            id: 5L, item: item, price: new BigDecimal("50.00"),
+            status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        itemRepo.incrementTotalSold(_) >> { throw new RuntimeException("counter update failed") }
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "money path unaffected by the Most-Traded counter hiccup"
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+    }
+
+    // ── @Version optimistic-lock conflict propagates cleanly ──────
+
+    def "buy lets an optimistic-lock conflict on saveAndFlush propagate (not swallowed)"() {
+        // Regression: the listing transition is persisted via saveAndFlush
+        // so the @Version StaleObjectState check fires at a deterministic
+        // point OUTSIDE the cosmetic try/catch. The losing concurrent buyer
+        // must surface ObjectOptimisticLockingFailureException — which the
+        // HTTP layer maps to 409 — instead of having the conflict swallowed
+        // and cascading into an opaque UnexpectedRollbackException.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        // A concurrent buyer already won the race — this commit is stale.
+        listingRepo.saveAndFlush(_) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Listing, 5L)
+        }
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "the lock conflict propagates uncaught — @Transactional rolls the debit back"
+        thrown(org.springframework.orm.ObjectOptimisticLockingFailureException)
     }
 }

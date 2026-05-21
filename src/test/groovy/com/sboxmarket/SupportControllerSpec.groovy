@@ -8,8 +8,10 @@ import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.SupportMessage
 import com.sboxmarket.model.SupportTicket
+import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.SupportService
+import com.sboxmarket.service.security.BanGuard
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
 import spock.lang.Specification
@@ -37,11 +39,13 @@ class SupportControllerSpec extends Specification {
 
     SupportService      supportService      = Mock()
     SteamUserRepository steamUserRepository = Mock()
+    BanGuard            banGuard            = Mock()
 
     @Subject
     SupportController controller = new SupportController(
         supportService     : supportService,
-        steamUserRepository: steamUserRepository
+        steamUserRepository: steamUserRepository,
+        banGuard           : banGuard
     )
 
     HttpServletRequest req = Mock()
@@ -363,6 +367,37 @@ class SupportControllerSpec extends Specification {
         then:
         capturedSubject.contains('Not specified')
         capturedBody.contains('(none)')
+    }
+
+    def "reportUser() rejects a banned reporter before any ticket is created"() {
+        given: 'the ban guard rejects the (banned) reporter'
+        authedSession(100L)
+        1 * banGuard.assertNotBanned(100L) >> { throw new ForbiddenException("Your account is banned: spam") }
+
+        when:
+        controller.reportUser(200L, [reason: 'scam'], req)
+
+        then: 'no notification fan-out, no ticket — banned users cannot spam FRAUD reports'
+        thrown(ForbiddenException)
+        0 * steamUserRepository.findById(_)
+        0 * supportService.create(_, _, _, _, _)
+    }
+
+    def "reportUser() lets a non-banned reporter through the ban guard"() {
+        given:
+        def target = new SteamUser(id: 200L, displayName: 'bob', steamId64: '7656')
+        def me     = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * banGuard.assertNotBanned(100L)
+        1 * steamUserRepository.findById(200L) >> Optional.of(target)
+        1 * steamUserRepository.findById(100L) >> Optional.of(me)
+        1 * supportService.create(100L, 'alice', _ as String, 'FRAUD', _ as String) >> new SupportTicket()
+
+        when:
+        def resp = controller.reportUser(200L, [reason: 'scam'], req)
+
+        then:
+        resp.statusCode.value() == 200
     }
 
     def "reportUser() category is always FRAUD (pins CSR routing)"() {

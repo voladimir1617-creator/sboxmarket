@@ -595,6 +595,64 @@ class TradeServiceSpec extends Specification {
         t.state == 'PENDING_BUYER_CONFIRM'
     }
 
+    def "cancel blocks the BUYER from cancelling a DISPUTED trade — anti-theft #2"() {
+        // The exploit: a buyer in PENDING_BUYER_CONFIRM calls dispute()
+        // (state → DISPUTED), which slips past the PENDING_BUYER_CONFIRM
+        // anti-theft guard, then calls cancel() — pocketing the item AND
+        // the refund. A DISPUTED trade is frozen; only staff resolve it.
+        given:
+        def t = tradeIn('DISPUTED')
+        tradeRepository.findById(_) >> Optional.of(t)
+
+        when: 'the buyer tries to cancel out of dispute'
+        service.cancel(10L, 1L, 'let me out')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_DISPUTED'
+        // No refund, no state flip — the trade is untouched.
+        t.state == 'DISPUTED'
+    }
+
+    def "cancel blocks the SELLER from cancelling a DISPUTED trade (no dodging a fraud ruling)"() {
+        // Symmetric: a losing seller must not cancel out of DISPUTED to
+        // wipe the trade from the admin queue before staff rule.
+        given:
+        def t = tradeIn('DISPUTED')
+        tradeRepository.findById(_) >> Optional.of(t)
+
+        when:
+        service.cancel(20L, 1L, 'nothing to see here')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_DISPUTED'
+        t.state == 'DISPUTED'
+    }
+
+    def "cancel still allows an ADMIN to cancel a DISPUTED trade (staff resolution)"() {
+        given:
+        def t = tradeIn('DISPUTED')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        // User 999 is neither buyer (10) nor seller (20) → admin path.
+        adminAuthorization.requireAdmin(999L) >> {}
+
+        when: 'staff resolve the dispute by cancelling + refunding the buyer'
+        service.cancel(999L, 1L, 'CSR ruling: seller at fault')
+
+        then:
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal("50.00")
+    }
+
     def "cancel still allows SELLER self-cancel after marking sent (they may want to take it back before buyer confirms)"() {
         // Sellers aren't affected by the anti-theft guard — they can
         // still cancel their own trade (which would refund the buyer).

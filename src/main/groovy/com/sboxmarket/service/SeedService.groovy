@@ -1,5 +1,6 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.model.LoadoutSlot
 import com.sboxmarket.model.Wallet
@@ -13,6 +14,8 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+
+import java.math.RoundingMode
 
 /**
  * Minimal first-boot bootstrap. Creates only the demo wallet.
@@ -40,8 +43,195 @@ class SeedService {
             log.info("Seeded demo wallet (\$250.00 starting balance)")
         }
         seedCatalogueItems()
+        seedMarketplaceListings()
         backfillDemoSales()
         backfillPublicLoadouts()
+    }
+
+    /** Synthetic seller handles for seed Listings. Distinct from the
+     *  "SIM · …" prefix AdminSimulatorService uses so an operator can
+     *  still one-shot-clear simulator rows without touching the launch
+     *  seed. ~10 handles so the marketplace grid reads like a real crowd
+     *  of sellers, not one bot. */
+    private static final List<String> SEED_SELLERS = [
+        'VaultRunner', 'NeonArc', 'CrateDigger', 'FrostByte',
+        'BoneTender', 'AtlasTrades', 'PixelPusher', 'GhostlyDeals',
+        'EmberWolf', 'TradeHaven'
+    ]
+
+    /** Plausible CS-style float conditions, weighted toward the middle so
+     *  the grid isn't all Factory New. Index drawn by the per-listing RNG. */
+    private static final List<String> SEED_CONDITIONS = [
+        'Factory New', 'Minimal Wear', 'Minimal Wear', 'Field-Tested',
+        'Field-Tested', 'Well-Worn', 'Battle-Scarred'
+    ]
+
+    /**
+     * Day-1 launch seed for the marketplace itself. `seedCatalogueItems()`
+     * plants 32 catalogue rows but with `isListed=false` and ZERO Listing
+     * rows — so /market, the homepage rails, every /item page and /db
+     * render an empty grid and the whole app looks dead to a first
+     * visitor. This method gives those catalogue items real, buyable
+     * Listing rows from a crowd of synthetic sellers.
+     *
+     * IDEMPOTENT: only fires when `listingRepository.count() == 0`. The
+     * instant a real seller posts a listing — or the admin simulator
+     * spawns one — this seed never runs again, so it can't double-seed
+     * or fight live data.
+     *
+     * Per item: 1–4 Listing rows, weighted by price band (cheap/common
+     * items get more listings — a real marketplace has deep books on
+     * the floor and thin books on the whales). Off-Market items get
+     * just 1. Total lands around ~60–90 listings.
+     *
+     * Each price is the item's `lowestPrice` jittered ×0.85–×1.25 so the
+     * book has natural spread; `setScale(2, HALF_UP)` keeps it currency-
+     * clean. ~15% of listings are AUCTION rows with an expiry 1h–48h out,
+     * a `currentBid` seeded below ask, and a small `bidCount`. The rest
+     * are plain BUY_NOW.
+     *
+     * `listedAt` is spread over the past ~14 days so the "Just listed"
+     * newest-sort rail looks organic instead of every row sharing a
+     * timestamp. `sellerUserId` is null on every row (system listing) —
+     * `backfillDemoSales()` (next in `seed()`) then flips a handful to
+     * SOLD so the "Latest sales" panel comes alive too.
+     *
+     * Finally each Item is reconciled to its new book: `isListed=true`,
+     * `supply` = its ACTIVE listing count, `lowestPrice` = the true
+     * floor across its ACTIVE listings — so card prices, the item-modal
+     * floor chip and the catalogue all read consistently.
+     *
+     * Deterministic RNG seed (`Random(42L)`) so a fresh boot always
+     * produces the same curated book — reproducible for QA + screenshots.
+     */
+    private void seedMarketplaceListings() {
+        if (listingRepository == null || itemRepository == null) return
+        try {
+            if (listingRepository.count() > 0) return
+            def items = itemRepository.findAll()
+                    .findAll { it != null && it.lowestPrice != null && it.lowestPrice > BigDecimal.ZERO }
+            if (items.isEmpty()) {
+                log.info("Marketplace-listing seed skipped: no priced catalogue items")
+                return
+            }
+
+            def rng = new Random(42L)
+            long now = System.currentTimeMillis()
+            long fourteenDaysMs = 14L * 24L * 3600_000L
+            int totalCreated = 0
+            int auctionCreated = 0
+
+            // Track each item's created ACTIVE listings so we can reconcile
+            // supply + floor in a second pass without re-querying the DB.
+            def activeByItem = [:].withDefault { [] }
+
+            items.each { item ->
+                // Listing count by price band: cheap/common items carry a
+                // deeper book, expensive Off-Market items a thin one. A real
+                // marketplace floor is crowded; the whales are not.
+                int count
+                BigDecimal lp = item.lowestPrice
+                if (item.rarity == 'Off-Market' || lp >= new BigDecimal('60.00')) {
+                    count = 1
+                } else if (lp < new BigDecimal('2.00')) {
+                    count = 2 + rng.nextInt(3)   // 2–4 — deep floor book
+                } else if (lp < new BigDecimal('10.00')) {
+                    count = 1 + rng.nextInt(3)   // 1–3
+                } else {
+                    count = 1 + rng.nextInt(2)   // 1–2 — pricier, thinner
+                }
+
+                count.times {
+                    // Price: lowestPrice jittered ×0.85–×1.25.
+                    BigDecimal jitter = new BigDecimal('0.85') +
+                            new BigDecimal(rng.nextInt(41)).divide(new BigDecimal('100'))
+                    BigDecimal price = (lp * jitter).setScale(2, RoundingMode.HALF_UP)
+                    if (price <= BigDecimal.ZERO) price = new BigDecimal('0.25')
+
+                    String handle = SEED_SELLERS[rng.nextInt(SEED_SELLERS.size())]
+                    String condition = SEED_CONDITIONS[rng.nextInt(SEED_CONDITIONS.size())]
+                    // rarityScore mirrors CSFloat's 0–1 float value — lower
+                    // (cleaner) scores skew toward Factory New listings.
+                    BigDecimal rarityScore = new BigDecimal(rng.nextInt(1000))
+                            .divide(new BigDecimal('1000')).setScale(4, RoundingMode.HALF_UP)
+                    // Spread listedAt across the past ~14 days so the
+                    // newest-first rail looks organic.
+                    long listedAt = now - (long)(rng.nextDouble() * fourteenDaysMs)
+
+                    boolean isAuction = rng.nextInt(100) < 15  // ~15% auctions
+
+                    def listing = new Listing(
+                        item:         item,
+                        price:        price,
+                        sellerName:   handle,
+                        sellerAvatar: initialsFor(handle),
+                        status:       'ACTIVE',
+                        condition:    condition,
+                        rarityScore:  rarityScore,
+                        listingType:  isAuction ? 'AUCTION' : 'BUY_NOW',
+                        sellerUserId: null,        // system / launch-seed listing
+                        listedAt:     listedAt,
+                        hidden:       false
+                    )
+
+                    if (isAuction) {
+                        // Expiry spread 1h–48h out.
+                        long expiresIn = (1L + rng.nextInt(48)) * 3600_000L
+                        listing.expiresAt = now + expiresIn
+                        // currentBid sits below ask so there's headroom to bid.
+                        int bids = rng.nextInt(8)  // 0–7
+                        listing.bidCount = bids
+                        if (bids > 0) {
+                            BigDecimal bidFactor = new BigDecimal('0.60') +
+                                    new BigDecimal(rng.nextInt(30)).divide(new BigDecimal('100'))
+                            BigDecimal bid = (price * bidFactor).setScale(2, RoundingMode.HALF_UP)
+                            if (bid <= BigDecimal.ZERO) bid = new BigDecimal('0.10')
+                            listing.currentBid = bid
+                            String bidder = SEED_SELLERS[rng.nextInt(SEED_SELLERS.size())]
+                            listing.currentBidderName = bidder
+                        }
+                        auctionCreated++
+                    }
+
+                    listingRepository.save(listing)
+                    activeByItem[item.id] << listing
+                    totalCreated++
+                }
+            }
+
+            // Second pass — reconcile each Item to its freshly-seeded book so
+            // the catalogue card price, the item-modal floor chip and the
+            // /db grid all agree with the listings that now exist.
+            int relistedItems = 0
+            items.each { item ->
+                def active = activeByItem[item.id]
+                if (active.isEmpty()) return
+                BigDecimal floor = active.collect { it.price }.min()
+                item.isListed    = true
+                item.supply      = active.size()
+                item.lowestPrice = floor
+                itemRepository.save(item)
+                relistedItems++
+            }
+
+            log.info("Seeded ${totalCreated} marketplace listings " +
+                    "(${auctionCreated} auctions) across ${relistedItems} items " +
+                    "so /market, the home rails and /db render a live marketplace on first boot")
+        } catch (Exception e) {
+            log.warn("Marketplace-listing seed skipped: ${e.message}", e)
+        }
+    }
+
+    /** Build a 2-char uppercase avatar token from a seller handle.
+     *  CamelCase handles ("VaultRunner") yield the two capitalised
+     *  initials ("VR"); a plain lowercase handle falls back to its
+     *  first two letters. Mirrors the initials-avatar convention used
+     *  across the marketplace UI. */
+    private static String initialsFor(String handle) {
+        if (handle == null || handle.isEmpty()) return '??'
+        def caps = (handle =~ /[A-Z]/).collect { it }
+        if (caps.size() >= 2) return (caps[0] + caps[1])
+        return handle.take(2).toUpperCase()
     }
 
     /**
@@ -91,13 +281,13 @@ class SeedService {
                 ['Beanie',                    'Hats',        'Standard',   '🧢', '#7a8b9c', '0.50'],
                 ['Hard Hat',                  'Hats',        'Standard',   '⛑',  '#f5c116', '1.20'],
                 ['Top Hat',                   'Hats',        'Limited',    '🎩', '#1a1a1a', '8.40'],
-                ['Witch Hat',                 'Hats',        'Limited',    '🧙', '#4a2370', '12.10'],
-                ['Crown of Thorns',           'Hats',        'Off-Market', '👑', '#c89b3c', '64.00'],
+                ['Cowboy Hat',                'Hats',        'Limited',    '🤠', '#8a5a2b', '12.10'],
+                ['WW1 Helmet',                'Hats',        'Off-Market', '🪖', '#5a5f3a', '64.00'],
                 // Jackets — 4
                 ['Leather Jacket',            'Jackets',     'Limited',    '🧥', '#3a2417', '6.80'],
                 ['Trench Coat',               'Jackets',     'Limited',    '🧥', '#5a4632', '11.50'],
                 ['Tactical Vest',             'Jackets',     'Limited',    '🦺', '#3d5a3a', '14.20'],
-                ['Cape of the Wanderer',      'Jackets',     'Off-Market', '🦸', '#7b1fa2', '89.00'],
+                ['Bomber Jacket',             'Jackets',     'Off-Market', '🧥', '#3b4a3a', '89.00'],
                 // Shirts — 3
                 ['Hoodie',                    'Shirts',      'Standard',   '👕', '#2c3e50', '0.80'],
                 ['Lab Coat',                  'Shirts',      'Standard',   '🥼', '#ecf0f1', '1.45'],
@@ -119,14 +309,14 @@ class SeedService {
                 ['Gas Mask',                  'Accessories', 'Limited',    '😷', '#3a3f47', '7.90'],
                 ['Engineer Goggles',          'Accessories', 'Limited',    '🥽', '#a87b3a', '4.40'],
                 ['Bone Necklace',             'Accessories', 'Limited',    '💀', '#ddd6c7', '3.20'],
-                ['Halo of the Forsaken',      'Accessories', 'Off-Market', '🌟', '#ffd700', '120.00'],
+                ['Aviator Sunglasses',        'Accessories', 'Off-Market', '🕶', '#2a2a2a', '120.00'],
                 // Workshop — 6 (only visible under "All" chip — Workshop has no chip)
-                ['Map: Foundry',              'Workshop',    'Standard',   '🏭', '#5a5a5a', '0.99'],
-                ['Map: Lakeside',             'Workshop',    'Standard',   '🏞', '#3a7d44', '0.99'],
-                ['Vehicle Wrap: Cyber',       'Workshop',    'Limited',    '🚗', '#9b59b6', '4.50'],
-                ['Vehicle Wrap: Camo',        'Workshop',    'Standard',   '🚗', '#5b6e3d', '1.80'],
-                ['Decal Pack: Graffiti',      'Workshop',    'Standard',   '🎨', '#e74c3c', '0.75'],
-                ['Workshop Pass: Founders',   'Workshop',    'Off-Market', '🎟', '#237bff', '250.00']
+                ['Flat Cap',                  'Workshop',    'Standard',   '🧢', '#6b5a3a', '0.99'],
+                ['Chef Hat',                  'Workshop',    'Standard',   '👨‍🍳', '#ecf0f1', '0.99'],
+                ['Police Hat',                'Workshop',    'Limited',    '👮', '#2a3550', '4.50'],
+                ['Hi-Vis Vest',               'Workshop',    'Standard',   '🦺', '#f5a623', '1.80'],
+                ['Pirate Hat',                'Workshop',    'Standard',   '🏴‍☠️', '#2a2a2a', '0.75'],
+                ['Grand Ball Gown',           'Workshop',    'Off-Market', '👗', '#7b2d4a', '250.00']
             ]
             long now = System.currentTimeMillis()
             int idx = 0

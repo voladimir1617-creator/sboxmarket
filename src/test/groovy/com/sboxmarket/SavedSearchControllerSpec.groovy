@@ -2,6 +2,8 @@ package com.sboxmarket
 
 import com.sboxmarket.controller.SavedSearchController
 import com.sboxmarket.controller.SteamAuthController
+import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.SavedSearch
 import com.sboxmarket.service.SavedSearchService
@@ -104,6 +106,34 @@ class SavedSearchControllerSpec extends Specification {
         when:  controller.upsert([name: 'x'], req)
         then:  thrown(UnauthorizedException)
         0 * service.upsert(_, _)
+    }
+
+    def "upsert() propagates a ForbiddenException from the service ban guard"() {
+        given:
+        authedSession(100L)
+        1 * service.upsert(100L, [name: 'x']) >> {
+            throw new ForbiddenException('Your account is banned: x')
+        }
+
+        when:
+        controller.upsert([name: 'x'], req)
+
+        then: 'a banned user gets the 403 surfaced, not a 200'
+        thrown(ForbiddenException)
+    }
+
+    def "upsert() propagates a BadRequestException when the cap is hit"() {
+        given:
+        authedSession(100L)
+        1 * service.upsert(100L, _) >> {
+            throw new BadRequestException('SAVED_SEARCHES_FULL', 'full')
+        }
+
+        when:
+        controller.upsert([name: 'over the cap'], req)
+
+        then:
+        thrown(BadRequestException)
     }
 
     def "delete() returns {id, removed} envelope"() {

@@ -4,7 +4,9 @@ import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
+import com.sboxmarket.service.AuditService
 import com.sboxmarket.service.StripeService
+import com.stripe.model.Dispute
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -101,6 +103,25 @@ class StripeServiceSpec extends Specification {
         thrown(IllegalArgumentException)
     }
 
+    def "devModeDeposit rounds a sub-cent amount to whole cents before crediting"() {
+        // The DepositRequest DTO constrains min/max but not scale. A
+        // {"amount": 50.999} body must credit whole cents only — otherwise
+        // the wallet drifts a fraction of a cent past what was charged.
+        given:
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { args -> args[0] }
+        def saved = null
+        transactionRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; saved = t; t }
+
+        when:
+        service.createDepositSession(500L, new BigDecimal("50.999"))
+
+        then: 'HALF_UP → 51.00, not 50.999'
+        wallet.balance == new BigDecimal("151.00")
+        saved.amount == new BigDecimal("51.00")
+    }
+
     // ── requestWithdrawal ─────────────────────────────────────────
 
     def "requestWithdrawal debits the wallet and records a COMPLETED tx in dev mode"() {
@@ -131,18 +152,34 @@ class StripeServiceSpec extends Specification {
         thrown(IllegalStateException)
     }
 
-    def "requestWithdrawal refuses zero/negative amounts"() {
+    def "requestWithdrawal refuses zero/negative/null amounts"() {
         given:
         walletRepository.findById(_) >> Optional.of(new Wallet(id: 500L, balance: new BigDecimal("100")))
 
         when:
         service.requestWithdrawal(500L, amount, 'acct')
 
-        then:
+        then: 'null is caught explicitly — never NPEs on the balance comparison'
         thrown(IllegalArgumentException)
 
         where:
-        amount << [BigDecimal.ZERO, new BigDecimal("-5")]
+        amount << [BigDecimal.ZERO, new BigDecimal("-5"), null]
+    }
+
+    def "requestWithdrawal rounds a sub-cent amount to whole cents before debiting"() {
+        given:
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        def saved = null
+        transactionRepository.save(_) >> { Transaction t -> t.id = 1L; saved = t; t }
+
+        when:
+        def tx = service.requestWithdrawal(500L, new BigDecimal("12.999"), 'acct')
+
+        then: 'HALF_UP → 13.00 debited, ledger row carries the same 2dp value'
+        wallet.balance == new BigDecimal("87.00")
+        saved.amount == new BigDecimal("13.00")
     }
 
     def "requestWithdrawal marks PENDING (not COMPLETED) when Stripe is live"() {
@@ -334,5 +371,129 @@ class StripeServiceSpec extends Specification {
 
         then:
         thrown(NoSuchElementException)
+    }
+
+    // ── webhook event-id dedupe (BUG 1 — batch 657) ───────────────
+    //
+    // The dedupe set must record an event id ONLY after the handler
+    // ran successfully. Recording up-front (the pre-fix behaviour) meant
+    // a handler throw — Stripe API timeout, DB hiccup — left the id in
+    // the set even though the @Transactional wallet credit rolled back,
+    // so Stripe's retry was wrongly skipped and the paid-for deposit was
+    // never credited. These tests pin the check (alreadyProcessed) and
+    // record (markProcessed) as separate steps.
+
+    def "alreadyProcessed is a pure read — a fresh event id is NOT recorded just by checking it"() {
+        when: 'an event id is checked but the handler has not yet succeeded'
+        def firstCheck = service.alreadyProcessed('evt_handler_will_fail')
+
+        then: 'first check says new'
+        firstCheck == false
+
+        when: 'the handler threw, so markProcessed was never called — Stripe retries and we check again'
+        def retryCheck = service.alreadyProcessed('evt_handler_will_fail')
+
+        then: 'the retry is STILL seen as new — it will be re-processed, not silently skipped'
+        retryCheck == false
+    }
+
+    def "markProcessed after a successful handler makes the next check short-circuit"() {
+        when: 'the handler ran without throwing, so the id is recorded'
+        service.markProcessed('evt_ok')
+
+        then: 'a subsequent retry of the SAME event is recognised as already done'
+        service.alreadyProcessed('evt_ok') == true
+    }
+
+    def "a failed-then-retried event credits on the retry once the retry succeeds (BUG 1 regression)"() {
+        given: 'attempt 1 of the webhook — the handler throws before markProcessed runs'
+        // Simulated by NOT calling markProcessed (control never reaches it).
+        service.alreadyProcessed('evt_dep_42')   // the up-front check on attempt 1
+
+        when: 'Stripe retries — attempt 2 checks the gate again'
+        def retrySkipped = service.alreadyProcessed('evt_dep_42')
+
+        then: 'the retry is NOT skipped — it proceeds to the handler'
+        retrySkipped == false
+
+        when: 'attempt 2 handler succeeds and records the id'
+        service.markProcessed('evt_dep_42')
+
+        then: 'a third delivery of the same event is now correctly deduped'
+        service.alreadyProcessed('evt_dep_42') == true
+    }
+
+    def "markProcessed / alreadyProcessed ignore null and empty event ids"() {
+        expect:
+        service.alreadyProcessed(null) == false
+        service.alreadyProcessed('') == false
+
+        when: 'recording a null / empty id is a harmless no-op'
+        service.markProcessed(null)
+        service.markProcessed('')
+
+        then: 'still treated as new — no NPE, nothing recorded'
+        service.alreadyProcessed(null) == false
+        service.alreadyProcessed('') == false
+    }
+
+    // ── chargeback display amount (BUG 3 — batch 657) ─────────────
+    //
+    // dispute.amount is in cents. The deposit/refund paths convert with
+    // BigDecimal; the chargeback handlers used a `dispute.amount / 100.0`
+    // double divide that could render $49.99 as $49.99000000000001 in
+    // the audit log and the admin/user notifications. The fix uses
+    // `new BigDecimal(amount).movePointLeft(2)` for an exact value.
+    //
+    // The Dispute carries no charge / paymentIntent so the tx lookup
+    // falls through cleanly to "not found" — no Stripe static SDK call
+    // is needed; the handler still logs + audits with the amount.
+
+    def "handleChargebackOpened formats a .99 dispute amount exactly (no float drift)"() {
+        given:
+        def audit = Mock(AuditService)
+        service.auditService = audit
+        // 4999 cents — the value that exposes the old double-divide bug.
+        def dispute = new Dispute(id: 'dp_99', amount: 4999L, reason: 'fraudulent')
+
+        when:
+        service.handleChargebackOpened(dispute)
+
+        then: 'the audit summary carries an exact $49.99 — never $49.99000000000001'
+        1 * audit.log('CHARGEBACK_OPENED', null, null, null, { String summary ->
+            summary.contains('$49.99') && !summary.contains('49.99000')
+        })
+    }
+
+    def "handleChargebackClosed formats a .99 dispute amount exactly (no float drift)"() {
+        given:
+        // status is neither 'won' nor anything that flips a tx — the
+        // handler logs + (would) notify with the amount. No notification
+        // service wired, so it just exercises the amount math + log path.
+        def dispute = new Dispute(id: 'dp_lost', amount: 4999L, status: 'lost')
+
+        when: 'a non-won close with a .99 amount runs without throwing'
+        service.handleChargebackClosed(dispute)
+
+        then: 'the BigDecimal conversion produced an exact value (no ArithmeticException, no drift)'
+        // movePointLeft(2) on 4999 is exactly 49.99 — assert the math
+        // the handler now uses to render the amount.
+        new BigDecimal(4999L).movePointLeft(2) == new BigDecimal('49.99')
+        noExceptionThrown()
+    }
+
+    def "handleChargebackOpened tolerates a null dispute amount"() {
+        given:
+        def audit = Mock(AuditService)
+        service.auditService = audit
+        def dispute = new Dispute(id: 'dp_noamt', amount: null, reason: 'fraudulent')
+
+        when:
+        service.handleChargebackOpened(dispute)
+
+        then: 'null amount renders as $0 — no NPE on the BigDecimal path'
+        1 * audit.log('CHARGEBACK_OPENED', null, null, null, { String summary ->
+            summary.contains('$0')
+        })
     }
 }

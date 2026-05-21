@@ -125,11 +125,29 @@ class PurchaseService {
         buyerWallet.balance = buyerWallet.balance - listing.price
         walletRepository.save(buyerWallet)
 
-        // Mark listing sold + transfer ownership
+        // Mark listing sold + transfer ownership.
+        //
+        // saveAndFlush (NOT plain save) is load-bearing for concurrency
+        // correctness. The wallet debit above and this listing update are
+        // both versioned (@Version on Wallet + Listing). With a plain
+        // save() the UPDATEs stay buffered in the persistence context and
+        // are only pushed to the DB at the first auto-flush point — which,
+        // walking the code below, is the SELECT inside
+        // priceHistoryService.record(). That SELECT-triggered flush is
+        // wrapped in a try/catch, so when a concurrent buyer wins the race
+        // the loser's StaleObjectStateException surfaces *inside* that
+        // catch block and gets SWALLOWED — masking the optimistic-lock
+        // conflict and letting the loser cascade into an opaque
+        // UnexpectedRollbackException instead of the clean
+        // ObjectOptimisticLockingFailureException the HTTP layer maps to
+        // 409. Flushing here forces both versioned UPDATEs out to the DB
+        // immediately, OUTSIDE any try/catch, so the lock conflict
+        // propagates cleanly and the cosmetic side-effects below run only
+        // once the sale is guaranteed to be the winner.
         listing.status = 'SOLD'
         listing.soldAt = System.currentTimeMillis()
         listing.buyerUserId = buyerUserId
-        listingRepository.save(listing)
+        listingRepository.saveAndFlush(listing)
 
         // Record the sale price in the item's price-history table so the
         // item-detail sparkline reflects real buyer-paid prices, not just

@@ -190,7 +190,7 @@ class LoadoutServiceSpec extends Specification {
         loadoutRepository.findById(_) >> Optional.of(loadout)
         loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotLocked], [slotHats, slotLocked]]
         // Indexed JPQL replaces the old findAll() full-catalogue fetch.
-        itemRepository.findCheapestInBudget('Hats', _, _) >> [
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> [
             new Item(id: 1L, name: 'Cheap Hat', category: 'Hats', lowestPrice: new BigDecimal("10"))
         ]
         loadoutSlotRepository.save(_) >> { args -> args[0] }
@@ -208,6 +208,52 @@ class LoadoutServiceSpec extends Specification {
         0 * itemRepository.findAll()
     }
 
+    def "autoGenerate subtracts a locked slot's price from the budget so total spend stays within the ceiling"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats   = new LoadoutSlot(loadoutId: 1L, slot: 'Hats',   locked: false)
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Shirts', locked: true,
+            itemId: 77L, snapshotPrice: new BigDecimal("90"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotLocked], [slotHats, slotLocked]]
+        BigDecimal budgetSeen = null
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> { args ->
+            budgetSeen = args[1]
+            []
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when: "budget is \$100 but a locked slot already holds a \$90 item"
+        service.autoGenerate(10L, 1L, new BigDecimal("100"))
+
+        then: "only \$10 of headroom is offered to the cheapest-item query"
+        budgetSeen == new BigDecimal("10")
+    }
+
+    def "autoGenerate clamps the remaining budget at zero when locked slots already exceed it"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats   = new LoadoutSlot(loadoutId: 1L, slot: 'Hats',   locked: false)
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Shirts', locked: true,
+            itemId: 77L, snapshotPrice: new BigDecimal("250"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotLocked], [slotHats, slotLocked]]
+        BigDecimal budgetSeen = null
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> { args ->
+            budgetSeen = args[1]
+            []
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("100"))
+
+        then: "never a negative budget passed to the query"
+        budgetSeen == BigDecimal.ZERO
+    }
+
     def "autoGenerate forbids a non-owner"() {
         given:
         loadoutRepository.findById(_) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
@@ -217,6 +263,125 @@ class LoadoutServiceSpec extends Specification {
 
         then:
         thrown(ForbiddenException)
+    }
+
+    // ── autoGenerate: never repeats an item (bug #1) ───────────────
+
+    /**
+     * Regression for bug #1 — the `Wild` slot uses `category = ''` so the
+     * cheapest-item query would otherwise return the globally cheapest
+     * catalogue item, which is almost always the same item already placed
+     * in its own category slot (e.g. the cheapest Hat lands in BOTH the
+     * Hats slot and the Wild slot). The fill must exclude already-picked
+     * ids so no item appears twice — CSFloat's loadout lab never repeats.
+     */
+    def "autoGenerate never places the same item in two slots (the Wild-slot duplicate)"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: false)
+        def slotWild = new LoadoutSlot(loadoutId: 1L, slot: 'Wild', locked: false)
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotWild], [slotHats, slotWild]]
+        // Catalogue: the cheapest item overall is a Hat ($10). The mock
+        // honours the `exclude` arg — exactly what the real JPQL
+        // `i.id NOT IN :exclude` clause does — and returns the cheapest
+        // *remaining* row.
+        def catalogue = [
+            new Item(id: 1L, name: 'Cheap Hat',  category: 'Hats',  lowestPrice: new BigDecimal("10")),
+            new Item(id: 2L, name: 'Cheap Tee',  category: 'Shirts', lowestPrice: new BigDecimal("15"))
+        ]
+        loadoutRepository.findCheapestInBudgetExcluding(_, _, _, _) >> { args ->
+            String category = args[0]
+            BigDecimal budget = args[1]
+            Collection<Long> exclude = args[2]
+            def hit = catalogue
+                .findAll { (category == '' || it.category == category) }
+                .findAll { it.lowestPrice <= budget }
+                .findAll { !exclude.contains(it.id) }
+                .sort { it.lowestPrice }
+            hit.isEmpty() ? [] : [hit.first()]
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when: "a generous budget that easily covers both items"
+        service.autoGenerate(10L, 1L, new BigDecimal("1000"))
+
+        then: "Hats slot took the cheapest Hat"
+        slotHats.itemId == 1L
+        and: "Wild slot did NOT re-pick that same Hat — it got the next item"
+        slotWild.itemId == 2L
+        and: "no item id appears in more than one slot"
+        [slotHats.itemId, slotWild.itemId].toSet().size() == 2
+    }
+
+    /**
+     * Bug #1 — the exclude collection handed to the query must grow as
+     * slots are filled. The first pick passes a sentinel (never empty,
+     * since JPQL forbids `NOT IN ()`); each subsequent pick must include
+     * every id picked so far.
+     */
+    def "autoGenerate feeds each previously-picked id into the exclude set"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats   = new LoadoutSlot(loadoutId: 1L, slot: 'Hats',   locked: false)
+        def slotShirts = new LoadoutSlot(loadoutId: 1L, slot: 'Shirts', locked: false)
+        def slotWild   = new LoadoutSlot(loadoutId: 1L, slot: 'Wild',   locked: false)
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [
+            [slotHats, slotShirts, slotWild], [slotHats, slotShirts, slotWild]]
+        def excludesSeen = []
+        loadoutRepository.findCheapestInBudgetExcluding(_, _, _, _) >> { args ->
+            String category = args[0]
+            excludesSeen << new ArrayList<Long>(args[2] as Collection)
+            if (category == 'Hats')   return [new Item(id: 11L, name: 'Hat', category: 'Hats',   lowestPrice: new BigDecimal("5"))]
+            if (category == 'Shirts') return [new Item(id: 22L, name: 'Tee', category: 'Shirts', lowestPrice: new BigDecimal("5"))]
+            // Wild — anything not already picked
+            return [new Item(id: 33L, name: 'Misc', category: 'Boots', lowestPrice: new BigDecimal("5"))]
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("1000"))
+
+        then: "first pick excludes only the sentinel (no real ids yet)"
+        excludesSeen[0] == [-1L]
+        and: "second pick excludes the Hat just placed"
+        excludesSeen[1] == [11L]
+        and: "third (Wild) pick excludes both prior picks"
+        excludesSeen[2].toSet() == [11L, 22L].toSet()
+        and: "all three slots ended up with distinct items"
+        [slotHats.itemId, slotShirts.itemId, slotWild.itemId].toSet() == [11L, 22L, 33L].toSet()
+    }
+
+    /**
+     * Bug #1 — a locked, already-filled slot's item must also be excluded
+     * so an unlocked slot can't duplicate a locked pick.
+     */
+    def "autoGenerate excludes a locked slot's item from the unlocked fill"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: true,
+            itemId: 99L, snapshotPrice: new BigDecimal("5"))
+        def slotWild = new LoadoutSlot(loadoutId: 1L, slot: 'Wild', locked: false)
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotLocked, slotWild], [slotLocked, slotWild]]
+        Collection<Long> wildExclude = null
+        loadoutRepository.findCheapestInBudgetExcluding('', _, _, _) >> { args ->
+            wildExclude = args[2] as Collection
+            [new Item(id: 7L, name: 'Other', category: 'Boots', lowestPrice: new BigDecimal("5"))]
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("1000"))
+
+        then: "the locked slot's item id is in the exclude set for the Wild query"
+        wildExclude.contains(99L)
+        and: "the Wild slot got a different item, not the locked one"
+        slotWild.itemId == 7L
     }
 
     // ── delete ────────────────────────────────────────────────────

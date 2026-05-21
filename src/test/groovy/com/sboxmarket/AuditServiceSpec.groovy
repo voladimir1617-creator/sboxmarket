@@ -185,4 +185,12 @@ class AuditServiceSpec extends Specification {
         result.size() == 1
         0 * auditLogRepository.byEvent(_, _)
     }
+
+    // ── Support-ticket event constants (staff ticket actions) ───────
+
+    def "TICKET_REPLIED / TICKET_CLOSED constants carry their literal event names"() {
+        expect:
+        AuditService.TICKET_REPLIED == 'TICKET_REPLIED'
+        AuditService.TICKET_CLOSED  == 'TICKET_CLOSED'
+    }
 }

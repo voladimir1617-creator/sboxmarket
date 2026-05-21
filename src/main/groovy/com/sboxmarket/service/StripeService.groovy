@@ -84,20 +84,42 @@ class StripeService {
     private final java.util.concurrent.ConcurrentHashMap<Long, java.util.List<Long>> recentFailuresByWallet = new java.util.concurrent.ConcurrentHashMap<>()
     private final java.util.concurrent.ConcurrentHashMap<Long, Long> cardTestAlertedAt = new java.util.concurrent.ConcurrentHashMap<>()
 
-    /** Returns true if this event id was already processed (and the
-     *  caller should short-circuit), false if it's new (the caller
-     *  should proceed and the id is now recorded). Synchronized
-     *  because Stripe webhooks land on the Tomcat worker pool — two
-     *  retries can race in the same JVM. */
+    /** Returns true if this event id was already processed successfully
+     *  (and the caller should short-circuit), false if it's new or a
+     *  retry of a previously-failed event (the caller should proceed).
+     *
+     *  Batch 657 fix: this is now a pure read — it does NOT record the
+     *  id. Recording happens via {@link #markProcessed} only AFTER the
+     *  handler switch completes successfully. The old behaviour recorded
+     *  the id here, before the handler ran: if completeDeposit then threw
+     *  (Stripe timeout, DB hiccup), the @Transactional rolled the DB work
+     *  back but the id stayed in seenEventIds — so Stripe's retry hit
+     *  this gate, got skipped, and the wallet was never credited even
+     *  though the user paid. Record-after-success is safe because
+     *  completeDeposit's own COMPLETED-status check is idempotent, so a
+     *  retry of an already-applied event can't double-credit.
+     *
+     *  Synchronized because Stripe webhooks land on the Tomcat worker
+     *  pool — two retries can race in the same JVM. */
     private synchronized boolean alreadyProcessed(String eventId) {
         if (eventId == null || eventId.isEmpty()) return false
-        if (seenEventIds.contains(eventId)) return true
+        return seenEventIds.contains(eventId)
+    }
+
+    /** Records an event id as successfully processed so future retries
+     *  of the SAME event short-circuit at {@link #alreadyProcessed}.
+     *  Call this only after the handler ran without throwing. FIFO
+     *  eviction caps the set at {@link #SEEN_EVENTS_CAP} so a long-lived
+     *  container can't accumulate unbounded state. Synchronized for the
+     *  same worker-pool-race reason as {@link #alreadyProcessed}. */
+    private synchronized void markProcessed(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return
+        if (seenEventIds.contains(eventId)) return
         if (seenEventIds.size() >= SEEN_EVENTS_CAP) {
             def oldest = seenEventIds.iterator().next()
             seenEventIds.remove(oldest)
         }
         seenEventIds.add(eventId)
-        return false
     }
 
     @PostConstruct
@@ -127,6 +149,16 @@ class StripeService {
         if (amount > new BigDecimal("10000")) {
             throw new IllegalArgumentException("Deposit amount exceeds \$10,000 limit")
         }
+        // Normalise to whole cents BEFORE anything downstream reads it.
+        // The DTO @DecimalMin/@DecimalMax don't constrain scale, so a body
+        // like {"amount": 50.999} would otherwise: charge Stripe
+        // (50.999*100).longValue() = 5099 cents ($50.99) but persist the
+        // PENDING tx with amount=50.999 — and completeDeposit credits the
+        // wallet tx.amount (50.999), a fraction of a cent more than Stripe
+        // actually collected. Rounding here keeps the Stripe charge, the
+        // stored tx, the amount-match check, and the wallet credit all on
+        // the same 2dp value.
+        amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
 
         def wallet = walletRepository.findById(walletId)
                 .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
@@ -371,11 +403,18 @@ class StripeService {
         def wallet = walletRepository.findById(walletId)
                 .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
 
+        if (amount == null || amount <= BigDecimal.ZERO) {
+            throw new IllegalArgumentException("Amount must be positive")
+        }
+        // Normalise to whole cents — the WithdrawRequest DTO constrains the
+        // min/max but not the scale, so a {"amount": 12.999} body would
+        // debit the wallet by an odd-scale value the UI never displays and
+        // leave a sub-cent drift between the ledger row and the balance.
+        // Done before the balance check so the comparison is also 2dp-clean.
+        amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
+
         if (wallet.balance < amount) {
             throw new IllegalStateException("Insufficient balance: have \$${wallet.balance}, need \$${amount}")
-        }
-        if (amount <= BigDecimal.ZERO) {
-            throw new IllegalArgumentException("Amount must be positive")
         }
 
         wallet.balance = wallet.balance - amount
@@ -422,6 +461,15 @@ class StripeService {
         // would re-credit the wallet (already row-idempotent at the tx
         // status level, but the dedupe keeps the audit log clean too).
         // Returns 200 to Stripe so they stop retrying.
+        //
+        // Batch 657 fix: the event id is recorded (markProcessed below)
+        // only AFTER the switch completes WITHOUT throwing. Previously
+        // alreadyProcessed recorded it up front — so if completeDeposit
+        // then threw (Stripe timeout / DB hiccup), the @Transactional
+        // rolled back the wallet credit but the id stuck in seenEventIds,
+        // and Stripe's retry was wrongly skipped → the paid-for deposit
+        // never landed. Now a failed handler leaves the id un-recorded so
+        // the retry genuinely re-runs.
         if (alreadyProcessed(event.id)) {
             log.info("Stripe webhook ${event.id} already processed — skipping")
             return
@@ -505,6 +553,14 @@ class StripeService {
             default:
                 log.debug("Ignoring Stripe event: ${event.type}")
         }
+
+        // Record the id ONLY now that the handler ran without throwing.
+        // If any case above threw, control never reaches here — the id
+        // stays un-recorded so Stripe's retry re-processes the event
+        // (BUG 1 fix). A retry of an already-applied event is harmless:
+        // completeDeposit / failTransaction / the dispute handlers all
+        // short-circuit on the tx status they already set.
+        markProcessed(event.id)
     }
 
     /**
@@ -767,7 +823,12 @@ class StripeService {
             tx.updatedAt = System.currentTimeMillis()
             transactionRepository.save(tx)
         }
-        def amount = dispute.amount != null ? (dispute.amount / 100.0) : 0
+        // Cents → dollars as exact BigDecimal (batch 657 fix). The old
+        // `dispute.amount / 100.0` was a double divide and could render
+        // a $49.99 dispute as "$49.99000000000001" in the audit log and
+        // the admin/user notifications. movePointLeft(2) keeps it exact,
+        // matching the deposit/refund display paths.
+        def amount = dispute.amount != null ? new BigDecimal(dispute.amount).movePointLeft(2) : BigDecimal.ZERO
         if (!isFirstObservation) {
             log.info("CHARGEBACK retry — dispute=${dispute.id} already on file (tx=${tx?.id}), skipping audit + notify")
             return
@@ -880,7 +941,11 @@ class StripeService {
         if (tx == null && chargeId) tx = transactionRepository.findByStripeReference(chargeId)
 
         def status = (dispute.status ?: '').toLowerCase()
-        def amount = dispute.amount != null ? (dispute.amount / 100.0) : 0
+        // Cents → dollars as exact BigDecimal (batch 657 fix) — see the
+        // same change in handleChargebackOpened. Prevents a $X.99 dispute
+        // amount printing as $X.99000000000001 in the closed-dispute log
+        // and the admin clawback-review notification.
+        def amount = dispute.amount != null ? new BigDecimal(dispute.amount).movePointLeft(2) : BigDecimal.ZERO
         if (status == 'won') {
             if (tx != null && tx.status == 'DISPUTED') {
                 tx.status = 'COMPLETED'
@@ -1146,6 +1211,8 @@ class StripeService {
         if (amount > new BigDecimal("10000")) {
             throw new IllegalArgumentException("Deposit amount exceeds \$10,000 limit")
         }
+        // Match the live path — credit whole cents only (see createDepositSession).
+        amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         def wallet = walletRepository.findById(walletId).orElseThrow()
         wallet.balance = wallet.balance + amount
         walletRepository.save(wallet)

@@ -116,6 +116,15 @@ class ListingController {
 
         BigDecimal min = parsePriceParam(minPrice, "minPrice")
         BigDecimal max = parsePriceParam(maxPrice, "maxPrice")
+        // Tolerate an inverted range — a user dragging the price slider
+        // past itself, or a copy-pasted share URL with the bounds the
+        // wrong way round, would otherwise hit `price >= min AND price
+        // <= max` with min > max and silently get zero results with no
+        // explanation. Swap so the obvious intent (a band between the
+        // two numbers) is honoured instead of returning an empty grid.
+        if (min != null && max != null && min > max) {
+            def tmp = min; min = max; max = tmp
+        }
 
         // Batch 656 / 659 — case-insensitive listing-type normaliser.
         // `auction`, `Auction`, `AUCTION` all map to AUCTION. Junk

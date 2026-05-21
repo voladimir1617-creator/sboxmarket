@@ -45,8 +45,21 @@ export function InfoModal({ title, onClose, children, wide }) {
       // so without this a keyboard user tabs straight out into the
       // background page. Cycle focus across the panel's focusables.
       if (e.key === 'Tab' && panelRef.current) {
-        const focusables = panelRef.current.querySelectorAll(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        // Filter out hidden elements: a modal body can hold conditionally
+        // styled or collapsed-section controls. Calling .focus() on a
+        // display:none / zero-size element silently no-ops, which would
+        // break the trap and let the user tab out into the page. offsetParent
+        // is null for display:none; the rect check also catches
+        // visibility:hidden and zero-size nodes.
+        const focusables = Array.prototype.filter.call(
+          panelRef.current.querySelectorAll(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          ),
+          el => {
+            if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          }
         );
         if (!focusables.length) return;
         const first = focusables[0];

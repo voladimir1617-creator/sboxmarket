@@ -23,6 +23,20 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.userId = :uid AND n.read = false")
     Long countUnread(@Param("uid") Long uid)
 
+    /** Bulk-flip every UNREAD notification for a user to read in a
+     *  single UPDATE. Drives "Mark all read" from the bell.
+     *
+     *  The previous row-hydration sweep only touched the 500
+     *  most-recent rows, so a user with >500 unread cleared the bell
+     *  badge optimistically client-side, then the next poll re-read a
+     *  non-zero `countUnread` (which is uncapped) and the badge
+     *  reappeared forever. A set-based UPDATE has no cap and no
+     *  Hibernate session pressure, so it always agrees with
+     *  `countUnread`. Returns the row count flipped. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Notification n SET n.read = true WHERE n.userId = :uid AND n.read = false")
+    int markAllReadForUser(@Param("uid") Long uid)
+
     /** Bulk-delete every READ notification older than the given cutoff.
      *  Drives the daily purge sweeper (batch 359) that keeps the
      *  notifications table bounded on heavy accounts. Unread rows are

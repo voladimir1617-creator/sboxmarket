@@ -88,6 +88,105 @@ class BuyOrderServiceSpec extends Specification {
         price << [BigDecimal.ZERO, new BigDecimal("-1.00"), null]
     }
 
+    def "create rejects a buyer who is at the active-order cap"() {
+        given:
+        buyOrderRepository.countActiveByBuyer(10L) >> BuyOrderService.MAX_ACTIVE_ORDERS_PER_BUYER
+
+        when:
+        service.create(10L, 'Alice', 1L, 'Hats', 'Limited', new BigDecimal('50'), 1)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'BUY_ORDER_CAP'
+        and: "the cap is checked before any order row is created"
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "create allows a buyer one below the active-order cap"() {
+        given:
+        buyOrderRepository.countActiveByBuyer(10L) >> (BuyOrderService.MAX_ACTIVE_ORDERS_PER_BUYER - 1L)
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '7656117',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc'))
+        walletRepository.findByUsername('steam_7656117') >> new Wallet(id: 1L, balance: new BigDecimal('100'))
+        itemRepository.findById(_) >> Optional.empty()
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        def order = service.create(10L, 'Alice', null, 'Hats', 'Limited', new BigDecimal('50'), 1)
+
+        then:
+        order != null
+        order.status == 'ACTIVE'
+    }
+
+    def "create rejects a buyer with no Steam trade URL (batch 388)"() {
+        given:
+        buyOrderRepository.countActiveByBuyer(10L) >> 0L
+        // Trade URL blank — the matcher's PurchaseService.buy would
+        // reject every fill, so refuse the order upfront.
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: '7656117', tradeUrl: '   '))
+
+        when:
+        service.create(10L, 'Alice', 1L, 'Hats', 'Limited', new BigDecimal('50'), 1)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_URL_MISSING'
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "create rejects a buyer with an unresolved deposit dispute (batch 511)"() {
+        given:
+        buyOrderRepository.countActiveByBuyer(10L) >> 0L
+        def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        def wallet = new Wallet(id: 500L, username: 'steam_7656117',
+            balance: new BigDecimal('100'), frozen: false)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_7656117') >> wallet
+        def txRepo = Mock(com.sboxmarket.repository.TransactionRepository)
+        service.transactionRepository = txRepo
+        txRepo.countActiveDisputedDeposits(500L) >> 2L
+
+        when:
+        service.create(10L, 'Alice', 1L, 'Hats', 'Limited', new BigDecimal('50'), 1)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "create rejects a banned buyer before any work happens"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("Account banned") }
+
+        when:
+        service.create(10L, 'Alice', 1L, 'Hats', 'Limited', new BigDecimal('50'), 1)
+
+        then:
+        thrown(ForbiddenException)
+        0 * buyOrderRepository.countActiveByBuyer(_)
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "create rejects a max price above the \$100k cap"() {
+        given:
+        buyOrderRepository.countActiveByBuyer(10L) >> 0L
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '7656117',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc'))
+        walletRepository.findByUsername('steam_7656117') >> new Wallet(id: 1L, balance: new BigDecimal('1'))
+
+        when:
+        service.create(10L, 'Alice', 1L, 'Hats', 'Limited', new BigDecimal('100000.01'), 1)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PRICE_TOO_HIGH'
+        0 * buyOrderRepository.save(_)
+    }
+
     def "create refuses a buyer with a frozen wallet (batch 511)"() {
         given:
         def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice',
@@ -191,6 +290,59 @@ class BuyOrderServiceSpec extends Specification {
 
         then:
         thrown(NotFoundException)
+    }
+
+    def "cancel is an idempotent no-op on an already-CANCELLED order"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'CANCELLED',
+                                     updatedAt: 1234L)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        def result = service.cancel(10L, 7L)
+
+        then:
+        // Returned untouched — no second save, no updatedAt bump.
+        result.status == 'CANCELLED'
+        result.updatedAt == 1234L
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "cancel refuses to clobber a terminal-state order"() {
+        given:
+        // A FILLED order means the buyer paid and items shipped; an
+        // EXPIRED order carries a reason (ban / wallet hold / staleness).
+        // Stamping CANCELLED over either would rewrite history.
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: status)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        service.cancel(10L, 7L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'NOT_ACTIVE'
+        and: "the terminal status is left intact"
+        existing.status == status
+        0 * buyOrderRepository.save(_)
+
+        where:
+        status << ['FILLED', 'EXPIRED']
+    }
+
+    def "cancel checks ownership before the status guard"() {
+        given:
+        // A non-owner hitting a FILLED order must get FORBIDDEN, not
+        // NOT_ACTIVE — ownership is the first gate so we never leak the
+        // order's state to a stranger.
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'FILLED')
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+
+        when:
+        service.cancel(99L, 7L)
+
+        then:
+        thrown(ForbiddenException)
     }
 
     // ── Match engine ──────────────────────────────────────────────
@@ -587,8 +739,31 @@ class BuyOrderServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
-    def "update refuses to grow quantity beyond the original"() {
+    def "update on an untouched order caps quantity at originalQuantity (== remaining)"() {
         given:
+        // No fills yet, so quantity == originalQuantity. The ceiling is
+        // the original count — the buyer can't queue more than they
+        // first committed to.
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"),
+                                     quantity: 5, originalQuantity: 5)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        def result = service.update(10L, 7L, null, 10)
+
+        then:
+        // Clamped to 5 (current remaining = original), not the requested 10.
+        result.quantity == 5
+    }
+
+    def "update on a partially-filled order caps quantity at the CURRENT remaining, not the original"() {
+        given:
+        // The buyer placed qty 5, the matcher filled 3 (quantity now 2,
+        // originalQuantity still 5). Editing must NOT let them grow the
+        // remaining count back to 5 — that would yield 3 already-filled
+        // + 5 remaining = 8 total items, past the original cap of 5.
         def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
                                      maxPrice: new BigDecimal("10"),
                                      quantity: 2, originalQuantity: 5)
@@ -599,8 +774,8 @@ class BuyOrderServiceSpec extends Specification {
         def result = service.update(10L, 7L, null, 10)
 
         then:
-        // Clamped to the original cap, not the requested 10.
-        result.quantity == 5
+        // Capped at the current remaining (2), so total stays <= 5.
+        result.quantity == 2
     }
 
     def "update allows shrinking the remaining quantity"() {
@@ -616,6 +791,23 @@ class BuyOrderServiceSpec extends Specification {
 
         then:
         result.quantity == 2
+    }
+
+    def "update on a partially-filled order still allows shrinking the remaining quantity"() {
+        given:
+        // qty 5 placed, 2 filled (remaining 3). Buyer wants to drop the
+        // rest to 1 — shrinking below the remaining is always fine.
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+                                     maxPrice: new BigDecimal("10"),
+                                     quantity: 3, originalQuantity: 5)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        def result = service.update(10L, 7L, null, 1)
+
+        then:
+        result.quantity == 1
     }
 
     def "update refuses edits from a non-owner"() {
@@ -672,6 +864,86 @@ class BuyOrderServiceSpec extends Specification {
         order.status == 'FILLED'
         1 * notificationService.push(10L, 'BUY_ORDER_FILLED', _, _, 100L, _)
         1 * buyOrderRepository.save({ it.status == 'FILLED' && it.quantity == 0 })
+    }
+
+    def "tryFillFromExisting fills several listings and decrements quantity each time"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        def order = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+            maxPrice: new BigDecimal("50"), quantity: 3, status: 'ACTIVE')
+        // Three matching listings, ASC by price — all affordable.
+        def l1 = listingFor(id: 100L, price: new BigDecimal("10"))
+        def l2 = listingFor(id: 101L, price: new BigDecimal("20"))
+        def l3 = listingFor(id: 102L, price: new BigDecimal("30"))
+        listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> [l1, l2, l3]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'aaa'))
+        // Re-fetched each iteration — keep enough balance for all three.
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L,
+            balance: new BigDecimal("1000"))
+        purchaseService.buy(200L, 10L, _) >> [success: true]
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then:
+        // All three listings bought, quantity exhausted, order FILLED.
+        3 * purchaseService.buy(200L, 10L, _)
+        order.quantity == 0
+        order.status == 'FILLED'
+    }
+
+    def "tryFillFromExisting stops at the order quantity even when more listings match"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        // Order only wants ONE item, but four listings match.
+        def order = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+            maxPrice: new BigDecimal("50"), quantity: 1, status: 'ACTIVE')
+        def listings = (100L..103L).collect { listingFor(id: it, price: new BigDecimal("10")) }
+        listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> listings
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L,
+            balance: new BigDecimal("1000"))
+        purchaseService.buy(200L, 10L, _) >> [success: true]
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then:
+        // Exactly one buy — the loop breaks once quantity hits 0, so the
+        // buyer never over-purchases past what they asked for.
+        1 * purchaseService.buy(200L, 10L, _)
+        order.quantity == 0
+        order.status == 'FILLED'
+    }
+
+    def "tryFillFromExisting swallows a purchase failure and keeps trying later listings"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        def order = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+            maxPrice: new BigDecimal("50"), quantity: 1, status: 'ACTIVE')
+        def lost = listingFor(id: 100L, price: new BigDecimal("10"))
+        def won  = listingFor(id: 101L, price: new BigDecimal("20"))
+        listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> [lost, won]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L,
+            balance: new BigDecimal("1000"))
+        // First listing was sniped by another buyer; second succeeds.
+        purchaseService.buy(200L, 10L, 100L) >> { throw new RuntimeException("race lost") }
+        purchaseService.buy(200L, 10L, 101L) >> [success: true]
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then:
+        1 * purchaseService.buy(200L, 10L, 101L)
+        order.quantity == 0
+        order.status == 'FILLED'
     }
 
     def "tryFillFromExisting skips self-listings (buyer == seller)"() {

@@ -136,22 +136,36 @@ class ReviewService {
             throw new ForbiddenException("Only the seller can reply to this review")
         }
         def clean = textSanitizer.clean(body ?: '', 300)
-        if (!clean || clean.trim().isEmpty()) {
+        def oldReply = review.sellerReply
+        boolean nowEmpty = !clean || clean.trim().isEmpty()
+        // Only treat this as a real change when the reply text actually
+        // differs from what's stored — a seller re-saving the identical
+        // text (or clearing an already-empty reply) is a no-op. Mirrors
+        // the `changed` guard in leaveReview so an idempotent re-submit
+        // doesn't bump sellerReplyAt or spam the buyer with a fresh ping.
+        boolean changed = (oldReply ?: '') != (nowEmpty ? '' : clean)
+        if (nowEmpty) {
             review.sellerReply = null
-            review.sellerReplyAt = null
+            // Only null the timestamp when there was actually a reply to
+            // clear — leaves a never-replied row untouched.
+            if (changed) review.sellerReplyAt = null
         } else {
             review.sellerReply = clean
-            review.sellerReplyAt = System.currentTimeMillis()
+            // Re-stamp only on a genuine edit; an identical re-save keeps
+            // the original reply time honest.
+            if (changed) review.sellerReplyAt = System.currentTimeMillis()
         }
         def saved = reviewRepository.save(review)
-        auditService?.log('REVIEW_REPLIED', sellerUserId, review.fromUserId, reviewId,
-            review.sellerReply ? "Replied: ${review.sellerReply.take(120)}" : "Cleared reply")
-        // Notify the buyer that the seller responded — only on create (not
-        // on clear). A reply is public so the buyer should know it
-        // happened, and for nuanced cases (disputed review that gets a
-        // polite seller response) the buyer often wants to update their
-        // star rating afterwards.
-        if (review.sellerReply && review.fromUserId != null && notificationService != null) {
+        if (changed) {
+            auditService?.log('REVIEW_REPLIED', sellerUserId, review.fromUserId, reviewId,
+                review.sellerReply ? "Replied: ${review.sellerReply.take(120)}" : "Cleared reply")
+        }
+        // Notify the buyer that the seller responded — only on a genuine
+        // new/changed reply (not on clear, not on a no-op re-save). A reply
+        // is public so the buyer should know it happened, and for nuanced
+        // cases (disputed review that gets a polite seller response) the
+        // buyer often wants to update their star rating afterwards.
+        if (changed && review.sellerReply && review.fromUserId != null && notificationService != null) {
             try {
                 notificationService.push(review.fromUserId, 'REVIEW_REPLIED',
                     "Seller replied to your review",
@@ -348,10 +362,23 @@ class ReviewService {
             helpfulVoteRepository.deleteByReviewAndUser(reviewId, userId)
             nowVoted = false
         } else {
-            helpfulVoteRepository.save(new com.sboxmarket.model.ReviewHelpfulVote(
-                reviewId: reviewId,
-                userId:   userId
-            ))
+            // exists() + save() is a non-atomic read-modify-write. A rapid
+            // double-tap fires two concurrent requests that both observe
+            // exists=false and both INSERT; the uq_review_helpful_votes_
+            // review_user UNIQUE constraint then rejects the loser with a
+            // DataIntegrityViolationException. Treat that as a benign
+            // no-op (the vote already exists) instead of bubbling a 500 —
+            // the user wanted to be "voted", and they are.
+            try {
+                helpfulVoteRepository.save(new com.sboxmarket.model.ReviewHelpfulVote(
+                    reviewId: reviewId,
+                    userId:   userId
+                ))
+            } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                log.debug("toggleHelpful race on review=${reviewId} user=${userId} — already voted, treating as no-op")
+                return [ helpfulCount: helpfulVoteRepository.countByReview(reviewId),
+                         viewerHasVoted: true ]
+            }
             nowVoted = true
         }
         def count = helpfulVoteRepository.countByReview(reviewId)

@@ -439,4 +439,307 @@ class SellServiceSpec extends Specification {
         saved != null
         saved.description == null
     }
+
+    // ── input-validation ordering (regression) ────────────────────
+    //
+    // Every input check — price bounds, listingType/duration,
+    // buyNowPrice, maxDiscount — must run BEFORE the source listing is
+    // flipped to RELISTED. A previous version validated maxDiscount
+    // only AFTER that flip, leaning on @Transactional rollback to undo
+    // a mutation that should never have been attempted. These specs
+    // pin the "reject before any write" contract.
+
+    def "relist does NOT flip the source listing to RELISTED when maxDiscount is invalid"() {
+        given:
+        def oldListing = owned()
+        listingRepository.findById(50L) >> Optional.of(oldListing)
+
+        when:
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'),
+                       'BUY_NOW', null, null, null, new BigDecimal('1.5'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_DISCOUNT'
+        // The source listing must be untouched — still in inventory.
+        oldListing.status == 'SOLD'
+        // And nothing was persisted: no RELISTED save, no fresh listing.
+        0 * listingRepository.save(_)
+    }
+
+    def "relist rejects an invalid maxDiscount before it even loads the source listing"() {
+        when:
+        // findById is left unstubbed — if validation runs in the right
+        // order the bad maxDiscount is caught before the lookup, so the
+        // unknown-listing 404 path is never reached.
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'),
+                       'BUY_NOW', null, null, null, new BigDecimal('-0.01'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_DISCOUNT'
+        0 * listingRepository.findById(_)
+        0 * listingRepository.save(_)
+    }
+
+    def "relist rejects a bad price before mutating the source listing"() {
+        given:
+        def oldListing = owned()
+        listingRepository.findById(50L) >> Optional.of(oldListing)
+
+        when:
+        service.relist(10L, 'Alice', 50L, badPrice)
+
+        then:
+        thrown(BadRequestException)
+        oldListing.status == 'SOLD'
+        0 * listingRepository.save(_)
+
+        where:
+        badPrice << [BigDecimal.ZERO, new BigDecimal('-1'), new BigDecimal('100001')]
+    }
+
+    def "relist rejects a bad auction duration before mutating the source listing"() {
+        given:
+        def oldListing = owned()
+        listingRepository.findById(50L) >> Optional.of(oldListing)
+
+        when:
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'), 'AUCTION', badHours)
+
+        then:
+        thrown(BadRequestException)
+        oldListing.status == 'SOLD'
+        0 * listingRepository.save(_)
+
+        where:
+        badHours << [null, 0L, 169L]
+    }
+
+    // ── auction buyNowPrice validation ────────────────────────────
+
+    def "relist accepts an AUCTION with a buyNowPrice above the starting bid"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+        Listing saved = null
+        listingRepository.save(_) >> { args -> def l = args[0]; if (l.id == null) saved = l; l.id = l.id ?: 100L; l }
+
+        when:
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal('80'),
+                                   'AUCTION', 24L, null, new BigDecimal('150'))
+
+        then:
+        fresh.listingType == 'AUCTION'
+        fresh.price == new BigDecimal('80')        // starting bid
+        fresh.buyNowPrice == new BigDecimal('150') // buy-now ceiling
+        saved?.buyNowPrice == new BigDecimal('150')
+    }
+
+    def "relist rejects an AUCTION whose buyNowPrice does not exceed the starting bid"() {
+        given:
+        def oldListing = owned()
+        listingRepository.findById(50L) >> Optional.of(oldListing)
+
+        when:
+        // buyNowPrice <= startingPrice would let the very first bid (placed
+        // at listing.price) already meet/exceed Buy-Now — BidService.buyNowAuction
+        // gates on `currentBid >= buyNowPrice`, so this must be rejected at creation.
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'),
+                       'AUCTION', 24L, null, badBuyNow)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_BUY_NOW'
+        oldListing.status == 'SOLD'
+
+        where:
+        badBuyNow << [new BigDecimal('80'), new BigDecimal('79.99'), new BigDecimal('10')]
+    }
+
+    def "relist rejects a buyNowPrice above the \$100k ceiling"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+
+        when:
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'),
+                       'AUCTION', 24L, null, new BigDecimal('100001'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'BUY_NOW_TOO_HIGH'
+    }
+
+    def "relist rejects buyNowPrice on a BUY_NOW listing (auction-only concept)"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+
+        when:
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'),
+                       'BUY_NOW', null, null, new BigDecimal('150'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'BUY_NOW_ON_BUY_NOW'
+    }
+
+    def "relist leaves buyNowPrice null on a BUY_NOW listing when none is supplied"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+        Listing saved = null
+        listingRepository.save(_) >> { args -> def l = args[0]; if (l.id == null) saved = l; l.id = l.id ?: 100L; l }
+
+        when:
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal('80'))
+
+        then:
+        fresh.listingType == 'BUY_NOW'
+        fresh.buyNowPrice == null
+    }
+
+    // ── auction state consistency with BidService ─────────────────
+    //
+    // BidService.placeBid uses `listing.price` as the first-bid floor
+    // and `listing.currentBid` (null until the first bid) to gate
+    // subsequent bids. A freshly relisted auction must therefore have
+    // currentBid == null and price == the seller's starting bid, or
+    // the first bid's minimum would be wrong.
+
+    def "relist creates an auction with currentBid null and no bidder so the first bid floors at price"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+        Listing saved = null
+        listingRepository.save(_) >> { args -> def l = args[0]; if (l.id == null) saved = l; l.id = l.id ?: 100L; l }
+
+        when:
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal('80'), 'AUCTION', 12L)
+
+        then:
+        fresh.currentBid == null
+        fresh.currentBidderId == null
+        fresh.currentBidderName == null
+        fresh.bidCount == 0
+        fresh.price == new BigDecimal('80')
+        // expiresAt is in the future so BidService's `now > expiresAt`
+        // expiry guard does not immediately reject bids.
+        fresh.expiresAt > System.currentTimeMillis()
+    }
+
+    def "relist sets auction expiresAt exactly durationHours into the future"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+        listingRepository.save(_) >> { args -> def l = args[0]; l.id = l.id ?: 100L; l }
+        def before = System.currentTimeMillis()
+
+        when:
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal('80'), 'AUCTION', 1L)
+
+        then:
+        // 1h = 3_600_000 ms — allow a generous slack for slow CI.
+        fresh.expiresAt >= before + (3_600_000L - 5_000L)
+        fresh.expiresAt <= System.currentTimeMillis() + 3_600_000L + 5_000L
+    }
+
+    def "relist does not stamp expiresAt on a BUY_NOW listing"() {
+        given:
+        listingRepository.findById(50L) >> Optional.of(owned())
+        listingRepository.save(_) >> { args -> def l = args[0]; l.id = l.id ?: 100L; l }
+
+        when:
+        // durationHours is ignored for BUY_NOW — it must not leak an expiry.
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal('80'), 'BUY_NOW', 48L)
+
+        then:
+        fresh.expiresAt == null
+    }
+
+    // ── cancelAllActive ───────────────────────────────────────────
+
+    def "cancelAllActive cancels every active BUY_NOW listing and reports the count"() {
+        given:
+        def l1 = new Listing(id: 101L, status: 'ACTIVE', sellerUserId: 10L,
+                             listingType: 'BUY_NOW', item: new Item(id: 1L, name: 'a'))
+        def l2 = new Listing(id: 102L, status: 'ACTIVE', sellerUserId: 10L,
+                             listingType: 'BUY_NOW', item: new Item(id: 2L, name: 'b'))
+        listingRepository.findActiveBySeller(10L) >> [l1, l2]
+        listingRepository.findById(101L) >> Optional.of(l1)
+        listingRepository.findById(102L) >> Optional.of(l2)
+        listingRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.cancelAllActive(10L)
+
+        then:
+        result.cancelled == 2
+        result.skippedAuctions == 0
+        result.failed == 0
+        l1.status == 'SOLD'
+        l2.status == 'SOLD'
+    }
+
+    def "cancelAllActive skips auctions with live bids unless includeAuctions is set"() {
+        given:
+        def buyNow  = new Listing(id: 101L, status: 'ACTIVE', sellerUserId: 10L,
+                                  listingType: 'BUY_NOW', item: new Item(id: 1L, name: 'a'))
+        def auction = new Listing(id: 102L, status: 'ACTIVE', sellerUserId: 10L,
+                                  listingType: 'AUCTION', bidCount: 3,
+                                  item: new Item(id: 2L, name: 'b'))
+        listingRepository.findActiveBySeller(10L) >> [buyNow, auction]
+        listingRepository.findById(101L) >> Optional.of(buyNow)
+        listingRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.cancelAllActive(10L)
+
+        then:
+        result.cancelled == 1
+        result.skippedAuctions == 1
+        result.failed == 0
+        buyNow.status == 'SOLD'
+        // The bid-bearing auction was left untouched.
+        auction.status == 'ACTIVE'
+    }
+
+    def "cancelAllActive cancels a bid-less auction without skipping it"() {
+        given:
+        def auction = new Listing(id: 102L, status: 'ACTIVE', sellerUserId: 10L,
+                                  listingType: 'AUCTION', bidCount: 0,
+                                  item: new Item(id: 2L, name: 'b'))
+        listingRepository.findActiveBySeller(10L) >> [auction]
+        listingRepository.findById(102L) >> Optional.of(auction)
+        listingRepository.save(_) >> { args -> args[0] }
+        bidRepository.findByListing(102L) >> []
+
+        when:
+        def result = service.cancelAllActive(10L)
+
+        then:
+        result.cancelled == 1
+        result.skippedAuctions == 0
+        auction.status == 'SOLD'
+    }
+
+    def "cancelAllActive is ban-guarded"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("banned") }
+
+        when:
+        service.cancelAllActive(10L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * listingRepository.findActiveBySeller(_)
+    }
+
+    def "relist is ban-guarded before any work"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("banned") }
+
+        when:
+        service.relist(10L, 'Alice', 50L, new BigDecimal('80'))
+
+        then:
+        thrown(ForbiddenException)
+        0 * listingRepository.findById(_)
+        0 * listingRepository.save(_)
+    }
 }

@@ -66,9 +66,13 @@ class LoadoutController {
         // render something useful while preserving anti-enumeration: every
         // missing-or-private id returns the same fallback shape, so an
         // attacker can't tell missing from private.
+        // Cache-Control is owned by CorrelationIdFilter — every /api/loadouts
+        // path except /discover is on its `isLoadoutPrivate` no-store list, so
+        // the filter already emits `no-store, no-cache, must-revalidate,
+        // private`. Setting it here via ResponseEntity.header() APPENDS rather
+        // than replaces, which would emit two conflicting Cache-Control values.
         try {
             return ResponseEntity.ok()
-                .header('Cache-Control', 'no-cache, must-revalidate')
                 .body(loadoutService.getWithSlots(id, viewer))
         } catch (com.sboxmarket.exception.NotFoundException ignore) {
             def publics = loadoutService.listPublic(null)
@@ -78,7 +82,6 @@ class LoadoutController {
                     Map body = (Map) loadoutService.getWithSlots(fallback.id, viewer)
                     body.put('redirectedFrom', id)
                     return ResponseEntity.ok()
-                        .header('Cache-Control', 'no-cache, must-revalidate')
                         .body(body)
                 } catch (com.sboxmarket.exception.NotFoundException ignore2) {
                     // Race — public loadout vanished between listing and fetch.
@@ -87,7 +90,6 @@ class LoadoutController {
                 }
             }
             return ResponseEntity.ok()
-                .header('Cache-Control', 'no-cache, must-revalidate')
                 .body([notFound: true, id: id])
         }
     }
@@ -102,9 +104,24 @@ class LoadoutController {
 
     @PutMapping("/{id}/slot/{slot}")
     ResponseEntity<Map> setSlot(@PathVariable Long id, @PathVariable String slot,
-                                @RequestBody Map body, HttpServletRequest req) {
-        def itemId = body?.itemId == null ? null : Long.valueOf(body.itemId.toString())
-        def s = loadoutService.setSlot(requireUser(req), id, slot, itemId)
+                                @RequestBody(required = false) Map body, HttpServletRequest req) {
+        // Auth + ownership before we parse the body — never leak parse
+        // behaviour (or do work) for an unauthenticated caller.
+        def uid = requireUser(req)
+        // Tolerant itemId coercion: a JSON number, a numeric string, or
+        // null/absent (clears the slot). A non-numeric / decimal / boolean
+        // value yields a clean 400 INVALID_ITEM_ID instead of an opaque
+        // 500 from a raw NumberFormatException bubbling out of valueOf.
+        Long itemId = null
+        if (body?.itemId != null) {
+            try {
+                itemId = Long.valueOf(body.itemId.toString().trim())
+            } catch (NumberFormatException ignored) {
+                throw new com.sboxmarket.exception.BadRequestException(
+                    "INVALID_ITEM_ID", "itemId must be a whole number")
+            }
+        }
+        def s = loadoutService.setSlot(uid, id, slot, itemId)
         ResponseEntity.ok([slot: s.slot, itemId: s.itemId, itemName: s.itemName, snapshotPrice: s.snapshotPrice])
     }
 

@@ -454,7 +454,19 @@ export function NotificationBell({ me }) {
       h(MaterialIcon, { name: 'notifications', size: 20, fill: unread > 0, color: unread > 0 ? '#fbbf24' : null }),
       unread > 0 && h('div', { className: 'nav-icon-badge' }, unread)
     ),
-    open && h('div', { id: 'notif-dropdown-panel', className: 'notif-dropdown', onClick: e => e.stopPropagation() },
+    open && h('div', {
+      id: 'notif-dropdown-panel',
+      className: 'notif-dropdown',
+      // Batch 1071 — the trigger advertises aria-haspopup="menu", so the
+      // panel it reveals must actually be a menu for assistive tech to
+      // resolve the relationship. role=menu + aria-orientation=vertical
+      // pairs with the role=menuitem rows below; aria-label gives the SR
+      // an accessible name when focus enters the panel.
+      role: 'menu',
+      'aria-orientation': 'vertical',
+      'aria-label': 'Notifications',
+      onClick: e => e.stopPropagation()
+    },
       h('div', { className: 'notif-header' },
         'Notifications',
         // Batch 948 — was a clickable <span>; not keyboard-focusable,
@@ -484,9 +496,12 @@ export function NotificationBell({ me }) {
               key: n.id,
               className: `notif-item ${n.read ? '' : 'unread'}`,
               // Batch 834 — keyboard-accessible notification rows.
-              // Previously plain div onClick — mouse-only. Now announces
-              // as a button, accepts Enter/Space, and focuses via Tab.
-              role: 'button',
+              // Previously plain div onClick — mouse-only. Now accepts
+              // Enter/Space and focuses via Tab.
+              // Batch 1071 — role is menuitem (not button): the panel is
+              // now role=menu, and a menu's actionable children must be
+              // menuitem for SRs to count/announce them correctly.
+              role: 'menuitem',
               tabIndex: 0,
               'aria-label': `${n.read ? '' : 'Unread: '}${n.title}. Opens in new page.`,
               onClick: () => onItemClick(n),
@@ -512,8 +527,28 @@ export function NotificationBell({ me }) {
             h('a', {
               key: '__viewAll',
               className: 'notif-item',
-              href: '/notifications',
-              onClick: () => setOpen(false),
+              // Batch 1071 — keep the real href so middle-click / open-in-
+              // new-tab still work, but intercept the plain click to route
+              // through the SPA router instead of triggering a full page
+              // reload (every other in-app link does this). preventDefault
+              // only on an unmodified left click so modified clicks keep
+              // their native browser behaviour.
+              href: paths.notifications(),
+              role: 'menuitem',
+              tabIndex: 0,
+              onClick: (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                e.preventDefault();
+                setOpen(false);
+                navigate(paths.notifications());
+              },
+              onKeyDown: (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setOpen(false);
+                  navigate(paths.notifications());
+                }
+              },
               style: {
                 justifyContent: 'center',
                 borderTop: '1px solid var(--border)',

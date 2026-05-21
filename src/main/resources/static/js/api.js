@@ -214,9 +214,9 @@ export async function fetchListings(params = {}) {
 }
 
 export async function fetchHistory(itemId) {
-  // Expected-404 mute: a dead /item/:id link triggers parallel fetches
-  // for listings + history + item; 404s here are normal, not bugs.
-  const data = await safeJson(`${API}/items/${itemId}/history`, undefined, { expect: [404] });
+  // The endpoint always returns 200 with a (possibly empty) list for any
+  // id, so there's no 404 to mute here.
+  const data = await safeJson(`${API}/items/${itemId}/history`);
   return Array.isArray(data) ? data : [];
 }
 
@@ -346,9 +346,11 @@ export async function setEmailNotifications(enabled) {
  *  TRADES / AUCTIONS / WATCHLIST / FOLLOWS. Transactional emails
  *  (verification, withdrawal approval, ban) cannot be muted. */
 export async function fetchEmailMutes() {
-  const r = await fetch(`${API}/profile/email-mutes`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/profile/email-mutes`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 export async function setEmailMutes(muted) {
   return writeJson(`${API}/profile/email-mutes`, {
@@ -576,15 +578,20 @@ export async function cancelListing(listingId) {
 
 // ── Wallet ──────────────────────────────────────────────────────
 export async function fetchWallet() {
-  const r = await fetch(`${API}/wallet`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/wallet`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 
 export async function fetchTransactions() {
-  const r = await fetch(`${API}/wallet/transactions`, { credentials: 'same-origin' });
-  if (!r.ok) return [];
-  return r.json();
+  try {
+    const r = await fetch(`${API}/wallet/transactions`, { credentials: 'same-origin' });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  } catch (_) { return []; }
 }
 
 // Buyer-side spending summary (batch 846). Shape:
@@ -875,9 +882,12 @@ export async function cancelAllAutoBids() {
  *  to shave ~85% off the payload. */
 export async function fetchNotifications(limit) {
   const qs = (limit != null && Number.isFinite(limit)) ? `?limit=${limit}` : '';
-  const r = await fetch(`${API}/notifications${qs}`, { credentials: 'same-origin' });
-  if (!r.ok) return { items: [], unread: 0 };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/notifications${qs}`, { credentials: 'same-origin' });
+    if (!r.ok) return { items: [], unread: 0 };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { items: [], unread: 0 };
+  } catch (_) { return { items: [], unread: 0 }; }
 }
 
 /** Cheap unread-count for the nav bell's 25-second poll — avoids
@@ -953,9 +963,12 @@ export async function fetchDatabase(params = {}) {
   Object.entries(params).forEach(([k, v]) => {
     if (v !== null && v !== undefined && v !== '') q.append(k, v);
   });
-  const r = await fetch(`${API}/database?${q}`);
-  if (!r.ok) return { items: [], total: 0, indexed: 0 };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/database?${q}`);
+    if (!r.ok) return { items: [], total: 0, indexed: 0 };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { items: [], total: 0, indexed: 0 };
+  } catch (_) { return { items: [], total: 0, indexed: 0 }; }
 }
 
 // ── Loadouts ────────────────────────────────────────────────────
@@ -1024,8 +1037,15 @@ export async function generateLoadout(id, budget) {
   });
 }
 
+/** Toggle the favorite flag on a loadout. Returns the parsed body —
+ *  `{favorited, favorites}` on success, or `{error, code}` on failure
+ *  (FORBIDDEN / 404 / rate-limit). The sole consumer (LoadoutLabModal)
+ *  branches on `res.error || res.code` and reads `res.favorited` /
+ *  `res.favorites`, so this must go through writeJson — a raw fetch
+ *  Response carries none of those fields and a failed toggle would
+ *  silently read as success. */
 export async function favoriteLoadout(id) {
-  return fetch(`${API}/loadouts/${id}/favorite`, { method: 'POST', credentials: 'same-origin' });
+  return writeJson(`${API}/loadouts/${id}/favorite`, { method: 'POST', credentials: 'same-origin' });
 }
 
 /** Duplicate a PUBLIC loadout (or the viewer's own private one) into the
@@ -1050,15 +1070,23 @@ export async function updateLoadout(id, patch) {
   });
 }
 
+/** Delete a loadout the caller owns. Returns the parsed body, or
+ *  `{error, code}` on refusal (FORBIDDEN when the caller isn't the
+ *  owner, rate-limit). The consumer branches on `res.error || res.code`,
+ *  so this goes through writeJson — a raw fetch Response has neither
+ *  field and a rejected delete would silently look successful. */
 export async function deleteLoadout(id) {
-  return fetch(`${API}/loadouts/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+  return writeJson(`${API}/loadouts/${id}`, { method: 'DELETE', credentials: 'same-origin' });
 }
 
 // ── Admin ───────────────────────────────────────────────────────
 export async function adminCheck() {
-  const r = await fetch(`${API}/admin/check`, { credentials: 'same-origin' });
-  if (!r.ok) return { admin: false };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/admin/check`, { credentials: 'same-origin' });
+    if (!r.ok) return { admin: false };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { admin: false };
+  } catch (_) { return { admin: false }; }
 }
 export async function adminStats() { return (await safeJson(`${API}/admin/stats`)) || {}; }
 export async function adminWithdrawals(status = 'PENDING') {
@@ -1353,11 +1381,20 @@ export async function adminCountSimulated() {
   return (await safeJson(`${API}/admin/simulate/count`)) || { count: 0 };
 }
 export async function adminSyncScmm() {
-  const r = await fetch(`${API}/admin/sync-scmm`, {
-    method: 'POST', credentials: 'same-origin'
-  });
-  if (!r.ok) return { error: `HTTP ${r.status}` };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/admin/sync-scmm`, {
+      method: 'POST', credentials: 'same-origin'
+    });
+    if (!r.ok) return { error: `HTTP ${r.status}` };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : {};
+  } catch (_) {
+    // Consumer (SimulatorPanel.runSync) has no catch — without this a
+    // network blip throws past its try/finally and the busy spinner
+    // never clears with no error toast. Return the { error } shape it
+    // already branches on.
+    return { error: 'Network error — try again' };
+  }
 }
 /** Kicks off the Steam Community Market priceoverview sync in a background
  *  thread server-side (returns immediately — full sync takes ~11 min for 80
@@ -1642,15 +1679,21 @@ export async function fetchAnnouncement() {
 
 // ── CSR ─────────────────────────────────────────────────────────
 export async function csrCheck() {
-  const r = await fetch(`${API}/csr/check`, { credentials: 'same-origin' });
-  if (!r.ok) return { csr: false };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/csr/check`, { credentials: 'same-origin' });
+    if (!r.ok) return { csr: false };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { csr: false };
+  } catch (_) { return { csr: false }; }
 }
 export async function csrStats() { return (await safeJson(`${API}/csr/stats`)) || {}; }
 export async function csrLookup(q) {
-  const r = await fetch(`${API}/csr/users/lookup?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
-  if (!r.ok) return { matches: [] };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/csr/users/lookup?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+    if (!r.ok) return { matches: [] };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { matches: [] };
+  } catch (_) { return { matches: [] }; }
 }
 export async function csrTickets(status, search) {
   // Batch 581 — mirror admin ticket search: free-text narrows the
@@ -1783,6 +1826,31 @@ export async function tradeCancel(id, reason) {
   });
 }
 
+// ── Trade Protection (optional paid buyer add-on) ───────────────
+/** Public quote for the Trade Protection fee on a given trade price.
+ *  Returns `{ price, fee, ratePercent, minFee, coverageAmount }` so the
+ *  opt-in panel can render the exact fee before the buyer commits.
+ *  Read-only — uses safeJson, which returns null on any non-2xx so the
+ *  panel can fall back to a client-side 2% / $0.25-floor compute. */
+export async function fetchTradeProtectionQuote(price) {
+  return safeJson(`${API}/trade-protection/quote?price=${encodeURIComponent(price)}`);
+}
+/** Current protection state for a trade — `{ tradeId, protected, protection }`.
+ *  Participant-only; safeJson returns null on 401/403/404 so the caller
+ *  treats "couldn't read" as "not protected" without throwing. */
+export async function fetchTradeProtection(tradeId) {
+  return safeJson(`${API}/trades/${tradeId}/protection`);
+}
+/** Enable Trade Protection on a trade (buyer-only). Returns the created
+ *  TradeProtection on success, or `{ error, code }` on failure — the
+ *  panel maps codes (INSUFFICIENT_BALANCE, NO_WALLET, WALLET_FROZEN,
+ *  PROTECTION_EXISTS, TRADE_NOT_PROTECTABLE) to friendly inline copy. */
+export async function enableTradeProtection(tradeId) {
+  return writeJson(`${API}/trades/${tradeId}/protection`, {
+    method: 'POST', credentials: 'same-origin'
+  });
+}
+
 // ── 2FA + email (profile-level hardening) ──────────────────────
 export async function setEmail(email) {
   return writeJson(`${API}/profile/email`, {
@@ -1853,25 +1921,31 @@ export async function regenerate2faBackupCodes(code) {
 /** How many unused backup codes the user has left. Opaque count — the
  *  codes themselves are never returned by this endpoint. */
 export async function fetch2faRecoveryStatus() {
-  const r = await fetch(`${API}/profile/2fa/recovery-status`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/profile/2fa/recovery-status`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 
 // ── Profile aggregate ───────────────────────────────────────────
 export async function fetchProfile() {
-  const r = await fetch(`${API}/profile/me`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/profile/me`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 /** Count of things that need the user's attention — unanswered trades,
  *  offers waiting on them, disputed trades. Drives the nav-avatar red
  *  dot. Returns null on 401 (anonymous) so the caller can short-circuit
  *  without rendering a badge. */
 export async function fetchPendingActions() {
-  const r = await fetch(`${API}/profile/pending-actions`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/profile/pending-actions`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 /** Toggle a "helpful" upvote on a review. Single POST — the server
  *  inserts the vote if it doesn't exist, deletes it if it does.
@@ -1886,9 +1960,11 @@ export async function toggleReviewHelpful(reviewId) {
  *  is still maintained by the App, but these helpers let the signed-in
  *  session persist + read the authoritative set from the server. */
 export async function fetchWatchlist() {
-  const r = await fetch(`${API}/watchlist`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/watchlist`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 export async function starItem(itemId) {
   return writeJson(`${API}/watchlist/${itemId}`, {
@@ -1921,9 +1997,11 @@ export async function bulkMergeWatchlist(ids) {
  *  per-row metadata (name, price snapshot, thumb), but the set of
  *  listing ids in it is shadowed by the server. */
 export async function fetchCartIds() {
-  const r = await fetch(`${API}/cart`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/cart`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 export async function addCartItem(listingId) {
   return writeJson(`${API}/cart/${listingId}`, {
@@ -1952,9 +2030,11 @@ export async function bulkMergeCart(ids) {
  *  offline cache; the server set is the source of truth for
  *  signed-in users. */
 export async function fetchSavedSearches() {
-  const r = await fetch(`${API}/saved-searches`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/saved-searches`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }
 export async function upsertSavedSearch(entry) {
   return writeJson(`${API}/saved-searches`, {
@@ -1985,15 +2065,21 @@ export async function bulkMergeSavedSearches(entries) {
 
 // ── Steam inventory + sync ──────────────────────────────────────
 export async function fetchSteamInventory() {
-  const r = await fetch(`${API}/steam/inventory`, { credentials: 'same-origin' });
-  if (!r.ok) return { items: [], count: 0 };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/steam/inventory`, { credentials: 'same-origin' });
+    if (!r.ok) return { items: [], count: 0 };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { items: [], count: 0 };
+  } catch (_) { return { items: [], count: 0 }; }
 }
 
 export async function syncSteam() {
-  const r = await fetch(`${API}/steam/sync`, { method: 'POST', credentials: 'same-origin' });
-  if (!r.ok) return { ok: false };
-  return r.json();
+  try {
+    const r = await fetch(`${API}/steam/sync`, { method: 'POST', credentials: 'same-origin' });
+    if (!r.ok) return { ok: false };
+    const data = await r.json();
+    return (data && typeof data === 'object') ? data : { ok: false };
+  } catch (_) { return { ok: false }; }
 }
 
 export async function listFromSteam(assetId, price, opts = {}) {
@@ -2141,7 +2227,9 @@ export async function setAwayMode(hidden, untilEpochMs) {
  *  the My Stall toolbar's "scheduled return" chip on first paint so a
  *  returning seller sees their resume time without flipping the toggle. */
 export async function fetchAwayMode() {
-  const r = await fetch(`${API}/listings/away`, { credentials: 'same-origin' });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const r = await fetch(`${API}/listings/away`, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
 }

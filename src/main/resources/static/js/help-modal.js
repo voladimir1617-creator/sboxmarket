@@ -25,11 +25,11 @@ const FAQ = [
   },
   {
     q: 'How does depositing money work?',
-    a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically."
+    a: "Open Wallet → Deposit, enter any amount between $1 and $10,000, and you'll be handed off to Stripe Checkout. Once the payment clears, the webhook credits your balance automatically. There's a rolling $5,000 cap on how much you can deposit in any 24-hour window — the Deposit form shows how much you have left for the day before you submit."
   },
   {
     q: 'How do withdrawals work?',
-    a: "Wallet → Withdraw. Enter an amount and a destination (Stripe Connect ID or payout notes) and your balance is debited immediately into a PENDING withdrawal. An admin approves the payout within 24 hours and the funds are released. If rejected, the full amount is refunded to your wallet and you get a notification."
+    a: "Wallet → Withdraw. You'll need a verified email address first (verify it from Profile → Personal). Enter an amount and a destination (Stripe Connect ID or payout notes); if you have 2FA enabled you'll also enter a fresh 6-digit code. Your balance is debited immediately into a PENDING withdrawal, and an admin approves the payout within 24 hours. If rejected, the full amount is refunded to your wallet and you get a notification. A rolling $5,000 cap applies per 24-hour window, and withdrawals are paused while any deposit on your account is under a chargeback dispute."
   },
   {
     q: 'What are Buy Orders?',
@@ -49,7 +49,7 @@ const FAQ = [
   },
   {
     q: 'Is my money safe?',
-    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. Withdrawals are queued for manual approval before payout. Session cookies are HttpOnly and SameSite-strict in production, and every wallet write is logged with a correlation id for audit."
+    a: "Deposits and refunds go through Stripe, the same processor used by millions of websites. When you buy an item the payment is held in escrow — not paid to the seller — until you confirm receipt or the 8-day trade-hold window passes, so a seller can't take your money and ghost you. Withdrawals are queued for manual admin approval before payout and require a verified email (plus a 2FA code if you've enabled it). Session cookies are HttpOnly and SameSite-strict in production, and every wallet write is logged with a correlation id for audit."
   },
   {
     q: 'Why is SkinBox cheaper than Steam?',
@@ -93,7 +93,7 @@ const FAQ = [
   },
   {
     q: 'What if the item I bought never arrives — or arrives wrong?',
-    a: "You have 8 days from purchase to confirm receipt or file a dispute. Go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff triage disputes in rotating CSR shifts and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
+    a: "Your money sits in escrow, not the seller's wallet, until you confirm receipt. If the seller never sends the Steam trade offer, the trade auto-cancels with a full refund after 3 days of seller inactivity — you don't have to do anything. If the offer was sent but the item is wrong or missing, you have 8 days from purchase to confirm receipt or file a dispute: go to Profile → Trades, find the row, and click 'Report issue' / 'Dispute'. Include the Steam offer URL (or lack thereof) and any screenshots. Staff triage disputes in rotating CSR shifts and will either release escrow, cancel with refund, or escalate. After the 8-day window the trade auto-releases to the seller, but you can still open a support ticket for up to 30 days for staff manual review."
   },
   {
     q: 'What happens if I get banned? Can I appeal?',

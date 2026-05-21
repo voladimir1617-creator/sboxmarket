@@ -102,7 +102,12 @@ class SteamAuthController {
     /** Steam redirects the user here after login. We verify and set a session cookie. */
     @GetMapping("/return")
     void steamReturn(HttpServletRequest req, HttpServletResponse resp) {
-        log.info("Steam /return hit. query=${req.queryString}")
+        // Security QA P1: do NOT log the raw query string here. It
+        // contains the full signed OpenID assertion (openid.sig +
+        // openid.response_nonce); anything that can read this log line
+        // can replay the assertion. Log a short non-sensitive marker
+        // instead — the verification outcome is logged downstream.
+        log.info("Steam /return hit")
         // Pull the post-login destination from the pre-login session
         // BEFORE we touch verification — the path is the user's intent
         // regardless of whether OpenID succeeds. Re-sanitize on read

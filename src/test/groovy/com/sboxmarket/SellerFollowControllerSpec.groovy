@@ -126,6 +126,40 @@ class SellerFollowControllerSpec extends Specification {
         resp.body == [sellerUserId: 200L, notificationsMuted: true]
     }
 
+    def "mute() coerces a string-encoded muted flag instead of Groovy-truthing it"() {
+        given: 'JSON {"muted":"false"} arrives as a String — must un-mute, not mute'
+        def row = new SellerFollow(sellerUserId: 200L, notificationsMuted: false)
+        authedSession(100L)
+        1 * service.setNotificationsMuted(100L, 200L, false) >> row
+
+        when:
+        def resp = controller.mute(200L, [muted: 'false'], req)
+
+        then: 'a bare `"false" as Boolean` would have been true — this must be false'
+        resp.body == [sellerUserId: 200L, notificationsMuted: false]
+    }
+
+    def "mute() rejects a non-boolean muted value with INVALID_FIELD"() {
+        given: authedSession(100L)
+        when:  controller.mute(200L, [muted: 'yes-please'], req)
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_FIELD'
+        0 * service.setNotificationsMuted(_, _, _)
+    }
+
+    def "muteAll() coerces a string-encoded muted flag (\"false\" un-mutes)"() {
+        given:
+        authedSession(100L)
+        1 * service.setAllMuted(100L, false) >> 4
+
+        when:
+        def resp = controller.muteAll([muted: 'false'], req)
+
+        then:
+        resp.body == [touched: 4, muted: false]
+    }
+
     def "follow() returns {id, sellerUserId, following:true}"() {
         given:
         def row = new SellerFollow(id: 9L, sellerUserId: 200L)

@@ -858,6 +858,13 @@ class AdminController {
                                      @RequestBody(required = false) Map body,
                                      HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // reviewService is @Autowired(required = false) — mirror the
+        // removeLoadout guard so an unwired ReviewService returns a clean
+        // error instead of NPE-ing into a 500.
+        if (reviewService == null) {
+            throw new com.sboxmarket.exception.BadRequestException("REVIEW_UNAVAILABLE",
+                'Review service is not wired')
+        }
         reviewService.adminDeleteReview(uid, id, body?.reason as String)
         ResponseEntity.ok([id: id, status: 'REMOVED'])
     }

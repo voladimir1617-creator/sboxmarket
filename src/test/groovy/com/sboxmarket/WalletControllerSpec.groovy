@@ -835,6 +835,9 @@ class WalletControllerSpec extends Specification {
         def wallet = walletFor(new BigDecimal('175.00'))
         steamUserRepository.findById(10L) >> Optional.of(user)
         walletRepository.findByUsername('steam_111') >> wallet
+        // BUG 4 fix: the response balance comes from a post-completeDeposit
+        // re-read by wallet id, not the pre-credit snapshot.
+        walletRepository.findById(500L) >> Optional.of(wallet)
         1 * stripeService.completeDeposit('cs_abc')
 
         when:
@@ -842,5 +845,86 @@ class WalletControllerSpec extends Specification {
 
         then:
         resp.body.newBalance == new BigDecimal('175.00')
+    }
+
+    def "confirmDeposit() re-reads the wallet by id AFTER completeDeposit — never returns the stale pre-credit balance (BUG 4)"() {
+        given: 'currentWallet() resolves the pre-credit snapshot ($50)'
+        def user = verifiedUser()
+        // The snapshot the controller holds before completeDeposit runs.
+        def staleSnapshot = walletFor(new BigDecimal('50.00'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> staleSnapshot
+        // completeDeposit (or the webhook racing it) commits the $75
+        // credit in its own transaction — the snapshot above never sees
+        // it, so a fresh findById is the only way to read the true value.
+        def committed = new Wallet(id: 500L, username: 'steam_111',
+            balance: new BigDecimal('125.00'), currency: 'USD')
+        1 * stripeService.completeDeposit('cs_fresh')
+        // The post-credit re-read by primary key returns the committed row.
+        1 * walletRepository.findById(500L) >> Optional.of(committed)
+
+        when:
+        def resp = controller.confirmDeposit('cs_fresh', reqFor(10L))
+
+        then: 'response carries the committed $125, not the stale $50 snapshot'
+        resp.body.newBalance == new BigDecimal('125.00')
+    }
+
+    def "confirmDeposit() falls back to the snapshot balance if the post-credit re-read finds nothing"() {
+        given: 'an unusual case — the wallet row is not returned by the id re-read'
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('90.00'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.completeDeposit('cs_x')
+        1 * walletRepository.findById(500L) >> Optional.empty()
+
+        when:
+        def resp = controller.confirmDeposit('cs_x', reqFor(10L))
+
+        then: 'no NPE — degrades to the snapshot balance rather than failing the request'
+        resp.body.newBalance == new BigDecimal('90.00')
+    }
+
+    def "confirmDeposit() loses the credit race to the webhook: swallows the optimistic-lock failure, returns the already-credited balance"() {
+        given: 'the webhook committed the credit first — the wallet @Version flip aborts this transaction'
+        def user = verifiedUser()
+        // The pre-credit snapshot currentWallet() resolves before the race.
+        def staleSnapshot = walletFor(new BigDecimal('25.00'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> staleSnapshot
+        1 * stripeService.completeDeposit('cs_race') >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException('wallets', 500L)
+        }
+        // BUG 4 fix: even after losing the race, the post-completeDeposit
+        // re-read by id sees the balance the WEBHOOK committed — so the
+        // user whose deposit succeeded still gets the correct number.
+        def webhookCredited = new Wallet(id: 500L, username: 'steam_111',
+            balance: new BigDecimal('225.00'), currency: 'USD')
+        1 * walletRepository.findById(500L) >> Optional.of(webhookCredited)
+
+        when:
+        def resp = controller.confirmDeposit('cs_race', reqFor(10L))
+
+        then: 'no 500 — the user whose deposit succeeded sees the correct post-credit balance'
+        resp.statusCode.value() == 200
+        resp.body.newBalance == new BigDecimal('225.00')
+    }
+
+    def "confirmDeposit() a non-lock failure from completeDeposit still propagates"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.completeDeposit('cs_bad') >> {
+            throw new IllegalStateException('Session / wallet mismatch')
+        }
+
+        when:
+        controller.confirmDeposit('cs_bad', reqFor(10L))
+
+        then: 'only OptimisticLockingFailureException is swallowed — real errors surface'
+        thrown(IllegalStateException)
     }
 }

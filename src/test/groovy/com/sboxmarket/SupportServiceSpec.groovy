@@ -80,6 +80,46 @@ class SupportServiceSpec extends Specification {
         staffMsg.body.toLowerCase().contains('payment') || staffMsg.body.toLowerCase().contains('deposit')
     }
 
+    def "create preserves newlines in a multi-paragraph body"() {
+        given:
+        // The report-user controller hands create() a multi-line templated
+        // body (Reporter / Target / Reason / Context). TextSanitizer.body()
+        // collapses every \n to a space; sanitizeMultiline() must keep the
+        // paragraph breaks so the CSR can read the report.
+        def saved = []
+        ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
+        messageRepository.save(_) >> { args -> saved << args[0]; args[0] }
+        def multiline = "Reporter: alice\nTarget: bob\n\nContext:\nThey scammed me"
+
+        when:
+        service.create(10L, 'Alice', 'Report', 'FRAUD', multiline)
+
+        then:
+        def userMsg = saved.find { it.author == 'USER' }
+        userMsg.body.contains('\n')
+        userMsg.body.contains('Reporter: alice')
+        userMsg.body.contains('Context:')
+        // The blank line between Target and Context survives as exactly one \n\n.
+        userMsg.body.contains('Target: bob\n\nContext:')
+    }
+
+    def "create clamps blank-line runs in the body to a single blank line"() {
+        given:
+        def saved = []
+        ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
+        messageRepository.save(_) >> { args -> saved << args[0]; args[0] }
+        // 6 consecutive newlines — a hostile body padding the row with blanks.
+        def padded = "line one\n\n\n\n\n\nline two"
+
+        when:
+        service.create(10L, 'Alice', 'subject', 'OTHER', padded)
+
+        then:
+        def userMsg = saved.find { it.author == 'USER' }
+        // Clamped to one blank line — never 5 of them.
+        userMsg.body == 'line one\n\nline two'
+    }
+
     def "create normalises the category (uppercase + strip non-alpha)"() {
         given:
         ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
@@ -233,6 +273,33 @@ class SupportServiceSpec extends Specification {
 
         then:
         thrown(ForbiddenException)
+    }
+
+    def "resolve refuses an already-RESOLVED ticket (state-machine guard)"() {
+        given:
+        // Double-resolve from a stale tab / double-click. Mirrors reply()'s
+        // RESOLVED guard — should 400, not silently re-save and bump updatedAt.
+        ticketRepository.findById(1L) >> Optional.of(
+            new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED'))
+
+        when:
+        service.resolve(10L, 1L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'ALREADY_RESOLVED'
+        0 * ticketRepository.save(_)
+    }
+
+    def "resolve 404s for unknown ticket id"() {
+        given:
+        ticketRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.resolve(10L, 999L)
+
+        then:
+        thrown(NotFoundException)
     }
 
     // ── getTicket ─────────────────────────────────────────────────

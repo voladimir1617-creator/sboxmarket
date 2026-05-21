@@ -274,16 +274,43 @@ class LoadoutService {
 
         def slots = loadoutSlotRepository.findByLoadout(loadoutId)
         def remaining = budget ?: new BigDecimal("10000")
+        // Locked, already-filled slots are kept as-is — but their snapshot
+        // price still counts against the budget. CSFloat's budget is the
+        // TOTAL set spend; without this, a locked $90 item plus a $100
+        // budget would let auto-fill spend another $100 (total $190),
+        // overshooting the ceiling the user asked for.
+        if (budget != null) {
+            slots.each { slot ->
+                if (slot.locked && slot.itemId != null) {
+                    remaining = remaining - (slot.snapshotPrice ?: BigDecimal.ZERO)
+                }
+            }
+            if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
+        }
         def onePage = org.springframework.data.domain.PageRequest.of(0, 1)
+
+        // Track every item id already placed so the fill never repeats one.
+        // The `Wild` slot uses `category = ''` (any category), so without
+        // this it would just re-pick whichever item is the globally
+        // cheapest — almost always one already sitting in its own category
+        // slot. Seed with the locked slots' items too, so an unlocked slot
+        // can't duplicate a locked pick. CSFloat's loadout lab never repeats.
+        Set<Long> pickedIds = new HashSet<>()
+        slots.each { slot ->
+            if (slot.locked && slot.itemId != null) pickedIds.add(slot.itemId)
+        }
 
         slots.each { slot ->
             if (slot.locked && slot.itemId != null) return
             def category = slot.slot == 'Wild' ? '' : slot.slot
             // One indexed SELECT per slot — cheapest item in the category
-            // that fits the remaining budget. The old path loaded every
-            // catalogue row into memory and filtered per slot; now we
-            // fetch exactly 1 row via `PageRequest.of(0, 1)`.
-            def pool = itemRepository.findCheapestInBudget(category, remaining, onePage)
+            // that fits the remaining budget AND hasn't been picked yet.
+            // The old path loaded every catalogue row into memory and
+            // filtered per slot; now we fetch exactly 1 row via
+            // `PageRequest.of(0, 1)`. JPQL forbids `NOT IN ()`, so pass a
+            // sentinel `[-1L]` when nothing has been picked yet.
+            def exclude = pickedIds.isEmpty() ? [-1L] : new ArrayList<Long>(pickedIds)
+            def pool = loadoutRepository.findCheapestInBudgetExcluding(category, remaining, exclude, onePage)
             def pick = pool.isEmpty() ? null : pool.first()
             if (pick != null) {
                 slot.itemId = pick.id
@@ -291,6 +318,7 @@ class LoadoutService {
                 slot.itemEmoji = pick.iconEmoji
                 slot.snapshotPrice = pick.lowestPrice
                 remaining = remaining - pick.lowestPrice
+                pickedIds.add(pick.id)
             }
             loadoutSlotRepository.save(slot)
         }
@@ -447,7 +475,10 @@ class LoadoutService {
             ownerUserId: viewerUserId,
             ownerName:   cleanOwner,
             name:        cloneName,
-            description: source.description,
+            // Re-sanitize like name (above) and like create()/update() do —
+            // a source description could pre-date a sanitizer-rule change,
+            // so copying it verbatim would leak now-disallowed content.
+            description: textSanitizer.medium(source.description),
             visibility:  'PRIVATE'  // start private so the cloner can tweak before publishing
         )
         loadoutRepository.save(copy)

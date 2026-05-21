@@ -273,6 +273,22 @@ class OfferServiceSpec extends Specification {
         thrown(OfferNotPendingException)
     }
 
+    def "counterOffer refuses counters on a listing that's no longer ACTIVE"() {
+        // Listing sold via direct Buy Now after the offer landed — the
+        // seller shouldn't be able to mint a dead PENDING counter the
+        // buyer is then invited to accept.
+        given:
+        offerRepository.findById(_) >> Optional.of(pendingOffer())
+        listingRepository.findById(_) >> Optional.of(activeListing(status: 'SOLD'))
+
+        when:
+        service.counterOffer(99L, 1L, new BigDecimal("40"))
+
+        then:
+        thrown(ListingNotAvailableException)
+        0 * offerRepository.save(_)
+    }
+
     // ── buyerRaise ────────────────────────────────────────────────
 
     def "buyerRaise cancels the original and opens a new PENDING at the higher amount"() {
@@ -339,6 +355,24 @@ class OfferServiceSpec extends Specification {
 
         then:
         thrown(OfferNotPendingException)
+    }
+
+    def "buyerRaise refuses a raise on a listing that's no longer ACTIVE"() {
+        // Raising on a SOLD listing would cancel the buyer's existing
+        // PENDING offer and open a fresh one that can never close —
+        // leaving the buyer worse off. Reject before any state mutation.
+        given:
+        def original = pendingOffer(amount: new BigDecimal("30"))
+        offerRepository.findById(_) >> Optional.of(original)
+        listingRepository.findById(_) >> Optional.of(activeListing(status: 'SOLD'))
+
+        when:
+        service.buyerRaise(10L, 1L, new BigDecimal("40"))
+
+        then:
+        thrown(ListingNotAvailableException)
+        original.status == 'PENDING'   // original left intact
+        0 * offerRepository.save(_)
     }
 
     def "buyerRaise notifies the seller of the new amount"() {
@@ -511,6 +545,53 @@ class OfferServiceSpec extends Specification {
         thrown(OfferNotPendingException)
     }
 
+    def "acceptOffer forbids the seller accepting their own SELLER-authored counter"() {
+        // A SELLER counter carries sellerUserId = the seller. Without the
+        // author='USER' guard on the seller-accept path, the seller could
+        // POST /accept on their own counter and force-charge the buyer's
+        // wallet for a price the buyer never agreed to. The counter must
+        // only ever be accepted by the buyer.
+        given:
+        def counter = new Offer(
+            id: 5L, listingId: 100L, buyerUserId: 10L, sellerUserId: 99L,
+            amount: new BigDecimal("45"), askingPrice: new BigDecimal("50"),
+            status: 'PENDING', author: 'SELLER')
+        offerRepository.findById(5L) >> Optional.of(counter)
+
+        when: 'the seller (99L) tries to accept their own counter'
+        service.acceptOffer(99L, 5L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * purchaseService.buy(*_)
+    }
+
+    def "acceptOffer lets the buyer accept a SELLER-authored counter"() {
+        given:
+        def counter = new Offer(
+            id: 5L, listingId: 100L, buyerUserId: 10L, sellerUserId: 99L,
+            amount: new BigDecimal("45"), askingPrice: new BigDecimal("50"),
+            status: 'PENDING', author: 'SELLER')
+        def listing = activeListing(price: new BigDecimal("50"))
+        def buyer   = new SteamUser(id: 10L, steamId64: '111')
+        def wallet  = new Wallet(id: 500L, balance: new BigDecimal("500"))
+        offerRepository.findById(5L) >> Optional.of(counter)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_111') >> wallet
+        offerRepository.findPendingForListing(100L) >> []
+        offerRepository.save(_) >> { Offer o -> o }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when: 'the buyer (10L) accepts the seller counter'
+        def result = service.acceptOffer(10L, 5L)
+
+        then:
+        1 * purchaseService.buy(500L, 10L, 100L)
+        result.accepted == true
+        counter.status == 'ACCEPTED'
+    }
+
     // ── rejectOffer / cancelOffer ─────────────────────────────────
 
     def "rejectOffer flips status to REJECTED for the seller"() {
@@ -559,6 +640,232 @@ class OfferServiceSpec extends Specification {
 
         then:
         thrown(ForbiddenException)
+    }
+
+    // ── COUNTERED-thread cleanup (P1/P2 bug fix) ──────────────────
+    //
+    // counterOffer flips the buyer's original to COUNTERED but nothing
+    // ever transitioned it out — so once the seller's counter died
+    // (reject / expire / sweep / buyer-raise), the buyer's COUNTERED
+    // original stayed live to makeOffer's duplicate guard
+    // (findLiveByBuyerAndListing matches PENDING *or* COUNTERED) and
+    // OFFER_ALREADY_PENDING locked them out of the listing forever.
+    // The fix closes the COUNTERED parent (status CLOSED) whenever its
+    // SELLER counter reaches a terminal state.
+
+    /** A SELLER-authored counter threaded under `parentId`. Mirrors the
+     *  row counterOffer() mints: buyerUserId = the buyer, sellerUserId =
+     *  the seller, author = 'SELLER', status PENDING. */
+    private Offer sellerCounter(Map args = [:]) {
+        new Offer(
+            id:            args.id ?: 2L,
+            listingId:     args.listing ?: 100L,
+            buyerUserId:   args.buyer ?: 10L,
+            sellerUserId:  args.seller ?: 99L,
+            amount:        args.amount ?: new BigDecimal("40"),
+            askingPrice:   new BigDecimal("50"),
+            status:        args.status ?: 'PENDING',
+            author:        'SELLER',
+            parentOfferId: args.parent ?: 1L
+        )
+    }
+
+    def "rejectOffer on a SELLER counter closes the buyer's COUNTERED original"() {
+        given:
+        def original = pendingOffer(id: 1L, status: 'COUNTERED')
+        def counter  = sellerCounter(id: 2L, parent: 1L)
+        offerRepository.findById(2L) >> Optional.of(counter)
+        offerRepository.findById(1L) >> Optional.of(original)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when: 'the seller rejects their own counter'
+        service.rejectOffer(99L, 2L)
+
+        then:
+        counter.status == 'REJECTED'
+        // The dead negotiation node is closed — CLOSED is not matched by
+        // findLiveByBuyerAndListing, so the dup-guard frees up.
+        original.status == 'CLOSED'
+    }
+
+    def "sweepStaleOffers closes the COUNTERED original when a SELLER counter is swept"() {
+        given:
+        def original = pendingOffer(id: 1L, status: 'COUNTERED')
+        def staleCounter = sellerCounter(id: 2L, parent: 1L, amount: new BigDecimal("40"))
+        offerRepository.findStalePending(_) >> [staleCounter]
+        offerRepository.findById(1L) >> Optional.of(original)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.sweepStaleOffers()
+
+        then:
+        staleCounter.status == 'EXPIRED'
+        original.status == 'CLOSED'
+    }
+
+    def "buyer can make a fresh offer after a counter negotiation was rejected"() {
+        // End-to-end: seller rejects the counter (closing the COUNTERED
+        // original), then the buyer makes a brand-new offer on the same
+        // listing. The dup-guard query no longer returns the now-CLOSED
+        // original, so makeOffer succeeds instead of OFFER_ALREADY_PENDING.
+        given:
+        def original = pendingOffer(id: 1L, status: 'COUNTERED')
+        def counter  = sellerCounter(id: 2L, parent: 1L)
+        offerRepository.findById(2L) >> Optional.of(counter)
+        offerRepository.findById(1L) >> Optional.of(original)
+        offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 7L; o }
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        // The dup-guard query reflects real repo semantics — only
+        // PENDING/COUNTERED rows. After the reject closes the original,
+        // nothing live remains for (buyer 10, listing 100).
+        offerRepository.findLiveByBuyerAndListing(10L, 100L) >> []
+
+        when: 'the counter is rejected'
+        service.rejectOffer(99L, 2L)
+
+        then:
+        original.status == 'CLOSED'
+
+        when: 'the buyer makes a fresh offer on the same listing'
+        def fresh = service.makeOffer(10L, 'Alice', 100L, new BigDecimal("35"))
+
+        then: 'no OFFER_ALREADY_PENDING — the buyer is unblocked'
+        fresh.status == 'PENDING'
+        fresh.amount == new BigDecimal("35")
+    }
+
+    def "buyer can make a fresh offer after a counter negotiation expired via the sweeper"() {
+        given:
+        def original = pendingOffer(id: 1L, status: 'COUNTERED')
+        def staleCounter = sellerCounter(id: 2L, parent: 1L)
+        offerRepository.findStalePending(_) >> [staleCounter]
+        offerRepository.findById(1L) >> Optional.of(original)
+        offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 8L; o }
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.findLiveByBuyerAndListing(10L, 100L) >> []
+
+        when: 'the sweeper expires the stale counter'
+        service.sweepStaleOffers()
+
+        then:
+        original.status == 'CLOSED'
+
+        when: 'the buyer makes a fresh offer on the same listing'
+        def fresh = service.makeOffer(10L, 'Alice', 100L, new BigDecimal("38"))
+
+        then:
+        fresh.status == 'PENDING'
+    }
+
+    def "makeOffer still blocks a duplicate while a counter is genuinely still pending"() {
+        // Sanity guard: the fix must NOT let a buyer stack a second live
+        // offer while a counter is mid-negotiation. The COUNTERED
+        // original is still returned by the dup-guard query, so a fresh
+        // makeOffer is still rejected.
+        given:
+        def liveCountered = pendingOffer(id: 1L, status: 'COUNTERED')
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.findLiveByBuyerAndListing(10L, 100L) >> [liveCountered]
+
+        when:
+        service.makeOffer(10L, 'Alice', 100L, new BigDecimal("35"))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'OFFER_ALREADY_PENDING'
+    }
+
+    def "cancelOffer lets the buyer withdraw a COUNTERED offer"() {
+        // P2 — the buyer whose offer the seller countered must be able to
+        // walk away. The old PENDING-only guard threw OFFER_NOT_PENDING.
+        given:
+        def countered = pendingOffer(id: 1L, status: 'COUNTERED')
+        offerRepository.findById(1L) >> Optional.of(countered)
+        offerRepository.findByParentOfferId(1L) >> []
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        def result = service.cancelOffer(10L, 1L)
+
+        then:
+        result.status == 'CANCELLED'
+    }
+
+    def "cancelOffer on a COUNTERED original also expires the seller's live counter"() {
+        // Withdrawing the COUNTERED original must kill the still-PENDING
+        // SELLER counter hanging off it — otherwise the buyer has walked
+        // away but the counter is still acceptable.
+        given:
+        def countered   = pendingOffer(id: 1L, status: 'COUNTERED')
+        def liveCounter = sellerCounter(id: 2L, parent: 1L)
+        offerRepository.findById(1L) >> Optional.of(countered)
+        offerRepository.findByParentOfferId(1L) >> [liveCounter]
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.cancelOffer(10L, 1L)
+
+        then:
+        countered.status == 'CANCELLED'
+        liveCounter.status == 'EXPIRED'
+    }
+
+    def "cancelOffer still rejects terminal-state offers (ACCEPTED/REJECTED/etc.)"() {
+        // The COUNTERED allowance must not widen to genuinely terminal
+        // rows — a CLOSED/ACCEPTED/REJECTED offer is still un-cancellable.
+        given:
+        offerRepository.findById(_) >> Optional.of(pendingOffer(id: 1L, status: status))
+
+        when:
+        service.cancelOffer(10L, 1L)
+
+        then:
+        thrown(OfferNotPendingException)
+
+        where:
+        status << ['ACCEPTED', 'REJECTED', 'CANCELLED', 'EXPIRED', 'CLOSED']
+    }
+
+    def "buyerRaise on a SELLER counter closes the buyer's COUNTERED grandparent"() {
+        // A buyer can raise directly on the seller's counter — that
+        // cancels the counter and opens a fresh PENDING offer. The
+        // grandparent original (COUNTERED) must be closed too so the
+        // thread leaves exactly one live row.
+        given:
+        def grandparent = pendingOffer(id: 1L, status: 'COUNTERED')
+        def counter     = sellerCounter(id: 2L, parent: 1L, amount: new BigDecimal("40"))
+        offerRepository.findById(2L) >> Optional.of(counter)
+        offerRepository.findById(1L) >> Optional.of(grandparent)
+        listingRepository.findById(100L) >> Optional.of(activeListing(price: new BigDecimal("50")))
+        offerRepository.save(_) >> { Offer o -> o.id = o.id ?: 3L; o }
+
+        when: 'the buyer raises on the counter to $45'
+        def raised = service.buyerRaise(10L, 2L, new BigDecimal("45"))
+
+        then:
+        counter.status == 'CANCELLED'        // counter superseded
+        grandparent.status == 'CLOSED'       // dead COUNTERED node closed
+        raised.status == 'PENDING'           // fresh live offer
+        raised.amount == new BigDecimal("45")
+    }
+
+    def "closeCounteredParent is a no-op when the counter's parent is not COUNTERED"() {
+        // Idempotency / safety: rejecting a SELLER counter whose parent
+        // was already resolved (e.g. ACCEPTED) must not clobber it.
+        given:
+        def resolvedParent = pendingOffer(id: 1L, status: 'ACCEPTED')
+        def counter        = sellerCounter(id: 2L, parent: 1L)
+        offerRepository.findById(2L) >> Optional.of(counter)
+        offerRepository.findById(1L) >> Optional.of(resolvedParent)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when:
+        service.rejectOffer(99L, 2L)
+
+        then:
+        counter.status == 'REJECTED'
+        resolvedParent.status == 'ACCEPTED'  // untouched
     }
 
     // ── thread (redaction) ───────────────────────────────────────

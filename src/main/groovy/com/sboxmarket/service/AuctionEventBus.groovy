@@ -72,11 +72,17 @@ class AuctionEventBus {
     void onBid(AuctionBidPlacedEvent ev) {
         def list = subs.get(ev.listingId)
         if (list == null || list.isEmpty()) return
+        // NOTE: the public SSE payload deliberately omits currentBidderId.
+        // The stream is fanned out to every subscriber including anonymous
+        // viewers, so it must not expose the top bidder's real user id —
+        // that would bypass the redaction BidService.historyFor applies to
+        // third parties. Only the display-name snapshot goes out; clients
+        // that need the viewer's own top-bidder state read it from the
+        // listing fetch, which is computed per-viewer.
         Map payload = [
             listingId        : ev.listingId,
             kind             : ev.kind,
             currentBid       : ev.currentBid?.toPlainString(),
-            currentBidderId  : ev.currentBidderId,
             currentBidderName: ev.currentBidderName,
             bidCount         : ev.bidCount,
             expiresAt        : ev.expiresAt,

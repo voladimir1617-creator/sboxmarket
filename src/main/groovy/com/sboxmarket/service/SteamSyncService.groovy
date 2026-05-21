@@ -116,8 +116,11 @@ class SteamSyncService {
             Long blockedUntil = steamInventoryService.blockedUntilMs(user.steamId64)
             def fresh = steamUserRepository.findById(userId).orElse(user)
             if (blockedUntil != null) {
-                long retryInSec = Math.max(1L, (blockedUntil - System.currentTimeMillis()) / 1000L)
-                long retryInMin = Math.max(1L, (retryInSec + 59L) / 60L)
+                // NB: Groovy's `/` on longs yields a BigDecimal — use intdiv()
+                // so these stay whole numbers (a fractional "~1.48 minutes"
+                // would otherwise leak into the message and the payload).
+                long retryInSec = Math.max(1L, (blockedUntil - System.currentTimeMillis()).intdiv(1000L))
+                long retryInMin = Math.max(1L, (retryInSec + 59L).intdiv(60L))
                 return [
                     ok:            false,
                     reason:        'rate_limited',

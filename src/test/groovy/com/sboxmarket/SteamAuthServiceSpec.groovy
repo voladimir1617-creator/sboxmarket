@@ -11,12 +11,15 @@ import spock.lang.Specification
 import spock.lang.Subject
 
 /**
- * buildLoginUrl correctness + upsertUser find-or-create.
+ * buildLoginUrl correctness + upsertUser find-or-create + verifyReturn
+ * security guards (OpenID replay protection and return_to validation).
  *
- * The Steam round-trip network calls (verifyReturn, fetchViaWebApi,
- * fetchViaPublicXml) are not tested here — those either succeed
- * against a real Steam server or fail gracefully to null, both of which
- * are fine.
+ * The profile-lookup network calls (fetchViaWebApi, fetchViaPublicXml)
+ * are not tested here — those either succeed against a real Steam server
+ * or fail gracefully to null, both of which are fine. verifyReturn's own
+ * check_authentication round-trip is stubbed via the metaClass override
+ * of checkAuthentication so the replay / return_to logic can be asserted
+ * deterministically.
  */
 class SteamAuthServiceSpec extends Specification {
 
@@ -59,6 +62,108 @@ class SteamAuthServiceSpec extends Specification {
         expect:
         service.verifyReturn(null, 'whatever') == null
         service.verifyReturn('', 'whatever') == null
+    }
+
+    // ── verifyReturn: replay + return_to (security QA) ─────────────
+
+    /** A SteamID64 that satisfies STEAMID_REGEX. */
+    private static final String STEAMID = '76561197960287930'
+    private static final String CLAIMED_ID =
+        "https://steamcommunity.com/openid/id/${STEAMID}"
+
+    /**
+     * Build a Steam-style raw (URL-encoded) /return query string. The
+     * `return_to` defaults to the service's configured return URL so the
+     * P2 check passes; pass a different value to exercise the mismatch
+     * path. `nonce` is the value of openid.response_nonce.
+     */
+    private static String returnQuery(String nonce,
+                                      String returnTo = 'http://localhost:8080/api/auth/steam/return') {
+        [
+            'openid.ns'            : 'http://specs.openid.net/auth/2.0',
+            'openid.mode'          : 'id_res',
+            'openid.op_endpoint'   : 'https://steamcommunity.com/openid/login',
+            'openid.claimed_id'    : CLAIMED_ID,
+            'openid.identity'      : CLAIMED_ID,
+            'openid.return_to'     : returnTo,
+            'openid.response_nonce': nonce,
+            'openid.assoc_handle'  : '1234567890',
+            'openid.signed'        : 'signed,op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle',
+            'openid.sig'           : 'abcDEF123signaturebase64==',
+        ].collect { k, v ->
+            "${URLEncoder.encode(k, 'UTF-8')}=${URLEncoder.encode(v, 'UTF-8')}"
+        }.join('&')
+    }
+
+    def "verifyReturn accepts a first-use nonce and returns the SteamID64"() {
+        given: "Steam reports the assertion valid"
+        service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }
+
+        when:
+        def steamId = service.verifyReturn(returnQuery('nonce-first-use'), CLAIMED_ID)
+
+        then:
+        steamId == STEAMID
+    }
+
+    def "verifyReturn rejects a replayed assertion (same nonce used twice)"() {
+        given: "Steam keeps reporting is_valid:true — it does NOT enforce one-time use"
+        service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }
+        def query = returnQuery('nonce-replay-me')
+
+        when: "the same callback URL is verified twice"
+        def first  = service.verifyReturn(query, CLAIMED_ID)
+        def second = service.verifyReturn(query, CLAIMED_ID)
+
+        then: "the first use succeeds, the replay is rejected"
+        first  == STEAMID
+        second == null
+    }
+
+    def "verifyReturn rejects an assertion with no response_nonce"() {
+        given:
+        service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }
+
+        when: "the callback carries an empty nonce"
+        def steamId = service.verifyReturn(returnQuery(''), CLAIMED_ID)
+
+        then:
+        steamId == null
+    }
+
+    def "verifyReturn rejects a mismatched return_to before contacting Steam"() {
+        given: "checkAuthentication would succeed if it were ever called"
+        boolean networkCalled = false
+        service.metaClass.checkAuthentication = { String body ->
+            networkCalled = true
+            'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n'
+        }
+
+        when: "the signed return_to points at an attacker-controlled host"
+        def steamId = service.verifyReturn(
+            returnQuery('nonce-bad-return-to', 'http://evil.example.com/api/auth/steam/return'),
+            CLAIMED_ID)
+
+        then: "login is rejected and no check_authentication round-trip happened"
+        steamId == null
+        !networkCalled
+    }
+
+    def "verifyReturn does not consume the nonce when Steam reports invalid"() {
+        given: "Steam first rejects the assertion, then (hypothetically) accepts it"
+        def query = returnQuery('nonce-not-burned')
+        service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:false\n' }
+
+        when: "a verification attempt fails at the is_valid check"
+        def rejected = service.verifyReturn(query, CLAIMED_ID)
+
+        and: "Steam now reports the SAME assertion valid and it is retried"
+        service.metaClass.checkAuthentication = { String body -> 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' }
+        def accepted = service.verifyReturn(query, CLAIMED_ID)
+
+        then: "the failed attempt did not burn the nonce, so the genuine retry still works"
+        rejected == null
+        accepted == STEAMID
     }
 
     // ── upsertUser: find-or-create ────────────────────────────────

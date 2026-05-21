@@ -83,24 +83,115 @@ class NotificationServiceSpec extends Specification {
         0 * notificationRepository.save(_)
     }
 
-    def "markAllRead flips every unread row and leaves already-read rows alone"() {
-        given:
-        def rows = [
-            new Notification(id: 1L, userId: 10L, read: false, title: 'a'),
-            new Notification(id: 2L, userId: 10L, read: true,  title: 'b'),
-            new Notification(id: 3L, userId: 10L, read: false, title: 'c'),
-        ]
-        notificationRepository.findForUser(10L, _) >> rows
-
+    def "markAllRead delegates to the bulk UPDATE scoped to the caller"() {
         when:
         service.markAllRead(10L)
 
         then:
-        1 * notificationRepository.saveAll({ List<Notification> saved ->
-            saved.size() == 2 &&
-            saved.every { it.read == true } &&
-            saved*.id.containsAll([1L, 3L])
-        })
+        // One set-based UPDATE — no row hydration, no saveAll. The repo
+        // method's @Query already scopes to userId AND read = false.
+        1 * notificationRepository.markAllReadForUser(10L)
+        0 * notificationRepository.findForUser(_, _)
+        0 * notificationRepository.saveAll(_)
+    }
+
+    def "markAllRead is a no-op for a null userId"() {
+        when:
+        service.markAllRead(null)
+
+        then:
+        0 * notificationRepository.markAllReadForUser(_)
+    }
+
+    def "markAllRead clears EVERY unread row even past the old 500-row sweep cap (BUG 1)"() {
+        given:
+        // Regression guard for BUG 1: the old implementation hydrated and
+        // swept only the 500 most-recent rows, but the bell badge's
+        // `unread` count comes from the *uncapped* countUnread. A user
+        // with >500 unread cleared the badge optimistically client-side,
+        // then the next poll re-read a non-zero count and the badge
+        // reappeared forever. The fix is a single set-based UPDATE with
+        // no cap. We model an 850-unread backlog: the service must NOT
+        // do a paged hydration, and the post-sweep countUnread must be 0.
+        notificationRepository.markAllReadForUser(10L) >> 850
+        // After the bulk UPDATE the unread count drops to zero — the
+        // badge clears for good instead of resurrecting on the next poll.
+        notificationRepository.countUnread(10L) >> 0L
+
+        when:
+        service.markAllRead(10L)
+        def remaining = service.countUnread(10L)
+
+        then:
+        // No paged read / saveAll path can silently miss rows beyond a cap.
+        0 * notificationRepository.findForUser(_, _)
+        0 * notificationRepository.saveAll(_)
+        // The badge source agrees: nothing unread is left behind.
+        remaining == 0L
+    }
+
+    def "markUnread flips an own read row back to unread"() {
+        given:
+        def n = new Notification(id: 1L, userId: 10L, read: true, title: 'x')
+        notificationRepository.findById(1L) >> Optional.of(n)
+
+        when:
+        service.markUnread(10L, 1L)
+
+        then:
+        n.read == false
+        1 * notificationRepository.save(n)
+    }
+
+    def "markUnread ignores a row owned by another user"() {
+        given:
+        def n = new Notification(id: 1L, userId: 99L, read: true, title: 'x')
+        notificationRepository.findById(1L) >> Optional.of(n)
+
+        when:
+        service.markUnread(10L, 1L)
+
+        then:
+        n.read == true
+        0 * notificationRepository.save(_)
+    }
+
+    def "listFor clamps the requested limit into the 1..100 page-size band"() {
+        when:
+        service.listFor(10L, requested)
+
+        then:
+        1 * notificationRepository.findForUser(10L, { it.pageSize == expected }) >> []
+
+        where:
+        requested || expected
+        12        || 12
+        0         || 1
+        -7        || 1
+        5000      || 100
+    }
+
+    def "sweepOldReadNotifications is a no-op when retention is disabled"() {
+        given:
+        service.retainReadDays = 0L
+
+        when:
+        service.sweepOldReadNotifications()
+
+        then:
+        0 * notificationRepository.deleteReadOlderThan(_)
+    }
+
+    def "sweepOldReadNotifications purges read rows older than the retention cutoff"() {
+        given:
+        service.retainReadDays = 180L
+
+        when:
+        service.sweepOldReadNotifications()
+
+        then:
+        1 * notificationRepository.deleteReadOlderThan({ it < System.currentTimeMillis() }) >> 3
+        noExceptionThrown()
     }
 
     def "countUnread returns 0 when the repository returns null"() {

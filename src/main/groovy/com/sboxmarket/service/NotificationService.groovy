@@ -101,14 +101,15 @@ class NotificationService {
 
     @Transactional
     void markAllRead(Long userId) {
-        // Only mark the most-recent 100 as read — matches what `listFor`
-        // returns, so "Mark all read" feels consistent with what the user
-        // sees in the bell. Older backfill rows stay untouched and don't
-        // hold Hibernate's session hostage.
-        def recent = notificationRepository.findForUser(userId, PageRequest.of(0, 100))
-        def unread = recent.findAll { !it.read }
-        unread.each { it.read = true }
-        if (!unread.isEmpty()) notificationRepository.saveAll(unread)
+        // Bulk set-based UPDATE — no cap, no row hydration. The earlier
+        // row-hydration sweep only swept the 500 most-recent rows, but
+        // the bell badge's `unread` count comes from the *uncapped*
+        // `countUnread`. A user with >500 unread would clear the badge
+        // optimistically client-side, then the next poll re-read a
+        // non-zero count and the badge reappeared forever. A single
+        // UPDATE flips every unread row so the badge always clears.
+        if (userId == null) return
+        notificationRepository.markAllReadForUser(userId)
     }
 
     /**

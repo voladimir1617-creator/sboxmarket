@@ -285,6 +285,46 @@ class LoadoutControllerSpec extends Specification {
         0 * loadoutService.setSlot(_, _, _, _)
     }
 
+    def "setSlot() rejects a non-numeric itemId with a clean 400 (not an opaque 500)"() {
+        given:
+        authedSession(100L)
+
+        when:
+        controller.setSlot(1L, 'HEAD', [itemId: 'abc'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_ITEM_ID'
+        0 * loadoutService.setSlot(_, _, _, _)
+    }
+
+    def "setSlot() coerces a numeric-string itemId"() {
+        given:
+        def slot = new LoadoutSlot(slot: 'HEAD', itemId: 42L, itemName: 'Hat',
+                                   snapshotPrice: BigDecimal.ZERO)
+        authedSession(100L)
+        1 * loadoutService.setSlot(100L, 1L, 'HEAD', 42L) >> slot
+
+        when:
+        def resp = controller.setSlot(1L, 'HEAD', [itemId: '42'], req)
+
+        then:
+        resp.body.itemId == 42L
+    }
+
+    def "setSlot() tolerates a null body (clears the slot)"() {
+        given:
+        def slot = new LoadoutSlot(slot: 'HEAD', itemId: null, snapshotPrice: BigDecimal.ZERO)
+        authedSession(100L)
+        1 * loadoutService.setSlot(100L, 1L, 'HEAD', null) >> slot
+
+        when:
+        def resp = controller.setSlot(1L, 'HEAD', null, req)
+
+        then:
+        resp.body.itemId == null
+    }
+
     def "toggleLock() returns {slot, locked}"() {
         given:
         def slot = new LoadoutSlot(slot: 'HEAD', locked: true)

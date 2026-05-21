@@ -64,6 +64,8 @@ class AuditService {
     static final String CHARGEBACK_OPENED   = 'CHARGEBACK_OPENED'
     static final String DISPUTE_CLEARED     = 'DISPUTE_CLEARED'
     static final String REVIEW_DELETED_STAFF = 'REVIEW_DELETED_STAFF'
+    static final String TICKET_REPLIED      = 'TICKET_REPLIED'
+    static final String TICKET_CLOSED       = 'TICKET_CLOSED'
 
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository

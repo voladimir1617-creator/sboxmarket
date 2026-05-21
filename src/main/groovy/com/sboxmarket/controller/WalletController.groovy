@@ -498,8 +498,39 @@ class WalletController {
         // Require a real logged-in user before touching Stripe.
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to confirm a deposit")
-        stripeService.completeDeposit(sessionId)
+        // Resolve the wallet id BEFORE completeDeposit so we can re-read
+        // the row by primary key afterwards (see the post-credit re-read
+        // below). currentWallet() also lazily creates the wallet row for
+        // a brand-new Steam user, so this call guarantees the id exists.
         def wallet = currentWallet(req)
-        ResponseEntity.ok([newBalance: wallet?.balance ?: BigDecimal.ZERO])
+        // completeDeposit() is also reachable from the Stripe webhook
+        // (checkout.session.completed). When both fire near-simultaneously
+        // for the same session they race on the wallet row: the Wallet
+        // @Version guard means exactly one credit lands and the loser's
+        // transaction rolls back with ObjectOptimisticLockingFailureException
+        // — so there is NEVER a double-credit. But the loser is this
+        // synchronous /confirm-deposit call, and surfacing a raw 500 to a
+        // user whose deposit actually succeeded is misleading. Swallow the
+        // lock-contention loss: the webhook (or the other racer) committed
+        // the credit, so re-reading the wallet below returns the correct
+        // post-credit balance. Any other exception still propagates.
+        try {
+            stripeService.completeDeposit(sessionId)
+        } catch (org.springframework.dao.OptimisticLockingFailureException raceLost) {
+            log.info("confirm-deposit for session ${sessionId} lost the credit race to the webhook — deposit already applied")
+        }
+        // Re-read the wallet by id AFTER completeDeposit returns (batch
+        // 657 fix / BUG 4). The `wallet` snapshot taken above can be
+        // stale: completeDeposit — or the webhook racing it on another
+        // thread microseconds earlier — commits the credit in a separate
+        // transaction, and the controller method itself is NOT
+        // @Transactional, so the snapshot above never sees that commit.
+        // A fresh findById issues a new SELECT that reflects the
+        // committed credit, so the user sees their real post-deposit
+        // balance instead of the pre-credit number.
+        def credited = (wallet?.id != null)
+            ? walletRepository.findById(wallet.id).orElse(wallet)
+            : wallet
+        ResponseEntity.ok([newBalance: credited?.balance ?: BigDecimal.ZERO])
     }
 }

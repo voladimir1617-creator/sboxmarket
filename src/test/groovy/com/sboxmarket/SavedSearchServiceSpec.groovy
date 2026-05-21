@@ -1,10 +1,13 @@
 package com.sboxmarket
 
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.model.SavedSearch
 import com.sboxmarket.repository.SavedSearchRepository
 import com.sboxmarket.service.NotificationService
 import com.sboxmarket.service.SavedSearchService
+import com.sboxmarket.service.TextSanitizer
+import com.sboxmarket.service.security.BanGuard
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -15,9 +18,15 @@ import spock.lang.Subject
 class SavedSearchServiceSpec extends Specification {
 
     SavedSearchRepository repository = Mock()
+    BanGuard banGuard = Mock()
+    // Real sanitizer — it's a dependency-free pure @Component, so a plain
+    // `new` gives the genuine HTML-strip / whitespace-collapse / 80-char
+    // behaviour the service relies on (no need to stub each method).
+    TextSanitizer textSanitizer = new TextSanitizer()
 
     @Subject
-    SavedSearchService service = new SavedSearchService(repository: repository)
+    SavedSearchService service = new SavedSearchService(
+        repository: repository, banGuard: banGuard, textSanitizer: textSanitizer)
 
     def "upsert creates a new row when none with the same name exists"() {
         given:
@@ -92,6 +101,133 @@ class SavedSearchServiceSpec extends Specification {
         1 * repository.save({
             it.category == 'All' && it.rarity == 'All' && it.sort == 'price_desc'
         }) >> { SavedSearch s -> s }
+    }
+
+    // ── Ban guard ───────────────────────────────────────────────────
+
+    def "upsert rejects a banned user before any repo work"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException('Your account is banned: x') }
+
+        when:
+        service.upsert(10L, [name: 'preset'])
+
+        then:
+        thrown(ForbiddenException)
+        // The ban check fires first — no name lookup, no cap query, no save.
+        0 * repository.findByUserAndName(_, _)
+        0 * repository.countByUser(_)
+        0 * repository.save(_)
+    }
+
+    def "upsert consults the ban guard exactly once on the happy path"() {
+        given:
+        repository.findByUserAndName(10L, 'ok') >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: 'ok'])
+
+        then:
+        1 * banGuard.assertNotBanned(10L)
+        1 * repository.save(_) >> { SavedSearch s -> s }
+    }
+
+    def "bulkMerge skips every row for a banned user (per-row ban rejection)"() {
+        given:
+        // upsert() runs the ban guard per row; a banned user throws every
+        // time, and bulkMerge swallows the per-row exception. Net effect:
+        // nothing is persisted.
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException('banned') }
+        repository.countByUser(10L) >> 0L
+        repository.findByUser(10L) >> []
+
+        when:
+        def out = service.bulkMerge(10L, [[name: 'A'], [name: 'B']])
+
+        then:
+        0 * repository.save(_)
+        out == []
+    }
+
+    // ── Stored-query sanitization ───────────────────────────────────
+
+    def "upsert strips HTML tags from the stored q / search text"() {
+        given:
+        repository.findByUserAndName(10L, 'xss') >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: 'xss', q: '<script>alert(1)</script>hat'])
+
+        then:
+        1 * repository.save({
+            // Tag stripped, plain text survives — no '<' or '>' persisted.
+            it.q == 'alert(1)hat' && !it.q.contains('<') && !it.q.contains('>')
+        }) >> { SavedSearch s -> s }
+    }
+
+    def "upsert sanitises q supplied under the legacy 'search' key too"() {
+        given:
+        repository.findByUserAndName(10L, 'legacy') >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: 'legacy', search: '<b>boots</b>'])
+
+        then:
+        1 * repository.save({ it.q == 'boots' }) >> { SavedSearch s -> s }
+    }
+
+    def "upsert sanitises HTML out of the preset name"() {
+        given:
+        repository.findByUserAndName(10L, _) >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: '<img src=x onerror=alert(1)>cheap hats'])
+
+        then:
+        1 * repository.save({
+            // Tag + the onerror= handler are both gone; readable text stays.
+            !it.name.contains('<') && !it.name.contains('onerror') &&
+                it.name.contains('cheap hats')
+        }) >> { SavedSearch s -> s }
+    }
+
+    def "upsert rejects a name that sanitises down to empty"() {
+        when:
+        // A name that is nothing but a tag collapses to '' post-sanitize.
+        service.upsert(10L, [name: '<br/>'])
+
+        then:
+        thrown(BadRequestException)
+        0 * repository.save(_)
+    }
+
+    def "upsert caps an over-long q at the 80-char column width"() {
+        given:
+        repository.findByUserAndName(10L, 'long') >> null
+        repository.countByUser(10L) >> 0L
+
+        when:
+        service.upsert(10L, [name: 'long', q: 'x' * 500])
+
+        then:
+        1 * repository.save({ it.q.length() == 80 }) >> { SavedSearch s -> s }
+    }
+
+    def "upsert overwrite path also sanitises q on an existing row"() {
+        given:
+        def existing = new SavedSearch(id: 7L, userId: 10L, name: 'reuse',
+            category: 'All', rarity: 'All', q: 'old')
+        repository.findByUserAndName(10L, 'reuse') >> existing
+
+        when:
+        service.upsert(10L, [name: 'reuse', q: '<i>new</i>'])
+
+        then:
+        1 * repository.save({ it.id == 7L && it.q == 'new' }) >> { SavedSearch s -> s }
     }
 
     def "upsert canonicalises lowercase category / rarity to the stored case (batch 660)"() {

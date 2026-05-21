@@ -61,6 +61,15 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     @Query("SELECT o FROM Offer o WHERE o.listingId = :lid ORDER BY o.createdAt DESC")
     List<Offer> findByListingId(@Param("lid") Long listingId)
 
+    /** Direct children of a given offer in a counter thread — every Offer
+     *  whose `parentOfferId` points at `:pid`. Drives the COUNTERED-parent
+     *  cleanup: when a buyer withdraws a COUNTERED original, the service
+     *  needs to find the still-live SELLER counter hanging off it and
+     *  close that too, so a walked-away negotiation leaves no acceptable
+     *  PENDING row behind. Newest-first for deterministic iteration. */
+    @Query("SELECT o FROM Offer o WHERE o.parentOfferId = :pid ORDER BY o.createdAt DESC")
+    List<Offer> findByParentOfferId(@Param("pid") Long parentOfferId)
+
     @Query("SELECT COUNT(o) FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING'")
     long countPendingByBuyer(@Param("uid") Long buyerUserId)
 

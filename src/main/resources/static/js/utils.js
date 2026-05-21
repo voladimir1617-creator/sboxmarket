@@ -151,20 +151,26 @@ export function highlightMatch(text, query) {
   if (!text || !query) return text || '';
   const q = String(query).trim();
   if (q.length === 0) return text;
-  const lower = String(text).toLowerCase();
+  // Coerce `text` to a string for ALL operations below. Callers
+  // occasionally pass a non-string (a number from a search result row,
+  // a React-stringifiable value); without this the `.slice` calls
+  // further down throw "text.slice is not a function" and crash the
+  // list render. `String(...)` is a no-op when `text` is already a string.
+  const str = String(text);
+  const lower = str.toLowerCase();
   const qLower = q.toLowerCase();
   const parts = [];
   let cursor = 0;
   let idx;
   while ((idx = lower.indexOf(qLower, cursor)) !== -1) {
-    if (idx > cursor) parts.push(text.slice(cursor, idx));
+    if (idx > cursor) parts.push(str.slice(cursor, idx));
     parts.push(h('mark', {
       key: 'm-' + idx,
       style: { background: 'rgba(30,165,255,0.35)', color: 'inherit', padding: '0 1px', borderRadius: 2 }
-    }, text.slice(idx, idx + q.length)));
+    }, str.slice(idx, idx + q.length)));
     cursor = idx + q.length;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (cursor < str.length) parts.push(str.slice(cursor));
   return parts.length === 1 ? parts[0] : parts;
 }
 

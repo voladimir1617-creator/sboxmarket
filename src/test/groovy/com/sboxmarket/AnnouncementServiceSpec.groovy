@@ -127,6 +127,50 @@ class AnnouncementServiceSpec extends Specification {
         row.message.length() == 500
     }
 
+    def "create defaults a null severity to INFO"() {
+        given:
+        announcementRepository.save(_) >> { Announcement a -> a }
+
+        expect:
+        service.create(10L, 'Message body', null, null).severity == 'INFO'
+    }
+
+    def "create stamps the posting admin's id onto createdByUserId"() {
+        given:
+        announcementRepository.save(_) >> { Announcement a -> a.id = 1L; a }
+
+        when:
+        def row = service.create(42L, 'Maintenance window tonight', 'WARN', null)
+
+        then:
+        row.createdByUserId == 42L
+    }
+
+    def "create still persists when no AuditService bean is wired (audit is optional)"() {
+        given: 'audit service absent — @Autowired(required = false)'
+        def svc = new AnnouncementService(
+            announcementRepository: announcementRepository,
+            textSanitizer: textSanitizer,
+            auditService: null
+        )
+        announcementRepository.save(_) >> { Announcement a -> a.id = 3L; a }
+
+        when:
+        def row = svc.create(10L, 'No audit bean here', 'INFO', null)
+
+        then: 'the null-safe ?. on auditService means the create still succeeds'
+        row.id == 3L
+        noExceptionThrown()
+    }
+
+    def "create persists a new banner as active=true so it shows immediately"() {
+        given:
+        announcementRepository.save(_) >> { Announcement a -> a }
+
+        expect:
+        service.create(10L, 'Brand new banner', 'INFO', null).active == true
+    }
+
     def "create propagates expiresAt onto the row"() {
         given:
         announcementRepository.save(_) >> { Announcement a -> a }
@@ -164,6 +208,58 @@ class AnnouncementServiceSpec extends Specification {
 
         then:
         thrown(NotFoundException)
+    }
+
+    def "deactivate is idempotent — re-deactivating an already-inactive row stays false"() {
+        given:
+        def alreadyOff = new Announcement(id: 7L, active: false)
+        announcementRepository.findById(7L) >> Optional.of(alreadyOff)
+        announcementRepository.save(_) >> { Announcement a -> a }
+
+        when:
+        def row = service.deactivate(10L, 7L)
+
+        then:
+        row.active == false
+        1 * auditService.log('ANNOUNCEMENT_DEACTIVATED', 10L, null, 7L, null)
+    }
+
+    // ── sanitization with a real TextSanitizer (defence in depth) ────
+
+    def "create strips an HTML/script payload from the message before persisting"() {
+        given: 'a real sanitizer — not the trim-only mock — so XSS stripping is exercised'
+        def realService = new AnnouncementService(
+            announcementRepository: announcementRepository,
+            textSanitizer: new TextSanitizer(),
+            auditService: auditService
+        )
+        announcementRepository.save(_) >> { Announcement a -> a.id = 1L; a }
+
+        when:
+        def row = realService.create(10L,
+            '<script>alert(1)</script>Site maintenance at 2am', 'INFO', null)
+
+        then: 'no tag survives — the banner text is plain and safe to render'
+        !row.message.contains('<script>')
+        !row.message.contains('</script>')
+        row.message.contains('Site maintenance at 2am')
+    }
+
+    def "create rejects a message that is ONLY an HTML tag — nothing left after sanitizing"() {
+        given: 'a tag-only payload sanitizes down to empty, tripping the 3-char floor'
+        def realService = new AnnouncementService(
+            announcementRepository: announcementRepository,
+            textSanitizer: new TextSanitizer(),
+            auditService: auditService
+        )
+
+        when:
+        realService.create(10L, '<img src=x onerror=alert(1)>', 'INFO', null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_MESSAGE'
+        0 * announcementRepository.save(_)
     }
 
     // ── sweepExpired (batch 582) ────────────────────────────────────
@@ -214,5 +310,29 @@ class AnnouncementServiceSpec extends Specification {
         then:
         // Second row still flipped — per-row isolation holds.
         row2.active == false
+    }
+
+    def "sweepExpired swallows a failure of the expired-rows query itself"() {
+        given:
+        announcementRepository.findExpiredButActive(_) >> { throw new RuntimeException('db down') }
+
+        when:
+        service.sweepExpired()
+
+        then: 'the scheduled job degrades quietly — no save, no rethrow'
+        noExceptionThrown()
+        0 * announcementRepository.save(_)
+    }
+
+    def "sweepExpired treats a null query result as nothing-to-do"() {
+        given:
+        announcementRepository.findExpiredButActive(_) >> null
+
+        when:
+        service.sweepExpired()
+
+        then:
+        noExceptionThrown()
+        0 * announcementRepository.save(_)
     }
 }

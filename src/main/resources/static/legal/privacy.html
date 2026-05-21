@@ -41,7 +41,7 @@
       <li><strong>From you directly:</strong> an email address (for receipts, verification codes, and password-reset-style flows), an optional display name, and any messages you send through support or to other users.</li>
       <li><strong>From Stripe:</strong> the payment outcome (success / pending / failed), the last four digits of the card, the card brand, and the country of issue. We never see or store full card numbers. Stripe handles all card data under PCI-DSS Level 1.</li>
       <li><strong>From your browser automatically:</strong> IP address, user agent string, approximate geolocation derived from IP, the pages you visited on SkinBox, and the referrer URL that brought you here. These are logged for 30 days and used only for abuse detection, rate limiting, and debugging.</li>
-      <li><strong>Cookies:</strong> a session cookie after login, a CSRF token cookie, a currency preference cookie, and a theme preference cookie. No third-party ad cookies. No Google Analytics.</li>
+      <li><strong>Cookies:</strong> a session cookie after login and a CSRF token cookie — both strictly necessary. Display preferences (currency, reduced motion, high contrast) are kept in your browser's local storage, not in cookies and not on our servers. No third-party ad cookies. No Google Analytics.</li>
     </ul>
 
     <h2>2. What we do with it</h2>
@@ -95,11 +95,13 @@
 
     <h2>7. Security</h2>
     <p>
-      We encrypt data in transit (TLS 1.3) and at rest. Passwords — where we use them —
-      are hashed with bcrypt. Secrets are stored in environment variables, not in the
-      codebase. We rate-limit sensitive endpoints, set strict CSP headers, and run
-      automated dependency scans. <strong>No system is unhackable.</strong> If a breach
-      ever occurs we will notify affected users within 72 hours of discovering it.
+      We encrypt data in transit (TLS 1.3) and at rest. SkinBox has no password of its
+      own — sign-in is handled entirely by Steam OpenID, so we never see or store a
+      password. API keys are stored only as a one-way hash. Secrets are stored in
+      environment variables, not in the codebase. We rate-limit sensitive endpoints,
+      set strict CSP headers, and run automated dependency scans.
+      <strong>No system is unhackable.</strong> If a breach ever occurs we will notify
+      affected users within 72 hours of discovering it.
     </p>
 
     <h2>8. Children</h2>

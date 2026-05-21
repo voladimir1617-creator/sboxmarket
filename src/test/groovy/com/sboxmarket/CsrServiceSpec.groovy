@@ -16,6 +16,7 @@ import com.sboxmarket.repository.SupportMessageRepository
 import com.sboxmarket.repository.SupportTicketRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
+import com.sboxmarket.service.AuditService
 import com.sboxmarket.service.CsrService
 import com.sboxmarket.service.NotificationService
 import com.sboxmarket.service.TextSanitizer
@@ -38,6 +39,7 @@ class CsrServiceSpec extends Specification {
     SupportMessageRepository  supportMessageRepository  = Mock()
     NotificationService       notificationService       = Mock()
     TextSanitizer             textSanitizer             = Mock()
+    AuditService              auditService              = Mock()
 
     @Subject
     CsrService service = new CsrService(
@@ -50,6 +52,7 @@ class CsrServiceSpec extends Specification {
         supportMessageRepository : supportMessageRepository,
         notificationService      : notificationService,
         textSanitizer            : textSanitizer,
+        auditService             : auditService,
         creditCapStr             : '25.00'
     )
 
@@ -116,6 +119,39 @@ class CsrServiceSpec extends Specification {
         1 * notificationService.push(10L, 'SUPPORT_REPLY', _, _, _, _)
     }
 
+    def "reply writes a TICKET_REPLIED audit row (actor=CSR, subject=ticket owner)"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_STAFF', subject: 'help')
+        supportTicketRepository.findById(1L) >> Optional.of(ticket)
+        supportTicketRepository.save(_) >> { args -> args[0] }
+        supportMessageRepository.save(_) >> { args -> def m = args[0]; m.id = 1L; m }
+
+        when:
+        service.reply(5L, 1L, 'here is the answer')
+
+        then:
+        1 * auditService.log('TICKET_REPLIED', 5L, 10L, 1L, _ as String)
+    }
+
+    def "reply still saves even if the audit write throws"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_STAFF', subject: 'help')
+        supportTicketRepository.findById(1L) >> Optional.of(ticket)
+        supportTicketRepository.save(_) >> { args -> args[0] }
+        supportMessageRepository.save(_) >> { args -> def m = args[0]; m.id = 1L; m }
+        auditService.log(*_) >> { throw new RuntimeException("audit db down") }
+
+        when:
+        def msg = service.reply(5L, 1L, 'here is the answer')
+
+        then:
+        noExceptionThrown()
+        msg.author == 'STAFF'
+        ticket.status == 'WAITING_USER'
+    }
+
     def "reply refuses empty body"() {
         given:
         def csrSanitizer = Mock(TextSanitizer) {
@@ -146,7 +182,7 @@ class CsrServiceSpec extends Specification {
 
     // ── close ─────────────────────────────────────────────────────
 
-    def "close flips ticket to RESOLVED"() {
+    def "close flips ticket to RESOLVED and writes a TICKET_CLOSED audit row"() {
         given:
         def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_STAFF')
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
@@ -158,6 +194,26 @@ class CsrServiceSpec extends Specification {
 
         then:
         result.status == 'RESOLVED'
+        1 * auditService.log('TICKET_CLOSED', 5L, 10L, 1L, _ as String)
+    }
+
+    def "close rejects an already-RESOLVED ticket (no silent re-resolve)"() {
+        given:
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED', updatedAt: 1000L)
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        supportTicketRepository.findById(1L) >> Optional.of(ticket)
+
+        when:
+        service.close(5L, 1L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'ALREADY_RESOLVED'
+
+        and: 'the row is neither re-saved nor re-audited'
+        ticket.updatedAt == 1000L
+        0 * supportTicketRepository.save(_)
+        0 * auditService.log(*_)
     }
 
     // ── issueGoodwillCredit ───────────────────────────────────────

@@ -325,6 +325,15 @@ class OfferService {
         }
         def listing = listingRepository.findById(original.listingId)
                 .orElseThrow { new NotFoundException("Listing", original.listingId) }
+        // A raise on a listing that's no longer ACTIVE (sold, cancelled,
+        // or hidden since the offer landed) would close the buyer's
+        // existing PENDING row and open a fresh PENDING offer that can
+        // never be accepted — stranding the buyer worse off than before
+        // the raise. Reject up-front so the buyer keeps their original
+        // offer intact. Mirrors the makeOffer ACTIVE/hidden gate.
+        if (listing.status != 'ACTIVE' || Boolean.TRUE.equals(listing.hidden)) {
+            throw new ListingNotAvailableException(original.listingId)
+        }
         if (amount >= listing.price) {
             throw new BadRequestException("RAISE_AT_OR_ABOVE_ASK",
                 "At or above the ask, buy instead of offer (ask \$${listing.price})")
@@ -341,6 +350,15 @@ class OfferService {
         original.status = 'CANCELLED'
         original.updatedAt = System.currentTimeMillis()
         offerRepository.save(original)
+        // P1 bug fix — a buyer can raise directly on a SELLER counter
+        // (the counter carries buyerUserId = the buyer and status
+        // PENDING, so it passes the ownership + PENDING checks above).
+        // That cancels the counter and opens a fresh PENDING offer, but
+        // the buyer's grandparent original is still parked in COUNTERED.
+        // Close it so the negotiation thread leaves exactly one live row
+        // (the new raise) instead of a dead COUNTERED node the dup-guard
+        // would still count.
+        closeCounteredParent(original)
 
         def raised = new Offer(
             listingId    : original.listingId,
@@ -426,6 +444,15 @@ class OfferService {
         }
         def listing = listingRepository.findById(original.listingId)
                 .orElseThrow { new NotFoundException("Listing", original.listingId) }
+        // Reject counters on a listing that's no longer ACTIVE (sold via
+        // direct Buy Now, cancelled, or hidden since the offer landed).
+        // Without this the counter is saved PENDING, the buyer is invited
+        // to accept it, and acceptOffer then dead-ends on the same guard
+        // — a wasted round-trip that clogs the buyer's outgoing queue.
+        // Mirrors the makeOffer ACTIVE/hidden gate.
+        if (listing.status != 'ACTIVE' || Boolean.TRUE.equals(listing.hidden)) {
+            throw new ListingNotAvailableException(original.listingId)
+        }
         if (amount > listing.price) {
             throw new BadRequestException("COUNTER_TOO_HIGH",
                 "Counter must not exceed the asking price (\$${listing.price})")
@@ -561,9 +588,18 @@ class OfferService {
         // Authorisation: seller-authored counters are accepted by the
         // buyer; buyer-authored offers are accepted by the seller. Any
         // other caller is forbidden.
+        //
+        // The `author` discriminator is load-bearing here. A SELLER
+        // counter carries `sellerUserId` = the seller, so an unguarded
+        // `offer.sellerUserId == callerUserId` would let the seller
+        // accept their OWN counter — unilaterally completing a purchase
+        // and debiting the buyer's wallet for a price the buyer never
+        // agreed to. Restrict the seller path to USER-authored offers so
+        // a seller can only ever accept what a buyer actually offered.
         boolean buyerAcceptingCounter =
                 offer.author == 'SELLER' && offer.buyerUserId == callerUserId
         boolean sellerAcceptingOffer =
+                offer.author == 'USER' &&
                 offer.sellerUserId != null && offer.sellerUserId == callerUserId
         if (!buyerAcceptingCounter && !sellerAcceptingOffer) {
             throw new ForbiddenException("You can only accept offers on your own listings")
@@ -600,7 +636,6 @@ class OfferService {
             // accepting — they need to know to top up + re-offer.
             if (notificationService != null) {
                 try {
-                    def itemId = offer.itemName != null ? null : null
                     notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
                         "Offer couldn't close · ${offer.itemName ?: 'listing'}",
                         "Your \$${offer.amount.toPlainString()} offer was accepted but your wallet balance dropped below that amount. Top up and make a new offer.",
@@ -744,6 +779,11 @@ class OfferService {
         offer.updatedAt = System.currentTimeMillis()
         if (cleanReply) offer.sellerReply = cleanReply
         def saved = offerRepository.save(offer)
+        // P1 bug fix — if this is a SELLER counter being rejected, the
+        // buyer's original is parked in COUNTERED with no exit. Close it
+        // so the makeOffer duplicate guard stops treating a dead
+        // negotiation as a live offer and locking the buyer out.
+        closeCounteredParent(offer)
         // Notify the buyer that the seller turned them down. Without
         // this the buyer just saw their offer flip to REJECTED in the
         // Offers tab with no signal — easy to miss entirely. When the
@@ -789,12 +829,41 @@ class OfferService {
         if (offer.buyerUserId != buyerUserId) {
             throw new ForbiddenException("You can only cancel your own offers")
         }
-        if (offer.status != 'PENDING') {
+        // P2 bug fix — COUNTERED is also withdrawable. The old PENDING-only
+        // guard meant a buyer whose offer the seller had countered could
+        // not walk away from the negotiation at all: their original is
+        // parked in COUNTERED, and without an exit here it stayed live to
+        // the makeOffer duplicate guard forever. Both PENDING (offer not
+        // yet answered) and COUNTERED (seller answered, buyer declining
+        // the reply) are legitimate buyer-withdraw states.
+        if (offer.status != 'PENDING' && offer.status != 'COUNTERED') {
             throw new OfferNotPendingException(offerId, offer.status)
         }
+        boolean wasCountered = offer.status == 'COUNTERED'
         offer.status = 'CANCELLED'
         offer.updatedAt = System.currentTimeMillis()
         def saved = offerRepository.save(offer)
+        // If the buyer is withdrawing a COUNTERED original, the seller's
+        // live PENDING counter hanging off it must die too — otherwise the
+        // buyer has walked away but the counter is still acceptable, and
+        // the buyer's COUNTERED→CANCELLED original no longer guards
+        // against a duplicate. Expire (not cancel) the counter: from the
+        // seller's side it's an offer that lapsed, consistent with how
+        // the sweeper closes seller-side rows.
+        if (wasCountered) {
+            def now = System.currentTimeMillis()
+            offerRepository.findByParentOfferId(offer.id).each { child ->
+                if (child.status == 'PENDING' && child.author == 'SELLER') {
+                    child.status = 'EXPIRED'
+                    child.updatedAt = now
+                    offerRepository.save(child)
+                }
+            }
+        }
+        // If the buyer is withdrawing a SELLER counter (a walk-away from
+        // the seller's reply), the buyer's original is parked in COUNTERED
+        // upstream — close it so the duplicate guard frees up.
+        closeCounteredParent(offer)
         // Notify the seller so they stop seeing the row in their incoming
         // queue / pending-count chip. Only matters for USER-authored rows
         // (a SELLER counter being cancelled by the buyer is really a
@@ -1041,6 +1110,40 @@ class OfferService {
         ]
     }
 
+    /**
+     * Counter-thread cleanup (P1 bug fix). When a SELLER-authored counter
+     * reaches a terminal state — rejected, cancelled (buyer walk-away),
+     * swept stale, or superseded by a buyer raise — the buyer's original
+     * offer is still sitting in COUNTERED with NO exit transition. Nothing
+     * else ever mutates a COUNTERED row, so `findLiveByBuyerAndListing`
+     * (which matches PENDING *or* COUNTERED) keeps reporting a live offer
+     * forever and `makeOffer`'s duplicate guard locks the buyer out of
+     * ever offering on that listing again. `findStalePending` only matches
+     * PENDING, so the sweeper can't rescue it either.
+     *
+     * Given the now-dead child counter, walk up via `parentOfferId` and,
+     * if the parent is still COUNTERED, flip it to the terminal CLOSED
+     * state. CLOSED is inert across every repository query (no query
+     * treats it as live) so the dup-guard frees up and the buyer can make
+     * a fresh offer. Idempotent — a parent already CLOSED / ACCEPTED /
+     * etc. is left untouched, so calling this twice is harmless.
+     *
+     * No-op when the child has no parent (a root offer) or the parent row
+     * has vanished. Runs in the caller's transaction: if the parent save
+     * fails the whole counter-termination rolls back rather than leaving
+     * a half-cleaned thread.
+     */
+    private void closeCounteredParent(Offer childOffer) {
+        if (childOffer == null || childOffer.parentOfferId == null) return
+        def parent = offerRepository.findById(childOffer.parentOfferId).orElse(null)
+        if (parent == null) return
+        if (parent.status != 'COUNTERED') return
+        parent.status = 'CLOSED'
+        parent.updatedAt = System.currentTimeMillis()
+        offerRepository.save(parent)
+        log.info("Offer ${parent.id} (COUNTERED) closed — its counter ${childOffer.id} reached terminal state ${childOffer.status}")
+    }
+
     long countPendingIncoming(Long sellerUserId) {
         offerRepository.countPendingBySeller(sellerUserId)
     }
@@ -1173,6 +1276,11 @@ class OfferService {
                 offer.status = 'EXPIRED'
                 offer.updatedAt = System.currentTimeMillis()
                 offerRepository.save(offer)
+                // P1 bug fix — if the swept row is a SELLER counter, its
+                // parent is stuck in COUNTERED. Close it in the same pass
+                // so the buyer isn't permanently blocked by the dup-guard
+                // once a counter negotiation simply times out unanswered.
+                closeCounteredParent(offer)
                 def itemName = listingsById[offer.listingId]?.item?.name ?: 'this item'
                 def itemId = listingsById[offer.listingId]?.item?.id
                 notificationService?.push(

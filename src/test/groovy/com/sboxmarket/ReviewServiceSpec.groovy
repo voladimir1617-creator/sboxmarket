@@ -408,6 +408,121 @@ class ReviewServiceSpec extends Specification {
         0 * reviewRepository.delete(_)
     }
 
+    // ── replyToReview ───────────────────────────────────────────────
+
+    def "replyToReview saves a fresh reply, stamps the time, and pings the buyer"() {
+        given:
+        def review = new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 4)
+        reviewRepository.findById(7L) >> Optional.of(review)
+        textSanitizer.clean('thanks for the trade!', 300) >> 'thanks for the trade!'
+        reviewRepository.save(_) >> { Review r -> r }
+
+        when:
+        def saved = service.replyToReview(20L, 7L, 'thanks for the trade!')
+
+        then:
+        1 * banGuard.assertNotBanned(20L)
+        1 * notificationService.push(10L, 'REVIEW_REPLIED', _, _, 7L, '/profile?tab=reviews')
+        saved.sellerReply == 'thanks for the trade!'
+        saved.sellerReplyAt != null
+    }
+
+    def "replyToReview 403s when the caller is not the seller"() {
+        given:
+        def review = new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 4)
+        reviewRepository.findById(7L) >> Optional.of(review)
+
+        when:
+        // The buyer (id 10) tries to reply to their own review.
+        service.replyToReview(10L, 7L, 'sneaky')
+
+        then:
+        thrown(ForbiddenException)
+        0 * reviewRepository.save(_)
+    }
+
+    def "replyToReview 404s on a missing review id"() {
+        given:
+        reviewRepository.findById(7L) >> Optional.empty()
+
+        when:
+        service.replyToReview(20L, 7L, 'hello')
+
+        then:
+        thrown(NotFoundException)
+        0 * reviewRepository.save(_)
+    }
+
+    def "replyToReview clears an existing reply when passed a blank body"() {
+        given:
+        def review = new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 4, sellerReply: 'old reply', sellerReplyAt: 123L)
+        reviewRepository.findById(7L) >> Optional.of(review)
+        textSanitizer.clean('', 300) >> ''
+        Review saved = null
+        reviewRepository.save(_) >> { Review r -> saved = r; r }
+
+        when:
+        service.replyToReview(20L, 7L, '')
+
+        then:
+        saved.sellerReply == null
+        saved.sellerReplyAt == null
+        // Clearing is not a "reply" — no buyer ping.
+        0 * notificationService.push(*_)
+    }
+
+    def "replyToReview does NOT re-stamp or re-ping on a no-op re-save of identical text"() {
+        given:
+        // Seller re-saves the exact same reply (e.g. opened the editor,
+        // hit save without changing anything). Must not bump the time or
+        // spam the buyer with a fresh REVIEW_REPLIED.
+        def review = new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 4, sellerReply: 'cheers', sellerReplyAt: 999L)
+        reviewRepository.findById(7L) >> Optional.of(review)
+        textSanitizer.clean('cheers', 300) >> 'cheers'
+        Review saved = null
+        reviewRepository.save(_) >> { Review r -> saved = r; r }
+
+        when:
+        service.replyToReview(20L, 7L, 'cheers')
+
+        then:
+        // Original timestamp preserved — an identical re-save mustn't lie.
+        saved.sellerReplyAt == 999L
+        0 * notificationService.push(*_)
+    }
+
+    def "replyToReview re-stamps and re-pings when the seller genuinely edits the reply"() {
+        given:
+        def review = new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 4, sellerReply: 'cheers', sellerReplyAt: 999L)
+        reviewRepository.findById(7L) >> Optional.of(review)
+        textSanitizer.clean('cheers, reached out via DM', 300) >> 'cheers, reached out via DM'
+        Review saved = null
+        reviewRepository.save(_) >> { Review r -> saved = r; r }
+
+        when:
+        service.replyToReview(20L, 7L, 'cheers, reached out via DM')
+
+        then:
+        saved.sellerReply == 'cheers, reached out via DM'
+        saved.sellerReplyAt != 999L
+        1 * notificationService.push(10L, 'REVIEW_REPLIED', _, _, 7L, '/profile?tab=reviews')
+    }
+
+    def "replyToReview refuses when the banGuard trips"() {
+        given:
+        banGuard.assertNotBanned(20L) >> { throw new ForbiddenException("banned") }
+
+        when:
+        service.replyToReview(20L, 7L, 'x')
+
+        then:
+        thrown(ForbiddenException)
+        0 * reviewRepository.save(_)
+    }
+
     // ── Helpful votes ───────────────────────────────────────────────
 
     def "toggleHelpful inserts a row and returns the new count when the user hasn't voted"() {
@@ -474,6 +589,78 @@ class ReviewServiceSpec extends Specification {
 
         then:
         thrown(NotFoundException)
+        0 * helpfulRepo.save(_)
+    }
+
+    def "toggleHelpful treats a UNIQUE-constraint race as a graceful no-op, not a 500"() {
+        // BUG 2 regression: exists() + save() is a non-atomic read-modify-
+        // write. A rapid double-tap has both concurrent requests see
+        // exists=false; the first INSERT wins, the second trips the
+        // uq_review_helpful_votes_review_user UNIQUE constraint. That used
+        // to bubble a DataIntegrityViolationException → HTTP 500. It must
+        // now be swallowed and return a normal "already voted" response.
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 10L, toUserId: 20L, rating: 5))
+        // This request lost the race: exists() still read false (the other
+        // request hadn't committed yet) but the INSERT collides.
+        helpfulRepo.existsByReviewAndUser(100L, 99L) >> false
+        helpfulRepo.countByReview(100L) >> 7L
+
+        when:
+        def state = service.toggleHelpful(99L, 100L)
+
+        then:
+        // save() is attempted exactly once and throws the constraint violation.
+        1 * helpfulRepo.save({ it.reviewId == 100L && it.userId == 99L }) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException('duplicate key')
+        }
+        // The collision must NOT escape as an exception.
+        noExceptionThrown()
+        // Response matches the normal toggleHelpful shape — the row the
+        // winning request inserted is already there, so the viewer is voted.
+        state.viewerHasVoted == true
+        state.helpfulCount == 7L
+        // No unvote was attempted on the losing branch.
+        0 * helpfulRepo.deleteByReviewAndUser(_, _)
+    }
+
+    def "toggleHelpful re-reads the helpful count after a swallowed constraint race"() {
+        // The post-catch response must reflect the count INCLUDING the
+        // row the winning request committed — so we re-query countByReview
+        // rather than returning a stale number.
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 10L, toUserId: 20L, rating: 5))
+        helpfulRepo.existsByReviewAndUser(100L, 99L) >> false
+        helpfulRepo.save(_) >> { throw new org.springframework.dao.DataIntegrityViolationException('dup') }
+
+        when:
+        def state = service.toggleHelpful(99L, 100L)
+
+        then:
+        // countByReview is consulted on the catch path to build the response.
+        1 * helpfulRepo.countByReview(100L) >> 3L
+        state.helpfulCount == 3L
+        state.viewerHasVoted == true
+    }
+
+    def "toggleHelpful still bubbles a self-vote rejection before any race window"() {
+        // Sanity: the constraint-race catch must not mask the SELF_VOTE
+        // guard — a self-vote is rejected up front and save() is never
+        // reached, so there's no DataIntegrityViolationException to catch.
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 99L, toUserId: 20L, rating: 5))
+
+        when:
+        service.toggleHelpful(99L, 100L)
+
+        then:
+        thrown(BadRequestException)
         0 * helpfulRepo.save(_)
     }
 

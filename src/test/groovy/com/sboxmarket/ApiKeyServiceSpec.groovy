@@ -1,7 +1,6 @@
 package com.sboxmarket
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.ApiKey
 import com.sboxmarket.repository.ApiKeyRepository
@@ -154,8 +153,9 @@ class ApiKeyServiceSpec extends Specification {
         result.revoked == true
     }
 
-    def "revoke forbids non-owner"() {
+    def "revoke 404s for a non-owner (NOT 403) so key ids can't be enumerated"() {
         given:
+        // Key 7 exists but belongs to user 10. User 99 tries to revoke it.
         def key = new ApiKey(id: 7L, userId: 10L, revoked: false)
         apiKeyRepository.findById(_) >> Optional.of(key)
 
@@ -163,7 +163,14 @@ class ApiKeyServiceSpec extends Specification {
         service.revoke(99L, 7L)
 
         then:
-        thrown(ForbiddenException)
+        // Must be a 404 — identical to the missing-id case — so an
+        // attacker iterating DELETE /api/api-keys/{id} cannot tell
+        // "exists but not yours" apart from "doesn't exist".
+        thrown(NotFoundException)
+        // The other user's key must NOT be revoked as a side-effect.
+        key.revoked == false
+        // No write may happen for a non-owner.
+        0 * apiKeyRepository.save(_)
     }
 
     def "revoke 404s for unknown key id"() {
@@ -175,6 +182,104 @@ class ApiKeyServiceSpec extends Specification {
 
         then:
         thrown(NotFoundException)
+    }
+
+    def "revoke audit-logs against the revoking owner, never the victim"() {
+        given:
+        def audit = Mock(com.sboxmarket.service.AuditService)
+        def svc = new ApiKeyService(
+            apiKeyRepository: apiKeyRepository,
+            textSanitizer:    textSanitizer,
+            auditService:     audit)
+        def key = new ApiKey(id: 7L, userId: 10L, revoked: false, publicPrefix: 'sbx_live_abc')
+        apiKeyRepository.findById(7L) >> Optional.of(key)
+        apiKeyRepository.save(_) >> { args -> args[0] }
+
+        when:
+        svc.revoke(10L, 7L)
+
+        then:
+        // actorId + subjectId are the owner (10), not some other user.
+        1 * audit.log(_, 10L, 10L, 7L, _)
+    }
+
+    // ── token storage / hashing invariant ─────────────────────────
+
+    def "the stored hash is the SHA-256 of the raw token (lookup uses the same hash)"() {
+        given:
+        ApiKey minted
+        apiKeyRepository.save(_) >> { args -> minted = args[0]; args[0] }
+
+        when:
+        def result = service.create(10L, 'bot')
+        // Independently re-hash the raw token the way authenticate() does.
+        def md = java.security.MessageDigest.getInstance('SHA-256')
+        def expected = md.digest(result.token.getBytes('UTF-8')).encodeHex().toString()
+
+        then:
+        // What we persisted equals SHA-256(raw): proves storage is a
+        // hash (not plaintext) AND that authenticate() can find it.
+        minted.tokenHash == expected
+        // The raw token itself is never the stored value.
+        minted.tokenHash != result.token
+        // Hash is irreversible-width and case-stable lowercase hex.
+        minted.tokenHash ==~ /[0-9a-f]{64}/
+    }
+
+    def "raw token is 9-char prefix + 64 hex chars (256 bits of entropy)"() {
+        given:
+        apiKeyRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.create(10L, 'bot')
+
+        then:
+        result.token.startsWith('sbx_live_')
+        // 32 random bytes -> 64 hex chars after the 'sbx_live_' prefix.
+        result.token.length() == 'sbx_live_'.length() + 64
+        result.token.substring('sbx_live_'.length()) ==~ /[0-9a-f]{64}/
+    }
+
+    def "publicPrefix is a safe 14-char fragment that never reveals the secret body"() {
+        given:
+        apiKeyRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.create(10L, 'bot')
+
+        then:
+        result.key.publicPrefix.length() == 14
+        result.key.publicPrefix == result.token.substring(0, 14)
+        // The prefix is only 5 hex chars of the 64-char secret body —
+        // far too little to brute-force the remaining 236 bits.
+        !result.key.tokenHash.contains(result.key.publicPrefix.substring(9))
+    }
+
+    def "authenticate stamps lastUsedAt and persists it"() {
+        given:
+        def before = System.currentTimeMillis()
+        def key = new ApiKey(userId: 10L, revoked: false, tokenHash: 't', lastUsedAt: null)
+        apiKeyRepository.findByTokenHash(_) >> key
+
+        when:
+        def uid = service.authenticate('sbx_live_whatever')
+
+        then:
+        uid == 10L
+        key.lastUsedAt != null
+        key.lastUsedAt >= before
+        1 * apiKeyRepository.save(key)
+    }
+
+    def "authenticate is case-sensitive on the prefix (SBX_LIVE_ is rejected)"() {
+        when:
+        def uid = service.authenticate('SBX_LIVE_deadbeef')
+
+        then:
+        // Prefix check must be exact — an attacker can't slip past the
+        // fast-reject with a case variant.
+        uid == null
+        0 * apiKeyRepository.findByTokenHash(_)
     }
 
     // ── label handling ────────────────────────────────────────────

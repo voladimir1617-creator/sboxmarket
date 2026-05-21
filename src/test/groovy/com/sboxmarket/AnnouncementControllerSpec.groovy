@@ -166,6 +166,46 @@ class AnnouncementControllerSpec extends Specification {
         1 * announcementService.create(100L, 'Welcome back', 'INFO', null) >> new Announcement()
     }
 
+    def "create() throws UnauthorizedException for an anonymous caller — no banner is posted"() {
+        when:
+        controller.create([message: 'spam', severity: 'INFO'], req)
+
+        then:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        thrown(UnauthorizedException)
+        0 * adminAuthorization.requireAdmin(_)
+        0 * announcementService.create(_, _, _, _)
+    }
+
+    def "create() is blocked for a signed-in NON-admin user"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L) >> { throw new UnauthorizedException('not admin') }
+
+        when:
+        controller.create([message: 'I am not an admin', severity: 'INFO'], req)
+
+        then: 'the ADMIN gate fires before the service is ever touched'
+        thrown(UnauthorizedException)
+        0 * announcementService.create(_, _, _, _)
+    }
+
+    def "create() handles a missing body without an NPE — passes nulls through to the service"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L)
+
+        when: 'body is null — the ?. navigation must not throw'
+        controller.create(null, req)
+
+        then: 'the service is reached with null message/severity; it will 400 there'
+        1 * announcementService.create(100L, null, null, null) >> new Announcement()
+        noExceptionThrown()
+    }
+
     def "deactivate() passes the uid + banner id through after ADMIN check"() {
         given:
         def row = new Announcement(id: 5L, active: Boolean.FALSE)
@@ -179,5 +219,31 @@ class AnnouncementControllerSpec extends Specification {
         1 * adminAuthorization.requireAdmin(100L)
         1 * announcementService.deactivate(100L, 5L) >> row
         resp.body.is(row)
+    }
+
+    def "deactivate() throws UnauthorizedException for an anonymous caller"() {
+        when:
+        controller.deactivate(5L, req)
+
+        then:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        thrown(UnauthorizedException)
+        0 * adminAuthorization.requireAdmin(_)
+        0 * announcementService.deactivate(_, _)
+    }
+
+    def "deactivate() is blocked for a signed-in NON-admin user"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L) >> { throw new UnauthorizedException('not admin') }
+
+        when:
+        controller.deactivate(5L, req)
+
+        then: 'a non-admin cannot pull down a live banner'
+        thrown(UnauthorizedException)
+        0 * announcementService.deactivate(_, _)
     }
 }

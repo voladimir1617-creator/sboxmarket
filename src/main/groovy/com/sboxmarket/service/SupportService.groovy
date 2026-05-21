@@ -29,6 +29,44 @@ class SupportService {
     @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
 
+    /**
+     * Newline-preserving body sanitizer. {@link TextSanitizer#body} collapses
+     * EVERY whitespace run — including \n — into a single space, which flattens
+     * a multi-paragraph ticket body (and the carefully templated report-user
+     * body: Reporter / Target / Reason / Context) into one unreadable line for
+     * the CSR reading it. We still need the per-character XSS stripping that
+     * TextSanitizer does, so we run it line-by-line and rejoin with \n.
+     *
+     * Blank-line runs are clamped to a single blank line so a hostile body
+     * can't be 2000 lines of nothing, and the whole thing is capped at the
+     * same LIMIT_LONG (2000) the column allows.
+     */
+    private String sanitizeMultiline(String body) {
+        if (body == null) return null
+        // Normalise CRLF / lone CR so the split is consistent across clients.
+        def lines = body.replace('\r\n', '\n').replace('\r', '\n').split('\n', -1)
+        def cleaned = new StringBuilder()
+        int blankRun = 0
+        for (String line : lines) {
+            // Each line goes through the real sanitizer (HTML/JS/entity strip,
+            // intra-line whitespace collapse). An all-whitespace line yields ''.
+            def c = textSanitizer.body(line) ?: ''
+            if (c.isEmpty()) {
+                blankRun++
+                if (blankRun > 1) continue          // clamp blank-line runs
+            } else {
+                blankRun = 0
+            }
+            if (cleaned.length() > 0) cleaned.append('\n')
+            cleaned.append(c)
+        }
+        def result = cleaned.toString().trim()
+        if (result.length() > TextSanitizer.LIMIT_LONG) {
+            result = result.substring(0, TextSanitizer.LIMIT_LONG)
+        }
+        result
+    }
+
     /** Tiny FAQ-style auto-responder. Real staff can still reply later. */
     private static String autoReply(String category, String subject) {
         switch ((category ?: 'OTHER').toUpperCase()) {
@@ -71,7 +109,9 @@ class SupportService {
         // protocols, on* attributes, and HTML entities are stripped. The
         // stored values are guaranteed safe to render as plain text.
         def cleanSubject = textSanitizer.subject(subject)
-        def cleanBody    = textSanitizer.body(body)
+        // Newline-preserving — keeps paragraph breaks in long ticket bodies
+        // and the report-user template readable for the CSR (see method doc).
+        def cleanBody    = sanitizeMultiline(body)
         def cleanName    = textSanitizer.cleanShort(username)
         if (!cleanSubject || cleanSubject.isEmpty()) {
             throw new BadRequestException("INVALID_SUBJECT", "Subject is required")
@@ -147,7 +187,8 @@ class SupportService {
         if (ticket.status == 'RESOLVED') {
             throw new BadRequestException("RESOLVED", "Ticket is already resolved")
         }
-        def cleanBody = textSanitizer.body(body)
+        // Newline-preserving so a multi-paragraph follow-up keeps its shape.
+        def cleanBody = sanitizeMultiline(body)
         def cleanName = textSanitizer.cleanShort(username)
         if (!cleanBody || cleanBody.isEmpty()) {
             throw new BadRequestException("INVALID_BODY", "Message body is required")
@@ -238,6 +279,14 @@ class SupportService {
         def ticket = ticketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
         if (ticket.userId != userId) throw new ForbiddenException("Not your ticket")
+        // State-machine guard — mirror reply()/reopen(). Re-resolving an
+        // already-RESOLVED ticket was a silent no-op that still bumped
+        // updatedAt, re-sorting the user's ticket list for no reason. Now a
+        // double-resolve (stale tab, double-click) returns a clean 400
+        // instead of churning the row.
+        if (ticket.status == 'RESOLVED') {
+            throw new BadRequestException("ALREADY_RESOLVED", "Ticket is already resolved")
+        }
         ticket.status = 'RESOLVED'
         ticket.updatedAt = System.currentTimeMillis()
         ticketRepository.save(ticket)

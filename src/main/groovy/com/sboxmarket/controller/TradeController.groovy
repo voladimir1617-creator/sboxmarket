@@ -3,6 +3,7 @@ package com.sboxmarket.controller
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Trade
+import com.sboxmarket.service.TradeProtectionService
 import com.sboxmarket.service.TradeService
 import groovy.util.logging.Slf4j
 import jakarta.servlet.http.HttpServletRequest
@@ -21,6 +22,12 @@ import org.springframework.web.bind.annotation.*
 class TradeController {
 
     @Autowired TradeService tradeService
+
+    /** Optional — surfaces the Trade Protection (`protected` flag +
+     *  protection summary) on the single-trade payload. `required =
+     *  false` so older test contexts that construct TradeController
+     *  with only a TradeService still wire; `get()` null-guards it. */
+    @Autowired(required = false) TradeProtectionService tradeProtectionService
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -46,7 +53,7 @@ class TradeController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<Trade> get(@PathVariable Long id, HttpServletRequest req) {
+    ResponseEntity<Map> get(@PathVariable Long id, HttpServletRequest req) {
         def uid = requireUser(req)
         def t = tradeService.get(id)
         // Enforce participant visibility at the controller too so a plain
@@ -54,7 +61,40 @@ class TradeController {
         if (t.buyerUserId != uid && t.sellerUserId != uid) {
             throw new com.sboxmarket.exception.ForbiddenException("Not your trade")
         }
-        ResponseEntity.ok(t)
+        // The single-trade payload is the Trade entity's fields plus the
+        // Trade Protection surface: a `protected` boolean and, when the
+        // trade is protected, a compact `protection` summary (status,
+        // fee, coverage). Lets the trade UI render the "Protected" badge
+        // without a second round-trip. tradeProtectionService is optional
+        // (older wiring) — falls back to protected:false when absent.
+        def protection = tradeProtectionService?.summary(id)
+        ResponseEntity.ok(tradePayload(t, protection))
+    }
+
+    /** Trade entity fields + the Trade Protection surface, as a Map so
+     *  the `protected` flag can ride alongside the trade without a
+     *  schema change to the Trade entity. */
+    private static Map tradePayload(Trade t, Map protection) {
+        [
+            id:             t.id,
+            listingId:      t.listingId,
+            itemId:         t.itemId,
+            itemName:       t.itemName,
+            buyerUserId:    t.buyerUserId,
+            sellerUserId:   t.sellerUserId,
+            price:          t.price,
+            feeAmount:      t.feeAmount,
+            state:          t.state,
+            note:           t.note,
+            createdAt:      t.createdAt,
+            updatedAt:      t.updatedAt,
+            settledAt:      t.settledAt,
+            sentAt:         t.sentAt,
+            tradeOfferUrl:  t.tradeOfferUrl,
+            // Trade Protection surface.
+            protected:      protection != null,
+            protection:     protection
+        ]
     }
 
     @PostMapping("/{id}/accept")

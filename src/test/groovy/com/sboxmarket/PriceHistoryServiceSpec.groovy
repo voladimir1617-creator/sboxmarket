@@ -19,6 +19,11 @@ import java.text.SimpleDateFormat
  *   - No same-day row → insert new row.
  *   - Volume delta null / zero → no bump on update; new rows still
  *     get 0 (not null) to keep the column totals clean.
+ *   - dayLabel is YEAR-QUALIFIED ("MMM dd, yyyy") so same-day rows in
+ *     different years can never collide — neither the chart tooltip nor
+ *     the coalesce key.
+ *   - A negative volume delta never seeds a negative volume on a fresh
+ *     insert (it is clamped to 0, same as the update path).
  */
 class PriceHistoryServiceSpec extends Specification {
 
@@ -34,7 +39,7 @@ class PriceHistoryServiceSpec extends Specification {
     }
 
     private String today() {
-        new SimpleDateFormat('MMM dd').format(new Date())
+        new SimpleDateFormat('MMM dd, yyyy').format(new Date())
     }
 
     def "record is a no-op when item id is null"() {
@@ -144,5 +149,134 @@ class PriceHistoryServiceSpec extends Specification {
 
         where:
         delta << [null, 0, -1]   // negative is treated as no-op too (guard clause)
+    }
+
+    // ---- dayLabel is year-qualified (the P2 fix) ----------------------
+
+    def "new-row dayLabel includes the four-digit year"() {
+        given:
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.empty()
+        PriceHistory captured = null
+        priceHistoryRepository.save(_) >> { PriceHistory p -> captured = p; p }
+
+        when:
+        service.record(item(), new BigDecimal("4.00"), 1)
+
+        then:
+        // e.g. "Apr 01, 2026" — must carry the current calendar year so a
+        // >365-day series can't collide same-day labels across years.
+        captured.dayLabel ==~ /[A-Z][a-z]{2} \d{2}, \d{4}/
+        captured.dayLabel.endsWith(', ' + new SimpleDateFormat('yyyy').format(new Date()))
+    }
+
+    def "a same-day label from a PRIOR year does not coalesce - a new row is appended"() {
+        given:
+        // The most-recent row is this exact month/day but a year ago: a
+        // year-less "MMM dd" label would have matched today() and the new
+        // price would overwrite the year-old data point in place. With the
+        // year in the key the labels differ, so a fresh row is appended and
+        // the stale row is left untouched.
+        def lastYearLabel = priorYearSameDayLabel()
+        def stale = new PriceHistory(
+            id: 7L,
+            price: new BigDecimal("3.00"),
+            volume: 4,
+            dayLabel: lastYearLabel
+        )
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.of(stale)
+        PriceHistory captured = null
+        priceHistoryRepository.save(_) >> { PriceHistory p -> captured = p; p }
+
+        when:
+        service.record(item(), new BigDecimal("11.00"), 2)
+
+        then:
+        // Insert path taken: the captured row is brand new (no id), this
+        // year's label, this call's price.
+        captured != null
+        captured.id == null
+        captured.dayLabel == today()
+        captured.dayLabel != lastYearLabel
+        captured.price == new BigDecimal("11.00")
+        // The year-old row is NOT mutated.
+        stale.price == new BigDecimal("3.00")
+        stale.volume == 4
+    }
+
+    // ---- negative volume delta never seeds a negative row ------------
+
+    def "a negative volume delta on a fresh insert is clamped to zero"() {
+        given:
+        // Regression: the insert path used `volumeDelta ?: 0`, and in
+        // Groovy a non-zero int is truthy — so a -1 delta wrote volume=-1
+        // on a brand-new row even though the update path guarded `> 0`.
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.empty()
+        PriceHistory captured = null
+        priceHistoryRepository.save(_) >> { PriceHistory p -> captured = p; p }
+
+        when:
+        service.record(item(), new BigDecimal("6.00"), delta)
+
+        then:
+        captured != null
+        captured.volume == 0   // clamped, never negative
+
+        where:
+        delta << [-1, -3, Integer.MIN_VALUE]
+    }
+
+    def "a positive volume delta on a fresh insert is preserved"() {
+        given:
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.empty()
+        PriceHistory captured = null
+        priceHistoryRepository.save(_) >> { PriceHistory p -> captured = p; p }
+
+        when:
+        service.record(item(), new BigDecimal("6.00"), 4)
+
+        then:
+        captured.volume == 4
+    }
+
+    // ---- coalesce reads via findLatestByItem with the right id ------
+
+    def "record keys the latest-row lookup off the item id"() {
+        given:
+        priceHistoryRepository.save(_) >> { PriceHistory p -> p }
+
+        when:
+        service.record(item(id: 99L), new BigDecimal("2.00"), 1)
+
+        then:
+        1 * priceHistoryRepository.findLatestByItem(99L) >> Optional.empty()
+        0 * priceHistoryRepository.findLatestByItem({ it != 99L })
+    }
+
+    def "same-day coalesce tolerates a null volume on the existing row"() {
+        given:
+        // volume is non-null in the schema, but defend the accumulate
+        // against a legacy/seed row that slipped through with null.
+        def existing = new PriceHistory(
+            id: 5L,
+            price: new BigDecimal("1.00"),
+            volume: null,
+            dayLabel: today()
+        )
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.of(existing)
+        priceHistoryRepository.save(_) >> { PriceHistory p -> p }
+
+        when:
+        service.record(item(), new BigDecimal("1.50"), 3)
+
+        then:
+        noExceptionThrown()
+        existing.price == new BigDecimal("1.50")
+        existing.volume == 3   // (null ?: 0) + 3
+    }
+
+    private String priorYearSameDayLabel() {
+        def cal = Calendar.getInstance()
+        cal.add(Calendar.YEAR, -1)
+        new SimpleDateFormat('MMM dd, yyyy').format(cal.getTime())
     }
 }

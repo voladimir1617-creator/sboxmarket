@@ -2,6 +2,7 @@ package com.sboxmarket
 
 import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.controller.UserBlockController
+import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.UserBlock
 import com.sboxmarket.service.UserBlockService
@@ -113,6 +114,32 @@ class UserBlockControllerSpec extends Specification {
         resp.body.createdAt == 1700_000_000_000L
         !resp.body.containsKey('blockerUserId')
         !resp.body.containsKey('id')
+    }
+
+    def "block() rejects a null target id with INVALID_BLOCK once the caller is authed"() {
+        given:
+        authedSession(100L)
+
+        when:
+        controller.block(null, req)
+
+        then:
+        BadRequestException e = thrown()
+        e.code == 'INVALID_BLOCK'
+        // Guard fires in the controller — the service is never reached.
+        0 * userBlockService.block(_, _)
+    }
+
+    def "block() forwards the authed caller's uid as the blocker, not anything client-supplied"() {
+        given:
+        def row = new UserBlock(id: 1L, blockerUserId: 555L, blockedUserId: 200L, createdAt: 1700L)
+        authedSession(555L)
+
+        when:
+        controller.block(200L, req)
+
+        then: 'blocker id comes from the session uid, blocked id from the path'
+        1 * userBlockService.block(555L, 200L) >> row
     }
 
     def "unblock() returns {removed: N} envelope"() {

@@ -105,6 +105,53 @@ class SteamSyncServiceSpec extends Specification {
         user.lastSyncedAt != null
     }
 
+    def "syncOne PRESERVES the previous inventory size when Steam blocked us (rate-limit / private)"() {
+        given: "a user with a known-good count whose inventory fetch comes back empty + blocked"
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 42)
+        steamInventoryService.fetchInventory('111') >> []
+        // blockedUntilMs non-null == Steam 403'd/429'd us this fetch
+        steamInventoryService.blockedUntilMs('111') >> (System.currentTimeMillis() + 300_000L)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncOne(user)
+
+        then: "the 42 is NOT clobbered to 0 — a single 429 must not wipe the UI pool"
+        user.steamInventorySize == 42
+        user.lastSyncedAt != null
+    }
+
+    def "syncOne does NOT notify on a blocked fetch even though now(0) differs from before"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 5)
+        steamInventoryService.fetchInventory('111') >> []
+        steamInventoryService.blockedUntilMs('111') >> (System.currentTimeMillis() + 300_000L)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncOne(user)
+
+        then: "a rate-limit-induced empty result is not 'new items' — no notification"
+        0 * notificationService.push(*_)
+    }
+
+    def "syncOne writes a genuine zero when the inventory is really empty (not blocked)"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 7)
+        steamInventoryService.fetchInventory('111') >> []
+        steamInventoryService.blockedUntilMs('111') >> null
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncOne(user)
+
+        then: "an unblocked empty fetch is a real 'you have 0 items' result"
+        user.steamInventorySize == 0
+    }
+
     // ── syncNow ───────────────────────────────────────────────────
 
     def "syncNow returns ok=true with counts on success"() {
@@ -149,5 +196,74 @@ class SteamSyncServiceSpec extends Specification {
         // Must NOT leak the raw exception message to the client
         !result.error.contains('ORA-01000')
         result.error.contains('try again')
+    }
+
+    def "syncNow drops cached state before retrying so an explicit click always hits Steam"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111')
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamInventoryService.fetchInventory('111') >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncNow(10L)
+
+        then: "the user's positive + negative cache is cleared before the fetch"
+        1 * steamInventoryService.clearCacheFor('111')
+    }
+
+    def "syncNow surfaces a structured rate_limited payload when Steam blocked us"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 12)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamInventoryService.fetchInventory('111') >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+        // blockedUntilMs is consulted twice — once inside syncOne, once by
+        // syncNow itself — and must report a future block both times.
+        long until = System.currentTimeMillis() + 180_000L
+        steamInventoryService.blockedUntilMs('111') >> until
+
+        when:
+        def result = service.syncNow(10L)
+
+        then: "the caller gets a real reason, not a pretend success toast"
+        result.ok == false
+        result.reason == 'rate_limited'
+        result.retryAt == until
+        result.retryInSec >= 1
+        // The previous good count is echoed back, not wiped to 0
+        result.inventorySize == 12
+        result.error.contains('rate-limiting')
+    }
+
+    def "syncNow rate_limited message pluralises the minute count correctly"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111')
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamInventoryService.fetchInventory('111') >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+        // ~30s out → rounds up to "1 minute" (singular).
+        steamInventoryService.blockedUntilMs('111') >> (System.currentTimeMillis() + 30_000L)
+
+        when:
+        def result = service.syncNow(10L)
+
+        then:
+        result.error.contains('1 minute')
+        !result.error.contains('1 minutes')
+    }
+
+    def "syncNow notification copy reports the count of newly-appeared items"() {
+        given:
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 1)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamInventoryService.fetchInventory('111') >> [[a: 1], [a: 2], [a: 3], [a: 4]]
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncNow(10L)
+
+        then: "3 new items (4 now − 1 before) routed to /sell"
+        1 * notificationService.push(10L, 'STEAM_INVENTORY', _, { it.contains('3') }, _, '/sell')
     }
 }

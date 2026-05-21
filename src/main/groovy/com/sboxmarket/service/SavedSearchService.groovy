@@ -31,6 +31,8 @@ class SavedSearchService {
     private static final Set<String> ALLOWED_LISTING_TYPES = ['ALL','BUY_NOW','AUCTION'].toSet()
 
     @Autowired SavedSearchRepository repository
+    @Autowired com.sboxmarket.service.security.BanGuard banGuard
+    @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) EmailService emailService
@@ -46,7 +48,17 @@ class SavedSearchService {
             throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
                 'A saved-search payload is required')
         }
-        def name = (payload.name as String ?: '').trim().take(80)
+        // Ban guard — a saved search is a state-changing write, and a
+        // created preset fans LISTING_MATCH bell + email pings out to
+        // the owner forever. A banned account must not be able to set
+        // new ones (the fanout already skips banned recipients, but the
+        // write itself was previously ungated). Mirrors LoadoutService.
+        banGuard.assertNotBanned(userId)
+        // Name is user-controlled free text echoed back to the client
+        // (toMap → `name`). Strip HTML / collapse whitespace through the
+        // shared sanitizer — same treatment LoadoutService gives its
+        // loadout name — before the trim + 80-char cap.
+        def name = (textSanitizer.cleanShort(payload.name as String) ?: '').trim().take(80)
         if (!name) {
             throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
                 "'name' is required")
@@ -64,7 +76,12 @@ class SavedSearchService {
         // generated (`price_desc` etc.) and never appear in a share URL
         // with mixed case, so the simple Set.contains check is fine.
         def sort     = sanitiseEnum(payload.sort     as String, ALLOWED_SORTS,      'price_desc')
-        def q        = (payload.q ?: payload.search ?: '') as String
+        // `q` is user-controlled free text persisted verbatim and echoed
+        // back to the client (toMap → `search`). It was previously only
+        // length-capped — run it through the shared sanitizer so stored
+        // HTML / script payloads can't survive a round-trip. cleanShort
+        // also caps at 80 chars, matching the column width.
+        def q        = textSanitizer.cleanShort((payload.q ?: payload.search ?: '') as String) ?: ''
         def minPrice = (payload.minPrice as String ?: '').take(16)
         def maxPrice = (payload.maxPrice as String ?: '').take(16)
         // Batch 957 — the extended filter set. Clamp numerics, whitelist

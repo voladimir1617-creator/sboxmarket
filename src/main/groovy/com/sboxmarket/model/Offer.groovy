@@ -32,7 +32,11 @@ class Offer {
     @Column(nullable = false, precision = 19, scale = 2)
     BigDecimal askingPrice
 
-    /** PENDING, ACCEPTED, REJECTED, CANCELLED, EXPIRED */
+    /** Offer status. PENDING (live), ACCEPTED, REJECTED, CANCELLED, EXPIRED
+     *  (terminal). COUNTERED — a buyer offer the seller has countered; the
+     *  counter lives as a child SELLER offer via parentOfferId. CLOSED —
+     *  a COUNTERED original whose counter thread reached a terminal state,
+     *  so the original is no longer live (frees the duplicate-offer guard). */
     @Column(nullable = false)
     String status = "PENDING"
 

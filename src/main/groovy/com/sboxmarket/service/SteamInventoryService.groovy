@@ -99,15 +99,23 @@ class SteamInventoryService {
             }
         }
         def url = "https://steamcommunity.com/inventory/${steamId64}/${SBOX_APP_ID}/${CONTEXT_ID}?l=english&count=500"
-        def conn = (HttpURLConnection) new URL(url).openConnection()
-        conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
-        conn.setRequestProperty('Accept', 'application/json')
-        conn.connectTimeout = 8_000
-        conn.readTimeout    = 10_000
 
+        // Connection construction itself can throw — `new URL(...)` throws
+        // MalformedURLException and `openConnection()` throws IOException —
+        // so it has to live inside the guard alongside the actual request.
+        // This class's contract (see the class javadoc) is "never throw":
+        // GET /api/steam/inventory, POST /api/steam/list and /list-bulk all
+        // call fetchInventory without a try/catch, so an escape here 500s a
+        // user-facing endpoint instead of degrading to an empty inventory.
+        HttpURLConnection conn
         int status
         String body
         try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
+            conn.setRequestProperty('Accept', 'application/json')
+            conn.connectTimeout = 8_000
+            conn.readTimeout    = 10_000
             status = conn.responseCode
             body   = status < 300 ? conn.inputStream.getText('UTF-8') : (conn.errorStream?.getText('UTF-8') ?: '')
         } catch (Exception e) {

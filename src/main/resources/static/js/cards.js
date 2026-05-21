@@ -353,7 +353,22 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
   // broken "▼ NaN%" because Math.abs(undefined) is NaN.
   const trend = Number.isFinite(Number(item.trendPercent)) ? Number(item.trendPercent) : 0;
   const trendUp = trend > 0, trendFlat = trend === 0;
-  const disc = discountPct(listing.price, item.steamPrice);
+  // CSFloat-1:1 — the table/list view must distinguish AUCTION rows the
+  // same way the grid card and modal listing row already do. Previously
+  // ListingRow treated every row as BUY_NOW: it showed the static reserve
+  // as the price, "Listed Xd ago" with no countdown, and a "Buy" button
+  // that for an auction would bounce off the server (auctions take bids,
+  // not instant purchase). Now: auctions get a live countdown in the
+  // Listed column, the current top bid (or reserve) with a BID/START
+  // label + bid count in the Price column, and a "Bid" action that opens
+  // the detail modal where the bid panel lives.
+  const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
+  const hasBids = isAuction && (listing.bidCount || 0) > 0;
+  // For auctions the headline figure is the live top bid once bidding has
+  // started, otherwise the seller's starting/reserve price. discountPct
+  // anchors against whatever the buyer would actually pay right now.
+  const effectivePrice = isAuction && listing.currentBid ? listing.currentBid : listing.price;
+  const disc = discountPct(effectivePrice, item.steamPrice);
   // Batch 931 — keyboard-accessible list rows. The row is clickable
   // (opens the item detail modal) but `<tr onClick>` is pointer-only.
   // Adding role=button + tabIndex lets screen-reader / keyboard users
@@ -363,7 +378,8 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
     onClick,
     role: 'button',
     tabIndex: 0,
-    'aria-label': `Open ${item.name} detail`,
+    className: isAuction ? 'is-auction' : undefined,
+    'aria-label': `Open ${item.name}${isAuction ? ' auction' : ''} detail`,
     onKeyDown: (e) => {
       // Don't intercept keys when focus is on an inline button inside
       // the row (Buy / Sign in). Those have their own handlers.
@@ -380,7 +396,13 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
         h('div', { className: 'item-thumb' }, h(ItemImage, { item, variant: 'thumb' })),
         h('div', { className: 'item-info' },
           h('div', { className: 'item-name' }, highlightMatch(item.name || '', searchQuery)),
-          h('div', { className: 'item-sub' }, item.category)
+          h('div', { className: 'item-sub' },
+            // Inline AUCTION tag before the category — mirrors the grid
+            // card's `grid-auction-tag` so list-view rows carry the same
+            // listing-type signal as the grid.
+            isAuction && h('span', { className: 'grid-auction-tag', style: { marginRight: 6 } }, 'AUCTION'),
+            item.category
+          )
         )
       )
     ),
@@ -421,25 +443,60 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
         )
       )
     ),
-    h('td', null, h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, timeAgo(listing.listedAt))),
+    h('td', null,
+      // Auctions show a live countdown in this column (csfloat surfaces
+      // "Ends in …" right in the list view); BUY_NOW rows keep the
+      // "Listed X ago" freshness signal.
+      isAuction
+        ? h(AuctionCountdown, { expiresAt: listing.expiresAt })
+        : h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, timeAgo(listing.listedAt))
+    ),
     h('td', { className: 'right' },
       h('div', { className: 'price-cell' },
-        h('div', { className: 'price-val' }, fmt(listing.price)),
-        // Guard: `item.supply` is absent on some payloads — Number(undefined)
-        // is NaN, which rendered the broken "NaN supply" label. Coerce a
-        // finite fallback so the row always reads a real number.
-        h('div', { className: 'price-supply' },
-          `${(Number.isFinite(Number(item.supply)) ? Number(item.supply) : 0).toLocaleString()} supply`)
+        h('div', { className: 'price-val' },
+          // BID / START prefix on auction rows so the figure isn't
+          // mistaken for an instant Buy-Now price — mirrors the modal
+          // listing row's label.
+          isAuction && h('span', {
+            style: {
+              fontSize: 9, fontWeight: 700, color: 'var(--text-muted)',
+              letterSpacing: '0.06em', marginRight: 5, verticalAlign: 'middle'
+            },
+            title: hasBids ? 'Current top bid in this auction' : "Seller's starting bid — be the first to bid"
+          }, hasBids ? 'BID' : 'START'),
+          fmt(effectivePrice)
+        ),
+        // Auctions: bid count instead of supply (supply is meaningless
+        // for a single-item auction). BUY_NOW: supply, with a finite
+        // guard — `item.supply` is absent on some payloads and
+        // Number(undefined) is NaN, which rendered "NaN supply".
+        isAuction
+          ? h('div', { className: 'price-supply' },
+              `${listing.bidCount || 0} bid${(listing.bidCount || 0) === 1 ? '' : 's'}`)
+          : h('div', { className: 'price-supply' },
+              `${(Number.isFinite(Number(item.supply)) ? Number(item.supply) : 0).toLocaleString()} supply`)
       )
     ),
     h('td', { className: 'center' },
+      // Auctions can't be instant-bought from the table — the bid panel
+      // lives in the detail modal. A "Bid" button opens that modal (same
+      // target as a row click) so the table action stays meaningful for
+      // auction rows instead of showing a Buy button that the server
+      // would reject. Falls through to the BUY_NOW button family below.
+      isAuction
+        ? h('button', {
+            className: 'buy-btn',
+            onClick: e => { e.preventDefault(); e.stopPropagation(); if (typeof onClick === 'function') onClick(e); },
+            title: 'Open this auction to place a bid',
+            'aria-label': `Bid on ${item.name}`
+          }, 'Bid')
       // Anon viewers see a sign-in CTA rather than a Buy button that
       // would bounce off the auth filter with a generic error. Sellers
       // viewing their own listing get a disabled "Your listing" chip.
       // Batch 950 — aria-label on every row's action button names the
       // item + price so a screen-reader user scanning 30 rows hears
       // "Buy Wizard Hat for $12.50" instead of 30 identical "Buy" reads.
-      !meId
+      : !meId
         ? h('button', {
             className: 'buy-btn',
             onClick: e => { e.preventDefault(); e.stopPropagation(); signInWithSteam(); },

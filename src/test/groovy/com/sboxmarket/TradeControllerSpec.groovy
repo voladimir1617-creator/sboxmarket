@@ -97,7 +97,14 @@ class TradeControllerSpec extends Specification {
         def resp = controller.get(9L, req)
 
         then:
-        resp.body.is(t)
+        // get() now returns a Map payload (Trade fields + the Trade
+        // Protection surface) so `protected` can ride alongside.
+        resp.body.id == 9L
+        resp.body.buyerUserId == 100L
+        // Unprotected by default — tradeProtectionService is null in
+        // this spec's TradeController wiring.
+        resp.body.protected == false
+        resp.body.protection == null
     }
 
     def "get() returns the trade when caller is the seller"() {
@@ -110,7 +117,32 @@ class TradeControllerSpec extends Specification {
         def resp = controller.get(9L, req)
 
         then:
-        resp.body.is(t)
+        resp.body.id == 9L
+        resp.body.sellerUserId == 200L
+        resp.body.protected == false
+    }
+
+    def "get() surfaces the Trade Protection summary when the trade is protected"() {
+        given:
+        // Wire the optional TradeProtectionService so the protection
+        // surface is populated.
+        def protectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        controller.tradeProtectionService = protectionService
+        def t = new Trade(id: 9L, buyerUserId: 100L, sellerUserId: 200L)
+        authedSession(100L)
+        1 * tradeService.get(9L) >> t
+        1 * protectionService.summary(9L) >> [
+            id: 5L, tradeId: 9L, status: 'ACTIVE',
+            feeAmount: new BigDecimal('0.25'), coverageAmount: new BigDecimal('10.00')
+        ]
+
+        when:
+        def resp = controller.get(9L, req)
+
+        then:
+        resp.body.protected == true
+        resp.body.protection.status == 'ACTIVE'
+        resp.body.protection.coverageAmount == new BigDecimal('10.00')
     }
 
     def "get() forbids non-participants (enumeration guard)"() {

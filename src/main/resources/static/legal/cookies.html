@@ -69,31 +69,27 @@
       </thead>
       <tbody>
         <tr>
-          <td>JSESSIONID</td>
+          <td>SBOX_SESSION</td>
           <td>Authenticates your browser to the backend after you log in via Steam OpenID.</td>
-          <td>Browser session</td>
+          <td>1 year</td>
           <td>Essential</td>
         </tr>
         <tr>
-          <td>XSRF-TOKEN</td>
+          <td>sbox_csrf</td>
           <td>CSRF double-submit token protecting state-changing requests.</td>
-          <td>Browser session</td>
+          <td>7 days</td>
           <td>Essential</td>
-        </tr>
-        <tr>
-          <td>sb_currency</td>
-          <td>Remembers your preferred display currency (USD / EUR / GBP / …).</td>
-          <td>1 year</td>
-          <td>Preference</td>
-        </tr>
-        <tr>
-          <td>sb_theme</td>
-          <td>Stores UI preferences such as reduced motion and high-contrast toggles from Settings. No accent-color pick — SkinBox uses a single mono-primary palette.</td>
-          <td>1 year</td>
-          <td>Preference</td>
         </tr>
       </tbody>
     </table>
+
+    <h2>Preferences stored in your browser</h2>
+    <p>
+      Your display currency, reduced-motion / high-contrast toggles, and other
+      Settings choices are <strong>not</strong> stored in cookies. They live in your
+      browser's local storage on your own device and are never sent to our servers.
+      Clearing site data for SkinBox resets them.
+    </p>
 
     <h2>What we do NOT use</h2>
     <ul>

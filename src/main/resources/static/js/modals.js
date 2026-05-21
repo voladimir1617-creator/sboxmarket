@@ -6,6 +6,7 @@ import { GridCard } from './cards.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate } from './router.js';
 import { AuctionBidPanel } from './csfloat-modals.js';
+import { TradeProtectionPanel } from './trade-protection.js';
 import {
   fetchInventory, fetchInventoryWithTotal, fetchMyStall, fetchMyStallWithTotal, fetchMyStallSold, fetchMyStallSoldWithTotal, fetchBestOfferPerListing, bulkAdjustStall, relistItem, cancelListing, fetchMyVerificationProgress, fetchMyStallEarnings,
   fetchIncomingOffers, fetchOutgoingOffers, acceptOffer, rejectOffer, cancelOffer, counterOffer,
@@ -21,7 +22,6 @@ import {
   fetchListings, fetchItem, leaveReview, fetchReviewSummary, fetchRecentSales,
   fetchReviewsForUser, fetchMyAuthoredReviews, fetchPendingReviews, deleteReview, replyToReview, fetchBuyOrderCountForItem,
   fetchBuyOrdersForItem,
-  fetchWatchlistCountForItem,
   fetchWalletSpend
 } from './api.js';
 
@@ -214,14 +214,29 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       toast('Network error cancelling buy order', 'err');
     }
   };
-  // Watcher count — number of users with an ACTIVE server-side price
-  // alert on this item. Pure social-proof chip; aggregate only, no
+  // Watcher count — number of users who have STARRED this item on
+  // their watchlist. Pure social-proof chip; aggregate only, no
   // watcher identities exposed.
+  //
+  // Uses the SAME source as the marketplace-card "👁 N watching" badge
+  // and the My-Stall view: the public `/api/watchlist/counts` endpoint
+  // (backed by WatchlistItemRepository.countByItemIds). Previously this
+  // chip called `/api/watchlist/alerts/count/item/{id}`, which counts
+  // active PRICE ALERTS — a different number, so the same "N watching"
+  // label showed two contradictory values across the app. Response is
+  // a `{itemId: count}` map with zero-watcher items omitted.
   const [watcherCount, setWatcherCount] = useState(0);
   useEffect(() => {
     if (!item?.id) return;
     let alive = true;
-    fetchWatchlistCountForItem(item.id).then(n => { if (alive) setWatcherCount(n); });
+    fetch(`/api/watchlist/counts?ids=${item.id}`, { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : {})
+      .then(map => {
+        if (!alive) return;
+        const n = (map && typeof map === 'object') ? Number(map[item.id] || 0) : 0;
+        setWatcherCount(Number.isFinite(n) ? n : 0);
+      })
+      .catch(() => { if (alive) setWatcherCount(0); });
     return () => { alive = false; };
   }, [item?.id]);
   // Trade velocity — "N sold · 7d" activity chip in the header. Social
@@ -354,11 +369,23 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     })();
     return () => { alive = false; };
   }, [me?.id, item?.id]);
-  const change30d = history.length > 1
-    ? (parseFloat(item.lowestPrice) - parseFloat(history[0]?.price || item.lowestPrice)).toFixed(2)
+  // The "30-day price change" stat must anchor on the point ~30 rows
+  // back — NOT history[0]. With one row per day the series can carry a
+  // full year of data (the 1Y chart range), so history[0] is up to 365
+  // days old; reading the delta off it mislabels a 1-year move as a
+  // 30-day one. Slice the last 30 rows and compare the current floor to
+  // that window's first point (or the whole series when it's shorter).
+  const change30dBase = (() => {
+    if (!history || history.length < 2) return null;
+    const window = history.slice(-30);
+    const base = parseFloat(window[0]?.price);
+    return Number.isFinite(base) && base > 0 ? base : null;
+  })();
+  const change30d = change30dBase != null
+    ? (parseFloat(item.lowestPrice) - change30dBase).toFixed(2)
     : '0.00';
-  const changePct = history.length > 1 && parseFloat(history[0]?.price)
-    ? ((change30d / parseFloat(history[0].price)) * 100).toFixed(1)
+  const changePct = change30dBase != null
+    ? ((change30d / change30dBase) * 100).toFixed(1)
     : '0.0';
   /* Derive trend from the LOCAL change30d so the +/-/color signal
      matches the value the user sees. Was using item.trendPercent (an API
@@ -7207,6 +7234,15 @@ function ProfileTradesTab({ me, privacy }) {
                   t.lastMessage.body
                 )
               ),
+              // Trade Protection — optional paid buyer add-on. The panel
+              // owns its own data fetching (quote + protection state) and
+              // self-selects which of three states to render: an opt-in
+              // panel for an unprotected buyer in escrow, a "Protected"
+              // badge for both parties once cover is on, or nothing.
+              // Spans the full grid like the chat panel below. `onChanged`
+              // re-pulls the trade list so the row picks up the new
+              // `protected` flag on the next render.
+              h(TradeProtectionPanel, { trade: t, me, onChanged: load }),
               openChat === t.id && h('div', {
                 style: {
                   gridColumn: '1 / -1',
@@ -9370,7 +9406,13 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     setPicking({ kind: 'steam', item: si });
     setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2));
     setError('');
-    const itemId = si?.itemId || si?.id;
+    // The catalogue item id on a Steam inventory row is `catalogueId`
+    // (the same field the bulk demand-lookup + every grid chip reads).
+    // Was `si.itemId || si.id` — neither exists on a Steam row (`id` is
+    // the Steam *asset* id), so the recent-sales-median + competing-
+    // listings probes silently fired with undefined and their chips
+    // never rendered for catalogued Steam items.
+    const itemId = si?.catalogueId;
     loadRecentMedian(itemId);
     loadCompeting(itemId);
   };
@@ -9638,7 +9680,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           // bid is genuinely different from the floor so the chip row
           // doesn't duplicate "Floor" on low-liquidity items.
           (() => {
-            const itemId = item?.id;
+            // Steam rows key the catalogue id as `catalogueId`; internal
+            // (relist) rows carry the catalogue item object directly as
+            // `item` with `.id`. Reading only `item.id` meant the Top
+            // Buy Order chip never rendered on the Steam-item sell form.
+            const itemId = isSteam ? item?.catalogueId : item?.id;
             const d = itemId != null && inventoryBuyOrderDemand[String(itemId)];
             if (!d || !d.bestBid) return;
             const best = parseFloat(d.bestBid);

@@ -537,6 +537,160 @@ class BidServiceSpec extends Specification {
         result.amount == new BigDecimal("20.05")
     }
 
+    def "placeBid rejects an auto-bid cap below the bid amount (INVALID_MAX_BID)"() {
+        // A maxAmount strictly under `amount` is contradictory — the bot
+        // could never raise to a ceiling beneath your own bid. Reject it
+        // up front rather than persisting confusing dead data on the row.
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), new BigDecimal('20'))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_MAX_BID'
+        0 * bidRepository.save(_)
+    }
+
+    def "placeBid allows a maxAmount equal to amount (treated as a plain manual bid)"() {
+        given:
+        listingRepository.findById(_) >> Optional.of(auctionListing())
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def bid = service.placeBid(10L, 'Alice', 100L, new BigDecimal('15'), new BigDecimal('15'))
+
+        then:
+        bid.kind == 'MANUAL'
+    }
+
+    def "placeBid auto-bid tie: the earlier bidder (standing top) keeps the lead"() {
+        given:
+        // A holds an AUTO bid amount=$20 max=$40. B places amount=$25 with
+        // an identical cap max=$40. On a dead-heat the EARLIER bidder (A)
+        // must win — eBay/CSFloat convention — so A re-wins at $40, not B.
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('40'),
+                               kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [existing]
+        steamUserRepository.findById(7L) >> Optional.of(new SteamUser(id: 7L, steamId64: 'SID7'))
+        walletRepository.findByUsername('steam_SID7') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID7', balance: new BigDecimal('100.00'))
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'B', 100L, new BigDecimal('25'), new BigDecimal('40'))
+
+        then:
+        // A wins the tie at their cap; B (latecomer) is outbid.
+        listing.currentBidderId == 7L
+        listing.currentBid == new BigDecimal('40')
+        result.bidderUserId == 7L
+        1 * notificationService.push(10L, 'AUCTION_OUTBID', _, _, 100L, _)
+    }
+
+    // ── buyNowAuction ──────────────────────────────────────────────
+
+    private Listing buyNowListing(Map args = [:]) {
+        auctionListing(args).tap {
+            buyNowPrice = args.buyNowPrice ?: new BigDecimal('50')
+        }
+    }
+
+    def "buyNowAuction rejects when bidding has already reached the Buy Now price"() {
+        // SellService enforces buyNowPrice > startingPrice at creation, but
+        // a bid war can push currentBid up to / past buyNowPrice. Honouring
+        // Buy-Now then would settle BELOW the standing top bid.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('55'), currentBidderId: 7L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'BUY_NOW_UNAVAILABLE'
+    }
+
+    def "buyNowAuction rejects when current bid exactly equals the Buy Now price"() {
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('50'), currentBidderId: 7L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'BUY_NOW_UNAVAILABLE'
+    }
+
+    def "buyNowAuction 400s with NO_BUY_NOW when the auction has no Buy Now price"() {
+        given:
+        listingRepository.findById(100L) >> Optional.of(auctionListing())  // buyNowPrice null
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'NO_BUY_NOW'
+    }
+
+    // ── cancelAutoBid ──────────────────────────────────────────────
+
+    def "cancelAutoBid no-ops on a terminal (WON/LOST/CANCELLED) bid"() {
+        given:
+        // A closed-auction bid has no live bot to stop — cancelling it
+        // would needlessly rewrite terminal history.
+        def won = new Bid(id: 9L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal('40'), maxAmount: new BigDecimal('60'),
+            kind: 'AUTO', status: 'WON')
+        bidRepository.findById(9L) >> Optional.of(won)
+
+        when:
+        def n = service.cancelAutoBid(10L, 9L)
+
+        then:
+        n == 0
+        won.maxAmount == new BigDecimal('60')  // untouched
+        0 * bidRepository.save(_)
+    }
+
+    def "cancelAutoBid clears the cap on a live WINNING auto-bid"() {
+        given:
+        def live = new Bid(id: 9L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal('40'), maxAmount: new BigDecimal('60'),
+            kind: 'AUTO', status: 'WINNING')
+        bidRepository.findById(9L) >> Optional.of(live)
+        bidRepository.save(_) >> { Bid b -> b }
+
+        when:
+        def n = service.cancelAutoBid(10L, 9L)
+
+        then:
+        n == 1
+        live.maxAmount == null
+        live.kind == 'MANUAL'
+    }
+
+    def "cancelAutoBid forbids cancelling another user's bid"() {
+        given:
+        bidRepository.findById(9L) >> Optional.of(new Bid(id: 9L, bidderUserId: 999L,
+            kind: 'AUTO', status: 'WINNING'))
+
+        when:
+        service.cancelAutoBid(10L, 9L)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
     // ── historyFor (redaction) ─────────────────────────────────────
 
     private Bid bid(Map args) {
@@ -955,5 +1109,167 @@ class BidServiceSpec extends Specification {
         then:
         1 * notificationService.push(10L, 'AUCTION_ENDING', _, _, 100L, _)
         0 * notificationService.push(20L, _, _, _, _, _)
+    }
+
+    // ── OUTBID status lifecycle (bug #1) ───────────────────────────
+
+    def "placeBid flips the displaced top bidder's WINNING row to OUTBID (bug #1)"() {
+        // The OUTBID status was dead code: placeBid saved every new bid as
+        // WINNING and never demoted the prior leader, so bid history showed
+        // every bidder as WINNING forever. A plain manual outbid must flip
+        // the previous top bidder's WINNING row to OUTBID.
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'),
+            currentBidderId: 7L, bidCount: 1)
+        def previousTop = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L,
+            bidderName: 'Bob', amount: new BigDecimal('20'),
+            kind: 'MANUAL', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [previousTop]
+        bidRepository.save(_) >> { Bid b -> b.id = 9L; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        // Alice's new bid is the live WINNING row.
+        result.status == 'WINNING'
+        result.bidderUserId == 10L
+        // Bob's previously-winning row was demoted — no longer WINNING.
+        previousTop.status == 'OUTBID'
+        // The demotion is persisted.
+        1 * bidRepository.saveAll({ List<Bid> bs ->
+            bs.size() == 1 && bs[0].is(previousTop) && bs[0].status == 'OUTBID'
+        })
+    }
+
+    def "placeBid self-raise leaves only the newest row WINNING, older one OUTBID (bug #1)"() {
+        // When a bidder who already leads the auction self-raises, their
+        // own older WINNING row must flip to OUTBID so exactly one row —
+        // the newest bid — reads WINNING.
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'),
+            currentBidderId: 10L, bidCount: 1)
+        def ownOldBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 10L,
+            bidderName: 'Alice', amount: new BigDecimal('20'),
+            kind: 'MANUAL', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        // findByListing returns only the pre-existing row — the new bid is
+        // created fresh inside placeBid and is excluded by object identity.
+        bidRepository.findByListing(100L) >> [ownOldBid]
+        bidRepository.save(_) >> { Bid b -> b.id = 9L; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        // Newest bid is WINNING.
+        result.status == 'WINNING'
+        result.amount == new BigDecimal('25')
+        // The bidder's own older row is demoted — only one WINNING remains.
+        ownOldBid.status == 'OUTBID'
+        // No outbid notification — a self-raise doesn't displace anyone else.
+        0 * notificationService.push(*_)
+    }
+
+    def "placeBid auto-raise demotes the prior leader's stale WINNING row (bug #1)"() {
+        // Branch A (previous top re-wins via bot re-raise). The bot saves a
+        // fresh WINNING row for the previous top; that bidder's OWN earlier
+        // WINNING row must flip to OUTBID so only the bot's re-raise row
+        // reads WINNING for that user (the new bidder's losing row is
+        // demoted too — not asserted here as the mock returns a fixed set).
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'),
+            currentBidderId: 7L, bidCount: 1)
+        def previousTop = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L,
+            bidderName: 'Bob', amount: new BigDecimal('20'),
+            maxAmount: new BigDecimal('50'), kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        bidRepository.findByListing(100L) >> [previousTop]
+        steamUserRepository.findById(7L) >> Optional.of(new SteamUser(id: 7L, steamId64: 'SID7'))
+        walletRepository.findByUsername('steam_SID7') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID7', balance: new BigDecimal('100.00'))
+        def saved = []
+        bidRepository.save(_) >> { Bid b -> b.id = (200L + saved.size()); saved << b; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'Alice', 100L, new BigDecimal('25'), null)
+
+        then:
+        // Bot re-raise fired — the returned row is the AUTO winner for Bob.
+        result.bidderUserId == 7L
+        result.kind == 'AUTO'
+        result.status == 'WINNING'
+        // Bob's stale earlier row is demoted (the bot's new row is the
+        // live WINNING one). previousTop is excluded from being kept since
+        // it is not the bot-placed row.
+        previousTop.status == 'OUTBID'
+    }
+
+    // ── settle: no orphaned WINNING rows (bug #2) ──────────────────
+
+    def "settle flips ALL of the winner's non-terminal rows, only one WON (bug #2)"() {
+        // The auto-bid bot saves a SECOND WINNING row for the same user on
+        // a re-raise. Before the fix, settle's `bids.find { ... }` flipped
+        // only one row to WON and the winner's other WINNING row stayed
+        // live on the SOLD listing — so Profile → Active Bids showed the
+        // closed auction as live forever. settle must now resolve EVERY
+        // non-terminal row of the winner: the highest-amount one → WON,
+        // the rest → OUTBID.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal('50'), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L)
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        // Winner 10 has TWO live rows — the auto-bid double-row case:
+        // an older manual WINNING bid and the newer bot AUTO WINNING bid.
+        def winnerOld = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal('25'), kind: 'MANUAL', status: 'WINNING')
+        def winnerTop = new Bid(id: 2L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal('50'), kind: 'AUTO', status: 'WINNING')
+        // A losing bidder whose row was already demoted to OUTBID by an
+        // earlier placeBid — it must still terminate at LOST.
+        def loserBid = new Bid(id: 3L, listingId: 100L, bidderUserId: 20L,
+            amount: new BigDecimal('30'), kind: 'MANUAL', status: 'OUTBID')
+        bidRepository.findByListing(100L) >> [winnerTop, loserBid, winnerOld]
+        def winner = new SteamUser(id: 10L, steamId64: 'winner', displayName: 'W', banned: false)
+        steamUserRepository.findById(10L) >> Optional.of(winner)
+        def winnerWallet = new com.sboxmarket.model.Wallet(
+            id: 500L, username: 'steam_winner', balance: new BigDecimal('500'))
+        walletRepository.findByUsername('steam_winner') >> winnerWallet
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        def seller = new SteamUser(id: 99L, steamId64: 'seller')
+        steamUserRepository.findById(99L) >> Optional.of(seller)
+        def sellerWallet = new com.sboxmarket.model.Wallet(id: 501L, username: 'steam_seller', balance: BigDecimal.ZERO)
+        walletRepository.findByUsername('steam_seller') >> sellerWallet
+
+        when:
+        service.sweepExpired()
+
+        then:
+        // Exactly one of the winner's rows is WON — the highest-amount one.
+        winnerTop.status == 'WON'
+        // The winner's other non-terminal row is resolved, NOT left WINNING.
+        winnerOld.status == 'OUTBID'
+        // No winner row lingers as WINNING on the SOLD listing.
+        [winnerTop, winnerOld].count { it.status == 'WINNING' } == 0
+        [winnerTop, winnerOld].count { it.status == 'WON' } == 1
+        // The losing bidder's already-OUTBID row terminates at LOST.
+        loserBid.status == 'LOST'
+        // Listing sold to the winner.
+        listing.status == 'SOLD'
+        listing.buyerUserId == 10L
+        // Loser gets exactly one AUCTION_LOST push.
+        1 * notificationService.push(20L, 'AUCTION_LOST', _, _, 100L, _)
     }
 }

@@ -1633,7 +1633,12 @@ function AdminTradesTab() {
               ),
               openChat === r.id && h('tr', { key: r.id + '-chat' },
                 h('td', { colSpan: 8, style: { padding: 12, background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' } },
-                  (chatThreads[r.id] || []).length === 0
+                  // `undefined` = fetch still in flight; `[]` = loaded-empty.
+                  // Distinguishing the two stops the panel flashing "No
+                  // messages in this trade." before the request resolves.
+                  chatThreads[r.id] === undefined
+                    ? h('div', { className: 'spinner' })
+                    : (chatThreads[r.id] || []).length === 0
                     ? h('div', { style: { fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: 8 } },
                         'No messages in this trade.')
                     : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' } },
@@ -2229,6 +2234,9 @@ function AdminCatalogueTab() {
       }
       const fresh = await r.json();
       setResults(rs => rs.map(x => x.id === fresh.id ? { ...x, ...fresh } : x));
+      // Confirm the save — the drawer just closes otherwise, leaving the
+      // admin to eyeball the row to tell whether the PUT actually landed.
+      toast(`Catalogue updated — ${fresh.name || editing.name} saved.`, 'ok');
       setEditing(null);
     } finally { setBusy(false); }
   };
@@ -3067,6 +3075,12 @@ function AdminUsersTab({ me }) {
                       try {
                         const res = await adminWriteNotes(detailUser.id, notesDraft);
                         if (res && (res.error || res.code)) { toast(res.message || res.error, 'err'); return; }
+                        // Every other mutating action in this file confirms
+                        // with a toast — notes was the silent outlier, so an
+                        // admin couldn't tell a save from a no-op.
+                        toast(notesDraft.trim()
+                          ? 'Staff notes saved.'
+                          : 'Staff notes cleared.', 'ok');
                       } finally { setNotesSaving(false); }
                     }
                   }, notesSaving ? 'Saving…' : 'Save notes'),
@@ -3212,7 +3226,11 @@ function AdminTicketsTab() {
       const res = await adminTicketReply(t.id, reply);
       if (res && res.error) { toast(res.error, 'err'); return; }
       setReply('');
-      setView(await adminTicket(t.id));
+      // The reply already landed — guard the refetch so a transient 5xx
+      // doesn't `setView(null)` and eject the admin from the ticket they
+      // just replied to. Keep the current thread on screen if it fails.
+      const fresh = await adminTicket(t.id);
+      if (fresh && fresh.ticket) setView(fresh);
       load();
       // Batch 917 — confirm toast on admin-side reply. Matches the
       // CSR-side toast so both staff flows feel consistent. Previously
@@ -3225,7 +3243,10 @@ function AdminTicketsTab() {
     const t = viewing.ticket;
     const res = await adminCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
-    setView(await adminTicket(t.id));
+    // Guard the refetch — same reasoning as sendReply: the close already
+    // succeeded server-side, so a failed refresh shouldn't blank the view.
+    const fresh = await adminTicket(t.id);
+    if (fresh && fresh.ticket) setView(fresh);
     load();
     // Batch 917 — cite the id + truncated subject so admin closing
     // many tickets back-to-back knows which one just closed.
@@ -3438,9 +3459,12 @@ function AdminRefundsTab() {
       'Refunds hit Stripe immediately — there is no undo. Enter the deposit transaction id from the user\'s Transactions tab. Leave amount blank for a full refund.'
     ),
     h('div', { className: 'wallet-input-label', style: { marginTop: 14 } }, 'Deposit transaction ID'),
-    h('input', { className: 'wallet-amount-input', value: txId, onChange: e => setTxId(e.target.value), placeholder: 'e.g. 42' }),
+    // Editing either field clears the previous result — otherwise the
+    // green "Refund complete" banner for tx #42 lingers while the admin
+    // types #99, which reads as if #99 already processed.
+    h('input', { className: 'wallet-amount-input', value: txId, onChange: e => { setTxId(e.target.value); setRes(null); }, placeholder: 'e.g. 42' }),
     h('div', { className: 'wallet-input-label' }, 'Refund amount (blank = full)'),
-    h('input', { className: 'wallet-amount-input', value: amount, onChange: e => setAmt(e.target.value), placeholder: 'Leave blank for full refund' }),
+    h('input', { className: 'wallet-amount-input', value: amount, onChange: e => { setAmt(e.target.value); setRes(null); }, placeholder: 'Leave blank for full refund' }),
     h('button', { className: 'btn btn-accent wallet-submit', disabled: busy || !txId, onClick: run }, busy ? 'Processing…' : 'Process Refund'),
     result && h('div', {
       style: { marginTop: 14, padding: 14, borderRadius: 8,
@@ -3554,7 +3578,9 @@ function CsrFlagTab() {
         placeholder: 'Listing ID',
         value: id,
         inputMode: 'numeric',
-        onChange: e => setId(e.target.value.replace(/[^0-9]/g, ''))
+        // Clear the prior result so a stale "Flag note appended to #5"
+        // banner doesn't sit next to a fresh listing id being typed.
+        onChange: e => { setId(e.target.value.replace(/[^0-9]/g, '')); setResult(null); }
       }),
       h('select', {
         className: 'price-input',
@@ -3747,7 +3773,10 @@ function CsrTicketsTab() {
       const res = await csrTicketReply(t.id, reply);
       if (res && res.error) { toast(res.error, 'err'); return; }
       setReply('');
-      setView(await csrTicket(t.id));
+      // Guard the refetch so a transient failure doesn't eject the CSR
+      // from the ticket they just replied to — the reply already landed.
+      const fresh = await csrTicket(t.id);
+      if (fresh && fresh.ticket) setView(fresh);
       load();
       // Batch 917 — CSR-side confirm toasts. Previously the flow was
       // silent on success, so a CSR had to eyeball the thread to know
@@ -3761,7 +3790,10 @@ function CsrTicketsTab() {
     const t = viewing.ticket;
     const res = await csrCloseTicket(t.id);
     if (res && res.error) { toast(res.error, 'err'); return; }
-    setView(await csrTicket(t.id));
+    // Guard the refetch — the close already succeeded; a failed refresh
+    // shouldn't blank the ticket view out from under the CSR.
+    const fresh = await csrTicket(t.id);
+    if (fresh && fresh.ticket) setView(fresh);
     load();
     // Batch 917 — same toast-on-close as the admin tickets flow so CSR
     // + admin paths feel consistent.

@@ -94,6 +94,17 @@ class BidService {
         if (amount == null || amount <= BigDecimal.ZERO) {
             throw new BadRequestException("INVALID_BID", "Bid amount must be positive")
         }
+        // Auto-bid ceiling sanity. `PlaceBidRequest` bounds maxAmount above
+        // ($100k) but not below — a negative or sub-`amount` cap is
+        // contradictory (an auto-raise ceiling beneath your own bid can
+        // never fire) and would otherwise persist as confusing dead data
+        // on the Bid row. A cap that simply equals `amount` is fine — it's
+        // just a plain manual bid, handled by the `> amount` AUTO test
+        // below — so only reject a cap STRICTLY below the bid.
+        if (maxAmount != null && maxAmount < amount) {
+            throw new BadRequestException("INVALID_MAX_BID",
+                "Auto-bid cap must be at least your bid amount")
+        }
         def listing = listingRepository.findById(listingId)
             .orElseThrow { new NotFoundException("Listing", listingId) }
         if (listing.status != 'ACTIVE') {
@@ -208,6 +219,12 @@ class BidService {
             previousTopBid = bidRepository.findByListing(listingId)
                 .find { it.bidderUserId == previousTopId }
         }
+        // Tracks the row that should read WINNING when control reaches
+        // the final fall-through return. Starts as the bid we are about
+        // to save; Branch B (the new bidder's own auto-raise) reassigns
+        // it to the higher bot-placed row so only the newest WINNING row
+        // survives the OUTBID demotion below.
+        Bid winningRow = null
 
         def bid = new Bid(
             listingId:     listingId,
@@ -219,6 +236,7 @@ class BidService {
             status:        'WINNING'
         )
         bidRepository.save(bid)
+        winningRow = bid
 
         listing.currentBid        = amount
         listing.currentBidderId   = bidderUserId
@@ -262,9 +280,16 @@ class BidService {
                 : (previousAmount ?: BigDecimal.ZERO)
             def bMax = (maxAmount != null && maxAmount > amount) ? maxAmount : amount
 
-            if (aMax > bMax) {
+            // `>=` not `>`: on an exact max-cap tie the EARLIER bidder (A,
+            // the standing top bid) keeps the lead. eBay / CSFloat
+            // convention — whoever set the max first wins a dead heat,
+            // so a latecomer can't snipe a tie by bidding the same cap a
+            // moment later. With `>`, neither branch fired on a tie and
+            // B silently kept the listing at their submitted `amount`.
+            if (aMax >= bMax) {
                 // Previous top wins via bot re-raise. Settle at one increment
-                // above B's cap, capped at A's own max.
+                // above B's cap, capped at A's own max. On a tie this resolves
+                // to `aMax` itself (raised would exceed aMax and gets clamped).
                 def raised = (bMax + INCREMENT)
                 if (raised > aMax) raised = aMax
                 // Solvency re-check for the bot re-raise (batch 330). The
@@ -293,6 +318,11 @@ class BidService {
                         } catch (Exception e) {
                             log.warn("Auto-bid skip notification failed for ${previousTopId}: ${e.message}")
                         }
+                        // Bot re-raise skipped — B's manual bid stands as
+                        // the winner. Demote the prior leader (and any
+                        // other still-live rows) to OUTBID so only B's
+                        // new bid reads WINNING.
+                        markOthersOutbid(listingId, bid)
                         publishBidEvent(listing, 'bid')
                         return bid
                     }
@@ -325,6 +355,11 @@ class BidService {
                     log.warn("Auto-bid outbid push failed for user ${bidderUserId}: ${e.message}")
                 }
                 log.info("Auto-bid: ${previousTopId} raised to \$${raised} (cap \$${previousTopBid.maxAmount}) on listing ${listingId}")
+                // The bot's re-raise row is the new top bid. Demote every
+                // other still-live row — B's just-placed bid AND the
+                // previous top's own older WINNING row — to OUTBID so the
+                // re-raise is the sole WINNING bid.
+                markOthersOutbid(listingId, botBid)
                 publishBidEvent(listing, 'bid')
                 return botBid
             } else if (bMax > aMax && bMax > amount) {
@@ -349,6 +384,10 @@ class BidService {
                         status:        'WINNING'
                     )
                     bidRepository.save(botBid)
+                    // B's own auto-raise row is now the live top bid —
+                    // B's original lower row must be demoted alongside
+                    // every rival row when we reach the fall-through.
+                    winningRow = botBid
                     listing.currentBid        = raised
                     listing.bidCount          = (listing.bidCount ?: 0) + 1
                     listingRepository.save(listing)
@@ -381,6 +420,15 @@ class BidService {
             }
         }
 
+        // Demote every other still-live bid on the listing to OUTBID so
+        // only `winningRow` reads WINNING. Covers all paths that reach
+        // here: a plain manual outbid (the prior leader's row flips), the
+        // new bidder's own auto-raise (their older row flips), and a
+        // self-raise where the bidder already led the auction (their
+        // previous WINNING rows flip). Previously nothing demoted prior
+        // rows, so OUTBID was never written and history showed every
+        // bidder as WINNING forever.
+        markOthersOutbid(listingId, winningRow)
         publishBidEvent(listing, 'bid')
         bid
     }
@@ -500,6 +548,18 @@ class BidService {
             throw new BadRequestException("NO_BUY_NOW",
                 "This auction doesn't have a Buy Now price set")
         }
+        // Buy-Now ceiling can be overtaken by live bidding. SellService
+        // enforces `buyNowPrice > startingPrice` at creation, but a bid
+        // war can push `currentBid` to or past `buyNowPrice` over the
+        // auction's life. Honouring a Buy-Now at that point would settle
+        // BELOW the standing top bid — robbing the seller and the honest
+        // high bidder. CSFloat hides the Buy-Now button once bids reach
+        // it; we reject server-side as defence-in-depth. The buyer should
+        // just outbid normally.
+        if (listing.currentBid != null && listing.currentBid >= listing.buyNowPrice) {
+            throw new BadRequestException("BUY_NOW_UNAVAILABLE",
+                "Bidding has reached the Buy Now price — place a higher bid instead.")
+        }
         if (listing.expiresAt != null && System.currentTimeMillis() > listing.expiresAt) {
             throw new BadRequestException("EXPIRED", "Auction has already ended")
         }
@@ -577,6 +637,12 @@ class BidService {
         if (bid.bidderUserId != userId) {
             throw new ForbiddenException("Not your bid")
         }
+        // Only live bids (WINNING / OUTBID) carry an actionable auto-raise.
+        // A WON / LOST / CANCELLED bid belongs to a closed auction — there's
+        // no bot left to stop, so silently no-op rather than rewriting
+        // terminal history. Matches the `findActiveAutoBidsForUser` filter
+        // the bulk-cancel path uses.
+        if (!(bid.status in ['WINNING', 'OUTBID'])) return 0
         if (bid.maxAmount == null && bid.kind != 'AUTO') return 0
         bid.maxAmount = null
         bid.kind = 'MANUAL'
@@ -921,19 +987,41 @@ class BidService {
             log.warn("Auction-won email failed for user ${winnerId}: ${e.message}")
         }
 
-        // Mark the winner's bid as WON (batch 324 — it was staying in
-        // WINNING forever, which made Profile → Active Bids count the
-        // auction as still live for the winner after settle). Only the
-        // top bid becomes WON — older bids from the same user on the
-        // same listing stay OUTBID, matching what the UI already shows
-        // under Trade History.
+        // Close out every non-terminal bid on the listing (batch 324 +
+        // the auto-bid orphan fix). Before this, settle flipped only ONE
+        // of the winner's WINNING rows to WON via `bids.find { ... }`.
+        // The auto-bid bot, however, saves a SECOND WINNING row for the
+        // same user on a re-raise — so the winner's older row stayed
+        // WINNING on a now-SOLD listing and Profile → Active Bids
+        // (findLiveBidsForUser filters WINNING/OUTBID) showed the closed
+        // auction as live for the winner forever.
+        //
+        // Now: ALL of the winner's non-terminal rows are resolved — the
+        // single highest-amount one becomes WON, every other one becomes
+        // OUTBID (a trailing row the bidder no longer holds the top with,
+        // matching Trade History). Every losing bidder's non-terminal
+        // rows — WINNING or OUTBID — all become LOST, so no stale row of
+        // any kind survives on the SOLD listing.
         def bids = bidRepository.findByListing(listing.id)
-        def winnersTop = bids.find { it.bidderUserId == winnerId && it.status == 'WINNING' }
-        if (winnersTop != null) {
-            winnersTop.status = 'WON'
-            bidRepository.save(winnersTop)
+        def winnersLive = bids.findAll {
+            it.bidderUserId == winnerId && it.status in ['WINNING', 'OUTBID']
         }
-        def losers = bids.findAll { it.bidderUserId != winnerId && it.status == 'WINNING' }
+        // Highest-amount row wins; sort descending so element 0 is the
+        // WON row even if `findByListing`'s ordering ever changes. Ties
+        // (equal amount) fall to the lowest id — a stable, arbitrary but
+        // deterministic pick.
+        def winnersTop = winnersLive.isEmpty() ? null : winnersLive.sort { a, b ->
+            (b.amount <=> a.amount) ?: ((a.id ?: 0L) <=> (b.id ?: 0L))
+        }.first()
+        def winnerRowsToSave = []
+        winnersLive.each { row ->
+            row.status = row.is(winnersTop) ? 'WON' : 'OUTBID'
+            winnerRowsToSave << row
+        }
+        if (!winnerRowsToSave.isEmpty()) bidRepository.saveAll(winnerRowsToSave)
+        def losers = bids.findAll {
+            it.bidderUserId != winnerId && it.status in ['WINNING', 'OUTBID']
+        }
         losers.each { it.status = 'LOST' }
         if (!losers.isEmpty()) bidRepository.saveAll(losers)
         losers*.bidderUserId.unique().each { uid ->
@@ -966,6 +1054,46 @@ class BidService {
             bidRepository.saveAll(live)
         } catch (Exception e) {
             log.warn("closeOutLiveBids failed for listing ${listingId}: ${e.message}")
+        }
+    }
+
+    /**
+     * After a new top bid lands, demote every *other* still-live
+     * (WINNING / OUTBID) bid row on the listing to OUTBID, leaving only
+     * `keepWinningBid` — the row that should now read WINNING — untouched.
+     *
+     * Without this the `OUTBID` status was dead code: `placeBid` saved
+     * every new bid as WINNING and never demoted the prior leader, so bid
+     * history showed every bidder as "WINNING" forever and
+     * `findLiveBidsForUser` could not tell a top bid from a trailing one.
+     *
+     * Identity-based exclusion: the kept row is matched by `id` (or by
+     * object identity when the row has not been flushed yet) so it is
+     * never accidentally demoted. Self-raises are handled naturally — a
+     * bidder's own older WINNING rows are *other* rows and get demoted,
+     * leaving only their newest bid WINNING.
+     *
+     * Best-effort and isolated, like `closeOutLiveBids` — a save failure
+     * is logged, not fatal; the listing's denormalised top bid is the
+     * authoritative record of who currently leads.
+     */
+    private void markOthersOutbid(Long listingId, Bid keepWinningBid) {
+        if (listingId == null) return
+        try {
+            def all = bidRepository.findByListing(listingId)
+            if (all == null || all.isEmpty()) return
+            def demoted = all.findAll { b ->
+                b.status in ['WINNING', 'OUTBID'] &&
+                    !(keepWinningBid != null &&
+                        (b.is(keepWinningBid) ||
+                         (b.id != null && keepWinningBid.id != null && b.id == keepWinningBid.id)))
+            }
+            def changed = demoted.findAll { it.status != 'OUTBID' }
+            if (changed.isEmpty()) return
+            changed.each { it.status = 'OUTBID' }
+            bidRepository.saveAll(changed)
+        } catch (Exception e) {
+            log.warn("markOthersOutbid failed for listing ${listingId}: ${e.message}")
         }
     }
 

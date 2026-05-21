@@ -962,6 +962,14 @@ class AdminService {
     @Transactional
     SteamUser grantAdmin(Long adminUserId, Long targetUserId) {
         requireAdmin(adminUserId)
+        // Self-target guard — symmetric with banUser / revokeAdmin /
+        // forceLogout. Granting yourself admin is a no-op (the caller
+        // already passed requireAdmin), but it writes a misleading
+        // ADMIN_GRANTED audit row implying a privilege escalation that
+        // never happened. Reject it so the audit trail stays honest.
+        if (adminUserId == targetUserId) {
+            throw new BadRequestException("CANT_GRANT_SELF", "You are already an admin")
+        }
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         // Don't hand admin privileges to a banned account — either the
         // admin meant to unban first, or it's a mistake that would
@@ -1005,6 +1013,13 @@ class AdminService {
     @Transactional
     SteamUser grantCsr(Long adminUserId, Long targetUserId) {
         requireAdmin(adminUserId)
+        // Self-target guard — an admin demoting themselves to CSR would
+        // silently strand their own admin access (CSR is strictly less
+        // privileged). Force the explicit revokeAdmin flow instead.
+        if (adminUserId == targetUserId) {
+            throw new BadRequestException("CANT_GRANT_SELF",
+                "You cannot change your own role — ask another admin")
+        }
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         if (Boolean.TRUE.equals(user.banned)) {
             throw new BadRequestException("USER_BANNED",
@@ -1047,7 +1062,10 @@ class AdminService {
         def cleanBody    = (body ?: 'If you received this, the SkinBox SMTP pipeline is healthy.').take(2000)
         try {
             emailService.send(to.trim(), cleanSubject, cleanBody)
-            auditService?.log(AuditService.ADMIN_GRANTED, adminUserId, null, null,
+            // Distinct event type — was mislogged as ADMIN_GRANTED, which
+            // polluted the audit-by-event filter (a test email showed up
+            // as a privilege grant) and inflated the ADMIN_GRANTED count.
+            auditService?.log('ADMIN_TEST_EMAIL', adminUserId, null, null,
                 "SMTP test email sent to ${to.trim()}")
             log.info("Admin ${adminUserId} fired SMTP test email to ${to}")
             [sent: true, to: to.trim()]
@@ -1845,6 +1863,17 @@ class AdminService {
         listing.reportCount = 0
         listing.lastReportedAt = null
         listingRepository.save(listing)
+        // Audit-log the dismissal — every other listing-moderation
+        // mutation (force-cancel) writes an audit row; clearing a
+        // listing's report counter is a staff judgement call that
+        // belongs in the trail too, so an unfounded-vs-missed dismissal
+        // is reviewable after the fact.
+        try {
+            auditService?.log('LISTING_REPORTS_DISMISSED', adminUserId, listing.sellerUserId, listing.id,
+                "Dismissed ${reports.size()} report(s) on listing ${listing.item?.name ?: listingId}: ${cleanNote}")
+        } catch (Exception e) {
+            log.warn("LISTING_REPORTS_DISMISSED audit failed for listing ${listingId}: ${e.message}")
+        }
         log.info("Admin ${adminUserId} dismissed ${reports.size()} reports on listing ${listingId}: ${cleanNote}")
         [id: listing.id, dismissed: reports.size(), distinctReporters: distinct.size()]
     }
@@ -1951,6 +1980,12 @@ class AdminService {
                 log.warn("Support-reply email failed for ticket ${t.id} (admin path): ${e.message}")
             }
         }
+        // Audit-log the staff reply — every other staff mutation (bans,
+        // credits, force-cancels) leaves an audit row; ticket actions
+        // were the gap. Without this a staff member could read and reply
+        // to a user's ticket with no forensic trail.
+        auditService?.log(AuditService.TICKET_REPLIED, adminUserId, t.userId, ticketId,
+            "Replied to ticket #${ticketId}: ${t.subject}")
         msg
     }
 
@@ -1958,9 +1993,18 @@ class AdminService {
     SupportTicket closeTicket(Long adminUserId, Long ticketId) {
         requireAdmin(adminUserId)
         def t = supportTicketRepository.findById(ticketId).orElseThrow { new NotFoundException("SupportTicket", ticketId) }
+        // State-machine guard — mirror SupportService.resolve. Re-resolving
+        // an already-RESOLVED ticket silently bumped updatedAt for no
+        // reason; a stale admin tab / double-click now gets a clean 400.
+        if (t.status == 'RESOLVED') {
+            throw new BadRequestException("ALREADY_RESOLVED", "Ticket is already resolved")
+        }
         t.status = 'RESOLVED'
         t.updatedAt = System.currentTimeMillis()
         supportTicketRepository.save(t)
+        auditService?.log(AuditService.TICKET_CLOSED, adminUserId, t.userId, ticketId,
+            "Closed ticket #${ticketId}: ${t.subject}")
+        t
     }
 
     // ── Trade moderation ───────────────────────────────────────────

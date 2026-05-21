@@ -15,9 +15,13 @@ import spock.lang.Subject
  *     is intentional, since the payload-with-bad-sig is either a probe
  *     or a replay after key rotation; a 5xx would retry-loop it.
  *
- *   - Any other exception → HTTP 500 "error" (triggers Stripe's retry
- *     ladder, correct for transient DB / email issues so we don't
- *     drop a real event).
+ *   - Permanent domain failure → HTTP 200 "acknowledged". When the
+ *     service throws IllegalState/IllegalArgument (amount mismatch,
+ *     bad session id, replay) retrying can't help, so we ACK to stop
+ *     Stripe hammering a dead-on-arrival event for days.
+ *
+ *   - Any other (transient) exception → HTTP 500 "error" (triggers
+ *     Stripe's retry ladder, correct for transient DB / email issues).
  *
  *   - Happy path → HTTP 200 "ok".
  *
@@ -99,17 +103,30 @@ class StripeWebhookControllerSpec extends Specification {
         resp.statusCode.value() == 200
     }
 
-    def "checked-exception subclasses propagate through the catch-all 500"() {
-        given:
+    def "permanent domain failure: IllegalStateException → 200 'acknowledged' (Stripe stops retrying)"() {
+        given: 'a non-retryable domain failure such as a replayed event'
         1 * stripeService.handleWebhookEvent(_ as String, _ as String) >>
             { throw new IllegalStateException('webhook replay detected') }
 
         when:
         def resp = controller.webhook('{}', 't=1,v1=x')
 
+        then: 'ACK with 200 — retrying cannot fix it, so Stripe stops the retry ladder'
+        resp.statusCode.value() == 200
+        resp.body == 'acknowledged'
+    }
+
+    def "permanent domain failure: IllegalArgumentException → 200 'acknowledged'"() {
+        given: 'completeDeposit raises IllegalArgumentException for an invalid session id'
+        1 * stripeService.handleWebhookEvent(_ as String, _ as String) >>
+            { throw new IllegalArgumentException('Invalid session id') }
+
+        when:
+        def resp = controller.webhook('{}', 't=1,v1=x')
+
         then:
-        resp.statusCode.value() == 500
-        resp.body == 'error'
+        resp.statusCode.value() == 200
+        resp.body == 'acknowledged'
     }
 
     def "SecurityException subclasses go to the 400 branch"() {

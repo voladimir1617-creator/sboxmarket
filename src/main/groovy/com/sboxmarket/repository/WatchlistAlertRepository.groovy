@@ -36,7 +36,14 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
 
     /** Drives the scheduled sweeper — every ACTIVE alert joined to the
      *  current item lowestPrice. Returns the alert row alongside the
-     *  current floor so the sweeper doesn't need a second fetch.
+     *  current floor AND the item name so the sweeper doesn't need a
+     *  second fetch.
+     *
+     *  Projection is [alert, lowestPrice, name]. The `i.name` column
+     *  was added (batch fix) so `fireRow` reads `row[2]` instead of
+     *  re-issuing `itemRepository.findById(a.itemId)` once per
+     *  triggered row — a classic N+1, since this query already JOINs
+     *  Item.
      *
      *  Joins the owning SteamUser and filters out banned accounts so
      *  the sweeper doesn't keep emailing / pushing "price drop" pings
@@ -44,7 +51,7 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
      *  alert in future scans (the row stays ACTIVE — we don't
      *  destructively mutate on ban). */
     @Query("""
-        SELECT a, i.lowestPrice FROM WatchlistAlert a, Item i, SteamUser u
+        SELECT a, i.lowestPrice, i.name FROM WatchlistAlert a, Item i, SteamUser u
         WHERE a.status = 'ACTIVE'
           AND a.itemId = i.id
           AND a.userId = u.id
@@ -55,12 +62,13 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     """)
     List<Object[]> findTriggered()
 
-    /** Same shape as findTriggered() but scoped to a single item — drives
-     *  the synchronous sweep fired from SellService.relist so a fresh
-     *  listing triggers pending alerts within seconds instead of waiting
-     *  up to 5 minutes for the scheduled pass. */
+    /** Same shape as findTriggered() ([alert, lowestPrice, name]) but
+     *  scoped to a single item — drives the synchronous sweep fired
+     *  from SellService.relist so a fresh listing triggers pending
+     *  alerts within seconds instead of waiting up to 5 minutes for
+     *  the scheduled pass. */
     @Query("""
-        SELECT a, i.lowestPrice FROM WatchlistAlert a, Item i, SteamUser u
+        SELECT a, i.lowestPrice, i.name FROM WatchlistAlert a, Item i, SteamUser u
         WHERE a.status = 'ACTIVE'
           AND a.itemId = :itemId
           AND a.itemId = i.id

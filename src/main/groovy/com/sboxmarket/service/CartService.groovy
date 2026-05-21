@@ -78,18 +78,29 @@ class CartService {
         def cleaned = (incoming ?: []).findAll { it != null }.unique()
         if (cleaned.size() > MAX_PER_USER) cleaned = cleaned.take(MAX_PER_USER)
         if (cleaned.isEmpty()) return list(userId)
+        // Pre-filter against the rows the user already has. This MUST be
+        // the only guard against the UNIQUE (user_id, listing_id)
+        // constraint (V31 `uq_cart_items_user_listing`): a JPA constraint
+        // violation marks the whole transaction rollback-only, so a
+        // swallowed try/catch around `save` does NOT recover — it just
+        // lets the loop keep mutating a doomed @Transactional. Every
+        // subsequent save and the closing `list(userId)` then run against
+        // a rollback-only tx, and Spring's commit throws
+        // UnexpectedRollbackException → the entire first-sign-in merge
+        // 500s anyway (and worse: the failure is now masked behind a
+        // debug log instead of an honest stack trace). By only saving
+        // ids confirmed absent, no violation can be raised in the first
+        // place. Mirrors WatchlistService.bulkMerge — see the matching
+        // comment there.
         def existing = repository.findExistingListingIds(userId, cleaned).toSet()
         def toAdd = cleaned.findAll { !existing.contains(it) }
+        // Truncate at the per-user cap including pre-existing rows.
         def headroom = MAX_PER_USER - repository.countByUser(userId) as int
         if (headroom <= 0) return list(userId)
         toAdd = toAdd.take(headroom)
         def now = System.currentTimeMillis()
         toAdd.each { listingId ->
-            try {
-                repository.save(new CartItem(userId: userId, listingId: listingId, addedAt: now))
-            } catch (Exception e) {
-                log.debug("cart merge skipped listing ${listingId} for user ${userId}: ${e.message}")
-            }
+            repository.save(new CartItem(userId: userId, listingId: listingId, addedAt: now))
         }
         list(userId)
     }

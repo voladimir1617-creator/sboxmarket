@@ -75,6 +75,12 @@ class TradeService {
     // old TradeService ↔ AdminService cycle that forced @Lazy injection.
     @Autowired BanGuard banGuard
     @Autowired AdminAuthorization adminAuthorization
+    // Optional — the Trade Protection add-on. When a trade carries a
+    // protection record, the dispute / timeout-loss paths auto-claim it
+    // (full item-price refund to the buyer, no support ticket) and the
+    // normal-release / cancel paths expire it (cover consumed, fee
+    // kept). `required = false` so older test contexts still wire.
+    @Autowired(required = false) TradeProtectionService tradeProtectionService
 
     /** Cap on in-trade messages per sender per 10 min. Anti-spam — a
      *  compromised account trying to DM every counterparty will trip this
@@ -714,6 +720,15 @@ class TradeService {
         }
         auditService?.log(AuditService.TRADE_VERIFIED, t.buyerUserId, t.sellerUserId, t.id,
             "Verified trade #${t.id} for \$${t.price}")
+        // Trade Protection — the trade completed normally, so any
+        // protection cover lapses (ACTIVE → EXPIRED) and the fee is
+        // kept as revenue. Best-effort: a protection hiccup must not
+        // roll back the seller credit + VERIFIED transition above.
+        try {
+            tradeProtectionService?.expire(t.id)
+        } catch (Exception e) {
+            log.warn("Protection expire failed for trade ${t.id}: ${e.message}")
+        }
     }
 
     @Transactional
@@ -771,6 +786,19 @@ class TradeService {
                 log.warn("TRADE_DISPUTED email to counterparty ${disputeSubject} failed: ${e.message}")
             }
         }
+        // Trade Protection auto-claim. A protected buyer who disputes
+        // is made whole IMMEDIATELY — the protection pays out the full
+        // item price to their wallet without waiting on a staff
+        // verdict, which is the feature's "no support ticket needed"
+        // promise. autoClaim is idempotent + a no-op for unprotected
+        // trades, so this is safe to call on every dispute. Best-effort:
+        // a protection failure must not roll back the DISPUTED flip.
+        // The trade stays DISPUTED for staff to settle the seller side.
+        try {
+            tradeProtectionService?.autoClaim(t.id, 'Trade disputed by buyer')
+        } catch (Exception e) {
+            log.warn("Protection auto-claim failed for disputed trade ${t.id}: ${e.message}")
+        }
         // Admin fan-out (batch 500). Disputes used to land silently in
         // the admin /admin?tab=trades queue — staff had to manually
         // refresh to spot a new one. Now every admin gets a bell ping
@@ -814,6 +842,19 @@ class TradeService {
         }
         require(t.state != 'VERIFIED' && t.state != 'CANCELLED',
             "Trade cannot be cancelled in state ${t.state}")
+        // Anti-theft guard #2 — a DISPUTED trade is frozen for staff.
+        // Without this a buyer sitting in PENDING_BUYER_CONFIRM could
+        // call dispute() (state → DISPUTED), then cancel(): the
+        // PENDING_BUYER_CONFIRM guard below would no longer match, so
+        // refundBuyer() runs and the buyer keeps the item AND is
+        // refunded. A losing seller could likewise cancel out of
+        // DISPUTED to dodge a fraud ruling. Once a trade is in dispute,
+        // only staff may resolve it — admins keep access via the
+        // isAdmin branch (and forceCancelTrade for CSR cleanup).
+        if (!isAdmin && t.state == 'DISPUTED') {
+            throw new BadRequestException("TRADE_DISPUTED",
+                "This trade is in dispute — only SkinBox support can resolve it.")
+        }
         // Anti-theft guard (batch 326). Once the seller marks the Steam
         // trade offer as sent (state = PENDING_BUYER_CONFIRM), the buyer
         // must not be able to unilaterally cancel — they could accept
@@ -856,6 +897,17 @@ class TradeService {
         // from THEIR perspective.
         fireTradeCancelledEmail(t, cleanReason, 'buyer')
         fireTradeCancelledEmail(t, cleanReason, 'seller')
+        // Trade Protection — a cancel already refunds the buyer the
+        // full escrowed item price via refundBuyer() above, so the
+        // buyer is whole and the protection must NOT pay out a second
+        // time. We expire the cover instead (consumed, fee kept).
+        // Best-effort so a protection hiccup can't roll back the
+        // refund + CANCELLED transition.
+        try {
+            tradeProtectionService?.expire(t.id)
+        } catch (Exception e) {
+            log.warn("Protection expire failed for cancelled trade ${t.id}: ${e.message}")
+        }
         t
     }
 
@@ -1158,6 +1210,14 @@ class TradeService {
             'seller')
         auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
             "Seller-response timeout after ${sellerResponseDays}d")
+        // Trade Protection — the seller-timeout auto-cancel already
+        // refunds the buyer via refundBuyer() above, so the buyer is
+        // whole; expire the cover rather than double-paying.
+        try {
+            tradeProtectionService?.expire(trade.id)
+        } catch (Exception e) {
+            log.warn("Protection expire failed for auto-cancelled trade ${trade.id}: ${e.message}")
+        }
     }
 
     /**
@@ -1228,6 +1288,16 @@ class TradeService {
                         "Trade cancelled · refund issued", trade.note, trade.id, '/profile?tab=trades')
                     auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
                         "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
+                    // Trade Protection — the banned-seller branch
+                    // refunds the buyer via refundBuyer(), so expire
+                    // the cover (no double payout). The auto-release
+                    // branch below routes through release(), which
+                    // expires protection on its own.
+                    try {
+                        tradeProtectionService?.expire(trade.id)
+                    } catch (Exception e) {
+                        log.warn("Protection expire failed for banned-seller trade ${trade.id}: ${e.message}")
+                    }
                 } else {
                     // autoRelease=true fires the buyer-side email
                     // (batch 601) — the 8-day-silent buyer probably

@@ -197491,6 +197491,10 @@ html body .modal.item-page .item-detail-stickers {
   html body main.modal.item-page .item-poster {
     width: 100% !important;
     max-width: 100% !important;
+    /* Base rule pins height:378px unguarded; on a phone that 100%-wide ×
+       fixed-378px box leaves dead vertical space around the contained art.
+       Let the box hug its <img> (object-fit:contain caps it at 378px). */
+    height: auto !important;
   }
 }
 /* END ITEM-PAGE MOBILE PREVIEW FIX */
@@ -197531,3 +197535,116 @@ html body .modal.item-page .item-detail-stickers {
   }
 }
 /* END HOME-HERO ART-COLUMN MOBILE FIX */
+
+/* ---------------------------------------------------------------------
+   FLOATDB-TABLE + LANDING-CONTAINER MOBILE OVERFLOW FIX (2026-05-19)
+   Two adjacent csfloat-1:1 ships pinned desktop measurements with NO
+   @media guard, leaking fixed pixel widths to every narrow viewport:
+     • ship #129203 — `body app-float-dbtable { width:1185px!important }`
+       (the measured 2440px-viewport table width). On any phone/tablet
+       this forces the FloatDB table ~825px wider than a 360px screen,
+       producing massive horizontal page overflow.
+     • ship #129204 — `body app-landing-page > .outer > .container`
+       pinned to `width:1337px; max-width:1337px` (both !important).
+       The anon-homepage container then can't shrink below 1337px,
+       overflowing every viewport under ~1340px.
+   Both ships are the LAST rules for their selectors, so an earlier
+   responsive rule can't reach them. Re-fit both to the column on
+   narrow widths. Selectors keep the original `body …`/`body … > …`
+   shapes so specificity matches the ship exactly, and this block is
+   last in the file so source order breaks the tie in our favour.
+   The FloatDB table keeps its measured width above 1240px (where it
+   genuinely fits) and switches to a horizontal-scroll container below
+   that so the wide column set stays usable without page overflow. */
+@media (max-width: 1240px) {
+  body app-float-dbtable,
+  body .csfloat-floatdb-table,
+  body .floatdb-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+@media (max-width: 1360px) {
+  body app-landing-page > .outer > .container,
+  body .csfloat-landing-page > .outer > .container,
+  body .landing-page > .outer > .container {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+/* END FLOATDB-TABLE + LANDING-CONTAINER MOBILE OVERFLOW FIX */
+
+/* ---------------------------------------------------------------------
+   SNACKBAR SURFACE MOBILE OVERFLOW FIX (2026-05-19) — csfloat-1:1 ship
+   #3701 correctly added a `@media (max-width:720px)` guard that zeroes
+   `min-width` on the toast STACK wrappers (.sale-toasts, .toasts-container,
+   .toast-stack and their children). But the sibling ship #3700 pins the
+   actual MDC surface — `body .mat-mdc-snack-bar-container
+   .mdc-snackbar__surface, body .mat-mdc-snackbar-surface` — to
+   `min-width:344px !important` with NO @media guard. The surface is the
+   inner painted box; on a 360px viewport a 344px-min surface plus the
+   8px+8px stack insets from #3701 still overshoots the screen, so a
+   toast clips off the right edge. Drop the surface min-width on phones
+   (csfloat's own MDC handset config does the same) so the toast fits
+   the column. Selector matches ship #3700 exactly; last-in-file wins. */
+@media (max-width: 600px) {
+  body .mat-mdc-snack-bar-container .mdc-snackbar__surface,
+  body .mat-mdc-snackbar-surface {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+/* END SNACKBAR SURFACE MOBILE OVERFLOW FIX */
+
+/* ---------------------------------------------------------------------
+   GRID-CARD STRAY WHITE BORDER FIX (2026-05-19) — csfloat-1:1 parity.
+
+   Concrete divergence: every marketplace listing card (.grid-card) was
+   rendering a 2px SOLID PURE-WHITE border at rest — a stark white outline
+   around each card on /search, the home rails, watchlist, stalls, etc.
+   csfloat's marketplace cards are borderless elevated surfaces: the
+   Material elevation shadow alone separates the card from the page; no
+   visible edge at rest, and only a faint cool-white tint on hover.
+
+   Root cause (verified live via getComputedStyle):
+     • ship #35  (line ~122713) `.grid-card` sets `border: 2px solid
+       rgba(0,0,0,0)` — correct intent, fully transparent border.
+     • ship #127880 (line ~181849) `.grid-card { border: 0 }` lands LATER
+       at the SAME (0,1,0) specificity, so it wins for `.grid-card`-level
+       rules — and the `border:0` shorthand RESETS border-color back to
+       `currentColor` (= white, the card's inherited text colour).
+     • ship #15200 (line ~161321) `html body .grid-card` sets
+       `border-width:2px` + `border-style:solid` at HIGHER (0,2,1)
+       specificity but deliberately omits border-color (colour is only
+       set on :hover by ship #15201).
+     Net cascade winner: width 2px (#15200) + style solid (#15200) +
+     color currentColor/white (#127880) = a 2px solid WHITE border.
+
+   Fix: at rest, restore the canonical csfloat treatment — a 2px
+   *transparent* border (reserves the box so the hover border causes no
+   layout shift) with the elevation shadow doing all the visual
+   separation. The hover state is re-asserted here too (2px solid +
+   csfloat's measured rgba(193,206,255,0.07) cool-white tint from ship
+   #15201) so the hover edge survives independently of source order.
+
+   Selectors use `html body a.grid-card, html body .grid-card` (0,3,1 /
+   0,2,2) so they outrank ship #15200's `html body .grid-card` (0,2,1),
+   and this block is last in the file so source order also wins. */
+html body a.grid-card,
+html body .grid-card {
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(0, 0, 0, 0) !important;
+}
+html body a.grid-card:hover,
+html body .grid-card:hover,
+html body a.grid-card:focus-visible,
+html body .grid-card:focus-visible {
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: rgba(193, 206, 255, 0.07) !important;
+}
+/* END GRID-CARD STRAY WHITE BORDER FIX */

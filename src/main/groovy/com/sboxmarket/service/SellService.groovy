@@ -87,6 +87,28 @@ class SellService {
                     "buyNowPrice must not exceed \$100,000")
             }
         }
+        // Optional auto-accept threshold (batch 646). BigDecimal 0..1 —
+        // 0.20 means "auto-accept any offer >= 80% of the ask". Invalid
+        // values are rejected here so callers that bypass the controller
+        // (e.g. integration tests) still get validated. BUY_NOW-only
+        // semantically; we accept it on auctions too but the auction
+        // flow never calls makeOffer so the threshold has no effect —
+        // same policy the UI follows.
+        //
+        // Validated up-front alongside every other input check: this
+        // range guard MUST run before the `owned.status = 'RELISTED'`
+        // mutation below. Previously it sat after that flip, so a bad
+        // maxDiscount only got caught once the source listing had
+        // already been mutated — relying on @Transactional rollback to
+        // undo it instead of rejecting the request before any write.
+        BigDecimal resolvedMaxDiscount = null
+        if (maxDiscount != null) {
+            if (maxDiscount < BigDecimal.ZERO || maxDiscount >= BigDecimal.ONE) {
+                throw new BadRequestException("INVALID_DISCOUNT",
+                    "maxDiscount must be between 0 (no auto-accept) and 1 (100% off) exclusive")
+            }
+            resolvedMaxDiscount = maxDiscount.signum() == 0 ? null : maxDiscount
+        }
 
         def owned = listingRepository.findById(ownedListingId)
                 .orElseThrow { new NotFoundException("Listing", ownedListingId) }
@@ -107,21 +129,6 @@ class SellService {
         def cleanDesc = null
         if (description != null && description.trim()) {
             cleanDesc = textSanitizer.clean(description, 500)
-        }
-        // Optional auto-accept threshold (batch 646). BigDecimal 0..1 —
-        // 0.20 means "auto-accept any offer >= 80% of the ask". Invalid
-        // values are rejected here so callers that bypass the controller
-        // (e.g. integration tests) still get validated. BUY_NOW-only
-        // semantically; we accept it on auctions too but the auction
-        // flow never calls makeOffer so the threshold has no effect —
-        // same policy the UI follows.
-        BigDecimal resolvedMaxDiscount = null
-        if (maxDiscount != null) {
-            if (maxDiscount < BigDecimal.ZERO || maxDiscount >= BigDecimal.ONE) {
-                throw new BadRequestException("INVALID_DISCOUNT",
-                    "maxDiscount must be between 0 (no auto-accept) and 1 (100% off) exclusive")
-            }
-            resolvedMaxDiscount = maxDiscount.signum() == 0 ? null : maxDiscount
         }
         // Create a new ACTIVE listing under this user
         def fresh = new Listing(

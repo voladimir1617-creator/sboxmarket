@@ -1,7 +1,6 @@
 package com.sboxmarket.service
 
 import com.sboxmarket.exception.BadRequestException
-import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.ApiKey
 import com.sboxmarket.repository.ApiKeyRepository
@@ -128,7 +127,12 @@ class ApiKeyService {
     ApiKey revoke(Long userId, Long keyId) {
         def key = apiKeyRepository.findById(keyId)
             .orElseThrow { new NotFoundException("ApiKey", keyId) }
-        if (key.userId != userId) throw new ForbiddenException("Not your API key")
+        // Ownership check. A non-owner gets the SAME 404 as a wholly
+        // missing id — never a 403 — so an authenticated attacker
+        // iterating DELETE /api/api-keys/{id} can't distinguish
+        // "exists but not yours" from "doesn't exist" and thereby
+        // enumerate other users' key ids (IDOR enumeration leak).
+        if (key.userId != userId) throw new NotFoundException("ApiKey", keyId)
         key.revoked = true
         apiKeyRepository.save(key)
         try {

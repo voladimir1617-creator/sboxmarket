@@ -225,7 +225,11 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         title: 'Maximum floor price (blank = no upper bound)'
       })
     ),
-    h('div', { className: 'db-meta' },
+    /* Hide the "N results · page X / Y" line on the error path — with a
+       failed fetch `data.total` is still its 0 initial value, so the meta
+       read "0 results · page 1 / 1" sitting above the error panel, which
+       looks like a contradictory healthy-but-empty result. */
+    !loadErr && h('div', { className: 'db-meta' },
       h('strong', null, Number(data.total).toLocaleString()), ' results · page ',
       h('strong', null, page + 1), ' / ', totalPages
     ),
@@ -452,7 +456,14 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
             ))
           )
         )),
-    h('div', { className: 'db-pager' },
+    /* Pager only when there's genuine multi-page data. Previously it
+       rendered even on the error / empty / single-page paths as a dead
+       "1 of 1" control with both arrows disabled — CSFloat hides
+       pagination entirely when the result set fits one page. `loading`
+       is intentionally NOT a condition here: keeping the pager mounted
+       through a page-to-page fetch avoids it flickering out and back on
+       every Next/Prev click (totalPages stays stable across the fetch). */
+    !loadErr && totalPages > 1 && h('div', { className: 'db-pager' },
       h('button', { className: 'btn btn-ghost', disabled: page === 0, onClick: () => setPage(p => Math.max(0, p - 1)) }, '← Prev'),
       h('span', { style: { fontSize: 12, color: 'var(--text-muted)' } }, `${page + 1} of ${totalPages}`),
       h('button', { className: 'btn btn-ghost', disabled: page + 1 >= totalPages, onClick: () => setPage(p => p + 1) }, 'Next →')
@@ -483,7 +494,15 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
   const [picked, setPicked]   = useState(preselectedItem || null);
   const [search, setSearch]   = useState('');
   const [pool, setPool]       = useState([]);
-  const [maxPrice, setMaxPrice] = useState('');
+  // Seed the max-price suggestion (0.9× floor) for a preselected item so
+  // the deep-link path (ItemModal → "Create Buy Order") matches the
+  // in-modal search-picker path, which sets the same suggestion on pick.
+  // Previously a preselected item dropped the buyer into an empty price
+  // field with only a placeholder hint.
+  const [maxPrice, setMaxPrice] = useState(() => {
+    const floor = parseFloat(preselectedItem?.lowestPrice || 0);
+    return floor > 0 ? (floor * 0.9).toFixed(2) : '';
+  });
   const [qty, setQty]         = useState('1');
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState('');
@@ -563,13 +582,32 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     if (!picked) { setErr('Pick an item first'); return; }
     const max = parseFloat(maxPrice);
     if (!max || max <= 0) { setErr('Enter a max price above zero'); return; }
-    if (picked.lowestPrice && max >= parseFloat(picked.lowestPrice)) {
-      setErr(`Your max (${fmt(max)}) is at or above the current floor (${fmt(picked.lowestPrice)}) — just buy now instead.`);
+    // Parse the floor BEFORE truthiness-testing it. lowestPrice can come
+    // back as the string "0" for an item with no live listings — a
+    // truthy string — so the old `picked.lowestPrice && …` let a 0-floor
+    // through into `max >= 0`, which is always true and wrongly blocked
+    // every buy order with a bogus "at or above floor ($0.00)" error.
+    // A standing buy order on a not-yet-listed item is perfectly valid.
+    const floor = parseFloat(picked.lowestPrice);
+    if (Number.isFinite(floor) && floor > 0 && max >= floor) {
+      setErr(`Your max (${fmt(max)}) is at or above the current floor (${fmt(floor)}) — just buy now instead.`);
+      return;
+    }
+    // Quantity guard. The backend enforces @Positive + @Max(100) on
+    // CreateBuyOrderRequest.quantity, so a typed `-3` / `0` / `250` / a
+    // bare `2.5` would bounce back as a generic HTTP 400. Validate here
+    // for a friendly inline message instead. parseInt floors decimals.
+    const qtyN = parseInt(qty || '1', 10);
+    if (!Number.isFinite(qtyN) || qtyN < 1) {
+      setErr('Quantity must be a whole number of 1 or more.');
+      return;
+    }
+    if (qtyN > 100) {
+      setErr('Quantity is capped at 100 per buy order.');
       return;
     }
     setBusy(true);
     const itemName = picked.name;
-    const qtyN = parseInt(qty || '1', 10) || 1;
     try {
       const res = await createBuyOrder({
         itemId:   picked.id,
@@ -607,7 +645,10 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
     if (res && res.error) { toast(res.error, 'err'); return; }
     load();
     const priceStr = o?.maxPrice != null ? fmt(parseFloat(o.maxPrice)) : '';
-    const remaining = (o?.quantity || 0) - (o?.filledQuantity || 0);
+    // BuyOrder.quantity is ALREADY the remaining (un-filled) count — it's
+    // decremented per auto-fill. There is no `filledQuantity` field on
+    // the model, so the old `- (filledQuantity||0)` was a dead no-op.
+    const remaining = o?.quantity || 0;
     const qtyStr = remaining > 1 ? ` (${remaining} units)` : '';
     toast(`Buy order cancelled for "${itemLabel}"${priceStr ? ' at ' + priceStr : ''}${qtyStr}. Wallet funds freed.`,
       'ok');
@@ -743,9 +784,12 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
           }, 'At this price · #' + projectedPos + ' in queue');
         })(),
         h('div', { className: 'wallet-input-label' }, 'Quantity'),
-        h('input', { className: 'wallet-amount-input', type: 'number', min: '1', step: '1',
+        // max:100 mirrors the backend @Max(100) on quantity so the
+        // native number-spinner clamps and the field hints the ceiling.
+        h('input', { className: 'wallet-amount-input', type: 'number', min: '1', max: '100', step: '1',
           inputMode: 'numeric', enterKeyHint: 'done',
-          'aria-label': 'Quantity to buy',
+          'aria-label': 'Quantity to buy (1–100)',
+          title: 'How many of this item to auto-buy — up to 100 per order.',
           value: qty, onChange: e => setQty(e.target.value) }),
         // Wallet-balance check (batch 417). When the user types a
         // maxPrice × qty that exceeds their current wallet balance,
@@ -915,7 +959,12 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
                   o.status === 'ACTIVE'    ? 'Active'
                   : o.status === 'FILLED'    ? 'Filled'
                   : o.status === 'CANCELLED' ? 'Cancelled'
-                  : o.status)
+                  : o.status === 'EXPIRED'   ? 'Expired'
+                  // Title-case any unknown status rather than leaking
+                  // the raw all-caps token next to its title-cased
+                  // siblings — EXPIRED was the visible offender (it has
+                  // its own .buyorder-status.EXPIRED CSS + filter chip).
+                  : ((o.status || '').charAt(0) + (o.status || '').slice(1).toLowerCase()))
               ),
               o.status === 'ACTIVE' && h('button', {
                 className: 'btn btn-ghost',
@@ -2270,6 +2319,14 @@ function kindFallbackPath(kind, refId) {
   if (k === 'CHARGEBACK_OPENED') return '/admin?tab=disputes';
   if (k === 'CARD_TESTING_DETECTED') return '/admin?tab=users';
   if (k === 'CART_ITEM_SOLD') return paths.cart();
+  if (k === 'PRICE_DROPPED') {
+    // Price-drop on a cart / offered item. The service ships a real
+    // path ("/item/:id") when the item id resolved; this fallback only
+    // fires otherwise. refId is the LISTING id, not the item id, so
+    // /item/refId would be wrong — route to the cart (the event's home)
+    // instead of dead-ending on the generic profile page.
+    return paths.cart();
+  }
   if (k === 'FRAUD_SIGNAL_HIGH') return '/admin?tab=fraud';
   if (k === 'BUY_ORDER_FILLED' || k === 'BUY_ORDER_EXPIRED') return paths.buyorders();
   if (k === 'OFFER_RECEIVED' || k === 'OFFER_ACCEPTED' || k === 'OFFER_REJECTED' || k === 'OFFER_COUNTERED') {
@@ -2289,6 +2346,13 @@ function kindFallbackPath(kind, refId) {
   if (k === 'NEW_LISTING_FROM_SELLER') {
     // path ships from the service layer already ("/item/:id" when the
     // item id was resolvable, null otherwise). Fall back to market.
+    return paths.market();
+  }
+  if (k === 'LISTING_MATCH') {
+    // Saved-search match. The service ships path="/item/:id" whenever
+    // the listing's item id resolved; this fallback only fires when it
+    // didn't. refId is the LISTING id (not item id), so drilling to
+    // /item/refId would be wrong — route to the marketplace instead.
     return paths.market();
   }
   if (k === 'REVIEW_REMINDER') {
@@ -2535,6 +2599,16 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     if (!me) { setErr('Sign in to bid'); return; }
     const a = parseFloat(amount);
     if (!a || a < parseFloat(minNext)) { setErr(`Minimum bid is ${fmt(minNext)}`); return; }
+    // Auto-bid cap guard. The server only treats maxAmount as an AUTO cap
+    // when it's strictly above the bid amount (BidService line 198) —
+    // otherwise it silently downgrades to a plain MANUAL bid and the
+    // typed cap is discarded. Catch the nonsensical "cap ≤ bid" here so
+    // the bidder isn't surprised their proxy-bidder never engages.
+    if (maxAmount && String(maxAmount).trim()) {
+      const cap = parseFloat(maxAmount);
+      if (!(cap > 0)) { setErr('Auto-bid cap must be a positive amount, or leave it blank.'); return; }
+      if (cap <= a) { setErr(`Your auto-bid cap (${fmt(cap)}) must be above your bid (${fmt(a)}) — that's the ceiling the proxy-bidder raises toward.`); return; }
+    }
     setBusy(true);
     try {
       const res = await placeBid(listing.id, a, maxAmount ? parseFloat(maxAmount) : null);
@@ -2806,7 +2880,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     // the normal bid path. Hidden once the auction has ended or when the
     // viewer is the seller (can't buy-now your own auction).
     !ended && view.buyNowPrice != null && parseFloat(view.buyNowPrice) > 0 &&
-      me && me.id !== view.sellerUserId && h('div', {
+      (!me || me.id !== view.sellerUserId) && h('div', {
         className: 'auction-status-banner',
         style: { background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.35)',
                  color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 10 }
@@ -2815,7 +2889,18 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         h('span', { style: { flex: 1 } },
           h('strong', null, 'Buy Now · ', fmt(view.buyNowPrice)),
           ' — skip the auction and settle instantly.'),
-        (() => {
+        // Anonymous viewers see the Buy Now price + a sign-in CTA rather
+        // than nothing — previously the whole banner was gated on `me`,
+        // so a logged-out shopper couldn't tell the auction even HAD a
+        // buy-now option. CSFloat surfaces the price to everyone and
+        // gates only the action behind auth.
+        !me
+          ? h('button', {
+              className: 'buy-btn',
+              style: { padding: '8px 14px', background: 'var(--green)', color: '#0b0f1a', fontWeight: 800 },
+              onClick: () => signInWithSteam()
+            }, 'Sign in to buy')
+          : (() => {
           const hasTradeUrl = !!(me && me.tradeUrl && String(me.tradeUrl).trim());
           return h('button', {
             className: 'buy-btn',
