@@ -159,8 +159,15 @@ class WatchlistController {
     @PostMapping('/bulk')
     ResponseEntity<Map> bulkMerge(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
-        def raw = body?.ids as List
-        def ids = (raw ?: []).collect {
+        // `ids` must be a JSON array. A non-array value (`{"ids": 5}`,
+        // `{"ids": true}`, `{"ids": {...}}`) used to reach `as List` /
+        // `.collect` and blow up with a GroovyCastException /
+        // MissingMethodException — an unmapped RuntimeException that the
+        // catch-all turned into a 500. A malformed body is a client
+        // mistake: coerce a non-array `ids` to empty so it degrades to a
+        // no-op merge. Mirrors ListingController#checkActive.
+        def raw = (body?.ids instanceof List) ? body.ids : []
+        def ids = raw.collect {
             try { it == null ? null : Long.valueOf(it.toString()) } catch (Exception ignored) { null }
         }.findAll { it != null }
         def merged = service.bulkMerge(uid, ids)

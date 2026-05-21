@@ -1,6 +1,7 @@
 package com.sboxmarket.controller
 
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ConflictException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.service.UserBlockService
 import groovy.util.logging.Slf4j
@@ -46,6 +47,15 @@ class UserBlockController {
             throw new BadRequestException('INVALID_BLOCK', 'Target user id is required')
         }
         def block = userBlockService.block(uid, userId)
+        if (block == null) {
+            // The service's idempotent re-block branch re-reads the row
+            // after existsBlock() says it's present; a concurrent unblock
+            // between those two queries leaves it returning null. That's
+            // a transient conflict, not a server fault — map it to 409
+            // rather than dereferencing null into a 500 INTERNAL_ERROR.
+            throw new ConflictException('BLOCK_CONFLICT',
+                'Block state changed concurrently — please retry')
+        }
         ResponseEntity.ok([
             blockedUserId: block.blockedUserId,
             createdAt:     block.createdAt

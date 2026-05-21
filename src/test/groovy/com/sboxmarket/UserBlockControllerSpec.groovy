@@ -3,6 +3,7 @@ package com.sboxmarket
 import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.controller.UserBlockController
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ConflictException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.UserBlock
 import com.sboxmarket.service.UserBlockService
@@ -128,6 +129,19 @@ class UserBlockControllerSpec extends Specification {
         e.code == 'INVALID_BLOCK'
         // Guard fires in the controller — the service is never reached.
         0 * userBlockService.block(_, _)
+    }
+
+    def "block() maps a null service result to 409 — never a 500 NPE"() {
+        given: 'the service idempotent re-read loses a concurrent unblock race and returns null'
+        authedSession(100L)
+        1 * userBlockService.block(100L, 200L) >> null
+
+        when:
+        controller.block(200L, req)
+
+        then: 'the controller surfaces a clean conflict instead of dereferencing null'
+        ConflictException e = thrown()
+        e.code == 'BLOCK_CONFLICT'
     }
 
     def "block() forwards the authed caller's uid as the blocker, not anything client-supplied"() {

@@ -158,6 +158,54 @@ class TradeControllerSpec extends Specification {
         thrown(ForbiddenException)
     }
 
+    def "get() forbids a viewer when the trade has null parties (no null-vs-null match leak)"() {
+        // Defensive: a trade row with null buyer AND null seller must
+        // not become visible to an authenticated viewer. requireUser
+        // guarantees a non-null uid, so `null != uid` holds on both
+        // sides and the Forbidden gate fires.
+        given:
+        def t = new Trade(id: 9L, buyerUserId: null, sellerUserId: null)
+        authedSession(100L)
+        1 * tradeService.get(9L) >> t
+
+        when:
+        controller.get(9L, req)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "get() runs the participant gate even when the protection service is wired"() {
+        // The protection-summary lookup must NOT run for a non-party —
+        // the Forbidden check has to fire first so a third party can't
+        // probe protection state via the single-trade endpoint.
+        given:
+        def protectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        controller.tradeProtectionService = protectionService
+        def t = new Trade(id: 9L, buyerUserId: 100L, sellerUserId: 200L)
+        authedSession(999L)   // neither buyer nor seller
+        1 * tradeService.get(9L) >> t
+
+        when:
+        controller.get(9L, req)
+
+        then:
+        thrown(ForbiddenException)
+        0 * protectionService.summary(_)
+    }
+
+    def "get() does not swallow a service NotFoundException for an unknown trade"() {
+        given:
+        authedSession(100L)
+        1 * tradeService.get(9L) >> { throw new com.sboxmarket.exception.NotFoundException('Trade', 9L) }
+
+        when:
+        controller.get(9L, req)
+
+        then:
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
     // ── accept / confirm — thin pass-through ───────────────────
 
     def "accept() forwards to sellerAccept"() {
@@ -191,6 +239,29 @@ class TradeControllerSpec extends Specification {
 
         then:
         resp.body.is(t)
+    }
+
+    def "confirm() requires sign-in"() {
+        given: anonSession()
+        when:  controller.confirm(9L, req)
+        then:  thrown(UnauthorizedException)
+        0 * tradeService.buyerConfirm(_, _)
+    }
+
+    def "accept() does not swallow a service ForbiddenException (non-seller)"() {
+        // The controller is a thin pass-through: TradeService's
+        // requireParticipant gate throws ForbiddenException for a
+        // caller who isn't the seller, and that must reach the
+        // GlobalExceptionHandler as-is (→ 403), not be remapped.
+        given:
+        authedSession(100L)
+        1 * tradeService.sellerAccept(100L, 9L) >> { throw new ForbiddenException('You are not the seller on this trade') }
+
+        when:
+        controller.accept(9L, req)
+
+        then:
+        thrown(ForbiddenException)
     }
 
     // ── markSent — optional tradeOfferUrl ──────────────────────
@@ -232,6 +303,41 @@ class TradeControllerSpec extends Specification {
 
         then:
         true
+    }
+
+    def "markSent() passes an empty-string url through unchanged (service treats it as 'no url')"() {
+        // The controller does not normalise '' → null; it forwards the
+        // raw value and TradeService.sellerMarkSent skips a blank url.
+        // Pin the contract so a future controller-side normalisation
+        // doesn't silently change what the service receives.
+        given:
+        def t = new Trade(id: 9L)
+        authedSession(200L)
+        1 * tradeService.sellerMarkSent(200L, 9L, '') >> t
+
+        when:
+        controller.markSent(9L, [tradeOfferUrl: ''], req)
+
+        then:
+        true
+    }
+
+    def "markSent() does not swallow a service BadRequestException (invalid url)"() {
+        // A malformed tradeOfferUrl is rejected inside the service with
+        // TRADE_OFFER_URL_INVALID — the controller must let that
+        // structured 400 propagate rather than catching it.
+        given:
+        authedSession(200L)
+        1 * tradeService.sellerMarkSent(200L, 9L, 'http://evil.example/tradeoffer/1') >> {
+            throw new BadRequestException('TRADE_OFFER_URL_INVALID', 'bad url')
+        }
+
+        when:
+        controller.markSent(9L, [tradeOfferUrl: 'http://evil.example/tradeoffer/1'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_OFFER_URL_INVALID'
     }
 
     def "markSent() requires sign-in"() {

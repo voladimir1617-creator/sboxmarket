@@ -452,4 +452,72 @@ class SupportControllerSpec extends Specification {
         then: 'never landed under a different category (BUG / OTHER etc.)'
         true
     }
+
+    def "reportUser() tolerates a null body (explicit JSON null) — no NPE, defaults applied"() {
+        given:
+        // An explicit JSON `null` request body parses to a null Map and
+        // reaches the controller. Safe-navigation on body?.reason /
+        // body?.context must keep this off the 500 path; the templated
+        // report still gets the 'Not specified' / '(none)' defaults.
+        def target = new SteamUser(id: 200L, displayName: 'bob', steamId64: '7656')
+        def me     = new SteamUser(id: 100L, displayName: 'alice')
+        String capturedSubject = null
+        String capturedBody    = null
+        authedSession(100L)
+        1 * steamUserRepository.findById(200L) >> Optional.of(target)
+        1 * steamUserRepository.findById(100L) >> Optional.of(me)
+        1 * supportService.create(_, _, _, 'FRAUD', _) >> { args ->
+            capturedSubject = args[2]
+            capturedBody    = args[4]
+            new SupportTicket()
+        }
+
+        when:
+        controller.reportUser(200L, null, req)
+
+        then:
+        noExceptionThrown()
+        capturedSubject.contains('Not specified')
+        capturedBody.contains('(none)')
+    }
+
+    // ── ownership / not-found propagation ────────────────────────
+
+    def "get() propagates the service's ForbiddenException for a third party's ticket"() {
+        given: 'the service rejects a caller hitting a ticket they do not own'
+        authedSession(100L)
+        1 * supportService.getTicket(100L, 7L) >> { throw new ForbiddenException("Not your ticket") }
+
+        when:
+        controller.get(7L, req)
+
+        then: 'the 403 surfaces — a third party never receives the ticket thread'
+        thrown(ForbiddenException)
+    }
+
+    def "get() propagates NotFoundException for a non-existent ticket"() {
+        given:
+        authedSession(100L)
+        1 * supportService.getTicket(100L, 999L) >> { throw new NotFoundException("SupportTicket", 999L) }
+
+        when:
+        controller.get(999L, req)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "reply() propagates the service's ForbiddenException for a third party's ticket"() {
+        given:
+        def user = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * supportService.reply(100L, 'alice', 7L, 'hi') >> { throw new ForbiddenException("Not your ticket") }
+
+        when:
+        controller.reply(7L, [body: 'hi'], req)
+
+        then: 'a non-owner cannot inject a reply into someone else\'s thread'
+        thrown(ForbiddenException)
+    }
 }

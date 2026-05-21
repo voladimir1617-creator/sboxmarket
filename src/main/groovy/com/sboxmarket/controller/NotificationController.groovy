@@ -78,7 +78,7 @@ class NotificationController {
      * ids. Returns `flipped` so the UI can surface "Marked N read".
      */
     @PostMapping("/read-batch")
-    ResponseEntity<Map> readBatch(@RequestBody Map body, HttpServletRequest req) {
+    ResponseEntity<Map> readBatch(@RequestBody(required = false) Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def raw = body?.ids
         if (!(raw instanceof Collection)) {
@@ -107,7 +107,7 @@ class NotificationController {
      * side of the house. Returns `{deleted: N}`.
      */
     @PostMapping("/delete-batch")
-    ResponseEntity<Map> deleteBatch(@RequestBody Map body, HttpServletRequest req) {
+    ResponseEntity<Map> deleteBatch(@RequestBody(required = false) Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def raw = body?.ids
         if (!(raw instanceof Collection)) {

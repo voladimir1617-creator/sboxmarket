@@ -1,5 +1,7 @@
 package com.sboxmarket.controller
 
+import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.WatchlistAlert
 import com.sboxmarket.service.WatchlistAlertService
@@ -46,26 +48,48 @@ class WatchlistAlertController {
     ResponseEntity<WatchlistAlert> create(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         if (body?.itemId == null) {
-            throw new com.sboxmarket.exception.BadRequestException('MISSING_ITEM', 'itemId is required')
+            throw new BadRequestException('MISSING_ITEM', 'itemId is required')
         }
         if (body?.targetPrice == null) {
-            throw new com.sboxmarket.exception.BadRequestException('MISSING_TARGET', 'targetPrice is required')
+            throw new BadRequestException('MISSING_TARGET', 'targetPrice is required')
         }
         Long itemId
         BigDecimal target
         try {
-            itemId = Long.parseLong(body.itemId.toString())
-            target = new BigDecimal(body.targetPrice.toString())
+            itemId = Long.parseLong(body.itemId.toString().trim())
+            target = new BigDecimal(body.targetPrice.toString().trim())
         } catch (NumberFormatException e) {
-            throw new com.sboxmarket.exception.BadRequestException('INVALID_PARAMETER', e.message)
+            throw new BadRequestException('INVALID_PARAMETER', e.message)
         }
         ResponseEntity.ok(service.upsertAlert(uid, itemId, target))
     }
 
+    /** Cancel one of the caller's price alerts.
+     *
+     *  Idempotent by contract: returns the same `{id, status:CANCELLED}`
+     *  envelope whether or not the alert existed. Ownership is enforced
+     *  service-side against the SESSION uid — cancelling an id the caller
+     *  does not own is a no-op, NOT a 404/400. Collapsing both the
+     *  "no such alert" (NotFoundException) and the "someone else's alert"
+     *  (BadRequestException NOT_OWNER) cases into the success envelope
+     *  also closes an enumeration leak: an attacker can no longer tell a
+     *  valid-but-foreign alert id (was 400 NOT_OWNER) from a non-existent
+     *  one (was 404), and matches the house style of every other
+     *  delete-by-id endpoint (saved-searches, watchlist). Auth and any
+     *  other domain error still propagate. */
     @DeleteMapping('/{id}')
     ResponseEntity<Map> cancel(@PathVariable Long id, HttpServletRequest req) {
         def uid = requireUser(req)
-        service.cancelAlert(uid, id)
+        try {
+            service.cancelAlert(uid, id)
+        } catch (NotFoundException ignored) {
+            // No such alert — idempotent no-op.
+        } catch (BadRequestException e) {
+            // Foreign alert — treat ownership rejection as a no-op so the
+            // caller cannot probe id existence. Any other BadRequest
+            // (genuine client error) still surfaces.
+            if (e.code != 'NOT_OWNER') throw e
+        }
         ResponseEntity.ok([id: id, status: 'CANCELLED'])
     }
 

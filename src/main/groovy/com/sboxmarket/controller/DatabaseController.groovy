@@ -55,6 +55,17 @@ class DatabaseController {
         if (q != null)        q = q.replace('\u0000', '')
         if (category != null) category = category.replace('\u0000', '')
         if (rarity != null)   rarity = rarity.replace('\u0000', '')
+        // Trim the free-text term. The alias-fallthrough above tests with
+        // `isBlank()` (whitespace-aware) but the filter-application below
+        // tests with `isEmpty()` (whitespace-blind); without a trim the
+        // two disagree, so a whitespace-only `q='   '` (or a padded
+        // `search='  hat  '` alias) reaches the JPQL as `LIKE '%   %'` /
+        // `LIKE '%  hat  %'` and returns a confusing empty grid instead
+        // of the unfiltered catalogue / the obvious `hat` match. Trim
+        // first so the 100-char cap and the `isEmpty()` test below both
+        // see the canonical term — this is why the bound variable is
+        // named `qTrimmed`.
+        if (q != null) q = q.trim()
         if (q != null && q.length() > 100) q = q.substring(0, 100)
         if (category != null && category.length() > 40) category = 'All'
         if (rarity   != null && rarity.length()   > 40) rarity   = 'All'

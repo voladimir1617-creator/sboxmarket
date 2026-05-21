@@ -3,6 +3,7 @@ package com.sboxmarket
 import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.controller.WatchlistAlertController
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.WatchlistAlert
 import com.sboxmarket.service.WatchlistAlertService
@@ -251,5 +252,85 @@ class WatchlistAlertControllerSpec extends Specification {
 
         then:
         resp.body == [id: 9L, status: 'CANCELLED']
+    }
+
+    // ── cancel() idempotency + anti-enumeration contract ──────────────
+
+    def "cancel() of a non-existent alert is an idempotent no-op (NotFoundException swallowed)"() {
+        given:
+        authedSession(100L)
+        // Service raises 404 for an unknown id — the controller must
+        // collapse it to the standard envelope, not propagate a 404.
+        1 * service.cancelAlert(100L, 12345L) >> { throw new NotFoundException('WatchlistAlert', 12345L) }
+
+        when:
+        def resp = controller.cancel(12345L, req)
+
+        then: 'no exception escapes — same envelope as a real cancel'
+        noExceptionThrown()
+        resp.body == [id: 12345L, status: 'CANCELLED']
+    }
+
+    def "cancel() of another user's alert is a no-op — NOT_OWNER never leaks id existence"() {
+        given:
+        authedSession(100L)
+        // Service rejects a foreign alert with BadRequestException NOT_OWNER.
+        // The controller must treat it as a no-op so a caller cannot tell a
+        // valid-but-foreign id (was 400) from a non-existent one (was 404).
+        1 * service.cancelAlert(100L, 9L) >> {
+            throw new BadRequestException('NOT_OWNER', 'Not your alert')
+        }
+
+        when:
+        def resp = controller.cancel(9L, req)
+
+        then: 'ownership rejection is swallowed into the success envelope'
+        noExceptionThrown()
+        resp.body == [id: 9L, status: 'CANCELLED']
+    }
+
+    def "cancel() still propagates a non-ownership BadRequestException from the service"() {
+        given:
+        authedSession(100L)
+        // A genuine client error (any code other than NOT_OWNER) must NOT
+        // be masked by the idempotency shim.
+        1 * service.cancelAlert(100L, 9L) >> {
+            throw new BadRequestException('INVALID_PARAMETER', 'bad alert id')
+        }
+
+        when:
+        controller.cancel(9L, req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_PARAMETER'
+    }
+
+    def "cancel() requires sign-in before any service call — no swallow path runs for anon"() {
+        given: anonSession()
+
+        when:
+        controller.cancel(9L, req)
+
+        then: 'auth is checked first; the idempotency try-block is never entered'
+        thrown(UnauthorizedException)
+        0 * service.cancelAlert(_, _)
+    }
+
+    // ── create() trims whitespace-padded stringified numbers ──────────
+
+    def "create() trims whitespace around stringified numbers before parsing"() {
+        given:
+        def alert = new WatchlistAlert(id: 5L, userId: 100L, itemId: 42L,
+                                       targetPrice: new BigDecimal('9.99'))
+        authedSession(100L)
+        1 * service.upsertAlert(100L, 42L, new BigDecimal('9.99')) >> alert
+
+        when:
+        def resp = controller.create([itemId: ' 42 ', targetPrice: ' 9.99 '], req)
+
+        then: 'padding is stripped — no spurious INVALID_PARAMETER'
+        noExceptionThrown()
+        resp.body.is(alert)
     }
 }

@@ -216,6 +216,19 @@ class OfferControllerSpec extends Specification {
                       amount: new BigDecimal('20'), itemName: 'Chef Hat']
     }
 
+    def "create() resolves the buyer id from the SESSION — not from the request body"() {
+        given: 'the session identifies user 777; the body carries only listing/amount/message'
+        authedSession(777L)
+        1 * steamUserRepository.findById(777L) >> Optional.of(new SteamUser(id: 777L, displayName: 'bob'))
+
+        when:
+        controller.create(new CreateOfferRequest(listingId: 5L, amount: new BigDecimal('12')), req)
+
+        then: 'makeOffer is invoked with the session uid — no body field can override the buyer identity'
+        1 * offerService.makeOffer(777L, 'bob', 5L, new BigDecimal('12'), null) >>
+            new Offer(id: 3L, status: 'PENDING', amount: new BigDecimal('12'))
+    }
+
     def "create() falls back to 'Player' when displayName is null"() {
         given:
         authedSession(100L)
@@ -317,6 +330,18 @@ class OfferControllerSpec extends Specification {
         0 * offerService.counterOffer(_, _, _, _)
     }
 
+    def "counter() checks auth BEFORE parsing amount — anon + bad amount is 401, not 400"() {
+        given: 'an anon caller probing with a malformed amount'
+        anonSession()
+
+        when: 'requireUser runs first, so the parser is never reached'
+        controller.counter(9L, [amount: 'not-a-number'], req)
+
+        then: 'the response is an auth challenge, not a 400 that confirms the endpoint shape'
+        thrown(UnauthorizedException)
+        0 * offerService.counterOffer(_, _, _, _)
+    }
+
     def "counter() rejects null amount with INVALID_AMOUNT ('required')"() {
         given: authedSession(100L)
 
@@ -411,6 +436,25 @@ class OfferControllerSpec extends Specification {
     }
 
     // ── raise uses the SAME parser — spot-check one failure branch ──
+
+    def "raise() requires sign-in"() {
+        given: anonSession()
+        when:  controller.raise(9L, [amount: '10'], req)
+        then:  thrown(UnauthorizedException)
+        0 * offerService.buyerRaise(_, _, _, _)
+    }
+
+    def "raise() checks auth BEFORE parsing amount — anon + bad amount is 401, not 400"() {
+        given: 'an anon caller probing with a malformed amount'
+        anonSession()
+
+        when: 'requireUser runs first, so the parser is never reached'
+        controller.raise(9L, [amount: 'not-a-number'], req)
+
+        then: 'the response is an auth challenge, not a 400 that confirms the endpoint shape'
+        thrown(UnauthorizedException)
+        0 * offerService.buyerRaise(_, _, _, _)
+    }
 
     def "raise() shares the parseAmount() ladder with counter()"() {
         given: authedSession(100L)

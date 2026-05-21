@@ -106,12 +106,17 @@ class SellerFollowController {
      *  engagement pings without losing their curated follow list. */
     @PatchMapping('/mute-all')
     ResponseEntity<Map> muteAll(@RequestBody Map body, HttpServletRequest req) {
+        // Authenticate BEFORE validating the body — an anonymous caller
+        // must always get a 401, never a body-validation 400 that leaks
+        // the endpoint shape. Matches the auth-first order used by every
+        // other write endpoint here and across the controller layer.
+        def uid = requireUser(req)
         if (body == null || body.muted == null) {
             throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
                 "'muted' (boolean) is required")
         }
         def muted = parseMutedFlag(body.muted)
-        int n = service.setAllMuted(requireUser(req), muted)
+        int n = service.setAllMuted(uid, muted)
         ResponseEntity.ok([touched: n, muted: muted])
     }
 

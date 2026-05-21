@@ -239,7 +239,13 @@ class CartController {
     ResponseEntity<Map> bulkMerge(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         if (cartService == null) return ResponseEntity.ok([ids: []])
-        def raw = body?.ids as List
+        // `body?.ids as List` 500s when a client posts a non-array `ids`
+        // ({"ids":5}, a bool, an object) — the cast throws a plain
+        // RuntimeException that GlobalExceptionHandler maps to a 500 on
+        // what is really a malformed-request 4xx. Coerce a non-List to
+        // empty so it degrades to a harmless no-op merge; mirrors
+        // ListingController#checkActive / WatchlistController#bulkMerge. (2026-05-20)
+        def raw = (body?.ids instanceof List) ? body.ids : []
         def ids = (raw ?: []).collect {
             try { it == null ? null : Long.valueOf(it.toString()) } catch (Exception ignored) { null }
         }.findAll { it != null }

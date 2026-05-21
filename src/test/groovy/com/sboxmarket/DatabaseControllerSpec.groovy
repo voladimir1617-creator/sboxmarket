@@ -366,4 +366,52 @@ class DatabaseControllerSpec extends Specification {
         capPageable.pageSize == 60
         resp.body.offset == 120
     }
+
+    def "whitespace-only `q` is trimmed to the empty filter token (no `LIKE '%   %'` dead grid)"() {
+        given: 'a user typing only spaces into the search box must NOT filter the catalogue'
+        String capturedQ = null
+        1 * itemRepository.searchCatalogue(_, _, _, _, _, _) >> { args ->
+            capturedQ = args[0]
+            pageOf([])
+        }
+        _ * itemRepository.count() >> 0L
+
+        when:
+        controller.list('   ', null, 'All', 'All', 'rarest', false, null, null, 60, 0)
+
+        then: 'trimmed away → empty-string filter token, not a `%   %` LIKE term'
+        capturedQ == ''
+    }
+
+    def "leading/trailing whitespace is trimmed off a real `q` term"() {
+        given:
+        String capturedQ = null
+        1 * itemRepository.searchCatalogue(_, _, _, _, _, _) >> { args ->
+            capturedQ = args[0]
+            pageOf([])
+        }
+        _ * itemRepository.count() >> 0L
+
+        when: "caller sends '  hat  ' — padding must not survive into the LIKE term"
+        controller.list('  hat  ', null, 'All', 'All', 'rarest', false, null, null, 60, 0)
+
+        then: 'core term reaches the query without the surrounding spaces'
+        capturedQ == 'hat'
+    }
+
+    def "padded `search` alias is trimmed when it falls through for a blank `q`"() {
+        given:
+        String capturedQ = null
+        1 * itemRepository.searchCatalogue(_, _, _, _, _, _) >> { args ->
+            capturedQ = args[0]
+            pageOf([])
+        }
+        _ * itemRepository.count() >> 0L
+
+        when: "q is blank so the padded `search` alias is adopted, then trimmed"
+        controller.list('', '  hat  ', 'All', 'All', 'rarest', false, null, null, 60, 0)
+
+        then:
+        capturedQ == 'hat'
+    }
 }

@@ -564,4 +564,307 @@ class SteamInventoryControllerSpec extends Specification {
             asset(assetId: '2002', classId: '501', name: 'Cargo Pants', tradable: true)
         ]
     }
+
+    // ── /list: assetId hardening ──────────────────────────────────
+
+    def "list rejects an over-long numeric assetId before the inventory probe"() {
+        given: "a 33-digit numeric string — passes the digits regex but exceeds the 32-char cap"
+        def longId = '1' * 33
+
+        when:
+        controller.listFromSteam([assetId: longId, price: '5'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_ASSET'
+        // The crafted id must never reach the upstream inventory probe.
+        0 * steamInventoryService.fetchInventory(_)
+    }
+
+    // ── /list: AUCTION happy path ─────────────────────────────────
+
+    def "list AUCTION with a valid durationHours sets expiresAt in the future"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase('Wizard Hat') >> new Item(id: 12L, name: 'Wizard Hat')
+        long before = System.currentTimeMillis()
+
+        when:
+        def resp = controller.listFromSteam([assetId: '1001', price: '4.00',
+            listingType: 'AUCTION', durationHours: '24'], req)
+
+        then: "the persisted listing carries an AUCTION type and an expiry ~24h out"
+        1 * listingService.createListing({
+            it.listingType == 'AUCTION' &&
+            it.expiresAt != null &&
+            it.expiresAt >= before + (24L * 60L * 60L * 1000L)
+        }) >> { args -> args[0].tap { it.id = 8001L } }
+        resp.body.listingType == 'AUCTION'
+        resp.body.expiresAt != null
+    }
+
+    // ── /list: buyNowPrice rules (auction-only ceiling) ───────────
+
+    def "list rejects buyNowPrice on a BUY_NOW listing"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when: "buyNowPrice supplied but listingType is the default BUY_NOW"
+        controller.listFromSteam([assetId: '1001', price: '5', buyNowPrice: '20'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'BUY_NOW_ON_BUY_NOW'
+    }
+
+    def "list rejects an auction buyNowPrice that does not exceed the starting bid"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when: "buyNowPrice equals the starting bid — Buy Now would never beat the first bid"
+        controller.listFromSteam([assetId: '1001', price: '10',
+            listingType: 'AUCTION', durationHours: '24', buyNowPrice: '10'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_BUY_NOW'
+    }
+
+    def "list accepts an auction buyNowPrice above the starting bid"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        def resp = controller.listFromSteam([assetId: '1001', price: '10',
+            listingType: 'AUCTION', durationHours: '48', buyNowPrice: '50'], req)
+
+        then: "the buyNowPrice survives onto the persisted listing"
+        1 * listingService.createListing({
+            it.buyNowPrice == new BigDecimal('50')
+        }) >> { args -> args[0].tap { it.id = 8002L } }
+        resp.body.buyNowPrice == new BigDecimal('50')
+    }
+
+    def "list rejects an auction buyNowPrice over the 100k ceiling"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '10',
+            listingType: 'AUCTION', durationHours: '24', buyNowPrice: '100000.01'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'BUY_NOW_TOO_HIGH'
+    }
+
+    // ── /list: description + maxDiscount validation ───────────────
+
+    def "list rejects a description longer than 500 chars"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5', description: 'x' * 501], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'DESCRIPTION_TOO_LONG'
+        // An over-long note must be rejected before it reaches the sanitiser.
+        0 * textSanitizer.clean(_, _)
+    }
+
+    def "list sanitises an in-range description before persisting it"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+        textSanitizer.clean('Great hat', 500) >> 'Great hat (clean)'
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5', description: 'Great hat'], req)
+
+        then: "the sanitiser output — not the raw text — lands on the listing"
+        1 * listingService.createListing({
+            it.description == 'Great hat (clean)'
+        }) >> { args -> args[0].tap { it.id = 8003L } }
+    }
+
+    @Unroll
+    def "list rejects maxDiscount '#disc' with INVALID_DISCOUNT"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5', maxDiscount: disc], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_DISCOUNT'
+
+        where:
+        disc << ['-0.1', '1', '1.5', 'notanumber']
+    }
+
+    def "list treats a zero maxDiscount as 'no auto-accept' (null on the listing)"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5', maxDiscount: '0'], req)
+
+        then: "0 collapses to null — it is not stored as an active auto-accept threshold"
+        1 * listingService.createListing({ it.maxDiscount == null }) >> { args -> args[0].tap { it.id = 8004L } }
+    }
+
+    // ── /list-bulk: maxDiscount propagation ───────────────────────
+
+    def "list-bulk applies a valid maxDiscount uniformly to every listing in the batch"() {
+        given:
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true),
+            asset(assetId: '2002', classId: '501', name: 'Cargo Pants', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> { args -> new Item(id: 12L, name: args[0] as String) }
+
+        when:
+        def body = controller.listBulkFromSteam(
+            [assetIds: ['1001', '2002'], price: '5', maxDiscount: '0.25'], req).body
+
+        then: "both listings carry the batch-wide discount fraction"
+        2 * listingService.createListing({
+            it.maxDiscount == new BigDecimal('0.25')
+        }) >> { args -> args[0].tap { it.id = 9100L } }
+        body.ok.size() == 2
+    }
+
+    def "list-bulk rejects an out-of-range maxDiscount before doing any work"() {
+        when:
+        controller.listBulkFromSteam([assetIds: ['1001'], price: '5', maxDiscount: '1.5'], req)
+
+        then:
+        def e = thrown(com.sboxmarket.exception.BadRequestException)
+        e.code == 'INVALID_DISCOUNT'
+        // A bad batch-wide param must abort up front — no inventory probe,
+        // no partial listings.
+        0 * steamInventoryService.fetchInventory(_)
+        0 * listingService.createListing(_)
+    }
+
+    // ── auth: every write path is session-gated ───────────────────
+
+    def "sync rejects an unauthenticated session with 401"() {
+        given:
+        HttpServletRequest anon = Mock()
+        HttpSession anonSes = Mock()
+        anon.getSession() >> anonSes
+        anonSes.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+
+        when:
+        controller.sync(anon)
+
+        then:
+        thrown(com.sboxmarket.exception.UnauthorizedException)
+        // An anonymous caller must never trigger a sync.
+        0 * steamSyncService.syncNow(_)
+    }
+
+    def "list rejects an unauthenticated session before touching the inventory"() {
+        given:
+        HttpServletRequest anon = Mock()
+        HttpSession anonSes = Mock()
+        anon.getSession() >> anonSes
+        anonSes.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5'], anon)
+
+        then:
+        thrown(com.sboxmarket.exception.UnauthorizedException)
+        0 * steamInventoryService.fetchInventory(_)
+        0 * listingService.createListing(_)
+    }
+
+    def "list-bulk rejects an unauthenticated session before touching the inventory"() {
+        given:
+        HttpServletRequest anon = Mock()
+        HttpSession anonSes = Mock()
+        anon.getSession() >> anonSes
+        anonSes.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+
+        when:
+        controller.listBulkFromSteam([assetIds: ['1001'], price: '5'], anon)
+
+        then:
+        thrown(com.sboxmarket.exception.UnauthorizedException)
+        0 * steamInventoryService.fetchInventory(_)
+        0 * listingService.createListing(_)
+    }
+
+    def "list 401s when the session user id no longer maps to a row"() {
+        given:
+        HttpServletRequest ghost = Mock()
+        HttpSession ghostSes = Mock()
+        ghost.getSession() >> ghostSes
+        ghostSes.getAttribute(SteamAuthController.SESSION_USER_ID) >> 404L
+        steamUserRepository.findById(404L) >> Optional.empty()
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5'], ghost)
+
+        then:
+        thrown(com.sboxmarket.exception.UnauthorizedException)
+    }
+
+    def "list lists strictly against the SIGNED-IN user's steamId64 — body cannot redirect it"() {
+        given: "the request body carries no user identifier; the session decides steamId64='111'"
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+        listingService.createListing(_) >> { args -> args[0].tap { it.id = 8100L } }
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5'], req)
+
+        then: "the ownership probe is keyed on the session user's steamId64 only"
+        1 * steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+    }
+
+    def "created listing is always stamped with the session user's id as the seller"() {
+        given: "no sellerUserId anywhere in the request body"
+        steamInventoryService.fetchInventory('111') >> [
+            asset(assetId: '1001', classId: '500', name: 'Wizard Hat', tradable: true)
+        ]
+        itemRepository.findByNameIgnoreCase(_) >> new Item(id: 12L, name: 'Wizard Hat')
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5', sellerUserId: 999L], req)
+
+        then: "a forged sellerUserId in the body is ignored — the seller is the session user (7)"
+        1 * listingService.createListing({ it.sellerUserId == 7L }) >> { args -> args[0].tap { it.id = 8101L } }
+    }
 }

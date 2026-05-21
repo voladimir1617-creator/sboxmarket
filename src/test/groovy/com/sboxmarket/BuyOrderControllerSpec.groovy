@@ -217,6 +217,39 @@ class BuyOrderControllerSpec extends Specification {
         resp.body == [itemId: 42L, count: 5L, bestBid: new BigDecimal('99.99')]
     }
 
+    def "forItem() clamps limit to 1..20 and carries 60s public cache"() {
+        given:
+        int seenLim = -1
+        1 * buyOrderService.listActiveForItem(42L, _) >> { args ->
+            seenLim = args[1]
+            []
+        }
+
+        when:
+        def resp = controller.forItem(42L, 500)
+
+        then:
+        seenLim == 20
+        def cc = resp.headers.getFirst('Cache-Control')
+        cc?.contains('public')
+        cc?.contains('max-age=60')
+    }
+
+    def "forItem() defaults to 10 rows when limit is null"() {
+        given:
+        int seenLim = -1
+        1 * buyOrderService.listActiveForItem(42L, _) >> { args ->
+            seenLim = args[1]
+            []
+        }
+
+        when:
+        controller.forItem(42L, null)
+
+        then:
+        seenLim == 10
+    }
+
     // ── countBulk() parser ────────────────────────────────────
 
     def "countBulk() returns {} on null ids"() {
@@ -379,6 +412,43 @@ class BuyOrderControllerSpec extends Specification {
         resp.body == [cancelled: 5]
     }
 
+    def "cancel() requires sign-in and never reaches the service"() {
+        given: anonSession()
+
+        when:
+        controller.cancel(9L, req)
+
+        then: 'anon callers cannot flip another buyer\'s order to CANCELLED'
+        thrown(UnauthorizedException)
+        0 * buyOrderService.cancel(_, _)
+    }
+
+    def "cancelAll() requires sign-in and never reaches the service"() {
+        given: anonSession()
+
+        when:
+        controller.cancelAll(req)
+
+        then: 'anon callers cannot bulk-cancel any queue'
+        thrown(UnauthorizedException)
+        0 * buyOrderService.cancelAllForUser(_)
+    }
+
+    def "cancel() forwards the SESSION uid — not a caller-supplied value — to the service"() {
+        given: 'a signed-in buyer cancelling order 9'
+        def o = new BuyOrder(id: 9L, status: 'CANCELLED')
+        authedSession(777L)
+        // Ownership is enforced in the service keyed on this uid; the
+        // controller must source it from the session, never the path.
+        1 * buyOrderService.cancel(777L, 9L) >> o
+
+        when:
+        def resp = controller.cancel(9L, req)
+
+        then:
+        resp.body == [id: 9L, status: 'CANCELLED']
+    }
+
     // ── update() validation ──────────────────────────────────
 
     def "update() rejects non-numeric maxPrice with INVALID_PRICE"() {
@@ -435,6 +505,19 @@ class BuyOrderControllerSpec extends Specification {
         when:  controller.update(9L, [:], req)
         then:  thrown(UnauthorizedException)
         0 * buyOrderService.update(_, _, _, _)
+    }
+
+    def "update() with an empty body forwards SESSION uid + both nulls to the service"() {
+        given: 'a no-fields edit from a signed-in buyer'
+        authedSession(555L)
+        // uid must come from the session; both optional fields absent.
+        1 * buyOrderService.update(555L, 9L, null, null) >> new BuyOrder(id: 9L)
+
+        when:
+        def resp = controller.update(9L, [:], req)
+
+        then:
+        resp.body.id == 9L
     }
 
     // ── exportCsv ────────────────────────────────────────────

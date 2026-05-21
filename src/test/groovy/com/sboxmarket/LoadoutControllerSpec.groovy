@@ -204,6 +204,24 @@ class LoadoutControllerSpec extends Specification {
         true
     }
 
+    def "get() does NOT set its own Cache-Control — CorrelationIdFilter owns it"() {
+        // The /{id} surface is viewer-dependent (private loadouts are
+        // owner-filtered), so CorrelationIdFilter already emits
+        // `no-store, ... private` for it. The controller must NOT also
+        // set Cache-Control via ResponseEntity.header(): those APPEND
+        // rather than replace, which would emit two conflicting values.
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        1 * loadoutService.getWithSlots(42L, null) >> [id: 42L]
+
+        when:
+        def resp = controller.get(42L, req)
+
+        then: 'no Cache-Control header escapes the controller'
+        resp.headers.getFirst('Cache-Control') == null
+    }
+
     // ── /create ────────────────────────────────────────────────
 
     def "create() requires sign-in"() {
@@ -295,6 +313,66 @@ class LoadoutControllerSpec extends Specification {
         then:
         def e = thrown(BadRequestException)
         e.code == 'INVALID_ITEM_ID'
+        0 * loadoutService.setSlot(_, _, _, _)
+    }
+
+    def "setSlot() rejects a decimal itemId with a clean 400 (whole-number contract)"() {
+        // The controller comment promises a decimal itemId yields a clean
+        // 400 INVALID_ITEM_ID, not an opaque 500 from Long.valueOf.
+        given:
+        authedSession(100L)
+
+        when:
+        controller.setSlot(1L, 'HEAD', [itemId: '42.5'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_ITEM_ID'
+        0 * loadoutService.setSlot(_, _, _, _)
+    }
+
+    def "setSlot() rejects a boolean itemId with a clean 400"() {
+        // A JSON boolean for itemId must not 500 — it stringifies to
+        // "true"/"false" which Long.valueOf rejects; map it to 400.
+        given:
+        authedSession(100L)
+
+        when:
+        controller.setSlot(1L, 'HEAD', [itemId: true], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_ITEM_ID'
+        0 * loadoutService.setSlot(_, _, _, _)
+    }
+
+    def "setSlot() rejects an out-of-Long-range itemId with a clean 400 (not a 500)"() {
+        // A digit string that overflows Long must surface as a structured
+        // 400, not bubble a raw NumberFormatException out as a 500.
+        given:
+        authedSession(100L)
+
+        when:
+        controller.setSlot(1L, 'HEAD', [itemId: '99999999999999999999999'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_ITEM_ID'
+        0 * loadoutService.setSlot(_, _, _, _)
+    }
+
+    def "setSlot() checks auth BEFORE parsing the body — anon + bad itemId is 401, not 400"() {
+        // The controller deliberately calls requireUser() before touching
+        // the body so an unauthenticated caller never learns the itemId
+        // parse rules (and does no work). A malformed itemId on an anon
+        // session must therefore raise Unauthorized, not BadRequest.
+        given: anonSession()
+
+        when:
+        controller.setSlot(1L, 'HEAD', [itemId: 'not-a-number'], req)
+
+        then:
+        thrown(UnauthorizedException)
         0 * loadoutService.setSlot(_, _, _, _)
     }
 

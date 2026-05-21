@@ -287,15 +287,67 @@ class WatchlistControllerSpec extends Specification {
         resp.body.ids == [1L, 2L, 42L]
     }
 
-    def "bulkMerge() with null body does NPE (pin current behavior)"() {
+    def "bulkMerge() with null body degrades to an empty merge (no exception)"() {
         given: authedSession(100L)
 
         when:
         controller.bulkMerge(null, req)
 
-        then: 'body?.ids as List → null, (null ?: []) branches safely to empty'
+        then: 'body?.ids → null, not a List → coerced to empty, merge is a no-op'
         1 * service.bulkMerge(100L, []) >> []
         noExceptionThrown()
+    }
+
+    def "bulkMerge() with a missing ids key degrades to an empty merge"() {
+        given: authedSession(100L)
+
+        when:
+        def resp = controller.bulkMerge([foo: 'bar'], req)
+
+        then: 'no ids key → empty list reaches the service, no 500'
+        1 * service.bulkMerge(100L, []) >> [99L]
+        resp.body == [ids: [99L]]
+    }
+
+    def "bulkMerge() with a non-array ids value yields a 400-shaped no-op, not a 500"() {
+        // Regression: a non-array `ids` (`{\"ids\": 5}`, `{\"ids\": true}`,
+        // `{\"ids\": {..}}`) previously hit `as List` / `.collect` and threw
+        // a GroovyCastException / MissingMethodException — an unmapped
+        // RuntimeException the catch-all turned into a 500. It must instead
+        // coerce to an empty list and run a harmless no-op merge.
+        given:
+        authedSession(uid)
+        1 * service.bulkMerge(uid, []) >> []
+
+        when:
+        def resp = controller.bulkMerge([ids: badIds], req)
+
+        then:
+        noExceptionThrown()
+        resp.body == [ids: []]
+
+        where:
+        uid  | badIds
+        1L   | 5                       // bare integer
+        2L   | 5.5d                    // bare double
+        3L   | true                    // bare boolean
+        4L   | [a: 1, b: 2]            // JSON object instead of array
+    }
+
+    def "bulkMerge() with a string ids value degrades cleanly (chars are not numeric ids)"() {
+        // A JSON string is castable to a char list in Groovy; the per-token
+        // Long.valueOf still rejects every char, so the merge is a no-op
+        // rather than a crash.
+        given:
+        authedSession(100L)
+        1 * service.bulkMerge(100L, []) >> []
+
+        when:
+        def resp = controller.bulkMerge([ids: 'hello'], req)
+
+        then:
+        noExceptionThrown()
+        resp.body == [ids: []]
     }
 
     // ── exportCsv ────────────────────────────────────────────────

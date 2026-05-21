@@ -145,6 +145,28 @@ class CsrControllerSpec extends Specification {
         resp.body.is(result)
     }
 
+    def "lookup() requires sign-in"() {
+        given: anonSession()
+        when:  controller.lookup('alice@example.com', req)
+        then:  thrown(UnauthorizedException)
+        0 * csrService.requireCsr(_)
+        0 * csrService.lookupUser(_)
+    }
+
+    def "lookup() requires the CSR role"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * csrService.requireCsr(100L) >> { throw new UnauthorizedException('not CSR') }
+
+        when:
+        controller.lookup('alice@example.com', req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * csrService.lookupUser(_)
+    }
+
     def "tickets() passes status + search filter through"() {
         given:
         def rows = [[id: 1L], [id: 2L]]
@@ -170,6 +192,28 @@ class CsrControllerSpec extends Specification {
         true
     }
 
+    def "tickets() requires sign-in"() {
+        given: anonSession()
+        when:  controller.tickets('OPEN', 'hat', req)
+        then:  thrown(UnauthorizedException)
+        0 * csrService.requireCsr(_)
+        0 * csrService.listTickets(_, _)
+    }
+
+    def "tickets() requires the CSR role"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * csrService.requireCsr(100L) >> { throw new UnauthorizedException('not CSR') }
+
+        when:
+        controller.tickets('OPEN', 'hat', req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * csrService.listTickets(_, _)
+    }
+
     def "getTicket() passes csr uid + ticket id through"() {
         given:
         def ticket = [id: 9L, subject: 'help']
@@ -181,6 +225,28 @@ class CsrControllerSpec extends Specification {
 
         then:
         resp.body.is(ticket)
+    }
+
+    def "getTicket() requires sign-in"() {
+        given: anonSession()
+        when:  controller.getTicket(9L, req)
+        then:  thrown(UnauthorizedException)
+        0 * csrService.requireCsr(_)
+        0 * csrService.getTicket(_, _)
+    }
+
+    def "getTicket() requires the CSR role"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * csrService.requireCsr(100L) >> { throw new UnauthorizedException('not CSR') }
+
+        when:
+        controller.getTicket(9L, req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * csrService.getTicket(_, _)
     }
 
     // ── reply / close envelopes ───────────────────────────────
@@ -371,6 +437,14 @@ class CsrControllerSpec extends Specification {
 
         then:
         thrown(UnauthorizedException)
+        0 * csrService.flagListing(_, _, _)
+    }
+
+    def "flag() requires sign-in"() {
+        given: anonSession()
+        when:  controller.flag(9L, [reason: 'fraud'], req)
+        then:  thrown(UnauthorizedException)
+        0 * csrService.requireCsr(_)
         0 * csrService.flagListing(_, _, _)
     }
 }

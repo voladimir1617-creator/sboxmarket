@@ -4,6 +4,8 @@ import com.sboxmarket.controller.BidController
 import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.dto.request.PlaceBidRequest
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Bid
 import com.sboxmarket.model.Listing
@@ -346,5 +348,157 @@ class BidControllerSpec extends Specification {
 
         then:
         resp.body == [cancelled: 0]
+    }
+
+    // ── regression: error mapping & auth hardening (deep audit) ──
+
+    def "place() propagates the service's domain exception unchanged (correct HTTP mapping)"() {
+        given: 'service rejects a non-positive / expired bid'
+        def user = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * bidService.placeBid(100L, 'alice', 9L, _, _) >>
+            { throw new BadRequestException('EXPIRED', 'Auction has ended') }
+
+        when: 'controller does not swallow or remap the domain error'
+        controller.place(bidReq(), req)
+
+        then: 'BadRequestException reaches GlobalExceptionHandler -> 400 with the code intact'
+        def e = thrown(BadRequestException)
+        e.code == 'EXPIRED'
+    }
+
+    def "buyNowAuction() raises Unauthorized when the session uid has no SteamUser row"() {
+        given:
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.empty()
+
+        when:
+        controller.buyNowAuction(42L, null, req)
+
+        then: 'no buy-now is attempted for a session pointing at a vanished account'
+        thrown(UnauthorizedException)
+        0 * bidService.buyNowAuction(_, _, _)
+    }
+
+    def "buyNowAuction() falls back to 'Player' for a null displayName"() {
+        given:
+        def user = new SteamUser(id: 100L, displayName: null)
+        def sold = new Listing(id: 42L, status: 'SOLD', buyerUserId: 100L,
+                               currentBid: new BigDecimal('9.00'))
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * bidService.buyNowAuction(100L, 'Player', 42L) >> sold
+
+        when:
+        controller.buyNowAuction(42L, null, req)
+
+        then:
+        true  // mock verifies the fallback name
+    }
+
+    def "buyNowAuction() propagates the service's domain exception unchanged"() {
+        given: 'service rejects — auction has no Buy Now price'
+        def user = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * bidService.buyNowAuction(100L, 'alice', 42L) >>
+            { throw new BadRequestException('NO_BUY_NOW', "This auction doesn't have a Buy Now price set") }
+
+        when:
+        controller.buyNowAuction(42L, null, req)
+
+        then: 'domain exception reaches the global handler with its code intact'
+        def e = thrown(BadRequestException)
+        e.code == 'NO_BUY_NOW'
+    }
+
+    def "buyNowAuction() rejects a non-string malformed expectedPrice (#desc) with INVALID_PRICE"() {
+        given: 'a crafted JSON body where expectedPrice is not numeric-coercible'
+        def user = new SteamUser(id: 100L, displayName: 'alice')
+        authedSession(100L)
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when:
+        controller.buyNowAuction(42L, [expectedPrice: badValue], req)
+
+        then: 'malformed price -> structured 400, never a 500, and no transactional path entered'
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_PRICE'
+        0 * bidService.buyNowAuction(_, _, _)
+
+        where:
+        desc            | badValue
+        'json array'    | [1, 2, 3]
+        'json object'   | [nested: 'x']
+        'boolean'       | true
+        'empty string'  | ''
+        'whitespace'    | '  '
+    }
+
+    def "cancelAutoBid() propagates ForbiddenException unchanged when the bid is not the caller's"() {
+        given: 'service ownership check rejects — caller tried to cancel someone else auto-bid'
+        authedSession(100L)
+        1 * bidService.cancelAutoBid(100L, 9L) >> { throw new ForbiddenException('Not your bid') }
+
+        when: 'the controller must not swallow the ownership failure'
+        controller.cancelAutoBid(9L, req)
+
+        then: 'ForbiddenException reaches the global handler -> 403'
+        thrown(ForbiddenException)
+    }
+
+    def "cancelAutoBid() propagates NotFoundException for an unknown bid id"() {
+        given:
+        authedSession(100L)
+        1 * bidService.cancelAutoBid(100L, 9L) >> { throw new NotFoundException('Bid', 9L) }
+
+        when:
+        controller.cancelAutoBid(9L, req)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "history() propagates a service exception rather than masking it as a 200"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        1 * bidService.historyFor(42L, null) >> { throw new NotFoundException('Listing', 42L) }
+
+        when:
+        controller.history(42L, req)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "autoBids() / myActive() / myPast() are caller-scoped — the session uid drives the service call"() {
+        given: 'session resolves uid=777; every list endpoint must query exactly that uid'
+        req.session >> ses
+        ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 777L
+        1 * bidService.autoBidsForUser(777L) >> []
+        1 * bidService.liveBidsForUser(777L) >> []
+        1 * bidService.pastBidsForUser(777L) >> []
+
+        when:
+        controller.autoBids(req)
+        controller.myActive(req)
+        controller.myPast(req)
+
+        then: 'no cross-user leakage — each call is scoped to the authenticated uid'
+        noExceptionThrown()
+    }
+
+    def "cancelAllAutoBids() is caller-scoped — bulk cancel only ever targets the session uid"() {
+        given:
+        authedSession(555L)
+        1 * bidService.cancelAllAutoBidsForUser(555L) >> 2
+
+        when:
+        def resp = controller.cancelAllAutoBids(req)
+
+        then: 'the uid is taken from the session, never from the request body/path'
+        resp.body == [cancelled: 2]
     }
 }

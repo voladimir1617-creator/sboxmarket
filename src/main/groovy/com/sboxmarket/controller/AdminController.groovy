@@ -968,7 +968,22 @@ class AdminController {
                 throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
             }
         }
-        ResponseEntity.ok(stripeService.refundDeposit(id, amount))
+        // StripeService.refundDeposit throws java.util.NoSuchElementException
+        // for a missing deposit tx (or its wallet) — that type has no
+        // GlobalExceptionHandler mapping, so it bubbled to the catch-all
+        // as a 500 INTERNAL_ERROR on a plain "wrong id". Translate it to a
+        // 404 at the boundary, and the IllegalState/IllegalArgument "bad
+        // refund" signals to structured 400s — mirrors the pattern in
+        // WalletController.cancelWithdraw, the other Stripe-delegating route.
+        try {
+            ResponseEntity.ok(stripeService.refundDeposit(id, amount))
+        } catch (NoSuchElementException ignored) {
+            throw new com.sboxmarket.exception.NotFoundException("Transaction", id)
+        } catch (IllegalStateException e) {
+            throw new com.sboxmarket.exception.BadRequestException("CANNOT_REFUND", e.message)
+        } catch (IllegalArgumentException e) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", e.message)
+        }
     }
 
     // ── Simulator (seed fake listings for QA) ───────────────────────

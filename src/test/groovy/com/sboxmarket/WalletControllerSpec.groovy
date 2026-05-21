@@ -431,6 +431,25 @@ class WalletControllerSpec extends Specification {
         resp.body.is(txs)
     }
 
+    def "getTransactions() stale session (steamUserId points at a deleted user): [] — never leaks the demo wallet ledger"() {
+        given: 'a live session whose user row no longer exists — currentWallet() would fall through to the demo wallet'
+        steamUserRepository.findById(99L) >> Optional.empty()
+        // The seeded demo wallet currentWallet() falls back to. If the
+        // endpoint queried its ledger, a stale session would see it —
+        // the exact leak class batch 977 set out to close, but its
+        // short-circuit only covered the anonymous (userId == null) case.
+        walletRepository.findById(1L) >> Optional.of(
+            new Wallet(id: 1L, username: 'demo', balance: new BigDecimal('250'), currency: 'USD'))
+
+        when:
+        def resp = controller.getTransactions(reqFor(99L))
+
+        then: 'the demo wallet id is rejected before any ledger query — caller gets an empty list'
+        0 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(_, _)
+        resp.statusCode.value() == 200
+        resp.body == []
+    }
+
     // ─── GET /api/wallet/transactions.csv ───────────────────────────
 
     def "exportTransactionsCsv() anon: 401 (signed-in only — tax PII)"() {

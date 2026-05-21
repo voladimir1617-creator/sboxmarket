@@ -3,6 +3,8 @@ package com.sboxmarket
 import com.sboxmarket.controller.AnnouncementController
 import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Announcement
 import com.sboxmarket.service.AnnouncementService
@@ -245,5 +247,136 @@ class AnnouncementControllerSpec extends Specification {
         then: 'a non-admin cannot pull down a live banner'
         thrown(UnauthorizedException)
         0 * announcementService.deactivate(_, _)
+    }
+
+    // ── real-exception authorization contract (regression) ───────────
+    //
+    // The tests above simulate a denied admin check by throwing
+    // UnauthorizedException from the AdminAuthorization mock. The REAL
+    // AdminAuthorization.requireAdmin throws ForbiddenException (→ HTTP
+    // 403) for a signed-in non-admin and for an unknown user. These
+    // regression tests pin that genuine contract: the controller must
+    // NOT catch/swallow the service authz exception — it propagates so
+    // GlobalExceptionHandler maps it to 403. If a future refactor wraps
+    // requireAdminUser in a try/catch and lets the request through,
+    // these fail.
+
+    def "listAll() propagates the REAL ForbiddenException (HTTP 403) for a non-admin"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L) >> { throw new ForbiddenException('Admin privileges required') }
+
+        when:
+        controller.listAll(req)
+
+        then: 'admin gate fires before the service; 403 is surfaced unmodified'
+        thrown(ForbiddenException)
+        0 * announcementService.listAll()
+    }
+
+    def "create() propagates the REAL ForbiddenException (HTTP 403) for a non-admin — no banner posted"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L) >> { throw new ForbiddenException('Admin privileges required') }
+
+        when:
+        controller.create([message: 'unauthorized banner', severity: 'CRITICAL'], req)
+
+        then: 'a signed-in non-admin cannot create a sitewide banner'
+        thrown(ForbiddenException)
+        0 * announcementService.create(_, _, _, _)
+    }
+
+    def "deactivate() propagates the REAL ForbiddenException (HTTP 403) for a non-admin"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L) >> { throw new ForbiddenException('Admin privileges required') }
+
+        when:
+        controller.deactivate(5L, req)
+
+        then: 'a signed-in non-admin cannot pull down a live banner'
+        thrown(ForbiddenException)
+        0 * announcementService.deactivate(_, _)
+    }
+
+    // ── domain-error pass-through (regression) ───────────────────────
+
+    def "deactivate() propagates a NotFoundException for an unknown banner id"() {
+        given: 'admin check passes, but the service cannot find the row'
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L)
+        1 * announcementService.deactivate(100L, 999L) >> { throw new NotFoundException('Announcement', 999L) }
+
+        when:
+        controller.deactivate(999L, req)
+
+        then: 'the controller does not swallow the domain 404 — it reaches the handler'
+        thrown(NotFoundException)
+    }
+
+    def "create() propagates the service BadRequestException for an empty/too-short message"() {
+        given: 'admin check passes; the service rejects the sanitized message'
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L)
+        1 * announcementService.create(100L, 'ab', 'INFO', null) >> {
+            throw new BadRequestException('INVALID_MESSAGE', 'Message must be at least 3 characters')
+        }
+
+        when:
+        controller.create([message: 'ab', severity: 'INFO'], req)
+
+        then: 'the structured 400 from the service is surfaced unmodified — not a 500'
+        BadRequestException e = thrown()
+        e.code == 'INVALID_MESSAGE'
+    }
+
+    // ── expiresAt input-validation hardening (regression) ────────────
+
+    def "create() rejects a non-numeric-stringy expiresAt with INVALID_EXPIRES_AT — never reaches the service"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L)
+
+        when: 'expiresAt is a JSON value whose toString() is not a valid millisecond Long'
+        controller.create([message: 'Maintenance window', severity: 'INFO', expiresAt: badValue], req)
+
+        then: 'a structured 400 is thrown before the service is touched — no 500'
+        BadRequestException e = thrown()
+        e.code == 'INVALID_EXPIRES_AT'
+        0 * announcementService.create(_, _, _, _)
+
+        where: 'malformed expiresAt shapes a direct API caller could send'
+        badValue << ['tomorrow', 'true', '12.5', '', '   ', [nested: 1], [1, 2], 'NaN']
+    }
+
+    def "create() accepts a numeric expiresAt supplied as a string and coerces it to Long"() {
+        given: 'a direct API caller can send the timestamp as a JSON string'
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * adminAuthorization.requireAdmin(100L)
+
+        when:
+        controller.create([message: 'Maintenance window', severity: 'INFO',
+                           expiresAt: '1700000000000'], req)
+
+        then: 'string-form numeric expiresAt is parsed and forwarded as a Long'
+        1 * announcementService.create(100L, 'Maintenance window', 'INFO', 1700000000000L) >> new Announcement()
+    }
+
+    def "current() still sets the shared CDN cache header on the empty-state response"() {
+        when:
+        def resp = controller.current()
+
+        then: 'an absent banner is still cacheable — public, max-age=30'
+        1 * announcementService.current() >> null
+        resp.headers.getFirst('Cache-Control')?.contains('public')
+        resp.headers.getFirst('Cache-Control')?.contains('max-age=30')
     }
 }

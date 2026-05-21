@@ -248,7 +248,15 @@ class WalletController {
         def userId = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (userId == null) return ResponseEntity.ok([])
         def wallet = currentWallet(req)
-        if (wallet == null) return ResponseEntity.ok([])
+        // Batch 977's short-circuit only covered `userId == null`. A
+        // session whose `steamUserId` points at a since-deleted user
+        // still passes the gate above, but currentWallet() then fails to
+        // resolve the user row and falls through to the persisted demo
+        // wallet (findById(DEMO_WALLET_ID)) — leaking its ledger again,
+        // the exact class of bug batch 977 set out to close. Reject the
+        // demo wallet explicitly so a stale session gets an empty list,
+        // matching the `wallet.id == DEMO_WALLET_ID` guard on /spend.
+        if (wallet == null || wallet.id == DEMO_WALLET_ID) return ResponseEntity.ok([])
         // SQL-level LIMIT 500 so only 500 rows leave the database.
         // Previous code loaded everything then sliced in memory.
         def txs = transactionRepository.findByWalletIdOrderByCreatedAtDesc(

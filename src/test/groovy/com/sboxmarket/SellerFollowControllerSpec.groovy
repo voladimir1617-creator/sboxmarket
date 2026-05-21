@@ -210,12 +210,33 @@ class SellerFollowControllerSpec extends Specification {
     }
 
     def "muteAll() rejects missing body with MISSING_FIELD"() {
+        given: authedSession(100L)
+
         when:
         controller.muteAll([:], req)
 
         then:
         def e = thrown(BadRequestException)
         e.code == 'MISSING_FIELD'
+        0 * service.setAllMuted(_, _)
+    }
+
+    def "muteAll() authenticates BEFORE validating the body — anon caller gets 401, not a 400"() {
+        given: 'an anonymous caller sends a body that would otherwise fail validation'
+        anonSession()
+
+        when: 'muted is garbage — a body-first order would throw INVALID_FIELD'
+        controller.muteAll([muted: 'not-a-bool'], req)
+
+        then: 'auth wins: 401, and the body is never validated or persisted'
+        thrown(UnauthorizedException)
+        0 * service.setAllMuted(_, _)
+    }
+
+    def "muteAll() requires sign-in even when the body is missing the field"() {
+        given: anonSession()
+        when:  controller.muteAll([:], req)
+        then:  thrown(UnauthorizedException)
         0 * service.setAllMuted(_, _)
     }
 

@@ -3,6 +3,8 @@ package com.sboxmarket
 import com.sboxmarket.controller.ReviewController
 import com.sboxmarket.controller.SteamAuthController
 import com.sboxmarket.exception.BadRequestException
+import com.sboxmarket.exception.ForbiddenException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Review
 import com.sboxmarket.service.ReviewService
@@ -319,5 +321,215 @@ class ReviewControllerSpec extends Specification {
         when:  controller.reply(9L, [reply: 'x'], req)
         then:  thrown(UnauthorizedException)
         0 * reviewService.replyToReview(_, _, _)
+    }
+
+    // ── horizontal-escalation guards ───────────────────────────
+    //
+    // The acting user id MUST come from the session only. A body or
+    // path that smuggles a foreign uid must be ignored — the service
+    // is always invoked with the SESSION uid, never the attacker-
+    // supplied one. These pin that contract for every authed verb.
+
+    def "leaveReview() ignores a body-supplied fromUserId/userId — uses the session uid"() {
+        given:
+        authedSession(100L)
+        // Body tries to act as user 999. Controller must call the
+        // service with 100 (session), never 999.
+        1 * reviewService.leaveReview(100L, 1L, 5, null) >> new Review(
+            id: 1L, fromUserId: 100L, toUserId: 200L, tradeId: 1L, rating: 5)
+
+        when:
+        controller.leaveReview([tradeId: 1, rating: 5, fromUserId: 999, userId: 999], req)
+
+        then:
+        0 * reviewService.leaveReview(999L, _, _, _)
+    }
+
+    def "delete() anchors ownership on the session uid, not a body or foreign value"() {
+        given:
+        authedSession(100L)
+        // Only the session uid (100) may reach the service — the
+        // service-layer `fromUserId == uid` gate is meaningless if
+        // the controller forwards anything else.
+        1 * reviewService.deleteReview(100L, 9L)
+
+        when:
+        controller.delete(9L, req)
+
+        then:
+        0 * reviewService.deleteReview({ it != 100L }, _)
+    }
+
+    def "toggleHelpful() scopes the vote to the session uid"() {
+        given:
+        authedSession(100L)
+        1 * reviewService.toggleHelpful(100L, 9L) >> [helpfulCount: 1, viewerHasVoted: true]
+
+        when:
+        controller.toggleHelpful(9L, req)
+
+        then: 'vote is caller-scoped — never a path/body uid'
+        0 * reviewService.toggleHelpful({ it != 100L }, _)
+    }
+
+    def "reply() forwards the session uid + body reply verbatim, ignoring a body uid"() {
+        given:
+        authedSession(100L)
+        def saved = new Review(id: 9L, sellerReply: 'np', sellerReplyAt: 5L)
+        // Seller-reply authority is the session uid; a body `userId`
+        // must not become the acting seller.
+        1 * reviewService.replyToReview(100L, 9L, 'np') >> saved
+
+        when:
+        controller.reply(9L, [reply: 'np', userId: 999], req)
+
+        then:
+        0 * reviewService.replyToReview(999L, _, _)
+    }
+
+    // ── domain-exception passthrough ───────────────────────────
+    //
+    // The controller must NOT catch/remap ApiException subclasses —
+    // GlobalExceptionHandler maps them to the right status. Catching
+    // a NumberFormatException is the ONLY translation it does.
+
+    def "delete() lets a service ForbiddenException propagate (not-author case)"() {
+        given:
+        authedSession(100L)
+        1 * reviewService.deleteReview(100L, 9L) >> {
+            throw new ForbiddenException("You can only delete your own reviews")
+        }
+
+        when:
+        controller.delete(9L, req)
+
+        then: 'propagated uncaught → handler maps to 403'
+        thrown(ForbiddenException)
+    }
+
+    def "reply() lets a service ForbiddenException propagate (non-seller case)"() {
+        given:
+        authedSession(100L)
+        1 * reviewService.replyToReview(100L, 9L, 'x') >> {
+            throw new ForbiddenException("Only the seller can reply to this review")
+        }
+
+        when:
+        controller.reply(9L, [reply: 'x'], req)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    def "toggleHelpful() lets a service NotFoundException propagate"() {
+        given:
+        authedSession(100L)
+        1 * reviewService.toggleHelpful(100L, 9L) >> {
+            throw new NotFoundException("Review", 9L)
+        }
+
+        when:
+        controller.toggleHelpful(9L, req)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "leaveReview() lets a service BadRequestException propagate with its code intact"() {
+        given:
+        authedSession(100L)
+        1 * reviewService.leaveReview(100L, 1L, 5, null) >> {
+            throw new BadRequestException("TRADE_NOT_VERIFIED", "Can only review completed trades")
+        }
+
+        when:
+        controller.leaveReview([tradeId: 1, rating: 5], req)
+
+        then: 'controller does not swallow or rewrite the service code'
+        def e = thrown(BadRequestException)
+        e.code == 'TRADE_NOT_VERIFIED'
+    }
+
+    // ── numeric-coercion edge cases (structured 400, never 500) ──
+
+    def "leaveReview() maps an out-of-range tradeId to INVALID_TRADE_ID, not a 500"() {
+        given: authedSession(100L)
+
+        when: 'a value too large for a Long'
+        controller.leaveReview([tradeId: '999999999999999999999999', rating: 5], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_TRADE_ID'
+        0 * reviewService.leaveReview(_, _, _, _)
+    }
+
+    def "leaveReview() maps a decimal rating to INVALID_RATING, not a 500"() {
+        given: authedSession(100L)
+
+        when: 'JSON 4.5 stringifies to "4.5" which is not a valid Integer'
+        controller.leaveReview([tradeId: 1, rating: 4.5], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_RATING'
+        0 * reviewService.leaveReview(_, _, _, _)
+    }
+
+    def "leaveReview() maps an out-of-range rating to INVALID_RATING, not a 500"() {
+        given: authedSession(100L)
+
+        when: 'a value too large for an Integer'
+        controller.leaveReview([tradeId: 1, rating: 99999999999L], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_RATING'
+        0 * reviewService.leaveReview(_, _, _, _)
+    }
+
+    def "leaveReview() rejects a non-numeric tradeId before the auth-passing service call"() {
+        given:
+        authedSession(100L)
+
+        when: 'a JSON object as tradeId stringifies to a non-number'
+        controller.leaveReview([tradeId: [nested: 1], rating: 5], req)
+
+        then: 'parse failure → 400, service never reached'
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_TRADE_ID'
+        0 * reviewService.leaveReview(_, _, _, _)
+    }
+
+    // ── null-body safety ───────────────────────────────────────
+
+    def "leaveReview() with a null body safe-navigates to nulls (no NPE → 500)"() {
+        given:
+        authedSession(100L)
+        // An explicit JSON `null` payload binds to a null Map. The
+        // controller must not NPE — it forwards nulls and lets the
+        // service raise a clean domain error.
+        1 * reviewService.leaveReview(100L, null, null, null) >> {
+            throw new BadRequestException("INVALID_RATING", "Rating must be 1-5")
+        }
+
+        when:
+        controller.leaveReview(null, req)
+
+        then: 'a domain 400, never an NPE-driven 500'
+        thrown(BadRequestException)
+    }
+
+    def "reply() with a null body safe-navigates to a null reply"() {
+        given:
+        authedSession(100L)
+        def cleared = new Review(id: 9L, sellerReply: null, sellerReplyAt: null)
+        1 * reviewService.replyToReview(100L, 9L, null) >> cleared
+
+        when:
+        def resp = controller.reply(9L, null, req)
+
+        then: 'null body → null reply through to the service, no NPE'
+        resp.body.sellerReply == null
     }
 }

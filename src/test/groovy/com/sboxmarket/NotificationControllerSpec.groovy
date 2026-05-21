@@ -199,6 +199,29 @@ class NotificationControllerSpec extends Specification {
         resp.body == [flipped: 0]
     }
 
+    def "readBatch() tolerates an absent body (@RequestBody required=false) with {flipped:0}"() {
+        given: 'empty-body POST → Spring binds null when required=false'
+        authedSession(100L)
+
+        when: 'controller must not NPE on the null body — body?.ids guards it'
+        def resp = controller.readBatch(null, req)
+
+        then: 'graceful 0, no service call — matches the documented "no 400" contract'
+        0 * notificationService.markReadByIds(_, _)
+        resp.body == [flipped: 0]
+    }
+
+    def "readBatch() with an absent body still gates auth before touching the body"() {
+        given: anonSession()
+
+        when:
+        controller.readBatch(null, req)
+
+        then: 'requireUser runs first — anon is 401, not a silent {flipped:0}'
+        thrown(UnauthorizedException)
+        0 * notificationService.markReadByIds(_, _)
+    }
+
     def "readBatch() parses ids + drops malformed tokens + returns service flip count"() {
         given:
         List<Long> capturedIds = null
@@ -244,6 +267,29 @@ class NotificationControllerSpec extends Specification {
 
         then:
         resp.body == [deleted: 2]
+    }
+
+    def "deleteBatch() tolerates an absent body (@RequestBody required=false) with {deleted:0}"() {
+        given: 'empty-body POST → Spring binds null when required=false'
+        authedSession(100L)
+
+        when: 'controller must not NPE on the null body — body?.ids guards it'
+        def resp = controller.deleteBatch(null, req)
+
+        then:
+        0 * notificationService.deleteReadByIds(_, _)
+        resp.body == [deleted: 0]
+    }
+
+    def "deleteBatch() requires sign-in"() {
+        given: anonSession()
+
+        when:
+        controller.deleteBatch([ids: [1L]], req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * notificationService.deleteReadByIds(_, _)
     }
 
     def "clearRead() returns {deleted: N}"() {
