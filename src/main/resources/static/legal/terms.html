@@ -31,6 +31,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-doc .callout {
       background: rgba(251, 191, 36, 0.08);
       border: 1px solid rgba(251, 191, 36, 0.35);
@@ -211,7 +216,7 @@
     <p>
       The SkinBox name, logo, website, and source code are owned by the SkinBox
       operators. You may not copy, modify, resell, or create derivative works from any
-      part of the Service without written permission. "s&amp;box", "Steam", and "Rust"
+      part of the Service without written permission. "s&amp;box" and "Steam"
       are trademarks of their respective owners and are used here for descriptive and
       nominative fair-use purposes only.
     </p>

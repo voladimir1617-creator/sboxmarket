@@ -7,9 +7,11 @@ import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Item
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.Bid
+import com.sboxmarket.model.Offer
 import com.sboxmarket.repository.BidRepository
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.OfferRepository
 import com.sboxmarket.repository.TradeRepository
 import com.sboxmarket.service.BuyOrderService
 import com.sboxmarket.service.NotificationService
@@ -32,6 +34,7 @@ class SellServiceSpec extends Specification {
     ItemRepository      itemRepository      = Mock()
     TradeRepository     tradeRepository     = Mock()
     BidRepository       bidRepository       = Mock()
+    OfferRepository     offerRepository     = Mock()
     BuyOrderService     buyOrderService     = Mock()
     TradeService        tradeService        = Mock()
     NotificationService notificationService = Mock()
@@ -47,6 +50,7 @@ class SellServiceSpec extends Specification {
         itemRepository:      itemRepository,
         tradeRepository:     tradeRepository,
         bidRepository:       bidRepository,
+        offerRepository:     offerRepository,
         buyOrderService:     buyOrderService,
         tradeService:        tradeService,
         notificationService: notificationService,
@@ -391,6 +395,164 @@ class SellServiceSpec extends Specification {
 
         then:
         0 * tradeService.cancel(_, _, _)
+        listing.status == 'SOLD'
+    }
+
+    // ── cancelListing live-offer cleanup ──────────────────────────
+    //
+    // When a seller cancels a listing, every still-live offer on it
+    // must reach a terminal state. "Live" is PENDING *or* COUNTERED —
+    // both are negotiation states `findLiveByBuyerAndListing` reports
+    // as a live offer (the ItemModal "You offered $X" chip). A
+    // PENDING-only sweep left a COUNTERED buyer original dangling.
+
+    private Offer offer(Map args = [:]) {
+        new Offer(
+            id:           args.id,
+            listingId:    args.listingId ?: 100L,
+            buyerUserId:  args.buyerUserId ?: 20L,
+            sellerUserId: args.sellerUserId ?: 10L,
+            amount:       args.amount ?: new BigDecimal('30'),
+            askingPrice:  args.askingPrice ?: new BigDecimal('40'),
+            status:       args.status ?: 'PENDING',
+            author:       args.author ?: 'USER',
+            parentOfferId: args.parentOfferId
+        )
+    }
+
+    def "cancelListing cancels every PENDING offer on the listing and notifies the buyer"() {
+        given:
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'BUY_NOW', item: new Item(id: 7L, name: 'Wizard Hat')
+        )
+        def o1 = offer(id: 1L, buyerUserId: 20L, status: 'PENDING')
+        def o2 = offer(id: 2L, buyerUserId: 21L, status: 'PENDING')
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        offerRepository.findByListingId(100L) >> [o1, o2]
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        o1.status == 'CANCELLED'
+        o2.status == 'CANCELLED'
+        1 * offerRepository.saveAll({ Iterable offers -> offers*.status.every { it == 'CANCELLED' } })
+        1 * notificationService.push(20L, 'OFFER_REJECTED', _, _, 1L, _)
+        1 * notificationService.push(21L, 'OFFER_REJECTED', _, _, 2L, _)
+        listing.status == 'SOLD'
+    }
+
+    def "cancelListing also terminates a COUNTERED buyer offer — not just PENDING"() {
+        given:
+        // The seller cancels a listing mid-negotiation: a buyer offer
+        // the seller had countered (status COUNTERED) plus the live
+        // child SELLER counter (PENDING, same listingId). Before the
+        // fix only the PENDING child was cancelled; the COUNTERED
+        // parent was left dangling and kept showing as a live offer.
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'BUY_NOW', item: new Item(id: 7L, name: 'Wizard Hat')
+        )
+        def counteredOriginal = offer(id: 1L, buyerUserId: 20L,
+            status: 'COUNTERED', author: 'USER')
+        def sellerCounter = offer(id: 2L, buyerUserId: 20L,
+            status: 'PENDING', author: 'SELLER', parentOfferId: 1L)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        offerRepository.findByListingId(100L) >> [counteredOriginal, sellerCounter]
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        // BOTH rows of the negotiation thread reach the terminal state.
+        counteredOriginal.status == 'CANCELLED'
+        sellerCounter.status == 'CANCELLED'
+        1 * offerRepository.saveAll({ Iterable offers -> offers*.status.every { it == 'CANCELLED' } })
+        // The buyer is pinged exactly once even though two rows on the
+        // listing belong to them (COUNTERED original + PENDING counter).
+        1 * notificationService.push(20L, 'OFFER_REJECTED', _, _, _, _)
+        listing.status == 'SOLD'
+    }
+
+    def "cancelListing leaves terminal offers (ACCEPTED/REJECTED/CANCELLED/EXPIRED) untouched"() {
+        given:
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'BUY_NOW', item: new Item(id: 7L, name: 'x')
+        )
+        def live     = offer(id: 1L, buyerUserId: 20L, status: 'PENDING')
+        def accepted = offer(id: 2L, buyerUserId: 21L, status: 'ACCEPTED')
+        def rejected = offer(id: 3L, buyerUserId: 22L, status: 'REJECTED')
+        def expired  = offer(id: 4L, buyerUserId: 23L, status: 'EXPIRED')
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        offerRepository.findByListingId(100L) >> [live, accepted, rejected, expired]
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        // Only the live PENDING row flips; terminal rows are not rewritten.
+        live.status == 'CANCELLED'
+        accepted.status == 'ACCEPTED'
+        rejected.status == 'REJECTED'
+        expired.status == 'EXPIRED'
+        // saveAll receives only the one live row.
+        1 * offerRepository.saveAll({ Iterable offers ->
+            offers.collect { it.id } == [1L]
+        })
+        // Only the live offer's buyer is notified.
+        1 * notificationService.push(20L, 'OFFER_REJECTED', _, _, 1L, _)
+        0 * notificationService.push(21L, _, _, _, _, _)
+        0 * notificationService.push(22L, _, _, _, _, _)
+        0 * notificationService.push(23L, _, _, _, _, _)
+    }
+
+    def "cancelListing offer-cleanup failure does not abort the cancel"() {
+        given:
+        // A repository blow-up in the best-effort offer sweep must not
+        // stop the listing from being returned to inventory.
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'BUY_NOW', item: new Item(id: 7L, name: 'x')
+        )
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        offerRepository.findByListingId(100L) >> { throw new RuntimeException("db down") }
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        // The cancel still completes — item back in seller inventory.
+        listing.status == 'SOLD'
+        listing.buyerUserId == 10L
+        noExceptionThrown()
+    }
+
+    def "cancelListing skips the OFFER_REJECTED push for an offer with a null buyer"() {
+        given:
+        def listing = new Listing(
+            id: 100L, status: 'ACTIVE', sellerUserId: 10L,
+            listingType: 'BUY_NOW', item: new Item(id: 7L, name: 'x')
+        )
+        def noBuyer = offer(id: 1L, status: 'PENDING')
+        noBuyer.buyerUserId = null
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        offerRepository.findByListingId(100L) >> [noBuyer]
+
+        when:
+        service.cancelListing(10L, 100L)
+
+        then:
+        // Still flipped + saved, just no push (no buyer to notify).
+        noBuyer.status == 'CANCELLED'
+        1 * offerRepository.saveAll(_)
+        0 * notificationService.push(*_)
         listing.status == 'SOLD'
     }
 

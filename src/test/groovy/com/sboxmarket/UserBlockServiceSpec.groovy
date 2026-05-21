@@ -258,6 +258,57 @@ class UserBlockServiceSpec extends Specification {
         rows[0].createdAt == 1_700_000_000_000L
     }
 
+    def "listBlocked hydrates the rows whose target still exists and null-fills the rest"() {
+        given: 'two blocked rows — one target user present, one deleted'
+        def live   = new UserBlock(id: 1L, blockerUserId: 10L, blockedUserId: 20L, createdAt: 1_700_000_200_000L)
+        def orphan = new UserBlock(id: 2L, blockerUserId: 10L, blockedUserId: 30L, createdAt: 1_700_000_100_000L)
+        userBlockRepository.findByBlocker(10L) >> [live, orphan]
+        // findAllById only returns user 20 — user 30 was deleted.
+        steamUserRepository.findAllById(_) >> [
+            new SteamUser(id: 20L, displayName: 'Bob', avatarUrl: 'b.png')
+        ]
+
+        when:
+        def rows = service.listBlocked(10L)
+
+        then: 'the present user is decorated, the missing one degrades to nulls — no crash'
+        rows.size() == 2
+        rows[0].blockedUserId == 20L
+        rows[0].displayName == 'Bob'
+        rows[0].avatarUrl == 'b.png'
+        rows[1].blockedUserId == 30L
+        rows[1].displayName == null
+        rows[1].avatarUrl == null
+    }
+
+    def "block idempotent re-block returns the matching row when the block list has several entries"() {
+        given: 'caller has blocked three users; re-blocking the middle one must return THAT row'
+        def b20 = new UserBlock(id: 1L, blockerUserId: 10L, blockedUserId: 20L, createdAt: 1_700_000_000_000L)
+        def b30 = new UserBlock(id: 2L, blockerUserId: 10L, blockedUserId: 30L, createdAt: 1_700_000_100_000L)
+        def b40 = new UserBlock(id: 3L, blockerUserId: 10L, blockedUserId: 40L, createdAt: 1_700_000_200_000L)
+        userBlockRepository.existsBlock(10L, 30L) >> true
+        userBlockRepository.findByBlocker(10L) >> [b40, b30, b20]
+
+        when:
+        def block = service.block(10L, 30L)
+
+        then: 'the right pre-existing row is returned — not just the first/newest'
+        block.is(b30)
+        block.blockedUserId == 30L
+        0 * userBlockRepository.save(_)
+    }
+
+    def "blockedIdsFor returns an empty list when the repo projection is empty"() {
+        given:
+        userBlockRepository.findBlockedIdsForBlocker(10L) >> []
+
+        when:
+        def ids = service.blockedIdsFor(10L)
+
+        then:
+        ids == []
+    }
+
     def "listBlocked caps the rendered list at MAX_PER_USER even if a race left extra rows"() {
         given: 'the repo returns 105 rows — more than the 100 cap'
         def rows105 = (1..105).collect { i ->

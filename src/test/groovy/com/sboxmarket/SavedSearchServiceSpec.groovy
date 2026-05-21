@@ -354,6 +354,30 @@ class SavedSearchServiceSpec extends Specification {
         miss == false
     }
 
+    def "delete is scoped to the caller — a non-owned id is a no-op false, never a cross-user delete"() {
+        // The repo DELETE is keyed on (userId, id); a row owned by user
+        // 20 is invisible to user 10's delete. The service must thread
+        // the caller's id through unchanged so ownership is enforced at
+        // the query — no separate read-then-check that could be skipped.
+        when:
+        def removed = service.delete(10L, 555L)
+
+        then: 'caller id 10 reaches the repo verbatim; foreign row reports 0 rows'
+        1 * repository.deleteByUserAndId(10L, 555L) >> 0
+        removed == false
+    }
+
+    def "delete short-circuits on null user id or null search id without touching the repo"() {
+        when:
+        def nullUser = service.delete(null, 1L)
+        def nullId = service.delete(10L, null)
+
+        then:
+        !nullUser
+        !nullId
+        0 * repository.deleteByUserAndId(_, _)
+    }
+
     def "deleteAllForUser forwards to the bulk delete and returns the row count (batch 353)"() {
         given:
         repository.deleteByUser(10L) >> 7
@@ -489,6 +513,68 @@ class SavedSearchServiceSpec extends Specification {
         !SavedSearchService.matches(garbage, listingFor())
     }
 
+    def "matches returns false when the listing has no item attached"() {
+        given:
+        def preset = new SavedSearch(name: 'x', category: 'All', rarity: 'All')
+        def itemless = new com.sboxmarket.model.Listing(id: 1L, price: new BigDecimal('5'))
+
+        expect: 'no item → cannot evaluate category/rarity/q → conservative false, not an NPE'
+        !SavedSearchService.matches(preset, itemless)
+    }
+
+    def "matches returns false when the listing has no price"() {
+        given:
+        def preset = new SavedSearch(name: 'x', category: 'All', rarity: 'All')
+        def priceless = listingFor()
+        priceless.price = null
+
+        expect:
+        !SavedSearchService.matches(preset, priceless)
+    }
+
+    def "matches discount gate skips a listing whose item has no steamPrice"() {
+        // Can't compute a meaningful percent off a missing/zero base
+        // price — the deal filter must reject rather than divide by zero
+        // or treat 'unknown' as 'huge discount'.
+        given:
+        def dealsOnly = new SavedSearch(name: 'd', category: 'All', rarity: 'All',
+            dealsOnly: true)
+        def noSteam = listingFor(price: new BigDecimal('5'))   // item.steamPrice left null
+        def zeroSteam = listingFor(price: new BigDecimal('5'))
+        zeroSteam.item.steamPrice = BigDecimal.ZERO
+
+        expect:
+        !SavedSearchService.matches(dealsOnly, noSteam)
+        !SavedSearchService.matches(dealsOnly, zeroSteam)
+    }
+
+    def "matches discount maths survives a non-terminating division (steamPrice that doesn't divide evenly)"() {
+        // (steamPrice - price) * 100 / steamPrice with steamPrice=3 is
+        // 66.66… — a raw BigDecimal.divide would throw ArithmeticException.
+        // Groovy's `/` applies a rounding scale, so the matcher must just
+        // compute the percent and compare, never blow up the fanout.
+        given:
+        def twentyOff = new SavedSearch(name: 'd', category: 'All', rarity: 'All',
+            minDiscountPct: 20)
+        def deal = listingFor(price: new BigDecimal('1'))   // 1 of 3 → 66.6% off
+        deal.item.steamPrice = new BigDecimal('3')
+
+        expect:
+        SavedSearchService.matches(twentyOff, deal)
+    }
+
+    def "matches affordableOnly is intentionally ignored by the fanout predicate"() {
+        // affordableOnly is a wallet-relative filter with no wallet in
+        // scope here — a preset that sets it must still match so the
+        // 'top up to grab it' notification can fire.
+        given:
+        def affPreset = new SavedSearch(name: 'a', category: 'All', rarity: 'All',
+            affordableOnly: true)
+
+        expect:
+        SavedSearchService.matches(affPreset, listingFor())
+    }
+
     // ── notifyMatchingForListing fanout ─────────────────────────────
 
     def "notifyMatchingForListing pushes LISTING_MATCH to every matching user except the seller"() {
@@ -547,6 +633,55 @@ class SavedSearchServiceSpec extends Specification {
         service.notifyMatchingForListing(listingFor())
 
         then:
+        0 * notifications.push(_, _, _, _, _, _)
+    }
+
+    def "notifyMatchingForListing caps the fanout at 50 notifications for a viral preset"() {
+        // 80 distinct users all hold an All/All preset matching the new
+        // listing; the fanout must stop at 50 pushes so one accidentally
+        // broad preset can't blow up the listing-creation path.
+        given:
+        def notifications = Mock(NotificationService)
+        service.notificationService = notifications
+        def many = (1..80).collect { i ->
+            new SavedSearch(id: i as Long, userId: (1000L + i),
+                name: "p${i}", category: 'All', rarity: 'All')
+        }
+        repository.findCandidatesForListing(_, _) >> many
+
+        when:
+        service.notifyMatchingForListing(listingFor())
+
+        then: 'exactly the 50-cap, no more'
+        50 * notifications.push(_, 'LISTING_MATCH', _, _, _, _)
+    }
+
+    def "notifyMatchingForListing is a no-op when the listing has no item"() {
+        given:
+        def notifications = Mock(NotificationService)
+        service.notificationService = notifications
+
+        when:
+        service.notifyMatchingForListing(new com.sboxmarket.model.Listing(id: 1L))
+
+        then: 'no item → never even queries candidates'
+        0 * repository.findCandidatesForListing(_, _)
+        0 * notifications.push(_, _, _, _, _, _)
+    }
+
+    def "notifyMatchingForListing swallows a candidate-query failure without throwing"() {
+        // The fanout is best-effort: a flaky repo query must be logged
+        // and absorbed so it never rolls back the listing creation.
+        given:
+        def notifications = Mock(NotificationService)
+        service.notificationService = notifications
+        repository.findCandidatesForListing(_, _) >> { throw new RuntimeException('db down') }
+
+        when:
+        service.notifyMatchingForListing(listingFor())
+
+        then:
+        notThrown(Exception)
         0 * notifications.push(_, _, _, _, _, _)
     }
 

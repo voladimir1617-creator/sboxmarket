@@ -143,14 +143,10 @@ class ApiKeyService {
     }
 
     /** Authenticate a raw token — returns the owning user id or null. */
+    @Transactional
     Long authenticate(String rawToken) {
-        if (!rawToken || !rawToken.startsWith(PREFIX)) return null
-        def hash = sha256(rawToken)
-        def key = apiKeyRepository.findByTokenHash(hash)
-        if (key == null || key.revoked) return null
-        key.lastUsedAt = System.currentTimeMillis()
-        apiKeyRepository.save(key)
-        key.userId
+        def key = resolveLiveKey(rawToken)
+        key == null ? null : key.userId
     }
 
     /**
@@ -160,14 +156,41 @@ class ApiKeyService {
      * `authenticate(token)`. Returns null when the token is missing,
      * unknown, or revoked.
      */
+    @Transactional
     Map authenticateWithScope(String rawToken) {
+        def key = resolveLiveKey(rawToken)
+        key == null ? null : [userId: key.userId, scope: (key.scope ?: 'RW')]
+    }
+
+    /**
+     * Shared verify path for both authenticate flavours: hash-lookup the
+     * presented token, refuse a missing / revoked key, and stamp
+     * `lastUsedAt` — returning the live key or null.
+     *
+     * Why this is @Transactional and re-reads the row by id before the
+     * write: the previous code mutated and `save()`d the (already
+     * detached) `findByTokenHash` result directly. A JPA merge of a
+     * detached entity rewrites EVERY column from its stale snapshot — so
+     * an `authenticate()` racing a `revoke()` / `revokeAll()` could flush
+     * a stale `revoked=false` over a just-committed `revoked=true` and
+     * silently un-revoke the key, defeating the revocation kill switch.
+     * Running inside one transaction and re-loading the row by id keeps
+     * the entity managed and lets us bail the instant we observe it is
+     * revoked — a key revoked mid-request now correctly fails auth and
+     * its `revoked` flag is never overwritten.
+     */
+    private ApiKey resolveLiveKey(String rawToken) {
         if (!rawToken || !rawToken.startsWith(PREFIX)) return null
         def hash = sha256(rawToken)
-        def key = apiKeyRepository.findByTokenHash(hash)
-        if (key == null || key.revoked) return null
+        def found = apiKeyRepository.findByTokenHash(hash)
+        if (found == null || found.id == null || Boolean.TRUE.equals(found.revoked)) return null
+        // Re-load fresh inside this transaction; abort if it was revoked
+        // in the meantime so the lastUsedAt write can never resurrect it.
+        def key = apiKeyRepository.findById(found.id).orElse(null)
+        if (key == null || Boolean.TRUE.equals(key.revoked)) return null
         key.lastUsedAt = System.currentTimeMillis()
         apiKeyRepository.save(key)
-        [userId: key.userId, scope: (key.scope ?: 'RW')]
+        key
     }
 
     private static String randomToken(int bytes) {

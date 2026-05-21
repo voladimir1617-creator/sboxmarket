@@ -315,9 +315,21 @@ class RateLimitFilter extends OncePerRequestFilter {
         // Fall back to X-Forwarded-For (first entry) for non-Cloudflare
         // deployments, then to the direct remoteAddr.
         def cf = req.getHeader('CF-Connecting-IP')
-        if (cf) return cf.trim()
+        if (cf && !cf.trim().isEmpty()) return cf.trim()
         def xff = req.getHeader('X-Forwarded-For')
-        if (xff) return xff.split(',')[0].trim()
+        if (xff) {
+            // A crafted `X-Forwarded-For: ,` (or `,,`) is non-blank, yet
+            // Java's split drops trailing empty tokens → a zero-length
+            // array, so the old `split(',')[0]` threw
+            // ArrayIndexOutOfBoundsException. Unhandled here in the filter
+            // chain it surfaces as a 500 on EVERY request carrying such a
+            // header. Take the first non-empty hop; fall through to
+            // remoteAddr when the header has no real address.
+            for (String tok : xff.split(',')) {
+                def t = tok?.trim()
+                if (t) return t
+            }
+        }
         req.remoteAddr
     }
 }

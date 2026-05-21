@@ -45,4 +45,19 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM Notification n WHERE n.read = true AND n.createdAt < :cutoff")
     int deleteReadOlderThan(@Param("cutoff") Long cutoff)
+
+    /** Bulk-delete every READ notification a user owns in a single
+     *  DELETE. Drives "Clear read" from the bell.
+     *
+     *  The previous implementation hydrated the 500 most-recent rows of
+     *  *any* read-state and filtered to the read ones — so a user with
+     *  500+ recent UNREAD rows had their entire window taken up by
+     *  unread, leaving `toDelete` empty and the button a silent no-op
+     *  even though thousands of older read rows were eligible. A
+     *  set-based DELETE has no window and no Hibernate session
+     *  pressure, so it always honours the "every READ notification"
+     *  contract. Returns the row count removed. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Notification n WHERE n.userId = :uid AND n.read = true")
+    int deleteAllReadForUser(@Param("uid") Long uid)
 }

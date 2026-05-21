@@ -869,7 +869,39 @@ class TradeService {
                 "If you didn't receive the item or the wrong item arrived, open a dispute instead.")
         }
 
-        refundBuyer(t)
+        // Anti-double-payout guard. If this trade was disputed first,
+        // dispute() already fired Trade Protection's autoClaim — which
+        // refunds the buyer the FULL item price the moment the dispute
+        // is filed. The standard staff resolution for a buyer-favour
+        // dispute is forceCancelTrade → cancel() (admin branch). If we
+        // also ran refundBuyer() here the buyer would be paid the item
+        // price TWICE for a single escrowed sale: once by the protection
+        // claim, once by this cancel refund. Escrow only ever held the
+        // price once, so the platform would eat the second payout.
+        // When the protection is already CLAIMED the buyer is whole —
+        // skip the escrow refund and just close the trade out. Falls
+        // back to refundBuyer() for every unprotected / unclaimed trade,
+        // which is the overwhelming majority. Best-effort lookup: a
+        // protection-service hiccup must not block the cancel, so on any
+        // error we conservatively fall through to refundBuyer() — a
+        // missed skip is recoverable (staff claw-back), a missed refund
+        // on a genuinely unrefunded buyer is not.
+        boolean alreadyPaidByProtection = false
+        try {
+            def protection = tradeProtectionService?.findForTrade(t.id)
+            alreadyPaidByProtection =
+                protection != null &&
+                protection.status == com.sboxmarket.model.TradeProtection.CLAIMED
+        } catch (Exception e) {
+            log.warn("Protection lookup failed for cancelling trade ${t.id} — " +
+                "falling through to escrow refund: ${e.message}")
+        }
+        if (alreadyPaidByProtection) {
+            log.info("Trade #{} cancel — protection already CLAIMED, skipping escrow refund " +
+                "to avoid a double payout to the buyer", t.id)
+        } else {
+            refundBuyer(t)
+        }
         returnListingToSeller(t)
         // Sanitize the user-supplied reason before it lands in the trade
         // note AND the notification body. React auto-escapes, but defense
@@ -879,8 +911,13 @@ class TradeService {
         t.note = cleanReason
         t.settledAt = System.currentTimeMillis()
         transitionTo(t, 'CANCELLED')
+        // Buyer notification — only claim "refund issued" when this
+        // cancel actually issued one. A protection-claimed trade was
+        // already refunded at dispute time, so the cancel ping just
+        // confirms closure rather than (falsely) a second refund.
         notificationService?.safePush(t.buyerUserId, 'TRADE_CANCELLED',
-            "Trade cancelled · refund issued", cleanReason, t.id, '/profile?tab=trades')
+            alreadyPaidByProtection ? "Trade cancelled" : "Trade cancelled · refund issued",
+            cleanReason, t.id, '/profile?tab=trades')
         if (t.sellerUserId != null) {
             notificationService?.safePush(t.sellerUserId, 'TRADE_CANCELLED',
                 "Trade cancelled", cleanReason, t.id, '/profile?tab=trades')
@@ -897,12 +934,15 @@ class TradeService {
         // from THEIR perspective.
         fireTradeCancelledEmail(t, cleanReason, 'buyer')
         fireTradeCancelledEmail(t, cleanReason, 'seller')
-        // Trade Protection — a cancel already refunds the buyer the
-        // full escrowed item price via refundBuyer() above, so the
-        // buyer is whole and the protection must NOT pay out a second
-        // time. We expire the cover instead (consumed, fee kept).
-        // Best-effort so a protection hiccup can't roll back the
-        // refund + CANCELLED transition.
+        // Trade Protection — the buyer is whole either way: this cancel
+        // refunded the escrowed item price via refundBuyer() above
+        // (unprotected / unclaimed trades), OR the protection already
+        // paid out at dispute time (the alreadyPaidByProtection branch).
+        // So the protection must NOT pay out again — expire the cover.
+        // expire() is a correct no-op on an already-CLAIMED protection
+        // (status != ACTIVE → returns early), so this single call is
+        // safe for both paths. Best-effort so a protection hiccup can't
+        // roll back the refund + CANCELLED transition.
         try {
             tradeProtectionService?.expire(t.id)
         } catch (Exception e) {

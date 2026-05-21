@@ -592,6 +592,103 @@ class OfferServiceSpec extends Specification {
         counter.status == 'ACCEPTED'
     }
 
+    def "acceptOffer on a SELLER counter closes the buyer's COUNTERED original (P1 bug fix)"() {
+        // Accepting the counter is the counter's HAPPY-PATH terminal
+        // state — yet it was the one terminal transition that never ran
+        // closeCounteredParent (reject / cancel / sweep / buyer-raise
+        // all did). Left uncleaned, the buyer's original stays COUNTERED,
+        // which findLiveByBuyerAndListing still treats as live — so the
+        // ItemModal "You offered $X" chip shows a live offer on a listing
+        // the buyer has already bought.
+        given:
+        def original = pendingOffer(id: 1L, status: 'COUNTERED')
+        def counter  = new Offer(
+            id: 5L, listingId: 100L, buyerUserId: 10L, sellerUserId: 99L,
+            amount: new BigDecimal("45"), askingPrice: new BigDecimal("50"),
+            status: 'PENDING', author: 'SELLER', parentOfferId: 1L)
+        def listing = activeListing(price: new BigDecimal("50"))
+        def buyer   = new SteamUser(id: 10L, steamId64: '111')
+        def wallet  = new Wallet(id: 500L, balance: new BigDecimal("500"))
+        offerRepository.findById(5L) >> Optional.of(counter)
+        offerRepository.findById(1L) >> Optional.of(original)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_111') >> wallet
+        offerRepository.findPendingForListing(100L) >> []
+        offerRepository.save(_) >> { Offer o -> o }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when: 'the buyer accepts the seller counter'
+        def result = service.acceptOffer(10L, 5L)
+
+        then:
+        result.accepted == true
+        counter.status == 'ACCEPTED'
+        // The buyer's COUNTERED original is closed — CLOSED is inert to
+        // findLiveByBuyerAndListing, so no phantom live offer survives.
+        original.status == 'CLOSED'
+    }
+
+    def "acceptOffer expiring a competing SELLER counter also closes that counter's COUNTERED parent (P1 bug fix)"() {
+        // Seller countered buyer A (A's original → COUNTERED, counter C
+        // PENDING), then accepts buyer B's separate offer. The competing-
+        // offer sweep expires C — but expiring C without closing A's
+        // original strands A in COUNTERED forever.
+        given:
+        def acceptedB = pendingOffer(id: 7L, buyer: 20L, amount: new BigDecimal("40"))
+        def originalA = pendingOffer(id: 1L, buyer: 10L, status: 'COUNTERED')
+        def counterC  = sellerCounter(id: 2L, buyer: 10L, parent: 1L, amount: new BigDecimal("35"))
+        def listing = activeListing(price: new BigDecimal("50"))
+        def buyerB  = new SteamUser(id: 20L, steamId64: '222')
+        def wallet  = new Wallet(id: 600L, balance: new BigDecimal("500"))
+        offerRepository.findById(7L) >> Optional.of(acceptedB)
+        offerRepository.findById(1L) >> Optional.of(originalA)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(20L) >> Optional.of(buyerB)
+        walletRepository.findByUsername('steam_222') >> wallet
+        // The competing-offer sweep finds the seller's still-PENDING
+        // counter C hanging off buyer A's COUNTERED original.
+        offerRepository.findPendingForListing(100L) >> [counterC]
+        offerRepository.save(_) >> { Offer o -> o }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when: "the seller accepts buyer B's offer"
+        service.acceptOffer(99L, 7L)
+
+        then:
+        acceptedB.status == 'ACCEPTED'
+        counterC.status == 'EXPIRED'        // competing counter swept
+        originalA.status == 'CLOSED'        // its COUNTERED parent freed
+    }
+
+    def "acceptOffer on a plain USER offer leaves the seller-accept happy path unchanged (closeCounteredParent no-op)"() {
+        // Regression guard: the seller-accept happy path is unaffected by
+        // the closeCounteredParent call — a root USER offer has a null
+        // parentOfferId, so closeCounteredParent short-circuits before it
+        // queries (or mutates) anything.
+        given:
+        def offer   = pendingOffer(amount: new BigDecimal("40"))  // parentOfferId null
+        def listing = activeListing(price: new BigDecimal("50"))
+        def buyer   = new SteamUser(id: 10L, steamId64: '111')
+        def wallet  = new Wallet(id: 500L, balance: new BigDecimal("500"))
+        offerRepository.findById(1L) >> Optional.of(offer)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_111') >> wallet
+        offerRepository.findPendingForListing(100L) >> []
+        offerRepository.save(_) >> { Offer o -> o }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.acceptOffer(99L, 1L)
+
+        then:
+        1 * purchaseService.buy(500L, 10L, 100L)
+        result.accepted == true
+        result.finalPrice == new BigDecimal("40")
+        offer.status == 'ACCEPTED'
+    }
+
     // ── rejectOffer / cancelOffer ─────────────────────────────────
 
     def "rejectOffer flips status to REJECTED for the seller"() {

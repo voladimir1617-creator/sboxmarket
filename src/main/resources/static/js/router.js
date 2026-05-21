@@ -80,6 +80,17 @@ export function parsePath(path) {
 // origin entry (bouncing the user to the referrer).
 let internalPushes = 0;
 
+// True only while navigate()/replace is firing its own synthetic
+// PopStateEvent to notify subscribers. The popstate listener below
+// decrements `internalPushes` on *browser* back/forward — but navigate()
+// dispatches an identical 'popstate' event, which the listener cannot
+// otherwise tell apart from a real one. Without this guard the listener
+// cancelled every forward navigate()'s increment in the same tick, so
+// `internalPushes` was stuck at ~0 and `closeToPrevious()` always fell
+// through to its fallback (wiping URL-hydrated filter state on modal
+// close instead of going back to the previous in-site URL).
+let dispatchingInternalPop = false;
+
 // Scroll-restoration map — keyed by URL, value is the .layout scrollTop
 // recorded just before a forward navigate(). On browser-back (popstate)
 // we restore the captured value for the target URL so the user lands
@@ -123,7 +134,10 @@ if (typeof window !== 'undefined') {
     try { window.history.scrollRestoration = 'manual'; } catch (_) {}
   }
   window.addEventListener('popstate', () => {
-    if (internalPushes > 0) internalPushes--;
+    // Only a *real* browser back/forward should decrement the counter.
+    // navigate() fires its own synthetic 'popstate'; skip that one or it
+    // would immediately cancel the matching pushState increment.
+    if (!dispatchingInternalPop && internalPushes > 0) internalPushes--;
     // On browser back/forward, restore the scroll position we saved for
     // the URL we're arriving at.
     const key = window.location.pathname + window.location.search;
@@ -145,7 +159,13 @@ export function navigate(path, replace = false) {
   if (!replace) snapshotScroll();
   if (replace) history.replaceState({}, '', path);
   else        { history.pushState({}, '', path); internalPushes++; }
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  // Notify subscribers (useRoute, etc.). Flag this dispatch so the
+  // popstate listener doesn't mistake it for a browser back/forward and
+  // decrement the pushState counter. Listeners run synchronously during
+  // dispatchEvent, so resetting the flag right after is safe.
+  dispatchingInternalPop = true;
+  try { window.dispatchEvent(new PopStateEvent('popstate')); }
+  finally { dispatchingInternalPop = false; }
   // Forward navigate always lands at the top — CSFloat behaviour. Clear
   // any stale saved position for the new URL so a later back-to-back
   // doesn't accidentally restore a previous session's scroll.

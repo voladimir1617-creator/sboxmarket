@@ -625,6 +625,12 @@ function AdminReportedTab() {
     ),
     actionDraft && h('div', { style: { marginTop: 14 } },
       h(ReasonDrawer, {
+        // Key on kind + row so switching the drawer to a different
+        // listing (clicking another row's Remove/Dismiss while the
+        // drawer is open) remounts it — otherwise ReasonDrawer keeps
+        // the first row's textarea text (its useState only seeds on
+        // mount) and the reason composed for #A submits against #B.
+        key: actionDraft.kind + ':' + actionDraft.row.id,
         title: actionDraft.kind === 'remove'
           ? `Force-cancel listing #${actionDraft.row.id} — ${actionDraft.row.itemName}`
           : `Dismiss ${actionDraft.row.reportCount} report${actionDraft.row.reportCount === 1 ? '' : 's'} on #${actionDraft.row.id}`,
@@ -858,9 +864,16 @@ function AdminAnnouncementsTab() {
 
 function SeverityChip({ severity }) {
   const s = (severity || 'INFO').toUpperCase();
+  // The announcement form posts `WARN` and AnnouncementService stores it
+  // verbatim (ALLOWED_SEVERITY = INFO/WARN/CRITICAL). Key on `WARN` so a
+  // WARN-severity banner gets the amber chip — previously the only key
+  // was `WARNING`, so every WARN row fell through to the grey default.
+  // `WARNING` kept as an alias in case any legacy row stored the long form.
+  const amber = { bg: 'rgba(251,191,36,0.15)', fg: '#fbbf24', label: 'WARN' };
   const cfg = {
     INFO:    { bg: 'rgba(96,165,250,0.15)', fg: '#60a5fa', label: 'INFO' },
-    WARNING: { bg: 'rgba(251,191,36,0.15)', fg: '#fbbf24', label: 'WARN' },
+    WARN:    amber,
+    WARNING: amber,
     CRITICAL:{ bg: 'rgba(248,113,113,0.15)', fg: '#f87171', label: 'CRIT' }
   }[s] || { bg: 'var(--bg-elevated)', fg: 'var(--text-muted)', label: s };
   return h('span', {
@@ -1314,6 +1327,10 @@ function AdminDisputesTab() {
       ),
       actionDraft && h('div', { style: { marginTop: 14 } },
         h(ReasonDrawer, {
+          // Remount when the drawer's target row/kind changes — see the
+          // AdminReportedTab note. Without a key, the clear/freeze reason
+          // composed for dispute #A leaks into the drawer for #B.
+          key: actionDraft.kind + ':' + actionDraft.row.id,
           title: actionDraft.kind === 'clear'
             ? `Clear dispute #${actionDraft.row.id} — ${fmt(actionDraft.row.amount)}`
             : `Freeze wallet for ${actionDraft.row.userDisplayName || ('#' + actionDraft.row.userId)}`,
@@ -1687,6 +1704,12 @@ function AdminTradesTab() {
           ),
     actionDraft && h('div', { style: { marginTop: 14 } },
       h(ReasonDrawer, {
+        // Remount on target/kind change — clicking Release/Cancel on a
+        // different trade row while the drawer is open would otherwise
+        // keep the reason typed for the previous trade. Force-release /
+        // force-cancel move real money, so a stale reason is a genuine
+        // safety hazard, not just cosmetic.
+        key: actionDraft.kind + ':' + actionDraft.row.id,
         title: actionDraft.kind === 'release'
           ? `Force-release trade #${actionDraft.row.id}${actionDraft.row.itemName ? ' — ' + actionDraft.row.itemName : ''}`
           : `Force-cancel trade #${actionDraft.row.id}${actionDraft.row.itemName ? ' — ' + actionDraft.row.itemName : ''}`,
@@ -2165,6 +2188,10 @@ function AdminWithdrawalsTab() {
           ),
     rejectRow && h('div', { style: { marginTop: 14 } },
       h(ReasonDrawer, {
+        // Remount when the targeted withdrawal changes — clicking Reject
+        // on a different row while the drawer is open would otherwise
+        // submit the reason typed for the previous withdrawal.
+        key: 'reject:' + rejectRow.id,
         title: `Reject withdrawal #${rejectRow.id} — ${fmt(rejectRow.amount)}`,
         hint: 'Reason is shown to the user and logged in the audit trail. Funds return to their wallet.',
         initial: '',
@@ -3679,10 +3706,10 @@ function CsrLookupTab() {
       h('input', { className: 'price-input', style: { flex: 1 }, placeholder: 'Steam ID / display name / user #id', value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') search(); } }),
       h('button', { className: 'btn btn-accent', disabled: busy, onClick: search }, busy ? '…' : 'Search')
     ),
-    data && (data.matches.length === 0
+    data && ((data.matches || []).length === 0
       ? h('div', { className: 'empty-inline' }, h('div', { className: 'empty-icon' }, h(MaterialIcon, { name: 'search', size: 26 })),
           h('div', { style: { fontSize: 14, color: 'var(--text-secondary)' } }, 'No matches.'))
-      : data.matches.map(u => h('div', { key: u.id, className: 'csr-user-card' },
+      : (data.matches || []).map(u => h('div', { key: u.id, className: 'csr-user-card' },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 } },
             u.avatarUrl
               ? h('img', { src: u.avatarUrl, alt: u.displayName, style: { width: 44, height: 44, borderRadius: 8 } })

@@ -739,6 +739,102 @@ class WalletControllerSpec extends Specification {
             new Transaction(id: 1L, status: 'PENDING')
     }
 
+    def "withdraw() exact-balance withdrawal is allowed (balance == amount is not 'insufficient')"() {
+        given: 'wallet balance equals the requested amount to the cent'
+        controller.dailyWithdrawalCap = null
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('250.00'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+
+        when: 'the user cashes out their whole balance'
+        def resp = controller.withdraw(req(new BigDecimal('250.00')), reqFor(10L))
+
+        then: 'the `balance < amount` guard treats an exact match as sufficient'
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('250.00'), _) >>
+            new Transaction(id: 5L, status: 'PENDING')
+        resp.statusCode.value() == 200
+    }
+
+    def "withdraw() dispute-hold is checked BEFORE the daily-cap query (a held wallet never reaches the cap math)"() {
+        given: 'a wallet with an active dispute AND cap headroom'
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('5000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then: 'dispute hold short-circuits — the cap sum query is never issued'
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_DISPUTE_HOLD'
+        0 * transactionRepository.sumWithdrawalsSince(_, _)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() 2FA code is consumed only AFTER the dispute-hold gate (a held wallet does not burn the code)"() {
+        given: 'a 2FA user whose wallet is on dispute hold'
+        def user = verifiedUser()
+        user.totpSecret = 'JBSWY3DPEHPK3PXP'
+        user.lastTotpStep = 10L
+        def wallet = walletFor(new BigDecimal('500'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+        def r = req(new BigDecimal('50'))
+        r.totpCode = '123456'
+
+        when:
+        controller.withdraw(r, reqFor(10L))
+
+        then: 'the dispute-hold throw fires before TOTP verify — the code is not consumed, no user save'
+        thrown(BadRequestException)
+        0 * totpService.verify(*_)
+        0 * steamUserRepository.save(_)
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw() daily-cap boundary: request that lands EXACTLY on the cap is allowed"() {
+        given: 'used $4,000 of a $5,000 cap, requesting exactly the $1,000 remainder'
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('5000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('4000')
+
+        when: 'sum ($4000) + request ($1000) == cap ($5000) — the guard uses strict >, so equal passes'
+        def resp = controller.withdraw(req(new BigDecimal('1000')), reqFor(10L))
+
+        then:
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('1000'), _) >>
+            new Transaction(id: 6L, status: 'PENDING')
+        resp.statusCode.value() == 200
+    }
+
+    def "withdraw() one cent over the cap is rejected"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('5000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('4999.99')
+
+        when: 'sum ($4999.99) + request ($0.02) = $5000.01 > $5000 cap'
+        controller.withdraw(req(new BigDecimal('0.02')), reqFor(10L))
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_DAILY_CAP'
+        0 * stripeService.requestWithdrawal(*_)
+    }
+
     // ─── POST /api/wallet/withdraw/{id}/cancel ──────────────────────
 
     def "cancelWithdraw() anon: 401 (never reaches StripeService)"() {

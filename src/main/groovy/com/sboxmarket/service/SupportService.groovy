@@ -67,9 +67,25 @@ class SupportService {
         result
     }
 
-    /** Tiny FAQ-style auto-responder. Real staff can still reply later. */
-    private static String autoReply(String category, String subject) {
-        switch ((category ?: 'OTHER').toUpperCase()) {
+    /**
+     * Canonical category for a ticket: upper-cased, stripped to A-Z/_ only,
+     * and clamped to OTHER when the input is null/blank or — after stripping
+     * symbols and digits — leaves nothing behind (e.g. "123" or ":)"). One
+     * place so the stored {@code ticket.category} and the {@link #autoReply}
+     * template family can never disagree.
+     */
+    private static String normalizeCategory(String category) {
+        def c = (category ?: 'OTHER').toUpperCase().replaceAll(/[^A-Z_]/, '')
+        c.isEmpty() ? 'OTHER' : c
+    }
+
+    /**
+     * Tiny FAQ-style auto-responder. Real staff can still reply later.
+     * Expects an already-normalized category (see {@link #normalizeCategory});
+     * still null-guards defensively so a stray caller can't NPE.
+     */
+    private static String autoReply(String category) {
+        switch (category ?: 'OTHER') {
             case 'PAYMENT':
                 return "Thanks for reaching out about payments. Most deposits clear within 2 minutes — " +
                        "if yours hasn't, please include the Stripe session id from your Trades tab so we can investigate."
@@ -119,11 +135,17 @@ class SupportService {
         if (!cleanBody || cleanBody.isEmpty()) {
             throw new BadRequestException("INVALID_BODY", "Message body is required")
         }
+        // Normalize ONCE — the stored category and the auto-reply template
+        // are both derived from this value so they can never diverge. A raw
+        // "trade  :)" used to store "TRADE" but feed autoReply the un-stripped
+        // "TRADE  :)", which fell through to the generic template; an all-
+        // symbol category like ":)" used to store an empty string.
+        def cleanCategory = normalizeCategory(category)
         def ticket = new SupportTicket(
             userId:   userId,
             username: cleanName,
             subject:  cleanSubject,
-            category: (category ?: 'OTHER').toUpperCase().replaceAll(/[^A-Z_]/, ''),
+            category: cleanCategory,
             status:   'WAITING_STAFF'
         )
         ticketRepository.save(ticket)
@@ -134,12 +156,14 @@ class SupportService {
             authorName: cleanName,
             body:       cleanBody
         ))
-        // Synthesised first staff response so the thread isn't empty
+        // Synthesised first staff response so the thread isn't empty.
+        // Driven by the SAME normalized category as the stored ticket so the
+        // template family always matches what the CSR sees on the row.
         messageRepository.save(new SupportMessage(
             ticketId:   ticket.id,
             author:     'STAFF',
             authorName: 'Clara (auto)',
-            body:       autoReply(category, subject)
+            body:       autoReply(cleanCategory)
         ))
         ticket.status = 'WAITING_USER'
         ticket.updatedAt = System.currentTimeMillis()

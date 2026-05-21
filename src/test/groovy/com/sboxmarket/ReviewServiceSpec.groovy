@@ -262,6 +262,57 @@ class ReviewServiceSpec extends Specification {
         0 * reviewRepository.save(_)
     }
 
+    def "leaveReview rejects a trade that has no seller counterparty (NO_SELLER)"() {
+        given:
+        // VERIFIED trade authored by the buyer but with a null seller — a
+        // half-formed / legacy row. Must be rejected, not NPE on the
+        // self-review comparison below it.
+        def noSeller = new Trade(id: 1L, buyerUserId: 10L, sellerUserId: null,
+            state: 'VERIFIED', itemName: 'Orphan Knife')
+        tradeRepository.findById(1L) >> Optional.of(noSeller)
+
+        when:
+        service.leaveReview(10L, 1L, 5, 'x')
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'NO_SELLER'
+        0 * reviewRepository.save(_)
+    }
+
+    def "leaveReview still returns the saved review when the REVIEW_RECEIVED push fails"() {
+        // Regression: NotificationService.push is @Transactional and joins
+        // leaveReview's transaction. An un-guarded push failure on the
+        // create path would mark the tx rollback-only and silently destroy
+        // the review row that was just saved. The push must be swallowed —
+        // same guard the REVIEW_UPDATED edit path already has.
+        given:
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >> null
+        textSanitizer.clean('great', 500) >> 'great'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        // NB: the save stub lives on the `then:`-block `1 *` interaction
+        // below, not here. Declaring `save(_) >> {...}` in `given:` AND a
+        // bare `1 * save(_)` in `then:` makes the later then-interaction
+        // win for the response — it returns null, so `row` is null and
+        // the unguarded `row.id` in leaveReview's audit-log call NPEs.
+        notificationService.push(20L, 'REVIEW_RECEIVED', _, _, _, _) >> {
+            throw new RuntimeException('bell DB blip')
+        }
+
+        when:
+        def row = service.leaveReview(10L, 1L, 5, 'great')
+
+        then:
+        // The push failure must NOT escape — the review write stands.
+        noExceptionThrown()
+        row != null
+        row.id == 100L
+        row.rating == 5
+        // The row was genuinely persisted exactly once.
+        1 * reviewRepository.save(_) >> { Review r -> r.id = 100L; r }
+    }
+
     def "summaryForUser returns zero count when no reviews exist"() {
         given:
         reviewRepository.aggregateForUser(20L) >> []
@@ -284,6 +335,42 @@ class ReviewServiceSpec extends Specification {
         then:
         result.count == 7
         result.average == 4.6
+    }
+
+    def "summaryForUser maps the per-star histogram into the 5★-first bucket order"() {
+        given:
+        // histogramForUser returns [[rating, count], ...]. Index 0 = 5★,
+        // index 4 = 1★ — the bucket order the breakdown bar chart expects.
+        reviewRepository.aggregateForUser(20L) >> [[10L, 4.0 as Double]]
+        reviewRepository.histogramForUser(20L) >> [
+            [5, 6L] as Object[],
+            [4, 2L] as Object[],
+            [3, 1L] as Object[],
+            [1, 1L] as Object[]
+        ]
+
+        when:
+        def result = service.summaryForUser(20L)
+
+        then:
+        result.count == 10
+        // 5★→idx0, 4★→idx1, 3★→idx2, 2★→idx3 (absent → 0), 1★→idx4.
+        result.histogram == [6L, 2L, 1L, 0L, 1L]
+    }
+
+    def "summaryForUser skips the histogram query entirely when there are no reviews"() {
+        given:
+        reviewRepository.aggregateForUser(20L) >> [[0L, null]]
+
+        when:
+        def result = service.summaryForUser(20L)
+
+        then:
+        result.count == 0
+        result.average == null
+        result.histogram == [0, 0, 0, 0, 0]
+        // No point hitting the histogram query for a seller with 0 reviews.
+        0 * reviewRepository.histogramForUser(_)
     }
 
     def "summariesForUsers maps a single GROUP BY result into [uid -> {count,average}]"() {
@@ -406,6 +493,115 @@ class ReviewServiceSpec extends Specification {
         then:
         thrown(NotFoundException)
         0 * reviewRepository.delete(_)
+    }
+
+    // ── adminDeleteReview (batch 479) ───────────────────────────────
+
+    def "adminDeleteReview removes any review regardless of authorship and notifies the buyer with the reason"() {
+        given:
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 1, comment: 'contains a phone number', itemName: 'Wizard Hat')
+        reviewRepository.findById(42L) >> Optional.of(review)
+
+        when:
+        // Staff user 500 — NOT the author, NOT the seller.
+        service.adminDeleteReview(500L, 42L, 'PII in comment')
+
+        then:
+        1 * reviewRepository.delete(review)
+        // Buyer (the author) is told why their review vanished.
+        1 * notificationService.push(10L, 'REVIEW_DELETED', _,
+            { String body -> body.contains('PII in comment') }, 42L, '/profile?tab=reviews')
+        // Staff override is NOT subject to the ban guard — admins act on
+        // banned users' reviews routinely.
+        0 * banGuard.assertNotBanned(_)
+    }
+
+    def "adminDeleteReview falls back to a generic reason when none is supplied"() {
+        given:
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L,
+            rating: 2, itemName: 'Wizard Hat')
+        reviewRepository.findById(42L) >> Optional.of(review)
+
+        when:
+        service.adminDeleteReview(500L, 42L, null)
+
+        then:
+        1 * reviewRepository.delete(review)
+        1 * notificationService.push(10L, 'REVIEW_DELETED', _,
+            { String body -> body.contains('policy violation') }, 42L, '/profile?tab=reviews')
+    }
+
+    def "adminDeleteReview 404s on a missing review id"() {
+        given:
+        reviewRepository.findById(42L) >> Optional.empty()
+
+        when:
+        service.adminDeleteReview(500L, 42L, 'whatever')
+
+        then:
+        thrown(NotFoundException)
+        0 * reviewRepository.delete(_)
+    }
+
+    def "adminDeleteReview still deletes the row when the buyer-notification push fails"() {
+        given:
+        def review = new Review(id: 42L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 3)
+        reviewRepository.findById(42L) >> Optional.of(review)
+        notificationService.push(10L, 'REVIEW_DELETED', _, _, _, _) >> { throw new RuntimeException('push down') }
+
+        when:
+        service.adminDeleteReview(500L, 42L, 'spam')
+
+        then:
+        1 * reviewRepository.delete(review)
+        noExceptionThrown()
+    }
+
+    // ── eligibleTradesFor ───────────────────────────────────────────
+
+    def "eligibleTradesFor tags each verified trade with whether it's already reviewed"() {
+        given:
+        def t1 = new Trade(id: 1L, buyerUserId: 10L, sellerUserId: 20L, state: 'VERIFIED',
+            itemName: 'Wizard Hat', price: new BigDecimal('5.00'), settledAt: 1_700_000_000_000L)
+        def t2 = new Trade(id: 2L, buyerUserId: 10L, sellerUserId: 20L, state: 'VERIFIED',
+            itemName: 'Cyber Vest', price: new BigDecimal('9.00'), settledAt: 1_700_000_100_000L)
+        tradeRepository.findVerifiedBetween(10L, 20L) >> [t1, t2]
+        // The buyer has already reviewed trade 1 (and an unrelated trade 99).
+        reviewRepository.findByFromUserId(10L) >> [
+            new Review(id: 7L, fromUserId: 10L, toUserId: 20L, tradeId: 1L, rating: 5),
+            new Review(id: 8L, fromUserId: 10L, toUserId: 30L, tradeId: 99L, rating: 4)
+        ]
+
+        when:
+        def rows = service.eligibleTradesFor(10L, 20L)
+
+        then:
+        rows.size() == 2
+        rows.find { it.tradeId == 1L }.reviewed == true
+        rows.find { it.tradeId == 2L }.reviewed == false
+    }
+
+    def "eligibleTradesFor returns empty without hitting the repo when buyer == seller"() {
+        when:
+        def rows = service.eligibleTradesFor(10L, 10L)
+
+        then:
+        rows == []
+        0 * tradeRepository.findVerifiedBetween(_, _)
+    }
+
+    def "eligibleTradesFor returns empty when the buyer has never traded with the seller"() {
+        given:
+        tradeRepository.findVerifiedBetween(10L, 20L) >> []
+
+        when:
+        def rows = service.eligibleTradesFor(10L, 20L)
+
+        then:
+        rows == []
+        // No point loading the buyer's review history if there are no trades.
+        0 * reviewRepository.findByFromUserId(_)
     }
 
     // ── replyToReview ───────────────────────────────────────────────
@@ -574,6 +770,55 @@ class ReviewServiceSpec extends Specification {
 
         then:
         thrown(BadRequestException)
+        0 * helpfulRepo.save(_)
+        0 * helpfulRepo.deleteByReviewAndUser(_, _)
+    }
+
+    def "toggleHelpful rejects when the helpful-vote repo is unavailable, before any ban or review lookup"() {
+        given:
+        // helpfulVoteRepository is @Autowired(required = false) — a build
+        // without the V29 table leaves it null. The UNSUPPORTED guard must
+        // fire first, so we never touch banGuard or reviewRepository.
+        service.helpfulVoteRepository = null
+
+        when:
+        service.toggleHelpful(99L, 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'UNSUPPORTED'
+        0 * banGuard.assertNotBanned(_)
+        0 * reviewRepository.findById(_)
+    }
+
+    def "toggleHelpful rejects a self-vote even after the banGuard passes"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        reviewRepository.findById(100L) >> Optional.of(new Review(id: 100L, fromUserId: 99L, toUserId: 20L, rating: 5))
+
+        when:
+        service.toggleHelpful(99L, 100L)
+
+        then:
+        // Ban guard runs before the self-vote check — both are pre-write.
+        1 * banGuard.assertNotBanned(99L)
+        def e = thrown(BadRequestException)
+        e.code == 'SELF_VOTE'
+        0 * helpfulRepo.existsByReviewAndUser(_, _)
+    }
+
+    def "toggleHelpful refuses when the banGuard trips"() {
+        given:
+        def helpfulRepo = Mock(com.sboxmarket.repository.ReviewHelpfulVoteRepository)
+        service.helpfulVoteRepository = helpfulRepo
+        banGuard.assertNotBanned(99L) >> { throw new ForbiddenException('banned') }
+
+        when:
+        service.toggleHelpful(99L, 100L)
+
+        then:
+        thrown(ForbiddenException)
         0 * helpfulRepo.save(_)
         0 * helpfulRepo.deleteByReviewAndUser(_, _)
     }

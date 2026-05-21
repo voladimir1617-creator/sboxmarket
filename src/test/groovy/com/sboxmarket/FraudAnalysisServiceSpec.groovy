@@ -721,4 +721,269 @@ class FraudAnalysisServiceSpec extends Specification {
         1 * notificationService.push(22L, _, _, _, _, _) >> new Notification(id: 1L)
         notThrown(Exception)
     }
+
+    // ── sweeper transaction semantics (regression) ────────────────
+    //
+    // The sweeper WRITES notification rows via notificationService.push().
+    // `push` is @Transactional(REQUIRED), so when called from inside the
+    // sweeper's own transaction it JOINS that transaction. If the sweeper
+    // were @Transactional(readOnly = true), Hibernate's FlushMode would be
+    // MANUAL and every push save would be silently discarded — no admin
+    // would ever get a fraud bell. This test pins the annotation so a
+    // future edit can't reintroduce readOnly = true on the sweeper.
+
+    def "sweepAndPushFraudSignals is a read-write transaction, not readOnly"() {
+        given:
+        def m = FraudAnalysisService.getDeclaredMethod('sweepAndPushFraudSignals')
+        def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
+
+        expect:
+        // The annotation must be present...
+        txn != null
+        // ...and must NOT be readOnly — a readOnly outer transaction
+        // would stop the joined push() save from ever flushing.
+        !txn.readOnly()
+    }
+
+    def "computeSignals stays readOnly — it is a pure read used by the admin UI"() {
+        given:
+        // The externally-called rollup query (AdminController) must remain
+        // readOnly; only the sweeper needs write capability.
+        def m = FraudAnalysisService.getDeclaredMethod('computeSignals')
+        def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
+
+        expect:
+        txn != null
+        txn.readOnly()
+    }
+
+    // ── RAPID_WITHDRAW_AFTER_DEPOSIT window boundary ──────────────
+
+    def "RAPID_WITHDRAW_AFTER_DEPOSIT fires at exactly the 15-minute boundary"() {
+        given:
+        // Gap is exactly WITHDRAW_AFTER_DEPOSIT_MS — the predicate uses
+        // `<=`, so the boundary itself must trip.
+        def t = now()
+        auditLogRepository.since(_) >> [
+            row(actor: 9L, event: AuditService.DEPOSIT_COMPLETE,   ts: t - (15 * 60 * 1000L)),
+            row(actor: 9L, event: AuditService.WITHDRAW_REQUESTED, ts: t),
+        ]
+
+        when:
+        def signals = service.computeSignals()
+
+        then:
+        def sig = signals.find { it.type == 'RAPID_WITHDRAW_AFTER_DEPOSIT' }
+        sig != null
+        sig.count == 15L
+    }
+
+    def "RAPID_WITHDRAW_AFTER_DEPOSIT stays quiet one millisecond past the window"() {
+        given:
+        def t = now()
+        auditLogRepository.since(_) >> [
+            row(actor: 9L, event: AuditService.DEPOSIT_COMPLETE,   ts: t - (15 * 60 * 1000L) - 1L),
+            row(actor: 9L, event: AuditService.WITHDRAW_REQUESTED, ts: t),
+        ]
+
+        when:
+        def signals = service.computeSignals()
+
+        then:
+        !signals.any { it.type == 'RAPID_WITHDRAW_AFTER_DEPOSIT' }
+    }
+
+    def "RAPID_WITHDRAW_AFTER_DEPOSIT fires on a same-instant deposit+withdraw"() {
+        given:
+        // Deposit and withdrawal at the identical timestamp — `<=` on
+        // both the ordering check and a zero-gap window must still trip.
+        def t = now()
+        auditLogRepository.since(_) >> [
+            row(actor: 9L, event: AuditService.DEPOSIT_COMPLETE,   ts: t),
+            row(actor: 9L, event: AuditService.WITHDRAW_REQUESTED, ts: t),
+        ]
+
+        when:
+        def signals = service.computeSignals()
+
+        then:
+        def sig = signals.find { it.type == 'RAPID_WITHDRAW_AFTER_DEPOSIT' }
+        sig != null
+        sig.count == 0L
+    }
+
+    // ── sweeper count bucketing / escalation ──────────────────────
+    //
+    // The dedup signature is (type, userId, ip, power-of-two bucket of
+    // `count`). SHARED_IP_MULTIPLE_USERS is the cleanest signal to pin
+    // the count-bucketing behaviour: its `ip` component is a single
+    // stable address and `userId` is always null, so only the bucketed
+    // count varies between passes.
+
+    def "sweeper re-fires when a shared-IP attack escalates across a count bucket"() {
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        // Pass 1: 10 users on one IP (count 10 → bucket 16).
+        // Pass 2: 17 users on the same IP (count 17 → bucket 32) — a
+        // genuine escalation across a bucket boundary, so it re-fires.
+        auditLogRepository.since(_) >>> [
+            (1..10).collect { i -> row(actor: i as Long, ip: '192.168.1.50', ts: t) },
+            (1..17).collect { i -> row(actor: i as Long, ip: '192.168.1.50', ts: t) },
+        ]
+
+        when:
+        svc.sweepAndPushFraudSignals()
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        2 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _)
+    }
+
+    def "sweeper does NOT re-fire when a shared-IP count grows within the same bucket"() {
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        // 10 users then 12 users on the same IP — counts 10 and 12 both
+        // bucketize to 16, so this is "the same signal growing", not a
+        // fresh alert. The signature is identical → second pass dedupes.
+        auditLogRepository.since(_) >>> [
+            (1..10).collect { i -> row(actor: i as Long, ip: '192.168.1.50', ts: t) },
+            (1..12).collect { i -> row(actor: i as Long, ip: '192.168.1.50', ts: t) },
+        ]
+
+        when:
+        svc.sweepAndPushFraudSignals()
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        1 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _)
+    }
+
+    // ── sweeper handles a userId-less HIGH signal ─────────────────
+
+    def "sweeper pushes a HIGH SHARED_IP signal even though it has a null userId"() {
+        given:
+        // SHARED_IP_MULTIPLE_USERS always has userId == null. The sweeper
+        // must still build a valid signature + push it (refId just stays
+        // null). 10 distinct users on one IP is HIGH severity.
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        auditLogRepository.since(_) >> (1..10).collect { i -> row(actor: i as Long, ip: '192.168.1.50', ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        // refId (5th positional arg) is null because SHARED_IP has no
+        // single user — the push must still go out.
+        1 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, null, '/admin?tab=fraud')
+    }
+
+    def "two distinct shared-IP HIGH signals on different IPs both push"() {
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        def rows = []
+        (1..10).each  { i -> rows << row(actor: i as Long,        ip: '192.168.1.50', ts: t) }
+        (1..10).each  { i -> rows << row(actor: (i + 100) as Long, ip: '192.168.1.99', ts: t) }
+        auditLogRepository.since(_) >> rows
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        // Different IPs → different signatures → both fire.
+        2 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _)
+    }
+
+    // ── detector input null-safety ────────────────────────────────
+
+    def "MULTIPLE_IPS_PER_USER ignores blank-string IPs the same as nulls"() {
+        given:
+        // A captured-but-empty ipAddress is not a distinct IP. Three rows
+        // with an empty ip must not read as three IPs.
+        auditLogRepository.since(_) >> [
+            row(actor: 8L, ip: ''),
+            row(actor: 8L, ip: ''),
+            row(actor: 8L, ip: ''),
+        ]
+
+        when:
+        def signals = service.computeSignals()
+
+        then:
+        !signals.any { it.type == 'MULTIPLE_IPS_PER_USER' }
+    }
+
+    def "mixed null-actor and real-actor rows only attribute the real actor"() {
+        given:
+        // A burst of null-actor system rows interleaved with one real
+        // user's 3-IP spread — the phantom null group must not trip, the
+        // real user must.
+        def t = now()
+        def rows = []
+        (1..5).each { rows << row(actor: null, ip: '10.0.0.99', event: AuditService.LISTING_PURCHASED, ts: t) }
+        (1..3).each { i -> rows << row(actor: 42L, ip: "10.0.0.${i}", ts: t) }
+        auditLogRepository.since(_) >> rows
+
+        when:
+        def signals = service.computeSignals()
+
+        then:
+        def ipSigs = signals.findAll { it.type == 'MULTIPLE_IPS_PER_USER' }
+        ipSigs.size() == 1
+        ipSigs[0].userId == 42L
+    }
+
+    def "computeSignals produces no signal whose severity falls outside HIGH/MED/LOW"() {
+        given:
+        // Guards the sort comparator's severity-rank map: every emitted
+        // signal must carry a severity the map knows, otherwise it sorts
+        // to the rank-9 tail unpredictably.
+        def t = now()
+        def rows = []
+        (1..6).each  { i -> rows << row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        (1..10).each { i -> rows << row(actor: i as Long, ip: '192.168.9.9', ts: t) }
+        rows << row(actor: 1L, event: AuditService.DEPOSIT_COMPLETE,   ts: t - 1000)
+        rows << row(actor: 1L, event: AuditService.WITHDRAW_REQUESTED, ts: t)
+        (1..12).each { i -> rows << row(actor: 5L, event: AuditService.LISTING_PURCHASED, ts: t - (i * 5000L)) }
+        rows << row(actor: null, event: AuditService.CHARGEBACK_OPENED, subject: 3L, ts: t)
+        auditLogRepository.since(_) >> rows
+
+        when:
+        def signals = service.computeSignals()
+
+        then:
+        !signals.isEmpty()
+        signals.every { it.severity in ['HIGH', 'MED', 'LOW'] }
+    }
 }

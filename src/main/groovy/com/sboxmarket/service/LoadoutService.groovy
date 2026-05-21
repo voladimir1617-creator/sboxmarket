@@ -319,6 +319,19 @@ class LoadoutService {
                 slot.snapshotPrice = pick.lowestPrice
                 remaining = remaining - pick.lowestPrice
                 pickedIds.add(pick.id)
+            } else {
+                // Nothing in this category fits the remaining budget. The slot
+                // is unlocked (locked+filled slots returned early above), so
+                // auto-generate owns it — clear any pre-existing item rather
+                // than leaving it. A stale, possibly over-budget pick left
+                // here doesn't count against `remaining` (only locked slots
+                // do), so keeping it would push the loadout's total past the
+                // ceiling the user asked for — the exact overshoot the
+                // locked-slot subtraction above exists to prevent.
+                slot.itemId = null
+                slot.itemName = null
+                slot.itemEmoji = null
+                slot.snapshotPrice = BigDecimal.ZERO
             }
             loadoutSlotRepository.save(slot)
         }

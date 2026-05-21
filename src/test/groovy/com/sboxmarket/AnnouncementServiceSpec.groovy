@@ -183,6 +183,21 @@ class AnnouncementServiceSpec extends Specification {
         row.expiresAt == deadline
     }
 
+    def "create accepts a past expiresAt verbatim — expiry is enforced at read time, not write time"() {
+        given: 'an already-elapsed deadline; the service must not reject it'
+        announcementRepository.save(_) >> { Announcement a -> a.id = 8L; a }
+        def alreadyPast = System.currentTimeMillis() - 3600_000L
+
+        when:
+        def row = service.create(10L, 'Message body', 'INFO', alreadyPast)
+
+        then: 'row is created — findCurrent will simply never surface it'
+        row.id == 8L
+        row.expiresAt == alreadyPast
+        row.active == true
+        noExceptionThrown()
+    }
+
     // ── deactivate ───────────────────────────────────────────────
 
     def "deactivate flips active to false and saves"() {

@@ -640,7 +640,20 @@ class ListingsHttpSpec extends Specification {
         body.contains('"offset":0')
     }
 
-    def "GET /api/listings echoes a clamped zero/negative limit back as 1"() {
+    def "GET /api/listings clamps an explicit limit=0 to the floor of 1 (not the 100 default)"() {
+        given:
+        // Seed a handful of extra rows so a clamp-bypass would be obvious:
+        // if limit=0 were silently rewritten to the 100 default, `items`
+        // would hold many rows. The clamp floor of 1 means at most one.
+        def extra = (1..6).collect { i ->
+            listingRepo.save(new Listing(
+                item:        seededItem,
+                price:       new BigDecimal("70.0${i}"),
+                status:      'ACTIVE',
+                sellerName:  "L0Bulk-${i}-${System.nanoTime()}",
+                rarityScore: BigDecimal.ZERO))
+        }
+
         when:
         def result = mockMvc.perform(
             MockMvcRequestBuilders.get('/api/listings')
@@ -649,9 +662,34 @@ class ListingsHttpSpec extends Specification {
 
         then:
         result.response.status == 200
-        def body = result.response.contentAsString
-        // limit floors at 1, so a wrapped object with "limit":1 comes back.
-        body.contains('"limit":1')
+        // Parse the wrapped object — `contains('"limit":1')` is too weak
+        // because the buggy `"limit":100` ALSO contains that substring.
+        // The regression here: Integer 0 is Groovy-falsy, so `limit ?: 100`
+        // turned an explicit ?limit=0 into the full 100-row default page.
+        def parsed = new groovy.json.JsonSlurper().parseText(result.response.contentAsString)
+        parsed.limit == 1
+        parsed.items instanceof List
+        parsed.items.size() <= 1
+
+        cleanup:
+        listingRepo.deleteAll(extra)
+    }
+
+    def "GET /api/listings clamps limit=0 even with offset=0 — items never exceeds 1"() {
+        when:
+        // offset defaults to "0" too; this pins that the offset null-check
+        // path and the limit clamp both behave with the literal-zero input.
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('limit', '0')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def parsed = new groovy.json.JsonSlurper().parseText(result.response.contentAsString)
+        parsed.limit == 1
+        parsed.offset == 0
+        parsed.items.size() <= 1
     }
 
     def "GET /api/listings offset walks a search-scoped cohort one page at a time"() {
@@ -757,5 +795,309 @@ class ListingsHttpSpec extends Specification {
 
         then:
         result.response.status == 200
+    }
+
+    // ── pagination matrix: limit boundary values ──────────────────
+
+    def "GET /api/listings honours a small positive limit exactly"() {
+        given:
+        // Seed >3 rows so a limit of 3 actually truncates.
+        def extra = (1..5).collect { i ->
+            listingRepo.save(new Listing(
+                item:        seededItem,
+                price:       new BigDecimal("80.0${i}"),
+                status:      'ACTIVE',
+                sellerName:  "L3Bulk-${i}-${System.nanoTime()}",
+                rarityScore: BigDecimal.ZERO))
+        }
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('limit', '3').param('offset', '0')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def parsed = new groovy.json.JsonSlurper().parseText(result.response.contentAsString)
+        parsed.limit == 3
+        parsed.items.size() <= 3
+
+        cleanup:
+        listingRepo.deleteAll(extra)
+    }
+
+    def "GET /api/listings clamps a negative limit up to the floor of 1"() {
+        when:
+        // A negative limit is truthy in Groovy so it escapes the Elvis
+        // trap, but Math.max(...,1) must still floor it to 1.
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings').param('limit', '-25')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def parsed = new groovy.json.JsonSlurper().parseText(result.response.contentAsString)
+        parsed.limit == 1
+        parsed.items.size() <= 1
+    }
+
+    def "GET /api/listings clamps an over-cap limit to exactly 100 in the wrapped echo"() {
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings').param('limit', '99999')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def parsed = new groovy.json.JsonSlurper().parseText(result.response.contentAsString)
+        // Strong assertion: exactly 100, not merely "contains 100".
+        parsed.limit == 100
+        parsed.items.size() <= 100
+
+        and: "the parsed total is a non-negative integer"
+        (parsed.total as long) >= 0L
+    }
+
+    def "GET /api/listings with limit=100 and a non-zero offset still returns the wrapped object"() {
+        when:
+        // The bare-array shortcut only fires for the exact (100, 0) pair.
+        // limit=100 + offset=1 must wrap so the client gets total/offset.
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('limit', '100').param('offset', '1')
+        ).andReturn()
+
+        then:
+        result.response.status == 200
+        def body = result.response.contentAsString
+        !body.startsWith('[')
+        def parsed = new groovy.json.JsonSlurper().parseText(body)
+        parsed.offset == 1
+        parsed.limit == 100
+    }
+
+    // ── sort + filter interaction matrix ──────────────────────────
+
+    def "GET /api/listings applies a price-band filter and a sort together"() {
+        given:
+        // Three same-token rows; only the middle two sit inside [200,400].
+        // sort=price_desc must then return them dearest-first.
+        def uniq = String.valueOf(System.nanoTime())
+        def token = "SortBand${uniq}"
+        [['100.00', 0], ['250.00', 1], ['350.00', 2], ['900.00', 3]].each { p, i ->
+            def it = itemRepo.save(new Item(
+                name: "${token} n${i}", category: 'Hats', rarity: 'Standard',
+                supply: 10, totalSold: 0, lowestPrice: new BigDecimal(p as String), iconEmoji: '🎩'))
+            listingRepo.save(new Listing(item: it, price: new BigDecimal(p as String),
+                status: 'ACTIVE', sellerName: "SortBandSeller-${uniq}-${i}",
+                rarityScore: BigDecimal.ZERO))
+        }
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('search', token)
+                .param('sort', 'price_desc')
+                .param('minPrice', '200').param('maxPrice', '400')
+        ).andReturn()
+
+        then:
+        result.response.status in [200, 429]
+        if (result.response.status == 200) {
+            def body = result.response.contentAsString
+            // The $100 and $900 rows are outside the band.
+            assert !body.contains("${token} n0")
+            assert !body.contains("${token} n3")
+            // In-band rows present, dearest ($350) before cheaper ($250).
+            def i350 = body.indexOf("${token} n2")
+            def i250 = body.indexOf("${token} n1")
+            assert i350 >= 0 && i250 >= 0
+            assert i350 < i250
+        }
+    }
+
+    def "GET /api/listings filtered by listingType=BUY_NOW excludes AUCTION rows"() {
+        given:
+        // Symmetric to the AUCTION-filter test: seed one auction, one
+        // buy-now under a shared token, filter to BUY_NOW.
+        def uniq = String.valueOf(System.nanoTime())
+        def token = "BnFilter${uniq}"
+        def bnItem = itemRepo.save(new Item(
+            name: "${token} buynow", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('44.00'), iconEmoji: '🎩'))
+        def aucItem = itemRepo.save(new Item(
+            name: "${token} auction", category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('45.00'), iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: bnItem, price: new BigDecimal('44.00'),
+            status: 'ACTIVE', sellerName: "BnSeller-${uniq}", rarityScore: BigDecimal.ZERO,
+            listingType: 'BUY_NOW'))
+        listingRepo.save(new Listing(item: aucItem, price: new BigDecimal('45.00'),
+            status: 'ACTIVE', sellerName: "AucSeller2-${uniq}", rarityScore: BigDecimal.ZERO,
+            listingType: 'AUCTION', expiresAt: System.currentTimeMillis() + 3_600_000L))
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('search', token).param('listingType', 'BUY_NOW')
+        ).andReturn()
+
+        then:
+        result.response.status in [200, 429]
+        if (result.response.status == 200) {
+            def body = result.response.contentAsString
+            assert body.contains("${token} buynow")
+            assert !body.contains("${token} auction")
+        }
+    }
+
+    def "GET /api/listings combines a category filter with a rarity filter"() {
+        given:
+        // Four rows across the Hats/Boots × Limited/Standard grid; only the
+        // Hats+Limited one should survive ?category=Hats&rarity=Limited.
+        def uniq = String.valueOf(System.nanoTime())
+        def token = "CatRar${uniq}"
+        [['Hats', 'Limited', 'hit'], ['Hats', 'Standard', 'miss1'],
+         ['Boots', 'Limited', 'miss2'], ['Boots', 'Standard', 'miss3']].each { cat, rar, tag ->
+            def it = itemRepo.save(new Item(
+                name: "${token} ${tag}", category: cat as String, rarity: rar as String,
+                supply: 10, totalSold: 0, lowestPrice: new BigDecimal('60.00'), iconEmoji: '🎩'))
+            listingRepo.save(new Listing(item: it, price: new BigDecimal('60.00'),
+                status: 'ACTIVE', sellerName: "CatRarSeller-${uniq}-${tag}",
+                rarityScore: BigDecimal.ZERO))
+        }
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('search', token)
+                .param('category', 'Hats').param('rarity', 'Limited')
+        ).andReturn()
+
+        then:
+        result.response.status in [200, 429]
+        if (result.response.status == 200) {
+            def body = result.response.contentAsString
+            assert body.contains("${token} hit")
+            assert !body.contains("${token} miss1")
+            assert !body.contains("${token} miss2")
+            assert !body.contains("${token} miss3")
+        }
+    }
+
+    def "GET /api/listings — an explicit search wins over a q alias when both are present"() {
+        given:
+        // search and q each point at a distinct uniquely-named item. The
+        // canonical `search` param must take precedence; `q` is only the
+        // fallback when search is null/blank.
+        def uniq = String.valueOf(System.nanoTime())
+        def searchName = "SearchWins${uniq}"
+        def qName      = "QLoses${uniq}"
+        [searchName, qName].each { nm ->
+            def it = itemRepo.save(new Item(
+                name: nm, category: 'Hats', rarity: 'Standard',
+                supply: 10, totalSold: 0, lowestPrice: new BigDecimal('38.00'), iconEmoji: '🎩'))
+            listingRepo.save(new Listing(item: it, price: new BigDecimal('38.00'),
+                status: 'ACTIVE', sellerName: "PrecSeller-${uniq}-${nm}",
+                rarityScore: BigDecimal.ZERO))
+        }
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('search', searchName).param('q', qName)
+        ).andReturn()
+
+        then:
+        result.response.status in [200, 429]
+        if (result.response.status == 200) {
+            def body = result.response.contentAsString
+            // search drove the filter; the q-only item is absent.
+            assert body.contains(searchName)
+            assert !body.contains(qName)
+        }
+    }
+
+    def "GET /api/listings — a blank search falls through to the q alias"() {
+        given:
+        // search present but whitespace-only → treated as blank, so the
+        // q alias takes over and scopes the result to the q-named item.
+        def uniq = String.valueOf(System.nanoTime())
+        def qName = "BlankFallThru${uniq}"
+        def qItem = itemRepo.save(new Item(
+            name: qName, category: 'Hats', rarity: 'Standard',
+            supply: 10, totalSold: 0, lowestPrice: new BigDecimal('39.00'), iconEmoji: '🎩'))
+        listingRepo.save(new Listing(item: qItem, price: new BigDecimal('39.00'),
+            status: 'ACTIVE', sellerName: "BlankSeller-${uniq}", rarityScore: BigDecimal.ZERO))
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('search', '   ').param('q', qName)
+        ).andReturn()
+
+        then:
+        result.response.status in [200, 429]
+        if (result.response.status == 200) {
+            assert result.response.contentAsString.contains(qName)
+        }
+    }
+
+    def "GET /api/listings — sort=newest with a uniquely-scoped cohort orders newest-first"() {
+        given:
+        // Three same-token rows listed at strictly increasing listedAt;
+        // sort=newest must return them in reverse-insertion order.
+        def uniq = String.valueOf(System.nanoTime())
+        def token = "NewestScope${uniq}"
+        def base = System.currentTimeMillis()
+        (0..2).each { i ->
+            def it = itemRepo.save(new Item(
+                name: "${token} g${i}", category: 'Hats', rarity: 'Standard',
+                supply: 10, totalSold: 0, lowestPrice: new BigDecimal('41.00'), iconEmoji: '🎩'))
+            listingRepo.save(new Listing(item: it, price: new BigDecimal('41.00'),
+                status: 'ACTIVE', sellerName: "NewestSeller-${uniq}-${i}",
+                rarityScore: BigDecimal.ZERO, listedAt: base + (i * 1000L)))
+        }
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings')
+                .param('search', token).param('sort', 'newest')
+        ).andReturn()
+
+        then:
+        result.response.status in [200, 429]
+        if (result.response.status == 200) {
+            def body = result.response.contentAsString
+            def i0 = body.indexOf("${token} g0")  // oldest
+            def i2 = body.indexOf("${token} g2")  // newest
+            assert i0 >= 0 && i2 >= 0
+            // newest-first: g2 must precede g0.
+            assert i2 < i0
+        }
+    }
+
+    def "GET /api/listings rejects a maxPrice with a trailing newline"() {
+        when:
+        // The digits-only regex must reject a value that smuggles a
+        // newline — `5\n` could otherwise slip past a multiline matcher.
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings').param('maxPrice', "50\n")
+        ).andReturn()
+
+        then:
+        result.response.status == 400
+    }
+
+    def "GET /api/listings rejects a minPrice with three decimal places"() {
+        when:
+        // The regex caps the fraction at two digits — price columns are
+        // scale 2, so 1.234 is not a valid money value.
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.get('/api/listings').param('minPrice', '1.234')
+        ).andReturn()
+
+        then:
+        result.response.status == 400
     }
 }

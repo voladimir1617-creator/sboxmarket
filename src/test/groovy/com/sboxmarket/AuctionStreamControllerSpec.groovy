@@ -105,4 +105,84 @@ class AuctionStreamControllerSpec extends Specification {
         then:
         result.is(emitter)
     }
+
+    def "subscribe treats a null `hidden` flag as visible — legacy rows still stream"() {
+        given: 'the hidden column is nullable; a null must not be read as hidden'
+        def legacy = new Listing(id: 42L, listingType: 'AUCTION', hidden: null, status: 'ACTIVE')
+        def emitter = new SseEmitter(0L)
+        1 * listingRepository.findById(42L) >> Optional.of(legacy)
+        1 * bus.subscribe(42L) >> emitter
+
+        when:
+        def result = controller.subscribe(42L)
+
+        then: 'gate uses Boolean.TRUE == hidden, so null => not hidden => opens'
+        result.is(emitter)
+    }
+
+    def "subscribe still streams an ended auction so late viewers see the final state"() {
+        given: 'the visibility gate intentionally does NOT check status'
+        def emitter = new SseEmitter(0L)
+        1 * listingRepository.findById(42L) >> Optional.of(auction(id: 42L, status: status))
+        1 * bus.subscribe(42L) >> emitter
+
+        when:
+        def result = controller.subscribe(42L)
+
+        then:
+        result.is(emitter)
+
+        where:
+        status << ['SOLD', 'CANCELLED', 'EXPIRED']
+    }
+
+    def "subscribe 404s on a lowercase 'auction' listingType — match is exact"() {
+        given: 'listingType is a strict enum-like string; only the canonical value streams'
+        1 * listingRepository.findById(42L) >> Optional.of(auction(id: 42L, type: 'auction'))
+
+        when:
+        controller.subscribe(42L)
+
+        then:
+        thrown(NotFoundException)
+        0 * bus.subscribe(_)
+    }
+
+    def "subscribe 404s when listingType is null"() {
+        given:
+        1 * listingRepository.findById(42L) >> Optional.of(
+            new Listing(id: 42L, listingType: null, hidden: false, status: 'ACTIVE'))
+
+        when:
+        controller.subscribe(42L)
+
+        then:
+        thrown(NotFoundException)
+        0 * bus.subscribe(_)
+    }
+
+    def "subscribe does not touch the bus when the listing lookup 404s"() {
+        given: 'a hidden listing — the bus must never be subscribed before the gate passes'
+        1 * listingRepository.findById(42L) >> Optional.of(auction(id: 42L, hidden: true))
+
+        when:
+        controller.subscribe(42L)
+
+        then:
+        thrown(NotFoundException)
+        0 * bus.subscribe(_)
+    }
+
+    def "subscribe never hits the repository for a non-positive id — cheap reject first"() {
+        when:
+        controller.subscribe(id)
+
+        then:
+        thrown(NotFoundException)
+        0 * listingRepository.findById(_)
+        0 * bus.subscribe(_)
+
+        where:
+        id << [null, 0L, -5L]
+    }
 }

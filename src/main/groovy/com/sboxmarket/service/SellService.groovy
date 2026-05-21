@@ -243,27 +243,43 @@ class SellService {
                 log.warn("Failed to auto-cancel trade {} on listing cancel: {}", openTrade.id, e.message)
             }
         }
-        // Pending offers on the cancelled listing — flip every PENDING
+        // Live offers on the cancelled listing — flip every still-live
         // offer to CANCELLED and notify each buyer. Without this, offer
-        // rows orphan: the buyer sees a PENDING offer on a listing that
-        // no longer exists, and if the offer somehow got accepted later
-        // the server's listing-status check would 400 with a confusing
+        // rows orphan: the buyer sees a live offer on a listing that no
+        // longer exists, and if the offer somehow got accepted later the
+        // server's listing-status check would 400 with a confusing
         // "listing not active" error. Clean cleanup here, with a
         // courtesy notification so the buyer knows to pick a different
         // listing or place a buy order.
+        //
+        // "Live" is PENDING *or* COUNTERED — both are negotiation states
+        // the buyer can still act on, and `findLiveByBuyerAndListing`
+        // (which powers the ItemModal "You offered $X" chip) treats them
+        // as one. A PENDING-only sweep left a COUNTERED buyer original
+        // dangling: its child SELLER counter (PENDING, same listingId)
+        // got cancelled but the COUNTERED parent never reached a terminal
+        // state, so the buyer kept seeing a live offer on a deleted
+        // listing. `findByListingId` returns every offer on the listing
+        // in one indexed query, and we filter to the live pair here.
         if (offerRepository != null) {
             try {
-                def pending = offerRepository.findPendingForListing(listingId)
+                def live = offerRepository.findByListingId(listingId)
+                    .findAll { it.status == 'PENDING' || it.status == 'COUNTERED' }
                 def itemName = listing.item?.name ?: 'this item'
                 def itemId = listing.item?.id
-                pending.each { o ->
+                live.each { o ->
                     o.status = 'CANCELLED'
                     o.updatedAt = System.currentTimeMillis()
                 }
-                if (!pending.isEmpty()) offerRepository.saveAll(pending)
+                if (!live.isEmpty()) offerRepository.saveAll(live)
                 if (notificationService != null) {
-                    pending.each { o ->
-                        if (o.buyerUserId == null) return
+                    // Dedup per buyer — a buyer with a COUNTERED original
+                    // AND its PENDING child counter has two rows on this
+                    // listing but should only get one "offer cancelled"
+                    // ping for the single negotiation thread.
+                    def notified = new HashSet<Long>()
+                    live.each { o ->
+                        if (o.buyerUserId == null || !notified.add(o.buyerUserId as Long)) return
                         try {
                             notificationService.push(o.buyerUserId, 'OFFER_REJECTED',
                                 "Offer cancelled · ${itemName}",
@@ -276,7 +292,7 @@ class SellService {
                     }
                 }
             } catch (Exception e) {
-                log.warn("Pending-offer cleanup failed for listing ${listingId}: ${e.message}")
+                log.warn("Live-offer cleanup failed for listing ${listingId}: ${e.message}")
             }
         }
 

@@ -494,4 +494,130 @@ class LoadoutControllerSpec extends Specification {
         then:  thrown(UnauthorizedException)
         0 * loadoutService.delete(_, _)
     }
+
+    // ── get() not-found fallback (Boss QA cycle 4 B1) ──────────────
+
+    def "get() falls back to the lowest-id PUBLIC loadout when the requested id 404s"() {
+        given:
+        def fallbackBody = [loadout: new Loadout(id: 2L), slots: []]
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        // Requested id is missing/private — service throws.
+        1 * loadoutService.getWithSlots(999L, null) >> {
+            throw new com.sboxmarket.exception.NotFoundException("Loadout", 999L)
+        }
+        // Fallback: lowest-id public loadout is id 2 (listing returns them unsorted).
+        1 * loadoutService.listPublic(null) >> [new Loadout(id: 9L), new Loadout(id: 2L)]
+        1 * loadoutService.getWithSlots(2L, null) >> fallbackBody
+
+        when:
+        def resp = controller.get(999L, req)
+
+        then: "the fallback payload is returned, tagged with the originally-requested id"
+        resp.body.loadout.id == 2L
+        resp.body.redirectedFrom == 999L
+    }
+
+    def "get() returns the {notFound:true} sentinel when no public loadout exists to fall back to"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        1 * loadoutService.getWithSlots(999L, null) >> {
+            throw new com.sboxmarket.exception.NotFoundException("Loadout", 999L)
+        }
+        1 * loadoutService.listPublic(null) >> []
+
+        when:
+        def resp = controller.get(999L, req)
+
+        then:
+        resp.body == [notFound: true, id: 999L]
+    }
+
+    def "get() returns the sentinel when the fallback public loadout vanishes mid-request (race)"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> null
+        1 * loadoutService.getWithSlots(999L, null) >> {
+            throw new com.sboxmarket.exception.NotFoundException("Loadout", 999L)
+        }
+        1 * loadoutService.listPublic(null) >> [new Loadout(id: 2L)]
+        // The public loadout was deleted between the listing and the fetch.
+        1 * loadoutService.getWithSlots(2L, null) >> {
+            throw new com.sboxmarket.exception.NotFoundException("Loadout", 2L)
+        }
+
+        when:
+        def resp = controller.get(999L, req)
+
+        then: "falls through to the branded not-found sentinel rather than 500ing"
+        resp.body == [notFound: true, id: 999L]
+    }
+
+    // ── autoGenerate() budget currency-adornment stripping ─────────
+
+    def "autoGenerate() strips currency adornments from the budget before parsing"() {
+        given:
+        authedSession(100L)
+        1 * loadoutService.autoGenerate(100L, 1L, new BigDecimal('1200.00')) >> []
+        1 * loadoutService.getWithSlots(1L, 100L) >> [id: 1L]
+
+        when: 'budget arrives as a formatted currency string'
+        controller.autoGenerate(1L, [budget: '$1,200.00'], req)
+
+        then:
+        true
+    }
+
+    def "autoGenerate() rejects a budget string with no digits at all"() {
+        when:
+        controller.autoGenerate(1L, [budget: '$'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_BUDGET'
+        0 * loadoutService.autoGenerate(_, _, _)
+    }
+
+    def "autoGenerate() returns the decorated slots payload from getWithSlots"() {
+        given:
+        def decorated = [loadout: new Loadout(id: 1L), slots: [[slot: 'Hats']]]
+        authedSession(100L)
+        1 * loadoutService.autoGenerate(100L, 1L, new BigDecimal('50')) >> []
+        1 * loadoutService.getWithSlots(1L, 100L) >> decorated
+
+        when:
+        def resp = controller.autoGenerate(1L, [budget: '50'], req)
+
+        then: 'the response carries the enriched slot payload, not the raw autoGenerate result'
+        resp.body.is(decorated)
+    }
+
+    // ── discover() blank-q handling ────────────────────────────────
+
+    def "discover() ignores a blank `q` and keeps search null"() {
+        given:
+        1 * loadoutService.listPublic(null) >> []
+        1 * loadoutService.decorate(_) >> []
+
+        when:
+        controller.discover(null, '   ')
+
+        then:
+        true
+    }
+
+    // ── update() with an empty body ────────────────────────────────
+
+    def "update() tolerates an empty body — every field passes through as null"() {
+        given:
+        authedSession(100L)
+        1 * loadoutService.update(100L, 1L, null, null, null) >> new Loadout(id: 1L)
+
+        when:
+        controller.update(1L, [:], req)
+
+        then:
+        true
+    }
 }

@@ -59,6 +59,245 @@ class SellerStatsControllerSpec extends Specification {
         1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> uid
     }
 
+    /** A findTopSellersSince row — the JPQL projects a Map keyed by the
+     *  SELECT aliases (sellerUserId, saleCount, totalRevenue). */
+    private static Map topRow(long sellerId, long saleCount, BigDecimal revenue) {
+        [sellerUserId: sellerId, saleCount: saleCount, totalRevenue: revenue]
+    }
+
+    // ── top ───────────────────────────────────────────────────────
+
+    def "top() returns [] and caches the empty result when no sellers traded"() {
+        given:
+        1 * tradeRepository.findTopSellersSince(_, _) >> []
+
+        when:
+        def resp = controller.top(7, 5)
+
+        then:
+        resp.body == []
+        resp.headers.getFirst('Cache-Control')?.contains('max-age=120')
+    }
+
+    def "top() projects seller rows with display name, sale count and revenue"() {
+        given:
+        1 * tradeRepository.findTopSellersSince(_, _) >> [
+            topRow(1L, 12L, new BigDecimal('340.00'))
+        ]
+        1 * steamUserRepository.findAllById([1L]) >> [
+            new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob',
+                avatarUrl: 'https://cdn/b.jpg', banned: false)
+        ]
+        1 * reviewRepository.aggregateForUser(1L) >> [([3L, new BigDecimal('4.60')] as Object[])]
+
+        when:
+        def resp = controller.top(7, 5)
+
+        then:
+        resp.body.size() == 1
+        resp.body[0].sellerUserId == 1L
+        resp.body[0].displayName == 'Bob'
+        resp.body[0].avatarUrl == 'https://cdn/b.jpg'
+        resp.body[0].saleCount == 12L
+        resp.body[0].totalRevenue == new BigDecimal('340.00')
+        resp.body[0].rating == [average: new BigDecimal('4.60'), count: 3L]
+    }
+
+    def "top() filters banned sellers out of the public leaderboard (batch 352)"() {
+        given: 'seller 2 is banned — must not surface even though they top the trade count'
+        1 * tradeRepository.findTopSellersSince(_, _) >> [
+            topRow(2L, 99L, new BigDecimal('9000.00')),
+            topRow(1L, 10L, new BigDecimal('100.00'))
+        ]
+        1 * steamUserRepository.findAllById([2L, 1L]) >> [
+            new com.sboxmarket.model.SteamUser(id: 2L, displayName: 'Banned', banned: true),
+            new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Clean', banned: false)
+        ]
+        reviewRepository.aggregateForUser(_) >> []
+
+        when:
+        def resp = controller.top(7, 5)
+
+        then: 'only the clean seller remains'
+        resp.body*.sellerUserId == [1L]
+    }
+
+    def "top() emits null rating for a seller with zero reviews"() {
+        given:
+        1 * tradeRepository.findTopSellersSince(_, _) >> [topRow(1L, 15L, new BigDecimal('50.00'))]
+        1 * steamUserRepository.findAllById([1L]) >> [
+            new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob', banned: false)
+        ]
+        1 * reviewRepository.aggregateForUser(1L) >> []
+
+        when:
+        def resp = controller.top(7, 5)
+
+        then: 'no reviews → rating is null, not a misleading 0.00'
+        resp.body[0].rating == null
+    }
+
+    def "top() defaults totalRevenue to zero when the aggregate sum is null"() {
+        given: 'a SUM over zero priced rows can come back null'
+        1 * tradeRepository.findTopSellersSince(_, _) >> [topRow(1L, 4L, null)]
+        1 * steamUserRepository.findAllById([1L]) >> [
+            new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob', banned: false)
+        ]
+        reviewRepository.aggregateForUser(_) >> []
+
+        when:
+        def resp = controller.top(7, 5)
+
+        then:
+        resp.body[0].totalRevenue == BigDecimal.ZERO
+    }
+
+    def "top() clamps an oversized limit to 20 rows"() {
+        given:
+        org.springframework.data.domain.Pageable seenPage = null
+        1 * tradeRepository.findTopSellersSince(_, _) >> { args ->
+            seenPage = args[1]
+            []
+        }
+
+        when:
+        controller.top(7, 9999)
+
+        then:
+        seenPage.pageSize == 20
+    }
+
+    def "top() serves a second identical call from the 60-second cache"() {
+        given: 'the underlying repo is hit exactly once across two identical calls'
+        1 * tradeRepository.findTopSellersSince(_, _) >> [topRow(1L, 5L, new BigDecimal('10.00'))]
+        1 * steamUserRepository.findAllById(_) >> [
+            new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob', banned: false)
+        ]
+        reviewRepository.aggregateForUser(_) >> []
+
+        when:
+        def first  = controller.top(7, 5)
+        def second = controller.top(7, 5)
+
+        then: 'second call never re-queries — same payload served from cache'
+        first.body == second.body
+        first.body*.sellerUserId == [1L]
+    }
+
+    def "top() does not serve a different (days,limit) key from a stale cache entry"() {
+        given: 'two distinct keys must each hit the repo — no cross-key bleed'
+        2 * tradeRepository.findTopSellersSince(_, _) >> []
+
+        when:
+        controller.top(7, 5)
+        controller.top(30, 10)
+
+        then:
+        noExceptionThrown()
+    }
+
+    // ── search ────────────────────────────────────────────────────
+
+    def "search() returns [] for a query shorter than 2 chars"() {
+        when:
+        def resp = controller.search('a', null, null)
+
+        then:
+        0 * steamUserRepository.searchPublicSellers(_, _)
+        resp.body == []
+        resp.headers.getFirst('Cache-Control')?.contains('max-age=60')
+    }
+
+    def "search() returns [] for a null query"() {
+        when:
+        def resp = controller.search(null, null, null)
+
+        then:
+        0 * steamUserRepository.searchPublicSellers(_, _)
+        resp.body == []
+    }
+
+    def "search() falls back to the `search` alias param when `q` is blank"() {
+        given:
+        1 * steamUserRepository.searchPublicSellers('bob', _) >> []
+
+        when:
+        controller.search('', 'bob', null)
+
+        then:
+        noExceptionThrown()
+    }
+
+    def "search() projects matched sellers with sold/active counts and verified flag"() {
+        given:
+        1 * steamUserRepository.searchPublicSellers('bob', _) >> [
+            ([1L, 'Bobby', 'https://cdn/1.jpg'] as Object[])
+        ]
+        1 * listingRepository.countSoldByMultipleSellers([1L]) >> [([1L, 12L] as Object[])]
+        1 * listingRepository.countActiveByMultipleSellers([1L]) >> [([1L, 3L] as Object[])]
+        1 * reviewRepository.aggregateForUsers([1L]) >> [([1L, 4L, new BigDecimal('4.50')] as Object[])]
+
+        when:
+        def resp = controller.search('bob', null, null)
+
+        then:
+        resp.body.size() == 1
+        resp.body[0].sellerUserId == 1L
+        resp.body[0].displayName == 'Bobby'
+        resp.body[0].soldCount == 12L
+        resp.body[0].activeListings == 3L
+        resp.body[0].verified == true       // 12 sold, 4.5 rating
+        resp.body[0].ratingCount == 4L
+        resp.body[0].ratingAverage == new BigDecimal('4.50')
+    }
+
+    def "search() ranks verified sellers above unverified ones"() {
+        given: 'two Bobs — only the second qualifies for the ✓ badge'
+        1 * steamUserRepository.searchPublicSellers('bob', _) >> [
+            ([1L, 'Bob A', null] as Object[]),
+            ([2L, 'Bob B', null] as Object[])
+        ]
+        1 * listingRepository.countSoldByMultipleSellers(_) >> [
+            ([1L, 2L]  as Object[]),     // 2 sold → not verified
+            ([2L, 50L] as Object[])      // 50 sold → verified
+        ]
+        1 * listingRepository.countActiveByMultipleSellers(_) >> []
+        1 * reviewRepository.aggregateForUsers(_) >> []
+
+        when:
+        def resp = controller.search('bob', null, null)
+
+        then: 'verified Bob B sorts first despite alphabetical order putting Bob A first'
+        resp.body*.sellerUserId == [2L, 1L]
+    }
+
+    def "search() emits null ratingAverage for a seller with no reviews"() {
+        given:
+        1 * steamUserRepository.searchPublicSellers('bob', _) >> [([1L, 'Bob', null] as Object[])]
+        1 * listingRepository.countSoldByMultipleSellers(_) >> [([1L, 1L] as Object[])]
+        1 * listingRepository.countActiveByMultipleSellers(_) >> []
+        1 * reviewRepository.aggregateForUsers(_) >> []
+
+        when:
+        def resp = controller.search('bob', null, null)
+
+        then: 'no reviews → null average so the UI shows "No reviews yet"'
+        resp.body[0].ratingCount == 0L
+        resp.body[0].ratingAverage == null
+    }
+
+    def "search() returns [] when the repo finds no matching sellers"() {
+        given:
+        1 * steamUserRepository.searchPublicSellers('zzz', _) >> []
+
+        when:
+        def resp = controller.search('zzz', null, null)
+
+        then:
+        resp.body == []
+        resp.headers.getFirst('Cache-Control')?.contains('max-age=60')
+    }
+
     // ── bulkShipTimes ─────────────────────────────────────────────
 
     def "bulkShipTimes() returns {} on null ids param"() {

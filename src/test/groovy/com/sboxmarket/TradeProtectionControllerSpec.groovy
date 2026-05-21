@@ -118,6 +118,40 @@ class TradeProtectionControllerSpec extends Specification {
         1 * tradeProtectionService.quote(new BigDecimal('13.00')) >> new BigDecimal('0.26')
     }
 
+    @Unroll
+    def "quote accepts well-formed numeric strings (#raw parses to #parsed)"() {
+        given:
+        1 * tradeProtectionService.quote(parsed) >> new BigDecimal('0.25')
+
+        when:
+        def resp = controller.quote(raw)
+
+        then: "the raw string is parsed and echoed back as price + coverageAmount"
+        resp.statusCode.value() == 200
+        resp.body.price == parsed
+        resp.body.coverageAmount == parsed
+
+        where:
+        raw      || parsed
+        '0'      || new BigDecimal('0')
+        '100'    || new BigDecimal('100')
+        '49.99'  || new BigDecimal('49.99')
+        '1e3'    || new BigDecimal('1e3')
+        '-5.00'  || new BigDecimal('-5.00')   // negative parses; the service floors it
+    }
+
+    def "quote echoes the service MIN_FEE constant as the floor"() {
+        given:
+        1 * tradeProtectionService.quote(_) >> new BigDecimal('0.25')
+
+        when:
+        def resp = controller.quote('1.00')
+
+        then: "minFee is sourced from the service constant, not a magic literal"
+        resp.body.minFee == TradeProtectionService.MIN_FEE
+        resp.body.minFee == new BigDecimal('0.25')
+    }
+
     // ── enable ────────────────────────────────────────────────────
 
     def "enable forwards the caller uid and trade id to the service"() {
@@ -174,6 +208,37 @@ class TradeProtectionControllerSpec extends Specification {
         then:
         def e = thrown(BadRequestException)
         e.code == 'PROTECTION_EXISTS'
+    }
+
+    def "enable propagates a service NotFoundException for an unknown trade"() {
+        given:
+        authedSession(100L)
+        1 * tradeProtectionService.enable(100L, 9L) >> { throw new NotFoundException('Trade', 9L) }
+
+        when:
+        controller.enable(9L, req)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    @Unroll
+    def "enable propagates the service wallet-precondition BadRequestException (#code)"() {
+        given:
+        authedSession(100L)
+        1 * tradeProtectionService.enable(100L, 9L) >> {
+            throw new BadRequestException(code, 'wallet precondition failed')
+        }
+
+        when:
+        controller.enable(9L, req)
+
+        then: "the machine-readable code reaches the client unchanged"
+        def e = thrown(BadRequestException)
+        e.code == code
+
+        where:
+        code << ['NO_WALLET', 'WALLET_FROZEN', 'INSUFFICIENT_BALANCE', 'TRADE_NOT_PROTECTABLE']
     }
 
     // ── status ────────────────────────────────────────────────────
@@ -268,5 +333,34 @@ class TradeProtectionControllerSpec extends Specification {
         then:
         thrown(NotFoundException)
         0 * tradeProtectionService.summary(_)
+    }
+
+    def "status forbids a caller when the trade has a null buyer and null seller"() {
+        given: "a degenerate trade with no participants — nobody may read it"
+        def trade = new Trade(id: 9L, buyerUserId: null, sellerUserId: null)
+        authedSession(100L)
+        1 * tradeService.get(9L) >> trade
+
+        when:
+        controller.status(9L, req)
+
+        then: "a non-participant (everyone, here) is forbidden — no enumeration leak"
+        thrown(ForbiddenException)
+        0 * tradeProtectionService.summary(_)
+    }
+
+    def "status echoes the path id as tradeId even when the trade has none persisted"() {
+        given:
+        def trade = new Trade(id: null, buyerUserId: 100L, sellerUserId: 200L)
+        authedSession(100L)
+        1 * tradeService.get(9L) >> trade
+        1 * tradeProtectionService.summary(9L) >> null
+
+        when:
+        def resp = controller.status(9L, req)
+
+        then: "tradeId in the body is the request path id, consistently"
+        resp.body.tradeId == 9L
+        resp.body.protected == false
     }
 }

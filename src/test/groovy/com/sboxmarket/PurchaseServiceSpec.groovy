@@ -733,4 +733,302 @@ class PurchaseServiceSpec extends Specification {
         then: "the lock conflict propagates uncaught — @Transactional rolls the debit back"
         thrown(org.springframework.orm.ObjectOptimisticLockingFailureException)
     }
+
+    def "buy lets a Wallet-typed optimistic-lock conflict propagate too (debit @Version)"() {
+        // The buyer's wallet debit (line 126) uses a plain save() whose
+        // versioned UPDATE is only pushed by the saveAndFlush(listing)
+        // flush. If a concurrent debit on the SAME wallet (two tabs)
+        // already bumped Wallet.version, the flush raises an
+        // ObjectOptimisticLockingFailureException carrying the Wallet
+        // class — it must propagate exactly like the Listing-typed one
+        // so GlobalExceptionHandler still maps it to 409.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        // The flush forced by saveAndFlush detects the stale wallet row.
+        listingRepo.saveAndFlush(_) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Wallet, 1L)
+        }
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "propagates uncaught — same 409 path as the Listing conflict"
+        def e = thrown(org.springframework.orm.ObjectOptimisticLockingFailureException)
+        e.persistentClassName == Wallet.name
+    }
+
+    // ── Dispute-hold happy path + message pluralisation ───────────
+
+    def "buy proceeds when the buyer has zero active deposit disputes (batch 511 happy path)"() {
+        given: "countActiveDisputedDeposits returns 0 — the gate is open"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        txRepo.countActiveDisputedDeposits(1L) >> 0L
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "no PURCHASE_DISPUTE_HOLD thrown — the sale completes"
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+    }
+
+    def "buy's dispute-hold message pluralises correctly for multiple disputes (batch 511)"() {
+        given: "two active disputes on file"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        txRepo.countActiveDisputedDeposits(1L) >> 2L
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+        // "2 unresolved deposit disputes" — plural form, count interpolated.
+        e.message.contains('2 unresolved deposit disputes')
+    }
+
+    // ── Buyer-side Transaction is fully + correctly populated ──────
+
+    def "buy stamps the buyer Transaction with COMPLETED status, wallet currency, and the listing id"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111',
+                               balance: new BigDecimal("100.00"), currency: 'USD')
+        def item = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(
+            id: 5L, item: item, price: new BigDecimal("50.00"),
+            status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "every money-relevant field on the buyer ledger row is exact"
+        1 * txRepo.save({ Transaction t ->
+            t.walletId == 1L &&
+            t.type == 'PURCHASE' &&
+            t.status == 'COMPLETED' &&
+            t.amount == new BigDecimal("50.00") &&
+            t.currency == 'USD' &&
+            t.stripeReference == 'wallet' &&
+            t.listingId == 5L
+        })
+    }
+
+    // ── result map contract ───────────────────────────────────────
+
+    def "buy returns the SOLD listing in the result map"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("40.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "the returned listing is the same row, now SOLD with the buyer stamped"
+        result.listing.is(listing)
+        result.listing.status == 'SOLD'
+        result.listing.buyerUserId == 999L
+        result.newBalance == new BigDecimal("60.00")
+    }
+
+    // ── Trade-URL gate edge: SteamUser row missing ────────────────
+
+    def "buy proceeds on a P2P listing when the buyer's SteamUser row is missing (trade-URL gate skipped)"() {
+        // The trade-URL gate only fires when the SteamUser is found. A
+        // missing row (steamUserRepo returns empty) skips the gate — the
+        // buy must still complete rather than NPE on buyer.tradeUrl.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE',
+            sellerName: 'Bob', sellerUserId: 500L)
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(999L) >> Optional.empty()   // buyer row absent
+        steamUserRepo.findById(500L) >> Optional.empty()   // seller row absent
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "no NPE, no TRADE_URL_MISSING — the sale completes"
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+    }
+
+    // ── Audit trail ───────────────────────────────────────────────
+
+    def "buy writes a LISTING_PURCHASED audit entry after the sale"() {
+        given:
+        def auditService = Mock(com.sboxmarket.service.AuditService)
+        service.auditService = auditService
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Wizard Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE',
+            sellerName: 'Bob', sellerUserId: 500L)
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "actor = buyer, subject = seller, resource = listing id"
+        1 * auditService.log('LISTING_PURCHASED', 999L, 500L, 5L, _)
+    }
+
+    def "buy still completes when the audit-log write throws (swallowed)"() {
+        given: "auditService.log blows up"
+        def auditService = Mock(com.sboxmarket.service.AuditService)
+        service.auditService = auditService
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        auditService.log(*_) >> { throw new RuntimeException("audit table down") }
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "the money path is unaffected by an audit hiccup"
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ it.type == 'PURCHASE' })
+    }
+
+    // ── Frozen-flag null-safety ───────────────────────────────────
+
+    def "buy is NOT blocked when the wallet's frozen flag is null (Boolean.TRUE.equals guard)"() {
+        // frozen is nullable in SQL; a legacy/backfilled row can carry
+        // null. The guard uses Boolean.TRUE.equals so null is treated as
+        // not-frozen and the purchase proceeds.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        buyer.frozen = null
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "null frozen flag does not throw WALLET_FROZEN"
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+    }
+
+    // ── CART_ITEM_SOLD fan-out is capped at 50 ────────────────────
+
+    def "buy caps the CART_ITEM_SOLD fan-out at 50 recipients even when more carts hold it (batch 503)"() {
+        given: "60 other users had the listing queued in their cart"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("200.00"))
+        def item = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> (1L..60L).collect { it as Long }
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "exactly 50 CART_ITEM_SOLD pushes — the .take(50) cap holds"
+        50 * notifier.push(_, 'CART_ITEM_SOLD', _, _, 5L, '/item/10')
+        // The scrub still runs once regardless of the cap.
+        1 * cartRepo.deleteAllByListing(5L)
+    }
+
+    def "buy still completes when a single CART_ITEM_SOLD push throws (per-recipient swallow)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("200.00"))
+        def item = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> [42L, 77L]
+        // The first recipient's push fails — must not abort the fan-out
+        // or the money path.
+        notifier.push(42L, 'CART_ITEM_SOLD', _, _, _, _) >> { throw new RuntimeException("bell down") }
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "the buy succeeds, the OTHER recipient still gets pushed, scrub still runs"
+        result.newBalance == new BigDecimal("150.00")
+        listing.status == 'SOLD'
+        1 * notifier.push(77L, 'CART_ITEM_SOLD', _, _, _, _)
+        1 * cartRepo.deleteAllByListing(5L)
+    }
+
+    // ── No escrow Trade for a system listing ──────────────────────
+
+    def "buy does NOT open a Trade for a system listing (sellerUserId == null)"() {
+        given: "a system listing — no counterparty, so no escrow"
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("50.00"), status: 'ACTIVE', sellerName: 'System')
+        def tradeService = Mock(TradeService)
+        service.tradeService = tradeService
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "no TradeService.open call — system listings settle in-platform"
+        0 * tradeService.open(*_)
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+    }
+
+    // ── Debit happens exactly once ────────────────────────────────
+
+    def "buy debits the buyer wallet exactly once (no double-debit)"() {
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def listing = new Listing(
+            id: 5L, item: new Item(id: 10L, name: 'Hat'),
+            price: new BigDecimal("30.00"), status: 'ACTIVE', sellerName: 'Bot')
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "exactly one wallet save, balance reduced by exactly the price"
+        1 * walletRepo.save({ Wallet w -> w.balance == new BigDecimal("70.00") })
+        buyer.balance == new BigDecimal("70.00")
+    }
 }

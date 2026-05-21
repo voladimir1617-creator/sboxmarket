@@ -1853,7 +1853,11 @@ function SlotPicker({ slot, allItems, poolErr, onPick }) {
     return h('button', { className: 'loadout-add-btn', onClick: () => setOpen(true) }, '+ Add');
   }
   return h('div', { className: 'loadout-picker' },
-    h('input', { className: 'price-input', autoFocus: true, 'aria-label': 'Filter loadouts', placeholder: 'Filter…', value: q, onChange: e => setQ(e.target.value), style: { width: '100%', marginBottom: 6 } }),
+    // Audit fix — aria-label was a stale "Filter loadouts" copy-paste
+    // from the Discover search box. This input filters the ITEM pool for
+    // a specific clothing slot, so a screen-reader user heard the wrong
+    // thing. Name it after what it actually does.
+    h('input', { className: 'price-input', autoFocus: true, 'aria-label': `Filter ${slot} items`, placeholder: 'Filter…', value: q, onChange: e => setQ(e.target.value), style: { width: '100%', marginBottom: 6 } }),
     h('div', { className: 'loadout-picker-list' },
       // Audit fix — when the catalogue pool fetch failed, `allItems` is
       // empty for every slot. Without a hint the list rendered blank and
@@ -1947,7 +1951,21 @@ export function NotificationsModal({ onClose, me }) {
       // Snapshot the visible unread count BEFORE the call so we can
       // print a concrete number; backend `markAllRead` is `void`.
       const visibleUnread = groups.flatMap(g => g.items).filter(n => !n.read).length;
-      const res = await markAllNotificationsRead();
+      // Audit fix — markAllNotificationsRead() is a RAW fetch (not the
+      // never-throwing writeJson), so a network failure rejects the
+      // promise. Without this try/catch the rejection escaped the click
+      // handler unhandled: the user clicked "Mark all read" offline and
+      // got no toast, no error, nothing. The filtered branch above uses
+      // markNotificationsReadBatch (writeJson — safe); this branch was
+      // the outlier. Mirror the per-row mark-unread/delete handlers.
+      let res;
+      try {
+        res = await markAllNotificationsRead();
+      } catch (_) {
+        toast('Could not mark notifications read — check your connection and try again.', 'err');
+        load();
+        return;
+      }
       if (res && res.ok === false) { toast('Could not mark notifications read — try again.', 'err'); load(); return; }
       if (visibleUnread > 0) toast(`Marked ${visibleUnread} notification${visibleUnread === 1 ? '' : 's'} read.`, 'ok');
     }

@@ -310,6 +310,30 @@ class OpenGraphControllerSpec extends Specification {
         body.contains('"brand":{"@type":"Brand","name":"SkinBox"}')
     }
 
+    def "stallPage returns 200 noindex shell for a banned seller — parity with SitemapController's banned-seller exclusion"() {
+        given:
+        // A banned seller's stall renders only a "suspended" banner; the
+        // sitemap already drops banned sellers, so the page itself must
+        // also be noindex — and must not emit a Store JSON-LD / canonical
+        // for an effectively empty page.
+        def user = new SteamUser(id: 42L, displayName: 'BadActor',
+            avatarUrl: 'https://steamcdn.example/ba.jpg', steamId64: '76561002', banned: true)
+        steamUserRepository.findById(42L) >> Optional.of(user)
+
+        when:
+        def resp = controller.stallPage('42', req())
+        def body = resp.body as String
+
+        then:
+        resp.statusCodeValue == 200
+        body.contains('<meta name="robots" content="noindex, nofollow">')
+        // No per-stall OG mutation should have run — generic shell only.
+        body.contains('og:title" content="SkinBox"')
+        !body.contains('"@type":"Store"')
+        // The banned seller's display name must not be promoted into OG tags.
+        !body.contains('BadActor')
+    }
+
     def "stallPage returns 200 noindex shell when user is unknown (batch 968)"() {
         given:
         steamUserRepository.findById(999L) >> Optional.empty()

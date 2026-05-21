@@ -208,4 +208,48 @@ class WatchlistAlertControllerSpec extends Specification {
         then:  thrown(UnauthorizedException)
         0 * service.clearFired(_)
     }
+
+    // ── service-layer errors bubble through create() ──────────────
+
+    def "create() lets a service BadRequestException (e.g. ALERT_LIMIT) propagate unchanged"() {
+        given:
+        authedSession(100L)
+        1 * service.upsertAlert(100L, 42L, new BigDecimal('5')) >> {
+            throw new BadRequestException('ALERT_LIMIT', 'Active alert limit reached')
+        }
+
+        when:
+        controller.create([itemId: '42', targetPrice: '5'], req)
+
+        then: 'controller does not swallow or remap the domain error'
+        def e = thrown(BadRequestException)
+        e.code == 'ALERT_LIMIT'
+    }
+
+    def "create() passes the resolved session user id, not the request body"() {
+        given:
+        def alert = new WatchlistAlert(id: 1L)
+        authedSession(777L)
+        // uid must come from the session (777), never from anything client-supplied.
+        1 * service.upsertAlert(777L, 42L, new BigDecimal('9.99')) >> alert
+
+        when:
+        def resp = controller.create([itemId: '42', targetPrice: '9.99'], req)
+
+        then:
+        resp.body.is(alert)
+    }
+
+    def "cancel() scopes the delete to the session user id"() {
+        given:
+        authedSession(777L)
+        // Ownership is enforced service-side using the SESSION uid.
+        1 * service.cancelAlert(777L, 9L)
+
+        when:
+        def resp = controller.cancel(9L, req)
+
+        then:
+        resp.body == [id: 9L, status: 'CANCELLED']
+    }
 }

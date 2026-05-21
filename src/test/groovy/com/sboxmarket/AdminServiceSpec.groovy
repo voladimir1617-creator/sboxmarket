@@ -1496,6 +1496,235 @@ class AdminServiceSpec extends Specification {
         res.sent == 1
     }
 
+    // ── clearDisputeHold (batch 467) ────────────────────────────────
+
+    def "clearDisputeHold flips a DISPUTED deposit back to COMPLETED"() {
+        given:
+        def tx = new Transaction(id: 7L, walletId: 500L, type: 'DEPOSIT',
+            status: 'DISPUTED', amount: new BigDecimal('25'))
+        transactionRepository.findById(7L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        // No wallet owner resolvable — keeps the test focused on the
+        // status flip; the notify/email side-effects no-op on null owner.
+        walletRepository.findById(500L) >> Optional.empty()
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+
+        when:
+        def res = service.clearDisputeHold(1L, 7L, 'won the chargeback')
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        tx.status == 'COMPLETED'
+        res.status == 'COMPLETED'
+        res.transactionId == 7L
+    }
+
+    def "clearDisputeHold refuses a transaction that is not DISPUTED"() {
+        given:
+        transactionRepository.findById(7L) >> Optional.of(
+            new Transaction(id: 7L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED'))
+
+        when:
+        service.clearDisputeHold(1L, 7L, 'reason')
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'NOT_DISPUTED'
+        0 * transactionRepository.save(_)
+    }
+
+    def "clearDisputeHold 404s for an unknown transaction"() {
+        given:
+        transactionRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.clearDisputeHold(1L, 999L, 'reason')
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "clearDisputeHold records the affected wallet owner as the audit subject"() {
+        // Regression guard: the DISPUTE_CLEARED audit row used to pass a
+        // hard-coded null subject, so the staff action was invisible to
+        // the audit-by-subject filter + shipped a blank subject column
+        // in the CSV. The subject must now resolve to the wallet owner.
+        given:
+        def tx = new Transaction(id: 7L, walletId: 500L, type: 'DEPOSIT',
+            status: 'DISPUTED', amount: new BigDecimal('40'))
+        transactionRepository.findById(7L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        def wallet = new Wallet(id: 500L, username: 'steam_888')
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        steamUserRepository.findBySteamId64('888') >> new SteamUser(id: 88L, steamId64: '888')
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+
+        when:
+        service.clearDisputeHold(1L, 7L, 'false positive')
+
+        then:
+        1 * auditService.log('DISPUTE_CLEARED', 1L, 88L, 7L, _ as String)
+    }
+
+    def "clearDisputeHold notifies the owner only when no disputes remain on the wallet"() {
+        given:
+        def tx = new Transaction(id: 7L, walletId: 500L, type: 'DEPOSIT',
+            status: 'DISPUTED', amount: new BigDecimal('40'))
+        transactionRepository.findById(7L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        def wallet = new Wallet(id: 500L, username: 'steam_888')
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        steamUserRepository.findBySteamId64('888') >> new SteamUser(id: 88L, steamId64: '888')
+        // One dispute still open after this clear → no "unblocked" ping.
+        transactionRepository.countActiveDisputedDeposits(500L) >> 2L
+
+        when:
+        service.clearDisputeHold(1L, 7L, 'partial')
+
+        then:
+        0 * notificationService.push(_, 'DISPUTE_CLEARED', _, _, _, _)
+    }
+
+    def "clearDisputeHold survives an audit-log failure"() {
+        given:
+        def tx = new Transaction(id: 7L, walletId: 500L, type: 'DEPOSIT',
+            status: 'DISPUTED', amount: new BigDecimal('40'))
+        transactionRepository.findById(7L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        walletRepository.findById(500L) >> Optional.empty()
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        auditService.log('DISPUTE_CLEARED', *_) >> { throw new RuntimeException('audit table locked') }
+
+        when:
+        def res = service.clearDisputeHold(1L, 7L, 'reason')
+
+        then:
+        // The status flip is the source of truth — a broken audit write
+        // must not roll it back.
+        res.status == 'COMPLETED'
+        noExceptionThrown()
+    }
+
+    // ── approveWithdrawal: dispute-hold gate (batch 468) ─────────────
+
+    def "approveWithdrawal refuses while the wallet has an unresolved deposit dispute"() {
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW',
+            status: 'PENDING', amount: new BigDecimal('25'))
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+
+        when:
+        service.approveWithdrawal(1L, 1L, 'ref')
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'DISPUTE_HOLD'
+        // Must NOT have flipped the withdrawal — the gate fires first.
+        tx.status == 'PENDING'
+        0 * transactionRepository.save(_)
+    }
+
+    def "approveWithdrawal proceeds when no deposit dispute is open"() {
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW',
+            status: 'PENDING', amount: new BigDecimal('25'))
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        walletRepository.findById(500L) >> Optional.of(new Wallet(id: 500L, username: 'steam_111'))
+        steamUserRepository.findBySteamId64('111') >> null
+
+        when:
+        def res = service.approveWithdrawal(1L, 1L, 'PAYOUT-X')
+
+        then:
+        tx.status == 'COMPLETED'
+        res.status == 'COMPLETED'
+    }
+
+    // ── grantAdmin / grantCsr: banned + self guards ─────────────────
+
+    def "grantAdmin refuses to promote a banned account"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', role: 'USER', banned: true)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+
+        when:
+        service.grantAdmin(1L, 20L)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'USER_BANNED'
+        target.role == 'USER'   // unchanged
+    }
+
+    def "grantAdmin forbids self-grant"() {
+        when:
+        service.grantAdmin(1L, 1L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        def ex = thrown(BadRequestException)
+        ex.code == 'CANT_GRANT_SELF'
+    }
+
+    def "grantCsr forbids self-grant"() {
+        when:
+        service.grantCsr(1L, 1L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        def ex = thrown(BadRequestException)
+        ex.code == 'CANT_GRANT_SELF'
+    }
+
+    // ── forceReleaseTrade / forceCancelTrade: audit trail ───────────
+
+    def "forceReleaseTrade refuses an already-settled trade"() {
+        given:
+        tradeRepository.findById(9L) >> Optional.of(
+            new com.sboxmarket.model.Trade(id: 9L, state: 'VERIFIED'))
+
+        when:
+        service.forceReleaseTrade(1L, 9L, 'reason')
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'ALREADY_SETTLED'
+        0 * tradeService.adminRelease(*_)
+    }
+
+    def "forceReleaseTrade delegates to adminRelease and writes a TRADE_FORCE_RELEASED audit row"() {
+        given:
+        tradeRepository.findById(9L) >> Optional.of(
+            new com.sboxmarket.model.Trade(id: 9L, state: 'PENDING_BUYER_CONFIRM'))
+        tradeService.adminRelease(1L, 9L, 'buyer ghosted') >> new com.sboxmarket.model.Trade(
+            id: 9L, state: 'VERIFIED', sellerUserId: 77L)
+
+        when:
+        def res = service.forceReleaseTrade(1L, 9L, 'buyer ghosted')
+
+        then:
+        res.state == 'VERIFIED'
+        1 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_RELEASED,
+            1L, 77L, 9L, _ as String)
+    }
+
+    def "forceCancelTrade delegates to cancel and writes a TRADE_FORCE_CANCELLED audit row"() {
+        given:
+        tradeService.cancel(1L, 9L, _ as String) >> new com.sboxmarket.model.Trade(
+            id: 9L, state: 'CANCELLED', buyerUserId: 66L)
+
+        when:
+        def res = service.forceCancelTrade(1L, 9L, 'stuck escrow')
+
+        then:
+        res.state == 'CANCELLED'
+        1 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_CANCELLED,
+            1L, 66L, 9L, _ as String)
+    }
+
     // ── Support ticket actions: audit trail + double-resolve guard ───
 
     def "staffReply writes a TICKET_REPLIED audit row (actor=admin, subject=ticket owner)"() {

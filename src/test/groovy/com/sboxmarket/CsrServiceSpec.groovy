@@ -99,6 +99,59 @@ class CsrServiceSpec extends Specification {
         thrown(ForbiddenException)
     }
 
+    def "requireCsr forbids an unknown user id"() {
+        given:
+        steamUserRepository.findById(404L) >> Optional.empty()
+
+        when:
+        service.requireCsr(404L)
+
+        then:
+        thrown(ForbiddenException)
+    }
+
+    // ── getTicket ─────────────────────────────────────────────────
+
+    def "getTicket is gated on the CSR role"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))
+
+        when:
+        service.getTicket(10L, 1L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * supportTicketRepository.findById(_)
+    }
+
+    def "getTicket returns the ticket plus its message thread"() {
+        given:
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_STAFF')
+        def messages = [new SupportMessage(id: 1L, ticketId: 1L, author: 'USER')]
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        supportTicketRepository.findById(1L) >> Optional.of(ticket)
+        supportMessageRepository.findByTicket(1L) >> messages
+
+        when:
+        def result = service.getTicket(5L, 1L)
+
+        then:
+        result.ticket.is(ticket)
+        result.messages.is(messages)
+    }
+
+    def "getTicket refuses an unknown ticket"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        supportTicketRepository.findById(404L) >> Optional.empty()
+
+        when:
+        service.getTicket(5L, 404L)
+
+        then:
+        thrown(NotFoundException)
+    }
+
     // ── reply ─────────────────────────────────────────────────────
 
     def "reply appends a STAFF message and flips ticket back to WAITING_USER"() {
@@ -152,6 +205,19 @@ class CsrServiceSpec extends Specification {
         ticket.status == 'WAITING_USER'
     }
 
+    def "reply is gated on the CSR role"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))
+
+        when:
+        service.reply(10L, 1L, 'body')
+
+        then:
+        thrown(ForbiddenException)
+        0 * supportMessageRepository.save(_)
+        0 * supportTicketRepository.save(_)
+    }
+
     def "reply refuses empty body"() {
         given:
         def csrSanitizer = Mock(TextSanitizer) {
@@ -197,6 +263,34 @@ class CsrServiceSpec extends Specification {
         1 * auditService.log('TICKET_CLOSED', 5L, 10L, 1L, _ as String)
     }
 
+    def "close is gated on the CSR role"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))
+
+        when:
+        service.close(10L, 1L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * supportTicketRepository.save(_)
+    }
+
+    def "close still flips the ticket even if the audit write throws"() {
+        given:
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_STAFF')
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        supportTicketRepository.findById(1L) >> Optional.of(ticket)
+        supportTicketRepository.save(_) >> { args -> args[0] }
+        auditService.log(*_) >> { throw new RuntimeException("audit db down") }
+
+        when:
+        def result = service.close(5L, 1L)
+
+        then:
+        noExceptionThrown()
+        result.status == 'RESOLVED'
+    }
+
     def "close rejects an already-RESOLVED ticket (no silent re-resolve)"() {
         given:
         def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED', updatedAt: 1000L)
@@ -239,6 +333,72 @@ class CsrServiceSpec extends Specification {
         1 * notificationService.push(10L, 'CSR_CREDIT', _, _, _, _)
     }
 
+    def "issueGoodwillCredit is gated on the CSR role"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))
+
+        when:
+        service.issueGoodwillCredit(10L, 20L, new BigDecimal("5"), 'note')
+
+        then:
+        thrown(ForbiddenException)
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+    }
+
+    def "issueGoodwillCredit writes a CSR_CREDIT audit row (actor=CSR, subject=target, resource=wallet)"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("0.00"), currency: 'USD')
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.save(_) >> { args -> args[0] }
+        transactionRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.issueGoodwillCredit(5L, 10L, new BigDecimal("20"), 'refund for failed trade')
+
+        then:
+        1 * auditService.log('CSR_CREDIT', 5L, 10L, 500L, _ as String)
+    }
+
+    def "issueGoodwillCredit still credits the wallet even if the audit write throws"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("0.00"), currency: 'USD')
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.save(_) >> { args -> args[0] }
+        transactionRepository.save(_) >> { args -> args[0] }
+        auditService.log(*_) >> { throw new RuntimeException("audit db down") }
+
+        when:
+        def result = service.issueGoodwillCredit(5L, 10L, new BigDecimal("20"), 'compensation')
+
+        then:
+        noExceptionThrown()
+        wallet.balance == new BigDecimal("20")
+        result.newBalance == new BigDecimal("20")
+    }
+
+    def "issueGoodwillCredit allows an amount exactly at the cap"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: new BigDecimal("0.00"), currency: 'USD')
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.save(_) >> { args -> args[0] }
+        transactionRepository.save(_) >> { args -> args[0] }
+
+        when: 'the cap is 25.00 and the request is exactly 25'
+        def result = service.issueGoodwillCredit(5L, 10L, new BigDecimal("25"), 'at the cap')
+
+        then: 'the boundary value is permitted — only strictly-over-cap is rejected'
+        noExceptionThrown()
+        result.newBalance == new BigDecimal("25")
+        result.cap == new BigDecimal("25.00")
+    }
+
     def "issueGoodwillCredit refuses amounts over the cap"() {
         given:
         steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
@@ -247,7 +407,42 @@ class CsrServiceSpec extends Specification {
         service.issueGoodwillCredit(5L, 10L, new BigDecimal("100"), 'too generous')
 
         then:
-        thrown(BadRequestException)
+        def e = thrown(BadRequestException)
+        e.code == 'OVER_CAP'
+
+        and: 'nothing is written when the cap rejects'
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        0 * auditService.log(*_)
+    }
+
+    def "issueGoodwillCredit refuses an unknown target user"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.issueGoodwillCredit(5L, 999L, new BigDecimal("10"), 'note')
+
+        then:
+        thrown(NotFoundException)
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+    }
+
+    def "issueGoodwillCredit refuses a target user with no wallet"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        walletRepository.findByUsername('steam_111') >> null
+
+        when:
+        service.issueGoodwillCredit(5L, 10L, new BigDecimal("10"), 'note')
+
+        then:
+        thrown(NotFoundException)
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
     }
 
     def "issueGoodwillCredit refuses zero/negative amounts"() {
@@ -307,6 +502,64 @@ class CsrServiceSpec extends Specification {
         // The clean(_, _) stub echoes arg[0] back, so the concatenated string
         // with the [FLAGGED …] marker survives.
         listing.description?.contains('[FLAGGED')
+    }
+
+    def "flagListing writes a LISTING_FLAGGED audit row (actor=CSR, subject=seller, resource=listing)"() {
+        given:
+        def listing = new Listing(id: 100L, sellerUserId: 77L, description: 'original')
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.flagListing(5L, 100L, 'suspect pricing')
+
+        then:
+        1 * auditService.log('LISTING_FLAGGED', 5L, 77L, 100L, _ as String)
+    }
+
+    def "flagListing still saves the listing even if the audit write throws"() {
+        given:
+        def listing = new Listing(id: 100L, sellerUserId: 77L, description: 'original')
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { args -> args[0] }
+        auditService.log(*_) >> { throw new RuntimeException("audit db down") }
+
+        when:
+        def result = service.flagListing(5L, 100L, 'suspect pricing')
+
+        then:
+        noExceptionThrown()
+        result.flagged == true
+        listing.description?.contains('[FLAGGED')
+    }
+
+    def "flagListing refuses an unknown listing"() {
+        given:
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        listingRepository.findById(404L) >> Optional.empty()
+
+        when:
+        service.flagListing(5L, 404L, 'gone')
+
+        then:
+        thrown(NotFoundException)
+        0 * listingRepository.save(_)
+        0 * auditService.log(*_)
+    }
+
+    def "flagListing is gated on the CSR role"() {
+        given:
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))
+
+        when:
+        service.flagListing(10L, 100L, 'reason')
+
+        then:
+        thrown(ForbiddenException)
+        0 * listingRepository.findById(_)
+        0 * listingRepository.save(_)
     }
 
     // ── isCsr ─────────────────────────────────────────────────────

@@ -1019,4 +1019,368 @@ class EmailServiceSpec extends Specification {
             f.text.contains('No valid winning bid was recorded')
         })
     }
+
+    // ── unsubscribe HMAC token round-trip ─────────────────────────
+    //
+    // UnsubscribeControllerSpec mocks EmailService, so the real HMAC
+    // token logic is only exercised here. These pin: determinism,
+    // verification, tamper-rejection, and that the secret is part of
+    // the MAC (rotating it invalidates outstanding links).
+
+    def "unsubscribeToken is deterministic for the same email"() {
+        given:
+        def svc = newService()
+
+        expect:
+        svc.unsubscribeToken('alice@example.com') == svc.unsubscribeToken('alice@example.com')
+        svc.unsubscribeToken('alice@example.com') != null
+    }
+
+    def "unsubscribeToken differs per email address"() {
+        given:
+        def svc = newService()
+
+        expect:
+        svc.unsubscribeToken('alice@example.com') != svc.unsubscribeToken('bob@example.com')
+    }
+
+    def "verifyUnsubscribeToken accepts a freshly minted token and rejects a tampered one"() {
+        given:
+        def svc = newService()
+        def tok = svc.unsubscribeToken('alice@example.com')
+
+        expect:
+        svc.verifyUnsubscribeToken('alice@example.com', tok)
+        // Wrong email for this token.
+        !svc.verifyUnsubscribeToken('mallory@example.com', tok)
+        // Mutated token.
+        !svc.verifyUnsubscribeToken('alice@example.com', tok + 'x')
+        // Null / empty inputs never throw, always false.
+        !svc.verifyUnsubscribeToken(null, tok)
+        !svc.verifyUnsubscribeToken('alice@example.com', null)
+        !svc.verifyUnsubscribeToken('alice@example.com', '')
+    }
+
+    def "unsubscribeToken short-circuits to null for a null/empty email"() {
+        given:
+        def svc = newService()
+
+        expect:
+        svc.unsubscribeToken(null) == null
+        svc.unsubscribeToken('') == null
+    }
+
+    def "a token minted under one secret does not validate under a rotated secret"() {
+        given:
+        def svcOld = newService(unsubscribeSecret: 'secret-A')
+        def svcNew = newService(unsubscribeSecret: 'secret-B')
+        def tok = svcOld.unsubscribeToken('alice@example.com')
+
+        expect:
+        // Same secret validates.
+        svcOld.verifyUnsubscribeToken('alice@example.com', tok)
+        // Rotated secret invalidates every outstanding link — the
+        // documented revocation mechanism.
+        !svcNew.verifyUnsubscribeToken('alice@example.com', tok)
+    }
+
+    // ── backfill coverage for untested template methods ───────────
+
+    def "sendTradeUrlChanged flags the security alert and shows the new URL"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeUrlChanged('alice@example.com', 'Alice',
+            'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.subject.toLowerCase().contains('trade url') &&
+            f.text.contains('partner=1') &&
+            f.text.contains('Change your Steam password')
+        })
+    }
+
+    def "sendTradeUrlChanged switches wording when the URL was removed"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeUrlChanged('alice@example.com', 'Alice', null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.text.toLowerCase().contains('removed') &&
+            // Must NOT print the literal 'null' for the missing URL.
+            !f.text.contains('null')
+        })
+    }
+
+    def "sendAccountBanned surfaces the reason and an optional appeal URL"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAccountBanned('alice@example.com', 'Alice',
+            'Chargeback fraud', 'https://skinbox.market/appeal')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.subject.toLowerCase().contains('suspended') &&
+            f.text.contains('Chargeback fraud') &&
+            f.text.contains('https://skinbox.market/appeal')
+        })
+    }
+
+    def "sendAccountBanned falls back to a default reason and omits the appeal URL clause"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAccountBanned('alice@example.com', 'Alice', null, null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.text.contains('Policy violation') &&
+            !f.text.contains('null')
+        })
+    }
+
+    def "sendApiKeyMinted distinguishes a read-only key from a full-access key"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendApiKeyMinted('alice@example.com', 'Alice', 'CI bot', 'RO', 'sk_live_ab')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.subject.contains('read-only') &&
+            f.text.contains('CI bot') &&
+            f.text.contains('sk_live_ab')
+        })
+    }
+
+    def "sendApiKeyMinted reads as full-access when scope is RW"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendApiKeyMinted('alice@example.com', 'Alice', 'My key', 'RW', 'sk_live_zz')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.subject.contains('full access') &&
+            f.text.contains('full access')
+        })
+    }
+
+    def "sendChargebackOpened tolerates a null amount (renders a placeholder, no crash)"() {
+        given:
+        // sendChargebackOpened deliberately does NOT short-circuit on a
+        // null amount — it null-coalesces to BigDecimal.ZERO, so the
+        // body must render a '$0' placeholder rather than throw or print
+        // the literal 'null'.
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendChargebackOpened('alice@example.com', 'Alice', null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.text.contains('$0 SkinBox') &&
+            !f.text.contains('null')
+        })
+    }
+
+    def "sendOfferAccepted surfaces the amount and the trade id"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendOfferAccepted('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('33.00'), 88L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.subject.contains('#88') &&
+            f.text.contains('33.00')
+        })
+    }
+
+    def "sendOfferAccepted short-circuits on a null amount"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendOfferAccepted('alice@example.com', 'Alice', 'Wizard Hat', null, 88L)
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendSavedSearchMatch embeds the preset name and short-circuits on a null preset"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendSavedSearchMatch('alice@example.com', 'Alice', 'cheap knives',
+            'Karambit', new BigDecimal('120.00'), '/item/9')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.subject.contains('cheap knives') &&
+            f.text.contains('Karambit')
+        })
+
+        when:
+        svc.sendSavedSearchMatch('alice@example.com', 'Alice', null,
+            'Karambit', new BigDecimal('120.00'), '/item/9')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendBuyOrderFilled tolerates null money fields without printing 'null'"() {
+        given:
+        // fillPrice + maxCap flow through usd(), which null-coalesces to
+        // $0.00 — the body must never surface a literal 'null'.
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendBuyOrderFilled('alice@example.com', 'Alice', 'Wizard Hat', null, null, '/item/3')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.text.contains('0.00 (USD)') &&
+            !f.text.contains('null')
+        })
+    }
+
+    def "sendAuctionEnding pluralises the minute count correctly"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when: 'exactly one minute left — singular'
+        svc.sendAuctionEnding('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('10.00'), 1L, '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('1 minute') &&
+            !f.text.contains('1 minutes')
+        })
+
+        when: 'several minutes left — plural'
+        svc.sendAuctionEnding('alice@example.com', 'Alice', 'Wizard Hat',
+            new BigDecimal('10.00'), 5L, '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('5 minutes')
+        })
+    }
+
+    def "sendTradeCancelled wording differs for buyer vs seller role"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when: 'buyer sees the refund message'
+        svc.sendTradeCancelled('buyer@example.com', 'Bob', 'Wizard Hat',
+            'Seller went silent', 'buyer', 5L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['buyer@example.com'] &&
+            f.text.contains('refunded') &&
+            f.text.contains('Seller went silent')
+        })
+
+        when: 'seller sees the relist message'
+        svc.sendTradeCancelled('seller@example.com', 'Sam', 'Wizard Hat',
+            null, 'seller', 5L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['seller@example.com'] &&
+            f.text.contains('back in your stall inventory')
+        })
+    }
+
+    def "sendForceLogout is a non-opt-out security alert with the admin note"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendForceLogout('alice@example.com', 'Alice', 'Reported account')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['alice@example.com'] &&
+            f.subject.toLowerCase().contains('security') &&
+            f.text.contains('Reported account') &&
+            f.text.contains('revoked')
+        })
+    }
+
+    def "sendDeletionRequested + sendAccountUnbanned send without throwing"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendDeletionRequested('alice@example.com', 'Alice')
+        svc.sendAccountUnbanned('alice@example.com', 'Alice')
+        svc.awaitSmtpForTests()
+
+        then:
+        2 * mailSender.send(_)
+        noExceptionThrown()
+    }
+
+    def "every backfilled template short-circuits on a null recipient"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeUrlChanged(null, 'Alice', 'url')
+        svc.sendAccountBanned(null, 'Alice', 'reason', 'appeal')
+        svc.sendApiKeyMinted(null, 'Alice', 'label', 'RO', 'prefix')
+        svc.sendChargebackOpened(null, 'Alice', new BigDecimal('5'))
+        svc.sendForceLogout(null, 'Alice', 'note')
+        svc.sendTradeCancelled(null, 'Alice', 'item', 'reason', 'buyer', 1L)
+        svc.sendBuyOrderFilled(null, 'Alice', 'item', new BigDecimal('1'), new BigDecimal('2'), '/item/1')
+        svc.sendAuctionEnding(null, 'Alice', 'item', new BigDecimal('1'), 3L, '/item/1')
+        svc.sendDeletionRequested(null, 'Alice')
+        svc.sendAccountUnbanned(null, 'Alice')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
 }

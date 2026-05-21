@@ -382,6 +382,15 @@ export function Sparkline({ data, color, height }) {
     setHover(nearest);
   };
 
+  // Resolve the hovered point safely. The `data` prop can shrink while the
+  // pointer is still over the chart — the price-history modal swaps the
+  // series when the user clicks a shorter range (7D/1M/…). The stale
+  // `hover` index then points past the end of the rebuilt `pts` array, and
+  // `pts[hover].x` threw "Cannot read properties of undefined". Clamp the
+  // index to the current series so a mid-hover dataset swap can't crash.
+  const hoverIdx = hover !== null && hover >= 0 && hover < pts.length ? hover : null;
+  const hoverPt  = hoverIdx !== null ? pts[hoverIdx] : null;
+
   // Batch 828 — a11y label on the SVG so a screen reader announces
   // the chart as "Price history chart, $min to $max, N points" rather
   // than skipping it entirely (svgs default to "image" with no label).
@@ -424,21 +433,21 @@ export function Sparkline({ data, color, height }) {
       h('circle', { cx: pts[minIdx].x, cy: pts[minIdx].y, r: 4, fill: 'var(--down)', stroke: 'var(--bg)',  strokeWidth: 2 }),
       h('circle', { cx: pts[maxIdx].x, cy: pts[maxIdx].y, r: 4, fill: 'var(--up)',   stroke: 'var(--bg)',  strokeWidth: 2 }),
       // Hover crosshair + point
-      hover !== null && h('line', {
-        x1: pts[hover].x, x2: pts[hover].x, y1: 0, y2: H,
+      hoverPt && h('line', {
+        x1: hoverPt.x, x2: hoverPt.x, y1: 0, y2: H,
         stroke: colorSafe, strokeOpacity: 0.25, strokeWidth: 1, strokeDasharray: '3 3'
       }),
-      hover !== null && h('circle', {
-        cx: pts[hover].x, cy: pts[hover].y, r: 5,
+      hoverPt && h('circle', {
+        cx: hoverPt.x, cy: hoverPt.y, r: 5,
         fill: colorSafe, stroke: 'var(--bg)', strokeWidth: 2
       })
     ),
-    hover !== null && h('div', {
+    hoverPt && h('div', {
       className: 'sparkline-tooltip',
-      style: { left: `${(pts[hover].x / W) * 100}%` }
+      style: { left: `${(hoverPt.x / W) * 100}%` }
     },
-      h('div', { className: 'sparkline-tt-price' }, fmt(pts[hover].price)),
-      h('div', { className: 'sparkline-tt-date' }, pts[hover].label || '')
+      h('div', { className: 'sparkline-tt-price' }, fmt(hoverPt.price)),
+      h('div', { className: 'sparkline-tt-date' }, hoverPt.label || '')
     )
   );
 }
@@ -453,6 +462,18 @@ export function Sparkline({ data, color, height }) {
 export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubmit, maxLen = 500 }) {
   const [text, setText]   = useState(initial || '');
   const textareaRef       = useRef(null);
+  // Per-instance id for the dialog's title element. A stall / profile page
+  // renders one ReasonDrawer per review row (admin-remove + report flows),
+  // so a hardcoded id collided across every open drawer — `aria-labelledby`
+  // then resolved ambiguously and a screen reader announced the wrong
+  // drawer's heading. A ref-stored unique id keeps each dialog correctly
+  // labelled.
+  const titleIdRef = useRef(null);
+  if (titleIdRef.current === null) {
+    titleIdRef.current = 'reason-drawer-title-' +
+      Math.random().toString(36).slice(2, 9);
+  }
+  const titleId = titleIdRef.current;
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       if (textareaRef.current) {
@@ -475,7 +496,7 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
   return h('div', {
     role: 'dialog',
     'aria-modal': 'false',
-    'aria-labelledby': 'reason-drawer-title',
+    'aria-labelledby': titleId,
     style: {
       width: '100%', padding: 12,
       background: 'var(--bg-elevated, #1a1c20)',
@@ -483,7 +504,7 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
     }
   },
     h('div', {
-      id: 'reason-drawer-title',
+      id: titleId,
       style: { fontSize: 12, fontWeight: 700, marginBottom: 4 }
     }, title),
     hint && h('div', {

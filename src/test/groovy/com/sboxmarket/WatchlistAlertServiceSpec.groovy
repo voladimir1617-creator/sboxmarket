@@ -331,4 +331,199 @@ class WatchlistAlertServiceSpec extends Specification {
         expect:
         service.countWatchersForItem(42L) == 7L
     }
+
+    // ── upsertAlert price rounding ───────────────────────────────
+
+    def "upsertAlert rounds the target price to 2 dp HALF_UP on create"() {
+        given:
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.findActiveFor(42L, 7L) >> Optional.empty()
+        repo.countByUserIdAndStatus(42L, 'ACTIVE') >> 0L
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        def a = service.upsertAlert(42L, 7L, new BigDecimal('8.125'))
+
+        then: 'persisted scale is exactly 2, rounded half-up'
+        a.targetPrice == new BigDecimal('8.13')
+        a.targetPrice.scale() == 2
+    }
+
+    def "upsertAlert rounds the target price to 2 dp HALF_UP on update"() {
+        given:
+        def existing = new WatchlistAlert(id: 9L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('9.00'), status: 'ACTIVE', createdAt: 1L)
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.findActiveFor(42L, 7L) >> Optional.of(existing)
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        def updated = service.upsertAlert(42L, 7L, new BigDecimal('7.005'))
+
+        then:
+        updated.targetPrice == new BigDecimal('7.01')
+        updated.targetPrice.scale() == 2
+    }
+
+    def "upsertAlert accepts a brand-new alert at exactly PER_USER_LIMIT - 1"() {
+        given:
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.findActiveFor(42L, 7L) >> Optional.empty()
+        repo.countByUserIdAndStatus(42L, 'ACTIVE') >> 49L   // one slot left (limit is 50)
+
+        when:
+        def a = service.upsertAlert(42L, 7L, new BigDecimal('5'))
+
+        then: 'the last open slot is honoured — the create path runs'
+        1 * repo.save(_) >> { args -> args[0].id = 1L; args[0] }
+        a.status == 'ACTIVE'
+        a.itemId == 7L
+    }
+
+    // ── listForUser ──────────────────────────────────────────────
+
+    def "listForUser returns an empty list for a null user id without hitting the repo"() {
+        when:
+        def out = service.listForUser(null)
+
+        then:
+        out == []
+        0 * repo.findByUserIdPaged(_, _)
+    }
+
+    def "listForUser caps the page size at ALERT_LIST_CAP"() {
+        given:
+        def captured = null
+        1 * repo.findByUserIdPaged(42L, _) >> { args -> captured = args[1]; [] }
+
+        when:
+        service.listForUser(42L)
+
+        then: 'first page, sized to the display cap'
+        captured.pageNumber == 0
+        captured.pageSize == WatchlistAlertService.ALERT_LIST_CAP
+    }
+
+    // ── fireRow projection: name comes from the JOIN, not an N+1 ──
+
+    def "sweep reads the item name from the 3-col projection without an itemRepository fetch"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        // Production projection shape: [alert, lowestPrice, name].
+        repo.findTriggered() >> [[a, new BigDecimal('9.00'), 'Dragon Lore'] as Object[]]
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        service.sweep()
+
+        then: 'name carried by the JOIN — no per-row findById (no N+1)'
+        0 * itemRepository.findById(_)
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP',
+            { it.contains('Dragon Lore') }, _, 7L, '/item/7')
+        a.status == 'FIRED'
+    }
+
+    def "sweep falls back to itemRepository when the projection carries a blank name"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        // 3-col row but name is empty → fallback lookup expected.
+        repo.findTriggered() >> [[a, new BigDecimal('9.00'), ''] as Object[]]
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        service.sweep()
+
+        then: 'blank projection name forces exactly one fallback fetch'
+        1 * itemRepository.findById(7L) >> Optional.of(itemFor())
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, '/item/7')
+    }
+
+    // ── sweepForItem (synchronous per-item sweep, batch 389) ──────
+
+    def "sweepForItem fires the alerts scoped to that one item"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggeredForItem(7L) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        service.sweepForItem(7L)
+
+        then:
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, '/item/7')
+        a.status == 'FIRED'
+        a.firedAt != null
+    }
+
+    def "sweepForItem is a no-op for a null item id"() {
+        when:
+        service.sweepForItem(null)
+
+        then:
+        0 * repo.findTriggeredForItem(_)
+        0 * notificationService.push(_, _, _, _, _, _)
+    }
+
+    def "sweepForItem is a no-op when the scoped query returns nothing"() {
+        given:
+        repo.findTriggeredForItem(7L) >> []
+
+        when:
+        service.sweepForItem(7L)
+
+        then:
+        0 * notificationService.push(_, _, _, _, _, _)
+        0 * repo.save(_)
+    }
+
+    def "sweepForItem swallows a repository failure — best-effort, never rethrows"() {
+        given: 'the scoped query itself blows up'
+        repo.findTriggeredForItem(7L) >> { throw new RuntimeException('db boom') }
+
+        when:
+        service.sweepForItem(7L)
+
+        then: 'caller (the sell transaction) is shielded from the failure'
+        noExceptionThrown()
+    }
+
+    def "sweepForItem skips the push for a banned user but still flips the alert to FIRED"() {
+        given:
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        repo.findTriggeredForItem(7L) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.save(_) >> { args -> args[0] }
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'bad@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, banned: true
+        ))
+
+        when:
+        service.sweepForItem(7L)
+
+        then:
+        0 * notificationService.push(42L, _, _, _, _, _)
+        0 * emailService.sendPriceDrop(_, _, _, _, _, _)
+        a.status == 'FIRED'
+        a.firedAt != null
+    }
+
+    // ── cancelAlert on a non-ACTIVE row ──────────────────────────
+
+    def "cancelAlert on an already-FIRED row still flips it to CANCELLED"() {
+        given:
+        def a = new WatchlistAlert(id: 9L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('5'), status: 'FIRED', firedAt: 123L)
+        repo.findById(9L) >> Optional.of(a)
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        service.cancelAlert(42L, 9L)
+
+        then:
+        a.status == 'CANCELLED'
+    }
 }

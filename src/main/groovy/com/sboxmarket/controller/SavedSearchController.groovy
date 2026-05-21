@@ -80,6 +80,18 @@ class SavedSearchController {
             sort:      s.sort,
             minPrice:  s.minPrice,
             maxPrice:  s.maxPrice,
+            // Batch 957 extended filters. The entity, the service upsert
+            // path, the `matches()` predicate and the frontend's
+            // `applySavedSearch` were all updated for the richer toolbar,
+            // but this projection was missed — so a signed-in user who
+            // re-applied a preset silently lost "≥20% off / Auctions /
+            // New / Deals / Affordable" because the server never sent
+            // them back. Keys mirror what `applySavedSearch` reads.
+            minDiscountPct:  s.minDiscountPct,
+            dealsOnly:       s.dealsOnly,
+            newOnly:         s.newOnly,
+            affordableOnly:  s.affordableOnly,
+            listingType:     s.listingType,
             savedAt:   s.createdAt
         ]
     }

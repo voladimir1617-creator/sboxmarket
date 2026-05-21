@@ -836,6 +836,129 @@ class BuyOrderServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    // ── update re-fills against existing listings on a price RAISE ──
+    // Mirrors the create()/batch-268 "standing order must fire against
+    // listings already on the market" guarantee — closes the same bug
+    // on the edit path.
+
+    def "update re-probes existing listings when the cap is raised and fills a now-affordable listing"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        // Order at $20, a $25 listing already sits on the market — no
+        // match at $20. Buyer edits the cap up to $30.
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("20"),
+                                     quantity: 1, originalQuantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+        def alreadyListed = listingFor(id: 100L, price: new BigDecimal("25"))
+        // The probe uses the NEW (raised) cap of $30, so the $25 listing matches.
+        listingRepo.findMatchingForBuyOrder(1L, null, null, new BigDecimal("30"), _) >> [alreadyListed]
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("100"))
+        purchaseService.buy(200L, 10L, 100L) >> [success: true]
+
+        when:
+        def result = service.update(10L, 7L, new BigDecimal("30"), null)
+
+        then:
+        1 * purchaseService.buy(200L, 10L, 100L)
+        result.quantity == 0
+        result.status == 'FILLED'
+    }
+
+    def "update does NOT re-probe when the cap is lowered"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("50"),
+                                     quantity: 1, originalQuantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.update(10L, 7L, new BigDecimal("20"), null)
+
+        then:
+        // A lower cap can never newly enable a match — no probe at all.
+        0 * listingRepo.findMatchingForBuyOrder(_, _, _, _, _)
+        0 * purchaseService.buy(_, _, _)
+    }
+
+    def "update does NOT re-probe when only the quantity changes"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("50"),
+                                     quantity: 5, originalQuantity: 5)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.update(10L, 7L, null, 3)
+
+        then:
+        // maxPrice unchanged — no new matches possible, no probe.
+        0 * listingRepo.findMatchingForBuyOrder(_, _, _, _, _)
+        0 * purchaseService.buy(_, _, _)
+    }
+
+    def "update price raise that fills the order swallows a probe failure and still returns the edit"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("20"),
+                                     quantity: 1, originalQuantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+        // The probe itself blows up — the edit must still be returned,
+        // ACTIVE, with the new price persisted (best-effort re-fill).
+        listingRepo.findMatchingForBuyOrder(_, _, _, _, _) >> { throw new RuntimeException("probe down") }
+
+        when:
+        def result = service.update(10L, 7L, new BigDecimal("30"), null)
+
+        then:
+        result.maxPrice == new BigDecimal("30")
+        result.status == 'ACTIVE'
+        result.quantity == 1
+    }
+
+    def "update price raise on a partially-filled order re-probes but never over-fills the remaining quantity"() {
+        given:
+        // qty 5 placed, 4 already filled (remaining 1, originalQuantity 5).
+        // Raising the price must let the LAST unit fill but not resurrect
+        // the consumed 4 — total received stays <= the original cap of 5.
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("20"),
+                                     quantity: 1, originalQuantity: 5)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+        // Four cheap listings all match the raised cap — only ONE may fill.
+        def listings = (100L..103L).collect { listingFor(id: it, price: new BigDecimal("10")) }
+        listingRepo.findMatchingForBuyOrder(1L, null, null, new BigDecimal("30"), _) >> listings
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("1000"))
+        purchaseService.buy(200L, 10L, _) >> [success: true]
+
+        when:
+        def result = service.update(10L, 7L, new BigDecimal("30"), null)
+
+        then:
+        // Exactly one buy — remaining quantity was 1, the loop stops there.
+        1 * purchaseService.buy(200L, 10L, _)
+        result.quantity == 0
+        result.status == 'FILLED'
+        // originalQuantity untouched — the historical cap record is intact.
+        result.originalQuantity == 5
+    }
+
     // ── tryFillFromExisting (batch 268) ─────────────────────────────
 
     def "tryFillFromExisting buys the cheapest matching listing and decrements the order"() {

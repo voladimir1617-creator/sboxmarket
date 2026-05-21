@@ -145,14 +145,18 @@ class NotificationService {
 
     /** Delete every READ notification belonging to the user. Lets users
      *  tidy an accumulating inbox after marking-all-read. Unread rows
-     *  stay untouched so nothing actionable gets hidden. */
+     *  stay untouched so nothing actionable gets hidden.
+     *
+     *  Set-based DELETE — no cap, no row hydration. The earlier
+     *  implementation hydrated the 500 most-recent rows of *any*
+     *  read-state and filtered to the read ones, so a user with 500+
+     *  recent UNREAD rows had their whole window consumed by unread and
+     *  the "Clear read" button silently deleted nothing even though
+     *  older read rows were eligible. Mirrors the markAllRead fix. */
     @Transactional
     int deleteAllRead(Long userId) {
-        def recent = notificationRepository.findForUser(userId, PageRequest.of(0, 500))
-        def toDelete = recent.findAll { it.read }
-        if (toDelete.isEmpty()) return 0
-        notificationRepository.deleteAll(toDelete)
-        toDelete.size()
+        if (userId == null) return 0
+        notificationRepository.deleteAllReadForUser(userId)
     }
 
     /**

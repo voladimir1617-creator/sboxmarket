@@ -114,9 +114,17 @@ class AuditService {
 
     private static String clientIp(HttpServletRequest req) {
         def cf = req.getHeader('CF-Connecting-IP')
-        if (cf) return cf.trim().take(64)
+        if (cf && !cf.trim().isEmpty()) return cf.trim().take(64)
         def xff = req.getHeader('X-Forwarded-For')
-        if (xff) return xff.split(',')[0].trim().take(64)
+        if (xff) {
+            // First non-empty token — a crafted `,`/`,,` header is non-blank
+            // but splits to a zero-length array, so the old `split(',')[0]`
+            // threw ArrayIndexOutOfBoundsException.
+            for (String tok : xff.split(',')) {
+                def t = tok?.trim()
+                if (t) return t.take(64)
+            }
+        }
         (req.remoteAddr ?: '').take(64)
     }
 }

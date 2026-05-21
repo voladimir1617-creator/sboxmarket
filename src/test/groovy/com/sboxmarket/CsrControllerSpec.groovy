@@ -211,6 +211,65 @@ class CsrControllerSpec extends Specification {
         resp.body == [id: 9L, status: 'RESOLVED']
     }
 
+    def "reply() requires sign-in"() {
+        given: anonSession()
+        when:  controller.reply(9L, [body: 'hi'], req)
+        then:  thrown(UnauthorizedException)
+        0 * csrService.requireCsr(_)
+        0 * csrService.reply(_, _, _)
+    }
+
+    def "reply() requires the CSR role"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * csrService.requireCsr(100L) >> { throw new UnauthorizedException('not CSR') }
+
+        when:
+        controller.reply(9L, [body: 'hi'], req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * csrService.reply(_, _, _)
+    }
+
+    def "close() requires sign-in"() {
+        given: anonSession()
+        when:  controller.close(9L, req)
+        then:  thrown(UnauthorizedException)
+        0 * csrService.requireCsr(_)
+        0 * csrService.close(_, _)
+    }
+
+    def "close() requires the CSR role"() {
+        given:
+        1 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * csrService.requireCsr(100L) >> { throw new UnauthorizedException('not CSR') }
+
+        when:
+        controller.close(9L, req)
+
+        then:
+        thrown(UnauthorizedException)
+        0 * csrService.close(_, _)
+    }
+
+    def "close() surfaces the ALREADY_RESOLVED 400 from the service"() {
+        given:
+        csrSession(100L)
+        1 * csrService.close(100L, 9L) >> {
+            throw new BadRequestException('ALREADY_RESOLVED', 'Ticket is already resolved')
+        }
+
+        when:
+        controller.close(9L, req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'ALREADY_RESOLVED'
+    }
+
     // ── goodwill amount parser ────────────────────────────────
 
     def "goodwill() rejects missing amount with INVALID_AMOUNT ('required')"() {

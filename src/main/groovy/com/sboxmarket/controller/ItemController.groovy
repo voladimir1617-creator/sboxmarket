@@ -208,9 +208,20 @@ class ItemController {
 
     private static String clientIp(HttpServletRequest req) {
         def cf = req.getHeader('CF-Connecting-IP')
-        if (cf) return cf.trim()
+        if (cf && !cf.trim().isEmpty()) return cf.trim()
         def xff = req.getHeader('X-Forwarded-For')
-        if (xff) return xff.split(',')[0].trim()
+        if (xff) {
+            // A crafted `X-Forwarded-For: ,` (or `,,`, all-empty tokens)
+            // is non-blank — so the old `xff.split(',')[0]` indexed into
+            // a ZERO-length array (Java's split drops every trailing
+            // empty), throwing ArrayIndexOutOfBoundsException. Take the
+            // first NON-empty token; fall through to remoteAddr when the
+            // header carries no real client address.
+            for (String tok : xff.split(',')) {
+                def t = tok?.trim()
+                if (t) return t
+            }
+        }
         req.remoteAddr
     }
 

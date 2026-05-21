@@ -342,4 +342,81 @@ class WatchlistControllerSpec extends Specification {
         then:  thrown(UnauthorizedException)
         0 * service.list(_)
     }
+
+    // ── optional-collaborator null safety ─────────────────────────
+    // itemRepository / catalogueRepository are @Autowired(required=false)
+    // and can legitimately be absent in a trimmed deployment.
+
+    def "bulkCounts() returns {} when the watchlist repository bean is absent"() {
+        given:
+        def bare = new WatchlistController(service: service, itemRepository: null,
+                                           catalogueRepository: catalogueRepository)
+
+        when:
+        def resp = bare.bulkCounts('1,2,3')
+
+        then: 'no NPE — graceful empty map'
+        resp.body == [:]
+    }
+
+    def "exportCsv() emits header-only when the catalogue repository bean is absent"() {
+        given:
+        def bare = new WatchlistController(service: service, itemRepository: itemRepository,
+                                           catalogueRepository: null)
+        authedSession(100L)
+        1 * service.list(100L) >> [1L, 2L]   // user HAS stars, but no catalogue to hydrate
+
+        when:
+        def resp = bare.exportCsv(req)
+
+        then: 'no NPE — just the header row'
+        resp.body == 'item_id,name,category,rarity,current_floor,steam_price,supply\n'
+    }
+
+    // ── exportCsv formula-injection / escaping ────────────────────
+
+    def "exportCsv() escapes a name containing a comma so columns stay aligned"() {
+        given:
+        def item = new Item(id: 5L, name: 'AK-47, Redline', category: 'Workshop',
+                            rarity: 'Limited', lowestPrice: new BigDecimal('3.00'),
+                            steamPrice: new BigDecimal('4.00'), supply: 1)
+        authedSession(100L)
+        1 * service.list(100L) >> [5L]
+        1 * catalogueRepository.findAllById([5L]) >> [item]
+
+        when:
+        def resp = controller.exportCsv(req)
+
+        then: 'the comma-bearing name is quoted, not split across cells'
+        def line = resp.body.split('\n')[1]
+        line.contains('"AK-47, Redline"')
+    }
+
+    // ── bulkMerge passes the resolved session uid through ─────────
+
+    def "bulkMerge() passes the resolved session user id, never a client value"() {
+        given:
+        authedSession(555L)
+        1 * service.bulkMerge(555L, [1L, 2L]) >> [1L, 2L]
+
+        when:
+        def resp = controller.bulkMerge([ids: [1L, 2L]], req)
+
+        then:
+        resp.body == [ids: [1L, 2L]]
+    }
+
+    def "bulkMerge() forwards numerically-parseable ids verbatim — the service owns business rules"() {
+        given:
+        authedSession(100L)
+        // The controller only coerces types; it forwards 0 / negatives untouched.
+        // (Pins the division of labour: parsing here, business rules in the service.)
+        1 * service.bulkMerge(100L, [0L, -3L, 7L]) >> [7L]
+
+        when:
+        def resp = controller.bulkMerge([ids: ['0', '-3', '7']], req)
+
+        then:
+        resp.body.ids == [7L]
+    }
 }

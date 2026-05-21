@@ -66,6 +66,37 @@ class SteamInventoryServiceSpec extends Specification {
         result == items
     }
 
+    def "fetchInventory lets a fresh negative-cache entry mask a still-fresh positive hit"() {
+        given: "a user with BOTH a fresh positive cache AND a fresh 429/403 negative entry"
+        // The negative-cache probe runs BEFORE the positive-cache probe, so a
+        // recent rate-limit must win — we don't want to serve a stale-but-
+        // technically-fresh inventory while Steam is actively blocking us.
+        service.inventoryCache.put('111', [at: System.currentTimeMillis(),
+            items: [[assetId: '1', name: 'Wizard Hat']]] as Map)
+        service.negativeCache.put('111', System.currentTimeMillis() + 120_000L)
+
+        when:
+        def result = service.fetchInventory('111')
+
+        then: "the empty list from the negative cache takes precedence — no network call"
+        noExceptionThrown()
+        result == []
+    }
+
+    def "fetchInventory ignores an EXPIRED positive-cache entry's staleness check without throwing"() {
+        given: "a positive entry whose 60s TTL has already lapsed — and a fresh negative entry so the call still short-circuits before any network I/O"
+        service.inventoryCache.put('111', [at: System.currentTimeMillis() - 120_000L,
+            items: [[assetId: 'stale']]] as Map)
+        service.negativeCache.put('111', System.currentTimeMillis() + 120_000L)
+
+        when: "the stale positive entry must NOT be returned; the negative entry serves []"
+        def result = service.fetchInventory('111')
+
+        then:
+        noExceptionThrown()
+        result == []
+    }
+
     // ── negative-cache helpers (blockedUntilMs / clearCacheFor) ───
 
     def "blockedUntilMs returns null for an unknown / never-blocked user"() {
@@ -115,12 +146,15 @@ class SteamInventoryServiceSpec extends Specification {
         service.negativeCache.containsKey('222')
     }
 
-    def "clearCacheFor is a no-op for null without throwing"() {
+    def "clearCacheFor is a no-op for null/blank without throwing"() {
         when:
-        service.clearCacheFor(null)
+        service.clearCacheFor(id)
 
         then:
         noExceptionThrown()
+
+        where:
+        id << [null, '']
     }
 
     def "clearCache wipes every cache entry"() {

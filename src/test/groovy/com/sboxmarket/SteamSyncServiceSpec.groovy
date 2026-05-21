@@ -266,4 +266,97 @@ class SteamSyncServiceSpec extends Specification {
         then: "3 new items (4 now − 1 before) routed to /sell"
         1 * notificationService.push(10L, 'STEAM_INVENTORY', _, { it.contains('3') }, _, '/sell')
     }
+
+    // ── syncAllUsers (scheduled sweep) ────────────────────────────
+
+    def "syncAllUsers is a no-op when no users are stale"() {
+        given:
+        steamUserRepository.findStaleForSync(_, _) >> []
+
+        when:
+        service.syncAllUsers()
+
+        then: "an empty candidate set means no fetches and no saves"
+        0 * steamInventoryService.fetchInventory(_)
+        0 * steamUserRepository.save(_)
+    }
+
+    def "syncAllUsers walks every stale user in the batch"() {
+        given:
+        def users = [
+            new SteamUser(id: 1L, steamId64: 'a'),
+            new SteamUser(id: 2L, steamId64: 'b')
+        ]
+        steamUserRepository.findStaleForSync(_, _) >> users
+        steamUserRepository.findById(_) >> { args -> Optional.of(users.find { it.id == args[0] }) }
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncAllUsers()
+
+        then: "each user's inventory is fetched exactly once"
+        1 * steamInventoryService.fetchInventory('a') >> []
+        1 * steamInventoryService.fetchInventory('b') >> []
+    }
+
+    def "syncAllUsers isolates a per-user failure — one thrown user does not halt the sweep"() {
+        given: "the middle user's fetch blows up"
+        def users = [
+            new SteamUser(id: 1L, steamId64: 'a'),
+            new SteamUser(id: 2L, steamId64: 'b'),
+            new SteamUser(id: 3L, steamId64: 'c')
+        ]
+        steamUserRepository.findStaleForSync(_, _) >> users
+        steamUserRepository.findById(_) >> { args -> Optional.of(users.find { it.id == args[0] }) }
+        steamUserRepository.save(_) >> { args -> args[0] }
+        steamInventoryService.fetchInventory('b') >> { throw new RuntimeException('Steam 500') }
+
+        when:
+        service.syncAllUsers()
+
+        then: "users a and c still get processed — the RuntimeException is caught per-user"
+        noExceptionThrown()
+        1 * steamInventoryService.fetchInventory('a') >> []
+        1 * steamInventoryService.fetchInventory('c') >> []
+    }
+
+    def "syncAllUsers ABORTS the remaining sweep when the thread is interrupted (bug: return-in-each doesn't break)"() {
+        given: "three stale users; processing the first one interrupts the worker thread"
+        def users = [
+            new SteamUser(id: 1L, steamId64: 'a'),
+            new SteamUser(id: 2L, steamId64: 'b'),
+            new SteamUser(id: 3L, steamId64: 'c')
+        ]
+        steamUserRepository.findStaleForSync(_, _) >> users
+        steamUserRepository.findById(_) >> { args -> Optional.of(users.find { it.id == args[0] }) }
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncAllUsers()
+
+        then: "the first user's fetch sets the interrupt flag; the Thread.sleep that follows throws InterruptedException, which must break the loop — users b and c are NEVER touched"
+        1 * steamInventoryService.fetchInventory('a') >> { Thread.currentThread().interrupt(); [] }
+        0 * steamInventoryService.fetchInventory('b')
+        0 * steamInventoryService.fetchInventory('c')
+
+        cleanup: "clear the interrupt flag so it can't leak into later specs"
+        Thread.interrupted()
+    }
+
+    def "syncAllUsers leaves the interrupt flag set after an interrupted sweep"() {
+        given:
+        def users = [new SteamUser(id: 1L, steamId64: 'a')]
+        steamUserRepository.findStaleForSync(_, _) >> users
+        steamUserRepository.findById(_) >> { args -> Optional.of(users[0]) }
+        steamUserRepository.save(_) >> { args -> args[0] }
+        steamInventoryService.fetchInventory('a') >> { Thread.currentThread().interrupt(); [] }
+
+        when:
+        service.syncAllUsers()
+        // Thread.interrupted() both READS and CLEARS — capture it once.
+        def stillInterrupted = Thread.interrupted()
+
+        then: "the catch re-asserts the flag so the scheduler thread pool sees the interrupt"
+        stillInterrupted
+    }
 }

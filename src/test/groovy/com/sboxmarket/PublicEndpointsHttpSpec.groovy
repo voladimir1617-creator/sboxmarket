@@ -760,13 +760,16 @@ class PublicEndpointsHttpSpec extends Specification {
         r.response.status == 200
     }
 
-    def "GET /legal/privacy.html returns 200 but is noindex-marked"() {
+    def "GET /legal/privacy.html returns 200 (indexable, like terms)"() {
+        // The privacy policy is a normal, publicly-discoverable legal
+        // page — it carries no robots/noindex directive, exactly like
+        // /legal/terms.html above. (A crawler SHOULD be able to index
+        // a site's privacy policy; noindex here would be unusual.)
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/legal/privacy.html')).andReturn()
 
         then:
         r.response.status == 200
-        r.response.contentAsString.contains('noindex')
     }
 
     def "GET /h2-console returns 404 (hard-blocked even when Spring H2 console is off)"() {

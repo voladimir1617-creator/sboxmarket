@@ -871,4 +871,509 @@ class LoadoutServiceSpec extends Specification {
         then:
         thrown(NotFoundException)
     }
+
+    // ── autoGenerate: unlocked slots are cleared when nothing fits ───
+    //
+    // The documented contract is "budget is the TOTAL set spend" — the
+    // locked-slot subtraction exists purely to stop the total overshooting.
+    // An unlocked slot the user pre-filled is owned by auto-generate; if no
+    // catalogue item fits the remaining budget, leaving the old item in
+    // place would push the loadout total past the requested ceiling (the
+    // old item's price never counts against `remaining`). So an unfillable
+    // unlocked slot must be cleared, not left stale.
+
+    def "autoGenerate clears an unlocked pre-filled slot when nothing fits the budget"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        // Hats slot was hand-filled with an $80 item and left UNLOCKED.
+        def slotHats = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: false,
+            itemId: 80L, itemName: 'Pricey Hat', itemEmoji: '🎩',
+            snapshotPrice: new BigDecimal("80"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats], [slotHats]]
+        // Budget is only $30 — no Hat in the catalogue fits.
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> []
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("30"))
+
+        then: "the stale over-budget item is wiped so the total can't overshoot"
+        slotHats.itemId == null
+        slotHats.itemName == null
+        slotHats.itemEmoji == null
+        slotHats.snapshotPrice == BigDecimal.ZERO
+    }
+
+    def "autoGenerate overwrites (does not clear) an unlocked pre-filled slot when an item fits"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: false,
+            itemId: 80L, itemName: 'Pricey Hat', snapshotPrice: new BigDecimal("80"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats], [slotHats]]
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> [
+            new Item(id: 5L, name: 'Cheap Hat', category: 'Hats', iconEmoji: '🧢',
+                lowestPrice: new BigDecimal("12"))
+        ]
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("50"))
+
+        then: "the slot is re-picked, not cleared"
+        slotHats.itemId == 5L
+        slotHats.snapshotPrice == new BigDecimal("12")
+    }
+
+    def "autoGenerate clearing an already-empty unlocked slot is a harmless no-op"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: false)
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats], [slotHats]]
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> []
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("5"))
+
+        then:
+        slotHats.itemId == null
+        slotHats.snapshotPrice == BigDecimal.ZERO
+    }
+
+    def "autoGenerate never clears a LOCKED slot even when it would be over budget"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        // Locked + filled: must survive untouched, query never fires for it.
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: true,
+            itemId: 99L, itemName: 'Kept Hat', snapshotPrice: new BigDecimal("500"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotLocked], [slotLocked]]
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.autoGenerate(10L, 1L, new BigDecimal("10"))
+
+        then: "locked slot is preserved as-is"
+        slotLocked.itemId == 99L
+        slotLocked.itemName == 'Kept Hat'
+        slotLocked.snapshotPrice == new BigDecimal("500")
+        and: "the catalogue is never queried for a locked slot"
+        0 * loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _)
+    }
+
+    // ── create / clone: per-user loadout cap ────────────────────────
+
+    def "create rejects a user already at the loadout cap"() {
+        given:
+        loadoutRepository.countByOwnerUserId(10L) >> LoadoutService.MAX_LOADOUTS_PER_USER
+
+        when:
+        service.create(10L, 'Alice', 'One more', '', 'PUBLIC')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'LOADOUT_CAP'
+        0 * loadoutRepository.save(_)
+    }
+
+    def "create allows a user one below the cap"() {
+        given:
+        loadoutRepository.countByOwnerUserId(10L) >> (LoadoutService.MAX_LOADOUTS_PER_USER - 1)
+        loadoutRepository.save(_) >> { args -> def l = args[0]; l.id = 1L; l }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def loadout = service.create(10L, 'Alice', 'Just in time', '', 'PUBLIC')
+
+        then:
+        loadout.name == 'Just in time'
+    }
+
+    def "create skips the cap check entirely for a null owner (internal seeding)"() {
+        given:
+        loadoutRepository.save(_) >> { args -> def l = args[0]; l.id = 1L; l }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.create(null, 'system', 'Seed', '', 'PUBLIC')
+
+        then:
+        0 * loadoutRepository.countByOwnerUserId(_)
+    }
+
+    def "create rejects a banned user before touching the repository"() {
+        given:
+        banGuard.assertNotBanned(10L) >> { throw new ForbiddenException("banned") }
+
+        when:
+        service.create(10L, 'Alice', 'x', '', 'PUBLIC')
+
+        then:
+        thrown(ForbiddenException)
+        0 * loadoutRepository.countByOwnerUserId(_)
+        0 * loadoutRepository.save(_)
+    }
+
+    def "clone rejects a cloner already at the loadout cap"() {
+        given:
+        loadoutRepository.countByOwnerUserId(77L) >> LoadoutService.MAX_LOADOUTS_PER_USER
+
+        when:
+        service.clone(77L, 5L, 'Bob')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'LOADOUT_CAP'
+        0 * loadoutRepository.findById(_)
+    }
+
+    def "clone rejects a banned cloner before reading the source loadout"() {
+        given:
+        banGuard.assertNotBanned(77L) >> { throw new ForbiddenException("banned") }
+
+        when:
+        service.clone(77L, 5L, 'Bob')
+
+        then:
+        thrown(ForbiddenException)
+        0 * loadoutRepository.countByOwnerUserId(_)
+        0 * loadoutRepository.findById(_)
+    }
+
+    // ── setSlot: total recalculation + locked-slot setting ──────────
+
+    def "setSlot recalculates the loadout total from all slot snapshot prices"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L, totalValue: BigDecimal.ZERO)
+        def item = new Item(id: 42L, name: 'Hat', iconEmoji: '🧢', lowestPrice: new BigDecimal("30"))
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        // After save, recalcTotal re-reads the slots — Hats now $30, Pants $20.
+        def hatsSlot = new LoadoutSlot(loadoutId: 1L, slot: 'Hats')
+        loadoutSlotRepository.findByLoadout(1L) >>> [
+            [hatsSlot, new LoadoutSlot(loadoutId: 1L, slot: 'Pants', itemId: 7L, snapshotPrice: new BigDecimal("20"))],
+            [new LoadoutSlot(loadoutId: 1L, slot: 'Hats', itemId: 42L, snapshotPrice: new BigDecimal("30")),
+             new LoadoutSlot(loadoutId: 1L, slot: 'Pants', itemId: 7L, snapshotPrice: new BigDecimal("20"))]
+        ]
+        itemRepository.findById(42L) >> Optional.of(item)
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.setSlot(10L, 1L, 'Hats', 42L)
+
+        then:
+        loadout.totalValue == new BigDecimal("50")
+    }
+
+    def "setSlot can target a slot row that doesn't exist yet (creates it)"() {
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def item = new Item(id: 42L, name: 'Hat', iconEmoji: '🧢', lowestPrice: new BigDecimal("9"))
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        // No existing 'Boots' slot in the result set.
+        loadoutSlotRepository.findByLoadout(1L) >> []
+        itemRepository.findById(42L) >> Optional.of(item)
+        LoadoutSlot saved = null
+        loadoutSlotRepository.save(_) >> { args -> saved = args[0]; args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def slot = service.setSlot(10L, 1L, 'Boots', 42L)
+
+        then:
+        slot.slot == 'Boots'
+        slot.itemId == 42L
+        slot.loadoutId == 1L
+    }
+
+    def "setSlot 404s for an unknown loadout id"() {
+        given:
+        loadoutRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.setSlot(10L, 999L, 'Hats', 42L)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    // ── toggleLock: edge cases ──────────────────────────────────────
+
+    def "toggleLock unlocks a slot that was already locked"() {
+        given:
+        def slot = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: true)
+        loadoutRepository.findById(_) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
+        loadoutSlotRepository.findByLoadout(_) >> [slot]
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.toggleLock(10L, 1L, 'Hats')
+
+        then:
+        result.locked == false
+    }
+
+    def "toggleLock forbids a non-owner"() {
+        given:
+        loadoutRepository.findById(_) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
+
+        when:
+        service.toggleLock(99L, 1L, 'Hats')
+
+        then:
+        thrown(ForbiddenException)
+        0 * loadoutSlotRepository.save(_)
+    }
+
+    def "toggleLock 404s for an unknown loadout id"() {
+        given:
+        loadoutRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.toggleLock(10L, 999L, 'Hats')
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    def "toggleLock 404s when the named slot row is missing"() {
+        given:
+        loadoutRepository.findById(_) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
+        loadoutSlotRepository.findByLoadout(_) >> [new LoadoutSlot(loadoutId: 1L, slot: 'Hats')]
+
+        when:
+        service.toggleLock(10L, 1L, 'Boots')
+
+        then:
+        thrown(NotFoundException)
+        0 * loadoutSlotRepository.save(_)
+    }
+
+    // ── decorate: preview batching ──────────────────────────────────
+
+    def "decorate returns an empty list for null input without hitting any repo"() {
+        when:
+        def out = service.decorate(null)
+
+        then:
+        out == []
+        0 * loadoutSlotRepository.findByLoadoutIdIn(_)
+        0 * itemRepository.findAllById(_)
+    }
+
+    def "decorate returns an empty list for empty input without hitting any repo"() {
+        when:
+        def out = service.decorate([])
+
+        then:
+        out == []
+        0 * loadoutSlotRepository.findByLoadoutIdIn(_)
+        0 * itemRepository.findAllById(_)
+    }
+
+    def "decorate batches slots and item decor in one query each, regardless of loadout count"() {
+        given:
+        def l1 = new Loadout(id: 1L, name: 'A', visibility: 'PUBLIC', ownerUserId: 10L)
+        def l2 = new Loadout(id: 2L, name: 'B', visibility: 'PUBLIC', ownerUserId: 11L)
+        def slots = [
+            new LoadoutSlot(id: 100L, loadoutId: 1L, slot: 'Hats', itemId: 7L,
+                itemName: 'Hat', snapshotPrice: new BigDecimal("10")),
+            new LoadoutSlot(id: 101L, loadoutId: 1L, slot: 'Pants'),   // empty
+            new LoadoutSlot(id: 102L, loadoutId: 2L, slot: 'Boots', itemId: 8L,
+                itemName: 'Boot', snapshotPrice: new BigDecimal("20"))
+        ]
+
+        when:
+        def out = service.decorate([l1, l2])
+
+        then: "exactly one bulk slot query and one bulk item query"
+        1 * loadoutSlotRepository.findByLoadoutIdIn([1L, 2L]) >> slots
+        1 * itemRepository.findAllById({ it.toSet() == [7L, 8L].toSet() }) >> [
+            new Item(id: 7L, imageUrl: 'hat.png', accentColor: '#aaa'),
+            new Item(id: 8L, imageUrl: 'boot.png', accentColor: '#bbb')
+        ]
+
+        and: "loadout 1 preview carries only the filled Hats slot, decorated with image + color"
+        out[0].id == 1L
+        out[0].previewItems.size() == 1
+        out[0].previewItems[0].slot == 'Hats'
+        out[0].previewItems[0].imageUrl == 'hat.png'
+        out[0].previewItems[0].accentColor == '#aaa'
+        out[0].filledSlots == 1
+        out[0].slotCount == 8
+
+        and: "loadout 2 preview carries its single filled Boots slot"
+        out[1].previewItems.size() == 1
+        out[1].previewItems[0].slot == 'Boots'
+        out[1].previewItems[0].imageUrl == 'boot.png'
+    }
+
+    def "decorate orders preview items in canonical slot order, not slot-row id order"() {
+        given:
+        def l = new Loadout(id: 1L, name: 'A', visibility: 'PUBLIC', ownerUserId: 10L)
+        // Rows arrive Boots-before-Hats (e.g. lower id), but canonical order
+        // is Hats(0) ... Boots(5). decorate must emit Hats first.
+        def slots = [
+            new LoadoutSlot(id: 50L, loadoutId: 1L, slot: 'Boots', itemId: 8L, itemName: 'Boot'),
+            new LoadoutSlot(id: 51L, loadoutId: 1L, slot: 'Hats',  itemId: 7L, itemName: 'Hat')
+        ]
+        loadoutSlotRepository.findByLoadoutIdIn(_) >> slots
+        itemRepository.findAllById(_) >> []
+
+        when:
+        def out = service.decorate([l])
+
+        then:
+        out[0].previewItems*.slot == ['Hats', 'Boots']
+    }
+
+    def "decorate skips the item query when no slot is filled"() {
+        given:
+        def l = new Loadout(id: 1L, name: 'A', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutSlotRepository.findByLoadoutIdIn(_) >> [
+            new LoadoutSlot(id: 1L, loadoutId: 1L, slot: 'Hats')   // empty
+        ]
+
+        when:
+        def out = service.decorate([l])
+
+        then:
+        out[0].previewItems == []
+        out[0].filledSlots == 0
+        0 * itemRepository.findAllById(_)
+    }
+
+    def "decorate tolerates a slot whose itemId no longer resolves to an Item"() {
+        given:
+        def l = new Loadout(id: 1L, name: 'A', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutSlotRepository.findByLoadoutIdIn(_) >> [
+            new LoadoutSlot(id: 1L, loadoutId: 1L, slot: 'Hats', itemId: 404L,
+                itemName: 'Ghost', snapshotPrice: new BigDecimal("5"))
+        ]
+        // The referenced item was deleted from the catalogue.
+        itemRepository.findAllById(_) >> []
+
+        when:
+        def out = service.decorate([l])
+
+        then: "the slot still appears, falling back to the snapshot name with null decor"
+        out[0].previewItems.size() == 1
+        out[0].previewItems[0].itemName == 'Ghost'
+        out[0].previewItems[0].imageUrl == null
+        out[0].previewItems[0].accentColor == null
+    }
+
+    // ── listPublic search routing ───────────────────────────────────
+
+    def "listPublic routes to findPublic when no search term is given"() {
+        when:
+        service.listPublic(null)
+
+        then:
+        1 * loadoutRepository.findPublic(_) >> []
+        0 * loadoutRepository.searchPublic(_, _)
+    }
+
+    def "listPublic routes to searchPublic when a search term is given"() {
+        when:
+        service.listPublic('runner')
+
+        then:
+        1 * loadoutRepository.searchPublic('runner', _) >> []
+        0 * loadoutRepository.findPublic(_)
+    }
+
+    // ── getWithSlots decorates slots with item image + accent ───────
+
+    def "getWithSlots enriches filled slots with item image and accent color"() {
+        given:
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> [
+            new LoadoutSlot(id: 5L, loadoutId: 1L, slot: 'Hats', itemId: 7L,
+                itemName: 'Hat', snapshotPrice: new BigDecimal("10"), locked: true),
+            new LoadoutSlot(id: 6L, loadoutId: 1L, slot: 'Pants')   // empty
+        ]
+        itemRepository.findAllById([7L]) >> [
+            new Item(id: 7L, imageUrl: 'hat.png', accentColor: '#abc')
+        ]
+
+        when:
+        def result = service.getWithSlots(1L)
+
+        then:
+        def hats = result.slots.find { it.slot == 'Hats' }
+        hats.itemImageUrl == 'hat.png'
+        hats.itemAccentColor == '#abc'
+        hats.locked == true
+        and: "the empty slot carries null decor and no image"
+        def pants = result.slots.find { it.slot == 'Pants' }
+        pants.itemImageUrl == null
+        pants.itemId == null
+    }
+
+    def "getWithSlots skips the item query when every slot is empty"() {
+        given:
+        def loadout = new Loadout(id: 1L, name: 'x', visibility: 'PUBLIC', ownerUserId: 10L)
+        loadoutRepository.findById(1L) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(1L) >> [new LoadoutSlot(id: 1L, loadoutId: 1L, slot: 'Hats')]
+
+        when:
+        service.getWithSlots(1L)
+
+        then:
+        0 * itemRepository.findAllById(_)
+    }
+
+    // ── clone: snapshot price is re-pulled, locks dropped ───────────
+
+    def "clone drops a stale source slot whose item no longer exists in the catalogue"() {
+        given:
+        def source = new Loadout(id: 5L, ownerUserId: 10L, visibility: 'PUBLIC', name: 'Set')
+        def sourceSlots = [
+            new LoadoutSlot(loadoutId: 5L, slot: 'Hats', itemId: 404L, itemName: 'Ghost',
+                snapshotPrice: new BigDecimal("99"))
+        ]
+        loadoutRepository.findById(5L) >> Optional.of(source)
+        loadoutSlotRepository.findByLoadout(5L) >> sourceSlots
+        itemRepository.findById(404L) >> Optional.empty()   // catalogue row gone
+        def savedSlots = []
+        loadoutRepository.save(_) >> { args -> def l = args[0]; if (l.id == null) l.id = 99L; l }
+        loadoutSlotRepository.save(_) >> { args -> savedSlots << args[0]; args[0] }
+        loadoutSlotRepository.findByLoadout(99L) >> { savedSlots.findAll { it.loadoutId == 99L } }
+
+        when:
+        def copy = service.clone(77L, 5L, 'Bob')
+
+        then: "8 fresh slots seeded, but the Hats slot is empty — the dead item didn't carry over"
+        savedSlots.size() == 8
+        def hats = savedSlots.find { it.slot == 'Hats' }
+        hats.itemId == null
+        hats.snapshotPrice == BigDecimal.ZERO
+    }
+
+    def "clone truncates an over-long source name before appending the (copy) suffix"() {
+        given:
+        def longName = 'L' * 140
+        def source = new Loadout(id: 5L, ownerUserId: 10L, visibility: 'PUBLIC', name: longName)
+        loadoutRepository.findById(5L) >> Optional.of(source)
+        loadoutSlotRepository.findByLoadout(5L) >> []
+        loadoutRepository.save(_) >> { args -> def l = args[0]; l.id = 99L; l }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutSlotRepository.findByLoadout(99L) >> []
+
+        when:
+        def copy = service.clone(10L, 5L, 'Alice')
+
+        then: "the final name stays inside the 100-char column limit"
+        copy.name.length() <= 100
+        copy.name.endsWith('(copy)')
+    }
 }

@@ -238,6 +238,70 @@ class PriceHistoryServiceSpec extends Specification {
         captured.volume == 4
     }
 
+    // ---- the volumeDelta=0 default param (two-arg call sites) --------
+
+    def "record without a volume arg inserts a row with zero volume"() {
+        given:
+        // SboxApiService + SteamMarketPriceService call the two-arg form;
+        // the default volumeDelta must land a 0 — never a null — on insert.
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.empty()
+        PriceHistory captured = null
+        priceHistoryRepository.save(_) >> { PriceHistory p -> captured = p; p }
+
+        when:
+        service.record(item(), new BigDecimal("7.00"))
+
+        then:
+        captured != null
+        captured.volume == 0
+        captured.price == new BigDecimal("7.00")
+    }
+
+    def "record without a volume arg leaves an existing same-day volume untouched"() {
+        given:
+        def existing = new PriceHistory(
+            id: 13L, price: new BigDecimal("2.00"), volume: 6, dayLabel: today())
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.of(existing)
+        priceHistoryRepository.save(_) >> { PriceHistory p -> p }
+
+        when: 'a two-arg coalescing write — default delta 0, no bump'
+        service.record(item(), new BigDecimal("2.50"))
+
+        then:
+        existing.price == new BigDecimal("2.50")
+        existing.volume == 6   // default delta of 0 must not move volume
+    }
+
+    // ---- the coalescing update path persists via save ---------------
+
+    def "the same-day update path writes the mutated row back through save"() {
+        given:
+        def existing = new PriceHistory(
+            id: 8L, price: new BigDecimal("3.00"), volume: 1, dayLabel: today())
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.of(existing)
+
+        when:
+        service.record(item(), new BigDecimal("3.50"), 2)
+
+        then: 'exactly one save, and it is the SAME (updated) row — not a new insert'
+        1 * priceHistoryRepository.save({ PriceHistory p ->
+            p.is(existing) && p.price == new BigDecimal("3.50") && p.volume == 3
+        }) >> existing
+    }
+
+    def "a large positive volume delta is preserved intact on insert"() {
+        given:
+        priceHistoryRepository.findLatestByItem(1L) >> Optional.empty()
+        PriceHistory captured = null
+        priceHistoryRepository.save(_) >> { PriceHistory p -> captured = p; p }
+
+        when:
+        service.record(item(), new BigDecimal("5.00"), Integer.MAX_VALUE)
+
+        then:
+        captured.volume == Integer.MAX_VALUE
+    }
+
     // ---- coalesce reads via findLatestByItem with the right id ------
 
     def "record keys the latest-row lookup off the item id"() {

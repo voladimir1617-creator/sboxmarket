@@ -391,6 +391,21 @@ class CsrService {
         // the point where another flag helps anyone.
         listing.description = textSanitizer.clean(((listing.description ?: '') + ' ' + note), 500)
         listingRepository.save(listing)
+        // Audit-log the flag (matches the TICKET_REPLIED / TICKET_CLOSED /
+        // CSR_CREDIT pattern above). Flagging mutates persistent listing
+        // state — it rewrites the description column — so it's a staff
+        // mutation that needs the same forensic trail as every other CSR
+        // action. Without this the Audit tab's per-user view shows a CSR's
+        // credits and ticket replies but silently drops their listing
+        // flags. String-literal event type — AuditService has no constant
+        // for it (same as AdminService's 'LISTING_REPORTS_DISMISSED').
+        // Failure-tolerant: a bad audit write must not block the flag.
+        try {
+            auditService?.log('LISTING_FLAGGED', csrUserId, listing.sellerUserId, listingId,
+                "Flagged listing #${listingId}: ${cleanReason}")
+        } catch (Exception e) {
+            log.warn("LISTING_FLAGGED audit-log failed for csr=${csrUserId} listing=${listingId}: ${e.message}")
+        }
         log.warn("CSR ${csrUserId} flagged listing ${listingId}: ${reason}")
         [id: listing.id, flagged: true, description: listing.description]
     }

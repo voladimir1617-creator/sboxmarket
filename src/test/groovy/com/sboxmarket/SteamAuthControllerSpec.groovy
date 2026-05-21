@@ -316,4 +316,115 @@ class SteamAuthControllerSpec extends Specification {
         savedEpoch >= t0
         savedEpoch > 500L  // strictly greater than the prior value
     }
+
+    // ── /return: verification + session-fixation rotation ───────────
+    //
+    // Unit-level coverage for the OpenID callback handler. The OpenID
+    // signature check itself lives in SteamAuthService (mocked here); what
+    // these pin is the controller's contract: rotate the session on
+    // success, never set auth state on failure, and keep the post-login
+    // redirect locked to a sanitized same-origin path.
+
+    def "steamReturn rotates the session on a successful login (session-fixation defense)"() {
+        given: 'a verified login for an existing user'
+        HttpSession preLogin  = Mock()
+        HttpSession freshLogin = Mock()
+        def user = new SteamUser(id: 100L, steamId64: '76561197960287930',
+                                 displayName: 'Alice', sessionEpoch: 7L)
+        req.queryString >> 'openid.mode=id_res&openid.claimed_id=x'
+        req.getParameter('openid.claimed_id') >> 'x'
+        req.getSession(false) >> preLogin
+        preLogin.getAttribute(SteamAuthController.SESSION_NEXT) >> null
+        1 * steamAuthService.verifyReturn(_, _) >> '76561197960287930'
+        1 * steamAuthService.upsertUser('76561197960287930') >> user
+
+        when:
+        controller.steamReturn(req, resp)
+
+        then: 'the PRE-login session is invalidated...'
+        1 * req.session >> preLogin
+        1 * preLogin.invalidate()
+
+        and: '...and a brand-new session is issued carrying the auth state'
+        1 * req.getSession(true) >> freshLogin
+        1 * freshLogin.setAttribute(SteamAuthController.SESSION_USER_ID, 100L)
+        1 * freshLogin.setAttribute(SteamAuthController.SESSION_EPOCH, 7L)
+
+        and: 'the user lands back on / with the success flag'
+        1 * resp.sendRedirect('/?login=success')
+    }
+
+    def "steamReturn never establishes a session when verification fails"() {
+        given: 'OpenID verification returns null (bad/forged/replayed assertion)'
+        req.queryString >> 'openid.mode=id_res&tampered=1'
+        req.getParameter('openid.claimed_id') >> 'x'
+        req.getSession(false) >> null
+        1 * steamAuthService.verifyReturn(_, _) >> null
+
+        when:
+        controller.steamReturn(req, resp)
+
+        then: 'no session is created, no auth attribute is written, no user is upserted'
+        0 * req.getSession(true)
+        0 * steamAuthService.upsertUser(_)
+        0 * ses.setAttribute(SteamAuthController.SESSION_USER_ID, _)
+
+        and: 'the browser is redirected with login=failed'
+        1 * resp.sendRedirect('/?login=failed')
+    }
+
+    def "steamReturn carries a stashed `next` into the post-login redirect"() {
+        given:
+        HttpSession preLogin  = Mock()
+        HttpSession freshLogin = Mock()
+        def user = new SteamUser(id: 100L, steamId64: '76561197960287930', sessionEpoch: 0L)
+        req.queryString >> 'openid.mode=id_res'
+        req.getParameter('openid.claimed_id') >> null
+        req.getSession(false) >> preLogin
+        1 * preLogin.getAttribute(SteamAuthController.SESSION_NEXT) >> '/sell'
+        1 * steamAuthService.verifyReturn(_, _) >> '76561197960287930'
+        1 * steamAuthService.upsertUser(_) >> user
+        req.session >> preLogin
+        req.getSession(true) >> freshLogin
+
+        when:
+        controller.steamReturn(req, resp)
+
+        then: 'the user lands back on the page they started the auth flow from'
+        1 * resp.sendRedirect('/sell?login=success')
+    }
+
+    def "steamReturn re-sanitizes a poisoned `next` stash before redirecting"() {
+        given: 'a hostile value somehow present in the session attribute'
+        HttpSession preLogin = Mock()
+        req.queryString >> 'openid.mode=id_res&bad=1'
+        req.getParameter('openid.claimed_id') >> null
+        req.getSession(false) >> preLogin
+        1 * preLogin.getAttribute(SteamAuthController.SESSION_NEXT) >> 'https://evil.com/phish'
+        1 * steamAuthService.verifyReturn(_, _) >> null
+
+        when:
+        controller.steamReturn(req, resp)
+
+        then: 'the off-site destination is collapsed to / — never echoed into Location'
+        1 * resp.sendRedirect('/?login=failed')
+    }
+
+    def "steamReturn redirects with reason=upsert when upsertUser throws"() {
+        given:
+        HttpSession preLogin = Mock()
+        req.queryString >> 'openid.mode=id_res'
+        req.getParameter('openid.claimed_id') >> null
+        req.getSession(false) >> preLogin
+        preLogin.getAttribute(SteamAuthController.SESSION_NEXT) >> null
+        1 * steamAuthService.verifyReturn(_, _) >> '76561197960287930'
+        1 * steamAuthService.upsertUser(_) >> { throw new RuntimeException('DB down') }
+
+        when:
+        controller.steamReturn(req, resp)
+
+        then: 'failure is surfaced to the SPA without leaking a session'
+        0 * preLogin.invalidate()
+        1 * resp.sendRedirect('/?login=failed&reason=upsert')
+    }
 }

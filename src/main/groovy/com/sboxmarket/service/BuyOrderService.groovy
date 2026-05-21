@@ -395,6 +395,13 @@ class BuyOrderService {
      * buyer wants to be more competitive). Lowering the cap is also
      * allowed — worst case the order simply stops matching at the old
      * price, which is the user's call.
+     *
+     * When the cap is RAISED we re-run the existing-listing fill probe
+     * (same as create() does on a fresh order). Without this a buyer who
+     * edits a $20 order up to $30 while a $25 listing is already on the
+     * market would see the order sit un-fired until some future relist
+     * triggers tryMatch — the exact "standing order doesn't fire against
+     * listings already present" bug that batch 268 fixed for create().
      */
     @Transactional
     BuyOrder update(Long buyerUserId, Long orderId, BigDecimal newMaxPrice, Integer newQuantity) {
@@ -408,6 +415,7 @@ class BuyOrderService {
             throw new BadRequestException("NOT_ACTIVE",
                 "Only active buy orders can be edited")
         }
+        BigDecimal priceBefore = o.maxPrice
         if (newMaxPrice != null) {
             if (newMaxPrice <= BigDecimal.ZERO) {
                 throw new BadRequestException("INVALID_PRICE", "Max price must be positive")
@@ -435,7 +443,21 @@ class BuyOrderService {
             o.quantity = q
         }
         o.updatedAt = System.currentTimeMillis()
-        buyOrderRepository.save(o)
+        def saved = buyOrderRepository.save(o)
+        // Re-probe existing listings only when the cap was RAISED — a
+        // lower (or unchanged) cap can never newly enable a match, so
+        // there's nothing to fill. Best-effort: a probe failure must not
+        // un-do the edit, exactly as in create().
+        if (priceBefore != null && saved.maxPrice != null
+                && saved.maxPrice > priceBefore
+                && saved.status == 'ACTIVE') {
+            try {
+                tryFillFromExisting(saved)
+            } catch (Exception e) {
+                log.warn("Buy order ${saved.id} re-fill after price raise failed: ${e.message}")
+            }
+        }
+        saved
     }
 
     /**

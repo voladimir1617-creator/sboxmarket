@@ -113,10 +113,21 @@ class ReviewService {
                 itemName:        trade.itemName
             ))
             log.info("Review created: from=${fromUserId} to=${trade.sellerUserId} trade=${tradeId} rating=${rating}")
-            notificationService?.push(trade.sellerUserId, 'REVIEW_RECEIVED',
-                "New ${rating}★ review",
-                "${author?.displayName ?: 'A buyer'} left feedback on ${trade.itemName}",
-                row.id, '/profile?tab=reviews')
+            // Notify the seller of the new review. NotificationService.push
+            // is itself @Transactional, so it joins this method's
+            // transaction — an un-guarded failure here would mark the tx
+            // rollback-only and silently destroy the review row that was
+            // just saved successfully. Mirror the try/catch the
+            // REVIEW_UPDATED path above uses so a transient bell-push
+            // hiccup can't undo a valid review.
+            try {
+                notificationService?.push(trade.sellerUserId, 'REVIEW_RECEIVED',
+                    "New ${rating}★ review",
+                    "${author?.displayName ?: 'A buyer'} left feedback on ${trade.itemName}",
+                    row.id, '/profile?tab=reviews')
+            } catch (Exception e) {
+                log.warn("REVIEW_RECEIVED push failed for seller ${trade.sellerUserId}: ${e.message}")
+            }
             auditService?.log('REVIEW_CREATED', fromUserId, trade.sellerUserId, row.id,
                 "Review: ${rating}★")
         }

@@ -23,6 +23,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-doc .callout {
       background: rgba(30, 165, 255, 0.08);
       border: 1px solid rgba(30, 165, 255, 0.35);
@@ -72,7 +77,7 @@
 
     <h2>What happens if a trade fails</h2>
     <ul>
-      <li>The buyer's funds are held in the SkinBox wallet the instant they commit. Nothing moves to the seller until the buyer confirms receipt on the trade page — so if you never get an offer, nothing has been lost, and the escrow auto-cancels and refunds the buyer after the 8-day window.</li>
+      <li>The buyer's funds are held in the SkinBox wallet the instant they commit. Nothing moves to the seller until the buyer confirms receipt on the trade page — so if you never get an offer, nothing has been lost, and the escrow auto-cancels and refunds the buyer after 3 days of seller inactivity.</li>
       <li>If the seller sent the trade but Steam put it on a 7-day trade hold, the funds stay locked in SkinBox until both sides confirm and the hold ages out.</li>
       <li>If either party disputes the trade, staff pull the Steam trade-history evidence attached to the escrow and adjudicate within 48 hours. The wallet refunds or releases based on that decision.</li>
     </ul>

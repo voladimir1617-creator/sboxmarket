@@ -166,6 +166,17 @@ class UserBlockControllerSpec extends Specification {
         resp.body == [removed: 0]
     }
 
+    def "unblock() forwards the authed caller's uid as the blocker — never a client value"() {
+        given: 'a signed-in caller; the blocker id must come from the session, not the path'
+        authedSession(555L)
+
+        when:
+        controller.unblock(200L, req)
+
+        then: 'session uid is the blocker; only the target id is path-supplied'
+        1 * userBlockService.unblock(555L, 200L) >> 1
+    }
+
     def "unblock() requires sign-in"() {
         given: anonSession()
         when:  controller.unblock(200L, req)

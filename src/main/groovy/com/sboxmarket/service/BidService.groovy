@@ -430,7 +430,17 @@ class BidService {
         // bidder as WINNING forever.
         markOthersOutbid(listingId, winningRow)
         publishBidEvent(listing, 'bid')
-        bid
+        // Return `winningRow`, not the bare `bid`. When Branch B fired —
+        // the new bidder's own auto-cap out-raised the prior top, so the
+        // bot saved a SECOND higher row on their behalf — `winningRow` is
+        // that bot row and `bid` (their original submitted row) was just
+        // demoted to OUTBID by `markOthersOutbid` above. Returning `bid`
+        // there handed the caller a row reading `status: OUTBID` even
+        // though the bidder is in fact winning, so the API told a winning
+        // auto-bidder "you were outbid". `winningRow` is always the row
+        // that actually reads WINNING (it equals `bid` on every other
+        // path), mirroring Branch A which already returns its bot row.
+        winningRow
     }
 
     /**

@@ -32,6 +32,12 @@ class AuctionEventBus {
     private static final int MAX_PER_LISTING = 200
     private static final long SSE_NO_TIMEOUT = 0L
 
+    /** Equality probe for {@code ConcurrentHashMap.remove(key, value)} — a
+     *  CopyOnWriteArrayList's equals() is list-content equality, so passing
+     *  an empty list evicts the mapping iff it is currently empty. Used
+     *  ONLY as a probe; never stored in {@link #subs} or added to. */
+    private static final List<SseEmitter> EMPTY_LIST = new CopyOnWriteArrayList<>()
+
     private final Map<Long, CopyOnWriteArrayList<SseEmitter>> subs = new ConcurrentHashMap<>()
 
     /**
@@ -41,14 +47,38 @@ class AuctionEventBus {
      */
     SseEmitter subscribe(Long listingId) {
         def emitter = new SseEmitter(SSE_NO_TIMEOUT)
-        def list = subs.computeIfAbsent(listingId, { k -> new CopyOnWriteArrayList<SseEmitter>() })
-        if (list.size() >= MAX_PER_LISTING) {
-            log.warn("AuctionEventBus subscribe cap hit for listing ${listingId} (${list.size()}/${MAX_PER_LISTING})")
-            try { emitter.complete() } catch (Exception ignored) {}
-            return emitter
+        // computeIfAbsent + a re-check after add: a concurrently-reaped
+        // listing list could be evicted from `subs` between our lookup and
+        // our add, which would orphan this emitter (no bids, no heartbeat,
+        // no cleanup). Loop until the list we added to is the one still
+        // mapped — the window is tiny and contention here is low.
+        CopyOnWriteArrayList<SseEmitter> list
+        while (true) {
+            list = subs.computeIfAbsent(listingId, { k -> new CopyOnWriteArrayList<SseEmitter>() })
+            if (list.size() >= MAX_PER_LISTING) {
+                log.warn("AuctionEventBus subscribe cap hit for listing ${listingId} (${list.size()}/${MAX_PER_LISTING})")
+                // At cap the list is full (never empty), so it stays mapped
+                // and keeps serving its existing subscribers — nothing to
+                // clean up here; this emitter is just completed immediately.
+                try { emitter.complete() } catch (Exception ignored) {}
+                return emitter
+            }
+            list.add(emitter)
+            if (subs.get(listingId).is(list)) break
+            // Lost a race with a reaper that evicted `list`; undo and retry.
+            list.remove(emitter)
         }
-        list.add(emitter)
-        Runnable remove = { list.remove(emitter) }
+        // Evict the per-listing list from the map once it goes empty so a
+        // process that serves many distinct auctions over its lifetime does
+        // not accumulate an unbounded set of empty CopyOnWriteArrayLists.
+        // `subs.remove(key, value)` only evicts when the mapping is still
+        // this exact (empty) list, so it cannot drop a list another thread
+        // has since repopulated.
+        final CopyOnWriteArrayList<SseEmitter> bound = list
+        Runnable remove = {
+            bound.remove(emitter)
+            if (bound.isEmpty()) subs.remove(listingId, EMPTY_LIST)
+        }
         emitter.onCompletion(remove)
         emitter.onTimeout(remove)
         emitter.onError({ Throwable t -> remove.run() })
@@ -110,13 +140,18 @@ class AuctionEventBus {
     void heartbeat() {
         long now = System.currentTimeMillis()
         def event = SseEmitter.event().name('heartbeat').data(now)
-        subs.values().each { list ->
+        subs.each { listingId, list ->
             def dead = [] as List<SseEmitter>
             for (em in list) {
                 try { em.send(event) }
                 catch (Exception ignored) { dead.add(em) }
             }
             if (!dead.isEmpty()) list.removeAll(dead)
+            // Backstop for the per-emitter cleanup: drop any list that has
+            // gone empty so `subs` cannot accumulate stale entries even if
+            // an onCompletion/onError callback was never fired. Atomic —
+            // only evicts while the mapping is still this empty list.
+            if (list.isEmpty()) subs.remove(listingId, EMPTY_LIST)
         }
     }
 

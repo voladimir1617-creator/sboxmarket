@@ -330,6 +330,102 @@ class BidServiceSpec extends Specification {
         1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, _)
     }
 
+    def "placeBid Branch B bot-raise: new bidder's auto-cap out-raises the prior top, second row saved"() {
+        // Branch B raise sub-case (lines 372-395). A is AUTO leading at $20
+        // with cap $30. B places amount=$25, cap=$50. B's cap beats A's, and
+        // B's submitted $25 does NOT yet clear A's cap+increment ($30.05),
+        // so the bot raises B *on their own behalf* to $30.05 and saves a
+        // SECOND Bid row. The auction lands on B at $30.05.
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('30'),
+                               kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        // Mimic Hibernate flush-visibility: findByListing reflects rows
+        // saved earlier in the SAME transaction, so markOthersOutbid sees
+        // B's original row + the bot row. A fixed-list mock would mask the
+        // production demotion the way the older specs accidentally did.
+        def rows = [existing]
+        bidRepository.findByListing(100L) >> { rows }
+        bidRepository.save(_) >> { Bid b -> if (b.id == null) b.id = (700L + rows.size()); rows << b; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'B', 100L, new BigDecimal('25'), new BigDecimal('50'))
+
+        then:
+        // B wins at A's cap + one increment.
+        listing.currentBid == new BigDecimal('30.05')
+        listing.currentBidderId == 10L
+        // Two B rows were saved — the submitted $25 and the bot-raise $30.05.
+        rows.count { it.bidderUserId == 10L } == 2
+        // The bot-raise row is the one that reads WINNING.
+        def botRow = rows.find { it.bidderUserId == 10L && it.amount == new BigDecimal('30.05') }
+        botRow.status == 'WINNING'
+        botRow.kind == 'AUTO'
+        // B's original lower row was demoted to OUTBID by markOthersOutbid.
+        def origRow = rows.find { it.bidderUserId == 10L && it.amount == new BigDecimal('25') }
+        origRow.status == 'OUTBID'
+        // A's prior WINNING row is demoted too.
+        existing.status == 'OUTBID'
+        // A (the displaced top) gets the plain outbid push.
+        1 * notificationService.push(7L, 'AUCTION_OUTBID', _, _, 100L, _)
+    }
+
+    def "placeBid Branch B bot-raise returns the WINNING bot row, not the demoted original (bug fix)"() {
+        // Regression: when Branch B's bot raises the new bidder on their own
+        // behalf, placeBid used to return the bidder's ORIGINAL submitted
+        // row — which markOthersOutbid had just demoted to OUTBID. So the
+        // API told a bidder who is actually WINNING "status: OUTBID".
+        // placeBid must return the row that actually reads WINNING.
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
+                               amount: new BigDecimal('20'), maxAmount: new BigDecimal('30'),
+                               kind: 'AUTO', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        def rows = [existing]
+        bidRepository.findByListing(100L) >> { rows }
+        bidRepository.save(_) >> { Bid b -> if (b.id == null) b.id = (700L + rows.size()); rows << b; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'B', 100L, new BigDecimal('25'), new BigDecimal('50'))
+
+        then:
+        // The returned row is the winning bot-raise row — not OUTBID.
+        result.status == 'WINNING'
+        result.bidderUserId == 10L
+        result.amount == new BigDecimal('30.05')
+    }
+
+    def "placeBid manual outbid still returns the bidder's own WINNING row"() {
+        // Guard the bug-fix the other way: on a plain manual outbid (no bot)
+        // winningRow == the just-placed bid, so the return value is the
+        // bidder's own row reading WINNING — unchanged by the fix.
+        given:
+        def listing = auctionListing(currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        def existing = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L, bidderName: 'A',
+                               amount: new BigDecimal('20'), kind: 'MANUAL', status: 'WINNING')
+        listingRepository.findById(_) >> Optional.of(listing)
+        def rows = [existing]
+        bidRepository.findByListing(100L) >> { rows }
+        bidRepository.save(_) >> { Bid b -> if (b.id == null) b.id = (700L + rows.size()); rows << b; b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        def result = service.placeBid(10L, 'B', 100L, new BigDecimal('25'), null)
+
+        then:
+        result.status == 'WINNING'
+        result.bidderUserId == 10L
+        result.amount == new BigDecimal('25')
+    }
+
     def "placeBid extends expiresAt when bid lands inside the 30s anti-snipe window"() {
         given:
         def now = System.currentTimeMillis()
@@ -813,6 +909,81 @@ class BidServiceSpec extends Specification {
         result.buyerUserId == 10L
         // The buyer's own row is WON — never LOST.
         buyerOwnBid.status == 'WON'
+    }
+
+    def "buyNowAuction settles cleanly when the buyer never bid (no winner bid row)"() {
+        // The common Buy-Now path: a buyer who hits Buy Now without ever
+        // having placed a bid has no Bid row. settle() must still mark the
+        // listing SOLD to the buyer and open the trade — winnersLive is
+        // empty, so no row is flipped to WON and nothing throws.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        // Only a losing bidder has a row — the buyer (user 10) has none.
+        def loserBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L,
+            bidderName: 'Bob', amount: new BigDecimal('20'), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [loserBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        def result = service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        noExceptionThrown()
+        result.status == 'SOLD'
+        result.buyerUserId == 10L
+        result.currentBid == new BigDecimal('50')
+        // The losing bidder is still terminated.
+        loserBid.status == 'LOST'
+    }
+
+    def "buyNowAuction with both a losing bidder and the buyer's own prior bid resolves each correctly"() {
+        // Combined path: the buyer (user 10) bid earlier AND a rival (user 7)
+        // also bid. Buy-Now must end the rival's row at LOST while the
+        // buyer's own row resolves to WON — not LOST.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('25'), currentBidderId: 10L, bidCount: 2)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        def buyerOwnBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 10L,
+            bidderName: 'Alice', amount: new BigDecimal('25'), status: 'WINNING')
+        def rivalBid = new Bid(id: 6L, listingId: 100L, bidderUserId: 7L,
+            bidderName: 'Bob', amount: new BigDecimal('20'), status: 'OUTBID')
+        bidRepository.findByListing(100L) >> [buyerOwnBid, rivalBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        def result = service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        result.status == 'SOLD'
+        result.buyerUserId == 10L
+        // The buyer's own row wins — the rival's loses.
+        buyerOwnBid.status == 'WON'
+        rivalBid.status == 'LOST'
+        // The rival gets the Buy-Now AUCTION_LOST push.
+        1 * notificationService.push(7L, 'AUCTION_LOST', _, _, 100L, _)
     }
 
     // ── cancelAutoBid ──────────────────────────────────────────────

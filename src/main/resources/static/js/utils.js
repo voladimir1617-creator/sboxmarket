@@ -139,6 +139,12 @@ export const timeAgo = (ms) => {
 export function discountPct(listingPrice, steamPrice) {
   if (!steamPrice || !listingPrice) return 0;
   const s = parseFloat(steamPrice), p = parseFloat(listingPrice);
+  // Guard: a non-numeric string passes the truthy check above but
+  // parses to NaN. Without this, `discountPct(price, "abc")` reaches
+  // the Math.round below and returns NaN, rendering "NaN% off" on the
+  // card. The comparisons `s <= 0` / `p >= s` are both false for NaN,
+  // so they do not catch it on their own.
+  if (!Number.isFinite(s) || !Number.isFinite(p)) return 0;
   if (s <= 0 || p >= s) return 0;
   return Math.round((1 - p / s) * 100);
 }

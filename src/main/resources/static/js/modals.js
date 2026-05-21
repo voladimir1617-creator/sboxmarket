@@ -11270,7 +11270,10 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         },
         title: 'Sum of ask prices across every active listing. The "liquidation ceiling" before the 2% platform fee.'
       },
-        'Book value · ', fmt(stallBookValue)
+        // Privacy mode masks every seller dollar figure (see maskEarn
+        // declaration) — the earnings hero strip above already masks,
+        // so book value must too or the leak just moves down one chip.
+        'Book value · ', maskEarn(stallBookValue)
       ),
       // Pending-offers chip — compact sibling to the per-row chip,
       // shown when at least one listing has a PENDING buyer offer so
@@ -11521,13 +11524,15 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
                 ),
                 h('div', { className: 'admin-stat' },
                   h('div', { className: 'admin-stat-label' }, '30d gross'),
-                  h('div', { className: 'admin-stat-val' }, fmt(rollup30d.gross))
+                  // Privacy-mask seller revenue — consistent with maskEarn
+                  // on the earnings hero strip above.
+                  h('div', { className: 'admin-stat-val' }, maskEarn(rollup30d.gross))
                 ),
                 h('div', { className: 'admin-stat' },
                   h('div', { className: 'admin-stat-label' }, '30d net'),
-                  h('div', { className: 'admin-stat-val green' }, fmt(rollup30d.net))
+                  h('div', { className: 'admin-stat-val green' }, maskEarn(rollup30d.net))
                 ),
-                rollup30d.topItem && h('div', { className: 'admin-stat', title: `Best-selling item over the last 30d by total revenue (${fmt(rollup30d.topItemGross)})` },
+                rollup30d.topItem && h('div', { className: 'admin-stat', title: `Best-selling item over the last 30d by total revenue (${maskEarn(rollup30d.topItemGross)})` },
                   h('div', { className: 'admin-stat-label' }, 'Top seller'),
                   h('div', {
                     className: 'admin-stat-val',
@@ -11537,10 +11542,12 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
               ),
               h('div', { className: 'mystall-sold-summary' },
                 h('span', { className: 'mystall-sold-label' }, 'Gross · last ' + sold.length + ' sales'),
-                h('span', { className: 'mystall-sold-total' }, fmt(soldTotal)),
+                // Privacy-mask seller revenue — consistent with maskEarn
+                // on the earnings hero strip above.
+                h('span', { className: 'mystall-sold-total' }, maskEarn(soldTotal)),
                 h('span', { className: 'mystall-sold-hint' },
                   '· Net after 2% fee ',
-                  h('span', { style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, fmt(soldNet))
+                  h('span', { style: { color: 'var(--accent)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, maskEarn(soldNet))
                 ),
                 h('span', { style: { marginLeft: 'auto' } },
                   h(DateRangeFilter, {
@@ -14024,7 +14031,12 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                             }, '#' + tx.id + (tx.stripeReference ? ' · ' + tx.stripeReference.slice(0, 14) + (tx.stripeReference.length > 14 ? '…' : '') : ''))
                           ),
                           h('div', { className: 'wallet-tx-right' },
-                            h('div', { className: `wallet-tx-amt ${inbound ? 'in' : 'out'}` }, (inbound ? '+' : '−') + fmt(tx.amount)),
+                            // Honour privacy mode here too — the hero, pending
+                            // chips, 7-day summary, and spend strip all mask
+                            // via maskMoney(), so a bare fmt() on the per-row
+                            // amount leaked the exact dollar values the user
+                            // opted to hide (screenshot / shoulder-surf).
+                            h('div', { className: `wallet-tx-amt ${inbound ? 'in' : 'out'}` }, (inbound ? '+' : '−') + maskMoney(tx.amount)),
                             h('div', { className: `wallet-tx-status ${tx.status}` }, tx.status),
                             // Self-cancel for PENDING withdrawals — credits
                             // the balance back and flips the row to CANCELLED.

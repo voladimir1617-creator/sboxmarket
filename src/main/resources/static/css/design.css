@@ -197699,3 +197699,61 @@ html body .grid-card .grid-footer .grid-price {
   line-height: normal !important;
 }
 /* END GRID-CARD PRICE FOCAL-SIZE RESTORE */
+
+/* ---------------------------------------------------------------------
+   ITEM-PAGE STICKY ACTION-BAR OVERLAP FIX (2026-05-20) — csfloat-1:1.
+
+   Concrete divergence (verified live via getComputedStyle + bounding
+   rects on /item/32): the item-page action bar — the block holding
+   "Sign in to buy", "Sign in to make offer", "Add to Cart", "Steam"
+   and the ♥ button (`.modal.item-page > .modal-actions`) — was
+   rendering as a TRANSPARENT, position:sticky floating panel that
+   physically overlapped the Price-History chart and the "You might
+   also like" similar-items rail. On scroll the buy buttons hovered
+   on top of the item cards behind them, which were clearly bleeding
+   through (the bar has no opaque backing). csfloat has NO floating
+   action bar on its item page — its item-detail `.footer` (price row
+   + buy buttons, measured 494x129) is a normal-flow block that sits
+   in its own column, never overlapping sibling content.
+
+   Root cause — two parity rules contradict each other:
+     • Legacy rule (line ~12966) `.full-page-mode .modal-actions`
+       pins `position: sticky; bottom: 0; z-index: 5` plus a
+       backdrop blur — an outdated "pinned buy bar" treatment.
+       Specificity (0,2,0).
+     • ship #129063 (line ~197170) later re-measured csfloat's real
+       item-detail footer and correctly set the SAME block to
+       `background: transparent` (csfloat's footer carries no surface
+       of its own). Its selector `html body .modal.item-page
+       .modal-actions` is (0,3,2) — so the transparent background
+       WINS — but ship #129063 sets no `position`, so the stale
+       `position: sticky` from the legacy rule survives untouched.
+     Net result: a sticky bar with a fully-transparent background =
+     buttons floating over whatever scrolls behind them.
+
+   `.modal.item-page` is a 3-row CSS grid (preview / body / actions);
+   `.modal-actions` is explicitly placed in grid-row 3 spanning both
+   columns (rule at line ~13059). In normal flow it therefore sits
+   cleanly in its own row-3 cell directly below the chart — exactly
+   csfloat's in-flow footer placement — and the transparent
+   background is then harmless because the cell overlaps nothing.
+
+   Fix: force the item-page action bar back into normal flow
+   (`position: static`) and neutralise the now-meaningless sticky
+   offsets / blur / stacking from the legacy rule. The block keeps
+   ship #129063's measured transparent background, 12px padding,
+   column flex layout and 494px max-width. Accent hue untouched —
+   the blue CTA and all button colours are left exactly as-is.
+
+   Selector `html body .modal.item-page > .modal-actions` is
+   specificity (0,3,2) with a child combinator — outranks the legacy
+   `.full-page-mode .modal-actions` (0,2,0) decisively, and this
+   block is last in the file so source order also wins. */
+html body .modal.item-page > .modal-actions {
+  position: static !important;
+  bottom: auto !important;
+  z-index: auto !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* END ITEM-PAGE STICKY ACTION-BAR OVERLAP FIX */

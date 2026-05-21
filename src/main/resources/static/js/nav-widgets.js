@@ -452,7 +452,11 @@ export function NotificationBell({ me }) {
       'aria-controls': 'notif-dropdown-panel'
     },
       h(MaterialIcon, { name: 'notifications', size: 20, fill: unread > 0, color: unread > 0 ? '#fbbf24' : null }),
-      unread > 0 && h('div', { className: 'nav-icon-badge' }, unread)
+      // Cap the visible badge at `99+` — `.nav-icon-badge` is a fixed
+      // 16px pill, so a raw 3-4 digit count overflows and distorts it.
+      // Matches NavOffersBadge (app.js) and the document.title prefix,
+      // and CSFloat's own nav bell. aria-label keeps the true count.
+      unread > 0 && h('div', { className: 'nav-icon-badge' }, unread > 99 ? '99+' : unread)
     ),
     open && h('div', {
       id: 'notif-dropdown-panel',

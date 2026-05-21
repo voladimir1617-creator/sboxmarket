@@ -758,6 +758,176 @@ class TradeServiceSpec extends Specification {
         t.state == 'CANCELLED'
     }
 
+    // ── cancel × Trade Protection double-payout guard ─────────────
+    //
+    // The hole: dispute() fires TradeProtectionService.autoClaim, which
+    // refunds a protected buyer the FULL item price the instant the
+    // dispute is filed. Staff then resolve the dispute in the buyer's
+    // favour the standard way — forceCancelTrade → cancel() (admin
+    // branch). If cancel() also ran refundBuyer(), the buyer would be
+    // paid the item price TWICE for one escrowed sale and the platform
+    // would eat the second payout. cancel() must detect an already-
+    // CLAIMED protection and skip the escrow refund.
+
+    private com.sboxmarket.model.TradeProtection protectionRow(String status) {
+        new com.sboxmarket.model.TradeProtection(
+            id: 1L, tradeId: 1L, buyerUserId: 10L,
+            feeAmount: new BigDecimal('1.00'),
+            coverageAmount: new BigDecimal('50.00'),
+            status: status)
+    }
+
+    def "cancel of a DISPUTED trade whose protection already CLAIMED does NOT refund the buyer again (double-payout fix)"() {
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        // Trade was disputed → autoClaim already paid the buyer $50 and
+        // flipped the protection to CLAIMED. Staff now cancel it.
+        def t = tradeIn('DISPUTED')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal('50.00'), currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        adminAuthorization.requireAdmin(999L) >> {}
+        tradeProtectionService.findForTrade(1L) >> protectionRow('CLAIMED')
+
+        when: 'staff force-cancel the disputed (already protection-paid) trade'
+        service.cancel(999L, 1L, 'CSR ruling: seller at fault')
+
+        then: 'trade closes, but NO second refund is issued — buyer keeps the $50 from the claim only'
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal('50.00')   // unchanged — not 100.00
+        // No REFUND transaction from this cancel — the protection claim
+        // already booked the buyer payout.
+        0 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
+        // The cover is already CLAIMED — cancel still calls expire() but
+        // it is a correct no-op on a non-ACTIVE protection.
+        1 * tradeProtectionService.expire(1L)
+    }
+
+    def "cancel of a protected trade whose protection is still ACTIVE refunds the buyer normally (changed-mind cancel)"() {
+        // A protected buyer who cancels WITHOUT disputing — autoClaim
+        // never ran, protection is still ACTIVE — must get the ordinary
+        // escrow refund. The skip only applies to an already-CLAIMED
+        // protection.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_SELLER_ACCEPT')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        tradeProtectionService.findForTrade(1L) >> protectionRow('ACTIVE')
+
+        when: 'the buyer cancels their own still-ACTIVE protected trade'
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: 'the escrow refund still runs — buyer is made whole exactly once'
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal('50.00')
+        1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' && tx.amount == new BigDecimal('50.00') })
+        1 * tradeProtectionService.expire(1L)
+    }
+
+    def "cancel of an unprotected trade still refunds the buyer when the protection service is wired"() {
+        // Regression guard — wiring tradeProtectionService must not
+        // change behaviour for the (overwhelming majority) unprotected
+        // trades. findForTrade returns null → escrow refund runs.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        tradeProtectionService.findForTrade(1L) >> null   // unprotected
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then:
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal('50.00')
+        1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
+    }
+
+    def "cancel falls through to the escrow refund when the protection lookup throws (fail-safe)"() {
+        // Best-effort lookup — a protection-service hiccup must never
+        // block the cancel. On a lookup error we conservatively refund:
+        // a missed refund on a genuinely unrefunded buyer is the worse
+        // failure (a missed skip is recoverable by staff claw-back).
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        tradeProtectionService.findForTrade(1L) >> { throw new RuntimeException('protection db down') }
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: 'cancel still completes and refunds — the lookup failure is swallowed'
+        noExceptionThrown()
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal('50.00')
+        1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
+    }
+
+    def "cancel skips the escrow refund for a CLAIMED protection even on the participant (seller-cancel) path"() {
+        // The double-payout skip is keyed on the protection state, not
+        // the actor — a seller cancelling a disputed-then-claimed trade
+        // must also not trigger a second buyer payout. (A seller can't
+        // cancel a DISPUTED trade, but can cancel earlier states; this
+        // pins the skip to protection state regardless of who cancels.)
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal('50.00'), currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        tradeProtectionService.findForTrade(1L) >> protectionRow('CLAIMED')
+
+        when: 'the seller cancels a trade whose protection already paid out'
+        service.cancel(20L, 1L, 'seller cancels')
+
+        then: 'no second refund — the buyer keeps only the protection claim payout'
+        t.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal('50.00')
+        0 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
+    }
+
     // ── 404 wrap ──────────────────────────────────────────────────
 
     def "get throws NotFoundException for unknown trade id"() {

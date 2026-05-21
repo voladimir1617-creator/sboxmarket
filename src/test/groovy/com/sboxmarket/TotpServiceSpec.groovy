@@ -370,6 +370,87 @@ class TotpServiceSpec extends Specification {
             'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
     }
 
+    // ── extra security/regression guards ────────────────────────────
+
+    def "every minted backup code round-trips through consumeRecoveryCode"() {
+        // Pins generation<->consumption normalization parity: if the two
+        // ever drift (e.g. a char-class change in one but not the other)
+        // some minted codes would be un-redeemable. Each code, presented
+        // exactly as displayed, must consume against a fresh store.
+        given:
+        def out = service.generateBackupCodes()
+
+        expect:
+        out.plaintext.every { code ->
+            service.consumeRecoveryCode(out.hashed as String, code as String) != null
+        }
+    }
+
+    def "a recovery code from one enrollment cannot be consumed against another's store"() {
+        given:
+        def mine    = service.generateBackupCodes()
+        def someone = service.generateBackupCodes()
+
+        expect:
+        // Cross-account isolation: my codes only ever match my own
+        // stored hashes — no global namespace, no collision leakage.
+        mine.plaintext.every {
+            service.consumeRecoveryCode(someone.hashed as String, it as String) == null
+        }
+    }
+
+    def "verify rejects every live code when lastStep is in the future"() {
+        given:
+        def secret = service.generateSecret()
+        def step = currentStep()
+        // A clock-ahead authenticator already advanced the user past the
+        // current window — every code in [-1,+1] is at or below lastStep.
+        def future = step + 1
+
+        expect:
+        (-1..1).every { off ->
+            def code = service.codeFor(unbase32(secret), step + off)
+            service.verify(secret, code, future) == -1L
+        }
+    }
+
+    def "verify accepts the +1 step exactly when lastStep sits at the current step"() {
+        given:
+        def secret = service.generateSecret()
+        def step = currentStep()
+
+        expect:
+        // lastStep == current: the only still-acceptable code in the
+        // window is the unused +1 step.
+        service.verify(secret, service.codeFor(unbase32(secret), step + 1), step) == step + 1
+        service.verify(secret, service.codeFor(unbase32(secret), step),     step) == -1L
+    }
+
+    def "otpauthUrl URL-encodes a label with spaces and reserved characters"() {
+        when:
+        def url = service.otpauthUrl('JBSWY3DPEHPK3PXP', 'a b&c?d=e')
+
+        then:
+        // The label segment must be percent-encoded so the otpauth URL
+        // stays well-formed and the account name can't break the query.
+        url.startsWith('otpauth://totp/')
+        !url.contains('a b&c?d=e')
+        url.contains('SkinBox')
+        url.contains('secret=JBSWY3DPEHPK3PXP')
+    }
+
+    def "consumeRecoveryCode tolerates internal whitespace in the stored hash list"() {
+        given:
+        def out = service.generateBackupCodes()
+        // Hashes are space-joined; a tab / newline / double-space run in
+        // the stored column must still split cleanly.
+        def messy = (out.hashed as String).replaceAll(/ /, '  \t ')
+        def picked = out.plaintext[2] as String
+
+        expect:
+        service.consumeRecoveryCode(messy, picked) != null
+    }
+
     // ── helpers ─────────────────────────────────────────────────────
 
     private static long currentStep() {

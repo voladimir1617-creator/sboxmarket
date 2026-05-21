@@ -271,6 +271,16 @@ class OpenGraphController {
         if (user == null) {
             return notFoundSpaShell()
         }
+        // A banned seller's stall renders only a "suspended" banner — no
+        // listings, no real content. SitemapController already excludes
+        // banned sellers from /sitemap.xml for exactly this reason; serve
+        // the noindex shell here too so a crawler reaching /stall/{id} via
+        // any other inbound link doesn't index an empty page (or attach a
+        // Store rich-result + canonical to it). Same shell as an unknown
+        // id, so a banned-vs-missing distinction can't be probed by status.
+        if (Boolean.TRUE.equals(user.banned)) {
+            return notFoundSpaShell()
+        }
         def base = resolveBaseUrl(req)
         def url = base + '/stall/' + userId
         def name = escape(user.displayName ?: 'Seller')

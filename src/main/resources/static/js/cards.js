@@ -37,9 +37,15 @@ export function AuctionCountdown({ expiresAt, className }) {
 export function GridCard({ listing, onClick, starred, onToggleStar, listingCount, onAddToCart, cartHas, meId, watcherCount, salesVelocity, searchQuery }) {
   const item = listing?.item;
   if (!item) return null;
-  const trendUp = item.trendPercent > 0, trendFlat = item.trendPercent === 0;
-  const disc = discountPct(listing.price, item.steamPrice);
   const isAuction = listing.listingType === 'AUCTION' && listing.expiresAt;
+  // Discount must anchor against what the buyer would actually pay right
+  // now. For an auction that's been bid up, the live top bid (currentBid)
+  // is the real cost — using the static reserve `listing.price` made the
+  // −N% chip claim a saving the buyer can no longer get (e.g. a $50
+  // reserve bid up to $95 still flashed "−50%" next to the $95 figure).
+  // Mirrors ListingRow's `effectivePrice` baseline.
+  const effectivePrice = isAuction && listing.currentBid ? listing.currentBid : listing.price;
+  const disc = discountPct(effectivePrice, item.steamPrice);
   const inCart = cartHas ? cartHas(listing.id) : false;
   // Auction participation chip — only shown when the viewer is signed in
   // AND is the current top bidder on this auction. Green "You're winning"
@@ -92,7 +98,11 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
     const segs = [item.name];
     if (isAuction) segs.push('auction');
     else if (listing.listingType === 'BUY_NOW') segs.push('buy now');
-    if (listing.price) segs.push(fmt(listing.price));
+    // Announce the same figure the card shows — the live top bid for an
+    // auction with bids, otherwise the listed price. Using `listing.price`
+    // here made a bid-up auction read its stale reserve to screen readers
+    // while the visible price + discount used the current bid.
+    if (effectivePrice) segs.push(fmt(effectivePrice));
     if (listing.sellerName) segs.push('by ' + listing.sellerName);
     if (disc > 0) segs.push(disc + '% off Steam');
     return segs.join(', ');
@@ -114,12 +124,14 @@ export function GridCard({ listing, onClick, starred, onToggleStar, listingCount
   },
     h('div', {
       className: 'grid-thumb',
-      // Operator audit (batch 1149): the colored hairline at the top of
-      // the thumbnail is a rarity stripe (yellow=Off-Market, pink=Limited,
-      // blue=Standard). It's a CSS pseudo-element so it can't carry its
-      // own tooltip; surface the meaning here on the parent so anyone
-      // hovering anywhere on the image sees what the bar is for.
-      title: item.rarity ? `Color stripe at top = ${item.rarity} rarity` : undefined
+      // The thumbnail's rarity tier is signalled by a color gradient
+      // overlay (yellow=Off-Market, pink=Limited, blue=Standard) — a
+      // CSS pseudo-element that carries no tooltip of its own, so the
+      // meaning is surfaced here on the parent. Phrasing names the tier
+      // only (no "stripe at top"): ship #1390 replaced the old top
+      // hairline with the gradient overlay, so the prior wording was
+      // describing a visual that no longer renders.
+      title: item.rarity ? `${item.rarity} rarity` : undefined
     },
       h(ItemImage, { item, variant: 'card' }),
       h('div', { className: 'grid-rarity' }, h(RarityBadge, { rarity: item.rarity })),

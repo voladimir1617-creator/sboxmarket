@@ -11,6 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.ActiveProfiles
 import spock.lang.Specification
@@ -427,5 +430,109 @@ class ItemControllerSpec extends Specification {
         then: "the subject id is excluded from its own similar feed"
         response.statusCode == HttpStatus.OK
         response.body.every { it.id != base.id }
+    }
+
+    // ── GET /api/items/{id} — view-count IP resolution edge cases ─────
+    // The view-count dedupe keys on the resolved client IP (CF-Connecting-IP
+    // → X-Forwarded-For → remoteAddr). A crafted X-Forwarded-For made of
+    // only commas / empty tokens is NON-blank, so the old
+    // `xff.split(',')[0]` indexed into Java's zero-length split result and
+    // threw ArrayIndexOutOfBoundsException — swallowed by the best-effort
+    // catch, but it silently killed the view bump for that request.
+
+    /** GETs an item carrying an explicit X-Forwarded-For header. */
+    private getItemWithHeaders(Long id, Map<String, String> headers) {
+        def h = new HttpHeaders()
+        headers.each { k, v -> h.add(k, v) }
+        rest.exchange(
+            "http://localhost:$port/api/items/${id}",
+            HttpMethod.GET, new HttpEntity<Void>(h), Map)
+    }
+
+    def "GET /api/items/{id} survives an all-comma X-Forwarded-For header and still bumps the view"() {
+        given: "a fresh item at zero views"
+        def item = newItem(viewCount: 0L)
+
+        when: "a request arrives with a degenerate X-Forwarded-For: ',' header"
+        // Pre-fix this threw ArrayIndexOutOfBoundsException inside clientIp().
+        def response = getItemWithHeaders(item.id, ['X-Forwarded-For': ','])
+
+        then: "the response is a clean 200 with the real item — no crash, no sentinel"
+        response.statusCode == HttpStatus.OK
+        response.body.id == item.id
+        !response.body.containsKey('notFound')
+
+        and: "the view still counted — clientIp fell through to remoteAddr"
+        itemRepository.findById(item.id).get().viewCount == 1L
+    }
+
+    def "GET /api/items/{id} tolerates an empty-token X-Forwarded-For (',,') without erroring"() {
+        given:
+        def item = newItem(viewCount: 0L)
+
+        when:
+        def response = getItemWithHeaders(item.id, ['X-Forwarded-For': ',,'])
+
+        then: "still a clean item read"
+        response.statusCode == HttpStatus.OK
+        response.body.id == item.id
+    }
+
+    def "GET /api/items/{id} dedupes per real X-Forwarded-For IP, not per shared proxy peer"() {
+        given: "a fresh item — two distinct clients reach it behind one proxy"
+        def item = newItem(viewCount: 0L)
+
+        when: "client A loads it twice, client B loads it once — distinct XFF IPs"
+        getItemWithHeaders(item.id, ['X-Forwarded-For': '198.51.100.7'])
+        getItemWithHeaders(item.id, ['X-Forwarded-For': '198.51.100.7'])
+        getItemWithHeaders(item.id, ['X-Forwarded-For': '198.51.100.8'])
+
+        then: "two genuine viewers counted — A's refresh deduped, B counted separately"
+        // A broken resolver keying on the proxy peer would collapse B into
+        // A's bucket (count 1); ignoring dedupe entirely would show 3.
+        itemRepository.findById(item.id).get().viewCount == 2L
+    }
+
+    def "GET /api/items/{id} resolves the first real X-Forwarded-For hop when leading tokens are blank"() {
+        given:
+        def item = newItem(viewCount: 0L)
+
+        when: "the XFF list has a blank leading entry before the real client IP"
+        getItemWithHeaders(item.id, ['X-Forwarded-For': ' , 203.0.113.55'])
+        getItemWithHeaders(item.id, ['X-Forwarded-For': ' , 203.0.113.55'])
+
+        then: "both requests resolved to the SAME real IP → deduped to one view"
+        itemRepository.findById(item.id).get().viewCount == 1L
+    }
+
+    def "GET /api/items/{id} ignores a blank CF-Connecting-IP and falls through to X-Forwarded-For"() {
+        given:
+        def item = newItem(viewCount: 0L)
+
+        when: "CF header is whitespace-only; the real IP lives in X-Forwarded-For"
+        getItemWithHeaders(item.id,
+            ['CF-Connecting-IP': '   ', 'X-Forwarded-For': '192.0.2.30'])
+        getItemWithHeaders(item.id,
+            ['CF-Connecting-IP': '   ', 'X-Forwarded-For': '192.0.2.30'])
+
+        then: "a blank CF header no longer collapses every caller into one empty-string bucket"
+        // Pre-fix `clientIp` returned "" for a whitespace CF header, which
+        // shouldBumpView treats as unidentifiable → bump EVERY time. The
+        // fall-through to the real XFF IP restores proper per-IP dedupe.
+        itemRepository.findById(item.id).get().viewCount == 1L
+    }
+
+    def "GET /api/items/{id} prefers a valid CF-Connecting-IP over X-Forwarded-For"() {
+        given:
+        def item = newItem(viewCount: 0L)
+
+        when: "two requests share a CF IP but differ in XFF — CF must win the dedupe key"
+        getItemWithHeaders(item.id,
+            ['CF-Connecting-IP': '198.51.100.200', 'X-Forwarded-For': '10.0.0.1'])
+        getItemWithHeaders(item.id,
+            ['CF-Connecting-IP': '198.51.100.200', 'X-Forwarded-For': '10.0.0.2'])
+
+        then: "same CF IP → one view; the differing XFF is correctly ignored"
+        itemRepository.findById(item.id).get().viewCount == 1L
     }
 }

@@ -57,7 +57,7 @@ const FAQ = [
   },
   {
     q: 'My purchase is stuck, what do I do?',
-    a: "Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. An agent (or Clara, the automated first-responder) will reply within the hour."
+    a: "Open a ticket from Profile → Support → + New Ticket and include the transaction id from your Trades tab. Clara, the automated first-responder, replies instantly with the most likely fix; a human agent follows up within 4 hours for trade, payment, and refund tickets (these jump the queue), or within 24 hours for everything else."
   },
   {
     q: 'How do I report a suspicious listing or user?',
@@ -97,7 +97,7 @@ const FAQ = [
   },
   {
     q: 'What happens if I get banned? Can I appeal?',
-    a: "Banned accounts can no longer list, bid, buy, offer, trade, or withdraw. Your Steam session is revoked immediately and future sign-ins land on a read-only state. To appeal, email support@skinbox.market from the Steam-verified address on your account with your Steam ID and a description of the incident. Appeals are reviewed by a senior admin (not the reviewer who banned you) within 3-5 business days. If the ban is lifted, your listings are NOT auto-restored — you'll need to re-list anything you want back on the market."
+    a: "Banned accounts can no longer list, bid, buy, offer, trade, or withdraw. Your Steam session is revoked immediately and future sign-ins land on a read-only state. To appeal, email appeals@skinbox.market from the Steam-verified address on your account with your Steam ID and a description of the incident — or simply reply to the suspension email. Appeals are reviewed by a senior admin (not the reviewer who banned you) within 1-2 business days. If the ban is lifted, your listings are NOT auto-restored — you'll need to re-list anything you want back on the market."
   },
   {
     q: 'Can I see who bought my item?',
@@ -249,7 +249,7 @@ export function HelpModal({ onClose }) {
           h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
             'No FAQs match "', h('strong', { style: { color: 'var(--accent)' } }, search.trim()), '"'),
           h('div', { style: { maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
-            'Try a broader keyword, or open a ticket and a CSR will reply within the hour.'),
+            'Try a broader keyword, or open a ticket — a CSR replies within 24 hours (within 4 hours for trade, payment, and refund issues).'),
           h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
             h('button', {
               className: 'btn btn-ghost',
@@ -260,7 +260,14 @@ export function HelpModal({ onClose }) {
               className: 'btn btn-accent',
               style: { padding: '8px 14px', fontSize: 12 },
               href: '/support',
-              onClick: (e) => { e.preventDefault(); onClose && onClose(); window.history.pushState({}, '', '/support'); window.dispatchEvent(new PopStateEvent('popstate')); }
+              // Use the navigate() helper rather than a raw pushState +
+              // synthetic PopStateEvent: the helper increments the
+              // router's internalPushes counter and sets the
+              // dispatchingInternalPop flag so the popstate listener
+              // doesn't mistake this for a browser back/forward. A bare
+              // pushState here desynced that counter and broke
+              // closeToPrevious() for later modal-close buttons.
+              onClick: (e) => { e.preventDefault(); onClose && onClose(); navigate(paths.support()); }
             }, 'Open a ticket →')
           )
         )
@@ -311,7 +318,7 @@ export function HelpModal({ onClose }) {
       h('div', null,
         h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' } }, "Still need a hand?"),
         h('div', { style: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 } },
-          "Open a support ticket and a CSR will reply within the hour. Include a transaction id if it's about a purchase.")
+          "Open a support ticket and a CSR will reply within 24 hours — within 4 hours for trade, payment, and refund issues. Include a transaction id if it's about a purchase.")
       ),
       h('button', {
         className: 'btn btn-accent',

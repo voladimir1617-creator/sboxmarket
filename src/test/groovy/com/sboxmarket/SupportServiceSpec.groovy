@@ -132,6 +132,58 @@ class SupportServiceSpec extends Specification {
         ticket.category == 'TRADE'
     }
 
+    def "create clamps an all-symbol / null / blank category to OTHER (never an empty string)"() {
+        given:
+        ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
+        messageRepository.save(_) >> { args -> args[0] }
+
+        when: 'the category strips down to nothing'
+        def ticket = service.create(10L, 'Alice', 'subject', rawCategory, 'body')
+
+        then: 'the stored category falls back to OTHER, not "" — the column is NOT NULL but "" is meaningless'
+        ticket.category == 'OTHER'
+
+        where:
+        rawCategory << ['123', ':)', '!!!', '   ', '', null]
+    }
+
+    def "create auto-reply matches the NORMALIZED category, not the raw input (regression)"() {
+        given:
+        // Before the fix autoReply() switched on the raw, un-stripped category
+        // argument while the ticket stored the normalized one. A category that
+        // needs stripping ("trade  :)", "PAYMENT!", " TRADE") therefore stored
+        // the right family but synthesised the GENERIC template.
+        def saved = []
+        ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
+        messageRepository.save(_) >> { args -> saved << args[0]; args[0] }
+
+        when:
+        def ticket = service.create(10L, 'Alice', 'subj', rawCategory, 'body')
+
+        then: 'the stored category and the auto-reply template family agree'
+        ticket.category == 'TRADE'
+        def staffMsg = saved.find { it.author == 'STAFF' }
+        // The TRADE template is the only one that mentions the 8-day Steam hold.
+        staffMsg.body.contains('8-day Steam hold')
+
+        where:
+        rawCategory << ['trade  :)', 'TRADE!', ' TRADE', 'trade ', 'TrAdE']
+    }
+
+    def "create auto-reply is the generic template for an all-symbol category (normalized to OTHER)"() {
+        given:
+        def saved = []
+        ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
+        messageRepository.save(_) >> { args -> saved << args[0]; args[0] }
+
+        when:
+        service.create(10L, 'Alice', 'subj', ':)', 'body')
+
+        then:
+        def staffMsg = saved.find { it.author == 'STAFF' }
+        staffMsg.body.contains('a support agent will reply shortly')
+    }
+
     def "create refuses empty subject"() {
         given:
         // Use a fresh sanitizer that returns empty for subject() — the default
@@ -153,6 +205,28 @@ class SupportServiceSpec extends Specification {
 
         then:
         thrown(BadRequestException)
+    }
+
+    def "create refuses a body that is only newlines (sanitizeMultiline collapses to empty)"() {
+        given:
+        // A body of nothing but blank lines must not slip past the INVALID_BODY
+        // guard. sanitizeMultiline splits on \n, every line sanitizes to '',
+        // and the joined result trims to ''. CRLF / lone CR are normalised
+        // first so they collapse the same way. The echo-back default stub
+        // (body() returns its input) is enough — a literal "\n" line sanitizes
+        // to "" because the empty string echoes back empty.
+        ticketRepository.save(_) >> { args -> def t = args[0]; t.id = 1L; t }
+        messageRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.create(10L, 'Alice', 'subject', 'OTHER', bodyValue)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_BODY'
+
+        where:
+        bodyValue << ['\n\n\n', '\r\n\r\n', '\r\r', '\n']
     }
 
     def "create refuses empty body"() {
@@ -297,6 +371,64 @@ class SupportServiceSpec extends Specification {
 
         when:
         service.resolve(10L, 999L)
+
+        then:
+        thrown(NotFoundException)
+    }
+
+    // ── reopen (batch 858) ────────────────────────────────────────
+
+    def "reopen flips a RESOLVED ticket back to WAITING_STAFF for the owner"() {
+        given:
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED', updatedAt: 1L)
+        ticketRepository.findById(1L) >> Optional.of(ticket)
+        ticketRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.reopen(10L, 1L)
+
+        then:
+        result.status == 'WAITING_STAFF'
+        result.updatedAt > 1L
+    }
+
+    def "reopen forbids non-owner"() {
+        given:
+        ticketRepository.findById(_) >> Optional.of(new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED'))
+
+        when:
+        service.reopen(99L, 1L)
+
+        then:
+        thrown(ForbiddenException)
+        0 * ticketRepository.save(_)
+    }
+
+    def "reopen refuses a ticket that is not RESOLVED (state-machine guard)"() {
+        given:
+        // Reopening a still-open thread is meaningless — should 400, not
+        // silently churn the row back to WAITING_STAFF.
+        ticketRepository.findById(1L) >> Optional.of(
+            new SupportTicket(id: 1L, userId: 10L, status: status))
+
+        when:
+        service.reopen(10L, 1L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'NOT_RESOLVED'
+        0 * ticketRepository.save(_)
+
+        where:
+        status << ['WAITING_USER', 'WAITING_STAFF', 'OPEN']
+    }
+
+    def "reopen 404s for unknown ticket id"() {
+        given:
+        ticketRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.reopen(10L, 999L)
 
         then:
         thrown(NotFoundException)

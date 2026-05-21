@@ -272,6 +272,16 @@ class StripeService {
             throw new IllegalStateException("Only completed deposits can be refunded")
         }
         def amount = refundAmount ?: tx.amount
+        // Normalise to whole cents — mirrors createDepositSession /
+        // requestWithdrawal. The admin-supplied refundAmount is NOT
+        // scale-constrained, so a value like 30.005 would otherwise:
+        // refund Stripe (30.005*100).longValue() = 3000 cents ($30.00)
+        // but debit the wallet the un-rounded 30.005 and record a REFUND
+        // row of 30.005 — a sub-cent drift between Stripe and the ledger.
+        // Rounding here keeps the Stripe refund, the wallet debit, and
+        // the stored REFUND tx all on the same 2dp value. Done before the
+        // range check so `amount > tx.amount` compares like-scaled values.
+        amount = amount.setScale(2, java.math.RoundingMode.HALF_UP)
         if (amount <= BigDecimal.ZERO || amount > tx.amount) {
             throw new IllegalArgumentException("Refund amount must be between 0 and \$${tx.amount}")
         }
@@ -583,11 +593,25 @@ class StripeService {
      * Falls back gracefully to a LIKE query which is fine at our scale
      * (deposits table is small — low-volume indexed type/status narrows
      * the LIKE scan further).
+     *
+     * Searches BOTH 'COMPLETED' and 'DISPUTED' deposits. A deposit is
+     * 'COMPLETED' when the dispute first opens, but handleChargebackOpened
+     * immediately flips it to 'DISPUTED'. If this lookup only scanned
+     * 'COMPLETED' rows, then:
+     *   1. `charge.dispute.closed` (WON) could never find the row → the
+     *      withdrawal hold would never auto-lift even though the user won.
+     *   2. A Stripe retry of `charge.dispute.created` would see tx==null
+     *      → isFirstObservation==true → re-audit + re-spam every admin.
+     * The " [pi:<id>]" tag is appended at completeDeposit time and is
+     * never stripped when the row flips to DISPUTED, so it survives the
+     * status transition and the exact-substring match still holds.
      */
     private Transaction findDepositByPaymentIntent(String paymentIntentId) {
         if (!paymentIntentId) return null
-        def rows = transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED')
-        return (rows ?: []).find { (it.description ?: '').contains("[pi:${paymentIntentId}]") }
+        def rows = []
+        rows.addAll(transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED') ?: [])
+        rows.addAll(transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'DISPUTED') ?: [])
+        return rows.find { (it.description ?: '').contains("[pi:${paymentIntentId}]") }
     }
 
     /**
@@ -1068,8 +1092,20 @@ class StripeService {
             try {
                 session = Session.retrieve(sessionId)
             } catch (Exception e) {
-                log.warn("Stripe session retrieve failed for ${sessionId}: ${e.message}")
-                throw new IllegalStateException("Stripe session could not be verified")
+                // TRANSIENT failure — a Stripe API outage / timeout. Retrying
+                // WILL succeed once Stripe recovers, so this must NOT be
+                // thrown as IllegalState/IllegalArgument: StripeWebhookController
+                // ACKs those exception types with 200 (treating them as
+                // permanent domain failures), which would make Stripe stop
+                // retrying the checkout.session.completed event — and a user
+                // who genuinely paid would never see their wallet credited.
+                // A plain RuntimeException falls through the webhook
+                // controller's catch-all to a 500, so Stripe retries with
+                // backoff; on the synchronous /confirm-deposit path it maps
+                // to a 500 too (correct — a Stripe outage is a server fault,
+                // not a client error), and the user can retry.
+                log.warn("Stripe session retrieve failed for ${sessionId} (transient — retryable): ${e.message}")
+                throw new RuntimeException("Stripe session could not be verified — temporary Stripe error, retry", e)
             }
             if (session == null) {
                 throw new IllegalStateException("Stripe session not found")

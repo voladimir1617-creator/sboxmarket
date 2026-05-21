@@ -97,6 +97,14 @@ class SupportControllerSpec extends Specification {
         0 * supportService.reopen(_, _)
     }
 
+    def "reply() requires sign-in"() {
+        given: anonSession()
+        when:  controller.reply(1L, [body: 'x'], req)
+        then:  thrown(UnauthorizedException)
+        0 * steamUserRepository.findById(_)
+        0 * supportService.reply(_, _, _, _)
+    }
+
     def "reportUser() requires sign-in"() {
         given: anonSession()
         when:  controller.reportUser(200L, [reason: 'x'], req)
@@ -262,6 +270,35 @@ class SupportControllerSpec extends Specification {
         then:
         def e = thrown(BadRequestException)
         e.code == 'SELF_REPORT'
+        0 * steamUserRepository.findById(_)
+        0 * supportService.create(_, _, _, _, _)
+    }
+
+    def "reportUser() self-report check fires BEFORE the ban guard (cheap-fail ordering)"() {
+        given: 'a banned user reports themselves'
+        authedSession(100L)
+
+        when:
+        controller.reportUser(100L, [reason: 'x'], req)
+
+        then: 'SELF_REPORT wins — the ban guard is never consulted, no user lookup'
+        def e = thrown(BadRequestException)
+        e.code == 'SELF_REPORT'
+        0 * banGuard.assertNotBanned(_)
+        0 * steamUserRepository.findById(_)
+        0 * supportService.create(_, _, _, _, _)
+    }
+
+    def "reportUser() ban guard fires BEFORE the target lookup (banned user can't enumerate ids)"() {
+        given: 'the ban guard rejects the reporter'
+        authedSession(100L)
+        1 * banGuard.assertNotBanned(100L) >> { throw new ForbiddenException("Your account is banned: spam") }
+
+        when:
+        controller.reportUser(999L, [reason: 'x'], req)
+
+        then: 'the target is never looked up — a banned user cannot probe which ids exist via report-user'
+        thrown(ForbiddenException)
         0 * steamUserRepository.findById(_)
         0 * supportService.create(_, _, _, _, _)
     }

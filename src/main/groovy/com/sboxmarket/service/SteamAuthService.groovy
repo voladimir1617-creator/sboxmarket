@@ -106,8 +106,18 @@ class SteamAuthService {
      * verbatim with only `openid.mode` changed to `check_authentication` —
      * this avoids any re-encoding drift that would invalidate the signature.
      * Returns the SteamID64 on success, or null if verification fails.
+     *
+     * The SteamID64 is extracted from `openid.claimed_id` AS IT APPEARS IN
+     * THE RAW, VERIFIED QUERY STRING — never from a servlet-decoded
+     * parameter passed in alongside it. Steam's check_authentication only
+     * attests the bytes of `rawQueryString`; a value sourced any other way
+     * (e.g. `req.getParameter`, which can disagree with the raw string when
+     * `openid.claimed_id` is duplicated) is unverified and must not decide
+     * which account we log in. The optional `claimedIdParam` is accepted
+     * for caller convenience / logging only and is NOT trusted: when it is
+     * supplied it must match the raw value or verification fails.
      */
-    String verifyReturn(String rawQueryString, String claimedIdParam) {
+    String verifyReturn(String rawQueryString, String claimedIdParam = null) {
         if (!rawQueryString) {
             log.warn("Steam verify: empty query string")
             return null
@@ -140,8 +150,28 @@ class SteamAuthService {
             return null
         }
 
-        if (!response.contains('is_valid:true')) {
+        // Match `is_valid:true` as a whole key:value LINE. Steam's
+        // check_authentication response is line-oriented `key:value`
+        // text; a substring check would also accept a hypothetical
+        // `is_valid:true_x` or `not_is_valid:true`. Anchor to a line
+        // boundary so only the genuine field satisfies it.
+        if (!(response =~ /(?m)^is_valid:true\s*$/)) {
             log.warn("Steam OpenID reports invalid")
+            return null
+        }
+
+        // The signature Steam just attested only covers the fields named
+        // in `openid.signed`. A relying party MUST confirm that the
+        // identity-bearing fields are actually in that set — otherwise an
+        // attacker can take any validly-signed assertion, drop
+        // `claimed_id`/`identity` out of `openid.signed`, and substitute
+        // an arbitrary `openid.claimed_id` that check_authentication will
+        // still report valid (the signature verifies over the REDUCED
+        // field set). Require both identity fields to be signed.
+        def signed = paramFromQuery(rawQueryString, 'openid.signed')
+        def signedFields = signed ? signed.split(',').collect { it.trim() } as Set : [] as Set
+        if (!signedFields.contains('claimed_id') || !signedFields.contains('identity')) {
+            log.warn("Steam OpenID assertion rejected: claimed_id/identity not covered by openid.signed")
             return null
         }
 
@@ -157,12 +187,31 @@ class SteamAuthService {
             return null
         }
 
-        def m = claimedIdParam =~ STEAMID_REGEX
-        if (!m.find()) {
-            log.warn("Unexpected claimed_id format: $claimedIdParam")
+        // Extract the SteamID64 from the claimed_id IN THE RAW, VERIFIED
+        // query string — this is the value Steam signed and attested, not
+        // whatever a servlet param map happened to decode.
+        def claimedId = paramFromQuery(rawQueryString, 'openid.claimed_id')
+        if (claimedId == null) {
+            log.warn("Steam OpenID assertion rejected: no claimed_id in callback")
             return null
         }
-        m.group(1)
+        def m = claimedId =~ STEAMID_REGEX
+        if (!m.find()) {
+            log.warn("Unexpected claimed_id format: $claimedId")
+            return null
+        }
+        def steamId64 = m.group(1)
+
+        // Defence-in-depth: if the caller passed a claimed_id alongside
+        // the raw query (the controller reads req.getParameter), it must
+        // agree with the verified value. A mismatch means the servlet
+        // decoded a different duplicate of openid.claimed_id than the one
+        // Steam signed — reject rather than silently trusting either.
+        if (claimedIdParam != null && claimedIdParam != claimedId) {
+            log.warn("Steam OpenID assertion rejected: claimed_id param disagrees with signed value")
+            return null
+        }
+        steamId64
     }
 
     /**

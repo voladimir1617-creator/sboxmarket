@@ -7,7 +7,6 @@
   <link rel="canonical" href="https://skinbox.market/legal/refunds.html">
   <meta name="theme-color" content="#1ea5ff">
   <meta name="color-scheme" content="dark">
-  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
   <link rel="icon" type="image/png" href="/img/favicon-32.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,6 +23,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-doc .callout {
       background: rgba(248, 113, 113, 0.08);
       border: 1px solid rgba(248, 113, 113, 0.35);
@@ -54,8 +58,8 @@
     <p>SkinBox will issue a full refund in the following narrow set of cases:</p>
     <ul>
       <li><strong>Double-charge:</strong> Stripe captured the same payment twice due to a retry bug. We refund the duplicate within 5 business days of detection.</li>
-      <li><strong>Seller never sent the trade:</strong> You paid, but the seller missed the 8-day escrow countdown and never delivered a Steam trade offer. The escrow auto-cancels and your wallet is refunded automatically — no support ticket needed. If auto-cancel ever fails, contact support with your order ID.</li>
-      <li><strong>Wrong item delivered:</strong> The item you received is demonstrably different from the one you paid for (e.g. different skin, different condition). You must report within 7 days via the trade chat, and we must be able to verify via the Steam trade history the seller attached to the escrow.</li>
+      <li><strong>Seller never sent the trade:</strong> You paid, but the seller went silent and never delivered a Steam trade offer. After 3 days of seller inactivity the escrow auto-cancels and your wallet is refunded automatically — no support ticket needed. If auto-cancel ever fails, contact support with your order ID.</li>
+      <li><strong>Wrong item delivered:</strong> The item you received is demonstrably different from the one you paid for (e.g. different skin, different condition). You must report within 8 days of purchase via the trade page, and we must be able to verify via the Steam trade history the seller attached to the escrow.</li>
       <li><strong>Platform outage:</strong> SkinBox charged you but we were unable to match your order to a listing because of a confirmed outage on our side.</li>
     </ul>
 
@@ -68,7 +72,7 @@
       <li>Facepunch removed or reworked the item after purchase.</li>
       <li>Your Steam account was trade-locked, 2FA-locked, or banned after purchase.</li>
       <li>You rejected the trade offer and the hold expired.</li>
-      <li>You waited more than 7 days to report a problem.</li>
+      <li>You waited more than 8 days after purchase to report a problem.</li>
     </ul>
 
     <h2>3. Wallet withdrawals</h2>

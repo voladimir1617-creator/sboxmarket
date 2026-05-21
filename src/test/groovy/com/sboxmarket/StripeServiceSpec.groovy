@@ -247,6 +247,33 @@ class StripeServiceSpec extends Specification {
         result.newBalance == new BigDecimal("170")
     }
 
+    def "refundDeposit rounds a sub-cent refund amount to whole cents before debiting"() {
+        // The admin-supplied refundAmount is not scale-constrained. A
+        // value like 30.005 must debit the wallet whole cents only — and
+        // by the same value the Stripe refund uses — otherwise the ledger
+        // drifts a fraction of a cent from what Stripe actually clawed back.
+        given:
+        def depositTx = new Transaction(
+            id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal("100.00"), currency: 'USD', stripeReference: 'dev_123'
+        )
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("200.00"))
+        transactionRepository.findById(_) >> Optional.of(depositTx)
+        walletRepository.findById(_) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        def savedRefund = null
+        transactionRepository.save(_) >> { Transaction t -> t.id = 2L; savedRefund = t; t }
+
+        when: 'an admin enters a 3-decimal refund amount'
+        def result = service.refundDeposit(1L, new BigDecimal("30.005"))
+
+        then: 'HALF_UP → 30.01; the wallet debit and the REFUND row carry the same 2dp value'
+        wallet.balance == new BigDecimal("169.99")
+        result.newBalance == new BigDecimal("169.99")
+        savedRefund.amount == new BigDecimal("30.01")
+        savedRefund.amount.scale() == 2
+    }
+
     def "refundDeposit refuses when deposit tx is not COMPLETED"() {
         given:
         transactionRepository.findById(_) >> Optional.of(new Transaction(type: 'DEPOSIT', status: 'PENDING'))
@@ -373,6 +400,125 @@ class StripeServiceSpec extends Specification {
         thrown(NoSuchElementException)
     }
 
+    // ── completeDeposit (dev-mode-reachable branches) ─────────────────
+    //
+    // The live-Stripe path (Session.retrieve) needs static SDK mocking
+    // and is out of scope. But the guard branches and the non-live
+    // credit path are pure and must be pinned — they are the deposit
+    // money-in correctness surface.
+
+    def "completeDeposit credits the wallet and flips the tx to COMPLETED (non-live path)"() {
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'PENDING',
+            amount: new BigDecimal('60.00'), currency: 'USD', stripeReference: 'dev_abc')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('40.00'))
+        transactionRepository.findByStripeReference('dev_abc') >> tx
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction t -> t }
+
+        when:
+        service.completeDeposit('dev_abc')
+
+        then: 'wallet credited by exactly the tx amount, row marked COMPLETED'
+        wallet.balance == new BigDecimal('100.00')
+        tx.status == 'COMPLETED'
+    }
+
+    def "completeDeposit is idempotent — a second call on an already-COMPLETED row never double-credits"() {
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('60.00'), currency: 'USD', stripeReference: 'dev_done')
+        transactionRepository.findByStripeReference('dev_done') >> tx
+
+        when: 'the deposit is confirmed a second time (webhook + /confirm-deposit both fire)'
+        service.completeDeposit('dev_done')
+
+        then: 'short-circuits before touching the wallet — no credit, no save'
+        0 * walletRepository.findById(_)
+        0 * walletRepository.save(_)
+    }
+
+    def "completeDeposit throws IllegalStateException for an unknown session id (permanent — webhook ACKs 200)"() {
+        given: 'no tx matches the supplied reference'
+        transactionRepository.findByStripeReference('cs_ghost') >> null
+
+        when:
+        service.completeDeposit('cs_ghost')
+
+        then: 'IllegalState is the permanent-domain-failure type — StripeWebhookController ACKs it 200'
+        thrown(IllegalStateException)
+        0 * walletRepository.save(_)
+    }
+
+    def "completeDeposit throws IllegalArgumentException for a null/oversize session id"() {
+        when:
+        service.completeDeposit(sessionId)
+
+        then:
+        thrown(IllegalArgumentException)
+
+        where:
+        sessionId << [null, '', 'cs_' + ('x' * 200)]
+    }
+
+    def "completeDeposit refuses a reference that resolves to a non-DEPOSIT tx"() {
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',
+            amount: new BigDecimal('10'), stripeReference: 'dev_w')
+        transactionRepository.findByStripeReference('dev_w') >> tx
+
+        when:
+        service.completeDeposit('dev_w')
+
+        then: 'never credits a wallet off a withdrawal row'
+        thrown(IllegalStateException)
+        0 * walletRepository.save(_)
+    }
+
+    // ── failTransaction ───────────────────────────────────────────────
+
+    def "failTransaction flips a PENDING deposit to FAILED"() {
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'PENDING',
+            amount: new BigDecimal('25.00'), stripeReference: 'cs_exp')
+        transactionRepository.findByStripeReference('cs_exp') >> tx
+        transactionRepository.save(_) >> { Transaction t -> t }
+
+        when:
+        service.failTransaction('cs_exp', 'expired')
+
+        then:
+        tx.status == 'FAILED'
+        tx.description.contains('expired')
+    }
+
+    def "failTransaction never overwrites a non-PENDING row (idempotent — no COMPLETED→FAILED)"() {
+        given: 'the deposit already completed via a racing confirm-deposit'
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('25.00'), stripeReference: 'cs_done')
+        transactionRepository.findByStripeReference('cs_done') >> tx
+
+        when: 'a late checkout.session.expired event arrives for the same session'
+        service.failTransaction('cs_done', 'expired')
+
+        then: 'the COMPLETED row is left untouched — a paid deposit is never flipped to FAILED'
+        tx.status == 'COMPLETED'
+        0 * transactionRepository.save(_)
+    }
+
+    def "failTransaction is a no-op for an unknown session id"() {
+        given:
+        transactionRepository.findByStripeReference('cs_nope') >> null
+
+        when:
+        service.failTransaction('cs_nope', 'expired')
+
+        then:
+        0 * transactionRepository.save(_)
+        noExceptionThrown()
+    }
+
     // ── webhook event-id dedupe (BUG 1 — batch 657) ───────────────
     //
     // The dedupe set must record an event id ONLY after the handler
@@ -495,5 +641,127 @@ class StripeServiceSpec extends Specification {
         1 * audit.log('CHARGEBACK_OPENED', null, null, null, { String summary ->
             summary.contains('$0')
         })
+    }
+
+    // ── dispute-tx lookup spans COMPLETED + DISPUTED (BUG FIX) ────────
+    //
+    // findDepositByPaymentIntent only scanned 'COMPLETED' deposits. But
+    // handleChargebackOpened flips the matched deposit to 'DISPUTED' the
+    // moment a chargeback lands. Two follow-on events then broke:
+    //
+    //   1. `charge.dispute.closed` (WON) re-ran the lookup, which now
+    //      missed the (DISPUTED) row entirely — so the tx was never
+    //      flipped back to COMPLETED and the user's withdrawal hold
+    //      (countActiveDisputedDeposits > 0) never auto-lifted even
+    //      though they won the dispute.
+    //   2. A Stripe retry of `charge.dispute.created` also missed the
+    //      row → tx==null → isFirstObservation==true → the audit log +
+    //      every-admin + user notification fired a SECOND time.
+    //
+    // The deposit's " [pi:<id>]" description tag is appended at
+    // completeDeposit time and survives the flip to DISPUTED, so once
+    // the lookup also scans DISPUTED rows the match holds again.
+
+    def "handleChargebackClosed WON flips a DISPUTED deposit back to COMPLETED (auto-clears the withdrawal hold)"() {
+        given: 'a deposit that already went DISPUTED when the chargeback opened'
+        def disputedDeposit = new Transaction(
+            id: 7L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED',
+            amount: new BigDecimal('80.00'), currency: 'USD',
+            stripeReference: 'cs_orig',
+            description: 'Stripe Checkout deposit [pi:pi_won] — DISPUTED via Stripe (dp_x)')
+        // The pre-fix lookup scanned only COMPLETED rows and would have
+        // missed this DISPUTED row; the fix unions COMPLETED + DISPUTED.
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED') >> []
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'DISPUTED') >> [disputedDeposit]
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        // paymentIntent set, charge left null → the Stripe Charge.retrieve
+        // fallback never fires, so the lookup stays inside the mock.
+        def dispute = new Dispute(id: 'dp_won', amount: 8000L, status: 'won', paymentIntent: 'pi_won')
+
+        when:
+        service.handleChargebackClosed(dispute)
+
+        then: 'the disputed deposit is reconciled back to COMPLETED — the hold lifts'
+        disputedDeposit.status == 'COMPLETED'
+        disputedDeposit.description.contains('dispute WON')
+        1 * transactionRepository.save({ Transaction t -> t.id == 7L && t.status == 'COMPLETED' })
+    }
+
+    def "handleChargebackClosed LOST keeps a DISPUTED deposit DISPUTED (hold stays in place)"() {
+        given:
+        def disputedDeposit = new Transaction(
+            id: 8L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED',
+            amount: new BigDecimal('40.00'), currency: 'USD',
+            description: 'Stripe Checkout deposit [pi:pi_lost] — DISPUTED via Stripe (dp_y)')
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED') >> []
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'DISPUTED') >> [disputedDeposit]
+        def dispute = new Dispute(id: 'dp_lost2', amount: 4000L, status: 'lost', paymentIntent: 'pi_lost')
+
+        when:
+        service.handleChargebackClosed(dispute)
+
+        then: 'a lost dispute never flips the row back — withdrawals stay paused for admin clawback'
+        disputedDeposit.status == 'DISPUTED'
+        0 * transactionRepository.save({ Transaction t -> t.status == 'COMPLETED' })
+    }
+
+    def "handleChargebackOpened retry on an already-DISPUTED deposit does NOT re-audit (idempotent)"() {
+        given: 'the deposit is already DISPUTED from the first delivery of this event'
+        def audit = Mock(AuditService)
+        service.auditService = audit
+        def alreadyDisputed = new Transaction(
+            id: 9L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED',
+            amount: new BigDecimal('25.00'), currency: 'USD',
+            description: 'Stripe Checkout deposit [pi:pi_retry] — DISPUTED via Stripe (dp_r)')
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED') >> []
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'DISPUTED') >> [alreadyDisputed]
+        def dispute = new Dispute(id: 'dp_retry', amount: 2500L, reason: 'fraudulent', paymentIntent: 'pi_retry')
+
+        when: 'Stripe re-delivers charge.dispute.created'
+        service.handleChargebackOpened(dispute)
+
+        then: 'the lookup finds the DISPUTED row, isFirstObservation is false — no second audit row'
+        0 * audit.log('CHARGEBACK_OPENED', _, _, _, _)
+        0 * transactionRepository.save(_)
+    }
+
+    def "handleChargebackOpened first observation flips a COMPLETED deposit to DISPUTED and audits once"() {
+        given:
+        def audit = Mock(AuditService)
+        service.auditService = audit
+        def liveDeposit = new Transaction(
+            id: 10L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal('60.00'), currency: 'USD',
+            description: 'Stripe Checkout deposit [pi:pi_first]')
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED') >> [liveDeposit]
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'DISPUTED') >> []
+        transactionRepository.save(_) >> { Transaction t -> t }
+        def dispute = new Dispute(id: 'dp_first', amount: 6000L, reason: 'fraudulent', paymentIntent: 'pi_first')
+
+        when:
+        service.handleChargebackOpened(dispute)
+
+        then: 'the COMPLETED deposit is flipped to DISPUTED and the audit fires exactly once'
+        liveDeposit.status == 'DISPUTED'
+        1 * audit.log('CHARGEBACK_OPENED', null, null, 10L, _)
+    }
+
+    def "findDepositByPaymentIntent matches a DISPUTED row via the surviving [pi:] tag"() {
+        given: 'only a DISPUTED deposit carries the tag — COMPLETED set is empty'
+        def disputed = new Transaction(
+            id: 11L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED',
+            amount: new BigDecimal('15.00'),
+            description: 'Stripe Checkout deposit [pi:pi_tag] — DISPUTED via Stripe (dp_z)')
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'COMPLETED') >> []
+        transactionRepository.findByTypeAndStatusOrderByCreatedAtDesc('DEPOSIT', 'DISPUTED') >> [disputed]
+
+        expect: 'the lookup now spans DISPUTED rows so the tag still resolves the tx'
+        service.findDepositByPaymentIntent('pi_tag')?.id == 11L
+
+        and: 'an unrelated payment-intent id matches nothing'
+        service.findDepositByPaymentIntent('pi_other') == null
+
+        and: 'a null id short-circuits to null'
+        service.findDepositByPaymentIntent(null) == null
     }
 }

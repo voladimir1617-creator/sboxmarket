@@ -218,39 +218,63 @@ class NotificationServiceSpec extends Specification {
 
     // ── deleteAllRead ───────────────────────────────────────────
 
-    def "deleteAllRead removes only the read rows and returns the count"() {
+    def "deleteAllRead delegates to the set-based DELETE scoped to the caller"() {
         given:
-        def rows = [
-            new Notification(id: 1L, userId: 10L, read: true),
-            new Notification(id: 2L, userId: 10L, read: false),
-            new Notification(id: 3L, userId: 10L, read: true),
-            new Notification(id: 4L, userId: 10L, read: true)
-        ]
-        notificationRepository.findForUser(10L, _) >> rows
+        notificationRepository.deleteAllReadForUser(10L) >> 3
 
         when:
         def n = service.deleteAllRead(10L)
 
         then:
         n == 3
-        1 * notificationRepository.deleteAll({ List<Notification> toDelete ->
-            toDelete.size() == 3 && toDelete.every { it.read == true }
-        })
+        // One set-based DELETE — no row hydration, no findForUser, no
+        // deleteAll(collection). The repo @Query already scopes to
+        // userId AND read = true.
+        0 * notificationRepository.findForUser(_, _)
+        0 * notificationRepository.deleteAll(_)
     }
 
-    def "deleteAllRead is a zero-count no-op when nothing is read"() {
+    def "deleteAllRead passes through a zero count when nothing is read"() {
         given:
-        notificationRepository.findForUser(10L, _) >> [
-            new Notification(id: 1L, userId: 10L, read: false),
-            new Notification(id: 2L, userId: 10L, read: false)
-        ]
+        notificationRepository.deleteAllReadForUser(10L) >> 0
 
         when:
         def n = service.deleteAllRead(10L)
 
         then:
         n == 0
+    }
+
+    def "deleteAllRead is a no-op for a null userId"() {
+        when:
+        def n = service.deleteAllRead(null)
+
+        then:
+        n == 0
+        0 * notificationRepository.deleteAllReadForUser(_)
+        0 * notificationRepository.findForUser(_, _)
+    }
+
+    def "deleteAllRead clears EVERY read row even past the old 500-row window (BUG 2)"() {
+        given:
+        // Regression guard for BUG 2: the old implementation hydrated the
+        // 500 most-recent rows of *any* read-state, then filtered to the
+        // read ones. A user with 500+ recent UNREAD rows had the whole
+        // window consumed by unread, so `toDelete` was empty and "Clear
+        // read" silently deleted nothing — even though thousands of
+        // older READ rows were eligible. The fix is a single set-based
+        // DELETE scoped to (userId, read = true) with no window.
+        notificationRepository.deleteAllReadForUser(10L) >> 1200
+
+        when:
+        def n = service.deleteAllRead(10L)
+
+        then:
+        // No paged hydration path that a 500+ unread backlog could mask.
+        0 * notificationRepository.findForUser(_, _)
         0 * notificationRepository.deleteAll(_)
+        // Every eligible read row is reported deleted, well past 500.
+        n == 1200
     }
 
     // ── deleteOne ─────────────────────────────────────────────────
@@ -446,5 +470,94 @@ class NotificationServiceSpec extends Specification {
         then:
         a == 0 && b == 0 && c == 0
         0 * notificationRepository.findAllById(_)
+    }
+
+    def "deleteReadByIds dedupes + caps the input so a huge id list can't drown the repo"() {
+        given:
+        // Mirror of the markReadByIds cap test — 603 ids with dupes, the
+        // 500-cap must apply after dedup so the repo never sees > 500.
+        def ids = (1..600).collect { (long) it } + [1L, 2L, 3L]
+        def passedToRepo = null
+        notificationRepository.findAllById(_) >> { args -> passedToRepo = args[0]; [] }
+
+        when:
+        service.deleteReadByIds(10L, ids)
+
+        then:
+        passedToRepo != null
+        passedToRepo.size() <= 500
+        passedToRepo.count(1L) <= 1
+    }
+
+    def "deleteReadByIds drops null ids inside the list without NPEing"() {
+        given:
+        // Controller pre-filters nulls, but the service must be safe on
+        // its own — a null id in the collection must not blow up the
+        // unique()/take() pipeline or the ownership filter.
+        def rows = [new Notification(id: 5L, userId: 10L, read: true, title: 'a')]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.deleteReadByIds(10L, [null, 5L, null])
+
+        then:
+        n == 1
+        noExceptionThrown()
+        1 * notificationRepository.deleteAll({ List<Notification> d -> d*.id == [5L] })
+    }
+
+    def "markReadByIds drops null ids inside the list without NPEing"() {
+        given:
+        def rows = [new Notification(id: 5L, userId: 10L, read: false, title: 'a')]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.markReadByIds(10L, [null, 5L, null])
+
+        then:
+        n == 1
+        noExceptionThrown()
+    }
+
+    // ── ownership scoping — no existence leak across users ───────────
+
+    def "markReadByIds ignores a foreign row even when it is the only id"() {
+        given:
+        // A hostile caller passing someone else's id gets flipped == 0,
+        // identical to passing a non-existent id — no existence leak.
+        def rows = [new Notification(id: 1L, userId: 99L, read: false, title: 'x')]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.markReadByIds(10L, [1L])
+
+        then:
+        n == 0
+        0 * notificationRepository.saveAll(_)
+        rows[0].read == false
+    }
+
+    def "deleteReadByIds ignores a foreign read row even when it is the only id"() {
+        given:
+        def rows = [new Notification(id: 1L, userId: 99L, read: true, title: 'x')]
+        notificationRepository.findAllById(_) >> rows
+
+        when:
+        def n = service.deleteReadByIds(10L, [1L])
+
+        then:
+        n == 0
+        0 * notificationRepository.deleteAll(_)
+    }
+
+    def "markUnread does nothing when the id is unknown"() {
+        given:
+        notificationRepository.findById(_) >> Optional.empty()
+
+        when:
+        service.markUnread(10L, 999L)
+
+        then:
+        0 * notificationRepository.save(_)
     }
 }

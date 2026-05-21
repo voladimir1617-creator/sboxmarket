@@ -250,9 +250,23 @@ class FraudAnalysisService {
      * Only fires when there are admins configured — `findByRole` is
      * cheap via the role index but we still skip it when we have
      * nothing to send.
+     *
+     * NOTE: this method is `@Transactional` (read-write), NOT
+     * `readOnly = true`, even though `computeSignals()` + the admin
+     * lookup are pure reads. The sweeper's whole job is to WRITE
+     * notification rows via `notificationService.push()`. `push` is
+     * `@Transactional` with default REQUIRED propagation, so when
+     * invoked from inside this method's transaction it JOINS that
+     * transaction rather than starting its own. A `readOnly = true`
+     * outer transaction puts Hibernate in `FlushMode.MANUAL` and never
+     * flushes at commit — so every `notificationRepository.save()`
+     * would be silently discarded and no admin would ever receive a
+     * fraud bell. Read-write is required for the joined `push` save to
+     * actually persist. Matches `TradeService.sweepReviewNudge` /
+     * `sweepSlowSellerWarning`, the other sweepers that fan out pushes.
      */
     @Scheduled(fixedDelay = 30L * 60L * 1000L, initialDelay = 10L * 60L * 1000L)
-    @Transactional(readOnly = true)
+    @Transactional
     void sweepAndPushFraudSignals() {
         if (notificationService == null || steamUserRepository == null) return
         List<Map> signals

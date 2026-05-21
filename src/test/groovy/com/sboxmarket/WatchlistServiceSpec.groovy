@@ -152,4 +152,116 @@ class WatchlistServiceSpec extends Specification {
         n == 0
         0 * repository.deleteByUser(_)
     }
+
+    // ── null-argument guards ──────────────────────────────────────
+
+    def "add short-circuits on a null user id or item id without touching the repo"() {
+        when:
+        def a = service.add(null, 100L)
+        def b = service.add(10L, null)
+
+        then:
+        a == false
+        b == false
+        0 * repository.existsByUserAndItem(_, _)
+        0 * repository.save(_)
+    }
+
+    def "remove short-circuits on a null user id or item id without touching the repo"() {
+        when:
+        def a = service.remove(null, 100L)
+        def b = service.remove(10L, null)
+
+        then:
+        a == false
+        b == false
+        0 * repository.deleteByUserAndItem(_, _)
+    }
+
+    def "list returns an empty list for a null user id without hitting the repo"() {
+        when:
+        def out = service.list(null)
+
+        then:
+        out == []
+        0 * repository.findItemIdsByUser(_)
+    }
+
+    def "bulkMerge returns an empty list for a null user id without hitting the repo"() {
+        when:
+        def out = service.bulkMerge(null, [1L, 2L])
+
+        then:
+        out == []
+        0 * repository.save(_)
+        0 * repository.findExistingItemIds(_, _)
+    }
+
+    // ── cap boundary ──────────────────────────────────────────────
+
+    def "add succeeds at exactly MAX_PER_USER - 1 (the last open slot)"() {
+        given:
+        repository.existsByUserAndItem(10L, 999L) >> false
+        // One slot short of the cap — the new star must land.
+        repository.findItemIdsByUser(10L) >> (1L..(WatchlistService.MAX_PER_USER - 1)).collect { it as Long }
+
+        when:
+        def added = service.add(10L, 999L)
+
+        then:
+        added == true
+        1 * repository.save({ it.itemId == 999L })
+    }
+
+    // ── bulkMerge headroom against the per-user cap ────────────────
+
+    def "bulkMerge only saves up to the remaining headroom when the user is near the cap"() {
+        given:
+        // User already holds (MAX_PER_USER - 3) rows → only 3 slots left.
+        // Client posts 10 fresh ids; exactly 3 must be saved.
+        def incoming = (9000L..9009L).collect { it as Long }
+        repository.findExistingItemIds(10L, incoming) >> []
+        // Parenthesise the cast: Spock's `>>` binds tighter than `as`, so
+        // `>> X as long` parses as `(mock() >> X) as long` — the cast wraps
+        // the whole interaction, Spock fails to register the stub, and
+        // countByUser falls back to the mock default 0 (headroom balloons
+        // to MAX, every id saves → TooManyInvocations).
+        repository.countByUser(10L) >> ((WatchlistService.MAX_PER_USER - 3) as long)
+        repository.findItemIdsByUser(10L) >> [1L, 2L, 3L]   // post-merge fetch (shape only)
+
+        when:
+        def out = service.bulkMerge(10L, incoming)
+
+        then: 'exactly 3 saves — the open headroom — never more'
+        3 * repository.save(_)
+        out == [1L, 2L, 3L]
+    }
+
+    def "bulkMerge saves nothing once the user is already at the cap"() {
+        given:
+        repository.findExistingItemIds(10L, [9000L, 9001L]) >> []
+        repository.countByUser(10L) >> (WatchlistService.MAX_PER_USER as long)  // no headroom
+        repository.findItemIdsByUser(10L) >> [1L, 2L]
+
+        when:
+        def out = service.bulkMerge(10L, [9000L, 9001L])
+
+        then: 'headroom <= 0 → early return, current list echoed back, zero writes'
+        0 * repository.save(_)
+        out == [1L, 2L]
+    }
+
+    def "bulkMerge skips every incoming id when they are all already starred"() {
+        given:
+        repository.findExistingItemIds(10L, [1L, 2L, 3L]) >> [1L, 2L, 3L]
+        repository.countByUser(10L) >> 3L
+        repository.findItemIdsByUser(10L) >> [1L, 2L, 3L]
+
+        when:
+        def out = service.bulkMerge(10L, [1L, 2L, 3L])
+
+        then:
+        0 * repository.save(_)
+        out == [1L, 2L, 3L]
+    }
 }

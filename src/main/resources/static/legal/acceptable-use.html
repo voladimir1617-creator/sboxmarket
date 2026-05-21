@@ -23,6 +23,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-back { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
   </style>
 </head>

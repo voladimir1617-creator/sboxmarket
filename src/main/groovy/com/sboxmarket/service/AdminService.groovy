@@ -302,8 +302,15 @@ class AdminService {
         tx.description = (tx.description ?: '') + " — DISPUTE_CLEARED by admin (${cleanReason})"
         tx.updatedAt = System.currentTimeMillis()
         transactionRepository.save(tx)
+        // Resolve the affected wallet owner up-front so the audit row
+        // records WHO the dispute-clear touched. Previously the subject
+        // was hard-coded null — unlike approveWithdrawal / rejectWithdrawal
+        // which both pass walletOwnerId(...) — so DISPUTE_CLEARED rows were
+        // invisible to the audit-by-subject filter and shipped a blank
+        // subjectUserId / subjectName column in the CSV export.
+        def ownerId = walletOwnerId(tx.walletId)
         try {
-            auditService?.log('DISPUTE_CLEARED', adminUserId, null, txId,
+            auditService?.log('DISPUTE_CLEARED', adminUserId, ownerId, txId,
                 "Cleared chargeback hold on deposit tx=${txId}: ${cleanReason}")
         } catch (Exception e) {
             log.warn("DISPUTE_CLEARED audit failed: ${e.message}")
@@ -317,8 +324,6 @@ class AdminService {
         try {
             long stillHeld = transactionRepository.countActiveDisputedDeposits(tx.walletId)
             if (stillHeld == 0L) {
-                def wallet = walletRepository.findById(tx.walletId).orElse(null)
-                def ownerId = walletOwnerId(tx.walletId)
                 if (ownerId != null) {
                     notificationService?.push(ownerId, 'DISPUTE_CLEARED',
                         "Withdrawals re-enabled",

@@ -51,13 +51,20 @@ class SteamSyncService {
         def users = steamUserRepository.findStaleForSync(cutoff, page)
         if (users.isEmpty()) return
         log.info("Steam sync tick — ${users.size()} stale users (cutoff ${STALE_AFTER_MS / 3600000}h)")
-        users.each { user ->
+        // A classic for-loop, not users.each {} — `return` inside an .each
+        // closure only ends the current iteration, so an interrupt would
+        // NOT abort the sweep: the next Thread.sleep re-throws immediately
+        // (the interrupt flag is still set) and the loop spins through every
+        // remaining user running a full syncOne with zero throttle, defeating
+        // both shutdown and the 1 req/s ceiling. `break` in a real loop
+        // actually stops the walk.
+        for (def user : users) {
             try {
                 syncOne(user)
                 Thread.sleep(1000L)  // 1 req/s ceiling
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt()
-                return
+                break
             } catch (Exception e) {
                 log.warn("Steam sync failed for ${user.steamId64}: ${e.message}")
             }

@@ -55,7 +55,11 @@
   <meta property="og:description" content="Trade Workshop items and cosmetics with lower fees than Steam. Escrowed trades, Stripe payouts.">
   <meta property="og:image" content="https://skinbox.market/img/favicon-512.png">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://skinbox.market">
+  <!-- og:url must match <link rel="canonical"> above exactly — both point at
+       the homepage. The trailing slash keeps the two in sync so Facebook /
+       Discord don't treat the slashless OG URL as a separate object from the
+       canonical the rest of the head (and OpenGraphController) emits. -->
+  <meta property="og:url" content="https://skinbox.market/">
   <meta property="og:site_name" content="SkinBox">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="SkinBox — s&box Skin Marketplace">

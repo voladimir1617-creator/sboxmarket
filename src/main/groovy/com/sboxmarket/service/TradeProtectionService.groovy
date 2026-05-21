@@ -23,13 +23,23 @@ import org.springframework.transaction.annotation.Transactional
  * {@code $0.25}) out of their wallet into platform revenue, and one
  * {@link TradeProtection} row is created tied 1:1 to the trade.
  *
- * If the trade later fails through no fault of the buyer — a seller
- * timeout auto-cancel, an upheld dispute, or any seller-fault cancel —
- * {@code autoClaim} fires (wired into TradeService's cancel path) and
- * the buyer is refunded the FULL item price with no support ticket.
+ * If the trade later fails through no fault of the buyer, the buyer is
+ * made whole the FULL item price with no support ticket. Exactly one
+ * payout ever happens per failed sale:
  *
- * A trade that completes normally (VERIFIED) leaves the protection
- * ACTIVE → EXPIRED via {@code expire}; the fee is kept as revenue.
+ *   - On a DISPUTE, escrow is still frozen, so {@code autoClaim} fires
+ *     from TradeService.dispute() and pays the cover straight to the
+ *     buyer's wallet — the protection IS the refund.
+ *   - On a CANCEL / seller-timeout auto-cancel / banned-seller cancel,
+ *     TradeService already refunds the escrowed item price via its own
+ *     refundBuyer(), so {@code expire} fires instead and the cover
+ *     lapses unused — claiming as well would double-pay the buyer.
+ *     (When a cancel follows a dispute the cover is already CLAIMED;
+ *     {@code expire} is a correct no-op on a non-ACTIVE protection.)
+ *
+ * A trade that completes normally (VERIFIED) likewise leaves the
+ * protection ACTIVE → EXPIRED via {@code expire}; the fee is kept as
+ * revenue.
  *
  * Money model note: the platform has no segregated revenue wallet (the
  * existing 2% trade fee is simply withheld from the seller credit), so

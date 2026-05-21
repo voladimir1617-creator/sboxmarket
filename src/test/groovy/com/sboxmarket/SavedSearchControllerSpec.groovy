@@ -84,6 +84,78 @@ class SavedSearchControllerSpec extends Specification {
         r.maxPrice == '10'
     }
 
+    def "list() projects the batch-957 extended filter fields so applySavedSearch can restore them"() {
+        // Regression: the entity, the service upsert path and the
+        // frontend `applySavedSearch` were all updated for the richer
+        // toolbar, but `toMap` was missed — a signed-in user who
+        // re-applied a preset silently lost "≥20% off / Auctions / New
+        // / Deals / Affordable" because the server never sent them back.
+        given:
+        def row = new SavedSearch(
+            id: 2L, name: 'rich preset',
+            q: '', category: 'Hats', rarity: 'All', sort: 'newest',
+            minPrice: '', maxPrice: '',
+            minDiscountPct: 25, dealsOnly: true, newOnly: true,
+            affordableOnly: false, listingType: 'AUCTION',
+            createdAt: 1700_000_000_000L
+        )
+        authedSession(100L)
+        1 * service.list(100L) >> [row]
+
+        when:
+        def r = controller.list(req).body[0]
+
+        then: 'all five extended fields ride the projection under the keys applySavedSearch reads'
+        r.minDiscountPct == 25
+        r.dealsOnly == true
+        r.newOnly == true
+        r.affordableOnly == false
+        r.listingType == 'AUCTION'
+    }
+
+    def "upsert() echoes the extended filter fields back to the client"() {
+        given:
+        def saved = new SavedSearch(
+            id: 9L, name: 'rich', q: '', category: 'Hats', rarity: 'All',
+            sort: 'price_desc', minPrice: '', maxPrice: '',
+            minDiscountPct: 30, dealsOnly: false, newOnly: true,
+            affordableOnly: true, listingType: 'BUY_NOW',
+            createdAt: 1700_000_001_000L)
+        authedSession(100L)
+        1 * service.upsert(100L, _) >> saved
+
+        when:
+        def body = controller.upsert([name: 'rich', minDiscountPct: 30], req).body
+
+        then:
+        body.minDiscountPct == 30
+        body.dealsOnly == false
+        body.newOnly == true
+        body.affordableOnly == true
+        body.listingType == 'BUY_NOW'
+    }
+
+    def "bulkMerge() echoes the extended filter fields in the merged projection"() {
+        given:
+        def merged = new SavedSearch(
+            id: 1L, name: 'merged', q: '', category: 'All', rarity: 'All',
+            sort: 'price_desc', minPrice: '', maxPrice: '',
+            minDiscountPct: 10, dealsOnly: true, newOnly: false,
+            affordableOnly: false, listingType: 'AUCTION',
+            createdAt: 1700_000_002_000L)
+        authedSession(100L)
+        1 * service.bulkMerge(100L, _) >> [merged]
+
+        when:
+        def entry = controller.bulkMerge([entries: [[name: 'merged']]], req).body.entries[0]
+
+        then:
+        entry.minDiscountPct == 10
+        entry.dealsOnly == true
+        entry.newOnly == false
+        entry.listingType == 'AUCTION'
+    }
+
     def "upsert() delegates to the service with the raw body"() {
         given:
         def saved = new SavedSearch(id: 9L, name: 'new save', q: 'hat', sort: 'price_asc',

@@ -668,6 +668,20 @@ class OfferService {
         offer.updatedAt = System.currentTimeMillis()
         offerRepository.save(offer)
 
+        // P1 bug fix — when the accepted offer is a SELLER counter, the
+        // buyer's original is still parked in COUNTERED. Acceptance is the
+        // counter's happy-path terminal state, yet it was the one terminal
+        // transition that never reached closeCounteredParent (reject /
+        // cancel / sweep / buyer-raise all did). Left uncleaned, the
+        // COUNTERED original stays "live" to findLiveByBuyerAndListing —
+        // so the buyer's ItemModal "You offered $X" chip keeps showing a
+        // live offer on a listing they've already bought, and the dead
+        // COUNTERED node never reaches the inert CLOSED state the
+        // state-machine design requires. Idempotent + no-op for a
+        // USER-authored offer (no parent), so the seller-accept path is
+        // unaffected.
+        closeCounteredParent(offer)
+
         // Explicit OFFER_ACCEPTED push to the buyer (batch 395). The
         // PurchaseService.buy path already fires ITEM_PURCHASED, but that
         // reads as a generic "you bought X" — a buyer who made an offer
@@ -729,6 +743,14 @@ class OfferService {
                 other.status = 'EXPIRED'
                 other.updatedAt = System.currentTimeMillis()
                 offerRepository.save(other)
+                // P1 bug fix — a competing PENDING row being expired here
+                // may itself be a SELLER counter (seller countered buyer A,
+                // then accepted buyer B's separate offer). Expiring the
+                // counter without closing its COUNTERED parent strands
+                // buyer A's original in COUNTERED — same dangling-node bug
+                // closeCounteredParent exists to prevent. No-op for a plain
+                // USER offer with no parent.
+                closeCounteredParent(other)
                 if (other.buyerUserId != null && notificationService != null) {
                     try {
                         notificationService.push(other.buyerUserId, 'OFFER_REJECTED',

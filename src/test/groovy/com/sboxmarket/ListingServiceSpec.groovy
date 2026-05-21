@@ -1195,4 +1195,185 @@ class ListingServiceSpec extends Specification {
         expect:
         service.countHiddenActive(5L) == 2L
     }
+
+    // ── sort comparator total-order safety (no Collections.sort contract break) ──
+
+    def "sort=ending_soon breaks an equal-expiry tie by ascending price without throwing"() {
+        given:
+        // Two auctions ending the exact same ms — the comparator must fall
+        // through to the price tie-break and stay a valid total order.
+        def dear  = listingFor(id: 1L, price: new BigDecimal('80'),
+            listingType: 'AUCTION', expiresAt: 5000L)
+        def cheap = listingFor(id: 2L, price: new BigDecimal('20'),
+            listingType: 'AUCTION', expiresAt: 5000L)
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [dear, cheap]
+
+        when:
+        def result = service.getActiveListings('ending_soon', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        // Same expiry → cheaper one first.
+        result*.id == [2L, 1L]
+    }
+
+    def "sort=ending_soon sends a BUY_NOW row carrying a stray expiresAt to the bottom"() {
+        given:
+        // A BUY_NOW row should NEVER be treated as ending-soon even if it
+        // somehow carries an expiresAt — only listingType=='AUCTION' rows
+        // get a real deadline; everything else sorts as MAX_VALUE.
+        def auction = listingFor(id: 1L, price: new BigDecimal('90'),
+            listingType: 'AUCTION', expiresAt: 3000L)
+        def buyNowWithExpiry = listingFor(id: 2L, price: new BigDecimal('5'),
+            listingType: 'BUY_NOW', expiresAt: 1000L)
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [buyNowWithExpiry, auction]
+
+        when:
+        def result = service.getActiveListings('ending_soon', null, null, null, null, null, null)
+
+        then:
+        // The auction leads despite the BUY_NOW's earlier expiresAt + lower price.
+        result*.id == [1L, 2L]
+    }
+
+    def "sort=ending_soon places an AUCTION with a null expiresAt after one with a real deadline"() {
+        given:
+        def withDeadline = listingFor(id: 1L, price: new BigDecimal('70'),
+            listingType: 'AUCTION', expiresAt: 8000L)
+        def noDeadline   = listingFor(id: 2L, price: new BigDecimal('3'),
+            listingType: 'AUCTION', expiresAt: null)
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [noDeadline, withDeadline]
+
+        when:
+        def result = service.getActiveListings('ending_soon', null, null, null, null, null, null)
+
+        then:
+        // Null-expiry auction is treated as MAX_VALUE → sorts last.
+        result*.id == [1L, 2L]
+    }
+
+    def "sort=discount breaks an equal-discount tie by ascending price"() {
+        given:
+        // Both listings are exactly 50% off Steam — the cheaper one wins.
+        def dear  = listingFor(id: 1L, item: itemWithSteamPrice(1L, new BigDecimal('100.00')),
+            price: new BigDecimal('50.00'))
+        def cheap = listingFor(id: 2L, item: itemWithSteamPrice(2L, new BigDecimal('20.00')),
+            price: new BigDecimal('10.00'))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [dear, cheap]
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        result*.id == [2L, 1L]
+    }
+
+    def "sort=rarity is a stable total order on an equal-supply pair"() {
+        given:
+        // Two items with identical supply — single-key comparator, must
+        // not throw and must keep both rows.
+        def a = listingFor(id: 1L, item: itemFor(1L, 'A', 'Standard', 50))
+        def b = listingFor(id: 2L, item: itemFor(2L, 'B', 'Standard', 50))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [a, b]
+
+        when:
+        def result = service.getActiveListings('rarity', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        result.size() == 2
+    }
+
+    def "sort=popularity is total-order safe when totalSold is null on the item"() {
+        given:
+        // Legacy items can carry a null totalSold; the `?: 0` coalesce must
+        // keep the comparator from NPEing or breaking transitivity.
+        def withNull = listingFor(id: 1L, item: itemFor(1L, 'Legacy', 'Standard', 100),
+            price: new BigDecimal('9'))
+        withNull.item.totalSold = null
+        def withSales = listingFor(id: 2L, item: itemWithCounters(2L, 7L, 0L),
+            price: new BigDecimal('40'))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [withNull, withSales]
+
+        when:
+        def result = service.getActiveListings('popularity', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        // The 7-sales item outranks the null-sales (treated as 0) item.
+        result*.id == [2L, 1L]
+    }
+
+    def "sort=views is total-order safe when viewCount is null on the item"() {
+        given:
+        def withNull = listingFor(id: 1L, item: itemFor(1L, 'Legacy', 'Standard', 100),
+            price: new BigDecimal('9'))
+        withNull.item.viewCount = null
+        def withViews = listingFor(id: 2L, item: itemWithCounters(2L, 0L, 12L),
+            price: new BigDecimal('40'))
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [withNull, withViews]
+
+        when:
+        def result = service.getActiveListings('views', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        result*.id == [2L, 1L]
+    }
+
+    // ── filter param plumbing: combined filters reach findActivePublic ──
+
+    def "getActiveListings forwards category + rarity + listingType + price band together"() {
+        given:
+        // Every filter set at once must arrive in findActivePublic as the
+        // exact canonical args — proves no filter is dropped in the chain.
+        def min = new BigDecimal('5')
+        def max = new BigDecimal('500')
+        listingRepository.findActivePublic('hat', 'Hats', 'Limited', 'AUCTION', min, max) >>
+            [listingFor(id: 7L)]
+
+        when:
+        def result = service.getActiveListings('price_asc', 'Hats', 'Limited',
+            min, max, 'hat', 'AUCTION')
+
+        then:
+        result*.id == [7L]
+    }
+
+    def "getActiveListings sorts the filtered result — discount sort applied after the query"() {
+        given:
+        // The repo returns price-ASC; discount sort must re-order in memory
+        // even when a filter (here listingType) is also active.
+        def a = listingFor(id: 1L, item: itemWithSteamPrice(1L, new BigDecimal('10.00')),
+            price: new BigDecimal('9.00'))   // 10% off
+        def b = listingFor(id: 2L, item: itemWithSteamPrice(2L, new BigDecimal('10.00')),
+            price: new BigDecimal('2.00'))   // 80% off
+        listingRepository.findActivePublic('', '', '', 'BUY_NOW', null, null) >> [a, b]
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, null, 'BUY_NOW')
+
+        then:
+        // Deepest discount first despite the repo's price-ASC ordering.
+        result*.id == [2L, 1L]
+    }
+
+    def "getActiveListings does not mutate the list returned by the repository"() {
+        given:
+        // The service copies into a new ArrayList before sorting; a shared
+        // mock-returned list must not be reordered under the caller.
+        def original = [
+            listingFor(id: 1L, price: new BigDecimal('10')),
+            listingFor(id: 2L, price: new BigDecimal('50')),
+        ]
+        listingRepository.findActivePublic('', '', '', '', null, null) >> original
+
+        when:
+        service.getActiveListings('price_desc', null, null, null, null, null, null)
+
+        then:
+        // The repo's own list is still in its original order.
+        original*.id == [1L, 2L]
+    }
 }

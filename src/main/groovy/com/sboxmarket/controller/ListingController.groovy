@@ -80,8 +80,16 @@ class ListingController {
         // Cap limit defensively — never let a client ask for the entire DB.
         // Cap is 100 (was 500): even once the catalogue grows, `size=99999`
         // can no longer dump every row in one shot.
-        int safeLimit = Math.min(Math.max(limit ?: 100, 1), 100)
-        int safeOffset = Math.max(offset ?: 0, 0)
+        //
+        // Null-check rather than the `?:` Elvis: `limit` / `offset` carry a
+        // String defaultValue so Spring never hands us null, but `?limit=0`
+        // arrives as a real Integer 0 — and 0 is Groovy-falsy, so `limit ?:
+        // 100` would silently rewrite an explicit `?limit=0` into 100 and
+        // hand back the full 100-row page instead of clamping to the
+        // documented floor of 1. The same trap bit `?offset=0`, though
+        // there the fallback happened to equal the floor so it was benign.
+        int safeLimit = Math.min(Math.max(limit != null ? limit : 100, 1), 100)
+        int safeOffset = Math.max(offset != null ? offset : 0, 0)
         // Batch 985 — fall through to `q` alias when `search` is null/
         // blank. Keeps the canonical param stable for the frontend + any
         // long-standing integrations, adds the common-convention fallback.

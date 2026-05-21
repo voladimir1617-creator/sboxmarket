@@ -23,6 +23,11 @@
     .legal-doc li { margin-bottom: 6px; }
     .legal-doc strong { color: var(--text-primary); }
     .legal-doc a { color: var(--accent); }
+    /* Body-text links carry an underline so they're distinguishable
+       without relying on color alone (WCAG 2.1 SC 1.4.1). The .legal-back
+       chip is a direct child of <main> — not inside a <p>/<li> — so it
+       stays un-underlined, matching the changelog page treatment. */
+    .legal-doc p a, .legal-doc li a { text-decoration: underline; text-underline-offset: 3px; }
     .legal-back { display: inline-block; margin-bottom: 24px; color: var(--accent); text-decoration: none; font-size: 13px; }
     .legal-doc code { background: var(--bg-card); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
   </style>
@@ -59,7 +64,7 @@
     <h2>In scope</h2>
     <ul>
       <li>The SkinBox marketplace at <code>skinbox.market</code> and its API surface at <code>/api/*</code>.</li>
-      <li>Our browser extension (<strong>SkinBox Inventory Valuer</strong>) published on the Chrome Web Store.</li>
+      <li>Our browser extension (<strong>SkinBox Inventory Valuer</strong>), once it is published on the Chrome Web Store.</li>
       <li>Email and transactional flows (email verification, 2FA enrolment, sign-in alerts, withdrawal approval).</li>
       <li>The wallet, deposit (Stripe), withdrawal, escrow, and dispute flows.</li>
     </ul>
