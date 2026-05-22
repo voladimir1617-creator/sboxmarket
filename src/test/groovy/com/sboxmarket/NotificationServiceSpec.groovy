@@ -3,8 +3,11 @@ package com.sboxmarket
 import com.sboxmarket.model.Notification
 import com.sboxmarket.repository.NotificationRepository
 import com.sboxmarket.service.NotificationService
+import org.springframework.transaction.annotation.Transactional
 import spock.lang.Specification
 import spock.lang.Subject
+
+import java.lang.reflect.Method
 
 /**
  * NotificationService is thin glue over the repository, so the spec is
@@ -559,5 +562,49 @@ class NotificationServiceSpec extends Specification {
 
         then:
         0 * notificationRepository.save(_)
+    }
+
+    // ── afterCommit deferral (P1 transaction-poisoning fix) ──────────
+
+    def "push is NOT @Transactional — it must not join the caller's transaction"() {
+        when:
+        // Regression pin for the P1 bug: push() used to be
+        // @Transactional(REQUIRED), so a failing save() inside it marked
+        // the CALLER's shared transaction rollback-only and the swallowing
+        // try/catch at the ~40 call sites let the caller "succeed" — then
+        // the caller's commit threw UnexpectedRollbackException and the
+        // real purchase/trade/offer was rolled back. The fix defers the
+        // save to afterCommit, so push() itself carries no @Transactional.
+        Method m = NotificationService.getMethod('push',
+            Long, String, String, String, Long, String)
+
+        then:
+        m.getAnnotation(Transactional) == null
+    }
+
+    def "NotificationService has the deferOrRun afterCommit helper"() {
+        expect:
+        // The deferral helper is the mechanism that moves the best-effort
+        // save out of the caller's transaction. Pin its presence so a
+        // future refactor can't silently drop it.
+        NotificationService.getDeclaredMethods().any { it.name == 'deferOrRun' }
+    }
+
+    def "push returns the built notification even when the save is deferred"() {
+        given:
+        // With no active transaction (unit test, no Spring proxy)
+        // deferOrRun runs the save immediately — but the contract is that
+        // push() returns the populated entity on every path, because the
+        // ~40 call sites are fire-and-forget and a deferred save can't
+        // hand back a persisted id synchronously.
+        notificationRepository.save(_) >> { Notification n -> n.id = 99L; n }
+
+        when:
+        def n = service.push(5L, 'SALE', 'Title', 'Body', 7L, '/x')
+
+        then:
+        n != null
+        n.userId == 5L
+        n.kind == 'SALE'
     }
 }

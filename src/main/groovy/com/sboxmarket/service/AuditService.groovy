@@ -8,7 +8,11 @@ import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.context.request.ServletRequestAttributes
 
@@ -70,8 +74,62 @@ class AuditService {
     @Autowired AuditLogRepository auditLogRepository
     @Autowired SteamUserRepository steamUserRepository
 
-    @Transactional
+    /** Optional so unit tests that build the service with `new
+     *  AuditService(...)` (no Spring context) still work — in that case
+     *  there is never an active transaction and the deferred work runs
+     *  immediately anyway. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /**
+     * Run {@code work} after the caller's transaction commits — or
+     * immediately when there is no active transaction (e.g. a unit test
+     * with no Spring proxy, or a non-transactional caller).
+     *
+     * The audit write is a best-effort side-effect: services call
+     * {@code log(...)} at the end of a successful privileged action and
+     * wrap it expecting "an audit hiccup must NEVER fail the parent
+     * operation". With a plain @Transactional the save() joined the
+     * caller's transaction, so a failing repository.save() marked the
+     * SHARED transaction rollback-only — the swallowing try/catch let the
+     * caller "succeed", then its commit blew up with
+     * UnexpectedRollbackException and the real operation was rolled back.
+     *
+     * Deferring to afterCommit means the deferred write runs AFTER the
+     * parent has already durably committed: it can no longer poison the
+     * parent, and because the parent's row locks are released post-commit
+     * it doesn't extend the lock-hold window either.
+     *
+     * The deferred write runs in a FRESH REQUIRES_NEW transaction. This is
+     * load-bearing: inside an afterCommit callback the original
+     * transaction is already committed with "no commit following" — a
+     * plain REQUIRED save() would join that spent transaction and never
+     * actually commit its INSERT. A new transaction gives the deferred
+     * write its own commit. This is safe (unlike REQUIRES_NEW on the
+     * service method itself, the rejected prior fix): post-commit the
+     * caller holds no row locks, so the new transaction extends no lock
+     * window.
+     */
+    private void deferOrRun(Closure work) {
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    try {
+                        def tt = new TransactionTemplate(transactionManager)
+                        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                        tt.executeWithoutResult { work() }
+                    } catch (Exception e) {
+                        log.warn("Deferred best-effort write failed: ${e.message}")
+                    }
+                }
+            })
+        } else {
+            work()
+        }
+    }
+
     AuditLog log(String eventType, Long actorUserId, Long subjectUserId, Long resourceId, String summary) {
+        // Actor/subject enrichment may stay synchronous: it reads already-
+        // committed user rows, never the caller's uncommitted state.
         def actor = actorUserId ? steamUserRepository.findById(actorUserId).orElse(null) : null
         def subject = subjectUserId ? steamUserRepository.findById(subjectUserId).orElse(null) : null
         def req = currentRequest()
@@ -86,7 +144,10 @@ class AuditService {
             ipAddress:     req ? clientIp(req) : null,
             userAgent:     req ? (req.getHeader('User-Agent') ?: '').take(120) : null
         )
-        auditLogRepository.save(entry)
+        // Defer the save until after the caller's transaction commits, so a
+        // failing save() can't mark the caller's transaction rollback-only.
+        deferOrRun { auditLogRepository.save(entry) }
+        entry
     }
 
     // LIMIT is now in SQL via PageRequest instead of .take(500) after

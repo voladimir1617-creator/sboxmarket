@@ -8,7 +8,12 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Persists user-facing notifications. Every non-trivial business event in the
@@ -22,7 +27,59 @@ class NotificationService {
 
     @Autowired NotificationRepository notificationRepository
 
-    @Transactional
+    /** Optional so unit tests that build the service with `new
+     *  NotificationService(...)` (no Spring context) still work — in that
+     *  case there is never an active transaction and the deferred work
+     *  runs immediately anyway. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /**
+     * Run {@code work} after the caller's transaction commits — or
+     * immediately when there is no active transaction (e.g. a unit test
+     * with no Spring proxy, or a non-transactional caller).
+     *
+     * The bell push is a best-effort side-effect: every one of the ~40
+     * call sites wraps it expecting "a notification hiccup must NEVER
+     * fail the parent purchase/trade/offer". With a plain @Transactional
+     * the save() joined the caller's transaction, so a failing
+     * repository.save() marked the SHARED transaction rollback-only — the
+     * swallowing try/catch let the caller "succeed", then its commit blew
+     * up with UnexpectedRollbackException and the real operation was
+     * rolled back.
+     *
+     * Deferring to afterCommit means the deferred write runs AFTER the
+     * parent has already durably committed: it can no longer poison the
+     * parent, and because the parent's row locks are released post-commit
+     * it doesn't extend the lock-hold window either.
+     *
+     * The deferred write runs in a FRESH REQUIRES_NEW transaction. This is
+     * load-bearing: inside an afterCommit callback the original
+     * transaction is already committed with "no commit following" — a
+     * plain REQUIRED save() would join that spent transaction and never
+     * actually commit its INSERT. A new transaction gives the deferred
+     * write its own commit. This is safe (unlike REQUIRES_NEW on the
+     * service method itself, the rejected prior fix): post-commit the
+     * caller holds no row locks, so the new transaction extends no lock
+     * window.
+     */
+    private void deferOrRun(Closure work) {
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    try {
+                        def tt = new TransactionTemplate(transactionManager)
+                        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                        tt.executeWithoutResult { work() }
+                    } catch (Exception e) {
+                        log.warn("Deferred best-effort write failed: ${e.message}")
+                    }
+                }
+            })
+        } else {
+            work()
+        }
+    }
+
     Notification push(Long userId, String kind, String title, String body = null, Long refId = null, String path = null) {
         if (userId == null) return null
         def n = new Notification(
@@ -31,16 +88,19 @@ class NotificationService {
             // Truncate to the column caps (Notification.title VARCHAR(200),
             // body VARCHAR(500)). An over-length title/body — e.g. a long
             // interpolated item name or a verbose fraud summary — would
-            // otherwise throw a DataException at save() time, and since
-            // push() joins the caller's @Transactional, that poisons the
-            // whole parent operation. Truncating keeps the bell best-effort.
+            // otherwise throw a DataException at save() time. The deferral
+            // below means such a failure can no longer poison the parent
+            // transaction, but truncating still avoids losing the row.
             // (2026-05-20)
             title:  title?.take(200),
             body:   body?.take(500),
             refId:  refId,
             path:   path
         )
-        notificationRepository.save(n)
+        // Defer the save until after the caller's transaction commits, so a
+        // failing save() can't mark the caller's transaction rollback-only.
+        deferOrRun { notificationRepository.save(n) }
+        n
     }
 
     /**

@@ -4,9 +4,11 @@ import com.sboxmarket.model.Item
 import com.sboxmarket.model.PriceHistory
 import com.sboxmarket.repository.PriceHistoryRepository
 import com.sboxmarket.service.PriceHistoryService
+import org.springframework.transaction.annotation.Transactional
 import spock.lang.Specification
 import spock.lang.Subject
 
+import java.lang.reflect.Method
 import java.text.SimpleDateFormat
 
 /**
@@ -336,6 +338,33 @@ class PriceHistoryServiceSpec extends Specification {
         noExceptionThrown()
         existing.price == new BigDecimal("1.50")
         existing.volume == 3   // (null ?: 0) + 3
+    }
+
+    // ── afterCommit deferral (P1 transaction-poisoning fix) ──────────
+
+    def "record is NOT @Transactional — it must not join the caller's transaction"() {
+        when:
+        // Regression pin for the P1 bug: record() used to be
+        // @Transactional(REQUIRED), so a failing priceHistoryRepository
+        // .save() marked the CALLER's shared transaction rollback-only and
+        // the swallowing try/catch in PurchaseService let the purchase
+        // "succeed" — then the caller's commit threw
+        // UnexpectedRollbackException and the real purchase was rolled
+        // back. The fix defers the whole find + update-or-insert to
+        // afterCommit, so record() itself carries no @Transactional.
+        Method m = PriceHistoryService.getMethod('record',
+            Item, BigDecimal, Integer)
+
+        then:
+        m.getAnnotation(Transactional) == null
+    }
+
+    def "PriceHistoryService has the deferOrRun afterCommit helper"() {
+        expect:
+        // The deferral helper is the mechanism that moves the best-effort
+        // find + write out of the caller's transaction. Pin its presence
+        // so a future refactor can't silently drop it.
+        PriceHistoryService.getDeclaredMethods().any { it.name == 'deferOrRun' }
     }
 
     private String priorYearSameDayLabel() {

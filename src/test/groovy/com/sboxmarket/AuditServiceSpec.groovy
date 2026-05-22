@@ -5,8 +5,11 @@ import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.AuditLogRepository
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.AuditService
+import org.springframework.transaction.annotation.Transactional
 import spock.lang.Specification
 import spock.lang.Subject
+
+import java.lang.reflect.Method
 
 /**
  * AuditService is thin — persist an append-only row + fan-out queries.
@@ -192,5 +195,51 @@ class AuditServiceSpec extends Specification {
         expect:
         AuditService.TICKET_REPLIED == 'TICKET_REPLIED'
         AuditService.TICKET_CLOSED  == 'TICKET_CLOSED'
+    }
+
+    // ── afterCommit deferral (P1 transaction-poisoning fix) ──────────
+
+    def "log is NOT @Transactional — it must not join the caller's transaction"() {
+        when:
+        // Regression pin for the P1 bug: log() used to be
+        // @Transactional(REQUIRED), so a failing auditLogRepository.save()
+        // marked the CALLER's shared transaction rollback-only and the
+        // swallowing try/catch at the ~40 call sites let the caller
+        // "succeed" — then the caller's commit threw
+        // UnexpectedRollbackException and the real operation was rolled
+        // back. The fix defers the save to afterCommit, so log() itself
+        // carries no @Transactional.
+        Method m = AuditService.getMethod('log',
+            String, Long, Long, Long, String)
+
+        then:
+        m.getAnnotation(Transactional) == null
+    }
+
+    def "AuditService has the deferOrRun afterCommit helper"() {
+        expect:
+        // The deferral helper is the mechanism that moves the best-effort
+        // save out of the caller's transaction. Pin its presence so a
+        // future refactor can't silently drop it.
+        AuditService.getDeclaredMethods().any { it.name == 'deferOrRun' }
+    }
+
+    def "log returns the built audit entry even when the save is deferred"() {
+        given:
+        // With no active transaction (unit test, no Spring proxy)
+        // deferOrRun runs the save immediately — but the contract is that
+        // log() returns the populated entity on every path; the ~40 call
+        // sites are fire-and-forget so a deferred save can't hand back a
+        // persisted id synchronously.
+        auditLogRepository.save(_) >> { args -> def a = args[0]; a.id = 77L; a }
+
+        when:
+        def entry = service.log('TEST', null, null, 9L, 'summary')
+
+        then:
+        entry != null
+        entry.eventType == 'TEST'
+        entry.resourceId == 9L
+        entry.summary == 'summary'
     }
 }
