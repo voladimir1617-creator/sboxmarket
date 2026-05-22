@@ -312,32 +312,10 @@ export function RarityBar({ score, compact }) {
   );
 }
 
-/**
- * Decorative rarity-band bar. CSFloat shows a gradient bar (green→red)
- * with a thumb marking the skin's CS float (0.0-1.0). s&box items have
- * no float / paint-seed (CS-only mechanics — see `s&box vs CSFloat`
- * memory), so we keep the silhouette but make it represent rarity:
- *
- *   Limited     → 0-15%  (green band)
- *   Off-Market  → 30-50% (yellow band)
- *   Standard    → 55-80% (red band)
- *
- * Within a rarity zone the listing id picks the exact thumb position
- * so cards of the same rarity don't all share the spot.
- *
- * The meta text under the bar reads the rarity band name + the real
- * listing id (`Standard · #35`). Earlier versions printed a synthetic
- * `0.56590…` float and a `(#N)` paint-seed-style rank — both CS-only
- * mechanics that don't exist in s&box, so they were misleading data.
- */
-export function FloatBar({ rarity, listingId, compact }) {
-  // H1/I1/S5/Boss-QA: there is no float/wear/condition mechanic on s&box
-  // items — only CS-GO has it. Keeping the red→green gradient bar under
-  // every card was leaking CS chrome into a non-CS marketplace and made
-  // the cards look generic. Component now renders nothing; we keep the
-  // export so existing callers don't crash.
-  return null;
-}
+/* (2026-05-21) `FloatBar` removed. s&box items have no float/wear/
+   paint-seed mechanic, so the component had been gutted to `return
+   null` and every call site is now deleted — keeping a dead export
+   only invited new callers to wire up CS-only chrome. */
 
 /**
  * Price-history sparkline with a hover tooltip and min/max markers. The

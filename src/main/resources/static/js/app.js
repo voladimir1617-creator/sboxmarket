@@ -9,7 +9,7 @@ import {
   fetchAnnouncement, replyToReview, fetchJustListed, fetchTopSellers, fetchTopDeals,
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
-import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, FloatBar, PriceFreshnessChip } from './primitives.js';
+import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
 import { GridCard, ListingRow, TrendCard } from './cards.js';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
@@ -5641,29 +5641,13 @@ export function App() {
             try { window.dispatchEvent(new StorageEvent('storage', { key: 'sb_currency', newValue: code })); } catch (_) {}
           }
         }),
-        h(NavPicker, {
-          label: (() => {
-            try {
-              if (typeof window !== 'undefined' && window.SBOX_LANG) return window.SBOX_LANG;
-              const ls = (typeof localStorage !== 'undefined') ? localStorage.getItem('sb_lang') : null;
-              if (ls) return ls;
-            } catch (_) {}
-            return 'EN';
-          })(),
-          ariaLabel: 'Language selector',
-          options: [
-            { code: 'EN', flag: '🇺🇸', name: 'English',  active: true },
-            { code: 'ES', flag: '🇪🇸', name: 'Español',  soon: true },
-            { code: 'DE', flag: '🇩🇪', name: 'Deutsch',  soon: true },
-            { code: 'FR', flag: '🇫🇷', name: 'Français', soon: true },
-            { code: 'PT', flag: '🇵🇹', name: 'Português', soon: true },
-            { code: 'RU', flag: '🇷🇺', name: 'Русский',   soon: true }
-          ],
-          onSelect: (code) => {
-            try { localStorage.setItem('sb_lang', code); } catch (_) {}
-            if (typeof window !== 'undefined') window.SBOX_LANG = code;
-          }
-        }),
+        /* (2026-05-21) Language picker removed. CSFloat's nav carries only
+           a currency selector — no language control. Five of the six
+           options here were permanent "Soon" stubs and `onSelect` wrote
+           an `sb_lang` value that nothing in the app ever reads: it was
+           fake chrome promising localisation that doesn't exist. Drop it
+           for csfloat-1:1 parity and to stop advertising a feature the
+           product can't deliver. */
         // Offers inbox icon + actionable pending-incoming badge. Clicking
         // jumps to /offers. Polls every 45s while signed in — offers are
         // less real-time than notifications so a slower cadence is fine.
@@ -6318,10 +6302,6 @@ export function App() {
                       )
                     )
                   ),
-                  /* Float bar + meta line directly below the image.
-                     Decorative for s&box — uses listing id + rarity for
-                     a deterministic thumb position. */
-                  h(FloatBar, { rarity: top.item.rarity, listingId: top.id }),
                   /* Status row mirrors csfloat hero card — online indicator
                      + verified blue check + simulated view count. The
                      "online" state is deterministic on the seller id so it
@@ -6498,7 +6478,6 @@ export function App() {
                   className: 'csfloat-home-preview-card-pct down'
                 }, '−' + Math.abs(pct) + '%')
               ),
-              h(FloatBar, { rarity: rarity, listingId: l.id, compact: true }),
               h('div', { className: 'csfloat-home-preview-card-status' },
                 h('span', { className: 'csfloat-home-preview-card-dot' + (isOnline ? ' online' : '') }),
                 h('span', { className: 'csfloat-home-preview-card-status-label' }, isOnline ? 'Online' : 'Offline'),
@@ -7227,7 +7206,11 @@ export function App() {
           )
         ),
         // Active filter chips — visible whenever a non-default filter is set.
-        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0) &&
+        // CSFloat-1:1 — the toolbar quick-filters (listing type / Deals /
+        // New / Affordable) count too, so the row appears and stays
+        // complete when only a toolbar toggle is on.
+        (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 ||
+         listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly) &&
           h('div', { className: 'active-filters' },
             search && h('button', { className: 'filter-chip', onClick: () => setSearch('') },
               'search: ', h('strong', null, '"' + search + '"'), h('span', null, ' ✕')),
@@ -7242,6 +7225,18 @@ export function App() {
             // Batch 651 — removable min-discount chip.
             minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0) },
               '≥ ', h('strong', null, minDiscountPct + '%'), ' off', h('span', null, ' ✕')),
+            // CSFloat-1:1 — toolbar quick-filters (listing type / Deals /
+            // New / Affordable) also get removable chips, so the chip row
+            // is a complete picture of what's narrowing the grid and each
+            // is individually clearable without hunting for its toggle.
+            listingTypeFilter !== 'ALL' && h('button', { className: 'filter-chip', onClick: () => setListingTypeFilter('ALL') },
+              h('strong', null, listingTypeFilter === 'AUCTION' ? 'Auctions only' : 'Buy-now only'), h('span', null, ' ✕')),
+            dealsOnly && h('button', { className: 'filter-chip', onClick: () => setDealsOnly(false) },
+              h('strong', null, 'Deals'), h('span', null, ' ✕')),
+            newOnly && h('button', { className: 'filter-chip', onClick: () => setNewOnly(false) },
+              h('strong', null, 'New'), h('span', null, ' ✕')),
+            affordableOnly && h('button', { className: 'filter-chip', onClick: () => setAffordableOnly(false) },
+              h('strong', null, 'Affordable'), h('span', null, ' ✕')),
             h('button', { className: 'filter-chip clear-all', onClick: clearFilters },
               h('strong', null, 'Clear all'))
           ),
