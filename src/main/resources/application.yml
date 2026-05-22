@@ -1,5 +1,10 @@
 server:
-  port: ${SERVER_PORT:8080}
+  # Default 8082 — the operator's owner-QA watchdog (the every-minute
+  # "sboxmarket owner QA" automation, the three .claude/watchdog QA
+  # scripts, and codex-agent-lane.ps1's health probe) all target
+  # localhost:8082. Defaulting to 8080 silently broke that QA loop.
+  # Still overridable via SERVER_PORT; prod sets its own port.
+  port: ${SERVER_PORT:8082}
   # Session cookie hardening — HttpOnly is always on, Secure + SameSite
   # controlled by env so local HTTP dev still works.
   servlet:
