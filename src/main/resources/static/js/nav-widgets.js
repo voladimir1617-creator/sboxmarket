@@ -208,7 +208,14 @@ export function NotificationBell({ me }) {
     const visible = muted.size > 0 ? all.filter(n => !muted.has(kindBucket(n.kind))) : all;
     const visibleUnread = visible.filter(n => !n.read).length;
     setItems(visible);
-    setUnread(visibleUnread);
+    // The badge needs the TRUE unread count. Deriving it from the 12-row
+    // dropdown slice caps the badge at 12 for any user with more unread.
+    // Use the server's count when there are no mutes (the common case);
+    // with mutes the server count includes muted kinds, so the muted-
+    // aware visibleUnread is the best available without pulling every
+    // unread row.
+    const serverUnread = Number.isFinite(data?.unread) ? data.unread : visibleUnread;
+    setUnread(muted.size > 0 ? visibleUnread : serverUnread);
   }, [me]);
 
   // Cheap unread-only poll (batch 1011) — hits `/api/notifications/unread-count`

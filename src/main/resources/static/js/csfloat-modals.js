@@ -244,9 +244,12 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
     },
       h('span', { className: 'cf-rarity-legend-label' }, 'Rarity:'),
       [
-        { v: 'Standard',   t: 'Standard — common items everyone can craft.' },
-        { v: 'Off-Market', t: 'Off-Market — scarce items not currently sold by Steam.' },
-        { v: 'Limited',    t: 'Limited — capped supply, hardest to find.' }
+        // `v` is the data value used for filtering; `label` is the display
+        // name. 'Off-Market' shows as "Scarce" so the legend matches the
+        // table's RarityBadge, which relabels that tier the same way.
+        { v: 'Standard',   label: 'Standard', t: 'Standard — common items everyone can craft.' },
+        { v: 'Off-Market', label: 'Scarce',   t: 'Scarce — limited-supply items not currently sold by Steam.' },
+        { v: 'Limited',    label: 'Limited',  t: 'Limited — capped supply, hardest to find.' }
       ].map(r => h('button', {
         key: r.v,
         type: 'button',
@@ -256,7 +259,7 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         onClick: () => setRar(rarity === r.v ? 'All' : r.v)
       },
         h('span', { className: `cf-rarity-swatch rarity-${r.v}`, 'aria-hidden': 'true' }),
-        h('span', { className: 'cf-rarity-legend-name' }, r.v)
+        h('span', { className: 'cf-rarity-legend-name' }, r.label)
       ))
     ),
     loading
@@ -1132,8 +1135,18 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
   }, []);
 
   const openLoadout = async (id) => {
-    const data = await fetchLoadout(id);
-    setViewing(data);
+    // Guard the fetch — fetchLoadout returns null on a 404 and REJECTS on
+    // a network error / non-404 5xx. Either way, leaving `viewing` null
+    // while tab==='view' renders an indefinite spinner. Coerce both to
+    // the `__notFound` sentinel so the friendly not-found panel shows,
+    // mirroring the deep-link effect's recovery.
+    let data;
+    try {
+      data = await fetchLoadout(id);
+    } catch (_) {
+      data = null;
+    }
+    setViewing(data || { __notFound: true });
     setTab('view');
   };
 
