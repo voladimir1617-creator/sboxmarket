@@ -2096,8 +2096,10 @@ export function NotificationsModal({ onClose, me }) {
         k === 'DISPUTE_CLEARED' || k === 'REFUND_ISSUED' ||
         k === 'CHARGEBACK_OPENED') return 'WALLET';
     if (k === 'LISTING_MATCH' || k === 'WATCHLIST_PRICE_DROP' ||
-        k === 'NEW_LISTING_FROM_SELLER' || k === 'PRICE_DROPPED' ||
-        k === 'CART_ITEM_SOLD') return 'MATCHES';
+        k === 'NEW_LISTING_FROM_SELLER' || k === 'PRICE_DROPPED') return 'MATCHES';
+    // CART_ITEM_SOLD ("an item in your cart sold to someone else") is an
+    // operational "you lost it" alert, not discovery noise — keep it OUT
+    // of MATCHES so muting discovery notifications can't silently hide it.
     return 'OTHER';
   };
 

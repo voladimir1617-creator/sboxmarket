@@ -14,10 +14,14 @@ interface LoadoutRepository extends JpaRepository<Loadout, Long> {
     @Query("SELECT l FROM Loadout l WHERE l.ownerUserId = :uid ORDER BY l.updatedAt DESC")
     List<Loadout> findByOwner(@Param("uid") Long uid)
 
-    @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' ORDER BY l.favorites DESC, l.updatedAt DESC")
+    // `l.id ASC` is the final, always-unique tiebreaker so the order is
+    // fully deterministic — without it two loadouts with equal favorites
+    // (and updatedAt) sort nondeterministically across requests, which
+    // destabilises pagination and the lowest-id redirect fallback.
+    @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' ORDER BY l.favorites DESC, l.updatedAt DESC, l.id ASC")
     List<Loadout> findPublic(Pageable page)
 
-    @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' AND LOWER(l.name) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY l.favorites DESC")
+    @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' AND LOWER(l.name) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY l.favorites DESC, l.updatedAt DESC, l.id ASC")
     List<Loadout> searchPublic(@Param("q") String q, Pageable page)
 
     long countByOwnerUserId(Long ownerUserId)
