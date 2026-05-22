@@ -93862,8 +93862,14 @@ tr:hover .csfloat-row-hover-actions,
 }
 @media (max-width: 720px) {
   .csfloat-mobile-nav { display: flex; align-items: stretch; gap: 0; }
+  /* Clear the fixed bottom bar so page content / footer isn't hidden
+     behind it on mobile (the bar measures ~73px tall). */
+  body { padding-bottom: 80px; }
 }
 .csfloat-mobile-nav-link {
+  /* Anchor the .is-active::before indicator + the badge to the link,
+     not the whole fixed bar. */
+  position: relative;
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -93928,6 +93934,18 @@ tr:hover .csfloat-row-hover-actions,
   margin-top: -16px;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.45);
   font-size: 18px;
+}
+/* The fixed mobile nav owns the bottom ~73px — lift the cookie button
+   clear of it. It positions itself with an inline style, so !important
+   is required to win. It also moves to the bottom-LEFT so it clears the
+   right-side filters FAB (the FAB itself is lifted at its own rule in
+   the #11814 parity block below). */
+@media (max-width: 720px) {
+  button[aria-label="Cookie preferences"] {
+    bottom: 88px !important;
+    right: auto !important;
+    left: 16px !important;
+  }
 }
 
 /* CSFloat-1:1: floating button cluster (bottom right) */
@@ -155075,7 +155093,8 @@ body div[style*="sticky"][style*="rgba(30,165,255"] > span b {
   body .mobile-filters-fab {
     position: fixed !important;
     right: 16px !important;
-    bottom: calc(69px + env(safe-area-inset-bottom, 0px)) !important;
+    /* Lifted to clear the fixed csfloat mobile bottom-nav (~73px tall). */
+    bottom: calc(85px + env(safe-area-inset-bottom, 0px)) !important;
     left: auto !important;
     width: 52px !important;
     height: 52px !important;

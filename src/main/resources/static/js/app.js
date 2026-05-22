@@ -9326,6 +9326,41 @@ export function App() {
        sits below ALL content (marketplace, profile, wallet, etc.) instead
        of being glued to a specific section. See .site-root { display:flex
        flex-direction:column min-height:100vh } in styles.css. */
-    h(SiteFooter, null)
+    h(SiteFooter, null),
+
+    /* CSFloat-1:1 — fixed bottom navigation bar, mobile only (shown at
+       ≤720px via the .csfloat-mobile-nav @media rule in design.css). The
+       styling scaffold existed but no component ever rendered it, so
+       sboxmarket fell back to a horizontally-scrolling top nav on mobile
+       — a real parity gap. The center "Sell" tab is the raised FAB. */
+    (() => {
+      const tabs = [
+        { key: 'market',    href: paths.market(),   icon: 'storefront',      label: 'Market' },
+        { key: 'database',  href: paths.database(),  icon: 'database',        label: 'Database' },
+        { key: 'sell',      href: paths.sell(),      icon: 'sell',            label: 'Sell', fab: true },
+        { key: 'watchlist', href: paths.watchlist(), icon: 'bookmark_border', label: 'Watchlist', badge: watchlist.length },
+        { key: 'profile',   href: paths.profile(),   icon: 'person',          label: 'Profile' }
+      ];
+      return h('nav', { className: 'csfloat-mobile-nav', 'aria-label': 'Mobile navigation' },
+        tabs.map(t => {
+          const active = routeName === t.key;
+          return h('a', {
+            key: t.key,
+            href: t.href,
+            className: 'csfloat-mobile-nav-link'
+              + (t.fab ? ' csfloat-mobile-nav-link-fab' : '')
+              + (active ? ' is-active' : ''),
+            'aria-current': active ? 'page' : undefined,
+            'aria-label': t.label
+          },
+            h('span', { className: 'csfloat-mobile-nav-link-icon' },
+              h(MaterialIcon, { name: t.icon, size: t.fab ? 18 : 20 })),
+            t.label,
+            (t.badge > 0) && h('span', { className: 'csfloat-mobile-nav-link-badge' },
+              t.badge > 99 ? '99+' : t.badge)
+          );
+        })
+      );
+    })()
   );
 }
