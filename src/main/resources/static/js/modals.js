@@ -4697,7 +4697,13 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
           hasTradeUrl && h('button', {
             className: 'btn btn-ghost',
             style: { border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)', padding: '4px 10px', fontSize: 11 },
-            onClick: () => saveTradeUrl('')
+            // Confirm — removing the trade URL blocks checkout and trades
+            // until a new one is set, so a single misclick shouldn't do it.
+            onClick: () => {
+              if (confirm('Remove your Steam trade URL? Checkout and trades will be blocked until you add a new one.')) {
+                saveTradeUrl('');
+              }
+            }
           }, 'Remove')
         ),
         editingTradeUrl && h('div', { style: { display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' } },
@@ -6159,6 +6165,16 @@ function ProfileTradesTab({ me, privacy }) {
   const [tradesTotal, setTradesTotal] = useState(null);
   const [busy, setBusy]     = useState(false);
   const [filter, setFilter] = useState('ALL');
+  // Per-30s tick so the trade-row countdown chips ("⏱ Xh left") actually
+  // advance. Without it they freeze at whatever Date.now() returned on
+  // the last load() / visibilitychange and can read a stale "1h left"
+  // long after the deadline passed — 30s granularity is plenty for the
+  // hour/day labels the chips render.
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
   // "Collapse active" toggle per CSFloat Visual Manual §29 — hides the
   // three PENDING_* states so a user auditing settled trades doesn't
   // scroll past their active escrow rows. Persisted in localStorage so
@@ -6978,7 +6994,7 @@ function ProfileTradesTab({ me, privacy }) {
                   // how urgent each step is without opening the trade.
                   // Turns red once under 12h so stale trades nag visually.
                   t.expiresAt && (() => {
-                    const msLeft = t.expiresAt - Date.now();
+                    const msLeft = t.expiresAt - nowTick;
                     if (msLeft <= 0) return null;
                     const hours = msLeft / 3_600_000;
                     let label;
@@ -6986,12 +7002,22 @@ function ProfileTradesTab({ me, privacy }) {
                     else if (hours < 24) label = Math.round(hours) + 'h left';
                     else                 label = Math.round(hours / 24) + 'd left';
                     const urgent = hours < 12;
+                    // The deadline does opposite things per state — name
+                    // which one, viewer-aware, so a buyer doesn't read a
+                    // generic "Auto-resolves" while the timer is actually
+                    // about to release their escrow to the seller.
+                    const when = new Date(t.expiresAt).toLocaleString();
+                    const tip = t.state === 'PENDING_BUYER_CONFIRM'
+                      ? (isSeller ? `Funds auto-release to you at ${when}`
+                                  : `Funds auto-release to the seller at ${when}`)
+                      : (isSeller ? `Auto-cancels (item returns to you) at ${when}`
+                                  : `Auto-cancels and refunds you at ${when}`);
                     return h('span', {
                       style: {
                         marginLeft: 10, fontSize: 11, fontWeight: 700,
                         color: urgent ? 'var(--red)' : 'var(--text-muted)'
                       },
-                      title: `Auto-resolves at ${new Date(t.expiresAt).toLocaleString()}`
+                      title: tip
                     }, '· ⏱ ', label);
                   })()
                 ),
@@ -7947,14 +7973,16 @@ function ProfileOffersTab() {
     const fromLabel = isIncoming
       ? ((o.author === 'SELLER' ? 'Your counter to ' : '') + (o.buyerName || 'anon'))
       : (o.author === 'SELLER' ? 'Seller counter' : 'Your offer');
-    // Auto-decline window — OfferService sweeper closes PENDING offers
-    // after 7 days of inactivity (offer.auto-decline-days default). The
-    // chip tells both sides how much runway is left before the offer
-    // disappears — red under 24h, amber under 48h, muted otherwise.
-    const OFFER_TTL_MS = 7 * 24 * 3600 * 1000;
+    // Auto-decline window — OfferService stamps a server-computed
+    // `expiresAt` on every PENDING offer (driven by the configurable
+    // offer.auto-decline-days). Use it directly. The old code recomputed
+    // a hardcoded 7-day TTL off updatedAt||createdAt — which drifted
+    // from the real auto-decline whenever the config wasn't 7 days, and
+    // mismatched the sweeper (it keys off updatedAt) on countered offers.
+    // The standalone OffersModal already reads expiresAt; this matches it.
     const expiresChip = (() => {
-      if (!isPending) return null;
-      const left = (o.updatedAt || o.createdAt || 0) + OFFER_TTL_MS - Date.now();
+      if (!isPending || !o.expiresAt) return null;
+      const left = o.expiresAt - Date.now();
       if (left <= 0) return null;
       let label;
       if (left < 3600 * 1000)       label = Math.max(1, Math.round(left / 60_000)) + 'm';
@@ -7965,7 +7993,7 @@ function ProfileOffersTab() {
                                          : 'var(--text-faint)';
       return h('span', {
         style: { marginLeft: 8, color: cls, fontWeight: 700 },
-        title: 'This offer auto-declines after 7 days of inactivity. Either side can accept, reject, or counter before then.'
+        title: 'This offer auto-declines after a period of inactivity. Either side can accept, reject, or counter before then.'
       }, '· expires in ' + label);
     })();
 

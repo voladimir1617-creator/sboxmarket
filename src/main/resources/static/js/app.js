@@ -5338,10 +5338,24 @@ export function App() {
       : listings.filter(l => listingTypeFilter === 'AUCTION'
           ? l?.listingType === 'AUCTION'
           : l?.listingType !== 'AUCTION');
+    // Effective price for filtering / dedup. An AUCTION listing's `price`
+    // is the *starting bid*, not the cost to acquire it — once bidding
+    // has started the real comparable is `currentBid`. Keying the Deals /
+    // discount / Affordable filters and the dedup representative pick off
+    // raw `price` let a $0.01-opener auction masquerade as the cheapest,
+    // pollute every deal filter, and win the card slot over a genuine
+    // Buy-Now listing. Matches the backend discountRatio + GridCard.
+    const effPrice = (l) => {
+      if (l?.listingType === 'AUCTION' && l?.currentBid != null) {
+        const cb = parseFloat(l.currentBid);
+        if (isFinite(cb) && cb > 0) return cb;
+      }
+      return parseFloat(l?.price);
+    };
     if (dealsOnly) {
       pool = pool.filter(l => {
         const sp = parseFloat(l?.item?.steamPrice);
-        const p  = parseFloat(l?.price);
+        const p  = effPrice(l);
         return isFinite(sp) && isFinite(p) && sp > 0 && p < sp;
       });
     }
@@ -5361,7 +5375,7 @@ export function App() {
       const floor = minDiscountPct / 100;
       pool = pool.filter(l => {
         const sp = parseFloat(l?.item?.steamPrice);
-        const p  = parseFloat(l?.price);
+        const p  = effPrice(l);
         if (!(isFinite(sp) && sp > 0 && isFinite(p) && p > 0)) return false;
         return (1 - p / sp) >= floor;
       });
@@ -5376,7 +5390,7 @@ export function App() {
     if (affordableOnly && wallet && parseFloat(wallet.balance) > 0) {
       const bal = parseFloat(wallet.balance);
       pool = pool.filter(l => {
-        const p = parseFloat(l?.price);
+        const p = effPrice(l);
         return isFinite(p) && p <= bal;
       });
     }
@@ -5387,7 +5401,7 @@ export function App() {
     const byItem = new Map();
     pool.filter(l => l?.item).forEach(l => {
       const current = byItem.get(l.item.id);
-      if (!current || parseFloat(l.price) < parseFloat(current.listing.price)) {
+      if (!current || effPrice(l) < effPrice(current.listing)) {
         byItem.set(l.item.id, { listing: l, count: 1 });
       }
     });
