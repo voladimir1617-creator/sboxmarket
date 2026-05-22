@@ -1235,16 +1235,26 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       // the empty slot names explicitly so the user knows where the
       // shortfall landed instead of squinting at an 8-tile grid.
       const slotsAfter = Array.isArray(fresh?.slots) ? fresh.slots : [];
-      const filled = slotsAfter.filter(s => s.itemId != null && !s.locked).length;
+      // Count slots Generate actually changed — diff item ids against the
+      // pre-generate state. Counting only `!locked && itemId` (a) under-
+      // counted a run that filled around locked slots and (b) false-
+      // alarmed "filled 0 slots" when every slot was already locked-and-
+      // filled. Diffing by item id also counts a re-roll correctly.
+      const slotsBefore = Array.isArray(viewing?.slots) ? viewing.slots : [];
+      const beforeById = new Map(slotsBefore.map(s => [s.slot, s.itemId]));
+      const changed = slotsAfter.filter(s => s.itemId != null && beforeById.get(s.slot) !== s.itemId).length;
       const emptyNames = slotsAfter
         .filter(s => s.itemId == null && !s.locked)
         .map(s => s.slot);
-      if (filled === 0) {
-        toast('Generate ran but filled 0 slots — raise the budget or unlock a slot.', 'err');
+      const totalFilled = slotsAfter.filter(s => s.itemId != null).length;
+      if (changed === 0 && emptyNames.length > 0) {
+        toast('Generate ran but filled no new slots — raise the budget or unlock a slot.', 'err');
       } else if (emptyNames.length > 0) {
-        toast(`Generated ${filled} slot${filled === 1 ? '' : 's'} — not enough budget to fill ${emptyNames.join(', ')}. Raise the cap or relock to retry.`, 'ok');
+        toast(`Generated ${changed} slot${changed === 1 ? '' : 's'} — not enough budget to fill ${emptyNames.join(', ')}. Raise the cap or relock to retry.`, 'ok');
+      } else if (changed === 0) {
+        toast(`Loadout already complete — all ${totalFilled} slots filled.`, 'ok');
       } else {
-        toast(`Generated ${filled} slot${filled === 1 ? '' : 's'}.`, 'ok');
+        toast(`Generated ${changed} slot${changed === 1 ? '' : 's'} — loadout complete (${totalFilled}/${slotsAfter.length} filled).`, 'ok');
       }
     } finally { setGeneratingLoadout(false); }
   };

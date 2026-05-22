@@ -298,6 +298,20 @@ class AdminService {
                 "Transaction is not in DISPUTED state (currently ${tx.status})")
         }
         def cleanReason = textSanitizer.medium(reason) ?: 'admin override'
+        // Risk signal — if the wallet balance has already fallen below the
+        // disputed deposit amount the funds are (partly) spent. Clearing
+        // the hold re-enables withdrawals, and if the chargeback is later
+        // upheld the platform eats the gap. We don't block the admin (a
+        // false-positive dispute is a legitimate clear), but log it loudly
+        // so a risky clear stays reconcilable after the fact.
+        try {
+            def disputeWallet = walletRepository.findById(tx.walletId).orElse(null)
+            if (disputeWallet?.balance != null && tx.amount != null && disputeWallet.balance < tx.amount) {
+                log.warn("clearDisputeHold tx={} — wallet {} balance \${} is below the disputed \${}; " +
+                    "clearing the hold exposes a \${} shortfall if the chargeback is upheld",
+                    txId, disputeWallet.id, disputeWallet.balance, tx.amount, (tx.amount - disputeWallet.balance))
+            }
+        } catch (Exception ignore) { /* advisory only — never block the clear */ }
         tx.status = 'COMPLETED'
         tx.description = (tx.description ?: '') + " — DISPUTE_CLEARED by admin (${cleanReason})"
         tx.updatedAt = System.currentTimeMillis()
