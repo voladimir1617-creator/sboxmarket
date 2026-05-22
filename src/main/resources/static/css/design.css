@@ -142859,6 +142859,13 @@ html body .csfloat-home-journey .csfloat-home-journey-inner {
   html body .csfloat-home-journey .csfloat-home-journey-inner {
     flex-direction: column !important;
     gap: 28px !important;
+    /* Stretch the stacked children to the column width. Without this the
+       steps <ol> keeps its ~365px content width (flex-start doesn't
+       constrain the cross axis) and spills ~15px past a narrow phone
+       viewport — the mobile-/ horizontalOverflow the owner-QA layout
+       audit flags. Stretched, the ol fills the column and its step
+       cards (flex:1 1 auto bodies) shrink to fit. */
+    align-items: stretch !important;
   }
 }
 /* END CSFLOAT-1:1 PARITY ship #6800 */
@@ -142973,6 +142980,13 @@ html body .csfloat-home-journey .csfloat-home-journey-step::after {
    renders icon-then-text inside the body. */
 html body .csfloat-home-journey .csfloat-home-journey-step-body {
   flex: 1 1 auto !important;
+  /* min-width:0 lets this flex item shrink below its ~249px content
+     width — without it the card refused to shrink inside the 290px step
+     on phones and spilled ~15px past the viewport (the owner-QA
+     mobile-/ horizontal-overflow). overflow-wrap keeps any long word
+     from re-introducing the overflow once the card is narrow. */
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
   background: #1B1D24 !important;
   border: 0 !important;
   border-radius: 12px !important;
@@ -197846,3 +197860,20 @@ html body .modal.item-page .item-rail-actions-bargain {
   border-radius: 8px !important;
 }
 /* END ITEM-RAIL ACTION-BUTTON ROW HEIGHT/RADIUS PARITY */
+
+/* MOBILE NAV-LINKS HORIZONTAL-OVERFLOW FIX
+   On phones the top .nav-links strip (Market / Database / Loadout Lab /
+   Watchlist / Help) is a horizontal-scroll row. As a flex item it needs
+   min-width:0 to actually shrink — without it the row's full content
+   width pushes body.scrollWidth ~15px past the viewport (the owner-QA
+   layout-audit's mobile-/ "horizontal-overflow" flag). overflow-x:auto
+   keeps the row scrolling its OWN content so every link stays reachable
+   without dragging the page sideways. High-specificity + file-end so it
+   wins the cascade over the earlier .nav-links layers. */
+@media (max-width: 720px) {
+  html body nav.nav .nav-links {
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+}
