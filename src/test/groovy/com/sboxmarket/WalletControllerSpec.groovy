@@ -900,14 +900,16 @@ class WalletControllerSpec extends Specification {
         e.message.contains('already COMPLETED')
     }
 
-    def "cancelWithdraw() owner mismatch: IllegalArgumentException → INVALID_TX"() {
+    def "cancelWithdraw() non-withdrawal tx: IllegalArgumentException → INVALID_TX"() {
         given:
         def user = verifiedUser()
         def wallet = walletFor()
         steamUserRepository.findById(10L) >> Optional.of(user)
         walletRepository.findByUsername('steam_111') >> wallet
+        // IllegalArgumentException is the not-a-withdrawal signal. (A
+        // cross-wallet attempt is now a ForbiddenException — see below.)
         1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
-            { throw new IllegalArgumentException('tx belongs to another wallet') }
+            { throw new IllegalArgumentException('Transaction is not a withdrawal') }
 
         when:
         controller.cancelWithdraw(9L, reqFor(10L))
@@ -917,20 +919,41 @@ class WalletControllerSpec extends Specification {
         e.code == 'INVALID_TX'
     }
 
-    def "cancelWithdraw() missing tx: NoSuchElementException → NotFoundException (404)"() {
+    def "cancelWithdraw() missing tx: NotFoundException propagates as 404"() {
         given:
         def user = verifiedUser()
         def wallet = walletFor()
         steamUserRepository.findById(10L) >> Optional.of(user)
         walletRepository.findByUsername('steam_111') >> wallet
+        // StripeService throws NotFoundException directly; the controller
+        // no longer catches/remaps it — it propagates to the handler (404).
         1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
-            { throw new NoSuchElementException('no such tx') }
+            { throw new com.sboxmarket.exception.NotFoundException('Transaction', 9L) }
 
         when:
         controller.cancelWithdraw(9L, reqFor(10L))
 
         then:
-        thrown(NotFoundException)
+        thrown(com.sboxmarket.exception.NotFoundException)
+    }
+
+    def "cancelWithdraw() cross-wallet attempt: ForbiddenException propagates as 403"() {
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        // A withdrawal owned by another wallet is an authorization failure —
+        // StripeService throws ForbiddenException (403), the controller does
+        // not remap it, it propagates to the handler.
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >>
+            { throw new com.sboxmarket.exception.ForbiddenException('Not your withdrawal') }
+
+        when:
+        controller.cancelWithdraw(9L, reqFor(10L))
+
+        then:
+        thrown(com.sboxmarket.exception.ForbiddenException)
     }
 
     // ─── POST /api/wallet/confirm-deposit ───────────────────────────

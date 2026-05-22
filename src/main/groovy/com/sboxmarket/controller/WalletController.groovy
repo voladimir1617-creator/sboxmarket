@@ -489,12 +489,17 @@ class WalletController {
             def result = stripeService.cancelPendingWithdrawal(wallet.id, id)
             ResponseEntity.ok(result)
         } catch (IllegalStateException e) {
+            // status != PENDING (already paid out / cancelled).
             throw new com.sboxmarket.exception.BadRequestException("CANNOT_CANCEL", e.message)
         } catch (IllegalArgumentException e) {
+            // the tx exists but is not a withdrawal.
             throw new com.sboxmarket.exception.BadRequestException("INVALID_TX", e.message)
-        } catch (NoSuchElementException e) {
-            throw new com.sboxmarket.exception.NotFoundException("Transaction", id)
         }
+        // A missing tx (NotFoundException -> 404) and a cross-wallet attempt
+        // (ForbiddenException -> 403) are now thrown directly by
+        // StripeService.cancelPendingWithdrawal — both are ApiExceptions that
+        // GlobalExceptionHandler maps with the right status, so they need no
+        // catch/remap here and propagate untouched. (2026-05-21)
     }
 
     @PostMapping("/confirm-deposit")

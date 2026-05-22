@@ -1,5 +1,7 @@
 package com.sboxmarket
 
+import com.sboxmarket.exception.ForbiddenException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.TransactionRepository
@@ -347,7 +349,7 @@ class StripeServiceSpec extends Specification {
         result.newBalance == new BigDecimal("100.00")
     }
 
-    def "cancelPendingWithdrawal refuses a tx the wallet does not own"() {
+    def "cancelPendingWithdrawal refuses a tx the wallet does not own — 403 Forbidden"() {
         given:
         def tx = new Transaction(id: 9L, walletId: 999L /* different wallet */,
             type: 'WITHDRAW', status: 'PENDING', amount: new BigDecimal("40"))
@@ -357,7 +359,9 @@ class StripeServiceSpec extends Specification {
         service.cancelPendingWithdrawal(500L, 9L)
 
         then:
-        thrown(IllegalStateException)
+        // A cross-wallet cancel is an authorization failure — ForbiddenException
+        // (403), not the old IllegalStateException (which mapped to a 400).
+        thrown(ForbiddenException)
         0 * walletRepository.save(_)
     }
 
@@ -397,7 +401,9 @@ class StripeServiceSpec extends Specification {
         service.cancelPendingWithdrawal(500L, 404L)
 
         then:
-        thrown(NoSuchElementException)
+        // NotFoundException (404) — a bare NoSuchElementException has no
+        // GlobalExceptionHandler mapping and fell through to a 500.
+        thrown(NotFoundException)
     }
 
     // ── completeDeposit (dev-mode-reachable branches) ─────────────────

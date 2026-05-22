@@ -1,5 +1,7 @@
 package com.sboxmarket.service
 
+import com.sboxmarket.exception.ForbiddenException
+import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.TransactionRepository
@@ -377,10 +379,14 @@ class StripeService {
      */
     @Transactional
     Map cancelPendingWithdrawal(Long walletId, Long txId) {
+        // Missing tx → 404 NotFoundException, not a bare NoSuchElementException
+        // (which has no GlobalExceptionHandler mapping and fell through to a
+        // 500 on a plain wrong id). Cross-wallet attempt → 403 Forbidden,
+        // not IllegalState (a 400) — it is an authorization failure. (2026-05-21)
         def tx = transactionRepository.findById(txId)
-            .orElseThrow { new NoSuchElementException("Transaction $txId not found") }
+            .orElseThrow { new NotFoundException("Transaction", txId) }
         if (tx.walletId != walletId) {
-            throw new IllegalStateException("Not your withdrawal")
+            throw new ForbiddenException("Not your withdrawal")
         }
         def type = (tx.type ?: '').toUpperCase()
         if (type != 'WITHDRAW' && type != 'WITHDRAWAL') {
@@ -393,7 +399,7 @@ class StripeService {
             )
         }
         def wallet = walletRepository.findById(walletId)
-            .orElseThrow { new NoSuchElementException("Wallet $walletId not found") }
+            .orElseThrow { new NotFoundException("Wallet", walletId) }
         // Credit the amount back exactly as requestWithdrawal debited it.
         wallet.balance = wallet.balance + (tx.amount ?: BigDecimal.ZERO)
         walletRepository.save(wallet)
