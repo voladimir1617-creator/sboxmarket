@@ -187,13 +187,20 @@ class FraudAnalysisService {
         def out = []
         byUser.each { uid, list ->
             def sorted = list.sort { it.createdAt }
-            // Sliding window: for each purchase, count the number of purchases
-            // within the trailing PURCHASE_VELOCITY_WINDOW ms.
+            // True O(n) sliding window — `lo` is the trailing edge of the
+            // PURCHASE_VELOCITY_WINDOW and only ever advances, so the count
+            // for each purchase is a pointer subtraction. The previous code
+            // claimed "sliding window" but re-scanned sorted[0..i] for
+            // every i — O(n²) over an unbounded 24h audit-row set, which
+            // burned CPU on the synchronous admin Fraud-tab call. Produces
+            // identical peak counts, just without the quadratic blowup.
             int peak = 0
             long peakAt = 0
+            int lo = 0
             sorted.eachWithIndex { row, i ->
-                def windowStart = row.createdAt - PURCHASE_VELOCITY_WINDOW
-                int count = sorted[0..i].count { it.createdAt >= windowStart }
+                long windowStart = row.createdAt - PURCHASE_VELOCITY_WINDOW
+                while (sorted[lo].createdAt < windowStart) lo++
+                int count = i - lo + 1
                 if (count > peak) { peak = count; peakAt = row.createdAt }
             }
             if (peak >= PURCHASE_VELOCITY_TRIP) {
