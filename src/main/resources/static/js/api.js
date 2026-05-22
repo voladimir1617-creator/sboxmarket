@@ -2067,10 +2067,14 @@ export async function bulkMergeSavedSearches(entries) {
 export async function fetchSteamInventory() {
   try {
     const r = await fetch(`${API}/steam/inventory`, { credentials: 'same-origin' });
-    if (!r.ok) return { items: [], count: 0 };
+    // `error: true` distinguishes a genuine fetch failure from a truly
+    // empty inventory — the Sell modal shows a retry state instead of
+    // falsely telling the seller they own nothing. `items`/`count` stay
+    // present so callers that don't check `error` simply see an empty list.
+    if (!r.ok) return { items: [], count: 0, error: true };
     const data = await r.json();
-    return (data && typeof data === 'object') ? data : { items: [], count: 0 };
-  } catch (_) { return { items: [], count: 0 }; }
+    return (data && typeof data === 'object') ? data : { items: [], count: 0, error: true };
+  } catch (_) { return { items: [], count: 0, error: true }; }
 }
 
 export async function syncSteam() {

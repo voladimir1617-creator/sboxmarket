@@ -9543,6 +9543,11 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     setError('');
     const p = parseFloat(price);
     if (!p || p <= 0) { setError('Enter a valid price'); return; }
+    // Cap inline — matches the $100k server limit (PRICE_TOO_HIGH) and
+    // submitBulk, so a fat-fingered price fails here instead of on a
+    // server round-trip. `p` is shared by the buy-now price and the
+    // auction starting bid, so this covers both listing types.
+    if (p > 100000) { setError('Price must not exceed $100,000.'); return; }
     const opts = { listingType: sellType };
     const trimmedDesc = (sellDescription || '').trim();
     if (trimmedDesc) {
@@ -9971,8 +9976,12 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
         steamData && h('span', {
           className: 'filter-count',
           style: { marginLeft: 6 },
-          title: steamData.blocked ? 'Count unavailable — Steam rate-limited our request' : null
-        }, steamData.blocked && steamList.length === 0 ? '—' : steamList.length)),
+          title: steamData.blocked
+            ? 'Count unavailable — Steam rate-limited our request'
+            : steamData.error
+              ? "Count unavailable — couldn't reach the inventory service"
+              : null
+        }, (steamData.blocked || steamData.error) && steamList.length === 0 ? '—' : steamList.length)),
       h('button', { className: `offer-tab ${source === 'internal' ? 'active' : ''}`, onClick: () => setSource('internal') },
         'Platform Inventory', internal && h('span', { className: 'filter-count', style: { marginLeft: 6 } }, internalList.length)),
       h('div', { style: { flex: 1 } }),
@@ -10001,19 +10010,23 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     source === 'steam' && steamData === null && h('div', { className: 'spinner' }),
     source === 'steam' && steamData && steamList.length === 0 && h('div', { className: 'empty-inline' },
       h('div', { className: 'empty-icon' },
-        h(MaterialIcon, { name: steamData?.blocked ? 'hourglass_top' : 'inbox', size: 26 })),
+        h(MaterialIcon, { name: steamData?.error ? 'cloud_off' : steamData?.blocked ? 'hourglass_top' : 'inbox', size: 26 })),
       h('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 } },
-        steamData?.blocked
-          ? 'Steam is rate-limiting our requests'
-          : 'No s&box items in your Steam inventory'),
+        steamData?.error
+          ? "Couldn't load your Steam inventory"
+          : steamData?.blocked
+            ? 'Steam is rate-limiting our requests'
+            : 'No s&box items in your Steam inventory'),
       h('div', { style: { fontSize: 13, color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.55 } },
-        steamData?.blocked
-          ? (() => {
-              const sec = Number(steamData.retryInSec || 300);
-              const min = Math.max(1, Math.ceil(sec / 60));
-              return `Steam's inventory endpoint hit a rate-limit. Try again in ~${min} minute${min === 1 ? '' : 's'}. Your previously-synced inventory still works for listing.`;
-            })()
-          : "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. If the inventory is public and you still see this, the sync cache may be stale — try again."),
+        steamData?.error
+          ? "We couldn't reach the inventory service — this is a connection problem, not an empty inventory. Re-sync to try again."
+          : steamData?.blocked
+            ? (() => {
+                const sec = Number(steamData.retryInSec || 300);
+                const min = Math.max(1, Math.ceil(sec / 60));
+                return `Steam's inventory endpoint hit a rate-limit. Try again in ~${min} minute${min === 1 ? '' : 's'}. Your previously-synced inventory still works for listing.`;
+              })()
+            : "Either your Steam inventory is set to Private, or there are no s&box cosmetics in it. If the inventory is public and you still see this, the sync cache may be stale — try again."),
       // Batch 831 — actionable empty-state. Two real CTAs instead of
       // one "Sync Steam" hint buried at the bottom of the page:
       // 1) Direct link to Steam's privacy settings so a user who
@@ -10026,7 +10039,10 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
           alignItems: 'center', flexWrap: 'wrap', marginBottom: 18
         }
       },
-        h('a', {
+        // Privacy-settings link is only relevant to the "private inventory"
+        // empty state — hide it on a connection error, where it would
+        // misdirect the user away from the real fix (Re-sync / retry).
+        !steamData?.error && h('a', {
           className: 'btn btn-ghost',
           href: 'https://steamcommunity.com/my/edit/settings',
           target: '_blank',
