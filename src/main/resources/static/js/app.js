@@ -5689,7 +5689,7 @@ export function App() {
             'aria-label': tip
           },
             h(MaterialIcon, { name: 'shopping_cart', size: 20, fill: cartCount > 0, color: cartCount > 0 ? 'var(--accent)' : 'var(--text-secondary)' }),
-            cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount)
+            cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount > 99 ? '99+' : cartCount)
           );
         })(),
         me && wallet && (() => {
@@ -6531,7 +6531,7 @@ export function App() {
        word headline, a 1-line blurb. Adapted to sboxmarket's actual
        services (auctions, bargains, non-custodial Steam-trade escrow)
        — no float values / StatTrak / Souvenirs since those are CS-only. */
-    routeName === 'home' && h('section', { className: 'csfloat-home-tiles', 'aria-label': 'How sboxmarket trades work' },
+    routeName === 'home' && h('section', { className: 'csfloat-home-tiles', 'aria-label': 'How SkinBox trades work' },
       h('div', { className: 'csfloat-home-tiles-inner' },
         h('div', { className: 'csfloat-home-tile' },
           h('div', { className: 'csfloat-home-tile-icon' },
@@ -9250,7 +9250,15 @@ export function App() {
       const bg = isErr ? 'var(--red-dim)' : isWarn ? 'rgba(251,191,36,0.15)' : 'var(--accent-dim)';
       const fg = isErr ? 'var(--red)'     : isWarn ? '#fbbf24'               : 'var(--accent)';
       const glyph = isErr ? '✕' : isWarn ? '⚠' : '✓';
-      return h('div', { className: `sale-toast ${isErr ? 'err' : (isWarn ? 'warn' : '')}` },
+      return h('div', {
+        className: `sale-toast ${isErr ? 'err' : (isWarn ? 'warn' : '')}`,
+        // A11y — toasts carry errors, warnings and confirmations; without
+        // a live region a screen reader never announces them. Assertive
+        // for errors so they interrupt, polite otherwise.
+        role: 'status',
+        'aria-live': isErr ? 'assertive' : 'polite',
+        'aria-atomic': 'true'
+      },
         h('div', { className: 'sale-toast-thumb', style: { background: bg, color: fg } }, glyph),
         h('div', { className: 'sale-toast-text' },
           h('div', { className: 'sale-toast-line2' }, toast.text)

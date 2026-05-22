@@ -960,7 +960,7 @@ class AdminController {
     ResponseEntity<Map> refundDeposit(@PathVariable Long id,
                                       @RequestBody(required = false) Map body,
                                       HttpServletRequest req) {
-        requireAdmin(req)
+        def adminUserId = requireAdmin(req)
         BigDecimal amount = null
         if (body?.amount != null) {
             try { amount = new BigDecimal(body.amount.toString()) }
@@ -976,7 +976,7 @@ class AdminController {
         // refund" signals to structured 400s — mirrors the pattern in
         // WalletController.cancelWithdraw, the other Stripe-delegating route.
         try {
-            ResponseEntity.ok(stripeService.refundDeposit(id, amount))
+            ResponseEntity.ok(stripeService.refundDeposit(id, amount, adminUserId))
         } catch (NoSuchElementException ignored) {
             throw new com.sboxmarket.exception.NotFoundException("Transaction", id)
         } catch (IllegalStateException e) {

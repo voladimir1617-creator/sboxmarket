@@ -371,7 +371,9 @@ class AdminControllerSpec extends Specification {
         given:
         def result = [refunded: new BigDecimal('40.00')]
         adminSession(100L)
-        1 * stripeService.refundDeposit(3L, null) >> result
+        // 3rd arg is the acting admin uid (adminSession(100L)) — the
+        // controller must forward it so the refund audit row is attributed.
+        1 * stripeService.refundDeposit(3L, null, 100L) >> result
 
         when:
         def resp = controller.refundDeposit(3L, null, req)
@@ -383,7 +385,7 @@ class AdminControllerSpec extends Specification {
     def "refundDeposit() forwards a partial refund amount to Stripe"() {
         given:
         adminSession(100L)
-        1 * stripeService.refundDeposit(3L, new BigDecimal('10.00')) >> [refunded: new BigDecimal('10.00')]
+        1 * stripeService.refundDeposit(3L, new BigDecimal('10.00'), 100L) >> [refunded: new BigDecimal('10.00')]
 
         when:
         controller.refundDeposit(3L, [amount: '10.00'], req)
@@ -395,7 +397,7 @@ class AdminControllerSpec extends Specification {
     def "refundDeposit() maps a missing deposit tx (NoSuchElementException) to 404 — not 500"() {
         given:
         adminSession(100L)
-        1 * stripeService.refundDeposit(404L, null) >> {
+        1 * stripeService.refundDeposit(404L, null, 100L) >> {
             throw new NoSuchElementException("Transaction 404 not found")
         }
 
@@ -410,7 +412,7 @@ class AdminControllerSpec extends Specification {
     def "refundDeposit() maps an IllegalStateException to a CANNOT_REFUND 400"() {
         given:
         adminSession(100L)
-        1 * stripeService.refundDeposit(3L, null) >> {
+        1 * stripeService.refundDeposit(3L, null, 100L) >> {
             throw new IllegalStateException("Only completed deposits can be refunded")
         }
 
@@ -425,7 +427,7 @@ class AdminControllerSpec extends Specification {
     def "refundDeposit() maps an IllegalArgumentException to an INVALID_AMOUNT 400"() {
         given:
         adminSession(100L)
-        1 * stripeService.refundDeposit(3L, new BigDecimal('999.00')) >> {
+        1 * stripeService.refundDeposit(3L, new BigDecimal('999.00'), 100L) >> {
             throw new IllegalArgumentException("Refund amount must be between 0 and \$40")
         }
 

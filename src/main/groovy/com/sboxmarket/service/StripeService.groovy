@@ -267,7 +267,7 @@ class StripeService {
      * admin panel (not by end users). Credits back out of the user's wallet
      * so the balance stays consistent with Stripe. */
     @Transactional
-    Map refundDeposit(Long depositTxId, BigDecimal refundAmount = null) {
+    Map refundDeposit(Long depositTxId, BigDecimal refundAmount = null, Long adminUserId = null) {
         def tx = transactionRepository.findById(depositTxId)
                 .orElseThrow { new NoSuchElementException("Transaction $depositTxId not found") }
         if (tx.type != 'DEPOSIT' || tx.status != 'COMPLETED') {
@@ -337,8 +337,20 @@ class StripeService {
             description:     "Refund of deposit #${tx.id}"
         )
         transactionRepository.save(refundTx)
+        // Resolve the wallet owner so the refund audit row carries BOTH
+        // the acting admin and the affected user. Pre-fix this logged
+        // null/null — an irreversible real-money op with no accountable
+        // admin on record, invisible to the audit-by-actor/by-subject
+        // filters and blank in the CSV export.
+        Long subjectUserId = null
         try {
-            auditService?.log(AuditService.REFUND_ISSUED, null, null, refundTx.id,
+            def uname = wallet.username ?: ''
+            if (uname.startsWith('steam_')) {
+                subjectUserId = steamUserRepository?.findBySteamId64(uname.substring('steam_'.length()))?.id
+            }
+        } catch (Exception ignore) {}
+        try {
+            auditService?.log(AuditService.REFUND_ISSUED, adminUserId, subjectUserId, refundTx.id,
                 "Refunded \$${amount} of deposit ${tx.id} (stripeRef=${refundId}, wallet debit=\$${debit})")
         } catch (Exception ignore) {}
         // User-facing push + email (batch 523). Admin-initiated refunds

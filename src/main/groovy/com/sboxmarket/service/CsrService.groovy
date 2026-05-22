@@ -337,8 +337,27 @@ class CsrService {
 
         def user = steamUserRepository.findById(targetUserId)
             .orElseThrow { new NotFoundException("SteamUser", targetUserId) }
+        // A banned account can't transact — crediting it is pointless and
+        // inconsistent with the direct-message path, which already rejects
+        // banned targets. Staff accounts are off-limits as goodwill
+        // targets so a CSR pair can't shuttle credits to each other.
+        if (Boolean.TRUE.equals(user.banned)) {
+            throw new BadRequestException("USER_BANNED",
+                "This account is banned — goodwill credits can't be issued to it.")
+        }
+        if (user.role in ['CSR', 'ADMIN']) {
+            throw new BadRequestException("STAFF_TARGET",
+                "Goodwill credits can't be issued to a staff account — escalate to an admin.")
+        }
         def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
         if (wallet == null) throw new NotFoundException("Wallet", targetUserId)
+        // A frozen wallet is a hard hold (typically a fraud investigation)
+        // — it must refuse money-IN as well as money-out, otherwise a CSR
+        // could top up an account staff deliberately locked.
+        if (Boolean.TRUE.equals(wallet.frozen)) {
+            throw new BadRequestException("WALLET_FROZEN",
+                "This wallet is frozen — a goodwill credit can't be issued until the hold is lifted.")
+        }
         wallet.balance = wallet.balance + amount
         walletRepository.save(wallet)
 

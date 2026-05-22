@@ -106,6 +106,12 @@ export function InfoModal({ title, onClose, children, wide }) {
   return h('div', { className: 'modal-backdrop', onClick: handleBackdropClick },
     h('div', {
       ref: panelRef,
+      // id="main" so the "Skip to main content" link resolves on every
+      // full-page route that renders inside InfoModal (/wallet, /profile,
+      // /help, /faq, …) — without it the skip-link was dead everywhere
+      // except home and /market. Only one #main is ever in the DOM at a
+      // time (InfoModal routes and home/market are mutually exclusive).
+      id: 'main',
       className: 'modal info-modal' + (wide ? ' wide' : ''),
       onClick: e => e.stopPropagation(),
       role: 'dialog',
