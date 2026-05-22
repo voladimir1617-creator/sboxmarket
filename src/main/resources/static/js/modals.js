@@ -29,6 +29,16 @@ export { InfoModal };
 
 // ── Item detail ──────────────────────────────────────────────────
 export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer, me, wallet, onRefresh, onCreateBuyOrder, onAddToCart, cartHas, watchlist, onToggleStar, isPageMode }) {
+  // CSFloat-1:1 — the buy / offer surfaces must target the cheapest
+  // BUY_NOW listing, not listings[0]. Listings come back sorted
+  // price-ascending, so an auction sitting on a low current bid can
+  // occupy listings[0] while a perfectly buyable BUY_NOW listing sits
+  // behind it. Keying Buy Now / Make Offer / the offer form off
+  // listings[0] then collapsed the whole action bar to a single
+  // "Place Bid" CTA and hid the buy path entirely. `auctionOnly` is
+  // true only when there is genuinely no buy-now option at all.
+  const cheapestBuyNow = listings.find(l => l && l.listingType === 'BUY_NOW' && l.id) || null;
+  const auctionOnly    = !cheapestBuyNow && !!(listings[0] && listings[0].listingType === 'AUCTION');
   const [offerOpen, setOfferOpen] = useState(false);
   const [thread, setThread] = useState(null);
   const [chartRange, setChartRange] = useState('30D');
@@ -82,11 +92,13 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // between /item/:id pages quickly — same pattern as the velocity /
   // recent-sales / buy-order effects below.
   useEffect(() => {
-    if (!listings[0]) return;
+    // Offer threads live on the buy-now listing offers are made against,
+    // not listings[0] — which may be a cheaper auction with no offers.
+    if (!cheapestBuyNow) return;
     let alive = true;
-    fetchOfferThread(listings[0].id).then(t => { if (alive) setThread(t); });
+    fetchOfferThread(cheapestBuyNow.id).then(t => { if (alive) setThread(t); });
     return () => { alive = false; };
-  }, [listings[0]?.id]);
+  }, [cheapestBuyNow?.id]);
   useEffect(() => {
     if (!item) return;
     let alive = true;
@@ -1541,13 +1553,11 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // Low-balance pre-check (batch 391). Surfaces the shortfall
         // inline next to the Buy Now button so the user sees it before
         // clicking — no round-trip to the 402 toast. Only rendered when
-        // the viewer is signed-in, the top listing is BUY_NOW, and the
-        // wallet can't cover it. Auction listings use their own bid
+        // the viewer is signed-in, the item has a buy-now listing, and
+        // the wallet can't cover it. Auction listings use their own bid
         // panel with its own solvency check.
-        const topBuyNow = listings[0] &&
-          listings[0].listingType !== 'AUCTION';
-        if (!(me && wallet && topBuyNow)) return null;
-        const price = parseFloat(listings[0].price) || 0;
+        if (!(me && wallet && cheapestBuyNow)) return null;
+        const price = parseFloat(cheapestBuyNow.price) || 0;
         const bal   = parseFloat(wallet.balance) || 0;
         const gap   = price - bal;
         if (!(gap > 0)) return null;
@@ -1576,12 +1586,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
       })(),
 
       h('div', { className: 'modal-actions' },
-        // Top-listing auction: Buy Now and Make Offer both 400 on the
-        // server (PurchaseService + OfferService auction guards). Swap
-        // them for a single "Place Bid" CTA that scrolls the auction
-        // panel into view so the user lands on the surface where they
-        // can actually act.
-        listings[0] && listings[0].listingType === 'AUCTION'
+        // CSFloat-1:1 — drive Buy Now / Make Offer off the cheapest
+        // BUY_NOW listing. The single "Place Bid" CTA only takes over
+        // when the item is auction-only (no buy-now listing at all):
+        // before this fix an auction sitting at listings[0] hid a
+        // perfectly buyable BUY_NOW listing behind a bid-only bar.
+        auctionOnly
           ? h('button', {
               className: 'btn btn-accent',
               onClick: () => {
@@ -1590,52 +1600,52 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
               },
               'aria-label': 'Place a bid in the auction panel above'
             }, 'Place Bid')
-          : !me && listings[0]
+          : !me && cheapestBuyNow
             ? h('button', {
                 className: 'btn btn-accent',
                 onClick: () => { signInWithSteam(); },
                 'aria-label': 'Sign in with Steam to buy this listing'
-              }, `Sign in to buy · ${fmt(listings[0].price)}`)
+              }, `Sign in to buy · ${fmt(cheapestBuyNow.price)}`)
             : (() => {
                 // Disable Buy Now when the wallet can't cover the price —
                 // the banner above already tells the user what to do.
                 // Clicking would just 402 on the server.
-                const price = listings[0] ? (parseFloat(listings[0].price) || 0) : 0;
+                const price = cheapestBuyNow ? (parseFloat(cheapestBuyNow.price) || 0) : 0;
                 const bal   = wallet ? (parseFloat(wallet.balance) || 0) : Infinity;
-                const broke = me && wallet && listings[0] && bal < price;
+                const broke = me && wallet && cheapestBuyNow && bal < price;
                 return h('button', {
                   className: 'btn btn-accent',
-                  disabled: !listings[0] || broke,
-                  onClick: () => listings[0] && onBuy(listings[0].id, listings[0].price),
-                  'aria-label': listings[0] ? `Buy for ${fmt(listings[0].price)}` : 'Out of stock',
+                  disabled: !cheapestBuyNow || broke,
+                  onClick: () => cheapestBuyNow && onBuy(cheapestBuyNow.id, cheapestBuyNow.price),
+                  'aria-label': cheapestBuyNow ? `Buy for ${fmt(cheapestBuyNow.price)}` : 'Out of stock',
                   title: broke ? 'Deposit funds first — your wallet is short' : null
                 },
-                  !listings[0]
+                  !cheapestBuyNow
                     ? 'Out of Stock'
                     : broke
-                      ? `Deposit to buy · ${fmt(listings[0].price)}`
-                      : `Buy Now · ${fmt(listings[0].price)}`
+                      ? `Deposit to buy · ${fmt(cheapestBuyNow.price)}`
+                      : `Buy Now · ${fmt(cheapestBuyNow.price)}`
                 );
               })(),
         // "Make Offer" — redirect to Steam OpenID for anon viewers so
         // the sign-in lands them back on the item URL with the modal
         // restored, rather than opening an empty bargaining form that
-        // 401s on submit. Hidden entirely for auction listings — the
+        // 401s on submit. Hidden when the item is auction-only — the
         // bid surface is the only valid bargain path there.
-        listings[0] && listings[0].listingType === 'AUCTION'
+        auctionOnly
           ? null
           : !me
             ? h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
                 onClick: () => { signInWithSteam(); },
-                disabled: !listings[0]
+                disabled: !cheapestBuyNow
               }, 'Sign in to make offer')
             : h('button', {
                 className: 'btn btn-ghost',
                 style: { border: '1px solid var(--border)' },
                 onClick: () => setOfferOpen(o => !o),
-                disabled: !listings[0]
+                disabled: !cheapestBuyNow
               }, offerOpen ? 'Cancel Offer' : 'Make Offer'),
         /* Place Buy Order hidden for anon viewers — requires auth anyway.
            Keeps the action bar focused like csfloat's item page. */
@@ -1715,14 +1725,14 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             alertLabel
           );
         })(),
-        onAddToCart && listings[0] && h('button', {
+        onAddToCart && cheapestBuyNow && h('button', {
           className: 'btn btn-ghost',
           style: { border: '1px solid var(--border)' },
-          disabled: cartHas && cartHas(listings[0].id),
-          onClick: () => onAddToCart(listings[0]),
-          title: 'Add cheapest listing to cart'
+          disabled: cartHas && cartHas(cheapestBuyNow.id),
+          onClick: () => onAddToCart(cheapestBuyNow),
+          title: 'Add cheapest buy-now listing to cart'
         }, h(MaterialIcon, { name: 'shopping_cart', size: 16 }),
-          cartHas && cartHas(listings[0].id) ? ' In Cart' : ' Add to Cart'),
+          cartHas && cartHas(cheapestBuyNow.id) ? ' In Cart' : ' Add to Cart'),
         // "List one of these" — deep-links the seller to /sell with the
         // item name pre-filled in the inventory search filter so they
         // land on the right row without scrolling. Signed-in only;
@@ -1907,11 +1917,12 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // Live preview math (batch 407). Updates as the buyer types so
         // they see the % below ask, the $ they're saving, and an
         // optimistic "likely accept" / "below floor / won't match"
-        // guidance without submitting. Uses the top listing's price as
-        // the anchor — that's what the server will charge if accepted.
-        const ask = listings[0] ? parseFloat(listings[0].price) || 0 : 0;
+        // guidance without submitting. Anchored on the cheapest BUY_NOW
+        // listing — that's the listing the offer targets and what the
+        // server will charge if accepted.
+        const ask = cheapestBuyNow ? parseFloat(cheapestBuyNow.price) || 0 : 0;
         const amt = parseFloat(offerAmt) || 0;
-        const maxDisc = listings[0] ? parseFloat(listings[0].maxDiscount) || 0 : 0;
+        const maxDisc = cheapestBuyNow ? parseFloat(cheapestBuyNow.maxDiscount) || 0 : 0;
         const belowAskPct = (ask > 0 && amt > 0) ? ((ask - amt) / ask * 100) : null;
         const savings     = (ask > 0 && amt > 0 && amt < ask) ? (ask - amt) : 0;
         const autoThreshold = (ask > 0 && maxDisc > 0) ? (ask * (1 - maxDisc)) : 0;
@@ -1922,7 +1933,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // refuse a new one with OFFER_ALREADY_PENDING. Surface that state
         // upfront with a clear "View / raise it instead" route so the
         // user doesn't type a price, hit Send, and bounce off a 400.
-        const myLive = listings[0] ? myOffersByListing[listings[0].id] : null;
+        const myLive = cheapestBuyNow ? myOffersByListing[cheapestBuyNow.id] : null;
         return h('div', { style: { padding: '14px 30px', background: 'var(--bg-secondary)', borderRadius: 8, margin: '10px 30px' } },
         myLive && h('div', {
           style: {
@@ -1988,7 +1999,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
         // seller's auto-accept threshold we also inject a "Auto-accept"
         // chip so the buyer can instantly settle without waiting.
         (() => {
-          const ask = parseFloat(listings[0]?.price || 0);
+          const ask = parseFloat(cheapestBuyNow?.price || 0);
           if (!(ask > 0)) return null;
           const chips = [
             { label: '−5%',  v: +(ask * 0.95).toFixed(2) },
@@ -2044,7 +2055,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
                 setOfferErr('');
                 setOfferBusy(true);
                 try {
-                  const res = await onMakeOffer(listings[0]?.id, parseFloat(offerAmt), offerMsg);
+                  const res = await onMakeOffer(cheapestBuyNow?.id, parseFloat(offerAmt), offerMsg);
                   if (res && res.error) { setOfferErr(res.message || res.error); return; }
                   setOfferOpen(false);
                   setOfferAmt('');
