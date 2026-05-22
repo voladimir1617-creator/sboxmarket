@@ -203,11 +203,15 @@ class HealthController {
                     ps.close()
                 }
             } catch (Exception e) {
+                // Full exception class + message goes to the server log only.
+                // The public body carries just the safe hand-written `reason`
+                // code — a raw JDBC/Postgres message can leak schema names,
+                // SQL state, or internal hostnames to an anonymous scanner
+                // (same hardening rationale as GlobalErrorController.safeMessage).
                 log.warn("cookie-aware probe FAIL on known-good UUID: ${e.class.name}: ${e.message}")
                 return ResponseEntity.status(503)
                     .header('Cache-Control', noStore)
-                    .body([status: 'DOWN', reason: 'good-uuid-threw',
-                           exception: e.class.name, message: (e.message ?: '')])
+                    .body([status: 'DOWN', reason: 'good-uuid-threw'])
             }
             // Probe 2: poisoned (stale) UUID. Must return zero rows and
             // not throw — this is the shape a sanitised inbound cookie
@@ -225,19 +229,19 @@ class HealthController {
                     ps.close()
                 }
             } catch (Exception e) {
+                // Full detail to the log; public body stays a safe reason code.
                 log.warn("cookie-aware probe FAIL on poisoned UUID: ${e.class.name}: ${e.message}")
                 return ResponseEntity.status(503)
                     .header('Cache-Control', noStore)
-                    .body([status: 'DOWN', reason: 'poisoned-uuid-threw',
-                           exception: e.class.name, message: (e.message ?: '')])
+                    .body([status: 'DOWN', reason: 'poisoned-uuid-threw'])
             }
         } catch (Exception e) {
             // Couldn't even acquire a connection — fall through as 503.
+            // Full detail to the log; public body stays a safe reason code.
             log.warn("cookie-aware probe FAIL on connection acquire: ${e.class.name}: ${e.message}")
             return ResponseEntity.status(503)
                 .header('Cache-Control', noStore)
-                .body([status: 'DOWN', reason: 'connection-failed',
-                       exception: e.class.name, message: (e.message ?: '')])
+                .body([status: 'DOWN', reason: 'connection-failed'])
         } finally {
             try { if (conn != null) conn.close() } catch (Exception ignored) {}
         }

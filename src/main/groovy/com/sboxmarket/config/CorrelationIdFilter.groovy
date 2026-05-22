@@ -201,6 +201,34 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         //   - Fonts / images / icons: 4-hour edge + browser cache. These
         //     change rarely, are addressed by a stable URL, and the
         //     bandwidth/round-trip savings are real on mobile.
+        // OG-rewriting routes — every path OpenGraphController serves an
+        // HTML shell for and stamps with its OWN `Cache-Control` via
+        // `ResponseEntity.header()`. ResponseEntity headers APPEND rather
+        // than replace, so if this filter ALSO sets Cache-Control on one
+        // of these paths the response carries two values — and a browser/
+        // CDN merges them, letting the stricter `no-cache` defeat the
+        // `public, max-age=3600` the controller intended (the SEO browse
+        // pages /market, /search, /db, /help, /loadout, /faq silently lose
+        // their hour-long edge cache). Same double-header bug class fixed
+        // for /api/buy-orders. The {id} detail routes are handled by the
+        // `startsWith` prefixes; the index/static/private routes need an
+        // exact (trailing-slash-tolerant) match. Keep this in lockstep
+        // with OpenGraphController's @GetMapping list.
+        String ogExact = path == null ? null :
+            (path.length() > 1 && path.endsWith('/') ? path[0..-2] : path)
+        boolean isOgRoute = path != null && (
+                path.startsWith('/item/') ||
+                path.startsWith('/stall/') ||
+                path.startsWith('/loadout/') ||
+                ogExact in [
+                    '/market', '/search', '/db', '/help', '/loadout',
+                    '/affiliate', '/faq',
+                    // privateShell() routes — it sets its own
+                    // `no-cache, must-revalidate`; excluding them here
+                    // stops a (harmless but malformed) duplicate header.
+                    '/profile', '/wallet', '/cart', '/sell', '/me/stall',
+                    '/offers', '/buy-orders', '/notifications',
+                    '/watchlist', '/support', '/settings', '/admin', '/csr'])
         if (path != null && path.matches('.*\\.(js|css)$')) {
             resp.setHeader("Cache-Control", "no-cache, must-revalidate")
         } else if (path != null && path.matches('.*\\.(woff2?|svg|png|ico|jpg|webp)$')) {
@@ -208,21 +236,12 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         } else if (path != null && method == 'GET'
                    && !path.startsWith('/api/')
                    && !path.contains('.')
-                   && !path.startsWith('/item/')
-                   && !path.startsWith('/stall/')
-                   && !path.startsWith('/loadout/')
-                   && path != '/faq') {
-            // SPA shell route (e.g. `/`, `/market`, `/search`, `/watchlist`).
-            // Forwards to /index.html which references non-content-hashed
-            // /js/*.js bundles, so the shell must revalidate on every load
-            // to pick up new bundle contents the moment a deploy lands.
-            //
-            // OG-rewriting routes (/item/{id}, /stall/{id}, /loadout/{id},
-            // /faq) are skipped here because OpenGraphController sets its
-            // own `public, max-age=300` via ResponseEntity.header(), and
-            // ResponseEntity headers APPEND rather than replace — pre-
-            // setting Cache-Control here would emit two conflicting
-            // values like the /api/buy-orders bug fixed earlier.
+                   && !isOgRoute) {
+            // SPA shell route (e.g. `/`, `/`-rooted client routes with no
+            // dedicated OpenGraphController handler). Forwards to
+            // /index.html which references non-content-hashed /js/*.js
+            // bundles, so the shell must revalidate on every load to pick
+            // up new bundle contents the moment a deploy lands.
             resp.setHeader("Cache-Control", "no-cache, must-revalidate")
         }
 

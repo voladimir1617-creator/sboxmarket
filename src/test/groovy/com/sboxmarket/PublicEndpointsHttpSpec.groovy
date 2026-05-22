@@ -2191,15 +2191,22 @@ class PublicEndpointsHttpSpec extends Specification {
         cc.contains('must-revalidate')
     }
 
-    def "GET /market (SPA shell sub-route) emits no-cache (batch 796)"() {
+    def "GET /market (OpenGraph SEO shell) is edge-cacheable, not no-cache"() {
+        // /market is served by OpenGraphController as an SEO HTML shell and
+        // carries the controller's `public, max-age=3600` for CDN/edge
+        // caching. CorrelationIdFilter must NOT also stamp `no-cache` on it
+        // — the resulting double Cache-Control header let `no-cache` win
+        // and silently defeated the SEO cache (final-wave CorrelationIdFilter
+        // fix). The live marketplace DATA is fetched via /api/listings,
+        // which stays no-store independently.
         when:
         def r = mockMvc.perform(MockMvcRequestBuilders.get('/market')).andReturn()
 
         then:
         def cc = r.response.getHeader('Cache-Control')
         cc != null
-        cc.contains('no-cache')
-        cc.contains('must-revalidate')
+        cc.contains('max-age')
+        !cc.contains('no-cache')
     }
 
     def "GET /img/favicon-512.png keeps the 4-hour public cache (batch 796 — assets unchanged)"() {

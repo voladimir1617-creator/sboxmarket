@@ -46,8 +46,12 @@ class WebConfig implements WebMvcConfigurer {
         // ── Authenticated surfaces ───────────────────────────────────
         // Everything else on /api/** only accepts the operator's configured
         // origin list and requires credentials (session cookie + CSRF).
+        // PATCH is in the method list because SellerFollowController exposes
+        // `PATCH /api/follows/{id}/mute` + `/api/follows/mute-all`; without
+        // it a cross-origin (split SPA-origin / extension) caller's CORS
+        // preflight omits PATCH and the browser blocks the mute request.
         def mapping = registry.addMapping('/api/**')
-                .allowedMethods('GET', 'POST', 'PUT', 'DELETE', 'OPTIONS')
+                .allowedMethods('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS')
                 .allowedHeaders('*')
                 .maxAge(3600)
         // `allowedOrigins` with a literal `*` forbids credentials, while

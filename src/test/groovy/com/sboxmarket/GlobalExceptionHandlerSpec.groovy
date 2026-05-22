@@ -332,4 +332,40 @@ class GlobalExceptionHandlerSpec extends Specification {
         !resp.body.message.contains('NPE')
         !resp.body.message.contains('BuyOrderService')
     }
+
+    def "catch-all 500 does NOT leak the internal message even in verbose mode"() {
+        // verboseErrors is an opt-in prod debug switch; it surfaces *domain*
+        // messages (handleApi) but an unanticipated 500 is still a server
+        // fault whose message may carry SQL/stack internals, so handleAny
+        // must stay generic regardless of the flag.
+        given:
+        def verbose = new GlobalExceptionHandler(verboseErrors: true)
+
+        when:
+        def resp = verbose.handleAny(
+            new RuntimeException("could not execute statement; SQL [select * from wallet]"),
+            req())
+
+        then:
+        resp.statusCode == HttpStatus.INTERNAL_SERVER_ERROR
+        !resp.body.message.contains('SQL')
+        !resp.body.message.contains('wallet')
+        resp.body.details == null
+    }
+
+    def "handleClientState swallows a sensitive IllegalStateException message in production"() {
+        // StripeService throws IllegalStateException with wallet balances in
+        // the text (e.g. "Insufficient balance: have $X, need $Y"). In
+        // non-verbose mode handleClientState must NOT echo that message.
+        when:
+        def resp = handler.handleClientState(
+            new IllegalStateException('Wallet balance too low to refund (have $5.00, need $50.00)'),
+            req())
+
+        then:
+        resp.statusCode == HttpStatus.BAD_REQUEST
+        resp.body.code == 'BAD_REQUEST'
+        resp.body.message == 'Request could not be completed'
+        !resp.body.message.contains('5.00')
+    }
 }

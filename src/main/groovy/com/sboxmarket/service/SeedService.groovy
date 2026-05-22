@@ -13,7 +13,6 @@ import com.sboxmarket.repository.WalletRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 
 import java.math.RoundingMode
 
@@ -36,11 +35,38 @@ class SeedService {
     @Autowired(required = false) LoadoutSlotRepository loadoutSlotRepository
     @Autowired(required = false) ItemRepository itemRepository
 
-    @Transactional
+    /**
+     * First-boot bootstrap entry point — invoked once from the
+     * {@code CommandLineRunner} in {@code SboxMarketApplication}.
+     *
+     * DELIBERATELY NOT {@code @Transactional}. Each helper below wraps its
+     * body in a {@code try/catch} so a single bad row (constraint clash,
+     * optimistic-lock failure, malformed fixture) is logged and skipped
+     * instead of aborting startup. That contract ONLY holds when there is
+     * no surrounding transaction: under one big {@code @Transactional seed()}
+     * the first swallowed {@code PersistenceException} marks the shared
+     * transaction rollback-only, and Spring's interceptor then throws
+     * {@code UnexpectedRollbackException} when it tries to commit after
+     * {@code seed()} returns — which DOES crash application startup, the
+     * exact failure the per-helper catches were written to prevent.
+     *
+     * With no outer transaction, every Spring Data {@code save/delete}
+     * runs in its own short transaction, so a failure rolls back only
+     * that one row and the catch can genuinely continue. (The
+     * self-heal block in {@code backfillPublicLoadouts} already documents
+     * this same "runs outside an open transaction at boot" assumption.)
+     *
+     * The outer try/catch here covers the demo-wallet seed, which has no
+     * catch of its own, so nothing short of a JVM error can stop boot.
+     */
     void seed() {
-        if (walletRepository.count() == 0) {
-            walletRepository.save(new Wallet(username: "demo", balance: new BigDecimal("250.00"), currency: "USD"))
-            log.info("Seeded demo wallet (\$250.00 starting balance)")
+        try {
+            if (walletRepository.count() == 0) {
+                walletRepository.save(new Wallet(username: "demo", balance: new BigDecimal("250.00"), currency: "USD"))
+                log.info("Seeded demo wallet (\$250.00 starting balance)")
+            }
+        } catch (Exception e) {
+            log.warn("Demo-wallet seed skipped: ${e.message}", e)
         }
         seedCatalogueItems()
         seedMarketplaceListings()

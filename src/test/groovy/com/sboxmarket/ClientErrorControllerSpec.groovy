@@ -18,8 +18,8 @@ import spock.lang.Subject
  *   2. Per-field char caps (500 / 4000 / 500 / 300) are applied
  *      BEFORE logging — a malicious page can't fill the server log
  *      with 100KB stacks.
- *   3. Control characters (`\0`, `\r\n`, `\n`) are scrubbed so log
- *      lines stay single-line and terminal-safe.
+ *   3. Control characters (NUL, CRLF, lone LF, lone CR) are scrubbed
+ *      so log lines stay single-line and terminal-safe.
  *   4. User-Agent falls through to the request header when not in
  *      the body, so curl probes still carry useful context.
  *   5. Anonymous callers are accepted — the first-visit / sign-in-
@@ -171,5 +171,53 @@ class ClientErrorControllerSpec extends Specification {
         // We're pinning current behavior — if the team later decides to
         // wrap this try/catch, the test needs to be updated consciously.
         thrown(IllegalStateException)
+    }
+
+    // ── log-injection scrubbing (clip) ───────────────────────────────
+
+    /** Reflective handle on the private static `clip` — mirrors the
+     *  approach ProfileControllerSpec / SteamMarketPriceServiceSpec use
+     *  to drive a private helper directly. */
+    private static String invokeClip(String s, int max) {
+        def m = ClientErrorController.getDeclaredMethod('clip', String, int)
+        m.setAccessible(true)
+        return (String) m.invoke(null, s, max)
+    }
+
+    def "clip scrubs CRLF, lone LF, lone CR and NUL so a field can't forge a log line"() {
+        // Every client-supplied field (message / stack / url / userAgent)
+        // is logged on one WARN line. A bare CR returns the cursor to
+        // column 0 and overwrites preceding output in a terminal / log
+        // viewer — enough to spoof a log entry — so it must be scrubbed
+        // alongside CRLF and LF.
+        when:
+        def cleaned = invokeClip(input, 500)
+
+        then:
+        !cleaned.contains('\r')
+        !cleaned.contains('\n')
+        !cleaned.contains('\u0000')
+
+        where:
+        input << [
+            'line1\r\nFAKE LOG ENTRY',          // CRLF
+            'line1\nFAKE LOG ENTRY',            // lone LF
+            'line1\rFAKE LOG ENTRY',            // lone CR — the gap this closes
+            'before\u0000after',                // NUL
+            'a\rb\nc\r\nd'                      // every variant mixed
+        ]
+    }
+
+    def "clip turns a lone CR into a space (not a deletion) so tokens stay separated"() {
+        expect:
+        invokeClip('uid=1\radmin=true', 500) == 'uid=1 admin=true'
+    }
+
+    def "clip caps length AFTER scrubbing and is null-safe"() {
+        expect:
+        invokeClip('x' * 1000, 500).length() == 500
+
+        and: 'null in → null out (no NPE — body-size filter can trim to null)'
+        invokeClip(null, 500) == null
     }
 }

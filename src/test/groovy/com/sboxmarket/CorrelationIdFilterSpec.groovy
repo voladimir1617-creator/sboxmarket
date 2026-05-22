@@ -171,6 +171,56 @@ class CorrelationIdFilterSpec extends Specification {
         path << ['/', '/api/listings', '/api/items/1', '/api/database']
     }
 
+    def "filter sets NO Cache-Control on OpenGraphController routes: #path"() {
+        // OpenGraphController serves an HTML shell for these routes and
+        // stamps its OWN Cache-Control via ResponseEntity.header(), which
+        // APPENDS. If the filter also set one, the response would carry
+        // two conflicting Cache-Control values and a CDN/browser merges
+        // them so `no-cache` defeats the controller's `public, max-age`.
+        // The filter must leave Cache-Control entirely alone here and let
+        // the controller own it. Covers the SEO browse pages + their
+        // trailing-slash variants + the bare /loadout index.
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeaderNames().every { it != 'Cache-Control' }
+
+        where:
+        path << [
+            '/market', '/market/', '/search', '/search/',
+            '/db', '/db/', '/help', '/help/',
+            '/loadout', '/affiliate', '/affiliate/',
+            '/faq', '/faq/',
+            // privateShell() routes — controller sets its own
+            // `no-cache, must-revalidate`; filter must not duplicate it.
+            '/profile', '/wallet', '/cart', '/offers', '/buy-orders',
+            '/notifications', '/watchlist', '/settings', '/me/stall'
+        ]
+    }
+
+    def "filter still sets Cache-Control on a genuine SPA shell route with no OG handler"() {
+        // Negative control: routes WITHOUT a dedicated OpenGraphController
+        // handler still need the filter's revalidation header so a fresh
+        // deploy's non-hashed bundles land immediately.
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Cache-Control') == 'no-cache, must-revalidate'
+
+        where:
+        path << ['/some-spa-route', '/leaderboard', '/deals']
+    }
+
     def "MDC is cleared even when downstream throws"() {
         given:
         def req = new MockHttpServletRequest('GET', '/api/listings')

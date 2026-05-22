@@ -46,6 +46,7 @@ class SteamMarketPriceService {
     private volatile int  lastRunUpdated    = 0
     private volatile int  lastRunSkipped    = 0
     private volatile int  lastRunFailed     = 0
+    private volatile int  lastRunRateLimited = 0
     private volatile int  lastRunTotal      = 0
     /** True when the last sync hit the 5-consecutive-429 circuit breaker
      *  and aborted before processing every item. Surfaces in the admin
@@ -76,7 +77,7 @@ class SteamMarketPriceService {
 
         lastRunStartedAt = System.currentTimeMillis()
         lastRunTotal = items.size()
-        int updated = 0, failed = 0, skipped = 0, consecutive429s = 0
+        int updated = 0, failed = 0, skipped = 0, rateLimited = 0, consecutive429s = 0
         log.info("Steam Market price sync starting — ${items.size()} items")
 
         boolean aborted = false
@@ -95,11 +96,25 @@ class SteamMarketPriceService {
 
             try {
                 def prices = fetchSteamPrice(item.name, consecutive429s)
-                if (prices == null) { consecutive429s++; skipped++; continue }
-                consecutive429s = 0  // successful fetch resets the counter
+                // A 429 is the ONLY condition that arms the circuit
+                // breaker. "No data" (item not on Steam market / transient
+                // non-200) is an expected, non-rate-limited outcome — it
+                // must NOT increment consecutive429s, otherwise 5 unlisted
+                // items in a row would falsely abort the whole sweep.
+                if (prices?.rateLimited) {
+                    consecutive429s++
+                    rateLimited++
+                    // fetchSteamPrice already slept the long 429 backoff;
+                    // skip the loop's 8s throttle. But if that backoff was
+                    // cut short by an interrupt (graceful shutdown), honour
+                    // it now rather than firing another HTTP round-trip.
+                    if (Thread.currentThread().isInterrupted()) break
+                    continue
+                }
+                consecutive429s = 0  // a non-429 fetch (any data) resets the counter
 
-                def lowestPrice = prices.lowest
-                def medianPrice = prices.median
+                def lowestPrice = prices?.lowest
+                def medianPrice = prices?.median
 
                 // Use lowest_price as the primary, fall back to median
                 def bestPrice = lowestPrice ?: medianPrice
@@ -133,8 +148,10 @@ class SteamMarketPriceService {
         lastRunUpdated = updated
         lastRunSkipped = skipped
         lastRunFailed  = failed
+        lastRunRateLimited = rateLimited
         lastRunAborted = aborted
-        log.info("Steam Market price sync done — updated=$updated skipped=$skipped failed=$failed aborted=$aborted")
+        log.info("Steam Market price sync done — updated=$updated skipped=$skipped " +
+                 "rateLimited=$rateLimited failed=$failed aborted=$aborted")
     }
 
     /** Snapshot of the most recent sync run. Consumed by the admin Health
@@ -151,6 +168,7 @@ class SteamMarketPriceService {
             updated:      lastRunUpdated,
             skipped:      lastRunSkipped,
             failed:       lastRunFailed,
+            rateLimited:  lastRunRateLimited,
             total:        lastRunTotal,
             aborted:      lastRunAborted,
             nextRunAt:    nextAt,
@@ -197,8 +215,22 @@ class SteamMarketPriceService {
 
     /**
      * Fetch the current lowest and median price for an item from
-     * Steam's public priceoverview endpoint. Returns null if the
-     * item isn't listed on the Steam Community Market.
+     * Steam's public priceoverview endpoint.
+     *
+     * Returns a status-bearing Map so the caller can tell *why* a fetch
+     * produced no price — this distinction is load-bearing for the
+     * circuit breaker:
+     *   • [rateLimited: true]                  — Steam 429'd us; the
+     *     caller MUST count this toward the consecutive-429 breaker.
+     *   • [lowest: null, median: null]         — endpoint reached but the
+     *     item simply isn't on the Steam Community Market, or Steam
+     *     returned a transient non-200 / `success:false`. This is NOT
+     *     rate-limiting and must NOT trip the breaker — for an s&box
+     *     catalogue most items legitimately have no Steam-market listing,
+     *     so treating "no data" as a 429 would abort every sync the
+     *     moment 5 unlisted items landed back-to-back.
+     *   • [lowest: <bd>, median: <bd>]         — a real price (one or
+     *     both fields may still be null if only one side parsed).
      *
      * `consecutive429s` is the count of immediately-prior 429s in this
      * sync — the backoff doubles for each (30s, 60s, 120s, 240s, 480s)
@@ -211,33 +243,46 @@ class SteamMarketPriceService {
         def encoded = URLEncoder.encode(marketHashName, 'UTF-8')
         def url = "https://steamcommunity.com/market/priceoverview/?country=US&currency=1&appid=${SBOX_APP_ID}&market_hash_name=${encoded}"
 
-        def conn = (HttpURLConnection) new URL(url).openConnection()
-        conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
-        conn.setRequestProperty('Accept', 'application/json')
-        conn.connectTimeout = 8000
-        conn.readTimeout = 10000
+        HttpURLConnection conn = null
+        try {
+            conn = (HttpURLConnection) new URL(url).openConnection()
+            conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
+            conn.setRequestProperty('Accept', 'application/json')
+            conn.connectTimeout = 8000
+            conn.readTimeout = 10000
+            conn.instanceFollowRedirects = false
 
-        int status = conn.responseCode
-        if (status == 429) {
-            // Exponential backoff: 30s base, doubles per consecutive 429.
-            // Capped at 8 minutes — past that we should just abort this
-            // sync via the outer circuit breaker.
-            long backoffMs = Math.min(480_000L, 30_000L * (1L << Math.min(4, consecutive429s)))
-            log.warn("Steam Market rate-limited (429) — backing off ${backoffMs / 1000}s (consecutive=${consecutive429s + 1})")
-            try { Thread.sleep(backoffMs) }
-            catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null }
-            return null
+            int status = conn.responseCode
+            if (status == 429) {
+                // Exponential backoff: 30s base, doubles per consecutive 429.
+                // Capped at 8 minutes — past that we should just abort this
+                // sync via the outer circuit breaker.
+                long backoffMs = Math.min(480_000L, 30_000L * (1L << Math.min(4, consecutive429s)))
+                log.warn("Steam Market rate-limited (429) — backing off ${(backoffMs / 1000) as long}s (consecutive=${consecutive429s + 1})")
+                try { Thread.sleep(backoffMs) }
+                catch (InterruptedException ie) { Thread.currentThread().interrupt() }
+                return [rateLimited: true]
+            }
+            // Any other non-200 (5xx, redirect, etc.) is a transient
+            // endpoint hiccup, NOT a rate-limit — return "no data" so the
+            // 429 circuit breaker isn't tripped by a brief Steam outage.
+            if (status != 200) return [lowest: null, median: null]
+
+            def body = conn.inputStream.getText('UTF-8')
+            def json = new JsonSlurper().parseText(body)
+            // success:false means the item isn't on the Steam market —
+            // a normal, expected outcome, not a failure or a rate-limit.
+            if (!json || json.success != true) return [lowest: null, median: null]
+
+            return [
+                lowest: parseSteamPrice(json.lowest_price),
+                median: parseSteamPrice(json.median_price)
+            ]
+        } finally {
+            // Drain + release the socket so keep-alive can reuse it and a
+            // long-lived scheduler doesn't slowly leak connections.
+            try { conn?.disconnect() } catch (Exception ignored) {}
         }
-        if (status != 200) return null
-
-        def body = conn.inputStream.getText('UTF-8')
-        def json = new JsonSlurper().parseText(body)
-        if (!json || json.success != true) return null
-
-        [
-            lowest: parseSteamPrice(json.lowest_price),
-            median: parseSteamPrice(json.median_price)
-        ]
     }
 
     private static BigDecimal parseSteamPrice(String raw) {

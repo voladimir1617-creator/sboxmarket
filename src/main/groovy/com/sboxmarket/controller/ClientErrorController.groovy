@@ -55,7 +55,14 @@ class ClientErrorController {
 
     private static String clip(String s, int max) {
         if (s == null) return null
-        def cleaned = s.replace('\u0000', '').replace('\r\n', ' ').replace('\n', ' ')
+        // Scrub control chars that would let a client-supplied field forge
+        // or overwrite a log line: NUL, CRLF, lone LF, AND lone CR. The
+        // earlier version handled '\r\n' and '\n' but not a bare '\r' — a
+        // lone carriage return still returns the cursor to column 0 in a
+        // terminal / log viewer and can overwrite the preceding output,
+        // which is enough to spoof a log entry.
+        def cleaned = s.replace('\u0000', '').replace('\r\n', ' ')
+                       .replace('\n', ' ').replace('\r', ' ')
         cleaned.length() > max ? cleaned.substring(0, max) : cleaned
     }
 }

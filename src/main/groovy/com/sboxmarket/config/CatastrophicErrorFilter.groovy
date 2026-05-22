@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.stereotype.Component
 
+import java.nio.charset.StandardCharsets
+
 /**
  * Last-resort filter that intercepts catastrophic, infrastructure-level
  * exceptions (Postgres outage, JDBC bind errors, integrity violations) and
@@ -120,15 +122,46 @@ class CatastrophicErrorFilter implements Filter {
     private static void writeHtml(HttpServletResponse res) {
         res.setContentType('text/html')
         res.setCharacterEncoding('UTF-8')
-        res.writer.write(STATIC_HTML)
-        res.writer.flush()
+        writeBody(res, STATIC_HTML)
     }
 
     private static void writeJson(HttpServletResponse res) {
         res.setContentType('application/json')
         res.setCharacterEncoding('UTF-8')
-        res.writer.write(STATIC_JSON)
-        res.writer.flush()
+        writeBody(res, STATIC_JSON)
+    }
+
+    /**
+     * Write the panel body, surviving whichever output sink the failed
+     * downstream handler had already selected.
+     *
+     * The catch in {@link #doFilter} can fire AFTER a downstream component
+     * (a JSON {@code @RestController} via Jackson, the static-resource
+     * handler, a file download) has already called
+     * {@code response.getOutputStream()}. The Servlet contract makes the
+     * writer and the output stream mutually exclusive: once one is taken,
+     * asking for the other throws {@link IllegalStateException}.
+     * {@code resetBuffer()} clears the buffered body but does NOT undo
+     * that selection — so a plain {@code response.getWriter()} here would
+     * itself throw, defeating the entire last-resort filter and dropping
+     * the visitor onto the raw Tomcat stub page.
+     *
+     * Try the writer first (the normal, uncontended case). If the stream
+     * was already claimed, fall back to the byte stream. Exactly one of
+     * the two is always available, so the branded panel is delivered
+     * either way.
+     */
+    private static void writeBody(HttpServletResponse res, String body) {
+        try {
+            res.writer.write(body)
+            res.writer.flush()
+        } catch (IllegalStateException streamAlreadyTaken) {
+            // getWriter() refused — getOutputStream() was already selected
+            // downstream. Write raw UTF-8 bytes through the stream instead.
+            def out = res.outputStream
+            out.write(body.getBytes(StandardCharsets.UTF_8))
+            out.flush()
+        }
     }
 
     /** Self-contained HTML — no external CSS, no font fetches, nothing

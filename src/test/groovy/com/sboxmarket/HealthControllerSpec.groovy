@@ -187,6 +187,13 @@ class HealthControllerSpec extends Specification {
         resp.statusCode == HttpStatus.SERVICE_UNAVAILABLE
         resp.body.status == 'DOWN'
         resp.body.reason == 'good-uuid-threw'
+
+        and: 'public body must NOT echo the raw JDBC exception (schema/SQLSTATE leak)'
+        // The 503 body is reachable by anonymous scanners. The safe
+        // hand-written `reason` code is the only failure detail allowed
+        // out; the full SQLException class + message lives in the log.
+        !resp.body.containsKey('exception')
+        !resp.body.containsKey('message')
     }
 
     def "version() surfaces the injected appVersion"() {

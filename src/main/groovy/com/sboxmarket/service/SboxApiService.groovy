@@ -139,16 +139,21 @@ class SboxApiService {
         itemRepository.findAll().each { existingByName[it.name?.toLowerCase()] = it }
 
         remote.each { r ->
-            def name = (r.name ?: '').toString().trim()
+          try {
+            def name = (r?.name ?: '').toString().trim()
             if (!name) { skipped++; return }
 
             def itemType = (r.itemType ?: 'Clothing').toString()
             def category = TYPE_CATEGORY[itemType] ?: 'Accessories'
             def emoji    = TYPE_EMOJI[itemType] ?: '🎮'
 
-            // SCMM prices are cents (int). Cast safely.
-            def priceCents   = (r.buyNowPrice   ?: 0) as Long
-            def originalCents = (r.originalPrice ?: priceCents) as Long
+            // SCMM prices are cents (int). safeLong never throws on a
+            // malformed/partial payload — a bare `as Long` would, and the
+            // throw would roll back the whole @Transactional sync. The
+            // Elvis on originalPrice keeps the original behaviour: a
+            // missing OR zero retail-reference falls back to the floor.
+            def priceCents    = safeLong(r.buyNowPrice, 0L)
+            def originalCents = safeLong(r.originalPrice, 0L) ?: priceCents
             def price        = new BigDecimal(priceCents).divide(new BigDecimal(100))
             def steamPrice   = new BigDecimal(originalCents).divide(new BigDecimal(100))
 
@@ -159,17 +164,19 @@ class SboxApiService {
             def rarity = 'Standard'
             try {
                 def sellEnd = r.sellEnd ? Date.parse("yyyy-MM-dd'T'HH:mm:ssX", r.sellEnd.toString()) : null
-                def supply = (r.supply ?: 0) as Integer
-                def total  = (r.supplyTotalKnown ?: supply) as Integer
+                def supplyN = safeInt(r.supply, 0)
+                def total   = safeInt(r.supplyTotalKnown, 0) ?: supplyN
                 if (sellEnd != null && sellEnd.before(nowIso)) {
                     rarity = 'Limited'
-                } else if (total > 0 && supply < total * 0.05) {
+                } else if (total > 0 && supplyN < total * 0.05) {
                     rarity = 'Off-Market'
                 }
             } catch (Exception ignore) { /* keep Standard */ }
 
-            def supply     = (r.supplyTotalKnown ?: r.supply ?: 0) as Integer
-            def totalSold  = (r.subscriptions ?: 0) as Integer
+            // Mirrors the original `r.supplyTotalKnown ?: r.supply ?: 0`:
+            // prefer total-minted, fall back to live supply, then 0.
+            def supply     = safeInt(r.supplyTotalKnown, 0) ?: safeInt(r.supply, 0)
+            def totalSold  = safeInt(r.subscriptions, 0)
             def trendInt   = 0
             try {
                 def pm = (r.priceMovement ?: 0) as Number
@@ -230,11 +237,52 @@ class SboxApiService {
                 existingByName[name.toLowerCase()] = item
                 created++
             }
+          } catch (Exception rowEx) {
+            // Per-row isolation: one bad row from a partial/malformed SCMM
+            // payload must not abort the whole catalogue sync. The numeric
+            // casts above are already null/garbage-safe via safeLong/safeInt,
+            // so reaching here means something genuinely unexpected — log it
+            // and move on rather than throwing out of @Transactional.
+            skipped++
+            log.warn("SCMM sync: skipped a row — ${rowEx.message}")
+          }
         }
 
         log.info("SCMM sync complete — created=${created}, updated=${updated}, skipped=${skipped}, total=${remote.size()}")
         lastSyncedAt = System.currentTimeMillis()
         [created: created, updated: updated, skipped: skipped, totalRemote: remote.size(), lastSyncedAt: lastSyncedAt]
+    }
+
+    /**
+     * Coerce an arbitrary value from the SCMM JSON payload to a long.
+     * JsonSlurper hands us {@code Number} for well-formed numeric fields,
+     * but a malformed/partial upstream response can carry a String, a
+     * nested object, a list or a boolean where a number is expected.
+     * A bare {@code as Long} throws GroovyCastException/NumberFormatException
+     * on those — and because the per-row mapping runs inside the
+     * {@code @Transactional syncFromScmm}, an unguarded throw rolls the
+     * whole catalogue sync back. This never throws: anything that can't be
+     * read as a whole number falls back to {@code dflt}.
+     */
+    private static long safeLong(Object raw, long dflt = 0L) {
+        if (raw == null) return dflt
+        if (raw instanceof Number) return ((Number) raw).longValue()
+        try {
+            def s = raw.toString().trim()
+            if (!s) return dflt
+            return new BigDecimal(s).longValue()
+        } catch (Exception ignore) {
+            return dflt
+        }
+    }
+
+    /** Int-typed sibling of {@link #safeLong} — same never-throws contract.
+     *  Used for supply / total-minted / subscription counts. */
+    private static int safeInt(Object raw, int dflt = 0) {
+        long v = safeLong(raw, dflt as long)
+        if (v > Integer.MAX_VALUE) return Integer.MAX_VALUE
+        if (v < Integer.MIN_VALUE) return Integer.MIN_VALUE
+        return (int) v
     }
 
     /**

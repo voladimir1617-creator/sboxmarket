@@ -198,4 +198,129 @@ class SboxApiServiceSpec extends Specification {
         then:
         saved.rarity == 'Standard'
     }
+
+    // ── Regression: malformed numeric fields must NOT abort the sync ──
+    // Before the safeLong/safeInt fix a non-numeric value in any price or
+    // count field threw GroovyCastException/NumberFormatException straight
+    // out of the @Transactional syncFromScmm, rolling the whole catalogue
+    // sync back. The priceMovement/sellEnd garbage path was already guarded;
+    // buyNowPrice / originalPrice / supply / supplyTotalKnown / subscriptions
+    // were not.
+
+    def "syncFromScmm survives a non-numeric buyNowPrice without throwing"() {
+        given:
+        stubRemote([[name: 'Bad Price', itemType: 'Hat', buyNowPrice: 'n/a']])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        saved.lowestPrice == BigDecimal.ZERO   // garbage price → 0, not a crash
+    }
+
+    def "syncFromScmm survives a non-numeric originalPrice (falls back to floor)"() {
+        given:
+        stubRemote([[name: 'Bad Orig', itemType: 'Hat',
+                     buyNowPrice: 500, originalPrice: 'garbage']])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        saved.lowestPrice == new BigDecimal('5.00')
+        // Elvis fallback: unparseable retail-reference defaults to the floor.
+        saved.steamPrice  == new BigDecimal('5.00')
+    }
+
+    def "syncFromScmm survives non-numeric supply / supplyTotalKnown / subscriptions"() {
+        given:
+        stubRemote([[
+            name: 'Bad Counts', itemType: 'Hat', buyNowPrice: 100,
+            supply: 'lots', supplyTotalKnown: [1, 2], subscriptions: 'many'
+        ]])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        saved.supply    == 0   // garbage → 0
+        saved.totalSold == 0
+        saved.rarity    == 'Standard'  // no usable supply signal → Standard
+    }
+
+    def "syncFromScmm coerces a numeric String price (SCMM sometimes stringifies)"() {
+        given:
+        stubRemote([[name: 'Str Price', itemType: 'Hat',
+                     buyNowPrice: '1499', originalPrice: '2000', supply: '7']])
+        itemRepository.findAll() >> []
+        def saved
+        itemRepository.save(_) >> { args -> saved = args[0]; args[0] }
+
+        when:
+        service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        saved.lowestPrice == new BigDecimal('14.99')
+        saved.steamPrice  == new BigDecimal('20.00')
+        saved.supply      == 7
+    }
+
+    def "syncFromScmm isolates one bad row — the rest of the batch still imports"() {
+        given:
+        stubRemote([
+            [name: 'Good One', itemType: 'Hat', buyNowPrice: 100],
+            [name: 'Bad One',  itemType: 'Hat', buyNowPrice: ['nested': 'object']],
+            [name: 'Good Two', itemType: 'Boots', buyNowPrice: 200],
+        ])
+        itemRepository.findAll() >> []
+        def saved = []
+        itemRepository.save(_) >> { args -> saved << args[0]; args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        // even with a structured-object price on the middle row, the two
+        // good rows import; the bad row degrades to a zero-price import
+        // rather than aborting the whole @Transactional sync.
+        result.created == 3
+        saved*.name.containsAll(['Good One', 'Good Two'])
+    }
+
+    def "syncFromScmm tolerates a null row in the remote list"() {
+        given:
+        stubRemote([
+            [name: 'Real One', itemType: 'Hat', buyNowPrice: 100],
+            null,
+        ])
+        itemRepository.findAll() >> []
+        itemRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.syncFromScmm()
+
+        then:
+        noExceptionThrown()
+        result.created == 1
+        // null row → r?.name null-safe navigation yields an empty name and
+        // hits the missing-name skip path; it is counted, never fatal.
+        result.skipped == 1
+    }
 }

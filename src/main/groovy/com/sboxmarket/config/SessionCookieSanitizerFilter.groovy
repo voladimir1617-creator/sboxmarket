@@ -75,10 +75,34 @@ class SessionCookieSanitizerFilter implements Filter {
         HttpServletRequest httpReq = (HttpServletRequest) req
         HttpServletResponse httpRes = (HttpServletResponse) res
 
+        // This filter runs at HIGHEST_PRECEDENCE+1 — ahead of EVERY request.
+        // If sanitization itself throws (e.g. Tomcat hands back a cookie whose
+        // name the jakarta Cookie constructor rejects), an unguarded throw here
+        // would 500 every single request. CatastrophicErrorFilter sits above
+        // us but only catches DB-subsystem exceptions, not an
+        // IllegalArgumentException from cookie processing. So: compute the
+        // sanitized request inside a try/catch and degrade to the ORIGINAL
+        // (un-sanitized) request on any unexpected failure. Worst case we lose
+        // the NUL-scrubbing on one request — far better than a site-wide 500.
+        HttpServletRequest forward
+        try {
+            forward = sanitize(httpReq, httpRes)
+        } catch (Throwable t) {
+            log.warn("SessionCookieSanitizerFilter failed; forwarding request unsanitized", t)
+            forward = httpReq
+        }
+        chain.doFilter(forward, httpRes)
+    }
+
+    /**
+     * Builds the cookie-sanitized request wrapper, mutating {@code httpRes}
+     * with expiry cookies for any dropped session token. Returns the wrapper
+     * (or the original request unchanged when there are no cookies to clean).
+     */
+    private HttpServletRequest sanitize(HttpServletRequest httpReq, HttpServletResponse httpRes) {
         Cookie[] cookies = httpReq.cookies
         if (cookies == null || cookies.length == 0) {
-            chain.doFilter(httpReq, httpRes)
-            return
+            return httpReq
         }
 
         boolean dirty = false
@@ -141,7 +165,13 @@ class SessionCookieSanitizerFilter implements Filter {
         // Reconstruct the header from the cleaned Cookie[] so both
         // pathways see identical, sanitized data.
         Cookie[] cleaned = kept.toArray(new Cookie[0])
-        String cleanedHeader = cleaned.collect { c -> "${c.name}=${c.value}" }.join('; ')
+        // Render a null cookie value as the empty string, NOT the literal
+        // text "null". Cookie.getValue() is nullable (a header pair like
+        // `name=` or a bare `name` yields a null value), and a GString
+        // would otherwise inject "name=null" into the rebuilt Cookie
+        // header that Spring Session / every getHeader('Cookie') consumer
+        // reads — corrupting the value of any null-valued cookie.
+        String cleanedHeader = cleaned.collect { c -> "${c.name}=${c.value ?: ''}" }.join('; ')
         HttpServletRequestWrapper wrapped = new HttpServletRequestWrapper(httpReq) {
             @Override
             Cookie[] getCookies() { cleaned }
@@ -164,6 +194,6 @@ class SessionCookieSanitizerFilter implements Filter {
                 return super.getHeaders(name)
             }
         }
-        chain.doFilter(wrapped, httpRes)
+        return wrapped
     }
 }
