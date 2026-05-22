@@ -142980,13 +142980,12 @@ html body .csfloat-home-journey .csfloat-home-journey-step::after {
    renders icon-then-text inside the body. */
 html body .csfloat-home-journey .csfloat-home-journey-step-body {
   flex: 1 1 auto !important;
-  /* min-width:0 lets this flex item shrink below its ~249px content
-     width — without it the card refused to shrink inside the 290px step
-     on phones and spilled ~15px past the viewport (the owner-QA
-     mobile-/ horizontal-overflow). overflow-wrap keeps any long word
-     from re-introducing the overflow once the card is narrow. */
+  /* min-width:0 so the card can shrink as a flex item rather than
+     forcing the step wider than its column (tablet layout). The phone
+     layout doesn't reach here — the whole journey section is hidden
+     below 720px (it's a desktop-scale explainer that can't fit a
+     phone without shattering its text). */
   min-width: 0 !important;
-  overflow-wrap: anywhere !important;
   background: #1B1D24 !important;
   border: 0 !important;
   border-radius: 12px !important;
@@ -197860,6 +197859,17 @@ html body .modal.item-page .item-rail-actions-bargain {
   border-radius: 8px !important;
 }
 /* END ITEM-RAIL ACTION-BUTTON ROW HEIGHT/RADIUS PARITY */
+
+/* MOBILE: hide the desktop-scale "trade journey" explainer on phones.
+   The section is built for wide steps (icon column + nested icon-disc +
+   30px card padding); crammed into a ~290px phone step its text shatters
+   one or two characters per line. csfloat's mobile home is minimal and
+   has no such section, so hiding it below 720px is both the csfloat-1:1
+   move and the fix for the owner-QA mobile-/ horizontal-overflow.
+   Tablet/desktop keep the full section. */
+@media (max-width: 720px) {
+  html body .csfloat-home-journey { display: none !important; }
+}
 
 /* MOBILE NAV-LINKS HORIZONTAL-OVERFLOW FIX
    On phones the top .nav-links strip (Market / Database / Loadout Lab /
