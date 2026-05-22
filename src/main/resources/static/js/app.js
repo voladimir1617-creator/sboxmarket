@@ -8939,7 +8939,20 @@ export function App() {
               h('div', { className: 'cart-confirm-amt' }, fmt(effectivePrice))
             );
           }),
-          cart.length > 12 && h('div', { className: 'cart-confirm-more' }, `+ ${cart.length - 12} more`)
+          cart.length > 12 && (() => {
+            // Show the hidden rows' dollar contribution so the visible
+            // line items + this line reconcile with the Total below —
+            // a bare "+N more" left a 12-item list that didn't sum to
+            // the grand total, reading as broken arithmetic.
+            const hiddenSum = cart.slice(12).reduce((s, it) => {
+              const f = cartFreshness?.[it.id];
+              const p = (f && f.active && f.price != null)
+                ? parseFloat(f.price) : (parseFloat(it.price) || 0);
+              return s + (isFinite(p) ? p : 0);
+            }, 0);
+            return h('div', { className: 'cart-confirm-more' },
+              `+ ${cart.length - 12} more · ${fmt(hiddenSum)}`);
+          })()
         ),
         // The wallet is debited exactly the cart total — no buyer fee —
         // so this matches the Confirm button below, the order-summary
@@ -9044,11 +9057,18 @@ export function App() {
             // still allowed). Without this, a user could ignore the
             // banner and charge their wallet for rows that'll sit in
             // PENDING_SELLER_SEND forever until the seller cancels.
+            // Gate on cartHasStale too — the page Checkout button already
+            // does. Without it a user who opened this confirm modal before
+            // the freshness probe landed could push a sold-out row into
+            // checkout (the server rejects it per-row, but the "checkout
+            // is paused until you remove them" promise would be broken).
             disabled: cartBusy || cart.length === 0 || cartTotal > parseFloat(wallet?.balance || 0) ||
-              !(me && me.tradeUrl && String(me.tradeUrl).trim()),
-            title: !(me && me.tradeUrl && String(me.tradeUrl).trim())
-              ? 'Add your Steam trade URL in Profile before checking out'
-              : undefined
+              !(me && me.tradeUrl && String(me.tradeUrl).trim()) || cartHasStale,
+            title: cartHasStale
+              ? 'Remove the unavailable rows flagged above before checking out'
+              : !(me && me.tradeUrl && String(me.tradeUrl).trim())
+                ? 'Add your Steam trade URL in Profile before checking out'
+                : undefined
           }, cartBusy ? 'Placing order…' : `Confirm · ${fmt(cartTotal)}`)
         )
       )

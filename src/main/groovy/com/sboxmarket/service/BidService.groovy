@@ -727,6 +727,11 @@ class BidService {
 
     @Transactional
     protected void notifyEndingSoon(Listing listing) {
+        // Guard a null expiresAt — the ending-soon math below subtracts
+        // from it and would NPE. findEndingSoonUnnotified should only
+        // return rows with a deadline, but a legacy/mis-tagged row with
+        // no expiresAt would otherwise be rescanned every sweep forever.
+        if (listing == null || listing.expiresAt == null) return
         // Bidders first (they have explicit skin-in-the-game), watchers
         // second. Dedup via a Set so a user who both bid and watched is
         // only pinged once per auction.

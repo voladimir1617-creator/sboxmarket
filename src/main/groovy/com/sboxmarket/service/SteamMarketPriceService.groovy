@@ -207,7 +207,12 @@ class SteamMarketPriceService {
             item.steamPrice = lowestPrice
         }
         if (!item.isListed && oldPrice != null && oldPrice > BigDecimal.ZERO) {
-            def change = (bestPrice - oldPrice) / oldPrice
+            // Explicit scale + rounding — a bare BigDecimal `/` throws
+            // ArithmeticException("Non-terminating decimal expansion")
+            // whenever the quotient doesn't terminate (e.g. a $3.00 → $4.00
+            // move = 1/3). That was silently failing every such item's
+            // price-sync for good.
+            def change = (bestPrice - oldPrice).divide(oldPrice, 6, java.math.RoundingMode.HALF_UP)
             item.trendPercent = Math.max(-99,
                 Math.min(99, Math.round(change * 100) as int))
         }
