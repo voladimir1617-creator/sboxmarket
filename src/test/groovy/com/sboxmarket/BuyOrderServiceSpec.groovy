@@ -559,6 +559,67 @@ class BuyOrderServiceSpec extends Specification {
         1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.status == 'FILLED' })
     }
 
+    def "tryMatch fills against the pessimistically-locked order copy, not the stale candidate"() {
+        given: "findMatching saw the candidate; findByIdForUpdate returns the locked row"
+        def listing     = listingFor(id: 100L, price: new BigDecimal("50"))
+        def staleOrder  = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 2, status: 'ACTIVE',
+                                        maxPrice: new BigDecimal("60"), itemId: 1L)
+        def lockedOrder = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 2, status: 'ACTIVE',
+                                        maxPrice: new BigDecimal("60"), itemId: 1L)
+        buyOrderRepository.findMatching(_, _, _, _, _) >> [staleOrder]
+        buyOrderRepository.findByIdForUpdate(1L) >> lockedOrder
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+
+        when:
+        service.tryMatch(listing)
+
+        then: "the buy + decrement land on the LOCKED copy; the stale candidate is untouched"
+        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * buyOrderRepository.save({ BuyOrder o -> o.is(lockedOrder) && o.quantity == 1 })
+        staleOrder.quantity == 2
+    }
+
+    def "tryMatch skips the fill when the locked re-read shows the order was already drained (over-fill guard)"() {
+        given: "findMatching saw quantity 1, but a concurrent fill already took the locked row to 0"
+        def listing      = listingFor(id: 100L, price: new BigDecimal("50"))
+        def staleOrder   = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 1, status: 'ACTIVE',
+                                         maxPrice: new BigDecimal("60"), itemId: 1L)
+        def drainedOrder = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 0, status: 'FILLED',
+                                         maxPrice: new BigDecimal("60"), itemId: 1L)
+        buyOrderRepository.findMatching(_, _, _, _, _) >> [staleOrder]
+        buyOrderRepository.findByIdForUpdate(1L) >> drainedOrder
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+
+        when:
+        service.tryMatch(listing)
+
+        then: "the locked re-verify blocks the double-fill — quantity 0 means another listing filled it"
+        0 * purchaseService.buy(*_)
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "tryMatch skips the fill when the locked order's maxPrice no longer covers the listing price (cap guard)"() {
+        given: "findMatching saw maxPrice 60; the locked re-read shows the buyer has since lowered it to 40"
+        def listing     = listingFor(id: 100L, price: new BigDecimal("50"))
+        def staleOrder  = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 1, status: 'ACTIVE',
+                                        maxPrice: new BigDecimal("60"), itemId: 1L)
+        def lockedOrder = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 1, status: 'ACTIVE',
+                                        maxPrice: new BigDecimal("40"), itemId: 1L)
+        buyOrderRepository.findMatching(_, _, _, _, _) >> [staleOrder]
+        buyOrderRepository.findByIdForUpdate(1L) >> lockedOrder
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+
+        when:
+        service.tryMatch(listing)
+
+        then: "the cap guard reads the LOCKED maxPrice and blocks the over-cap buy"
+        0 * purchaseService.buy(*_)
+        0 * buyOrderRepository.save(_)
+    }
+
     // ── countActiveForItem ────────────────────────────────────────
 
     def "countActiveForItem forwards to the repo"() {

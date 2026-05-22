@@ -165,6 +165,15 @@ class BuyOrderService {
     @Transactional
     void tryFillFromExisting(BuyOrder order) {
         if (order == null || listingRepository == null) return
+        // Re-load under a pessimistic row lock so concurrent fills of the
+        // SAME order serialise (see findByIdForUpdate) — without it two
+        // matching listings can both decrement a quantity-1 order and
+        // over-charge the buyer. Falls back to the in-hand order when the
+        // lock query is unconfigured (a Mock repo in a unit test) or the
+        // order has no id yet.
+        if (order.id != null) {
+            order = buyOrderRepository.findByIdForUpdate(order.id) ?: order
+        }
         if (order.status != 'ACTIVE' || order.quantity <= 0) return
         def candidates = listingRepository.findMatchingForBuyOrder(
             order.itemId, order.category, order.rarity, order.maxPrice,
@@ -183,6 +192,12 @@ class BuyOrderService {
                 // candidate set is sorted ASC.
                 break
             }
+            // Cap guard — never auto-buy above the order's price ceiling.
+            // The candidate query already filters on maxPrice, but the
+            // pessimistic re-load above can surface a maxPrice the buyer
+            // lowered after the query; buy() charges whatever the listing
+            // says, with no knowledge of the order's cap.
+            if (listing.price == null || listing.price > order.maxPrice) continue
             try {
                 purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
                 order.quantity = Math.max(0, order.quantity - 1)
@@ -525,21 +540,34 @@ class BuyOrderService {
             }
 
             try {
-                purchaseService.buy(wallet.id, order.buyerUserId, listing.id)
-                order.quantity = Math.max(0, order.quantity - 1)
-                order.updatedAt = System.currentTimeMillis()
-                if (order.quantity == 0) order.status = 'FILLED'
-                buyOrderRepository.save(order)
+                // Pessimistic re-load — serialise this order's fill against
+                // any concurrent matching event so a quantity-1 order can't
+                // be filled twice (see findByIdForUpdate). Re-verify on the
+                // locked copy: a concurrent fill may have just drained it.
+                // Falls back to the in-hand order when the lock query is
+                // unconfigured (a Mock repo in a unit test).
+                def locked = buyOrderRepository.findByIdForUpdate(order.id) ?: order
+                if (locked.status != 'ACTIVE' || locked.quantity <= 0) continue
+                // Cap guard — never auto-buy above the order's ceiling.
+                // buy() charges whatever the listing says with no cap
+                // knowledge; the locked re-load can also surface a
+                // maxPrice the buyer lowered after the match query.
+                if (listing.price == null || listing.price > locked.maxPrice) continue
+                purchaseService.buy(wallet.id, locked.buyerUserId, listing.id)
+                locked.quantity = Math.max(0, locked.quantity - 1)
+                locked.updatedAt = System.currentTimeMillis()
+                if (locked.quantity == 0) locked.status = 'FILLED'
+                buyOrderRepository.save(locked)
                 notificationService.push(
-                    order.buyerUserId,
+                    locked.buyerUserId,
                     'BUY_ORDER_FILLED',
                     "Buy order auto-filled · ${listing.item?.name}",
-                    "Paid \$${listing.price.toPlainString()} (cap \$${order.maxPrice.toPlainString()})",
+                    "Paid \$${listing.price.toPlainString()} (cap \$${locked.maxPrice.toPlainString()})",
                     listing.id,
                     '/profile?tab=buyorders'
                 )
-                fireBuyOrderFilledEmail(order, listing)
-                log.info("Buy order ${order.id} auto-filled by listing ${listing.id}")
+                fireBuyOrderFilledEmail(locked, listing)
+                log.info("Buy order ${locked.id} auto-filled by listing ${listing.id}")
                 return // listing is now sold; stop iterating
             } catch (Exception e) {
                 log.warn("Buy order ${order.id} match attempt failed: ${e.message}")

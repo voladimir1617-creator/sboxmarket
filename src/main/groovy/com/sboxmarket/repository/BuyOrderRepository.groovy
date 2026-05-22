@@ -1,7 +1,9 @@
 package com.sboxmarket.repository
 
 import com.sboxmarket.model.BuyOrder
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -172,4 +174,18 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
         ORDER BY b.maxPrice DESC, b.createdAt ASC
     """)
     List<BuyOrder> findActiveForItem(@Param("itemId") Long itemId, org.springframework.data.domain.Pageable page)
+
+    /** Pessimistic-write lock on a single buy order — serialises the
+     *  auto-fill of one order across concurrent matching events. Without
+     *  it, two listings that match the same quantity-1 order at the same
+     *  instant both read quantity=1, both decrement, and the order
+     *  over-fills — the buyer is charged for more items than they
+     *  committed to. Holding the row lock for the fill transaction makes
+     *  the check-quantity → buy → decrement sequence atomic per order.
+     *  Returns null when the row is absent (and, with a Mock in a unit
+     *  test, when the stub is unconfigured — the service falls back to
+     *  the in-hand order so non-concurrent unit tests stay simple). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM BuyOrder b WHERE b.id = :id")
+    BuyOrder findByIdForUpdate(@Param("id") Long id)
 }
