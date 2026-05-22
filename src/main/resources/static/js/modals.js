@@ -401,6 +401,10 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     const base = parseFloat(window[0]?.price);
     return Number.isFinite(base) && base > 0 ? base : null;
   })();
+  // True only when there's enough history to compute a real 30-day
+  // delta. Without it the pill below fabricated a "+$0.00 (0.0%)" that
+  // read as a confident "no change" on brand-new, zero-history items.
+  const hasChange30dData = change30dBase != null;
   const change30d = change30dBase != null
     ? (parseFloat(item.lowestPrice) - change30dBase).toFixed(2)
     : '0.00';
@@ -700,20 +704,26 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
             // arrow icon + bg tint, not just colored text.
             h('div', { className: 'modal-stat-box' },
               h('div', { className: 'modal-stat-label' }, '30-day price change'),
-              h('div', { className: 'modal-stat-val', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-                h('span', {
-                  className: 'modal-trend-pill ' + (trendFlat ? 'flat' : trendUp ? 'up' : 'down'),
-                  title: trendFlat
-                    ? 'No change over the last 30 days'
-                    : (trendUp ? `Up ${changePct}% over 30 days` : `Down ${Math.abs(parseFloat(changePct) || 0)}% over 30 days`)
-                },
-                  trendFlat ? '·' : (trendUp ? '▲' : '▼'),
-                  ' ',
-                  `${trendUp ? '+' : ''}${fmt(change30d)}`,
-                  h('span', { style: { opacity: 0.85, marginLeft: 4 } },
-                    `(${trendUp ? '+' : ''}${changePct}%)`)
-                )
-              )
+              !hasChange30dData
+                // No price history yet — show an honest "no data" marker
+                // rather than a fabricated +$0.00 / 0.0% pill that reads
+                // as a confident "no change".
+                ? h('div', { className: 'modal-stat-val', style: { color: 'var(--ink-3)' },
+                    title: 'Not enough price history yet to compute a 30-day change' }, 'No data yet')
+                : h('div', { className: 'modal-stat-val', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                    h('span', {
+                      className: 'modal-trend-pill ' + (trendFlat ? 'flat' : trendUp ? 'up' : 'down'),
+                      title: trendFlat
+                        ? 'No change over the last 30 days'
+                        : (trendUp ? `Up ${changePct}% over 30 days` : `Down ${Math.abs(parseFloat(changePct) || 0)}% over 30 days`)
+                    },
+                      trendFlat ? '·' : (trendUp ? '▲' : '▼'),
+                      ' ',
+                      `${trendUp ? '+' : ''}${fmt(change30d)}`,
+                      h('span', { style: { opacity: 0.85, marginLeft: 4 } },
+                        `(${trendUp ? '+' : ''}${changePct}%)`)
+                    )
+                  )
             ),
             // I4 Boss-QA: explicit "Total supply (in circulation)" label
             // — the unlabeled "11,652" was unparseable to the boss.

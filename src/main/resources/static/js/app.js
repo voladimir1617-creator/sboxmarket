@@ -9098,19 +9098,23 @@ export function App() {
        Without the fallback the modal rendered nothing and the user saw
        a blank page with no way to figure out what happened. */
     routeName === 'item' && !modalLoading && !selected && (
-      h('div', { className: 'modal-backdrop', onClick: (e) => {
-        /* Skip backdrop close in full-page mode — /item is now a real page. */
-        if (document.querySelector('.site-root.full-page-mode')) return;
-        navigate(paths.market());
-      }},
+      // /item/:id is a full-page route — render the not-found state as an
+      // in-page block, not a modal-backdrop popup over a dimmed page (a
+      // direct share-link to a missing id is the common case here).
+      h('div', {
+        style: {
+          minHeight: '60vh', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', padding: '40px 20px'
+        }
+      },
         h('div', {
-          className: 'modal',
-          onClick: (e) => e.stopPropagation(),
-          style: { maxWidth: 420, textAlign: 'center', padding: '32px 24px' },
-          // Batch 838 — a11y parity with the other modals. role=dialog
-          // + aria-modal + aria-labelledby pointing at the heading.
-          role: 'dialog',
-          'aria-modal': 'true',
+          style: {
+            maxWidth: 420, textAlign: 'center', padding: '32px 24px',
+            background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+            borderRadius: 12
+          },
+          // In-page region (not a dialog) — no aria-modal / role=dialog.
+          role: 'region',
           'aria-labelledby': 'item-not-found-title'
         },
           h('div', { style: { marginBottom: 12, display: 'flex', justifyContent: 'center' }, 'aria-hidden': 'true' },
@@ -9124,7 +9128,14 @@ export function App() {
     ),
     routeName === 'item' && (selected || modalLoading) && (
       modalLoading
-        ? h('div', { className: 'modal-backdrop' }, h('div', { className: 'spinner', style: { margin: '0 auto' } }))
+        ? h('div', {
+            // In-page loading state — /item/:id is a real page, so the
+            // spinner sits centred in the page, not over a dark backdrop.
+            style: {
+              minHeight: '60vh', display: 'flex',
+              alignItems: 'center', justifyContent: 'center'
+            }
+          }, h('div', { className: 'spinner' }))
         : h(ItemModal, {
             item: selected.item,
             listings: selected.listings,
