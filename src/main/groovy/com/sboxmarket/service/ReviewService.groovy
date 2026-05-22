@@ -412,24 +412,32 @@ class ReviewService {
     List<Map> decorateWithHelpful(List<Review> rows, Long viewerUserId) {
         if (!rows) return []
         if (helpfulVoteRepository == null) {
-            return rows.collect { toMap(it, 0L, false) }
+            return rows.collect { toMap(it, 0L, false, viewerUserId) }
         }
         def ids = rows.collect { it.id }.findAll { it != null }
-        if (ids.isEmpty()) return rows.collect { toMap(it, 0L, false) }
+        if (ids.isEmpty()) return rows.collect { toMap(it, 0L, false, viewerUserId) }
         def counts = helpfulVoteRepository.countBulk(ids)
                 .collectEntries { [(it[0] as Long): ((it[1] as Number) ?: 0).longValue()] }
         def viewerVoted = viewerUserId == null
             ? [] as Set
             : helpfulVoteRepository.findVotedReviewIds(viewerUserId, ids).toSet()
         rows.collect { r ->
-            toMap(r, counts[r.id] ?: 0L, viewerVoted.contains(r.id))
+            toMap(r, counts[r.id] ?: 0L, viewerVoted.contains(r.id), viewerUserId)
         }
     }
 
-    private Map toMap(Review r, Long helpfulCount, boolean viewerHasVoted) {
+    private Map toMap(Review r, Long helpfulCount, boolean viewerHasVoted, Long viewerUserId) {
         [
             id:              r.id,
-            fromUserId:      r.fromUserId,
+            // `mine` — server-computed "did the viewer write this review".
+            // Replaces the raw `fromUserId`: this map is served by the
+            // PUBLIC GET /api/reviews/user/{id}, and emitting the
+            // reviewer's internal sequential user id there is a needless
+            // enumeration / cross-correlation vector — the public
+            // attribution is `fromDisplayName`. The frontend only needs
+            // the boolean (to disable the self helpful-vote), not the id.
+            // (2026-05-21)
+            mine:            (viewerUserId != null && r.fromUserId == viewerUserId),
             toUserId:        r.toUserId,
             tradeId:         r.tradeId,
             rating:          r.rating,

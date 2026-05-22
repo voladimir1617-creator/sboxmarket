@@ -8291,7 +8291,10 @@ export function App() {
                           review: r,
                           me,
                           isOwner: me && stallData?.seller?.id === me.id,
-                          isAuthor: me && r.fromUserId === me.id,
+                          // `r.mine` is the server-computed "this is the
+                          // viewer's own review" flag — the API no longer
+                          // ships the reviewer's raw fromUserId (2026-05-21).
+                          isAuthor: !!r.mine,
                           onSaved: async () => {
                             const fresh = await fetchReviewsForUser(stallData.seller.id);
                             setStallReviews(fresh);

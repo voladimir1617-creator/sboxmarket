@@ -1061,4 +1061,36 @@ class ReviewServiceSpec extends Specification {
         out.find { it.id == 2L }.helpfulCount == 0L
         out.find { it.id == 2L }.viewerHasVoted == false
     }
+
+    def "decorateWithHelpful emits a server-computed 'mine' flag and never leaks the raw fromUserId"() {
+        given:
+        service.helpfulVoteRepository = null
+        def rows = [
+            new Review(id: 1L, fromUserId: 99L, toUserId: 20L, rating: 5),  // the viewer's own
+            new Review(id: 2L, fromUserId: 10L, toUserId: 20L, rating: 4)   // someone else's
+        ]
+
+        when:
+        def out = service.decorateWithHelpful(rows, 99L)
+
+        then:
+        // `mine` is true only for the viewer's own review...
+        out.find { it.id == 1L }.mine == true
+        out.find { it.id == 2L }.mine == false
+        // ...and the reviewer's internal user id is NOT exposed on this
+        // public projection — the enumeration-leak fix (2026-05-21).
+        out.every { !it.containsKey('fromUserId') }
+    }
+
+    def "decorateWithHelpful marks every review not-mine for an anonymous viewer"() {
+        given:
+        service.helpfulVoteRepository = null
+        def rows = [new Review(id: 1L, fromUserId: 10L, toUserId: 20L, rating: 5)]
+
+        when:
+        def out = service.decorateWithHelpful(rows, null)
+
+        then:
+        out[0].mine == false
+    }
 }
