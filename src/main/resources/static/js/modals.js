@@ -5247,8 +5247,15 @@ function ProfileTransactionsTab({ transactions, privacy }) {
   // don't skew the figures.
   const now = Date.now();
   const recent = transactions.filter(t => t.status === 'COMPLETED' && (now - (t.createdAt || 0)) < 30 * 86400_000);
-  const CREDIT_TYPES = new Set(['DEPOSIT','SALE','REFUND','ADMIN_CREDIT','CSR_CREDIT','BUY_ORDER_REFUND']);
-  const DEBIT_TYPES  = new Set(['PURCHASE','WITHDRAW','ADMIN_DEBIT','AUCTION_HOLD']);
+  // Credit / debit type sets — kept in sync with the WalletModal history
+  // (see ~line 13929). The backend emits DEPOSIT / SALE / REFUND /
+  // ADJUSTMENT_CREDIT inbound and PURCHASE / WITHDRAW(AL) /
+  // ADJUSTMENT_DEBIT outbound. The old sets referenced types the backend
+  // never emits (ADMIN_CREDIT, CSR_CREDIT, BUY_ORDER_REFUND, ADMIN_DEBIT,
+  // AUCTION_HOLD) AND missed the real ADJUSTMENT_* pair — so a staff
+  // wallet adjustment was silently dropped from the 30-day net figure.
+  const CREDIT_TYPES = new Set(['DEPOSIT','SALE','REFUND','ADJUSTMENT_CREDIT']);
+  const DEBIT_TYPES  = new Set(['PURCHASE','WITHDRAW','WITHDRAWAL','ADJUSTMENT_DEBIT']);
   let credits = 0, debits = 0;
   recent.forEach(t => {
     const amt = Math.abs(parseFloat(t.amount) || 0);
@@ -5420,7 +5427,17 @@ function ProfileTransactionsTab({ transactions, privacy }) {
           h('td', { className: 'db-rank' }, '#' + tx.id),
           h('td', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' } }, tx.type),
           h('td', { style: { fontSize: 11, color: 'var(--text-muted)' } }, tx.description || tx.stripeReference),
-          h('td', { className: 'right db-mono' }, privacy ? '$•••••' : fmt(tx.amount)),
+          (() => {
+            // Signed + coloured amount so a credit and a debit of the
+            // same value are visually distinct — parity with the
+            // WalletModal history rows (~line 14127), which the bare
+            // fmt() here lacked.
+            const inbound = CREDIT_TYPES.has(tx.type);
+            return h('td', {
+              className: 'right db-mono',
+              style: privacy ? null : { color: inbound ? 'var(--green)' : 'var(--text-secondary)' }
+            }, privacy ? '$•••••' : ((inbound ? '+' : '−') + fmt(tx.amount)));
+          })(),
           h('td', { className: 'right', style: { fontSize: 10, fontWeight: 700 } }, tx.status)
         ))
       )
@@ -13658,6 +13675,12 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
     const num = parseFloat(amount);
     if (!num || num <= 0) { setError('Enter a valid amount'); return; }
     if (num > 10000) { setError('Maximum per transaction is $10,000'); return; }
+    // A withdrawal with no payout destination creates a PENDING row that
+    // staff can never fulfill — block it client-side before submit.
+    if (tab === 'withdraw' && !(dest || '').trim()) {
+      setError('Enter a payout destination (Stripe Connect ID or bank reference).');
+      return;
+    }
     setBusy(true);
     try {
       if (tab === 'deposit') {
@@ -14535,9 +14558,14 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                     tab === 'withdraw' && h('div', { className: 'wallet-inline-hint' },
                       h('span', { className: 'wallet-inline-hint-icon' }, 'ⓘ'),
                       h('span', null,
-                        'You can only withdraw balance obtained through item sales. You have ',
+                        // Copy matches what WalletController.withdraw actually
+                        // enforces — the full wallet balance is withdrawable
+                        // (it only checks balance >= amount). The old line
+                        // falsely claimed only item-sale proceeds could be
+                        // withdrawn, which the server never enforced.
+                        'You have ',
                         h('strong', { style: { color: 'var(--accent)' } }, fmt(wallet.balance)),
-                        ' in withdrawable balance.'
+                        ' available to withdraw.'
                       )
                     )
                   )
@@ -14579,6 +14607,10 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
                       h('input', {
                         className: 'wallet-amount-input',
                         placeholder: 'Stripe Connect ID or bank reference',
+                        // Required for a fulfillable payout — labelled for
+                        // screen readers (the field had no label at all).
+                        'aria-label': 'Payout destination — Stripe Connect ID or bank reference',
+                        required: true,
                         value: dest,
                         onChange: e => setDest(e.target.value)
                       }),

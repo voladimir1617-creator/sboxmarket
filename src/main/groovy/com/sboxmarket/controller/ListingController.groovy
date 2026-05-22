@@ -1177,8 +1177,14 @@ class ListingController {
                 catch (NumberFormatException ignored) {
                     throw new com.sboxmarket.exception.BadRequestException("INVALID_DISCOUNT", "maxDiscount must be a valid number")
                 }
-                if (md < BigDecimal.ZERO || md > BigDecimal.ONE) {
-                    throw new com.sboxmarket.exception.BadRequestException("INVALID_DISCOUNT", "maxDiscount must be between 0 and 1")
+                // Reject maxDiscount >= 1.0 — a 100%-off auto-accept would
+                // let a $0.01 offer instantly buy the item. Matches
+                // SellService.relist's `>= ONE` guard so the edit path is
+                // no looser than listing creation (the old `> ONE` check
+                // wrongly let exactly 1.0 through).
+                if (md < BigDecimal.ZERO || md >= BigDecimal.ONE) {
+                    throw new com.sboxmarket.exception.BadRequestException("INVALID_DISCOUNT",
+                        "maxDiscount must be between 0 (no auto-accept) and 1 (100% off) exclusive")
                 }
                 listing.maxDiscount = md
             }
