@@ -263,6 +263,94 @@ class TradeProtectionService {
     }
 
     /**
+     * Reverse a CLAIMED protection payout — staff has released the trade
+     * as VALID, overturning the premise the auto-claim was paid on.
+     *
+     * A protected buyer who disputes is auto-refunded the full item
+     * price immediately (see {@code autoClaim}). If staff then force-
+     * releases that disputed trade — ruling the seller actually
+     * delivered — the seller is paid {@code price - fee} from escrow.
+     * Without reversing the claim the buyer keeps BOTH the item and the
+     * protection refund while the seller is also paid: escrow only ever
+     * held the price once, so the platform would eat a full item price.
+     * This is the {@code release}-path twin of the
+     * {@code alreadyPaidByProtection} guard on TradeService's cancel path.
+     *
+     * Claws the {@code coverageAmount} back from the buyer's wallet,
+     * clamped at the available balance — a buyer who already spent the
+     * payout is taken to zero (never negative) and the shortfall is
+     * logged for manual staff clawback. Flips the protection to EXPIRED
+     * with a "claim reversed" reason (no separate REVERSED state — the
+     * cover is resolved and the reason field records what happened).
+     *
+     * No-op when the trade is unprotected or the protection is not in
+     * CLAIMED state — safe to call from the release path unconditionally.
+     */
+    @Transactional
+    TradeProtection reverseClaim(Long tradeId, String reason) {
+        def protection = tradeProtectionRepository.findByTradeId(tradeId)
+        if (protection == null) return null
+        if (protection.status != TradeProtection.CLAIMED) return protection
+        def trade = tradeRepository.findById(tradeId).orElse(null)
+
+        def cover = protection.coverageAmount ?: BigDecimal.ZERO
+        def buyerWalletId = trade?.buyerWalletId
+        if (buyerWalletId != null && cover > BigDecimal.ZERO) {
+            def wallet = walletRepository.findById(buyerWalletId).orElse(null)
+            if (wallet != null) {
+                // Clamp at the available balance — never drive the wallet
+                // negative. A buyer who already spent the payout leaves a
+                // shortfall the platform must chase manually.
+                def avail = (wallet.balance != null && wallet.balance > BigDecimal.ZERO) ? wallet.balance : BigDecimal.ZERO
+                def debit = cover < avail ? cover : avail
+                if (debit > BigDecimal.ZERO) {
+                    wallet.balance = wallet.balance - debit
+                    walletRepository.save(wallet)
+                    transactionRepository.save(new Transaction(
+                        walletId:        wallet.id,
+                        type:            'PURCHASE',
+                        status:          'COMPLETED',
+                        amount:          debit,
+                        currency:        wallet.currency,
+                        stripeReference: 'trade_protection_reversal',
+                        description:     "Trade Protection claim reversed — ${trade?.itemName ?: ('trade #' + tradeId)}",
+                        listingId:       trade?.listingId
+                    ))
+                }
+                def shortfall = cover - debit
+                if (shortfall > BigDecimal.ZERO) {
+                    log.warn("Trade #{} protection reversal short by \${} — buyer wallet {} had only \${}; " +
+                        "manual clawback required", tradeId, shortfall, wallet.id, avail)
+                }
+            } else {
+                log.warn("Trade #{} protection reversal — buyer wallet {} not found; " +
+                    "manual clawback required for \${}", tradeId, buyerWalletId, cover)
+            }
+        } else if (cover > BigDecimal.ZERO) {
+            log.warn("Trade #{} protection reversal — no buyer wallet on the trade; " +
+                "manual clawback required for \${}", tradeId, cover)
+        }
+
+        protection.status      = TradeProtection.EXPIRED
+        protection.claimReason = ("Claim reversed — ${reason ?: 'trade released as valid'}").take(255)
+        protection.resolvedAt  = System.currentTimeMillis()
+        protection.updatedAt   = protection.resolvedAt
+        tradeProtectionRepository.save(protection)
+
+        if (protection.buyerUserId != null) {
+            notificationService?.safePush(protection.buyerUserId, 'TRADE_PROTECTION_REVERSED',
+                "Protection claim reversed · ${trade?.itemName ?: 'your trade'}",
+                "\$${cover} was reclaimed from your wallet — the trade was released as valid.",
+                tradeId, '/wallet')
+        }
+        auditService?.log('TRADE_PROTECTION_REVERSED', null, protection.buyerUserId, tradeId,
+            "Protection claim reversed, \$${cover} reclaimed: ${reason ?: 'trade released as valid'}")
+        log.info("Trade #{} protection claim REVERSED — \${} reclaimed from buyer {} ({})",
+            tradeId, cover, protection.buyerUserId, reason ?: 'trade released as valid')
+        protection
+    }
+
+    /**
      * Lapse a trade's protection — the trade completed normally
      * (VERIFIED), so the cover is no longer needed and the fee is kept
      * as revenue. Wired into TradeService's release path.

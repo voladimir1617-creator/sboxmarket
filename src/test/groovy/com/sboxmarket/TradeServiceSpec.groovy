@@ -928,6 +928,64 @@ class TradeServiceSpec extends Specification {
         0 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
     }
 
+    def "adminRelease of a DISPUTED protected trade whose protection CLAIMED reverses the claim (release-path double-payout fix)"() {
+        // A protected buyer disputed → autoClaim already paid them $50
+        // and flipped the protection to CLAIMED. Staff now force-release
+        // the trade, ruling the seller actually delivered. Crediting the
+        // seller while leaving the buyer's claim standing would double-
+        // pay the buyer (keeps the item AND the refund) — release() must
+        // REVERSE the CLAIMED protection, not expire() it.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('DISPUTED')
+        def sellerWallet = new Wallet(id: 600L, balance: BigDecimal.ZERO, currency: 'USD')
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        adminAuthorization.requireAdmin(999L) >> {}
+        tradeProtectionService.findForTrade(1L) >> protectionRow('CLAIMED')
+
+        when: 'staff force-release the disputed (already protection-paid) trade'
+        service.adminRelease(999L, 1L, 'CSR ruling: seller delivered, buyer dispute rejected')
+
+        then: 'the seller is paid and the trade verifies'
+        t.state == 'VERIFIED'
+        sellerWallet.balance > BigDecimal.ZERO
+
+        and: 'the CLAIMED protection is REVERSED — not expired — to reclaim the buyer payout'
+        1 * tradeProtectionService.reverseClaim(1L, _)
+        0 * tradeProtectionService.expire(_)
+    }
+
+    def "release of a protected trade with ACTIVE protection still expires the cover (no regression)"() {
+        // The release-path protection branch must not regress ordinary
+        // completion: a buyerConfirm on a still-ACTIVE protected trade
+        // lapses the cover via expire(), never reverseClaim().
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        def sellerWallet = new Wallet(id: 600L, balance: BigDecimal.ZERO, currency: 'USD')
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        banGuard.assertNotBanned(10L) >> {}
+        tradeProtectionService.findForTrade(1L) >> protectionRow('ACTIVE')
+
+        when:
+        service.buyerConfirm(10L, 1L)
+
+        then: 'trade verifies and the ACTIVE cover lapses normally'
+        t.state == 'VERIFIED'
+        1 * tradeProtectionService.expire(_)
+        0 * tradeProtectionService.reverseClaim(_, _)
+    }
+
     // ── 404 wrap ──────────────────────────────────────────────────
 
     def "get throws NotFoundException for unknown trade id"() {

@@ -720,14 +720,27 @@ class TradeService {
         }
         auditService?.log(AuditService.TRADE_VERIFIED, t.buyerUserId, t.sellerUserId, t.id,
             "Verified trade #${t.id} for \$${t.price}")
-        // Trade Protection — the trade completed normally, so any
-        // protection cover lapses (ACTIVE → EXPIRED) and the fee is
-        // kept as revenue. Best-effort: a protection hiccup must not
-        // roll back the seller credit + VERIFIED transition above.
+        // Trade Protection resolution. Normally the trade completed
+        // cleanly, so any ACTIVE cover lapses (ACTIVE → EXPIRED) and the
+        // fee is kept as revenue. BUT a disputed protected trade was
+        // already auto-claimed at dispute time — the buyer was refunded
+        // the full item price. If staff then force-releases that trade
+        // (ruling the seller delivered), crediting the seller above
+        // while leaving the buyer's claim standing double-pays the
+        // buyer (keeps the item AND the refund). So a CLAIMED protection
+        // is reversed here, reclaiming the payout — the release-path
+        // twin of cancel()'s `alreadyPaidByProtection` guard. Best-
+        // effort: a protection hiccup must not roll back the seller
+        // credit + VERIFIED transition above.
         try {
-            tradeProtectionService?.expire(t.id)
+            def prot = tradeProtectionService?.findForTrade(t.id)
+            if (prot != null && prot.status == com.sboxmarket.model.TradeProtection.CLAIMED) {
+                tradeProtectionService.reverseClaim(t.id, 'Trade released as valid')
+            } else {
+                tradeProtectionService?.expire(t.id)
+            }
         } catch (Exception e) {
-            log.warn("Protection expire failed for trade ${t.id}: ${e.message}")
+            log.warn("Protection resolve-on-release failed for trade ${t.id}: ${e.message}")
         }
     }
 

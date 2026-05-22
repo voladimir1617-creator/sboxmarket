@@ -911,6 +911,135 @@ class TradeProtectionServiceSpec extends Specification {
         status << [TradeProtection.CLAIMED, TradeProtection.EXPIRED]
     }
 
+    // ── reverseClaim — staff released a disputed protected trade ──────
+
+    def "reverseClaim claws the coverage back, writes a PURCHASE reversal and flips to EXPIRED"() {
+        given: "a CLAIMED protection — the buyer was auto-refunded \$50 at dispute time"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.CLAIMED, feeAmount: new BigDecimal('1.00'),
+            coverageAmount: new BigDecimal('50.00'), claimReason: 'Trade disputed by buyer')
+        def trade  = tradeIn('VERIFIED', buyer: 10L, buyerWallet: 500L,
+            itemName: 'Wizard Hat', listingId: 100L)
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('70.00'), currency: 'USD')
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        def result = service.reverseClaim(1L, 'Trade released as valid')
+
+        then: "the full \$50 payout is reclaimed from the buyer wallet"
+        wallet.balance == new BigDecimal('20.00')
+        1 * walletRepository.save(wallet)
+
+        and: "a COMPLETED PURCHASE transaction records the reversal"
+        1 * transactionRepository.save({ Transaction tx ->
+            tx.walletId == 500L &&
+            tx.type == 'PURCHASE' &&
+            tx.status == 'COMPLETED' &&
+            tx.amount == new BigDecimal('50.00') &&
+            tx.stripeReference == 'trade_protection_reversal' &&
+            tx.listingId == 100L
+        })
+
+        and: "the protection flips to EXPIRED with a 'claim reversed' reason"
+        result.is(protection)
+        protection.status == TradeProtection.EXPIRED
+        protection.claimReason.startsWith('Claim reversed')
+        protection.resolvedAt != null
+        protection.updatedAt == protection.resolvedAt
+
+        and: "the buyer is notified and the reversal is audited"
+        1 * notificationService.safePush(10L, 'TRADE_PROTECTION_REVERSED', _, _, 1L, _)
+        1 * auditService.log('TRADE_PROTECTION_REVERSED', null, 10L, 1L, _)
+    }
+
+    def "reverseClaim is a no-op returning null when the trade has no protection"() {
+        given:
+        tradeProtectionRepository.findByTradeId(1L) >> null
+
+        when:
+        def result = service.reverseClaim(1L, 'Trade released as valid')
+
+        then:
+        result == null
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        0 * tradeProtectionRepository.save(_)
+    }
+
+    def "reverseClaim is a no-op when the protection is #status (only CLAIMED is reversible)"() {
+        given:
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: status, coverageAmount: new BigDecimal('50.00'))
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+
+        when:
+        def result = service.reverseClaim(1L, 'Trade released as valid')
+
+        then: "no money moves and the record is returned untouched"
+        result.is(protection)
+        protection.status == status
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        0 * tradeProtectionRepository.save(_)
+
+        where:
+        status << [TradeProtection.ACTIVE, TradeProtection.EXPIRED]
+    }
+
+    def "reverseClaim clamps the clawback at the wallet balance — never drives it negative"() {
+        given: "the buyer already spent most of the \$50 payout; only \$12 remains"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.CLAIMED, coverageAmount: new BigDecimal('50.00'))
+        def trade  = tradeIn('VERIFIED', buyer: 10L, buyerWallet: 500L)
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('12.00'), currency: 'USD')
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        def result = service.reverseClaim(1L, 'Trade released as valid')
+
+        then: "only the available \$12 is reclaimed — the wallet sits at zero, not negative"
+        wallet.balance == new BigDecimal('0.00')
+
+        and: "the reversal transaction records the clamped \$12, not the full \$50"
+        1 * transactionRepository.save({ Transaction tx ->
+            tx.type == 'PURCHASE' && tx.amount == new BigDecimal('12.00')
+        })
+
+        and: "the protection still resolves to EXPIRED"
+        result.is(protection)
+        protection.status == TradeProtection.EXPIRED
+    }
+
+    def "reverseClaim still flips to EXPIRED when the buyer wallet is missing (manual clawback)"() {
+        given:
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.CLAIMED, coverageAmount: new BigDecimal('50.00'))
+        def trade = tradeIn('VERIFIED', buyer: 10L, buyerWallet: 500L)
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.empty()
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        def result = service.reverseClaim(1L, 'Trade released as valid')
+
+        then: "no money moves but the protection is still resolved"
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+        result.is(protection)
+        protection.status == TradeProtection.EXPIRED
+    }
+
     // ── summary ───────────────────────────────────────────────────
 
     def "summary returns a compact map for a protected trade"() {
