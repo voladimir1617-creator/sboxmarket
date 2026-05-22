@@ -306,14 +306,26 @@ class StripeService {
             }
         }
 
-        // Debit the wallet and record the refund as its own transaction
+        // Debit the wallet and record the refund as its own transaction.
         def wallet = walletRepository.findById(tx.walletId)
                 .orElseThrow { new NoSuchElementException("Wallet not found") }
-        if (wallet.balance < amount) {
-            throw new IllegalStateException("Wallet balance too low to refund (have \$${wallet.balance}, need \$${amount})")
-        }
-        wallet.balance = wallet.balance - amount
+        // The Stripe refund above has already moved money out of the
+        // platform's Stripe balance. If the wallet has since been drained
+        // below the refund amount we must NOT throw — that would leave
+        // Stripe debited with no REFUND row in the ledger. Mirror
+        // handleRefundCreated: clamp the wallet debit at the available
+        // balance (never negative), still record the REFUND for the full
+        // amount so the ledger reflects what left Stripe, and log the gap
+        // as an auditable shortfall for admins to chase.
+        def debit = amount.min(wallet.balance)
+        if (debit < BigDecimal.ZERO) debit = BigDecimal.ZERO
+        wallet.balance = wallet.balance - debit
+        if (wallet.balance < BigDecimal.ZERO) wallet.balance = BigDecimal.ZERO
         walletRepository.save(wallet)
+        if (debit < amount) {
+            log.warn("refundDeposit ${depositTxId}: wallet ${wallet.id} only had \$${debit} of the " +
+                "\$${amount} refunded via Stripe — \$${amount - debit} shortfall for manual reconciliation")
+        }
 
         def refundTx = new Transaction(
             walletId:        tx.walletId,
@@ -327,7 +339,7 @@ class StripeService {
         transactionRepository.save(refundTx)
         try {
             auditService?.log(AuditService.REFUND_ISSUED, null, null, refundTx.id,
-                "Refunded \$${amount} of deposit ${tx.id} (stripeRef=${refundId})")
+                "Refunded \$${amount} of deposit ${tx.id} (stripeRef=${refundId}, wallet debit=\$${debit})")
         } catch (Exception ignore) {}
         // User-facing push + email (batch 523). Admin-initiated refunds
         // now reach the user via the same channels as dashboard-

@@ -310,20 +310,36 @@ class StripeServiceSpec extends Specification {
         thrown(IllegalArgumentException)
     }
 
-    def "refundDeposit refuses when wallet balance is lower than refund"() {
+    def "refundDeposit clamps the wallet debit when the balance is below the refund — no throw, full REFUND recorded"() {
+        // The Stripe refund has already moved money out of the platform's
+        // Stripe balance by this point; throwing here would leave Stripe
+        // debited with no REFUND row in the ledger. Clamp the wallet at
+        // its available balance (never negative) and still record the
+        // REFUND for the full amount so the ledger reflects what left
+        // Stripe — the gap is an auditable shortfall, not a hard failure.
         given:
         def depositTx = new Transaction(
             id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
-            amount: new BigDecimal("100"), stripeReference: 'dev_123'
+            amount: new BigDecimal("100"), currency: 'USD', stripeReference: 'dev_123'
         )
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("10"))
         transactionRepository.findById(_) >> Optional.of(depositTx)
-        walletRepository.findById(_) >> Optional.of(new Wallet(balance: new BigDecimal("10")))
+        walletRepository.findById(_) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        def savedRefund = null
+        transactionRepository.save(_) >> { Transaction t -> t.id = 2L; savedRefund = t; t }
 
-        when:
-        service.refundDeposit(1L, null)
+        when: 'a $100 deposit is refunded but the wallet only holds $10'
+        def result = service.refundDeposit(1L, null)
 
-        then:
-        thrown(IllegalStateException)
+        then: 'no throw — the wallet is clamped at 0, never driven negative'
+        noExceptionThrown()
+        wallet.balance == BigDecimal.ZERO
+        result.newBalance == BigDecimal.ZERO
+
+        and: 'the REFUND row still records the full $100 that left Stripe'
+        savedRefund.type == 'REFUND'
+        savedRefund.amount == new BigDecimal("100")
     }
 
     // ── cancelPendingWithdrawal ───────────────────────────────────
