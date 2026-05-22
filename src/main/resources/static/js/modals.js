@@ -7907,23 +7907,29 @@ function ProfileOffersTab() {
   };
   const doReject = async (id) => {
     const o = findOffer(id);
+    const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
+    // Confirm — reject notifies the buyer and can't be undone; the ✕
+    // button is small enough that a misclick shouldn't fire it.
+    if (!confirm(`Reject the ${fmt(o?.amount || 0)} offer on ${label}? The buyer is notified and this can't be undone.`)) return;
     setBusy(true);
     try {
       const res = await rejectOffer(id);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Reject failed', 'err'); return; }
       await load();
-      const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       toast(`Offer on ${label} rejected.`, 'ok');
     } finally { setBusy(false); }
   };
   const doCancel = async (id) => {
     const o = findOffer(id);
+    const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
+    // Confirm — cancelling withdraws the offer (or declines a seller
+    // counter); a single misclick shouldn't drop it silently.
+    if (!confirm(`Cancel the ${fmt(o?.amount || 0)} offer on ${label}?`)) return;
     setBusy(true);
     try {
       const res = await cancelOffer(id);
       if (res && (res.error || res.code)) { toast(res.message || res.error || 'Cancel failed', 'err'); return; }
       await load();
-      const label = o?.itemName ? `"${o.itemName}"` : `offer #${id}`;
       toast(`Your offer on ${label} was cancelled.`, 'ok');
     } finally { setBusy(false); }
   };
@@ -8169,7 +8175,14 @@ function ProfileOffersTab() {
   });
 
   const cancelAllOutgoing = async () => {
-    if (!confirm(`Cancel all ${outgoingPending} pending outgoing offers? Sellers are notified.`)) return;
+    // The outgoing list mixes the buyer's own offers with seller counters
+    // awaiting the buyer's reply — "cancel all" walks away from those
+    // counters too, so the confirm must say so.
+    const sellerCounters = data.outgoing.filter(o => o.status === 'PENDING' && o.author === 'SELLER').length;
+    const msg = sellerCounters > 0
+      ? `Cancel all ${outgoingPending} pending outgoing offers? This also declines ${sellerCounters} seller counter${sellerCounters === 1 ? '' : 's'} awaiting your reply. Sellers are notified.`
+      : `Cancel all ${outgoingPending} pending outgoing offers? Sellers are notified.`;
+    if (!confirm(msg)) return;
     setBusy(true);
     try {
       const { cancelAllOutgoingOffers } = await import('./api.js');
