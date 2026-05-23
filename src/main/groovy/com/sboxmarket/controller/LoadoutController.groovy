@@ -5,6 +5,7 @@ import com.sboxmarket.exception.UnauthorizedException
 import com.sboxmarket.model.Loadout
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.LoadoutService
+import com.sboxmarket.util.InputLimits
 import groovy.util.logging.Slf4j
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
@@ -183,6 +184,20 @@ class LoadoutController {
         def name        = body?.name        as String
         def description = body?.description as String
         def visibility  = body?.visibility  as String
+        // Upstream content-size cap. Unlike create() (which routes through
+        // @Valid CreateLoadoutRequest with @Size constraints), this endpoint
+        // accepts a raw Map so a malicious caller could ship a 1.99MB
+        // `description` field (under the 2MB BodySizeLimitFilter ceiling)
+        // and force Jackson + Groovy to allocate the full String just so
+        // TextSanitizer.medium() could truncate it to 500 chars on the way
+        // to the DB. The InputLimits caps (SHORT_LABEL=200, MEDIUM_TEXT=5000)
+        // are deliberately 2-10x the sanitizer's truncation point so a user
+        // typing a slightly-too-long description still gets a silent server
+        // truncation; anything past that is a structured 400 INVALID_NAME /
+        // DESCRIPTION_TOO_LONG with no wasted heap. Same defense the rest of
+        // the controller layer (Review, Support, Trade, Offer) applies.
+        InputLimits.requireMax(name,        InputLimits.SHORT_LABEL, 'INVALID_NAME',          'Loadout name')
+        InputLimits.requireMax(description, InputLimits.MEDIUM_TEXT, 'DESCRIPTION_TOO_LONG',  'Loadout description')
         ResponseEntity.ok(loadoutService.update(uid, id, name, description, visibility))
     }
 

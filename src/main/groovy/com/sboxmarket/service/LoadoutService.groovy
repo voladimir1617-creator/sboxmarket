@@ -15,6 +15,7 @@ import com.sboxmarket.repository.LoadoutSlotRepository
 import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -205,7 +206,21 @@ class LoadoutService {
                 itemDecor[it.id] = [imageUrl: it.imageUrl, accentColor: it.accentColor]
             }
         }
-        def decoratedSlots = slots.collect { LoadoutSlot s ->
+        // Canonical slot order — `findByLoadout` returns rows in `id ASC`,
+        // which matches the create-time seed order for normal loadouts but
+        // drifts as soon as `setSlot` creates a previously-missing slot row
+        // (newer id => appended last regardless of slot kind). Re-sort by
+        // the canonical `SLOTS` list so the detail page renders Hats first,
+        // Wild last, every request — matching `decorate()`'s preview order
+        // and CSFloat's loadout layout. Unknown slot names (defensive) sort
+        // to the end in stable insertion order.
+        Map<String, Integer> slotRank = [:]
+        SLOTS.eachWithIndex { String name, int i -> slotRank[name] = i }
+        def orderedSlots = slots.toList().sort(false) { LoadoutSlot s ->
+            def r = slotRank[s?.slot]
+            r != null ? r : SLOTS.size()
+        }
+        def decoratedSlots = orderedSlots.collect { LoadoutSlot s ->
             def deco = (s?.itemId != null) ? itemDecor[s.itemId] : null
             [
                 id            : s.id,
@@ -377,6 +392,17 @@ class LoadoutService {
         def loadout = loadoutRepository.findById(loadoutId)
             .orElseThrow { new NotFoundException("Loadout", loadoutId) }
         if (loadout.ownerUserId != ownerUserId) throw new ForbiddenException("Not your loadout")
+        // Hard-delete semantics: wipe slots + favorites referencing this
+        // loadout, then the loadout row itself. The favorites cascade is
+        // load-bearing — without it, every starring user keeps a junction
+        // row pointing at the now-gone loadout id. listFavorites() silently
+        // filters those out (findAllById returns nothing for the dead id),
+        // but the table grows without bound, the orphan rows have no FK
+        // backstop in the schema, and if a future IDENTITY id happened to
+        // collide with the dead one, those stale favorites would suddenly
+        // light up against an unrelated loadout. Cleanest fix: cascade
+        // here in the service layer where the deletion intent is explicit.
+        loadoutFavoriteRepository?.deleteByLoadoutId(loadoutId)
         loadoutSlotRepository.deleteByLoadoutId(loadoutId)
         loadoutRepository.delete(loadout)
     }
@@ -396,6 +422,12 @@ class LoadoutService {
         if (!cleanReason || cleanReason.isEmpty()) cleanReason = 'Violates the community guidelines'
         def ownerId = loadout.ownerUserId
         def loadoutName = loadout.name
+        // Same cascade as the owner delete() — see note there. Admin
+        // takedowns must leave the favorites table consistent too;
+        // otherwise the staff-removed loadout's orphan favorite rows
+        // pile up identically and the loadout-id-reuse risk above
+        // applies just the same.
+        loadoutFavoriteRepository?.deleteByLoadoutId(loadoutId)
         loadoutSlotRepository.deleteByLoadoutId(loadoutId)
         loadoutRepository.delete(loadout)
         try {
@@ -441,10 +473,32 @@ class LoadoutService {
             loadoutFavoriteRepository.deleteByUserAndLoadout(viewerUserId, loadoutId)
             favorited = false
         } else {
-            loadoutFavoriteRepository.save(new LoadoutFavorite(
-                userId:    viewerUserId,
-                loadoutId: loadoutId
-            ))
+            // findByUserAndLoadout + save is a non-atomic read-modify-write.
+            // A user double-tapping the favorite button (or hitting the
+            // endpoint from two devices simultaneously) fires two concurrent
+            // requests that both observe existing=null and both INSERT; the
+            // `uq_loadout_fav_user_loadout` UNIQUE constraint then rejects
+            // the loser with a DataIntegrityViolationException. Treat that as
+            // a benign no-op (the favorite already exists from the winning
+            // request) — without this catch the loser bubbles a 500, and
+            // worse, the favorites-counter increment below would have run
+            // twice (one per request) producing a count of 2 for a single
+            // favoriting user. Mirrors ReviewService.toggleHelpful which
+            // handles the same race on the helpful-vote junction table.
+            try {
+                loadoutFavoriteRepository.save(new LoadoutFavorite(
+                    userId:    viewerUserId,
+                    loadoutId: loadoutId
+                ))
+            } catch (DataIntegrityViolationException dup) {
+                log.debug("toggleFavorite race on loadout=${loadoutId} user=${viewerUserId} — already favorited, treating as no-op")
+                // Re-read the count so the response reflects the row the
+                // winning request committed.
+                long raceCount = loadoutFavoriteRepository.countByLoadout(loadoutId)
+                loadout.favorites = (int) raceCount
+                loadoutRepository.save(loadout)
+                return [id: loadoutId, favorites: (int) raceCount, favorited: true]
+            }
             favorited = true
         }
 
@@ -494,7 +548,18 @@ class LoadoutService {
             description: textSanitizer.medium(source.description),
             visibility:  'PRIVATE'  // start private so the cloner can tweak before publishing
         )
-        loadoutRepository.save(copy)
+        // Re-assign `copy` to the save() return value so the slot-seed loop
+        // below dereferences the freshly-managed instance whose id has been
+        // populated by the IDENTITY INSERT, rather than relying on Hibernate
+        // mutating the input argument in place. Two users cloning the same
+        // source loadout simultaneously each get their own row + their own
+        // IDENTITY-generated id — distinct ids are guaranteed by the
+        // database's IDENTITY sequence, so the only correctness concern at
+        // the service layer is that we hand the right id to every
+        // subsequent loadoutSlotRepository.save(). The explicit return-value
+        // capture makes that contract obvious and survives a future provider
+        // swap where in-place mutation isn't guaranteed.
+        copy = loadoutRepository.save(copy)
 
         // Seed slots first, then overlay the source's filled slots. Snapshot
         // prices come from the current catalogue row so stale prices from the
