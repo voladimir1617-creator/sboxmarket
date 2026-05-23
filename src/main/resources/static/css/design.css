@@ -39590,11 +39590,6 @@ hr.csfloat {
   font-size: 11px;
   color: oklch(0.84 0.18 152);
 }
-.csfloat-strike-banner-old {
-  color: var(--ink-4);
-  text-decoration: line-through;
-  font-size: 10px;
-}
 .csfloat-strike-banner-new {
   font-weight: 700;
   font-size: 13px;
@@ -49876,13 +49871,6 @@ hr.csfloat {
   border: 1px solid oklch(0.42 0.07 152 / 0.36);
   border-radius: 6px;
 }
-.csfloat-promo-pricing-badge-old {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-4);
-  text-decoration: line-through;
-  font-variant-numeric: tabular-nums;
-}
 .csfloat-promo-pricing-badge-new {
   font-family: var(--mono);
   font-size: 14px;
@@ -53273,12 +53261,6 @@ hr.csfloat {
   font-size: 12px;
   letter-spacing: -0.005em;
   font-variant-numeric: tabular-nums;
-}
-.csfloat-compare-vs-old {
-  color: var(--ink-4);
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  font-size: 10px;
 }
 .csfloat-compare-vs-arrow {
   color: var(--ink-4);
