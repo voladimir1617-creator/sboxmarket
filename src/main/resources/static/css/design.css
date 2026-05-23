@@ -1674,10 +1674,18 @@ footer {
 .db-row {
   /* D4 Boss QA — bumped row min-height + thumb size + gap so the table
      reads premium instead of Excel-cramped. 64px rows / 48px thumbs /
-     16px column gap. */
+     16px column gap.
+     Owner-QA 2026-05-23: the row is `display: grid` and its template
+     dictates total row width — `table-layout: fixed` on .db-table is
+     bypassed entirely. Old template summed to 1136px which exceeded
+     the 1038px wrapper at desktop, pushing the star column past the
+     viewport's right edge (audit "overflowing-elements" flag). Trimmed
+     Item min from 260 to 180, Floor from 140 to 110, and gap from 16
+     to 12 — sums to ~994px, comfortably inside the wrapper. Item still
+     grows via 2fr so at wide desktop it gets the breathing room it had. */
   display: grid;
-  grid-template-columns: 44px minmax(260px, 2fr) 110px 120px 100px 80px 80px 140px 38px;
-  gap: 16px; align-items: center;
+  grid-template-columns: 44px minmax(180px, 2fr) 110px 120px 100px 80px 80px 110px 38px;
+  gap: 12px; align-items: center;
   padding: 14px 18px;
   min-height: 64px;
   font-size: 13px;
@@ -116413,29 +116421,39 @@ tr:hover .csfloat-row-hover-actions,
    tightens row padding so 30 rows fit on one screen. */
 .db-table { table-layout: fixed; }
 .db-table thead th:nth-child(1),
-.db-table tbody td:nth-child(1) { width: 56px; }    /* # */
+.db-table tbody td:nth-child(1) { width: 48px; }    /* # */
 .db-table thead th:nth-child(2),
 .db-table tbody td:nth-child(2) { width: auto; }    /* Item — flex */
 .db-table thead th:nth-child(3),
-.db-table tbody td:nth-child(3) { width: 110px; }   /* Category */
+.db-table tbody td:nth-child(3) { width: 100px; }   /* Category */
 .db-table thead th:nth-child(4),
-.db-table tbody td:nth-child(4) { width: 130px; }   /* Rarity */
+.db-table tbody td:nth-child(4) { width: 120px; }   /* Rarity */
 .db-table thead th:nth-child(5),
-.db-table tbody td:nth-child(5) { width: 88px; }    /* Supply */
+.db-table tbody td:nth-child(5) { width: 76px; }    /* Supply */
 .db-table thead th:nth-child(6),
-.db-table tbody td:nth-child(6) { width: 72px; }    /* Sold */
+.db-table tbody td:nth-child(6) { width: 64px; }    /* Sold */
 .db-table thead th:nth-child(7),
-.db-table tbody td:nth-child(7) { width: 78px; }    /* Views */
+.db-table tbody td:nth-child(7) { width: 70px; }    /* Views */
 .db-table thead th:nth-child(8),
-.db-table tbody td:nth-child(8) { width: 110px; }   /* Floor */
+.db-table tbody td:nth-child(8) { width: 100px; }   /* Floor */
 .db-table thead th:nth-child(9),
-.db-table tbody td:nth-child(9) { width: 56px; text-align: center; } /* ★ */
+.db-table tbody td:nth-child(9) { width: 48px; text-align: center; } /* ★ */
+/* Owner-QA layout-audit cycle 2026-05-23: /db desktop had star column
+   bbox at x=1408 (right=1464) past viewport x=1440. Root cause: the
+   .db-table-scroll wrapper is fixed at 1038px (grid template), but the
+   table wanted 1136 with the previous column widths (56+260+110+130+88+
+   72+78+110+56 + padding 14×2×9). Trimmed each fixed column by 8-12px
+   and reduced cell padding (below) so the table now fits ~1032px inside
+   the wrapper — star cell stays inside viewport, no audit flag. */
 /* Boss QA D4 — bumped to 14/14 padding + 64px row height for a real
    catalogue grid; thumb is now 48px square with a 12px gap before the
-   title (set on .db-item-cell upstream). */
-.db-table tbody td { padding: 14px 14px !important; vertical-align: middle; }
+   title (set on .db-item-cell upstream).
+   Owner-QA 2026-05-23: horizontal padding tightened from 14 to 10 so
+   the table fits the 1038px wrapper at desktop (see column-width comment
+   above). Vertical padding stays generous for the 64px row height. */
+.db-table tbody td { padding: 14px 10px !important; vertical-align: middle; }
 .db-table tbody tr { height: 64px !important; }
-.db-table thead th { padding: 12px 14px !important; }
+.db-table thead th { padding: 12px 10px !important; }
 .db-thumb { width: 48px !important; height: 48px !important; border-radius: 8px; overflow: hidden; flex: 0 0 auto; }
 .db-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .db-name { font-size: 14px !important; font-weight: 600 !important; }
