@@ -30,7 +30,17 @@ import java.util.concurrent.CopyOnWriteArrayList
 class AuctionEventBus {
 
     private static final int MAX_PER_LISTING = 200
-    private static final long SSE_NO_TIMEOUT = 0L
+    /**
+     * Wall-clock cap on a single SSE connection. A non-zero timeout is a
+     * load-bearing leak guard: when a TCP socket half-closes silently
+     * (mobile network drop, NAT rebalance, proxy idle reap) neither
+     * onCompletion nor onError fires on the server side, so an "alive"
+     * emitter can sit in the per-listing list indefinitely. Spring fires
+     * onTimeout when the wall-clock elapses, which triggers our `remove`
+     * runnable and prevents zombie accumulation. Clients re-open the
+     * stream transparently via EventSource's auto-reconnect.
+     */
+    private static final long EMITTER_TIMEOUT_MS = 10L * 60_000L  // 10 minutes
 
     /** Equality probe for {@code ConcurrentHashMap.remove(key, value)} — a
      *  CopyOnWriteArrayList's equals() is list-content equality, so passing
@@ -46,7 +56,7 @@ class AuctionEventBus {
      * returns it directly to Spring MVC.
      */
     SseEmitter subscribe(Long listingId) {
-        def emitter = new SseEmitter(SSE_NO_TIMEOUT)
+        def emitter = new SseEmitter(EMITTER_TIMEOUT_MS)
         // computeIfAbsent + a re-check after add: a concurrently-reaped
         // listing list could be evicted from `subs` between our lookup and
         // our add, which would orphan this emitter (no bids, no heartbeat,

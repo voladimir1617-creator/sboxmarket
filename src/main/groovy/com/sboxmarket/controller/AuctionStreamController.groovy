@@ -49,6 +49,35 @@ class AuctionStreamController {
                 || listing.listingType != 'AUCTION') {
             throw new NotFoundException("Auction", listingId)
         }
-        bus.subscribe(listingId)
+        def emitter = bus.subscribe(listingId)
+        // For an auction that has already concluded (SOLD / EXPIRED /
+        // CANCELLED), no further AuctionBidPlacedEvent will ever fire —
+        // so a late subscriber would sit on a stale UI until the next
+        // event that never comes. Deliver the terminal state as a
+        // `state` event right after the bus's hello so the client can
+        // render the final result immediately. Field shape mirrors the
+        // public `bid` payload (and deliberately omits currentBidderId
+        // — same redaction rationale the bus's onBid uses) so the
+        // client's bid-event handler can be reused unchanged.
+        if (listing.status != null && listing.status != 'ACTIVE') {
+            try {
+                emitter.send(SseEmitter.event().name('state').data([
+                    listingId        : listing.id,
+                    kind             : 'state',
+                    currentBid       : listing.currentBid?.toPlainString(),
+                    currentBidderName: listing.currentBidderName,
+                    bidCount         : listing.bidCount,
+                    expiresAt        : listing.expiresAt,
+                    status           : listing.status,
+                    now              : System.currentTimeMillis()
+                ]))
+            } catch (Exception ignored) {
+                // Send failure means the emitter has already completed
+                // (client disconnected / hello write failed). The bus's
+                // onError/onCompletion has already evicted it; nothing
+                // to do here.
+            }
+        }
+        emitter
     }
 }
