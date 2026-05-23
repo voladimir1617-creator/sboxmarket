@@ -458,6 +458,7 @@ export function Sparkline({ data, color, height }) {
 export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubmit, maxLen = 500 }) {
   const [text, setText]   = useState(initial || '');
   const textareaRef       = useRef(null);
+  const panelRef          = useRef(null);
   // Per-instance id for the dialog's title element. A stall / profile page
   // renders one ReasonDrawer per review row (admin-remove + report flows),
   // so a hardcoded id collided across every open drawer — `aria-labelledby`
@@ -470,7 +471,28 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
       Math.random().toString(36).slice(2, 9);
   }
   const titleId = titleIdRef.current;
+  // Batch 1167 — a11y upgrade. Previously the drawer:
+  //   • Focused the textarea on mount (good)
+  //   • Closed on Escape (good)
+  //   • Had NO focus trap, so Tab walked straight out into the page
+  //     behind, stranding a keyboard user.
+  //   • Did NOT restore focus to the triggering button on close, so a
+  //     screen-reader user was dropped on document.body.
+  // The single effect below adds both — capture activeElement on mount,
+  // restore it on unmount, and intercept Tab to keep focus cycling
+  // inside the panel. Pattern matches InfoModal's focus contract.
+  //
+  // Refs hold the latest onCancel / busy so the effect's deps array
+  // can stay empty — without this the trap would tear down + rebuild on
+  // every parent re-render (parents pass `() => setX(null)` inline), and
+  // each rebuild prematurely restores focus to the trigger, breaking the
+  // textarea autofocus the user is mid-typing into.
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   useEffect(() => {
+    const prev = document.activeElement;
     const id = requestAnimationFrame(() => {
       if (textareaRef.current) {
         textareaRef.current.focus({ preventScroll: true });
@@ -482,14 +504,56 @@ export function ReasonDrawer({ title, hint, initial, cta, busy, onCancel, onSubm
       }
     });
     const onKey = (e) => {
-      if (e.key === 'Escape' && !busy) { e.stopPropagation(); onCancel(); }
+      if (e.key === 'Escape' && !busyRef.current) { e.stopPropagation(); onCancelRef.current && onCancelRef.current(); return; }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      // Filter to focusables actually rendered (visible, not display:none).
+      // A ReasonDrawer body holds an enabled/disabled state on the Submit
+      // button depending on draft length — disabled buttons are skipped
+      // by the trap naturally via the :not([disabled]) selector.
+      const focusables = Array.prototype.filter.call(
+        panelRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ),
+        el => {
+          if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        }
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last  = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !panelRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !panelRef.current.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
-    return () => { cancelAnimationFrame(id); document.removeEventListener('keydown', onKey); };
-  }, [onCancel, busy]);
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener('keydown', onKey);
+      try {
+        if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+          prev.focus({ preventScroll: true });
+        }
+      } catch (_) {}
+    };
+  }, []);
   const trimmed  = (text || '').trim();
   const canSubmit = trimmed.length > 0 && trimmed.length <= maxLen && !busy;
   return h('div', {
+    ref: panelRef,
+    // ReasonDrawer renders inline within its host row (review reply,
+    // moderation note) rather than as a top-level overlay, so the
+    // dialog has its own focus trap but does NOT claim aria-modal —
+    // declaring aria-modal=true on a non-overlay element makes assistive
+    // tech treat the rest of the page as inert, which would be a lie
+    // here. role=dialog + aria-labelledby still give the surface a
+    // proper announced identity.
     role: 'dialog',
     'aria-modal': 'false',
     'aria-labelledby': titleId,

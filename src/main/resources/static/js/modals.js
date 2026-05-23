@@ -438,16 +438,24 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   // role=dialog + aria-modal + Escape-closes apply. In PAGE mode (/item/:id
   // — feedback_pages_not_popups.md), all of those are stripped: the page is
   // a destination, not a dialog. Browser back / nav anchors handle close.
-  useEffect(() => {
-    if (isPageMode) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (offerOpen || reportTarget || alertOpen) return;
-      if (typeof onClose === 'function') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, offerOpen, reportTarget, alertOpen, isPageMode]);
+  //
+  // Batch 1167 — useDialogA11y mounts once for the lifetime of the
+  // ItemModal (in non-page mode) so the focus trap + restore-focus
+  // contract stays continuous. We route the inner-drawer Escape
+  // suppression through a ref so flipping `offerOpen` / `reportTarget`
+  // / `alertOpen` doesn't tear down and rebuild the trap (a rebuild
+  // would prematurely restore focus to the original trigger and stomp
+  // on the inner drawer's own focus management).
+  const panelRef = useRef(null);
+  const innerOpenRef = useRef(false);
+  innerOpenRef.current = !!(offerOpen || reportTarget || alertOpen);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const dialogClose = useCallback(() => {
+    if (innerOpenRef.current) return;
+    if (typeof onCloseRef.current === 'function') onCloseRef.current();
+  }, []);
+  useDialogA11y(panelRef, dialogClose, !isPageMode);
   const handleBackdropClick = (e) => {
      if (isPageMode) return;
      if (document.querySelector('.site-root.full-page-mode')) return;
@@ -455,6 +463,7 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   };
   return h('div', { className: 'modal-backdrop' + (isPageMode ? ' page-mode' : ''), onClick: handleBackdropClick },
     h(isPageMode ? 'main' : 'div', {
+      ref: isPageMode ? undefined : panelRef,
       className: 'modal' + (isPageMode ? ' item-page' : ''),
       onClick: isPageMode ? undefined : (e => e.stopPropagation()),
       ...(isPageMode ? { role: 'main', 'aria-label': item?.name ? `${item.name} — item details page` : 'Item details page' } : {
@@ -2194,26 +2203,102 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
   );
 }
 
-// Batch 823 — shared helper: bind `Escape` on document to a callback
-// while the caller is mounted. Used by every drawer below so keyboard
-// users get a consistent dismiss keystroke. Non-stoppable — the
-// handler calls stopPropagation so pressing Esc inside a drawer
-// doesn't also bubble up and close the parent modal shell.
-function useEscapeToClose(onEscape) {
+// Batch 1167 — full dialog a11y helper for the larger modal shells
+// (ItemModal, WalletModal, ReviewModal, ConfirmTradeModal,
+// BulkAdjustDrawer). Wraps:
+//   • Escape-to-close
+//   • Initial focus into the panel (first focusable or panel itself)
+//   • Focus restoration to the triggering element on unmount
+//   • Tab/Shift+Tab focus trap inside the panel
+//
+// Pure additive — does not alter visual behaviour. Pattern mirrors
+// InfoModal in info-modal.js so the keyboard contract is consistent
+// across every dialog surface in the app.
+//
+// `enabled` lets a caller suppress the hook (e.g. ItemModal in
+// page mode where the dialog is actually a routed page).
+function useDialogA11y(panelRef, onClose, enabled = true) {
   useEffect(() => {
-    if (typeof onEscape !== 'function') return;
-    const handler = (e) => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      onEscape();
+    if (!enabled) return;
+    if (typeof onClose !== 'function') return;
+    const prev = document.activeElement;
+    // Defer one tick so the panel's children have mounted and a
+    // focus() call lands on a real focusable instead of nothing.
+    const rafId = requestAnimationFrame(() => {
+      if (!panelRef.current) return;
+      // Prefer the first natural focusable inside the panel — usually
+      // the close button or a primary action. Fall back to the panel
+      // itself (tabIndex=-1 so focus() lands; declared on the panel
+      // element by the caller).
+      const focusables = panelRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const target = focusables[0] || panelRef.current;
+      try { target.focus({ preventScroll: true }); }
+      catch { try { target.focus(); } catch (_) {} }
+    });
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      // Filter out hidden elements — calling .focus() on a display:none
+      // node silently no-ops and breaks the trap.
+      const focusables = Array.prototype.filter.call(
+        panelRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ),
+        el => {
+          if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        }
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last  = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !panelRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !panelRef.current.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onEscape]);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('keydown', onKey);
+      try {
+        if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+          prev.focus({ preventScroll: true });
+        }
+      } catch (_) {}
+    };
+  }, [onClose, enabled, panelRef]);
 }
 
 function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
-  useEscapeToClose(onCancel);
+  // Batch 1167 — Escape + focus trap + restore-focus via useDialogA11y.
+  // The drawer's `selectRef.current.focus()` below still grabs initial
+  // focus on the reason picker (useDialogA11y's autofocus is a no-op
+  // when something else already owns focus), but useDialogA11y keeps
+  // Tab inside the drawer and restores focus to the row's Report
+  // button on close. Replaces the old useEscapeToClose call.
+  //
+  // Parents pass `onCancel: () => setX(null)` — a fresh closure on
+  // every render. Wrapping the prop in a ref-backed stable callback
+  // keeps useDialogA11y mounted continuously through parent re-renders
+  // (otherwise the focus trap would tear down + rebuild on every
+  // re-render and prematurely steal focus back to the trigger).
+  const panelRef = useRef(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  useDialogA11y(panelRef, stableCancel);
   // 2026-05-20 — seed `reason` from the first server-supplied reason
   // rather than a hard-coded string. The <select> options come from the
   // fetched `reasons` list; if that list doesn't contain the literal
@@ -2267,14 +2352,15 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
     style: { zIndex: 100 }
   },
     h('div', {
+      ref: panelRef,
       className: 'cart-confirm-panel',
       style: { maxWidth: 420 },
       onClick: e => e.stopPropagation(),
       role: 'dialog',
       'aria-modal': true,
-      'aria-label': `Report listing ${listing.id}`
+      'aria-labelledby': 'report-listing-title-' + listing.id
     },
-      h('div', { className: 'cart-confirm-title' }, 'Report listing'),
+      h('div', { id: 'report-listing-title-' + listing.id, className: 'cart-confirm-title' }, 'Report listing'),
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         `Listing #${listing.id} · ${listing.sellerName || 'Seller'} · ${fmt(listing.price)}`),
       done
@@ -2339,7 +2425,15 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
 // marks sent" behaviour stays available for sellers who already
 // messaged the buyer a link over Discord.
 function MarkSentDrawer({ trade, onCancel, onSubmit }) {
-  useEscapeToClose(onCancel);
+  // Batch 1167 — replaced useEscapeToClose with useDialogA11y so the
+  // drawer now also traps Tab inside the panel and restores focus to
+  // the row's "Mark sent" button on close. Stable-callback wrapper
+  // for the same render-stability reason as ReportListingDrawer above.
+  const panelRef = useRef(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  useDialogA11y(panelRef, stableCancel);
   const [url, setUrl]   = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState('');
@@ -2369,14 +2463,15 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
     style: { zIndex: 100 }
   },
     h('div', {
+      ref: panelRef,
       className: 'cart-confirm-panel',
       style: { maxWidth: 480 },
       onClick: e => e.stopPropagation(),
       role: 'dialog',
       'aria-modal': true,
-      'aria-label': `Mark trade #${trade.id} as sent`
+      'aria-labelledby': 'mark-sent-title-' + trade.id
     },
-      h('div', { className: 'cart-confirm-title' }, 'Mark trade as sent'),
+      h('div', { id: 'mark-sent-title-' + trade.id, className: 'cart-confirm-title' }, 'Mark trade as sent'),
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         'You just sent the Steam offer to ',
         h('strong', null, trade.counterpartyName || `#${trade.buyerUserId || '?'}`),
@@ -2445,7 +2540,14 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
 // Shape mirrors ReportListingDrawer so the visual idiom stays
 // consistent across the site.
 function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
-  useEscapeToClose(onCancel);
+  // Batch 1167 — replaced useEscapeToClose with useDialogA11y for Tab
+  // focus trap + restore-focus on close. Stable-callback wrapper for
+  // the same render-stability reason as ReportListingDrawer above.
+  const panelRef = useRef(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  useDialogA11y(panelRef, stableCancel);
   const REASONS = ['Scam attempt','Harassment in chat','Impersonation','Other'];
   const [reason, setReason] = useState(REASONS[0]);
   const [note, setNote]     = useState(`Trade #${trade.id} · item ${trade.itemName || '—'}`);
@@ -2473,14 +2575,15 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
     style: { zIndex: 100 }
   },
     h('div', {
+      ref: panelRef,
       className: 'cart-confirm-panel',
       style: { maxWidth: 460 },
       onClick: e => e.stopPropagation(),
       role: 'dialog',
       'aria-modal': true,
-      'aria-label': `Report counterparty on trade ${trade.id}`
+      'aria-labelledby': 'report-counterparty-title-' + trade.id
     },
-      h('div', { className: 'cart-confirm-title' }, 'Report counterparty'),
+      h('div', { id: 'report-counterparty-title-' + trade.id, className: 'cart-confirm-title' }, 'Report counterparty'),
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         'Trade #', String(trade.id), ' · ',
         h('strong', null, counterparty),
@@ -2550,7 +2653,17 @@ function ReportCounterpartyDrawer({ trade, onCancel, onSubmitted }) {
 // a Steam transcript / screenshot link / timeline). Mirrors the
 // ReportListingDrawer shape so the visual idiom is consistent.
 function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
-  useEscapeToClose(onCancel);
+  // Batch 1167 — focus trap + restore-focus via useDialogA11y. The
+  // dispute drawer can freeze escrow, so a keyboard-only filer must
+  // be able to dismiss it safely with Esc and have Tab cycle stay
+  // inside the form rather than bleed into the trades grid behind.
+  // Stable-callback wrapper for the same render-stability reason as
+  // ReportListingDrawer above.
+  const panelRef = useRef(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const stableCancel = useCallback(() => onCancelRef.current && onCancelRef.current(), []);
+  useDialogA11y(panelRef, stableCancel);
   const REASONS = isSeller
     ? [
         'Buyer claimed receipt but Steam offer was never accepted',
@@ -2597,14 +2710,15 @@ function DisputeTradeDrawer({ trade, onCancel, onSubmitted, isSeller }) {
     style: { zIndex: 100 }
   },
     h('div', {
+      ref: panelRef,
       className: 'cart-confirm-panel',
       style: { maxWidth: 460 },
       onClick: e => e.stopPropagation(),
       role: 'dialog',
       'aria-modal': true,
-      'aria-label': `Dispute trade ${trade.id}`
+      'aria-labelledby': 'dispute-trade-title-' + trade.id
     },
-      h('div', { className: 'cart-confirm-title' }, 'Dispute this trade'),
+      h('div', { id: 'dispute-trade-title-' + trade.id, className: 'cart-confirm-title' }, 'Dispute this trade'),
       h('div', { className: 'cart-confirm-sub', style: { marginBottom: 14 } },
         `Trade #${trade.id} · ${trade.itemName || 'Item'}`,
         trade.price != null && ` · ${fmt(trade.price)}`),
@@ -6365,34 +6479,33 @@ function ProfileTradesTab({ me, privacy }) {
     setReviewErr('');
     setReviewDone(false);
   };
-  // Batch 829 — Escape closes the review modal. Busy-guard lets the
-  // in-flight POST finish cleanly; the closeReview call is safe when
-  // the modal is already closed (setReviewTrade(null) on null is a
-  // no-op).
-  useEffect(() => {
-    if (!reviewTrade) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (reviewBusy) return;
-      e.stopPropagation();
-      closeReview();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [reviewTrade, reviewBusy]);
-  // Batch 840 — Escape closes the refund-request drawer. Busy-guard
-  // on the in-flight support-ticket POST.
-  useEffect(() => {
-    if (!refundTrade) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape' || refundBusy) return;
-      e.stopPropagation();
-      setRefundTrade(null);
-      setRefundReason('');
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [refundTrade, refundBusy]);
+  // Batch 829 / Batch 1167 — Escape + focus management for the review
+  // modal. The dialogClose callback is stable (refs hold the latest
+  // busy / close fn) so useDialogA11y only mounts/unmounts when the
+  // modal actually opens/closes — busy-state toggles don't tear down
+  // and rebuild the trap mid-submit, which would steal focus from
+  // the user's in-flight Submit button.
+  const reviewPanelRef = useRef(null);
+  const reviewBusyRef  = useRef(reviewBusy);
+  reviewBusyRef.current = reviewBusy;
+  const reviewClose = useCallback(() => {
+    if (reviewBusyRef.current) return;
+    setReviewTrade(null);
+    setReviewErr('');
+    setReviewDone(false);
+  }, []);
+  useDialogA11y(reviewPanelRef, reviewClose, !!reviewTrade);
+  // Batch 840 / Batch 1167 — Escape + focus management for the refund
+  // drawer. Same stable-callback pattern as the review modal above.
+  const refundPanelRef = useRef(null);
+  const refundBusyRef  = useRef(refundBusy);
+  refundBusyRef.current = refundBusy;
+  const refundClose = useCallback(() => {
+    if (refundBusyRef.current) return;
+    setRefundTrade(null);
+    setRefundReason('');
+  }, []);
+  useDialogA11y(refundPanelRef, refundClose, !!refundTrade);
   const submitReview = async () => {
     if (!reviewTrade) return;
     setReviewBusy(true); setReviewErr('');
@@ -6450,22 +6563,23 @@ function ProfileTradesTab({ me, privacy }) {
   const [confirmTrade, setConfirmTrade] = useState(null);
   const [disputeTrade, setDisputeTrade] = useState(null);
 
-  // Confirm-receipt Escape handler — also has to live above the early
-  // returns or its useEffect runs only when `me && trades` is true,
-  // which makes the hook count vary across renders and trips React #310.
-  // No-ops when confirmTrade is null. Busy-guarded so a user can't cancel
-  // mid-flight while tradeOp is already in progress.
-  useEffect(() => {
-    if (!confirmTrade) return;
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (busy) return;
-      e.stopPropagation();
-      setConfirmTrade(null);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [confirmTrade, busy]);
+  // Confirm-receipt Escape + focus management — also has to live above
+  // the early returns or its hook count varies across renders and trips
+  // React #310. No-ops when confirmTrade is null. Busy-guarded so a user
+  // can't cancel mid-flight while tradeOp is already in progress.
+  // Batch 1167 — upgraded from raw Escape handler to useDialogA11y so
+  // the financially-irreversible confirm-receipt dialog now traps Tab
+  // inside the modal and restores focus to the row's Confirm button on
+  // close. Stable-callback pattern (busy lives in a ref) keeps the
+  // trap mounted continuously across busy-state toggles.
+  const confirmPanelRef = useRef(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const confirmClose = useCallback(() => {
+    if (busyRef.current) return;
+    setConfirmTrade(null);
+  }, []);
+  useDialogA11y(confirmPanelRef, confirmClose, !!confirmTrade);
 
   if (!me) return h(SignInNeededEmptyState, { what: 'your trades' });
   if (trades === null) return h('div', { className: 'spinner' });
@@ -7473,13 +7587,15 @@ function ProfileTradesTab({ me, privacy }) {
     // Clean star picker + textarea + submit, no native prompts.
     reviewTrade && h('div', { className: 'modal-backdrop', onClick: closeReview },
       h('div', {
+        ref: reviewPanelRef,
         className: 'modal review-modal',
         onClick: e => e.stopPropagation(),
         style: { maxWidth: 480, padding: 0 },
         // Batch 829 — review modal a11y. Matches the pattern from
         // batches 821/826/827: role=dialog + aria-modal + aria-
-        // labelledby on the heading. Escape-to-close is registered
-        // alongside the other TradesTab modal-level handlers.
+        // labelledby on the heading. Escape-to-close + focus trap
+        // are wired via useDialogA11y in TradesTab so the ref above
+        // pulls focus into the modal on open and restores it on close.
         role: 'dialog',
         'aria-modal': 'true',
         'aria-labelledby': 'review-modal-title'
@@ -7619,15 +7735,17 @@ function ProfileTradesTab({ me, privacy }) {
     // the buyer sees exactly what they're confirming before escrow flips.
     confirmTrade && h('div', { className: 'modal-backdrop', onClick: () => !busy && setConfirmTrade(null) },
       h('div', {
+        ref: confirmPanelRef,
         className: 'trade-confirm-modal',
         onClick: e => e.stopPropagation(),
         // Batch 826 — escrow-release is financially irreversible, so
         // the modal gets proper a11y: role=dialog + aria-modal so
         // screen readers announce it, aria-labelledby on the title so
         // the content is readable in the dialog announcement.
-        // Escape-to-close is handled by the matching useEffect below
-        // (can't add hooks inside a conditional render, so it lives
-        // at the parent component level on `confirmTrade`).
+        // Batch 1167 — Escape-to-close, focus trap, and restore-focus
+        // are wired via useDialogA11y at the TradesTab level (the ref
+        // above carries it). Can't add hooks inside a conditional
+        // render so they have to live on the parent component.
         role: 'dialog',
         'aria-modal': 'true',
         'aria-labelledby': 'trade-confirm-title'
@@ -7753,14 +7871,16 @@ function ProfileTradesTab({ me, privacy }) {
       style: { zIndex: 100 }
     },
       h('div', {
+        ref: refundPanelRef,
         className: 'cart-confirm-panel',
         style: { maxWidth: 460 },
         onClick: e => e.stopPropagation(),
         // Batch 840 — refund-request drawer a11y. Inline drawer
         // (not extracted to a function) so we add role=dialog +
-        // aria-modal + aria-labelledby directly on the panel. Escape
-        // handling runs at the TradesTab-level useEffect alongside
-        // the other modal keypress handlers (batch 826 / 829).
+        // aria-modal + aria-labelledby directly on the panel.
+        // Batch 1167 — Escape, focus trap, and restore-focus are
+        // wired via useDialogA11y at the TradesTab level (the ref
+        // above carries it).
         role: 'dialog',
         'aria-modal': 'true',
         'aria-labelledby': 'refund-drawer-title'
@@ -10818,6 +10938,18 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
   const [bulkAdjustPct, setBulkAdjustPct]   = useState('');
   const [bulkAdjustBusy, setBulkAdjustBusy] = useState(false);
   const [bulkAdjustErr, setBulkAdjustErr]   = useState('');
+  // Batch 1167 — bulk-adjust drawer Escape + focus trap + restore-focus.
+  // Lives above the early-return for the same hook-count reason as the
+  // state above. Stable-callback pattern (busy in a ref) keeps the
+  // trap mounted continuously while a bulk-adjust API call is in flight.
+  const bulkAdjustPanelRef = useRef(null);
+  const bulkAdjustBusyRef  = useRef(bulkAdjustBusy);
+  bulkAdjustBusyRef.current = bulkAdjustBusy;
+  const bulkAdjustClose = useCallback(() => {
+    if (bulkAdjustBusyRef.current) return;
+    setBulkAdjustOpen(false);
+  }, []);
+  useDialogA11y(bulkAdjustPanelRef, bulkAdjustClose, bulkAdjustOpen);
 
   if (!me) return h(InfoModal, { title: 'My Stall', onClose },
     h(SignInNeededEmptyState, { what: 'your stall' }));
@@ -11081,6 +11213,7 @@ function MyStallModalInner({ onClose, me, onRefresh, initialTab }) {
         style: { zIndex: 100 }
       },
         h('div', {
+          ref: bulkAdjustPanelRef,
           className: 'cart-confirm-panel',
           style: { maxWidth: 480 },
           onClick: e => e.stopPropagation(),
@@ -13700,18 +13833,13 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
       setTab(initialTab);
     }
   }, [initialTab]);
-  // Batch 829 — Escape closes the wallet modal. Busy state lives per
-  // submit call so the keyboard dismiss is safe at rest; in-flight
-  // Stripe checkout redirects away from the page before Esc could fire.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key !== 'Escape' || typeof onClose !== 'function') return;
-      e.stopPropagation();
-      onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Batch 829 / Batch 1167 — Escape closes the wallet modal AND focus
+  // trap keeps Tab inside it AND focus restores to the trigger on
+  // unmount. Busy state lives per submit call so the keyboard dismiss
+  // is safe at rest; in-flight Stripe checkout redirects away from the
+  // page before Esc could fire.
+  const panelRef = useRef(null);
+  useDialogA11y(panelRef, onClose);
   const [dest, setDest]     = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [busy, setBusy]     = useState(false);
@@ -13822,6 +13950,7 @@ export function WalletModal({ wallet, transactions, me, onClose, onRefresh, init
   }
   return h('div', { className: 'modal-backdrop', onClick: handleBackdropClick },
     h('div', {
+      ref: panelRef,
       className: 'modal wallet-modal',
       onClick: e => e.stopPropagation(),
       // Batch 829 — Wallet modal a11y. role=dialog + aria-modal so
