@@ -532,12 +532,19 @@ class StripeService {
                 // back to a wallet id, accumulates failures in a sliding
                 // 1h window, and pings every admin with a CARD_TESTING_DETECTED
                 // notification when a single wallet crosses the threshold.
-                try {
-                    def pi = event.dataObjectDeserializer.object.orElse(null)
-                    if (pi != null) handlePaymentIntentFailed(pi as com.stripe.model.PaymentIntent)
-                } catch (Exception e) {
-                    log.error("Failed to process payment_intent.payment_failed (event=${event.id}): ${e.message}", e)
-                }
+                //
+                // Audit fix: do NOT wrap in a swallow-everything try/catch.
+                // A transient DB / notification-service failure was getting
+                // logged-then-eaten, then markProcessed below recorded the
+                // event id, then the controller ACKed 200 — and Stripe
+                // never retried. The card-testing alert was lost forever
+                // and the next attack cycle started clean. Let transient
+                // exceptions propagate so the controller returns 500 and
+                // Stripe retries. Re-runs are safe: the per-wallet alert
+                // dedupe (cardTestAlertedAt) in handlePaymentIntentFailed
+                // short-circuits repeat fan-outs within the window.
+                def pi = event.dataObjectDeserializer.object.orElse(null)
+                if (pi != null) handlePaymentIntentFailed(pi as com.stripe.model.PaymentIntent)
                 break
             case "refund.created":
                 // Dashboard-refund sync (batch 498). Previously a bare log.info —
@@ -546,12 +553,18 @@ class StripeService {
                 // credited even though Stripe had clawed back the money,
                 // letting the user withdraw funds that no longer existed in
                 // our Stripe balance. Now the webhook reconciles the ledger.
-                try {
-                    def refund = (Refund) event.dataObjectDeserializer.object.orElse(null)
-                    if (refund != null) handleRefundCreated(refund)
-                } catch (Exception e) {
-                    log.error("Failed to process refund.created (event=${event.id}): ${e.message}", e)
-                }
+                //
+                // Audit fix: removed the swallow-everything try/catch wrapper.
+                // A transient DB failure mid-refund was being logged-then-eaten,
+                // then markProcessed recorded the event id, and the controller
+                // ACKed 200 — Stripe never retried, the wallet stayed credited,
+                // and Stripe's balance was debited. Real money loss. Let
+                // transient exceptions propagate to the controller's 500 path
+                // for Stripe retry. handleRefundCreated is idempotent on the
+                // refund id (existing-by-stripeReference check at line 672),
+                // so retries are safe.
+                def refund = (Refund) event.dataObjectDeserializer.object.orElse(null)
+                if (refund != null) handleRefundCreated(refund)
                 break
             case "charge.refunded":
                 // Mirror — `charge.refunded` is also fired by Stripe on the same
@@ -568,13 +581,16 @@ class StripeService {
             // the matching deposit transaction to DISPUTED, log to
             // audit, and notify every admin so they can investigate +
             // ban/credit-clawback the offender.
+            //
+            // Audit fix: removed the swallow-everything try/catch wrapper
+            // (same reasoning as refund.created / payment_intent.payment_failed).
+            // A transient DB failure mid-chargeback was being eaten and the
+            // event marked processed, so the deposit row never flipped to
+            // DISPUTED and admins were never notified. The handler's own
+            // isFirstObservation gate (line 872) makes retries safe.
             case "charge.dispute.created":
-                try {
-                    def dispute = (Dispute) event.dataObjectDeserializer.object.orElse(null)
-                    if (dispute != null) handleChargebackOpened(dispute)
-                } catch (Exception e) {
-                    log.error("Failed to process charge.dispute.created (event=${event.id}): ${e.message}", e)
-                }
+                def disputeOpened = (Dispute) event.dataObjectDeserializer.object.orElse(null)
+                if (disputeOpened != null) handleChargebackOpened(disputeOpened)
                 break
             case "charge.dispute.closed":
                 // Dispute resolved by Stripe (batch 495). If we won the
@@ -583,14 +599,22 @@ class StripeService {
                 // lost, keep DISPUTED and notify admins so they can
                 // decide on a wallet clawback before the user drains
                 // the now-under-water balance.
-                try {
-                    def dispute = (Dispute) event.dataObjectDeserializer.object.orElse(null)
-                    if (dispute != null) handleChargebackClosed(dispute)
-                } catch (Exception e) {
-                    log.error("Failed to process charge.dispute.closed (event=${event.id}): ${e.message}", e)
-                }
+                //
+                // Audit fix: removed the swallow-everything try/catch
+                // wrapper. The WON branch's `tx.status == 'DISPUTED'` gate
+                // (line 1004) and the LOST branch's status check make the
+                // handler idempotent under retry.
+                def disputeClosed = (Dispute) event.dataObjectDeserializer.object.orElse(null)
+                if (disputeClosed != null) handleChargebackClosed(disputeClosed)
                 break
             default:
+                // Unknown / not-yet-handled event type. Log + fall through
+                // so the controller still returns 200 OK (Stripe won't
+                // retry an event we don't care about). Critically, this
+                // path does NOT throw — Stripe sends new event types
+                // periodically as their API evolves, and a 500 on an
+                // unrecognised type would put us into an unwanted retry
+                // loop forever.
                 log.debug("Ignoring Stripe event: ${event.type}")
         }
 
