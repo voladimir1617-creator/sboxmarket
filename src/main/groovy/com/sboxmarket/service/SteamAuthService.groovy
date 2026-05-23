@@ -175,18 +175,6 @@ class SteamAuthService {
             return null
         }
 
-        // Reject replayed assertions (security QA P1). Steam's
-        // check_authentication returns is_valid:true repeatedly for the
-        // SAME assertion, so a captured /return URL can be replayed
-        // verbatim. consumeNonce records the response_nonce on first use
-        // and returns false on any subsequent sighting (or if the nonce
-        // is missing entirely).
-        def nonce = paramFromQuery(rawQueryString, 'openid.response_nonce')
-        if (!consumeNonce(nonce)) {
-            log.warn("Steam OpenID assertion rejected: nonce missing or already used (replay)")
-            return null
-        }
-
         // Extract the SteamID64 from the claimed_id IN THE RAW, VERIFIED
         // query string — this is the value Steam signed and attested, not
         // whatever a servlet param map happened to decode.
@@ -209,6 +197,30 @@ class SteamAuthService {
         // Steam signed — reject rather than silently trusting either.
         if (claimedIdParam != null && claimedIdParam != claimedId) {
             log.warn("Steam OpenID assertion rejected: claimed_id param disagrees with signed value")
+            return null
+        }
+
+        // Reject replayed assertions (security QA P1). Steam's
+        // check_authentication returns is_valid:true repeatedly for the
+        // SAME assertion, so a captured /return URL can be replayed
+        // verbatim. consumeNonce records the response_nonce on first use
+        // and returns false on any subsequent sighting (or if the nonce
+        // is missing entirely).
+        //
+        // Deliberately runs LAST — after every other gate (is_valid, the
+        // openid.signed coverage check, claimed_id format, and the param
+        // cross-check) has passed. Burning the nonce on an obviously-
+        // malformed assertion would punish the user for a Steam-side or
+        // network glitch (their next genuine retry of the same URL would
+        // be rejected as a replay). The synchronized consume + the gates
+        // above mean only fully-valid first-use assertions ever record
+        // a nonce; concurrent replays still race-lose on the synchronized
+        // LinkedHashSet, so the TOCTOU window between is_valid and
+        // session establishment in the controller is closed by this
+        // atomic check-and-record.
+        def nonce = paramFromQuery(rawQueryString, 'openid.response_nonce')
+        if (!consumeNonce(nonce)) {
+            log.warn("Steam OpenID assertion rejected: nonce missing or already used (replay)")
             return null
         }
         steamId64
@@ -284,21 +296,33 @@ class SteamAuthService {
 
         // Fetch profile. Prefer the Steam Web API (if a key is configured),
         // but fall back to the public profile XML endpoint which needs no key.
-        def profile = null
-        if (steamApiKey) {
-            try { profile = fetchViaWebApi(steamId64) }
-            catch (Exception e) { log.warn("Steam Web API lookup failed: ${e.message}") }
-        }
-        if (profile == null) {
-            try { profile = fetchViaPublicXml(steamId64) }
-            catch (Exception e) { log.warn("Steam XML lookup failed: ${e.message}") }
-        }
+        //
+        // Was: a single try/catch on each fetch that swallowed EVERY
+        // exception to a single warn line — indistinguishable whether the
+        // user had no Steam profile (rare, permanent) or Steam was having
+        // a transient blip (common, retryable). For first-ever logins the
+        // consequence was severe: the user is permanently saved with the
+        // placeholder displayName `Player_<6 digits>` until they happen to
+        // sign in again. We now retry transient failures (IOException/
+        // SocketTimeoutException — Steam down, DNS hiccup, container
+        // network blip) once with a short back-off before giving up, and
+        // log the give-up at WARN with the kind clearly named so alerts
+        // can distinguish a true Steam outage from a single missing profile.
+        def profile = fetchProfileWithRetry(steamId64)
 
         if (profile != null) {
             if (profile.displayName) user.displayName = profile.displayName
             if (profile.avatarUrl)   user.avatarUrl   = profile.avatarUrl
             if (profile.profileUrl)  user.profileUrl  = profile.profileUrl
             user = steamUserRepository.save(user)
+        } else if (isNew) {
+            // Transient Steam blip on a brand-new user means they're saved
+            // with the `Player_<digits>` placeholder. Surface this at WARN
+            // so the operator can notice a pattern (a Steam outage during
+            // a wave of new signups) rather than digging it out of
+            // per-fetch debug noise. Existing users keep their last-known
+            // displayName/avatar so the impact is invisible to them.
+            log.warn("Steam profile fetch returned null on FIRST login for ${steamId64} — user saved with placeholder name")
         }
 
         // Bootstrap-admin promotion — if this steamId64 is listed in
@@ -310,10 +334,84 @@ class SteamAuthService {
         user
     }
 
-    /** Call the official Steam Web API. Requires STEAM_API_KEY. */
-    private Map fetchViaWebApi(String steamId64) {
+    /**
+     * Try to fetch the user's Steam profile, retrying once on transient
+     * failures. Returns the populated map (per {@link #fetchViaWebApi} /
+     * {@link #fetchViaPublicXml}) on success, or null if both fetch paths
+     * either return null (no profile found) or both attempts hit transient
+     * errors. Never throws.
+     *
+     * Retry policy: a single retry with a 500 ms back-off. Cheap enough to
+     * still complete inside the login HTTP round-trip but enough to ride
+     * out a one-off Steam glitch. Permanent failures (404, malformed JSON,
+     * etc.) short-circuit immediately — there's no point retrying a 404
+     * twelve times.
+     */
+    protected Map fetchProfileWithRetry(String steamId64) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            String kind = 'unknown'
+            try {
+                if (steamApiKey) {
+                    kind = 'WebAPI'
+                    def m = fetchViaWebApi(steamId64)
+                    if (m != null) return m
+                }
+                kind = 'XML'
+                def m = fetchViaPublicXml(steamId64)
+                if (m != null) return m
+                // Both paths returned null → no profile (e.g. private/deleted).
+                // This is not a transient failure; don't retry.
+                return null
+            } catch (java.net.SocketTimeoutException te) {
+                log.warn("Steam ${kind} lookup TIMED OUT on attempt ${attempt + 1} for ${steamId64}: ${te.message}")
+            } catch (java.io.IOException ioe) {
+                // IOException covers 5xx, connection refused, DNS failure,
+                // and most other transport-level problems. Treat as transient.
+                log.warn("Steam ${kind} lookup transport error on attempt ${attempt + 1} for ${steamId64}: ${ioe.message}")
+            } catch (Exception e) {
+                // Anything else (malformed JSON/XML, surprise exception) is
+                // probably permanent — don't burn the second retry on it.
+                log.warn("Steam ${kind} lookup failed (non-transient) for ${steamId64}: ${e.message}")
+                return null
+            }
+            // Transient — back off a touch then retry.
+            if (attempt == 0) {
+                try { Thread.sleep(500L) } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null }
+            }
+        }
+        return null
+    }
+
+    /** Call the official Steam Web API. Requires STEAM_API_KEY.
+     *
+     *  Routes 4xx (permanent: bad key, private profile) to a return-null
+     *  short-circuit and lets 5xx / network errors bubble as IOException
+     *  so {@link #fetchProfileWithRetry} can distinguish them and retry
+     *  the transient ones. Was: `new URL(apiUrl).getText()` which threw
+     *  IOException for every non-2xx — making "Steam is rate-limiting us
+     *  RIGHT NOW" indistinguishable from "this Steam ID doesn't exist".
+     */
+    protected Map fetchViaWebApi(String steamId64) {
         def apiUrl = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steamId64}"
-        def text = new URL(apiUrl).getText('UTF-8')
+        def conn = (HttpURLConnection) new URL(apiUrl).openConnection()
+        conn.setRequestProperty('User-Agent', 'SkinBox/1.0')
+        conn.connectTimeout = 8_000
+        conn.readTimeout = 8_000
+        int status = conn.responseCode
+        if (status >= 500) {
+            // Drain error stream so the connection can be reused, then
+            // signal transient via IOException → the retry wrapper picks
+            // it up.
+            try { conn.errorStream?.getText('UTF-8') } catch (Exception ignore) {}
+            throw new java.io.IOException("Steam Web API returned ${status}")
+        }
+        if (status < 200 || status >= 300) {
+            // Permanent client error (bad key 401/403, malformed request
+            // 400, etc.). Don't retry — log and treat as "no profile".
+            log.warn("Steam Web API returned ${status} for ${steamId64} — not retrying (permanent)")
+            return null
+        }
+        def text = conn.inputStream.getText('UTF-8')
         def json = new JsonSlurper().parseText(text)
         def p = json?.response?.players?.find { it.steamid == steamId64 }
         if (p == null) return null
@@ -325,13 +423,30 @@ class SteamAuthService {
      * Every Steam profile has a ?xml=1 variant that exposes displayName + avatars.
      * This is the same mechanism CSFloat-style sites use so users never have to
      * set up any credentials.
+     *
+     * Mirrors {@link #fetchViaWebApi}'s status handling: 5xx is transient
+     * (IOException → retry), 4xx is permanent (log + null), 2xx is parsed.
+     * Was: a bare `conn.inputStream.getText(...)` which threw IOException
+     * for every non-2xx — collapsing "Steam down" and "profile private/
+     * deleted" into the same swallowed warning, with no retry ever
+     * triggered. That left first-ever-login users stuck on the
+     * `Player_<digits>` placeholder forever after a single Steam blip.
      */
-    private Map fetchViaPublicXml(String steamId64) {
+    protected Map fetchViaPublicXml(String steamId64) {
         def xmlUrl = "https://steamcommunity.com/profiles/${steamId64}/?xml=1"
         def conn = (HttpURLConnection) new URL(xmlUrl).openConnection()
         conn.setRequestProperty('User-Agent', 'SkinBox/1.0')
         conn.connectTimeout = 8_000
         conn.readTimeout = 8_000
+        int status = conn.responseCode
+        if (status >= 500) {
+            try { conn.errorStream?.getText('UTF-8') } catch (Exception ignore) {}
+            throw new java.io.IOException("Steam XML endpoint returned ${status}")
+        }
+        if (status < 200 || status >= 300) {
+            log.warn("Steam XML returned ${status} for ${steamId64} — not retrying (permanent)")
+            return null
+        }
         def text = conn.inputStream.getText('UTF-8')
         def profile = new XmlSlurper().parseText(text)
         [

@@ -193,6 +193,14 @@ class SteamAuthController {
      * a query string. Hash (everything after `#`) is preserved in place
      * after the query — `/profile?tab=trades#section` becomes
      * `/profile?tab=trades&login=success#section`.
+     *
+     * Both `state` and `reason` are URL-encoded before being written
+     * into the query string. Today the only call sites pass URL-safe
+     * literals (`success`, `failed`, `upsert`) so the wire bytes don't
+     * change — but defence-in-depth: a future caller passing a value
+     * with `&`, `=`, `#`, or CRLF would otherwise smuggle extra params
+     * (or a header) into the Location response. The same goes for any
+     * exotic Unicode that needs percent-escaping.
      */
     static String appendLoginParam(String path, String state, String reason = null) {
         String safe = sanitizeNext(path)
@@ -203,8 +211,11 @@ class SteamAuthController {
         String pathPart = hashIdx >= 0 ? safe.substring(0, hashIdx) : safe
         String sep = pathPart.contains('?') ? '&' : '?'
         StringBuilder sb = new StringBuilder()
-        sb.append(pathPart).append(sep).append('login=').append(state)
-        if (reason != null) sb.append('&reason=').append(reason)
+        sb.append(pathPart).append(sep).append('login=')
+            .append(URLEncoder.encode(state ?: '', 'UTF-8'))
+        if (reason != null) {
+            sb.append('&reason=').append(URLEncoder.encode(reason, 'UTF-8'))
+        }
         sb.append(hash)
         return sb.toString()
     }
