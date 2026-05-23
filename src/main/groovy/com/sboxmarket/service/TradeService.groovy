@@ -1332,25 +1332,17 @@ class TradeService {
                 // of releasing funds to a sanctioned account.
                 if (trade.sellerUserId != null && banGuard.isBanned(trade.sellerUserId)) {
                     log.info("Trade #{} seller is banned — auto-cancelling with buyer refund instead of release", trade.id)
-                    refundBuyer(trade)
-                    returnListingToSeller(trade)
-                    trade.note = "Automatically cancelled — seller account banned"
-                    trade.settledAt = System.currentTimeMillis()
-                    transitionTo(trade, 'CANCELLED')
-                    notificationService?.push(trade.buyerUserId, 'TRADE_CANCELLED',
-                        "Trade cancelled · refund issued", trade.note, trade.id, '/profile?tab=trades')
-                    auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
-                        "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
-                    // Trade Protection — the banned-seller branch
-                    // refunds the buyer via refundBuyer(), so expire
-                    // the cover (no double payout). The auto-release
-                    // branch below routes through release(), which
-                    // expires protection on its own.
-                    try {
-                        tradeProtectionService?.expire(trade.id)
-                    } catch (Exception e) {
-                        log.warn("Protection expire failed for banned-seller trade ${trade.id}: ${e.message}")
-                    }
+                    // Routed through a @Transactional helper so the
+                    // refundBuyer wallet write + listing return +
+                    // CANCELLED state flip + protection-expire all
+                    // commit (or roll back) atomically. Without the
+                    // wrapper these wallet.save() / listing.save() /
+                    // trade.save() calls each ran in their own short
+                    // auto-commit tx, leaving the buyer credited but
+                    // the trade still PENDING_BUYER_CONFIRM on a crash
+                    // mid-loop — a re-sweep next tick would refund a
+                    // second time.
+                    autoCancelBannedSellerTrade(trade)
                 } else {
                     // autoRelease=true fires the buyer-side email
                     // (batch 601) — the 8-day-silent buyer probably
@@ -1362,6 +1354,37 @@ class TradeService {
             } catch (Exception e) {
                 log.warn("Trade sweeper failed on ${trade.id}: ${e.message}")
             }
+        }
+    }
+
+    /** Per-trade transaction for the banned-seller branch of the
+     *  auto-release sweep. Mirrors {@link #autoCancelStaleSellerTrade} —
+     *  wraps the buyer refund + listing return + CANCELLED transition
+     *  in one atomic unit so a crash midway can never double-refund the
+     *  buyer on the next sweep tick. Protected so Spring's CGLIB proxy
+     *  still applies @Transactional when the public sweeper invokes it
+     *  externally (this/self-invocation note: the sweep itself is
+     *  unannotated, so the call CROSSES the proxy boundary). */
+    @Transactional
+    protected void autoCancelBannedSellerTrade(Trade trade) {
+        refundBuyer(trade)
+        returnListingToSeller(trade)
+        trade.note = "Automatically cancelled — seller account banned"
+        trade.settledAt = System.currentTimeMillis()
+        transitionTo(trade, 'CANCELLED')
+        notificationService?.safePush(trade.buyerUserId, 'TRADE_CANCELLED',
+            "Trade cancelled · refund issued", trade.note, trade.id, '/profile?tab=trades')
+        auditService?.log(AuditService.TRADE_AUTO_CANCELLED, null, trade.sellerUserId, trade.id,
+            "Seller banned — auto-cancelled after ${autoReleaseDays}d window")
+        // Trade Protection — the banned-seller branch
+        // refunds the buyer via refundBuyer(), so expire
+        // the cover (no double payout). The auto-release
+        // branch routes through release(), which
+        // expires protection on its own.
+        try {
+            tradeProtectionService?.expire(trade.id)
+        } catch (Exception e) {
+            log.warn("Protection expire failed for banned-seller trade ${trade.id}: ${e.message}")
         }
     }
 }

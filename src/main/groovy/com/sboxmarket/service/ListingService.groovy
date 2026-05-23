@@ -158,7 +158,11 @@ class ListingService {
         if (steam == null || price == null) return BigDecimal.ZERO
         if (steam <= BigDecimal.ZERO || price <= BigDecimal.ZERO) return BigDecimal.ZERO
         if (price >= steam) return BigDecimal.ZERO
-        ((steam - price) / steam).setScale(6, BigDecimal.ROUND_HALF_UP)
+        // Use explicit-scale divide() — bare `/` on BigDecimal calls
+        // divide(BigDecimal) with no scale, which throws ArithmeticException
+        // ("Non-terminating decimal expansion") on quotients like 1/3.
+        // setScale() after a throwing divide never gets a chance to run.
+        (steam - price).divide(steam, 6, java.math.RoundingMode.HALF_UP)
     }
 
     List<Listing> getListingsForItem(Long itemId) {
@@ -647,7 +651,11 @@ class ListingService {
     @Transactional
     Map bulkAdjustPrices(Long sellerUserId, BigDecimal percent) {
         def active = listingRepository.findActiveBySeller(sellerUserId)
-        def factor = BigDecimal.ONE + (percent / new BigDecimal('100'))
+        // Explicit-scale divide — bare `/` on BigDecimal throws
+        // ArithmeticException on non-terminating quotients. A scale of
+        // 10 keeps the factor precise enough that the subsequent
+        // (l.price * factor).setScale(2) rounding is bit-stable.
+        def factor = BigDecimal.ONE + percent.divide(new BigDecimal('100'), 10, java.math.RoundingMode.HALF_UP)
         def touchedItemIds = new HashSet<Long>()
         // Track (listingId, oldPrice, newPrice) so we can fire
         // PRICE_DROPPED pings after the save for listings that went
