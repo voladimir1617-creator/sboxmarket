@@ -49,6 +49,14 @@ class ReviewController {
         } catch (NumberFormatException ignored) {
             throw new BadRequestException("INVALID_RATING", "rating must be a number (1-5)")
         }
+        // Upstream comment cap — ReviewService.leaveReview runs the
+        // value through textSanitizer.clean with a 500-char truncation,
+        // but accepting a megabyte of text just to drop 99.9% of it on
+        // the floor is a DoS amplification. Cap at MEDIUM_TEXT (5000)
+        // upstream; the service still owns the canonical sanitizer cap.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'comment',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'COMMENT_TOO_LONG', 'comment')
         def comment = body?.comment as String
         def review = reviewService.leaveReview(uid, tradeId, rating, comment)
         ResponseEntity.ok([
@@ -146,6 +154,11 @@ class ReviewController {
     @PostMapping("/{id}/reply")
     ResponseEntity<Map> reply(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
+        // Upstream cap — replyToReview sanitizes to 300 chars but never
+        // checks the inbound size. Reject overlong payloads at the door.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'reply',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'REPLY_TOO_LONG', 'reply')
         def replyBody = body?.reply as String
         def saved = reviewService.replyToReview(uid, id, replyBody)
         ResponseEntity.ok([

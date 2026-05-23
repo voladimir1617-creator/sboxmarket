@@ -30,6 +30,16 @@ class ApiKeyController {
     @PostMapping
     ResponseEntity<Map> create(@RequestBody(required = false) Map body, HttpServletRequest req) {
         def uid = requireUser(req)
+        // Upstream length caps. ApiKeyService.create runs label through
+        // textSanitizer.cleanShort (80-char truncation). Reject obviously
+        // oversized labels at the boundary so a script can't flood the
+        // sanitizer with megabytes of text per mint attempt. Scope is a
+        // 2-char enum ('RO'/'RW') so we cap aggressively.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'label',
+            com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            'LABEL_TOO_LONG', 'label')
+        com.sboxmarket.util.InputLimits.requireMax(body, 'scope',
+            16, 'SCOPE_TOO_LONG', 'scope')
         def label = body?.label as String
         // Batch 670 — optional scope ('RO' or 'RW'). Invalid / blank
         // falls through to 'RW' so the pre-scope contract holds.

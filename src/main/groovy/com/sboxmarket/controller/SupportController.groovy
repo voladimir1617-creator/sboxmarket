@@ -40,6 +40,19 @@ class SupportController {
     ResponseEntity<SupportTicket> create(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Upstream length caps — SupportService.create runs subject through
+        // textSanitizer.subject (80-char cap), body through sanitizeMultiline
+        // (2000-char cap), category through a normalizer (~16-char enum).
+        // Reject obviously oversized payloads at the boundary; legitimate
+        // ticket text stays well under these limits.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'subject',
+            com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            'SUBJECT_TOO_LONG', 'subject')
+        com.sboxmarket.util.InputLimits.requireMax(body, 'body',
+            com.sboxmarket.util.InputLimits.LONG_TEXT,
+            'BODY_TOO_LONG', 'body')
+        com.sboxmarket.util.InputLimits.requireMax(body, 'category',
+            64, 'CATEGORY_TOO_LONG', 'category')
         // Safe-navigate the body — an explicit JSON `null` payload parses
         // to a null Map and would otherwise NPE → 500 here. Matches the
         // body?.field convention every sibling controller already uses;
@@ -57,6 +70,9 @@ class SupportController {
     ResponseEntity<SupportMessage> reply(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        com.sboxmarket.util.InputLimits.requireMax(body, 'body',
+            com.sboxmarket.util.InputLimits.LONG_TEXT,
+            'BODY_TOO_LONG', 'body')
         ResponseEntity.ok(supportService.reply(uid, user.displayName ?: "Player", id, body?.body as String))
     }
 
@@ -98,6 +114,15 @@ class SupportController {
         // every admin/CSR. Gate ONLY this endpoint; a banned user must
         // still be able to file/reply to a normal ticket to appeal.
         banGuard.assertNotBanned(uid)
+        // Upstream length caps. The .take() calls below cap the FINAL
+        // string length, but they happily allocate a 10 MB intermediate
+        // String first. Reject obviously oversized inputs at the door.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'reason',
+            com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            'REASON_TOO_LONG', 'reason')
+        com.sboxmarket.util.InputLimits.requireMax(body, 'context',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'CONTEXT_TOO_LONG', 'context')
         def target = steamUserRepository.findById(targetUserId)
             .orElseThrow { new com.sboxmarket.exception.NotFoundException("SteamUser", targetUserId) }
         def me = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }

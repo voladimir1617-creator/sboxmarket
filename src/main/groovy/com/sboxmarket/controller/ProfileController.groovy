@@ -392,6 +392,12 @@ class ProfileController {
     ResponseEntity<Map> setEmail(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Upstream cap on the raw email string. The regex below is the
+        // canonical validator, but a 10 MB inbound string would still be
+        // fully allocated + lowercased before failing the regex. RFC 5321
+        // caps an addr-spec at 254 chars — anything larger is hostile.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'email',
+            254, 'EMAIL_TOO_LONG', 'email')
         def emailRaw = (body?.email as String ?: '').trim().toLowerCase()
         if (!EMAIL_RE.matcher(emailRaw).matches()) {
             throw new BadRequestException("INVALID_EMAIL", "Please enter a valid email address")
@@ -471,6 +477,13 @@ class ProfileController {
     ResponseEntity<Map> setTradeUrl(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Upstream cap on the raw URL. The regex below pins the exact
+        // Steam trade-URL shape (~120 chars max) but the trim() + regex
+        // walk would still allocate against a megabyte-sized inbound
+        // value before rejecting. 256 chars is well above any legitimate
+        // Steam trade URL.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'tradeUrl',
+            256, 'TRADE_URL_TOO_LONG', 'tradeUrl')
         // Capture the prior URL so we can detect a real change (and skip
         // the security email on a no-op save) + send the alert to the
         // verified email if the URL actually moves (batch 513).
@@ -559,6 +572,16 @@ class ProfileController {
     ResponseEntity<Map> setStallBio(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
+        // Upstream cap. textSanitizer.medium silently truncates the
+        // cleaned result to 500 chars, but it allocates intermediate
+        // Strings off the inbound raw value first. A 10 MB bio body
+        // would walk every regex sweep in TextSanitizer before being
+        // sliced to 500 chars on the way out. Reject at the boundary —
+        // the cap is far above any legitimate bio length (10x the final
+        // sanitizer cap of 500).
+        com.sboxmarket.util.InputLimits.requireMax(body, 'bio',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'BIO_TOO_LONG', 'bio')
         def raw = body?.bio as String
         if (raw == null || raw.trim().isEmpty()) {
             user.stallBio = null

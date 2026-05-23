@@ -80,6 +80,18 @@ class AnnouncementController {
                     "INVALID_EXPIRES_AT", "expiresAt must be a millisecond timestamp")
             }
         }
+        // Upstream length caps — sanitizer at the service layer silently
+        // truncates message to 500 chars + normalises severity to a
+        // 3-token whitelist. Reject huge payloads before they ever reach
+        // the sanitizer so a crafted client can't waste parser/GC budget
+        // posting a 10 MB banner message. The caps are far above any
+        // realistic admin input; legitimate banners stay well under.
+        com.sboxmarket.util.InputLimits.requireMax(body, 'message',
+            com.sboxmarket.util.InputLimits.MEDIUM_TEXT,
+            'MESSAGE_TOO_LONG', 'message')
+        com.sboxmarket.util.InputLimits.requireMax(body, 'severity',
+            com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            'SEVERITY_TOO_LONG', 'severity')
         def row = announcementService.create(uid, body?.message as String,
             body?.severity as String, expiresAt)
         ResponseEntity.ok(row)
