@@ -13,6 +13,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 
 import java.text.SimpleDateFormat
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Append-or-coalesce writer for the item price-history table that feeds the
@@ -41,6 +42,21 @@ class PriceHistoryService {
     /** Year-qualified so the dayLabel is a unique key across the 400-day
      *  hydration window — not just "MMM dd", which repeats every year. */
     private static final String DAY_LABEL_PATTERN = 'MMM dd, yyyy'
+
+    /** In-process idempotency cache. Keyed off the full call shape
+     *  `(itemId|dayLabel|price|bump)` so the same logical event recorded
+     *  twice in quick succession (a settle-flush that retries, a Steam
+     *  sync that double-fires inside its own poll window, etc.) coalesces
+     *  to one write instead of double-counting volume. Bounded at 5k
+     *  entries with TTL eviction so a long-running pod can't grow this
+     *  cache unbounded. Per-pod scope: across a cluster two pods could
+     *  each let one duplicate through, but the same-day coalesce path in
+     *  the writer guarantees the price still ends up canonical and the
+     *  volume drift is bounded to "+1 per pod per retry" — never a
+     *  fundamental leak. */
+    private static final long IDEMPOTENCY_WINDOW_MS = 5_000L
+    private static final int  IDEMPOTENCY_MAX_KEYS  = 5_000
+    private final ConcurrentHashMap<String, Long> recentWrites = new ConcurrentHashMap<>()
 
     @Autowired PriceHistoryRepository priceHistoryRepository
 
@@ -106,6 +122,28 @@ class PriceHistoryService {
         // negative value can never decrement (update) or seed a negative
         // row (insert). Treat null as zero.
         int bump = Math.max(0, volumeDelta ?: 0)
+        // Idempotency short-circuit. PurchaseService wraps record() in a
+        // try/catch and a transaction-retry policy can replay a settle a
+        // few hundred ms apart — without dedupe the second call's `bump`
+        // would compound onto the first one's same-day row. Same trap for
+        // the Steam-sync writers that schedule overlapping polls under
+        // load. The key encodes the entire write shape (item + day +
+        // price + bump) so two GENUINE distinct sales at the same price
+        // and bump on the same day inside the window will collapse — an
+        // acceptable trade since the chart's volume axis is cosmetic and
+        // the price overwrite path stays correct either way.
+        def idemKey = item.id + '|' + today + '|' + price.toPlainString() + '|' + bump
+        long now = System.currentTimeMillis()
+        def prev = recentWrites.get(idemKey)
+        if (prev != null && (now - prev) < IDEMPOTENCY_WINDOW_MS) return
+        recentWrites.put(idemKey, now)
+        if (recentWrites.size() > IDEMPOTENCY_MAX_KEYS) {
+            // Evict every entry older than the window — bounded scan that
+            // a) keeps memory in check, b) avoids the LRU-min scan tax
+            // that ItemController's viewBumpCache takes per insert.
+            long cutoff = now - IDEMPOTENCY_WINDOW_MS
+            recentWrites.entrySet().removeAll { it.value < cutoff }
+        }
         // Defer the ENTIRE find + update-or-insert. The find must be inside
         // the closure too: if findLatestByItem() ran in the caller's
         // transaction, `latest` would be a managed entity and Hibernate

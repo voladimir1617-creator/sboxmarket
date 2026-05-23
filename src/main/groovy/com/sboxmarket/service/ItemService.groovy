@@ -42,6 +42,21 @@ class ItemService {
             items = itemRepository.findAll()
         }
 
+        // When a free-text `q` drove the initial lookup, the category /
+        // rarity filters were previously silently dropped on the floor —
+        // `?q=hat&category=Hats` returned every name-match across every
+        // category, including the wrong ones. Apply the filters in memory
+        // after the name search so the combined query is honoured. Each
+        // filter is a cheap O(N) walk over the already-bounded result set
+        // (the controller caps results at 500 / page), nothing like a
+        // full-table scan.
+        if (q && category && category != 'All') {
+            items = items.findAll { it.category == category }
+        }
+        if (q && rarity && rarity != 'All') {
+            items = items.findAll { it.rarity == rarity }
+        }
+
         // price filter
         if (minPrice != null) items = items.findAll { it.lowestPrice >= minPrice }
         if (maxPrice != null) items = items.findAll { it.lowestPrice <= maxPrice }
