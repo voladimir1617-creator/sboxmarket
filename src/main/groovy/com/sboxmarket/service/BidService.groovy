@@ -248,10 +248,17 @@ class BidService {
         // the auction collapsed into a latency race in the final seconds,
         // a known failure mode on eBay-style marketplaces. We never shorten
         // the auction, only extend it.
+        //
+        // `timeLeft >= 0` (not `> 0`) — covers the boundary race where a
+        // bid lands AT `expiresAt` exactly. The expiry guard above uses
+        // `now > expiresAt`, so a bid at `now == expiresAt` is accepted;
+        // without `>= 0` here the auction would not extend and the next
+        // sweeper tick would close it immediately, defeating the
+        // anti-sniping intent for the exact-boundary case.
         if (listing.expiresAt != null) {
             def now = System.currentTimeMillis()
             def timeLeft = listing.expiresAt - now
-            if (timeLeft > 0 && timeLeft <= SNIPE_WINDOW_MS) {
+            if (timeLeft >= 0 && timeLeft <= SNIPE_WINDOW_MS) {
                 def newExpiresAt = now + SNIPE_EXTEND_MS
                 if (newExpiresAt > listing.expiresAt) {
                     listing.expiresAt = newExpiresAt
@@ -1026,10 +1033,17 @@ class BidService {
         }
         // Highest-amount row wins; sort descending so element 0 is the
         // WON row even if `findByListing`'s ordering ever changes. Ties
-        // (equal amount) fall to the lowest id — a stable, arbitrary but
-        // deterministic pick.
+        // (equal amount) fall to the EARLIEST `createdAt` so the same-
+        // amount tiebreaker is "who bid first", not "who happened to be
+        // inserted first" — id and createdAt usually correlate, but
+        // clock-skew on a clustered insert can make id ordering disagree
+        // with bid time, and the fairness rule is "earlier bidder wins".
+        // `id` is the final fallback so the pick stays deterministic
+        // when two rows share a millisecond.
         def winnersTop = winnersLive.isEmpty() ? null : winnersLive.sort { a, b ->
-            (b.amount <=> a.amount) ?: ((a.id ?: 0L) <=> (b.id ?: 0L))
+            (b.amount <=> a.amount) ?:
+                ((a.createdAt ?: 0L) <=> (b.createdAt ?: 0L)) ?:
+                ((a.id ?: 0L) <=> (b.id ?: 0L))
         }.first()
         def winnerRowsToSave = []
         winnersLive.each { row ->
