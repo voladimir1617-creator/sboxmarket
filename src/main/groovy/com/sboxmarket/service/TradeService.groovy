@@ -311,19 +311,17 @@ class TradeService {
                 }
             }
         }
-        // Counterparty review summaries (batch 402). Looks up each unique
-        // cp id once and caches the summary for every trade row that
-        // shares that counterparty. Loop over ids is fine for a typical
-        // trade list — a power user with 50 trades still hits <10 unique
-        // counterparties. Review service is optional in test contexts.
+        // Counterparty review summaries (batch 402). One bulk GROUP BY
+        // query across every unique counterparty id, instead of N
+        // single-row aggregates inside a loop. Even at <10 unique
+        // counterparties the round-trip savings are worth it on a
+        // tab-open hot path. Review service is optional in test contexts.
         Map<Long, Map> ratingByUser = [:]
-        if (reviewService != null) {
-            ids.each { id ->
-                try {
-                    ratingByUser[id] = reviewService.summaryForUser(id)
-                } catch (Exception e) {
-                    log.warn("Counterparty rating lookup failed for user ${id}: ${e.message}")
-                }
+        if (reviewService != null && !ids.isEmpty()) {
+            try {
+                ratingByUser = reviewService.summariesForUsers(ids) ?: [:]
+            } catch (Exception e) {
+                log.warn("Counterparty rating bulk lookup failed: ${e.message}")
             }
         }
         trades.collect { t ->

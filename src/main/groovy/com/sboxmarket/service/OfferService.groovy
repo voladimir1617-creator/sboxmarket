@@ -988,22 +988,31 @@ class OfferService {
     List<Map> incomingWithExpiry(Long sellerUserId) {
         def offers = offerRepository.findBySellerPaged(sellerUserId,
             org.springframework.data.domain.PageRequest.of(0, OFFER_LIST_CAP))
-        // Batch 847 — counterparty reputation enrichment. Pre-count
-        // VERIFIED trades + review summaries for every unique buyer in
-        // the result set so an N-row incoming list triggers at most N_b
-        // one-row queries instead of N_b queries per offer row. Cheap
-        // because `(buyer_user_id, state)` is indexed.
+        // Batch 847 — counterparty reputation enrichment. Two bulk
+        // GROUP BY queries (verified-trade count + review summary)
+        // across every unique buyer instead of 2×N_b round-trips in a
+        // loop. Cheap because `(buyer_user_id, state)` is indexed.
         def buyerIds = offers*.buyerUserId.findAll { it != null }.unique()
         Map<Long, Long>   tradeCounts = [:].withDefault { 0L }
         Map<Long, Map>    summaries   = [:]
-        buyerIds.each { bid ->
-            try {
-                if (tradeRepository != null) tradeCounts[bid] = tradeRepository.countVerifiedByBuyer(bid)
-                if (reviewService   != null) summaries[bid]   = reviewService.summaryForUser(bid)
-            } catch (Exception e) {
-                // Silent — chip hides if enrichment blips; don't break
-                // the incoming offer listing over a reputation stat.
-                log.debug("Offer reputation enrichment failed for buyer=${bid}: ${e.message}")
+        if (!buyerIds.isEmpty()) {
+            if (tradeRepository != null) {
+                try {
+                    tradeRepository.countVerifiedByBuyerIds(buyerIds).each { row ->
+                        def uid = (row[0] as Number)?.longValue()
+                        def cnt = ((row[1] as Number) ?: 0L).longValue()
+                        if (uid != null) tradeCounts[uid] = cnt
+                    }
+                } catch (Exception e) {
+                    log.debug("Incoming-offer verified-trade bulk enrichment failed: ${e.message}")
+                }
+            }
+            if (reviewService != null) {
+                try {
+                    summaries = reviewService.summariesForUsers(buyerIds) ?: [:]
+                } catch (Exception e) {
+                    log.debug("Incoming-offer review-summary bulk enrichment failed: ${e.message}")
+                }
             }
         }
         offers.collect { o ->
@@ -1042,12 +1051,14 @@ class OfferService {
                 log.debug("Outgoing-offer seller-name enrichment failed: ${e.message}")
             }
             if (reviewService != null) {
-                sellerIds.each { sid ->
-                    try {
-                        summaries[sid] = reviewService.summaryForUser(sid)
-                    } catch (Exception e) {
-                        log.debug("Outgoing-offer review-summary enrichment failed for seller=${sid}: ${e.message}")
-                    }
+                // Bulk GROUP BY across every unique seller — one
+                // round-trip vs N_s. Mirrors the incoming-offer
+                // enrichment above and the controller-side
+                // summariesForUsers usage in ListingController.
+                try {
+                    summaries = reviewService.summariesForUsers(sellerIds) ?: [:]
+                } catch (Exception e) {
+                    log.debug("Outgoing-offer review-summary bulk enrichment failed: ${e.message}")
                 }
             }
         }

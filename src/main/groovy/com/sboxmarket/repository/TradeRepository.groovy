@@ -188,6 +188,23 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     long countVerifiedByBuyer(@Param("uid") Long uid)
 
+    /** Bulk variant of {@link #countVerifiedByBuyer} — returns
+     *  `[buyerUserId, count]` rows for a set of buyer ids in ONE
+     *  GROUP BY query. Drives the per-row counterparty-reputation chip
+     *  on the seller's incoming-offers tab (batch 847) without the
+     *  per-buyer N+1 that loops `countVerifiedByBuyer(bid)` per
+     *  unique buyer. Buyers with zero VERIFIED trades are absent from
+     *  the result (Postgres GROUP BY omits empty groups); callers
+     *  treat missing as 0. Empty input is the caller's responsibility
+     *  — `IN ()` is illegal SQL. */
+    @Query("""
+        SELECT t.buyerUserId, COUNT(t) FROM Trade t
+        WHERE t.buyerUserId IN :uids
+          AND t.state       = 'VERIFIED'
+        GROUP BY t.buyerUserId
+    """)
+    List<Object[]> countVerifiedByBuyerIds(@Param("uids") Collection<Long> buyerUserIds)
+
     /** Count-only version of findUnreviewedByBuyer — drives the
      *  /api/profile/pending-actions avatar badge so we don't hydrate a
      *  full list of Trade rows just to count them. Same NOT EXISTS shape
