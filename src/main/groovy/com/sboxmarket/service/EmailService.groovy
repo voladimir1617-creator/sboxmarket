@@ -1345,6 +1345,117 @@ Thanks for your patience.
         }
     }
 
+    /** RFC 5322 says subjects "should not" exceed 998 octets; in practice
+     *  mail clients truncate at ~78 visual chars and many SMTP relays
+     *  silently reject anything over a few KB. We cap at 200 chars so a
+     *  user-supplied display name or item name like
+     *  `${displayName} ${itemName}` (both potentially attacker-controlled
+     *  via Steam display name) can't push the line past what the relay
+     *  will accept AND can't be used to amplify the payload size of an
+     *  outbound mail. Truncation appends "…" so the reader sees the cut. */
+    static final int MAX_SUBJECT_CHARS = 200
+
+    /** Hard cap on the body length BEFORE we append the boilerplate
+     *  footer. A user with a 10MB display name could otherwise drive a
+     *  >10MB outbound mail, choking the SMTP relay and burning quota at
+     *  ~1k bytes per legit email. 64 KiB is well above every legitimate
+     *  SkinBox template (longest is ~2 KiB) and below the 64KB
+     *  defaults many providers (Postmark, Mailgun) reject at. */
+    static final int MAX_BODY_CHARS = 64 * 1024
+
+    /** Truncate the given string to `cap` chars, appending an ellipsis
+     *  if the cut actually fired. Returns the original when null/empty
+     *  or already inside the cap — no allocation in the common case. */
+    private static String cap(String s, int cap) {
+        if (s == null) return s
+        if (s.length() <= cap) return s
+        return s.substring(0, cap - 1) + '…'
+    }
+
+    /** Mask the local-part of an email for log output: `voladimir1617@gmail.com`
+     *  → `v***@gmail.com`. Stops the audit log line from being a
+     *  PII-leaking exfil target if a logs index is ever exposed (Datadog
+     *  search, Elastic snapshot, etc). Falls back to the raw value if
+     *  the address doesn't contain `@` so an admin can still grep for
+     *  a malformed token. */
+    private static String maskEmail(String e) {
+        if (!e) return e
+        int at = e.indexOf('@')
+        if (at <= 0) return e
+        // Substring (1 char) rather than charAt → in Groovy a bare char
+        // primitive does not have a String `+` overload, so charAt would
+        // throw `No signature of method: Character.plus`. The substring
+        // form costs one extra String alloc and works on every JVM.
+        return e.substring(0, 1) + '***' + e.substring(at)
+    }
+
+    /** Per-process dedupe ledger (batch 1102). If a service races itself
+     *  — e.g. PurchaseService fires `sendPurchaseReceipt` twice because
+     *  a retry handler kicked in before the original committed, or a
+     *  webhook delivers the same Stripe event back-to-back — we'd
+     *  otherwise send the user two identical emails. Key is a hash of
+     *  (to,subject,body); a 60-second TTL is more than enough to swallow
+     *  any sane retry storm while still letting genuine resends (e.g. a
+     *  user requesting a fresh verification email) get through. Bounded
+     *  to ~4096 entries so a long-running prod node doesn't accumulate
+     *  unbounded memory. */
+    private final java.util.Map<String, Long> recentSendKeys =
+        java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<String, Long>(128, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, Long> e) {
+                    return size() > 4096
+                }
+            } as java.util.LinkedHashMap<String, Long>)
+
+    private static final long DEDUPE_WINDOW_MS = 60_000L
+
+    /** Returns true the first time we see this (to,subject,body) tuple
+     *  inside the dedupe window; false on a duplicate, in which case
+     *  the caller drops the send. SHA-256 keeps the key small (44 chars
+     *  base64) regardless of body length so the ledger memory stays
+     *  bounded even when an attacker passes a huge body. */
+    private boolean firstSeen(String to, String subject, String body) {
+        String key
+        try {
+            def md = java.security.MessageDigest.getInstance('SHA-256')
+            md.update((to ?: '').getBytes('UTF-8'))
+            md.update((byte) 0)
+            md.update((subject ?: '').getBytes('UTF-8'))
+            md.update((byte) 0)
+            md.update((body ?: '').getBytes('UTF-8'))
+            key = java.util.Base64.urlEncoder.withoutPadding().encodeToString(md.digest())
+        } catch (Exception ignore) {
+            // If MessageDigest is unavailable for any reason, fail open
+            // — better to risk a rare duplicate than to silently drop a
+            // legitimate email under crypto-runtime weirdness.
+            return true
+        }
+        long now = System.currentTimeMillis()
+        synchronized (recentSendKeys) {
+            Long seen = recentSendKeys.get(key)
+            if (seen != null && (now - seen) < DEDUPE_WINDOW_MS) {
+                return false
+            }
+            recentSendKeys.put(key, now)
+            return true
+        }
+    }
+
+    /** Number of attempts (1 = no retry) the worker makes for a single
+     *  send before giving up. 3 attempts handles the common transient
+     *  pattern (TCP RST, brief relay 4xx, DNS hiccup) without taking
+     *  the smtp-N worker offline for too long when the relay is genuinely
+     *  down. */
+    private static final int SMTP_MAX_ATTEMPTS = 3
+
+    /** Initial backoff between attempts; doubles on each retry. Capped
+     *  small enough that the worker thread isn't held up for the duration
+     *  of a multi-minute relay outage but long enough that a TCP RST
+     *  doesn't immediately re-RST. */
+    private static final long SMTP_INITIAL_BACKOFF_MS = 100L
+    private static final long SMTP_MAX_BACKOFF_MS = 800L
+
     /** Generic sender — used by sendVerification plus any future one-off.
      *  Offloads the mailSender.send() call to the smtpExecutor so the
      *  caller doesn't pay the SMTP round-trip on its HTTP worker thread.
@@ -1354,49 +1465,122 @@ Thanks for your patience.
      *  (RFC 8058). Gmail / Outlook / Fastmail surface a dedicated
      *  "Unsubscribe" button in the message header when these are set.
      *  Falls back to no-unsubscribe-header on messages where the
-     *  recipient email lookup fails (defense: don't block the send). */
+     *  recipient email lookup fails (defense: don't block the send).
+     *
+     *  Batch 1102 — defends against four delivery-bug classes the audit
+     *  surfaced:
+     *    1. Transient SMTP failure → bounded retry with exponential
+     *       backoff. Previously a 1-second TCP blip during account
+     *       creation meant the verification email was lost forever.
+     *    2. Retry without backoff (would tight-loop a hung relay) →
+     *       SMTP_INITIAL_BACKOFF_MS * 2^attempt, capped.
+     *    3. Same email sent twice if a caller (or our own retry) races
+     *       → SHA-256 of (to,subject,body) in `recentSendKeys` with a
+     *       60s TTL drops the duplicate.
+     *    4. Uncapped subject/body letting a user trigger huge mail
+     *       payloads via a long Steam display name → MAX_SUBJECT_CHARS
+     *       / MAX_BODY_CHARS truncate before send. */
     void send(String to, String subject, String body) {
         if (!to || !subject || !body) return
+        // Length caps applied at the boundary so every template benefits
+        // without having to remember to clamp at the call site. Subject
+        // first (user-visible truncation matters most), then body.
+        final String safeSubject = cap(subject, MAX_SUBJECT_CHARS)
+        final String safeBody    = cap(body,    MAX_BODY_CHARS)
+        // Dedupe BEFORE we touch the executor — saves a thread-pool
+        // submit + the queue slot when a caller fires the same email
+        // twice. Log the suppression so ops can trace a missing email
+        // back to a duplicate caller bug.
+        if (!firstSeen(to, safeSubject, safeBody)) {
+            log.info("EmailService: dropping duplicate '{}' to {} (within {}ms window)",
+                     safeSubject, maskEmail(to), DEDUPE_WINDOW_MS)
+            return
+        }
         if (smtpReady) {
-            def finalBody = appendFooter(body, to)
+            def finalBody = appendFooter(safeBody, to)
             def lower = to.trim().toLowerCase()
             def tok = unsubscribeToken(lower)
             def base = (publicUrl ?: 'https://skinbox.market').with { u -> u.endsWith('/') ? u[0..-2] : u }
+            // Derive the unsubscribe mailto domain from the From: address.
+            // Previously this was derived from publicUrl, which is
+            // `http://localhost:8080` in dev and contains a port — and
+            // `unsubscribe@localhost:8080` is a malformed RFC-5321
+            // mailbox. The From address is always a real email so its
+            // domain is always a real mail domain.
+            def fromDomain = 'skinbox.market'
+            if (fromAddress) {
+                int at = fromAddress.indexOf('@')
+                if (at > 0 && at < fromAddress.length() - 1) {
+                    fromDomain = fromAddress.substring(at + 1).trim()
+                }
+            }
             smtpPending.incrementAndGet()
             smtpExecutor.submit({
                 try {
-                    def mime = mailSender.createMimeMessage()
-                    def helper = new org.springframework.mail.javamail.MimeMessageHelper(mime, 'UTF-8')
-                    helper.setFrom(fromAddress)
-                    helper.setTo(to)
-                    helper.setSubject(subject)
-                    helper.setText(finalBody, false)
-                    // Reply-to so users replying to a no-reply From: still
-                    // route to the support inbox. Guarded against an
-                    // empty/blank config so a misconfigured deploy
-                    // doesn't 500 the send.
-                    if (replyToAddress && !replyToAddress.isBlank()) {
-                        try { helper.setReplyTo(replyToAddress) } catch (ignore) { /* fall through */ }
+                    int attempt = 0
+                    long backoff = SMTP_INITIAL_BACKOFF_MS
+                    Exception lastError = null
+                    while (attempt < SMTP_MAX_ATTEMPTS) {
+                        attempt++
+                        try {
+                            def mime = mailSender.createMimeMessage()
+                            def helper = new org.springframework.mail.javamail.MimeMessageHelper(mime, 'UTF-8')
+                            helper.setFrom(fromAddress)
+                            helper.setTo(to)
+                            helper.setSubject(safeSubject)
+                            helper.setText(finalBody, false)
+                            // Reply-to so users replying to a no-reply From: still
+                            // route to the support inbox. Guarded against an
+                            // empty/blank config so a misconfigured deploy
+                            // doesn't 500 the send.
+                            if (replyToAddress && !replyToAddress.isBlank()) {
+                                try { helper.setReplyTo(replyToAddress) } catch (ignore) { /* fall through */ }
+                            }
+                            // List-Unsubscribe header per RFC 8058. The mailto
+                            // half lets clients without webhook support fall
+                            // back to a no-op inbound address (ignored since we
+                            // also surface the URL). The https half is what
+                            // Gmail/Outlook actually click. One-Click-Post
+                            // tells the client it can POST to the URL without
+                            // user confirmation — the endpoint is idempotent
+                            // and validates the HMAC before doing anything.
+                            if (tok) {
+                                def enc = java.net.URLEncoder.encode(lower, 'UTF-8')
+                                def url = "${base}/api/unsubscribe?email=${enc}&t=${tok}"
+                                mime.setHeader('List-Unsubscribe',
+                                    "<mailto:unsubscribe@${fromDomain}?subject=unsubscribe>, <${url}>")
+                                mime.setHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click')
+                            }
+                            mailSender.send(mime)
+                            // PII-conscious audit line — mask the recipient
+                            // so a logs index doesn't double as a customer
+                            // email DB. Subject stays unmasked so ops can
+                            // grep for the template name + truncated bodies.
+                            log.info("EmailService: sent '{}' to {} (attempt {}/{})",
+                                     safeSubject, maskEmail(to), attempt, SMTP_MAX_ATTEMPTS)
+                            return // success — break out of the retry loop
+                        } catch (Exception e) {
+                            lastError = e
+                            if (attempt < SMTP_MAX_ATTEMPTS) {
+                                log.warn("EmailService: SMTP send attempt {}/{} failed for {} — {}; retrying in {}ms",
+                                         attempt, SMTP_MAX_ATTEMPTS, maskEmail(to), e.message, backoff)
+                                try { Thread.sleep(backoff) } catch (InterruptedException ie) {
+                                    Thread.currentThread().interrupt()
+                                    break
+                                }
+                                backoff = Math.min(backoff * 2L, SMTP_MAX_BACKOFF_MS)
+                            }
+                        }
                     }
-                    // List-Unsubscribe header per RFC 8058. The mailto
-                    // half lets clients without webhook support fall
-                    // back to a no-op inbound address (ignored since we
-                    // also surface the URL). The https half is what
-                    // Gmail/Outlook actually click. One-Click-Post
-                    // tells the client it can POST to the URL without
-                    // user confirmation — the endpoint is idempotent
-                    // and validates the HMAC before doing anything.
-                    if (tok) {
-                        def enc = java.net.URLEncoder.encode(lower, 'UTF-8')
-                        def url = "${base}/api/unsubscribe?email=${enc}&t=${tok}"
-                        mime.setHeader('List-Unsubscribe',
-                            "<mailto:unsubscribe@${(publicUrl ?: 'skinbox.market').replaceAll(/^https?:\/\//,'').replaceAll(/\/.*$/,'')}?subject=unsubscribe>, <${url}>")
-                        mime.setHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click')
-                    }
-                    mailSender.send(mime)
-                    log.info("EmailService: sent '{}' to {}", subject, to)
-                } catch (Exception e) {
-                    log.error("EmailService: SMTP send FAILED for {} — {}", to, e.message, e)
+                    // Exhausted the retry budget — log loudly so ops sees
+                    // the user-impacting failure. The dedupe ledger keeps
+                    // the failed-send slot for the full TTL, which means a
+                    // caller-side retry within 60s is also suppressed; that
+                    // is intentional, the caller should not be retrying a
+                    // dead relay. After the TTL expires a fresh attempt
+                    // will be allowed.
+                    log.error("EmailService: SMTP send FAILED for {} after {} attempts — {}",
+                              maskEmail(to), SMTP_MAX_ATTEMPTS, lastError?.message, lastError)
                     // Never throw from the email path — a broken relay must not
                     // 500 the caller (account creation, password reset). The
                     // token is still persisted, the user can retry, and ops
@@ -1406,7 +1590,8 @@ Thanks for your patience.
                 }
             } as Runnable)
         } else {
-            log.info("[email/log-sink] to={} subject={}\n---\n{}\n---", to, subject, appendFooter(body, to))
+            log.info("[email/log-sink] to={} subject={}\n---\n{}\n---",
+                     maskEmail(to), safeSubject, appendFooter(safeBody, to))
         }
     }
 
