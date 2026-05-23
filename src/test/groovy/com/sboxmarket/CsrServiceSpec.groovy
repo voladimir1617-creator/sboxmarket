@@ -291,6 +291,29 @@ class CsrServiceSpec extends Specification {
         result.status == 'RESOLVED'
     }
 
+    def "close pushes a TICKET_CLOSED notification to the ticket owner"() {
+        // Was a real gap pre-fix: CSR-side close() flipped the row to
+        // RESOLVED with zero signal to the user. reply() already pings
+        // on every staff message, and SupportService.sweepStaleWaitingUser
+        // fires TICKET_AUTO_RESOLVED on the auto-close path — the manual
+        // CSR-close was the lone hole, leaving disputers waiting
+        // indefinitely for a verdict that had already shipped.
+        given:
+        def ticket = new SupportTicket(id: 7L, userId: 99L, subject: 'Trade did not arrive',
+                                       status: 'WAITING_STAFF')
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR'))
+        supportTicketRepository.findById(7L) >> Optional.of(ticket)
+        supportTicketRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.close(5L, 7L)
+
+        then:
+        1 * notificationService.safePush(99L, 'TICKET_CLOSED',
+            { String title -> title.contains('#7') && title.contains('resolved') },
+            'Trade did not arrive', 7L, '/support')
+    }
+
     def "close rejects an already-RESOLVED ticket (no silent re-resolve)"() {
         given:
         def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED', updatedAt: 1000L)
