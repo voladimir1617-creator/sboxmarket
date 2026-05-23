@@ -26,9 +26,34 @@ class SupportController {
         uid
     }
 
+    /** Tickets the caller owns. Bounded so a long-lived account with
+     *  hundreds of historical tickets can't ship the full archive on
+     *  every Profile → Support visit. Default 50, `?limit` (1..200)
+     *  overrides. SupportTicketRepository#findByUser already orders
+     *  by `updatedAt DESC` (deterministic when ties are broken by the
+     *  PK insert order JPA preserves). `?limit` is read off the raw
+     *  request so the method stays single-arg and avoids a Groovy
+     *  default-value overload double-mapping the route. */
     @GetMapping("/tickets")
     ResponseEntity<List<SupportTicket>> list(HttpServletRequest req) {
-        ResponseEntity.ok(supportService.listForUser(requireUser(req)))
+        def uid = requireUser(req)
+        int cap = parseLimit(req, 50, 200)
+        def rows = supportService.listForUser(uid)
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows)
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     @GetMapping("/tickets/{id}")

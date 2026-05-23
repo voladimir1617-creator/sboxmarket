@@ -63,10 +63,38 @@ class AnnouncementController {
             ])
     }
 
+    /** Admin history of every banner ever posted. Admin-only — but a
+     *  long-lived deployment can accumulate hundreds of historical
+     *  rows. Bound the response so the Admin → Announcements page
+     *  doesn't ship a multi-MB JSON to every admin who opens it.
+     *  Default 50, `?limit` (1..200) overrides. Repository ordering
+     *  is `createdAt DESC` so newest-first is stable. The `?limit`
+     *  param is parsed from the raw request rather than a
+     *  @RequestParam binding so a Groovy default-value overload
+     *  doesn't get auto-generated and double-map this route. */
     @GetMapping("/api/admin/announcements")
     ResponseEntity<List<Announcement>> listAll(HttpServletRequest req) {
         requireAdminUser(req)
-        ResponseEntity.ok(announcementService.listAll())
+        int cap = parseLimit(req, 50, 200)
+        def rows = announcementService.listAll()
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows)
+    }
+
+    /** Parse `?limit=N` from the raw request without binding via
+     *  @RequestParam so the controller method has only the single
+     *  `HttpServletRequest` arg + no Groovy default-value overload.
+     *  Clamps into [1, max]; falls back to `defaultCap` on missing,
+     *  blank, non-numeric, or out-of-range input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     @PostMapping("/api/admin/announcements")

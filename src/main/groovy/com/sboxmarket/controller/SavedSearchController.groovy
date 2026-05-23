@@ -31,10 +31,34 @@ class SavedSearchController {
         uid
     }
 
+    /** Saved-search presets the caller owns. The service caps each
+     *  user at SavedSearchService.MAX_PER_USER (10), so this is well
+     *  bounded — but the explicit `?limit` (1..200, default 50) is
+     *  here for parity with the rest of the list endpoints. Repository
+     *  ordering is `createdAt DESC` so newest-first is stable across
+     *  requests. `?limit` is read off the raw request so the method
+     *  stays single-arg and Groovy can't auto-generate a default-
+     *  value overload that double-maps this route. */
     @GetMapping
     ResponseEntity<List<Map>> list(HttpServletRequest req) {
         def uid = requireUser(req)
-        ResponseEntity.ok(service.list(uid).collect { toMap(it) })
+        int cap = parseLimit(req, 50, 200)
+        def rows = service.list(uid)
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows.collect { toMap(it) })
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     @PostMapping

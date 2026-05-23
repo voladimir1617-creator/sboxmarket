@@ -22,9 +22,36 @@ class ApiKeyController {
         uid
     }
 
+    /** API keys the caller has minted. Per-user mint count is already
+     *  capped by ApiKeyService.create (countActiveByUser), but the
+     *  response is still bounded here so a long-lived account with a
+     *  large revocation history can't ship a multi-MB JSON every time
+     *  the settings page loads. Default 50, `?limit` (1..200) overrides.
+     *  Repository ordering is `createdAt DESC` (see ApiKeyRepository
+     *  #findByUser) so newest-first is stable. `?limit` is read off
+     *  the raw request rather than bound via @RequestParam so the
+     *  method stays single-arg and Groovy can't auto-generate an
+     *  overload that Spring would double-map. */
     @GetMapping
     ResponseEntity<List<ApiKey>> list(HttpServletRequest req) {
-        ResponseEntity.ok(apiKeyService.listForUser(requireUser(req)))
+        def uid = requireUser(req)
+        int cap = parseLimit(req, 50, 200)
+        def rows = apiKeyService.listForUser(uid)
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows)
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     @PostMapping

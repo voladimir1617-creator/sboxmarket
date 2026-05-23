@@ -33,11 +33,35 @@ class UserBlockController {
         uid
     }
 
+    /** Users the caller has blocked. The service itself caps at
+     *  UserBlockService.MAX_PER_USER (100) and the underlying repo
+     *  query orders by `createdAt DESC` so newest-blocked-first is
+     *  stable. Default 50, `?limit` (1..200) overrides. The `count`
+     *  field reflects the slice returned, not the total — same as
+     *  the rest of the bounded-list family. `?limit` is read off the
+     *  raw request so the method stays single-arg and Groovy can't
+     *  auto-generate a default-value overload that double-maps the
+     *  route. */
     @GetMapping
     ResponseEntity<Map> list(HttpServletRequest req) {
         def uid = requireUser(req)
+        int cap = parseLimit(req, 50, 200)
         def items = userBlockService.listBlocked(uid)
+        if (items.size() > cap) items = items.take(cap)
         ResponseEntity.ok([count: items.size(), items: items])
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     @PostMapping("/{userId}")

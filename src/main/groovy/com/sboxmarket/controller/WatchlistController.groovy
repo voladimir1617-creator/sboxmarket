@@ -35,10 +35,35 @@ class WatchlistController {
 
     /** Item ids the signed-in user has starred. Returns just the array
      *  so it slots straight into the React `watchlist` useState without
-     *  unwrapping. */
+     *  unwrapping. Service caps each user at WatchlistService.MAX_PER_USER
+     *  (500); optional `?limit=N` lets a sidebar preview ask for just
+     *  the first 10 instead of the full set. Default 200 (covers any
+     *  realistic watchlist), max 500 — bumped above the standard 200
+     *  cap because the natural cap is also 500. Repository ordering
+     *  is `createdAt ASC` so the order is stable. `?limit` is read
+     *  off the raw request so the method stays single-arg and Groovy
+     *  can't auto-generate a default-value overload that double-maps
+     *  the route. */
     @GetMapping
     ResponseEntity<List<Long>> list(HttpServletRequest req) {
-        ResponseEntity.ok(service.list(requireUser(req)))
+        def uid = requireUser(req)
+        int cap = parseLimit(req, 200, 500)
+        def ids = service.list(uid)
+        if (ids.size() > cap) ids = ids.take(cap)
+        ResponseEntity.ok(ids)
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     /** Toggle-on. Idempotent — returning the post-state list lets the

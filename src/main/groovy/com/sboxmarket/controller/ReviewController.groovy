@@ -74,7 +74,16 @@ class ReviewController {
         // for public stall visitors, essential for signed-in buyers so
         // the "you've already marked this helpful" UI state is correct.
         def viewer = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
+        // ReviewService.listForUser already caps at 200 most-recent
+        // (PageRequest 0,200) ordered by createdAt DESC. Optional
+        // `?limit=N` lets the stall card request just the top 5 instead
+        // of the full 200-row page when it only renders a preview.
+        // `?limit` is read off the raw request so the method stays
+        // signature-stable and Groovy can't auto-generate a default-
+        // value overload that double-maps the route.
+        int cap = parseLimit(req, 200, 200)
         def rows = reviewService.listForUser(id)
+        if (rows.size() > cap) rows = rows.take(cap)
         // `private` — the per-row viewerHasVoted flag diverges per
         // viewer. 60s cap; reviews trickle in slowly (one per verified
         // trade), so 60s of staleness is well below any human perception
@@ -87,11 +96,16 @@ class ReviewController {
     /** Reviews the signed-in user has AUTHORED (as a buyer) — powers
      *  the Profile → Reviews → Given tab so a user can see + delete
      *  feedback they've left on sellers. Authed endpoint because the
-     *  review-authorship index is PII for the reviewer. */
+     *  review-authorship index is PII for the reviewer.
+     *  Service caps at 200 (PageRequest 0,200 ordered createdAt DESC);
+     *  optional `?limit=N` clamps the response into [1, 200]. */
     @GetMapping("/mine")
     ResponseEntity<List<Review>> mine(HttpServletRequest req) {
         def uid = requireUser(req)
-        ResponseEntity.ok(reviewService.listAuthoredBy(uid))
+        int cap = parseLimit(req, 200, 200)
+        def rows = reviewService.listAuthoredBy(uid)
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows)
     }
 
     @GetMapping("/user/{id}/summary")
@@ -106,22 +120,49 @@ class ReviewController {
     /** Reviewable trades between the signed-in viewer (as buyer) and a given
      *  seller. Each entry carries a `reviewed` flag so the UI can disable
      *  rows the viewer has already written a review for. Backs the
-     *  "Leave a review" CTA on /stall/{sellerId}. */
+     *  "Leave a review" CTA on /stall/{sellerId}.
+     *  The underlying `findVerifiedBetween` is uncapped at the repo
+     *  layer; bound the response here so a frequent buyer/seller pair
+     *  with hundreds of trades can't ship a massive JSON. Default 50,
+     *  `?limit` (1..200) overrides. */
     @GetMapping("/eligible/{sellerId}")
     ResponseEntity<List<Map>> eligible(@PathVariable Long sellerId, HttpServletRequest req) {
         def uid = requireUser(req)
-        ResponseEntity.ok(reviewService.eligibleTradesFor(uid, sellerId))
+        int cap = parseLimit(req, 50, 200)
+        def rows = reviewService.eligibleTradesFor(uid, sellerId)
+        if (rows.size() > cap) rows = rows.take(cap)
+        ResponseEntity.ok(rows)
     }
 
     /** Every VERIFIED trade the signed-in user has as a buyer but hasn't
      *  left a review for yet — across every seller. Drives the Profile →
      *  Reviews "N trades to review" chip + list so a user doesn't have
-     *  to navigate seller-by-seller to find trades that still want feedback. */
+     *  to navigate seller-by-seller to find trades that still want feedback.
+     *  Service caps at 50; optional `?limit` lets the caller request
+     *  even fewer (e.g. just the top 10 for a sidebar preview). */
     @GetMapping("/pending")
     ResponseEntity<Map> pending(HttpServletRequest req) {
         def uid = requireUser(req)
+        int cap = parseLimit(req, 50, 200)
         def rows = reviewService.pendingReviewsFor(uid)
+        if (rows.size() > cap) rows = rows.take(cap)
         ResponseEntity.ok([count: rows.size(), items: rows])
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input.
+     *  Inlined per controller so each list endpoint can stay single-arg
+     *  and avoid Groovy default-value overload generation that would
+     *  double-map the route at Spring startup. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     /** Delete a review the caller authored. Forbidden for anyone else —

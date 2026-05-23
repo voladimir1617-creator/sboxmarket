@@ -41,10 +41,19 @@ class SellerFollowController {
             "'muted' must be a boolean (true/false)")
     }
 
+    /** Sellers the caller follows. Per-user count is naturally capped
+     *  by SellerFollowService.PER_USER_LIMIT (200), but we still bound
+     *  the response here. Default 50, `?limit` (1..200) overrides.
+     *  Repository ordering is `createdAt DESC` so newest-first is
+     *  stable across requests. `?limit` is read off the raw request
+     *  so the method stays single-arg and Groovy's default-value
+     *  overload generation can't double-map this route. */
     @GetMapping
     ResponseEntity<List<Map>> list(HttpServletRequest req) {
         def uid = requireUser(req)
+        int cap = parseLimit(req, 50, 200)
         def rows = service.listFollowing(uid)
+        if (rows.size() > cap) rows = rows.take(cap)
         ResponseEntity.ok(rows.collect { f ->
             [
                 id:                  f.id,
@@ -53,6 +62,19 @@ class SellerFollowController {
                 notificationsMuted:  Boolean.TRUE.equals(f.notificationsMuted)
             ]
         })
+    }
+
+    /** Parse `?limit=N` off the raw request, clamp into [1, max], fall
+     *  back to `defaultCap` on missing / blank / non-numeric input. */
+    private static int parseLimit(HttpServletRequest req, int defaultCap, int max) {
+        def raw = req.getParameter('limit')
+        if (raw == null || raw.isBlank()) return defaultCap
+        try {
+            int n = Integer.parseInt(raw.trim())
+            return Math.min(Math.max(n, 1), max)
+        } catch (NumberFormatException ignored) {
+            return defaultCap
+        }
     }
 
     /** Mute / un-mute the new-listing pings for a single follow without
