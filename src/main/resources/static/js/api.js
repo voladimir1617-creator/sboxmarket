@@ -662,15 +662,6 @@ export async function fetchIncomingOffers() {
   return Array.isArray(data) ? data : [];
 }
 
-/** Your live PENDING/COUNTERED offer on one specific listing (batch
- *  368) — or null if you haven't offered on it. Drives the "You offered
- *  $X" chip on the ItemModal listings row so a buyer revisiting a
- *  listing immediately sees their own offer state. */
-export async function fetchMyOfferForListing(listingId) {
-  const data = await safeJson(`${API}/offers/mine-for-listing/${listingId}`);
-  return (data && typeof data === 'object') ? (data.offer || null) : null;
-}
-
 export async function fetchOutgoingOffers() {
   const data = await safeJson(`${API}/offers/outgoing`);
   return Array.isArray(data) ? data : [];
@@ -1633,14 +1624,6 @@ export async function fetchBuyOrderProjectedPosition(itemId, maxPrice) {
   const data = await safeJson(`${API}/buy-orders/projected-position${qs}`);
   return data?.position != null ? Number(data.position) : null;
 }
-/** Public watcher count for an item — number of ACTIVE price alerts
- *  pinned to the item id. Drives the "N watching" chip on item
- *  detail. Aggregate only — no watcher identities exposed. */
-export async function fetchWatchlistCountForItem(itemId) {
-  const data = await safeJson(`${API}/watchlist/alerts/count/item/${itemId}`);
-  return Number(data?.watching || 0);
-}
-
 /** Recent visible active listings from sellers the signed-in user
  *  follows — drives the home-page "From sellers you follow" rail.
  *  Empty array for signed-out users or users who follow nobody. */

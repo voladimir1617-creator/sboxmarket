@@ -1,6 +1,6 @@
 // Top-level App component + ErrorBoundary.
 // Owns marketplace state, wires modals, handles Stripe/Steam redirect return.
-import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast as domToast, linkifyText, currencySymbol, fxConvertUsd } from './utils.js';
+import { h, React, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, linkifyText, currencySymbol } from './utils.js';
 import {
   fetchListings, fetchListingsForItem, fetchHistory, fetchItem, fetchItemsByIds, buyListing,
   fetchWallet, fetchTransactions, fetchMe, logoutSteam, confirmDeposit, makeOffer,
@@ -10,7 +10,7 @@ import {
   checkListingsActive, fetchFollowingFeed, fetchMarketStats, searchSellers
 } from './api.js';
 import { ItemImage, MaterialIcon, Avatar, ReasonDrawer, PriceFreshnessChip } from './primitives.js';
-import { GridCard, ListingRow, TrendCard } from './cards.js';
+import { GridCard, ListingRow } from './cards.js';
 // Chat removed — was a placeholder with fake messages
 import { NotificationBell, ThemePicker } from './nav-widgets.js';
 import {
@@ -1313,58 +1313,10 @@ function MostWatchedRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas
   );
 }
 
-// Most-viewed rail (batch 412) — passive-interest signal from the V46
-// view_count counter bumped on every /api/items/{id} GET. Complement
-// to MostWatched (users who explicitly starred) and Hottest (realised
-// sales) — this is "people are clicking through to look, whether or
-// not they converted". Polls every 5 minutes. Silent when no items
-// have views > 0 (cold start).
-function MostViewedRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) {
-  const [rows, setRows] = useState([]);
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const r = await fetch('/api/listings/most-viewed?limit=8', { credentials: 'same-origin' });
-        if (!alive || !r.ok) return;
-        const data = await r.json();
-        setRows(Array.isArray(data) ? data : []);
-      } catch (_) {}
-    };
-    load();
-    // Batch 806 — visibility-aware poll.
-    const id = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
-    return () => { alive = false; clearInterval(id); };
-  }, []);
-  if (!rows || rows.length === 0) return null;
-  return h('section', { className: 'just-listed-rail' },
-    h('h2', { className: 'just-listed-head' },
-      h('span', { className: 'section-title-dot' }),
-      h('span', null, 'Most viewed right now'),
-      h('span', { className: 'just-listed-count' }, `${rows.length} trending`)
-    ),
-    h('div', { className: 'just-listed-track' },
-      rows.map(l => h('div', {
-        key: 'mv-' + l.id,
-        className: 'just-listed-card-wrap'
-        // Batch 932 — removed wrapper onClick: GridCard is an <a> that
-        // already fires onClick (via handleClick). The wrapper's handler
-        // duplicated the onOpen call (click bubbled up) AND made a
-        // non-semantic div read as clickable to screen readers without
-        // keyboard accessibility.
-      },
-        h(GridCard, {
-          listing: l,
-          starred: watchlist.includes(l.item.id),
-          onToggleStar,
-          onClick: () => onOpen(l),
-          onAddToCart,
-          cartHas
-        })
-      ))
-    )
-  );
-}
+// (2026-05-23) Removed dead `MostViewedRail` component — no remaining
+// JSX/h() call sites. Replaced on the homepage by MostWatched (explicit
+// stars) + Hottest (realised sales), which together give a clearer
+// demand signal than passive view-count.
 
 // ── Hottest right now — uses the V1 SOLD aggregate (batch 289).
 // Complement to MostWatchedRail (passive demand): this shows

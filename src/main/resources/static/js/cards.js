@@ -1,5 +1,5 @@
 // Item card components: grid, table row, trending carousel.
-import { h, React, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch } from './utils.js';
+import { h, useState, useEffect, fmt, timeAgo, discountPct, signInWithSteam, highlightMatch } from './utils.js';
 // (2026-05-20) Dropped `FloatBar` from this import — its only call site
 // in GridCard was removed (s&box has no float/wear; FloatBar is a no-op).
 import { ItemImage, RarityBadge, SteamMarketLink, Avatar } from './primitives.js';
@@ -556,43 +556,7 @@ export function ListingRow({ listing, onClick, onBuy, meId, hasTradeUrl, sellerA
   );
 }
 
-export function TrendCard({ listing, onClick }) {
-  const item = listing?.item;
-  if (!item) return null;
-  // Normalize trendPercent — see ListingRow: a null value otherwise
-  // rendered the broken "NaN%" delta string.
-  const trend = Number.isFinite(Number(item.trendPercent)) ? Number(item.trendPercent) : 0;
-  const trendUp = trend > 0, trendFlat = trend === 0;
-  // Batch 934 — keyboard-accessible trend card. Was a plain clickable
-  // <div>; not in the tab order, not announced as a button. Add
-  // role=button + tabIndex + Enter/Space keydown so keyboard users
-  // can open the detail modal.
-  return h('div', {
-    className: 'trend-card',
-    onClick,
-    role: 'button',
-    tabIndex: 0,
-    'aria-label': `Open ${item.name} detail`,
-    onKeyDown: (e) => {
-      if ((e.key === 'Enter' || e.key === ' ') && typeof onClick === 'function') {
-        e.preventDefault();
-        onClick(e);
-      }
-    }
-  },
-    h('div', {
-      className: 'trend-thumb',
-      style: {
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(30,165,255,0.12) 0%, transparent 65%), ' +
-                    'linear-gradient(180deg, #1a2236 0%, #0d1320 100%)'
-      }
-    }, h(ItemImage, { item, variant: 'card' })),
-    h('div', { className: 'trend-name' }, item.name),
-    h('div', { className: 'trend-meta' },
-      h('div', { className: 'trend-price' }, fmt(item.lowestPrice)),
-      h('div', { className: `trend-delta ${trendFlat ? 'flat' : trendUp ? 'up' : 'down'}` },
-        trendFlat ? '━' : trendUp ? `+${trend}%` : `${trend}%`
-      )
-    )
-  );
-}
+// (2026-05-23) Removed dead `TrendCard` export — no remaining call sites
+// in the SPA (used to power a now-deleted trending carousel). The CSS
+// `.trend-card`/`.trend-thumb`/`.trend-name` classes in design.css are
+// still referenced for legacy reasons but render nothing.
