@@ -177,7 +177,23 @@ class RateLimitFilter extends OncePerRequestFilter {
         // Steam inventory fetch makes an outbound HTTP call per request.
         // Without a cap, a logged-in attacker can proxy-DoS Steam through
         // us and exhaust Tomcat threads (10s timeout each).
-        '/api/steam/'
+        '/api/steam/',
+        // Steam OpenID return (batch 1067 — rate-limit audit). The /return
+        // endpoint takes the user's OpenID assertion and POSTs it back to
+        // Steam's `check_authentication` endpoint for verification — one
+        // outbound HTTP round-trip per call, blocking a Tomcat thread for
+        // the duration. Uncapped, an attacker can use us as a Steam-API
+        // DoS amplifier (every replayed assertion burns one of our threads
+        // AND one of Steam's verify slots, risking IP-level throttling
+        // upstream that breaks real sign-ins). The 40/10s budget per IP
+        // is generous for the real flow (one /login → one /return per
+        // sign-in, ~seconds apart) but a cliff for a replay attack.
+        '/api/auth/steam/return',
+        // Steam /login is cheap on its own (just builds a redirect URL +
+        // stashes a session attribute), but it's the kickoff for the
+        // /return outbound call and capping it stops a script from using
+        // us to spam Steam's OpenID front door at line rate. Same budget.
+        '/api/auth/steam/login'
     ]
 
     private static class Bucket {

@@ -434,6 +434,66 @@ class RateLimitFilterSpec extends Specification {
         results.every { it.allowed == 20 && it.blocked == 5 }
     }
 
+    def "Steam OpenID /return is enumeration-guarded (batch 1067 — auth-DoS amplifier)"() {
+        // /return triggers an outbound HTTP call to Steam's
+        // check_authentication endpoint per request. Uncapped it lets an
+        // attacker burn our Tomcat threads + Steam's verify quota on
+        // replayed assertions. MAX_ENUM (40/10s) is generous for the real
+        // sign-in flow (~one /return per session) but a hard cliff for
+        // replay traffic.
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..50).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(get('/api/auth/steam/return', '10.0.7.1'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 40
+        blocked == 10
+    }
+
+    def "Steam OpenID /login is enumeration-guarded (batch 1067)"() {
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..50).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(get('/api/auth/steam/login', '10.0.7.2'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 40
+        blocked == 10
+    }
+
+    def "GET /api/auth/steam/me stays unrestricted (heartbeat poll)"() {
+        // /me is hit every 5 min as a session heartbeat — falling into
+        // the enumeration bucket would 429 a user with many tabs open.
+        // Confirm we only added /return and /login, not the whole prefix.
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..60).each {
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(get('/api/auth/steam/me', '10.0.7.3'), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 60
+        blocked == 0
+    }
+
     def "batch 562 watchlist / alerts / saved-searches / follows are in the write bucket"() {
         // Social-feature surfaces added to GUARDED_PREFIXES in batch 562.
         // Uncapped, a hostile client could churn inserts until the DB
