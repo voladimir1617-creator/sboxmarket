@@ -15,12 +15,17 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
  *   PENDING_SELLER_SEND    — seller accepted, now owes a Steam trade offer
  *   PENDING_BUYER_CONFIRM  — seller marked sent, buyer must confirm receipt
  *   VERIFIED               — buyer confirmed; funds released to seller wallet
- *   DISPUTED               — buyer opened a dispute (admin routes to CSR)
+ *   DISPUTED               — EITHER participant (buyer OR seller) opened a
+ *                            dispute. Escrow is frozen — only staff can move
+ *                            the trade out of this state.
  *   CANCELLED              — seller never delivered, funds refunded to buyer
  *
  * A trade is considered "in escrow" for the entire window between PENDING_*
- * and VERIFIED. Admin / CSR tools can force-release or force-refund any trade
- * via AdminService.
+ * and VERIFIED. From DISPUTED only ADMIN may force-release or force-refund
+ * via AdminService.forceReleaseTrade / forceCancelTrade; CSRs can read the
+ * trade and its chat thread for triage but must escalate the actual money
+ * decision to an admin (per the AdminService vs CsrService split — only
+ * admin can move escrowed funds).
  */
 @Entity
 @Table(

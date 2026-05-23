@@ -296,13 +296,27 @@ class CsrService {
         // State-machine guard — mirror SupportService.resolve. Re-resolving
         // an already-RESOLVED ticket silently bumped updatedAt and could be
         // used to churn the row; a stale CSR tab / double-click now gets a
-        // clean 400 instead.
+        // clean 400 instead. This is also the idempotency anchor for any
+        // CSR-side dispute-resolution path that closes the related ticket
+        // — a double-click on Resolve must not re-fire the close-notify
+        // / re-write the audit row a second time.
         if (t.status == 'RESOLVED') {
             throw new BadRequestException("ALREADY_RESOLVED", "Ticket is already resolved")
         }
         t.status = 'RESOLVED'
         t.updatedAt = System.currentTimeMillis()
         supportTicketRepository.save(t)
+        // Notify the ticket owner that their ticket was closed. Without
+        // this push the user has zero signal — `reply()` pings on every
+        // staff message but `close()` was silently flipping the row,
+        // leaving disputers waiting indefinitely for a verdict that had
+        // already been delivered. Mirrors SupportService.sweepStaleWaitingUser
+        // which already fires TICKET_AUTO_RESOLVED on the auto-close path —
+        // the manual-close path was the gap. Failure-tolerant: the bell
+        // service uses safePush so a bad push can't roll back the close.
+        notificationService?.safePush(t.userId, 'TICKET_CLOSED',
+            "Support ticket resolved · #${t.id}",
+            t.subject, t.id, '/support')
         try {
             auditService?.log(AuditService.TICKET_CLOSED, csrUserId, t.userId, ticketId,
                 "Closed ticket #${ticketId}: ${t.subject}")

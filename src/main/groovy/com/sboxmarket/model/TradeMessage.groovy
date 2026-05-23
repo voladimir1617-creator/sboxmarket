@@ -3,10 +3,17 @@ package com.sboxmarket.model
 import jakarta.persistence.*
 
 /**
- * Message exchanged between trade participants during escrow. Only the
- * buyer + seller on the parent trade can post or read. Text is stored
- * plain (sanitised at the service boundary so HTML/script can't be
- * persisted). 2000-char cap at the column and DTO level.
+ * Message exchanged between trade participants during escrow. The buyer
+ * and seller on the parent trade can both post and read; staff (admin
+ * + CSR) can also read the thread for dispute triage and forensic
+ * review — without that, a disputed trade lands in the queue with the
+ * counterparty chat invisible to the very people who have to settle
+ * it. Staff cannot POST (they have their own support-ticket channel)
+ * and their reads do NOT mark unread messages as read so the
+ * sender-side ✓✓ indicator still reflects the actual participant's
+ * read state. Text is stored plain (sanitised at the service boundary
+ * so HTML/script can't be persisted). 2000-char cap at the column
+ * and DTO level.
  */
 @Entity
 @Table(name = "trade_messages")
