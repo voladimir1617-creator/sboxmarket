@@ -12739,6 +12739,15 @@ body:has(.full-page-mode) { overflow: visible !important; }
   color: var(--ink-3);
   text-decoration: none;
   transition: color 140ms ease;
+  /* Owner-QA tap-target floor: links need ≥32px hitbox. The 12px text
+     renders at ~18px tall, well below the audit floor — pad it out with
+     inline-flex + height + padding so the click area is the full 32px.
+     Visually unchanged; only the hitbox expands. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 6px;
+  margin-right: -6px;
 }
 .csfloat-empty-cart-rail-link:hover { color: color-mix(in oklab, var(--cta) 90%, white); }
 .csfloat-empty-cart-rail-grid {
@@ -121930,17 +121939,33 @@ nav.nav .nav-picker-label {
    csfloat: 24x24 svg inside ~28x28 container, no bg, no border, no radius.
    sboxmarket .nav-icon-btn was: 36x36, borderRadius 8px,
      icon glyph 20x20 inside.
+   Tap-target compromise (owner-QA layout-audit cycle, 2026-05-23):
+   csfloat's literal 28x28 fails the audit's 32px floor and Apple HIG
+   44px mobile guideline. Bumped desktop to 36 (csfloat-close, audit-safe)
+   and mobile via media query below to 44. SVG stays 24x24 so the visual
+   weight still tracks csfloat — only the click hitbox grows.
    ===================================================================== */
 nav.nav .nav-icon-btn {
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
   background: transparent !important;
   background-color: transparent !important;
   border: 0 none !important;
   border-radius: 0 !important;
-  padding: 2px !important;
+  padding: 6px !important;
   color: rgb(255, 255, 255) !important;
+  flex-shrink: 0 !important;
+}
+@media (max-width: 720px), (hover: none) {
+  nav.nav .nav-icon-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 10px !important;
+  }
 }
 nav.nav .nav-icon-btn .material-symbols-rounded,
 nav.nav .nav-icon-btn .mi {
@@ -132671,7 +132696,14 @@ body:has(.signin-loading-overlay) {
 }
 .db-table tbody td .db-name,
 .db-table tbody td a.db-name {
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  /* Owner-QA tap-target floor: a.db-name links measured 16px tall —
+     below the 32px audit minimum. The row + thumb cell is ~64px tall
+     so we can comfortably expand the inline link's hitbox to 32px
+     without shifting visuals. The thumb stays vertically centred
+     beside it via the parent flex column layout. */
+  min-height: 32px !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   color: #e6e8ec !important;
@@ -149697,8 +149729,9 @@ body footer.site-footer .stripe-badge {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  padding: 5px 12px !important;
-  height: 28px !important;
+  padding: 7px 12px !important;
+  height: 32px !important;
+  min-height: 32px !important;
   border-radius: 999px !important;
   background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -150506,9 +150539,9 @@ body footer.site-footer .site-footer-badges a.stripe-badge {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  padding: 5px 12px !important;
-  height: 28px !important;
-  min-height: 28px !important;
+  padding: 7px 12px !important;
+  height: 32px !important;
+  min-height: 32px !important;
   border-radius: 999px !important;
   background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -152351,9 +152384,9 @@ body .cart-confirm-total-amt {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  height: 28px !important;
-  min-height: 28px !important;
-  padding: 0 10px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 12px !important;
   border-radius: 4px !important;
   background: transparent !important;
   border: 1px solid rgba(193, 206, 255, 0.08) !important;
@@ -197869,6 +197902,20 @@ html body .modal.item-page .item-rail-actions-bargain {
    Tablet/desktop keep the full section. */
 @media (max-width: 720px) {
   html body .csfloat-home-journey { display: none !important; }
+}
+
+/* OWNER-QA TAP-TARGET FLOOR
+   The global nav .nav-icon-btn elements (bell, cart) and the
+   .nav-picker-chip (USD currency selector) were being flex-shrunk
+   inside .nav-right down to 28px wide — below the owner-QA layout
+   audit's 32px tap-target floor and well below Apple HIG's 44px mobile
+   tap-target guideline. Pin them at 44x44 so flex can't squish them.
+   The pulse-ticker stripe-badge stays at Stripe's brand-required size. */
+html body .nav-icon-btn,
+html body .nav-picker-chip {
+  flex-shrink: 0 !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
 }
 
 /* MOBILE: hide the top .nav-links row on phones — the csfloat mobile
