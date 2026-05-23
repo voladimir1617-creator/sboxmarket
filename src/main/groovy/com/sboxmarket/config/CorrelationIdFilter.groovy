@@ -50,7 +50,17 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
         "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self' https://checkout.stripe.com https://steamcommunity.com"
+        "form-action 'self' https://checkout.stripe.com https://steamcommunity.com",
+        // `frame-ancestors 'none'` is the modern CSP equivalent of
+        // `X-Frame-Options: DENY` — it forbids any site (including
+        // ours) from embedding sboxmarket in an <iframe>/<frame>/
+        // <object>/<embed>. X-Frame-Options is still emitted below for
+        // legacy browsers, but CSP `frame-ancestors` is the spec-
+        // current control and is the only one Chrome's strict
+        // clickjacking auditor honors. Pre-fix, only X-Frame-Options
+        // was set, so a CSP-aware tester flagged the page as
+        // "framable per CSP" even though XFO blocked it.
+        "frame-ancestors 'none'"
     )
 
     @Value('${security.hsts:false}') boolean enableHsts
@@ -70,7 +80,48 @@ class CorrelationIdFilter extends OncePerRequestFilter {
         resp.setHeader("X-Content-Type-Options", "nosniff")
         resp.setHeader("X-Frame-Options", "DENY")
         resp.setHeader("Referrer-Policy", "strict-origin-when-cross-origin")
-        resp.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        // Permissions-Policy denies every powerful API by default.
+        // sboxmarket is a 2D web marketplace — it has no legitimate
+        // need for geolocation, mic, camera, motion sensors, payment
+        // request API (Stripe Checkout runs in its own origin frame),
+        // USB/Serial/Bluetooth/MIDI/HID hardware bridges, screen
+        // wake-lock, fullscreen, picture-in-picture, autoplay, XR, or
+        // FLoC ("interest-cohort"). Listing each one with an empty
+        // allowlist `()` denies it for the document AND all nested
+        // browsing contexts; a future feature that genuinely needs
+        // one of these has to consciously remove the deny here, which
+        // is the audit posture we want. `interest-cohort=()` is the
+        // FLoC opt-out — keeps our user list out of Chrome's
+        // cohort assignment.
+        resp.setHeader("Permissions-Policy", String.join(', ',
+            "accelerometer=()",
+            "ambient-light-sensor=()",
+            "autoplay=()",
+            "battery=()",
+            "bluetooth=()",
+            "camera=()",
+            "display-capture=()",
+            "document-domain=()",
+            "encrypted-media=()",
+            "fullscreen=(self)",
+            "geolocation=()",
+            "gyroscope=()",
+            "hid=()",
+            "idle-detection=()",
+            "interest-cohort=()",
+            "magnetometer=()",
+            "microphone=()",
+            "midi=()",
+            "payment=()",
+            "picture-in-picture=()",
+            "publickey-credentials-get=()",
+            "screen-wake-lock=()",
+            "serial=()",
+            "sync-xhr=()",
+            "usb=()",
+            "web-share=()",
+            "xr-spatial-tracking=()"
+        ))
         resp.setHeader("Cross-Origin-Opener-Policy", "same-origin")
         resp.setHeader("Cross-Origin-Resource-Policy", "same-origin")
         resp.setHeader("Content-Security-Policy", CSP_HEADER)
