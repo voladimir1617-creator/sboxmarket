@@ -5,6 +5,7 @@ import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.Listing
 import com.sboxmarket.model.SteamUser
+import com.sboxmarket.model.SupportMessage
 import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
 import com.sboxmarket.repository.ItemRepository
@@ -1779,5 +1780,448 @@ class AdminServiceSpec extends Specification {
         ticket.updatedAt == 1000L
         0 * supportTicketRepository.save(_)
         0 * auditService.log(*_)
+    }
+
+    // ── userSummary — money/dispute/wallet snapshot ──────────────────
+    // Drives the admin user-detail drawer. Mixes wallet balance, active
+    // chargebacks, lifetime chargebacks, pending withdraws, openTrades,
+    // ship-time signal, and (when wired) IP fan-out + active API keys.
+
+    def "userSummary 404s for an unknown target user"() {
+        given:
+        steamUserRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.userSummary(999L)
+
+        then:
+        thrown(NotFoundException)
+        0 * walletRepository.findByUsername(_)
+    }
+
+    def "userSummary returns a complete snapshot for a user with a wallet + open trades + disputes"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222',
+            displayName: 'Bob', role: 'USER', banned: false,
+            emailVerified: true, email: 'bob@x.test',
+            totpSecret: 'JBSWY3DPEHPK3PXP', tradeUrl: 'https://steam/tradeoffer',
+            createdAt: 1L)
+        def wallet = new Wallet(id: 500L, username: 'steam_222',
+            balance: new BigDecimal("42.50"), currency: 'USD',
+            frozen: false, frozenReason: null, frozenAt: null)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_222') >> wallet
+        // Wallet-level signals.
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+        // 500-row transaction scan — mixed DEPOSIT/SALE/WITHDRAW history.
+        // The service inspects: type='DEPOSIT' AND (DISPUTED or
+        // DISPUTE_CLEARED in description) → lifetimeDisputes; type='WITHDRAW' AND
+        // status='PENDING' → pendingWithdraw sum.
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [
+            new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED',
+                amount: new BigDecimal("100")),
+            new Transaction(id: 2L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+                description: 'DISPUTE_CLEARED by admin', amount: new BigDecimal("25")),
+            new Transaction(id: 3L, walletId: 500L, type: 'SALE', status: 'COMPLETED',
+                amount: new BigDecimal("8")),
+            new Transaction(id: 4L, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',
+                amount: new BigDecimal("30")),
+            new Transaction(id: 5L, walletId: 500L, type: 'WITHDRAWAL', status: 'PENDING',
+                amount: new BigDecimal("12.50"))
+        ]
+        tradeRepository.countOpenByParticipant(20L) >> 4L
+        // tradeService is wired in the @Subject so its ship-time methods
+        // need stubs even when we don't care about the value.
+        tradeService.typicalShipMs(20L) >> 7_200_000L   // 2h median
+        tradeService.typicalShipSampleCount(20L) >> 12
+
+        when:
+        def out = service.userSummary(20L)
+
+        then:
+        out.userId == 20L
+        out.steamId64 == '222'
+        out.displayName == 'Bob'
+        out.role == 'USER'
+        out.banned == false
+        out.emailVerified == true
+        // twoFactorEnabled is a derived boolean — must be true here but
+        // must NEVER leak the raw totpSecret value into the map.
+        out.twoFactorEnabled == true
+        !out.toString().contains('JBSWY3DPEHPK3PXP')
+        out.tradeUrl == 'https://steam/tradeoffer'
+        out.walletBalance == new BigDecimal("42.50")
+        out.walletFrozen == false
+        out.activeDisputes == 1L
+        // BOTH DISPUTED and DISPUTE_CLEARED rows count toward the
+        // lifetime tally — the cleared marker is the audit signature
+        // the service leaves on tx.description so the fraud signal
+        // survives the clear.
+        out.lifetimeDisputes == 2L
+        // Both WITHDRAW and the legacy WITHDRAWAL spelling are summed.
+        out.pendingWithdrawAmt == new BigDecimal("42.50")
+        out.openTrades == 4L
+        out.typicalShipMs == 7_200_000L
+        out.typicalShipSamples == 12
+        // Unwired optional repos default to zero — not null, not NPE.
+        out.distinctSignInIps30d == 0L
+        out.activeApiKeys == 0L
+    }
+
+    def "userSummary degrades to zero counters when the user has no wallet"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'No-wallet Bob')
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_222') >> null
+        tradeRepository.countOpenByParticipant(20L) >> 0L
+
+        when:
+        def out = service.userSummary(20L)
+
+        then:
+        // No wallet → countActiveDisputedDeposits / findByWalletIdOrderByCreatedAtDesc
+        // are never queried. Every wallet-dependent figure is the zero default.
+        0 * transactionRepository.countActiveDisputedDeposits(_)
+        0 * transactionRepository.findByWalletIdOrderByCreatedAtDesc(_, _)
+        out.walletBalance == null
+        out.walletFrozen == false
+        out.activeDisputes == 0L
+        out.lifetimeDisputes == 0L
+        out.pendingWithdrawAmt == BigDecimal.ZERO
+    }
+
+    def "userSummary survives a failing transaction scan by reporting zero, not throwing"() {
+        // The wallet-scan branch is wrapped in try/catch so a flaky
+        // DB doesn't tank the admin drawer. Pin the swallow behaviour.
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222')
+        def wallet = new Wallet(id: 500L, username: 'steam_222', balance: new BigDecimal("10"))
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_222') >> wallet
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> {
+            throw new RuntimeException('db pool exhausted')
+        }
+        tradeRepository.countOpenByParticipant(20L) >> 0L
+
+        when:
+        def out = service.userSummary(20L)
+
+        then:
+        noExceptionThrown()
+        // activeDisputes is a separate aggregate query (succeeds), so it
+        // still surfaces. The scan-derived figures degrade to zero.
+        out.activeDisputes == 1L
+        out.lifetimeDisputes == 0L
+        out.pendingWithdrawAmt == BigDecimal.ZERO
+    }
+
+    def "userSummary surfaces sign-in IP fan-out and active API key count when the optional repos are wired"() {
+        given:
+        // Optional collaborators — wire them in just for this spec so
+        // the post-fix branches (batch 603 / 703) get exercised.
+        def auditLogRepo = Mock(com.sboxmarket.repository.AuditLogRepository)
+        def apiKeyRepo   = Mock(com.sboxmarket.repository.ApiKeyRepository)
+        service.auditLogRepository = auditLogRepo
+        service.apiKeyRepository   = apiKeyRepo
+        def target = new SteamUser(id: 20L, steamId64: '222')
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_222') >> null
+        tradeRepository.countOpenByParticipant(20L) >> 0L
+        auditLogRepo.countDistinctSignInIpsSince(20L, _) >> 11L
+        apiKeyRepo.countActiveByUser(20L) >> 7L
+
+        when:
+        def out = service.userSummary(20L)
+
+        then:
+        out.distinctSignInIps30d == 11L
+        out.activeApiKeys == 7L
+    }
+
+    // ── getTicket (admin variant) ────────────────────────────────────
+
+    def "getTicket (admin) requires the admin gate"() {
+        given:
+        adminAuthorization.requireAdmin(99L) >> { throw new ForbiddenException('not admin') }
+
+        when:
+        service.getTicket(99L, 5L)
+
+        then:
+        thrown(ForbiddenException)
+        // Gate fires before the repo is touched — a non-admin can't even
+        // confirm the ticket exists, no enumeration leak.
+        0 * supportTicketRepository.findById(_)
+    }
+
+    def "getTicket (admin) returns ticket + thread for an admin"() {
+        given:
+        def ticket = new com.sboxmarket.model.SupportTicket(id: 5L, userId: 30L,
+            status: 'WAITING_STAFF', subject: 'help')
+        def messages = [
+            new SupportMessage(id: 1L, ticketId: 5L, author: 'USER', body: 'first'),
+            new SupportMessage(id: 2L, ticketId: 5L, author: 'STAFF', body: 'reply')
+        ]
+        supportTicketRepository.findById(5L) >> Optional.of(ticket)
+        supportMessageRepository.findByTicket(5L) >> messages
+
+        when:
+        def out = service.getTicket(1L, 5L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        out.ticket == ticket
+        out.messages == messages
+    }
+
+    def "getTicket (admin) 404s for an unknown ticket id"() {
+        given:
+        supportTicketRepository.findById(999L) >> Optional.empty()
+
+        when:
+        service.getTicket(1L, 999L)
+
+        then:
+        1 * adminAuthorization.requireAdmin(1L)
+        thrown(NotFoundException)
+        0 * supportMessageRepository.findByTicket(_)
+    }
+
+    // ── assertNotBanned — pass-through pin ───────────────────────────
+    // Kept as a thin delegate so old controller/service code that reads
+    // `adminService.assertNotBanned(uid)` keeps compiling. A regression
+    // that dropped the call (e.g. an over-eager refactor) would silently
+    // let banned users perform every state-changing op.
+
+    def "assertNotBanned delegates straight to the BanGuard for the given uid"() {
+        when:
+        service.assertNotBanned(42L)
+
+        then:
+        1 * banGuard.assertNotBanned(42L)
+    }
+
+    def "assertNotBanned propagates the BanGuard's ForbiddenException untouched"() {
+        given:
+        banGuard.assertNotBanned(42L) >> { throw new ForbiddenException('banned: spam') }
+
+        when:
+        service.assertNotBanned(42L)
+
+        then:
+        def e = thrown(ForbiddenException)
+        e.message.contains('spam')
+    }
+
+    // ── promoteBootstrapAdmin — the env-var elevation path ──────────
+    // This is the SECURITY-CRITICAL path: it's the one place a USER row
+    // can flip to ADMIN without an admin already in the loop. The guard
+    // rails: only fires when the bootstrap-ids env-var is set AND the
+    // user's steamId64 matches AND they aren't already an admin.
+
+    def "promoteBootstrapAdmin is a no-op when the bootstrap env var is blank"() {
+        given:
+        service.bootstrapIds = ''
+        def user = new SteamUser(id: 20L, steamId64: '111', role: 'USER')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'USER'
+        0 * steamUserRepository.save(_)
+    }
+
+    def "promoteBootstrapAdmin is a no-op when the bootstrap env var is null"() {
+        given:
+        service.bootstrapIds = null
+        def user = new SteamUser(id: 20L, steamId64: '111', role: 'USER')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'USER'
+        0 * steamUserRepository.save(_)
+    }
+
+    def "promoteBootstrapAdmin is a no-op for a null user"() {
+        given:
+        service.bootstrapIds = '111,222'
+
+        when:
+        service.promoteBootstrapAdmin(null)
+
+        then:
+        noExceptionThrown()
+        0 * steamUserRepository.save(_)
+    }
+
+    def "promoteBootstrapAdmin is a no-op when the user has no steamId64"() {
+        given:
+        service.bootstrapIds = '111,222'
+        def user = new SteamUser(id: 20L, steamId64: null, role: 'USER')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'USER'
+        0 * steamUserRepository.save(_)
+    }
+
+    def "promoteBootstrapAdmin flips role to ADMIN when the user's steamId64 is in the env list"() {
+        given:
+        service.bootstrapIds = '111,222,333'
+        def user = new SteamUser(id: 20L, steamId64: '222', role: 'USER')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'ADMIN'
+        1 * steamUserRepository.save(user)
+    }
+
+    def "promoteBootstrapAdmin trims whitespace around env-var entries"() {
+        // The env var is human-edited (deployment config) — a stray space
+        // around a comma must not block elevation.
+        given:
+        service.bootstrapIds = ' 111 ,  222  , 333 '
+        def user = new SteamUser(id: 20L, steamId64: '222', role: 'USER')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'ADMIN'
+        1 * steamUserRepository.save(user)
+    }
+
+    def "promoteBootstrapAdmin does NOT elevate a non-matching steamId64"() {
+        given:
+        service.bootstrapIds = '111,222'
+        def user = new SteamUser(id: 20L, steamId64: '999', role: 'USER')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'USER'
+        0 * steamUserRepository.save(_)
+    }
+
+    def "promoteBootstrapAdmin is idempotent — re-running for an already-ADMIN user is a silent no-op"() {
+        // Called on every login (via SteamAuthService.upsertUser). The
+        // already-admin short-circuit avoids a wasted save() on every
+        // login for the bootstrap operator.
+        given:
+        service.bootstrapIds = '222'
+        def user = new SteamUser(id: 20L, steamId64: '222', role: 'ADMIN')
+
+        when:
+        service.promoteBootstrapAdmin(user)
+
+        then:
+        user.role == 'ADMIN'
+        0 * steamUserRepository.save(_)
+    }
+
+    // ── listDisputedDeposits (batch 461 / 515 fraud-signal enrichment) ──
+
+    def "listDisputedDeposits returns an empty list when no deposits are disputed"() {
+        given:
+        transactionRepository.findByTypeAndStatusPaged('DEPOSIT', 'DISPUTED', _) >> []
+
+        when:
+        def rows = service.listDisputedDeposits()
+
+        then:
+        rows == []
+        // No row hydration / steam lookup when the query came back empty.
+        0 * walletRepository.findAllById(_)
+        0 * steamUserRepository.findBySteamId64(_)
+    }
+
+    def "listDisputedDeposits batches wallet + user lookups and enriches each row with fraud signals"() {
+        given:
+        def disputed = new Transaction(
+            id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED',
+            amount: new BigDecimal("50"), currency: 'USD',
+            description: 'card chargeback', createdAt: 1000L)
+        transactionRepository.findByTypeAndStatusPaged('DEPOSIT', 'DISPUTED', _) >> [disputed]
+        walletRepository.findAllById([500L]) >> [
+            new Wallet(id: 500L, username: 'steam_222', balance: new BigDecimal("10"), frozen: true)
+        ]
+        steamUserRepository.findBySteamId64('222') >> new SteamUser(
+            id: 20L, steamId64: '222', displayName: 'Bob', banned: false,
+            emailVerified: true, createdAt: 500L)
+        // Second-pass tx scan for the lifetime-disputes signal.
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> [
+            new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'DISPUTED'),
+            new Transaction(id: 7L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+                description: 'DISPUTE_CLEARED by admin (false positive)')
+        ]
+
+        when:
+        def rows = service.listDisputedDeposits()
+
+        then:
+        // N+1 guard — wallet lookup batched, user lookup batched per
+        // distinct steamId. NEVER a findAll() scan.
+        0 * walletRepository.findAll()
+        0 * transactionRepository.findAll()
+        rows.size() == 1
+        rows[0].id == 1L
+        rows[0].walletUsername == 'steam_222'
+        rows[0].userId == 20L
+        rows[0].userDisplayName == 'Bob'
+        rows[0].walletFrozen == true
+        rows[0].walletBalance == new BigDecimal("10")
+        rows[0].userEmailVerified == true
+        // Both the currently-DISPUTED row AND the DISPUTE_CLEARED row
+        // count toward the lifetime tally — staff can spot a serial
+        // chargeback offender even after past disputes are cleared.
+        rows[0].lifetimeDisputes == 2L
+    }
+
+    def "listDisputedDeposits caps the result at the 200-row hard limit"() {
+        // Hard cap protects the admin dashboard render from a chargeback
+        // surge. Past 200, the audit log + CSV are the better surface.
+        given:
+        org.springframework.data.domain.Pageable seenPage = null
+        transactionRepository.findByTypeAndStatusPaged('DEPOSIT', 'DISPUTED', _) >> { args ->
+            seenPage = args[2]
+            []
+        }
+
+        when:
+        service.listDisputedDeposits()
+
+        then:
+        seenPage.pageSize == 200
+    }
+
+    def "listDisputedDeposits degrades gracefully when the per-row lifetime scan throws"() {
+        given:
+        def disputed = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT',
+            status: 'DISPUTED', amount: new BigDecimal("50"))
+        transactionRepository.findByTypeAndStatusPaged('DEPOSIT', 'DISPUTED', _) >> [disputed]
+        walletRepository.findAllById([500L]) >> [new Wallet(id: 500L, username: 'steam_222')]
+        steamUserRepository.findBySteamId64('222') >> new SteamUser(id: 20L, steamId64: '222')
+        // The lifetime-disputes scan blows up — must not tank the whole
+        // dashboard, just degrade that one column to 0.
+        transactionRepository.findByWalletIdOrderByCreatedAtDesc(500L, _) >> {
+            throw new RuntimeException('connection refused')
+        }
+
+        when:
+        def rows = service.listDisputedDeposits()
+
+        then:
+        noExceptionThrown()
+        rows.size() == 1
+        rows[0].lifetimeDisputes == 0L
     }
 }
