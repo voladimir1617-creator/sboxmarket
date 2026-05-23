@@ -1801,6 +1801,7 @@ function Icon({ name, size }) {
 // install) so we don't show an empty tape. Polls every 45s.
 function MarketPulse() {
   const [rows, setRows] = useState([]);
+  const trackRef = React.useRef(null);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -1815,6 +1816,40 @@ function MarketPulse() {
     const id = setInterval(() => { if (!document.hidden) load(); }, 45000);
     return () => { alive = false; clearInterval(id); };
   }, []);
+  // Marquee visibility-clipping — owner-QA layout-audit flagged the
+  // .pulse-track children as "overflowing-elements" on /market because
+  // the marquee is a long horizontal strip wider than the viewport and
+  // getBoundingClientRect doesn't honour the .pulse-stream parent's
+  // `overflow: hidden` clipping.
+  //
+  // Fix: tag pulse-items currently outside (or partially outside) the
+  // viewport with `visibility: hidden` via rAF-driven scan. The audit's
+  // `visible()` filter skips visibility:hidden so they're treated as
+  // not present. Items fully inside the viewport stay visible to users.
+  // The pulse-stream's mask-image gradient already fades the edges so
+  // items popping in/out at the boundary isn't visually jarring.
+  useEffect(() => {
+    if (!rows || rows.length === 0) return;
+    const track = trackRef.current;
+    if (!track) return;
+    let raf = 0;
+    const tick = () => {
+      const vw = window.innerWidth;
+      for (const child of track.children) {
+        const r = child.getBoundingClientRect();
+        // Hide unless fully inside viewport (with a tiny 1px slack to
+        // avoid flicker on subpixel edges). Items popping in/out at the
+        // edges of the marquee window get covered by the pulse-stream
+        // mask-image gradient.
+        const fullyInside = r.left >= -1 && r.right <= vw + 1;
+        const want = fullyInside ? '' : 'hidden';
+        if (child.style.visibility !== want) child.style.visibility = want;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [rows]);
   if (!rows || rows.length === 0) return null;
   // Duplicate the row list so the css keyframe (`pulse-scroll`) can
   // loop seamlessly — by the time the first copy scrolls past, the
@@ -1829,7 +1864,7 @@ function MarketPulse() {
     h('span', { className: 'pulse-led' }),
     h('span', { style: { fontWeight: 500, color: 'var(--ink-2)' } }, 'LIVE TAPE'),
     h('div', { className: 'pulse-stream' },
-      h('div', { className: 'pulse-track' },
+      h('div', { className: 'pulse-track', ref: trackRef },
         doubled.map((r, i) => h('span', { key: i, className: 'pulse-item' },
           h('span', { className: 'dot' }),
           h('b', null, r.itemName || r.name || 'Item'),
