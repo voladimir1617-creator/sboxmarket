@@ -1383,4 +1383,165 @@ class EmailServiceSpec extends Specification {
         then:
         0 * mailSender.send(_)
     }
+
+    // ── Templates previously without coverage (audit gap) ─────────
+    //
+    // These four senders had no dedicated spec — added so a future
+    // template refactor can't silently drop the subject line, the body
+    // marker copy, or the null-recipient short-circuit on these
+    // engagement / state-machine emails.
+
+    def "sendAuctionOutbid carries the new top bid AND the listing URL in the body"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionOutbid('user@example.com', 'Alice',
+            'AK-47 Redline', new BigDecimal('12.50'), '/item/42')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['user@example.com'] &&
+            // Subject names the item so the auction is identifiable from the inbox list.
+            f.subject.contains('AK-47 Redline') &&
+            // Body must surface the new top bid in plain dollars so the user
+            // can decide whether to re-bid without opening the listing.
+            f.text.contains('$12.50') &&
+            // The link to the listing must be present so the user can act in one click.
+            f.text.contains('/item/42') &&
+            // Auto-bid mention is the load-bearing reassurance — pin the
+            // copy so a template refactor can't drop the "may have re-raised
+            // on your behalf" caveat (otherwise users panic-bid manually
+            // even when their auto-bid already covered them).
+            f.text.contains('auto-bid')
+        })
+    }
+
+    def "sendAuctionOutbid omits the URL clause when itemUrl is null but still sends"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionOutbid('user@example.com', 'Alice',
+            'Skull Mask', new BigDecimal('5.00'), null)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.text.contains('$5.00') &&
+            // The fall-through clause ends the sentence with a period
+            // instead of leaking a bare ':' from a null URL.
+            !f.text.contains('null') &&
+            !f.text.contains(': /')
+        })
+    }
+
+    def "sendAuctionOutbid short-circuits on null recipient"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendAuctionOutbid(null, 'Alice', 'Item', new BigDecimal('1'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendNewListingFromSeller includes seller name + item name in subject + body"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendNewListingFromSeller('follower@example.com', 'Alice',
+            'NeonArc', 'Wizard Hat', new BigDecimal('3.50'), '/item/7')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['follower@example.com'] &&
+            // Subject identifies BOTH the seller and the item — otherwise
+            // "NeonArc just listed something" reads as spam and gets
+            // auto-archived by power followers.
+            f.subject.contains('NeonArc') &&
+            f.subject.contains('Wizard Hat') &&
+            f.text.contains('$3.50') &&
+            // The unsubscribe nudge points the user at the right
+            // affordance (the seller's stall page) instead of a vague
+            // "go to settings" call to action.
+            f.text.contains('stall page')
+        })
+    }
+
+    def "sendNewListingFromSeller skips fanout when sellerName is null (caller guard)"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        // The caller side enforces sellerName non-null — this guard
+        // documents that the email layer ALSO short-circuits so a
+        // bad fanout invocation can't paste a literal "null just
+        // listed Item Name" subject into a follower's inbox.
+        svc.sendNewListingFromSeller('follower@example.com', 'Alice',
+            null, 'Item', new BigDecimal('1'), '/item/1')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendTradeSent walks the buyer through the steamcommunity → confirm receipt flow"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeSent('buyer@example.com', 'Alice', 'Karambit Doppler',
+            'BoneTender', 1234L)
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
+            f.to == ['buyer@example.com'] &&
+            f.subject.contains('Karambit Doppler') &&
+            // The instructions must point at steamcommunity AND include
+            // the "Confirm receipt" jargon so a confused buyer can pattern-
+            // match it against the actual button on the trades page.
+            f.text.contains('steamcommunity') &&
+            f.text.contains('Confirm receipt') &&
+            // The 8-day auto-release window is the load-bearing safety net —
+            // dropping this copy means a buyer who delays accepting on
+            // Steam thinks they've lost the money.
+            f.text.contains('8 days') &&
+            f.text.contains('BoneTender')
+        })
+    }
+
+    def "send2faDisabled short-circuits on null recipient"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        // The two security alerts already covered (sendEmailChanged,
+        // sendWalletFrozen) test their body shape; this round-trips the
+        // null-recipient guard for the only security alert previously
+        // uncovered for that case.
+        svc.send2faDisabled(null, 'Alice')
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
+
+    def "sendTradeSent short-circuits on null recipient"() {
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendTradeSent(null, 'Alice', 'Item', 'Seller', 1L)
+        svc.awaitSmtpForTests()
+
+        then:
+        0 * mailSender.send(_)
+    }
 }
