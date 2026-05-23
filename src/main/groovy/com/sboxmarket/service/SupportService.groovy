@@ -323,6 +323,18 @@ class SupportService {
     @Value('${support.auto-resolve-waiting-user-days:14}')
     long autoResolveWaitingUserDays
 
+    /** Per-tick scope cap on the daily sweep. The repo query keeps
+     *  its no-arg shape (the existing test suite stubs it that way)
+     *  so this is an in-memory clamp on the per-tick close + push
+     *  fan-out. Stale tickets that don't fit in one pass stay
+     *  WAITING_USER and are picked up on the next daily tick — the
+     *  status='WAITING_USER' filter in findStaleWaitingUser makes the
+     *  work naturally idempotent so a crash mid-loop never re-pushes
+     *  an already-RESOLVED ticket. 5000 is well below the heap budget
+     *  even on the smallest deploy, and a daily cadence drains a
+     *  hundred-thousand-row backlog inside a month. */
+    static final int SWEEP_BATCH_LIMIT = 5000
+
     /**
      * Daily sweep — flips any WAITING_USER ticket idle longer than
      * {@link #autoResolveWaitingUserDays} days to RESOLVED and pushes
@@ -350,6 +362,17 @@ class SupportService {
             return
         }
         if (candidates == null || candidates.isEmpty()) return
+        int eligible = candidates.size()
+        // Clamp per-tick work scope (see SWEEP_BATCH_LIMIT). Remaining
+        // tickets roll over to the next daily tick — the status filter
+        // in findStaleWaitingUser means already-resolved rows fall out
+        // of the candidate set naturally so the rollover never double-
+        // closes the same ticket. fixedDelay (Spring serialises ticks
+        // per scheduled method) prevents the sweeper from overlapping
+        // itself, so the clamp is a pure throughput knob.
+        if (eligible > SWEEP_BATCH_LIMIT) {
+            candidates = candidates.take(SWEEP_BATCH_LIMIT)
+        }
         int closed = 0
         candidates.each { t ->
             try {
@@ -366,7 +389,10 @@ class SupportService {
             }
         }
         if (closed > 0) {
-            log.info("Support sweeper: auto-closed ${closed} stale WAITING_USER ticket(s) idle >${autoResolveWaitingUserDays}d")
+            def backlog = eligible > SWEEP_BATCH_LIMIT
+                ? " (eligible=${eligible}, capped at ${SWEEP_BATCH_LIMIT} — backlog will drain across subsequent ticks)"
+                : ""
+            log.info("Support sweeper: auto-closed ${closed} stale WAITING_USER ticket(s) idle >${autoResolveWaitingUserDays}d${backlog}")
         }
     }
 }

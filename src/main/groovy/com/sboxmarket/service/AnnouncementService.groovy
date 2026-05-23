@@ -22,6 +22,17 @@ class AnnouncementService {
 
     private static final Set<String> ALLOWED_SEVERITY = ['INFO','WARN','CRITICAL'] as Set
 
+    /** Per-tick scope cap on the hourly sweep. Expired-but-active
+     *  announcements are typically a handful per cycle, but this is a
+     *  defensive in-memory clamp in case an ops mishap (admin posts
+     *  thousands with past expiresAt for testing, sweep was disabled
+     *  for weeks) ever produces a huge backlog. Remaining rows roll
+     *  over to the next hourly tick — the active=true filter in
+     *  findExpiredButActive means already-deactivated rows fall out
+     *  of the candidate set naturally so the rollover never re-
+     *  processes the same row. */
+    static final int SWEEP_BATCH_LIMIT = 500
+
     @Autowired AnnouncementRepository announcementRepository
     @Autowired TextSanitizer textSanitizer
     @Autowired(required = false) AuditService auditService
@@ -91,14 +102,30 @@ class AnnouncementService {
             return
         }
         if (rows == null || rows.isEmpty()) return
+        int eligible = rows.size()
+        // Defensive in-memory clamp (see SWEEP_BATCH_LIMIT). fixedDelay
+        // serialises ticks per scheduled method so the sweep can't
+        // overlap itself, and successfully-flipped rows drop out of the
+        // active=true filter on the next pass so leftover rows resume
+        // cleanly without re-touching the already-processed ones. Per-
+        // row save lives in its own try/catch so one bad row never
+        // aborts the batch.
+        if (eligible > SWEEP_BATCH_LIMIT) {
+            rows = rows.take(SWEEP_BATCH_LIMIT)
+        }
+        int closed = 0
         rows.each { row ->
             try {
                 row.active = false
                 announcementRepository.save(row)
+                closed++
             } catch (Exception e) {
                 log.warn("Failed to auto-deactivate announcement ${row.id}: ${e.message}")
             }
         }
-        log.info("Announcement sweeper: auto-deactivated ${rows.size()} expired row(s)")
+        def backlog = eligible > SWEEP_BATCH_LIMIT
+            ? " (eligible=${eligible}, capped at ${SWEEP_BATCH_LIMIT} — backlog will drain across subsequent ticks)"
+            : ""
+        log.info("Announcement sweeper: auto-deactivated ${closed} of ${rows.size()} expired row(s)${backlog}")
     }
 }

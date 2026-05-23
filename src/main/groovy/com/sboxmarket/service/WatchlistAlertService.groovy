@@ -36,6 +36,18 @@ class WatchlistAlertService {
      *  a-million-alerts abuse and keeps the watchlist UI sane. */
     private static final int PER_USER_LIMIT = 50
 
+    /** Per-tick scope cap on the scheduled sweep. The repo query
+     *  intentionally has no SQL LIMIT (the existing test suite stubs
+     *  the no-arg method shape) so this is an in-memory clamp on the
+     *  per-tick push/email/save fan-out. PER_USER_LIMIT caps the
+     *  population at 50 × user-count active alerts; on a six-figure
+     *  user base the matched-row count can still be tens of thousands.
+     *  Triggered rows that don't fit in one pass stay ACTIVE in the DB
+     *  and are picked up on the next 5-minute tick — the FIRED-flag
+     *  filter in findTriggered() makes the work naturally idempotent
+     *  so a crash mid-loop never re-pushes already-FIRED rows. */
+    static final int SWEEP_BATCH_LIMIT = 1000
+
     @Transactional
     WatchlistAlert upsertAlert(Long userId, Long itemId, BigDecimal targetPrice) {
         if (targetPrice == null || targetPrice <= BigDecimal.ZERO) {
@@ -129,10 +141,16 @@ class WatchlistAlertService {
                initialDelayString = '${watchlist-alert.initial-delay-ms:60000}')
     @Transactional
     void sweep() {
-        def triggered = repo.findTriggered()
-        if (triggered.isEmpty()) return
+        def all = repo.findTriggered()
+        if (all == null || all.isEmpty()) return
+        // Clamp per-tick work scope (see SWEEP_BATCH_LIMIT). Remaining
+        // ACTIVE rows roll over to the next 5-minute tick. fixedDelay
+        // (Spring serialises ticks per scheduled method) guarantees the
+        // sweeper can never overlap itself, so the clamp is a pure
+        // throughput knob, not a correctness one.
+        def triggered = all.size() > SWEEP_BATCH_LIMIT ? all.take(SWEEP_BATCH_LIMIT) : all
         int fired = triggered.count { fireRow(it) ? 1 : 0 } as int
-        log.info("Watchlist alert sweep: fired ${fired} of ${triggered.size()} matches")
+        log.info("Watchlist alert sweep: fired ${fired} of ${triggered.size()} matches (eligible=${all.size()})")
     }
 
     /**
