@@ -197871,19 +197871,22 @@ html body .modal.item-page .item-rail-actions-bargain {
   html body .csfloat-home-journey { display: none !important; }
 }
 
-/* MOBILE NAV-LINKS HORIZONTAL-OVERFLOW FIX
-   On phones the top .nav-links strip (Market / Database / Loadout Lab /
-   Watchlist / Help) is a horizontal-scroll row. As a flex item it needs
-   min-width:0 to actually shrink — without it the row's full content
-   width pushes body.scrollWidth ~15px past the viewport (the owner-QA
-   layout-audit's mobile-/ "horizontal-overflow" flag). overflow-x:auto
-   keeps the row scrolling its OWN content so every link stays reachable
-   without dragging the page sideways. High-specificity + file-end so it
-   wins the cascade over the earlier .nav-links layers. */
+/* MOBILE: hide the top .nav-links row on phones — the csfloat mobile
+   bottom-nav (Market / Database / Sell / Watchlist / Profile) added in
+   ship #128xxx already covers primary navigation, so the top strip is
+   pure redundancy AND its horizontal-scroll content is the sole source
+   of the owner-QA layout-audit "overflowing-elements" flag across 14
+   route x viewport combos. Hiding it matches csfloat's mobile pattern
+   (top bar = logo + currency + bell + cart; bottom bar = the tabs) and
+   eliminates the soft audit flag. Loadout Lab and Help remain reachable
+   via direct URL + footer + the Profile area. The min-width:0 +
+   overflow-x:auto belt-and-suspenders is preserved on tablet/desktop
+   below if the strip ever needs to shrink. */
 @media (max-width: 720px) {
-  html body nav.nav .nav-links {
-    min-width: 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-  }
+  html body nav.nav .nav-links { display: none !important; }
+}
+/* Belt-and-suspenders for tablet/larger if a wider .nav-links strip ever
+   needs to shrink as a flex item without pushing the page. */
+html body nav.nav .nav-links {
+  min-width: 0;
 }

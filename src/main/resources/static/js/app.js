@@ -6400,13 +6400,15 @@ export function App() {
             { key: 'deals',   label: 'Top Deals',    href: '/market?sort=discount&discount=10' },
             { key: 'newest',  label: 'Newest Items', href: '/market?sort=newest' },
             { key: 'rare',    label: 'Unique Items', href: '/market?rarity=Off-Market' }
-          ].map((tab, i) => h('a', {
+          ].map((tab) => h('a', {
             key: tab.key,
-            // Boss QA cycle 2 N2 — first tab marked active so the
-            // segmented control reads as a real selectable group rather
-            // than three plain anchors. Without an active state the row
-            // looked like generic underline-on-hover text.
-            className: 'csfloat-home-rail-tab' + (i === 0 ? ' active' : ''),
+            // Plain anchors — the tabs JUST navigate to /market with
+            // different querystrings (the preview strip below always
+            // shows the same homeFeatured set). Marking one ".active"
+            // implied a real tab control that re-renders the preview;
+            // it didn't, so the active styling read as a misleading
+            // affordance. Hover-underline is enough signal.
+            className: 'csfloat-home-rail-tab',
             href: tab.href,
             onClick: (e) => { e.preventDefault(); navigate(tab.href); }
           }, tab.label))

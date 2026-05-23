@@ -8131,9 +8131,25 @@ function ProfileOffersTab() {
         // Submit label changes by side: seller sends a counter, buyer
         // raises their own offer. Backend routes diverge but the inline
         // form shape is identical — reuse the same state + input.
-        isIncoming
-          ? h('button', { className: 'buy-btn', disabled: busy, onClick: () => doCounter(o.id) }, 'Send counter')
-          : h('button', { className: 'buy-btn', disabled: busy, onClick: () => doRaise(o.id)   }, 'Raise offer'),
+        // Inline validation — both sides want amount strictly between
+        // the buyer's offer and the seller's ask. Disabling here saves
+        // a server round-trip + toast on the obvious "≥ ask" mistake.
+        (() => {
+          const amt = parseFloat(counterAmt);
+          const offer = parseFloat(o.amount) || 0;
+          const ask = parseFloat(o.askingPrice) || 0;
+          const empty = !counterAmt || !Number.isFinite(amt) || amt <= 0;
+          const tooLow  = !empty && ask > 0 && amt <= offer;
+          const tooHigh = !empty && ask > 0 && amt >= ask;
+          const bad = empty || tooLow || tooHigh;
+          const tip = empty   ? 'Enter an amount above the offer and below the ask'
+                    : tooLow  ? `Must be above the current ${isIncoming ? 'offer' : 'offer'} of ${fmt(offer)}`
+                    : tooHigh ? `Must be below the asking price of ${fmt(ask)}`
+                              : undefined;
+          return isIncoming
+            ? h('button', { className: 'buy-btn', disabled: busy || bad, onClick: () => doCounter(o.id), title: tip }, 'Send counter')
+            : h('button', { className: 'buy-btn', disabled: busy || bad, onClick: () => doRaise(o.id),   title: tip }, 'Raise offer');
+        })(),
         h('button', { className: 'btn btn-ghost', style: { padding: '6px 10px', fontSize: 11 }, onClick: () => setCounterFor(null), 'aria-label': 'Cancel counter' }, '✕')
       )
     );
