@@ -18,7 +18,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Auction bidding + auto-bid bot + scheduled expiry sweep. The bot works exactly
@@ -61,6 +64,37 @@ class BidService {
     @Autowired(required = false) ApplicationEventPublisher applicationEventPublisher
 
     /**
+     * Per-listing transaction wrapper for the sweepers (batch 800).
+     * Required = false so Spock specs that build the service via property
+     * map without a Spring context still work: `runInIsolatedTx` falls
+     * back to executing the closure inline when there is no transaction
+     * manager, which is exactly what the tests need.
+     *
+     * Why this exists: `sweepExpired` and `sweepEndingSoon` used to be
+     * `@Transactional`, wrapping the WHOLE batch in one outer tx. A single
+     * failing settle (e.g. an OptimisticLockingFailureException from a
+     * concurrent placeBid mutating the same listing) marked the shared
+     * transaction rollback-only — the try/catch swallowed the exception
+     * but every subsequent settle in the batch then either silently
+     * failed at commit or rolled back its writes. The
+     * "sweepExpired keeps going when one auction's settle throws" spec
+     * passed only because the test instantiates BidService without a
+     * Spring proxy, so @Transactional was a no-op; under real Spring the
+     * batch atomicity was broken.
+     *
+     * Worse, `settle()` was also @Transactional but Spring's default
+     * CGLIB-proxy mode does NOT intercept self-invocation, so
+     * `sweepExpired { settle(it) }` ran settle INSIDE the outer batch tx,
+     * not in its own. The annotation on settle was dead code.
+     *
+     * Fix mirrors the TradeService.sweepPendingConfirm pattern: the
+     * outer sweep is unannotated, and each per-listing settle runs in a
+     * REQUIRES_NEW transaction via TransactionTemplate so one failure
+     * can't poison any sibling settle in the batch.
+     */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /**
      * Fire an AuctionBidPlacedEvent for the current listing state. Call
      * this after every listing-state mutation in placeBid / buyNowAuction
      * that clients should see in real time. The AuctionEventBus listener
@@ -84,6 +118,26 @@ class BidService {
         } catch (Exception e) {
             log.warn("Auction bid event publish failed for listing ${listing.id}: ${e.message}")
         }
+    }
+
+    /**
+     * Run {@code work} in a fresh REQUIRES_NEW transaction when a
+     * PlatformTransactionManager is wired (production), otherwise run
+     * it inline (Spock unit tests that build BidService without a
+     * Spring context). Used by the sweepers so a failing settle/notify
+     * for one listing can never roll back work already done for sibling
+     * listings in the same batch — and so an OptimisticLockingFailure
+     * from a concurrent last-second bid only torches THAT listing's
+     * settle, not the entire 30-second sweep.
+     */
+    private void runInIsolatedTx(Closure work) {
+        if (transactionManager == null) {
+            work()
+            return
+        }
+        def tt = new TransactionTemplate(transactionManager)
+        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        tt.executeWithoutResult { work() }
     }
 
     @Transactional
@@ -685,9 +739,15 @@ class BidService {
      * Runs every 30s and closes any auctions whose expiresAt is in the past.
      * Winning bidder's wallet is charged (if they have the funds) and the listing
      * is marked SOLD. Anyone else who had a live bid gets a LOST notification.
+     *
+     * Deliberately NOT @Transactional — see `runInIsolatedTx` for the
+     * full rationale. The outer sweep loops over a batch; each per-listing
+     * settle runs in its own REQUIRES_NEW transaction so a failure (e.g.
+     * an OptimisticLockingFailureException from a last-second placeBid
+     * extending expiresAt concurrently) only rolls back THAT auction's
+     * settle, not every sibling auction in the same 30-second tick.
      */
     @Scheduled(fixedDelay = 30_000L)
-    @Transactional
     void sweepExpired() {
         def now = System.currentTimeMillis()
         // Indexed query — pulls only the auction rows whose expiresAt has
@@ -696,8 +756,15 @@ class BidService {
         // every 30-second tick.
         def expired = listingRepository.findExpiredAuctions(now)
         for (Listing listing : expired) {
-            try { settle(listing) }
-            catch (Exception e) { log.error("Failed to settle auction ${listing.id}: ${e.message}") }
+            try {
+                runInIsolatedTx { settle(listing) }
+            } catch (Exception e) {
+                // Even with REQUIRES_NEW the OUTER loop runs uncatched —
+                // any per-listing failure is logged here and we continue
+                // to the next auction so one bad row never blocks the
+                // sweep.
+                log.error("Failed to settle auction ${listing.id}: ${e.message}")
+            }
         }
     }
 
@@ -717,15 +784,22 @@ class BidService {
      * intent.
      */
     @Scheduled(fixedDelay = 120_000L, initialDelay = 30_000L)
-    @Transactional
     void sweepEndingSoon() {
         def now = System.currentTimeMillis()
         def cutoff = now + ENDING_SOON_WINDOW_MS
         def due = listingRepository.findEndingSoonUnnotified(now, cutoff)
         if (due.isEmpty()) return
         for (Listing listing : due) {
-            try { notifyEndingSoon(listing) }
-            catch (Exception e) {
+            try {
+                // Per-listing REQUIRES_NEW transaction — same rationale as
+                // sweepExpired. Without it, a notify-then-save failure on
+                // one row marked the SHARED outer tx rollback-only and the
+                // `endingSoonNotified=true` flag never persisted for any
+                // sibling auction in the batch — so every bidder would be
+                // re-pinged on the NEXT 2-minute tick. Per-row tx isolates
+                // the failure and keeps the dedup flag honest.
+                runInIsolatedTx { notifyEndingSoon(listing) }
+            } catch (Exception e) {
                 log.warn("Ending-soon notify failed for listing ${listing.id}: ${e.message}")
             }
         }
@@ -818,6 +892,21 @@ class BidService {
 
     @Transactional
     protected void settle(Listing listing) {
+        // Idempotency guard (batch 800). settle is called from
+        // sweepExpired AND from buyNowAuction; under concurrent /
+        // multi-node sweeper conditions, or if a manual replay ever
+        // re-runs the sweep, the SAME listing could be presented twice.
+        // Without this check the second call would charge the winner a
+        // second time, open a duplicate trade, and double-fire the
+        // AUCTION_WON push. The `findExpiredAuctions` query already
+        // filters status='ACTIVE' so the in-DB row won't be re-found on a
+        // normal tick, but a stale Listing reference held in memory across
+        // ticks (race window) or a manual replay still needs this guard.
+        if (listing == null) return
+        if (listing.status != 'ACTIVE') {
+            log.debug("settle skipped — listing ${listing.id} status=${listing.status} (already closed)")
+            return
+        }
         if (listing.currentBidderId == null) {
             // No bids — return the item to the seller's inventory (mirrors
             // SellService.cancelListing by flipping to SOLD + buyerUserId =
