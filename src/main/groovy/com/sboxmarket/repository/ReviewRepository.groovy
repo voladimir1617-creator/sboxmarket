@@ -19,6 +19,25 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
 
     Review findByFromUserIdAndTradeId(Long fromUserId, Long tradeId)
 
+    /** Spam guard — count short, recent reviews authored by this buyer
+     *  since the given epoch-ms cutoff. A "short" review is one whose
+     *  comment is null/blank or shorter than the supplied length. Used
+     *  by leaveReview to detect a buyer rapid-firing low-effort
+     *  reviews (the classic copy-paste "great seller" pattern across
+     *  many trades in a single sitting, often paired with a 1★ retaliation
+     *  spree on a single seller). Index-friendly: filters on fromUserId
+     *  (covered by idx_review_from) then narrows by createdAt + LENGTH.
+     *  COALESCE keeps null comments inside the "short" bucket. */
+    @Query("""
+        SELECT COUNT(r) FROM Review r
+        WHERE r.fromUserId = :uid
+          AND r.createdAt >= :since
+          AND LENGTH(COALESCE(r.comment, '')) < :maxLen
+    """)
+    long countRecentShortByFromUser(@Param('uid') Long fromUserId,
+                                    @Param('since') Long sinceMs,
+                                    @Param('maxLen') int maxLen)
+
     /** Aggregate stats — avoids loading all rows when we only need average + count. */
     @Query("SELECT COUNT(r), AVG(r.rating) FROM Review r WHERE r.toUserId = :uid")
     List<Object[]> aggregateForUser(@Param("uid") Long uid)

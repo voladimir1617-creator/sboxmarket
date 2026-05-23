@@ -39,6 +39,26 @@ class ReviewService {
     @Autowired(required = false) AuditService auditService
     @Autowired(required = false) com.sboxmarket.repository.ReviewHelpfulVoteRepository helpfulVoteRepository
 
+    /** Reply edit window — sellers can post or edit their public reply
+     *  to a review for this long after the review was originally posted.
+     *  After the window closes the reply (if any) is frozen so a seller
+     *  can't quietly rewrite their "thanks!" months later to look more
+     *  responsive — or worse, edit a polite reply into a hostile one
+     *  long after the dust has settled and nobody is watching. 72h is
+     *  generous enough for a busy seller to react over a long weekend
+     *  without being arbitrary. */
+    static final long REPLY_EDIT_WINDOW_MS = 72L * 60L * 60L * 1000L
+
+    /** Spam guard window for {@link #leaveReview}. A buyer firing more
+     *  than SHORT_REVIEW_BURST_LIMIT short reviews (comment shorter than
+     *  SHORT_REVIEW_MIN_LEN characters, or blank) inside this window
+     *  trips REVIEW_SPAM and is bounced. Catches copy-paste flooding and
+     *  retaliation sprees without false-positiving the occasional
+     *  one-word "great!". */
+    static final long SPAM_WINDOW_MS         = 30L * 60L * 1000L   // 30 minutes
+    static final int  SHORT_REVIEW_MIN_LEN   = 20                  // chars
+    static final int  SHORT_REVIEW_BURST_LIMIT = 3                 // 4th in-window short review is rejected
+
     @Transactional
     Review leaveReview(Long fromUserId, Long tradeId, Integer rating, String comment) {
         banGuard.assertNotBanned(fromUserId)
@@ -69,6 +89,38 @@ class ReviewService {
         def existing = reviewRepository.findByFromUserIdAndTradeId(fromUserId, tradeId)
         def cleanComment = textSanitizer.clean(comment ?: '', 500)
         def author = steamUserRepository.findById(fromUserId).orElse(null)
+
+        // Spam guard — only enforced when creating a NEW review row.
+        // Editing one's own existing review never trips it (the row
+        // count doesn't grow). A buyer who has already shipped
+        // SHORT_REVIEW_BURST_LIMIT short comments in the past
+        // SPAM_WINDOW_MS and is about to add another short one is
+        // bounced. Longer, substantive comments bypass the check
+        // entirely — the heuristic is short + recent + repeated, not
+        // length alone.
+        if (existing == null) {
+            int len = cleanComment == null ? 0 : cleanComment.trim().length()
+            if (len < SHORT_REVIEW_MIN_LEN) {
+                long since = System.currentTimeMillis() - SPAM_WINDOW_MS
+                long recent = 0L
+                try {
+                    recent = reviewRepository.countRecentShortByFromUser(
+                        fromUserId, since, SHORT_REVIEW_MIN_LEN)
+                } catch (Exception e) {
+                    // Repo query failed (e.g. old schema before this
+                    // method shipped). Fail-open: don't deny a real
+                    // review because of an aggregation glitch.
+                    log.debug("spam-guard count failed for ${fromUserId}: ${e.message}")
+                }
+                if (recent >= SHORT_REVIEW_BURST_LIMIT) {
+                    log.warn("REVIEW_SPAM: buyer=${fromUserId} short-burst count=${recent} window=${SPAM_WINDOW_MS}ms")
+                    auditService?.log('REVIEW_SPAM_BLOCKED', fromUserId, trade.sellerUserId, null,
+                        "Blocked ${rating}★ short review — ${recent} short reviews already in last ${SPAM_WINDOW_MS / 60000} min")
+                    throw new BadRequestException('REVIEW_SPAM',
+                        "Too many short reviews in a short window — slow down and write a bit more.")
+                }
+            }
+        }
 
         Review row
         if (existing != null) {
@@ -145,6 +197,22 @@ class ReviewService {
             .orElseThrow { new NotFoundException("Review", reviewId) }
         if (review.toUserId != sellerUserId) {
             throw new ForbiddenException("Only the seller can reply to this review")
+        }
+        // Reply edit window — anchored to when the REVIEW itself was
+        // posted, not the reply. A seller has REPLY_EDIT_WINDOW_MS to
+        // post or amend their public response; after that the row is
+        // frozen so a seller can't quietly rewrite a months-old reply
+        // (e.g. flip a polite "thanks!" into a hostile rebuttal once
+        // attention has moved on). createdAt is non-null on every
+        // persisted Review (the column is NOT NULL with a default in
+        // the entity), so a null here is a malformed in-memory fixture
+        // and the check is skipped rather than NPE'ing.
+        if (review.createdAt != null) {
+            long age = System.currentTimeMillis() - review.createdAt
+            if (age > REPLY_EDIT_WINDOW_MS) {
+                throw new BadRequestException('REPLY_WINDOW_CLOSED',
+                    "Reply edit window has closed for this review")
+            }
         }
         def clean = textSanitizer.clean(body ?: '', 300)
         def oldReply = review.sellerReply
