@@ -27,12 +27,51 @@ class SteamMarketPriceServiceSpec extends Specification {
         invoke('4.56') == new BigDecimal('4.56')
     }
 
-    def "parseSteamPrice extracts amounts from euro format with trailing symbol"() {
-        // "1,23€" → stripped of non-digit-non-dot → "123" → 123.
-        // The current parser doesn't handle commas as decimal separators;
-        // this test documents the actual behavior.
+    def "parseSteamPrice extracts amounts from euro format with trailing comma decimal"() {
+        // EUR / RUB / BRL / most non-US locales use ',' as the decimal
+        // separator and write currency-symbol last: "1,23€", "1,23 ₽".
+        // Pre-fix the regex stripped the comma silently and "1,23€" parsed
+        // to BigDecimal("123") — a 100× overprice on every euro/locale
+        // format. The hardcoded currency=1 (USD) in the fetch URL meant
+        // it never fired today, but the parser is now correct so the
+        // moment someone changes the currency param the feed doesn't lie.
         expect:
-        invoke('1,23€') == new BigDecimal('123')
+        invoke('1,23€') == new BigDecimal('1.23')
+    }
+
+    def "parseSteamPrice handles German EUR format with dot-as-thousands and comma-as-decimal"() {
+        // German + Dutch + most EU locales: "1.234,56€" = 1234.56.
+        // The rightmost-separator-is-decimal rule keeps this correct
+        // without locale awareness.
+        expect:
+        invoke('1.234,56€') == new BigDecimal('1234.56')
+    }
+
+    def "parseSteamPrice handles US format with comma-as-thousands"() {
+        // US format on a high-priced item: "$1,234.56" = 1234.56.
+        // Rightmost separator = decimal → '.' is decimal here, ',' is
+        // thousands (stripped).
+        expect:
+        invoke('$1,234.56') == new BigDecimal('1234.56')
+    }
+
+    def "parseSteamPrice handles RUB-style trailing-currency comma decimal"() {
+        // Russian RUB returns "1,23 ₽" or "1,23 руб." — same comma-decimal
+        // shape as EUR. Match.
+        expect:
+        invoke('1,23 ₽') == new BigDecimal('1.23')
+    }
+
+    def "parseSteamPrice handles BRL-style leading-currency comma decimal"() {
+        // Brazilian BRL: "R$ 1,23" — leading currency, comma decimal.
+        expect:
+        invoke('R$ 1,23') == new BigDecimal('1.23')
+    }
+
+    def "parseSteamPrice handles JPY-style no-decimal currency"() {
+        // Japanese yen prices have no decimals at all: "¥150".
+        expect:
+        invoke('¥150') == new BigDecimal('150')
     }
 
     def "parseSteamPrice returns null for null input"() {

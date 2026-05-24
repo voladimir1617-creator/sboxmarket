@@ -313,11 +313,47 @@ class SteamMarketPriceService {
 
     private static BigDecimal parseSteamPrice(String raw) {
         if (!raw) return null
-        // "$1.23" → 1.23 ; "1,23€" → 1.23
-        def cleaned = raw.replaceAll(/[^\d.]/, '')
-        if (!cleaned) return null
+        // Steam priceoverview returns the currency-formatted string,
+        // so the parse has to cope with BOTH locales:
+        //   • USD / GBP / JPY:  "$1.23" / "£1.23" / "¥1"          — `.` is decimal
+        //   • EUR / RUB / BRL:  "1,23€" / "1,23 ₽" / "R$ 1,23"   — `,` is decimal
+        //   • Thousands-separated (German EUR): "1.234,56€"      — `.` thousands, `,` decimal
+        //   • Thousands-separated (US):         "$1,234.56"      — `,` thousands, `.` decimal
+        //
+        // Pre-fix the regex `[^\d.]` kept ONLY digits + dots, so the
+        // claimed-supported "1,23€" silently produced "123" → 123.00
+        // (a 100x overprice). The hardcoded currency=1 (USD) in the
+        // fetch URL meant this never fired in production, but the
+        // comment promised an invariant the code didn't hold — the
+        // moment someone changes the currency param the price feed
+        // lies by two orders of magnitude.
+        //
+        // Strategy: keep digits + both separators, then identify the
+        // RIGHTMOST separator as the decimal point and treat any
+        // earlier separators as thousands (strip them). The rightmost
+        // marker rule works regardless of which character convention
+        // the locale uses.
+        def cleaned = raw.replaceAll(/[^\d.,]/, '')
+        if (cleaned.isEmpty()) return null
+        // Find the last separator (',' or '.') — that's the decimal.
+        // String overload (not the char one) — Groovy's `as char` boxes
+        // to a Character object and String.lastIndexOf has no overload
+        // for that (only `int` codepoint or `String`).
+        int lastDot = cleaned.lastIndexOf('.')
+        int lastComma = cleaned.lastIndexOf(',')
+        int decimalIdx = Math.max(lastDot, lastComma)
+        String normalised
+        if (decimalIdx < 0) {
+            // No separator at all — pure integer like "123".
+            normalised = cleaned
+        } else {
+            String intPart = cleaned.substring(0, decimalIdx).replaceAll(/[.,]/, '')
+            String fracPart = cleaned.substring(decimalIdx + 1).replaceAll(/[.,]/, '')
+            normalised = intPart + '.' + fracPart
+        }
+        if (normalised.isEmpty() || normalised == '.') return null
         try {
-            def bd = new BigDecimal(cleaned)
+            def bd = new BigDecimal(normalised)
             return bd > BigDecimal.ZERO ? bd : null
         } catch (NumberFormatException ignored) {
             return null
