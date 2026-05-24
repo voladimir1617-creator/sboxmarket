@@ -15,7 +15,10 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Orchestrates a sale-listing: a user takes an item they own (a previously
@@ -41,6 +44,41 @@ class SellService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) WatchlistAlertService watchlistAlertService
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
+
+    /**
+     * Per-listing transaction wrapper for cancelAllActive (boss-QA cycle 33).
+     * Required = false so Spock specs that build the service via property
+     * map without a Spring context still work: runInIsolatedTx falls back
+     * to executing the closure inline when there is no transaction manager.
+     *
+     * Why this exists: cancelAllActive was `@Transactional` and wrapped the
+     * whole batch in ONE outer tx. Each per-listing `cancelListing` call was
+     * also `@Transactional` BUT Spring's default CGLIB-proxy mode does NOT
+     * intercept self-invocation, so the inner annotation was dead code and
+     * the per-listing work ran in the SHARED outer tx. A thrown ApiException
+     * from one row (e.g. ListingNotAvailableException because someone bought
+     * between findActiveBySeller and cancelListing) marked the shared tx
+     * rollback-only. The try/catch above swallowed the exception, but the
+     * @Transactional commit would then throw UnexpectedRollbackException at
+     * the very end, surfacing a 500 even though the user-facing
+     * `{cancelled:N, failed:K}` summary was already populated.
+     *
+     * Mirrors the TradeService.sweepPendingConfirm + BidService.sweepExpired
+     * pattern: the outer batch is unannotated, and each per-listing
+     * cancelListing runs in a REQUIRES_NEW transaction via TransactionTemplate
+     * so one rollback can't poison sibling cancels in the batch.
+     */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+    private void runInIsolatedTx(Closure work) {
+        if (transactionManager == null) {
+            // No Spring context (Spock plain-prop test) — run inline.
+            work()
+            return
+        }
+        def tt = new TransactionTemplate(transactionManager)
+        tt.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW)
+        tt.execute({ status -> work() ; null } as org.springframework.transaction.support.TransactionCallback)
+    }
 
     @Transactional
     Listing relist(Long sellerUserId, String sellerName, Long ownedListingId, BigDecimal newPrice,
@@ -199,7 +237,22 @@ class SellService {
      * Returns `{cancelled: N, skippedAuctions: M, failed: K}` so the
      * UI can toast a meaningful summary.
      */
-    @Transactional
+    /**
+     * Boss-QA cycle 33: outer @Transactional REMOVED. The previous
+     * decoration was actively harmful — it wrapped every per-listing
+     * cancelListing call in the SAME tx, so a single rollback-only
+     * marker from a row that lost the buy-race (ListingNotAvailableException)
+     * poisoned the WHOLE batch. The try/catch swallowed the per-row
+     * exception but the @Transactional commit then threw
+     * UnexpectedRollbackException, surfacing a 500 even though the
+     * `{cancelled, skippedAuctions, failed}` summary was already populated.
+     *
+     * Each per-listing cancelListing now runs in its own REQUIRES_NEW
+     * tx via runInIsolatedTx — one rollback can't poison siblings. The
+     * outer banGuard.assertNotBanned is the only mutation-adjacent
+     * operation outside the loop and it's a read-only guard (throws or
+     * returns; doesn't write), so it doesn't need its own tx.
+     */
     Map cancelAllActive(Long sellerUserId, boolean includeAuctions = false) {
         banGuard.assertNotBanned(sellerUserId)
         def active = listingRepository.findActiveBySeller(sellerUserId)
@@ -210,7 +263,7 @@ class SellService {
                 return
             }
             try {
-                cancelListing(sellerUserId, l.id)
+                runInIsolatedTx { cancelListing(sellerUserId, l.id) }
                 cancelled++
             } catch (Exception e) {
                 failed++
