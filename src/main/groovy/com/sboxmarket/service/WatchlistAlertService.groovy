@@ -9,6 +9,7 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 /**
@@ -187,9 +188,17 @@ class WatchlistAlertService {
      * alerts_active_item + the Item PK) so even a large population
      * stays O(matches).
      */
+    // NOT @Transactional — same rollback-only leak as 443f910 / 526a5f4.
+    // fireRow's repo.save(a) inside a per-row try/catch poisons the
+    // shared outer tx the moment one save throws; the catch absorbs
+    // the throw but on sweep() return the commit blows up with
+    // UnexpectedRollbackException and every "FIRED" stamp the batch
+    // applied to sibling alerts gets rolled back — the next 5-min tick
+    // re-finds those alerts and re-fires duplicate WATCHLIST_PRICE_DROP
+    // pushes. Each fireRow save is independent (no cross-alert
+    // invariant), so per-save implicit tx is the correct posture.
     @Scheduled(fixedDelayString = '${watchlist-alert.sweep-ms:300000}',
                initialDelayString = '${watchlist-alert.initial-delay-ms:60000}')
-    @Transactional
     void sweep() {
         def all = repo.findTriggered()
         if (all == null || all.isEmpty()) return
@@ -210,8 +219,25 @@ class WatchlistAlertService {
      * pass. Scoped query keeps the work O(alerts-on-this-item) even when
      * the global pool grows to thousands. Safe to call from inside the
      * sell transaction — all work wraps in try/catch and is best-effort.
+     *
+     * REQUIRES_NEW propagation is LOAD-BEARING — the caller (SellService.
+     * relist) is itself @Transactional, so a default REQUIRED propagation
+     * would JOIN the sell tx. fireRow's per-row repo.save then poisons
+     * the SHARED sell tx the moment one save throws (e.g. concurrent
+     * relist of the same item racing the alert flip): the per-row catch
+     * absorbs the throw, sweepForItem returns normally, the SellService
+     * try/catch around the call sees no exception — but when the sell
+     * tx commits Spring throws UnexpectedRollbackException and the
+     * caller's listing save + buy-order fulfilment + every other sell-
+     * side-effect is rolled back. Catastrophic for a money-path call.
+     *
+     * REQUIRES_NEW gives the alert sweep its OWN tx, isolated from the
+     * caller's. A failing alert save can still rollback this inner tx,
+     * but the worst case is "some alerts in this sweep don't fire and
+     * the next 5-min scheduled tick re-tries them" — the sell tx is
+     * unaffected.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     void sweepForItem(Long itemId) {
         if (itemId == null) return
         try {
