@@ -1543,6 +1543,45 @@ class TradeServiceSpec extends Specification {
         Math.abs(captured - expected) < 5000L
     }
 
+    def "sweepReviewNudge isolates per-row save failures — one bad row never poisons a sibling stamp + push"() {
+        // Bug bar: the outer sweep used to be @Transactional. A
+        // tradeRepository.save() failure on trade #7 (e.g. an
+        // OptimisticLockingFailureException from a concurrent leaveReview /
+        // postMessage on the same row) marked the SHARED outer tx
+        // rollback-only — the per-row try/catch swallowed the throw, but
+        // every reviewNudgeSentAt stamp the sweep had already applied to
+        // SIBLING rows silently reverted at commit. Next 24h tick re-fired
+        // REVIEW_REMINDER pushes for every nudged buyer in the batch,
+        // exactly the duplicate-notification leak the partial-index dedup
+        // was meant to prevent. Per-row auto-commit must isolate the bad
+        // row from sibling work.
+        given:
+        def bad  = tradeIn('VERIFIED', [id: 7L, buyer: 10L, seller: 20L])
+        def good = tradeIn('VERIFIED', [id: 8L, buyer: 11L, seller: 21L])
+        bad.settledAt  = System.currentTimeMillis() - (60L * 3600_000L)
+        good.settledAt = System.currentTimeMillis() - (60L * 3600_000L)
+        tradeRepository.findReviewNudgeCandidates(_) >> [bad, good]
+        // Row #7 save blows up (concurrent write → OptimisticLockingFailure).
+        // Row #8 save succeeds. Without per-row isolation the sweep would
+        // either re-throw out of the .each loop (losing the entire batch)
+        // OR commit-rollback the sibling stamp under an outer @Transactional.
+        tradeRepository.save({ Trade t -> t.id == 7L }) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                'Trade', 7L)
+        }
+        tradeRepository.save({ Trade t -> t.id == 8L }) >> { Trade t -> t }
+
+        when:
+        service.sweepReviewNudge()
+
+        then: "sibling row's stamp must persist — not be rolled back by the bad save"
+        good.reviewNudgeSentAt != null
+        and: "sibling row's REVIEW_REMINDER push still fired — sweep didn't abort"
+        1 * notificationService.push(11L, 'REVIEW_REMINDER', _, _, 8L, _)
+        and: "no exception bubbles out — bad row was swallowed in the per-row catch"
+        noExceptionThrown()
+    }
+
     def "sweepReviewNudge swallows per-row push exceptions"() {
         given:
         def t1 = tradeIn('VERIFIED', [id: 7L, buyer: 10L])
@@ -1615,6 +1654,44 @@ class TradeServiceSpec extends Specification {
         // 24h behind now — give a 5s slop window for spec scheduling jitter.
         def expected = System.currentTimeMillis() - (24L * 3600_000L)
         Math.abs(captured - expected) < 5000L
+    }
+
+    def "sweepSlowSellerWarning isolates per-row save failures — sibling stamp + pushes still fire"() {
+        // Same bug bar as the sweepReviewNudge spec just above. With the
+        // old outer @Transactional, a tradeRepository.save() throw on row
+        // #7 marked the shared tx rollback-only, the catch silently
+        // swallowed it, and the slowSellerWarnedAt stamp on row #8 was
+        // reverted at commit — so the next hourly tick re-fired
+        // TRADE_SLOW_SELLER + TRADE_SELLER_NUDGE to every buyer + seller
+        // pair in the batch. Per-row auto-commit must keep the bad row's
+        // failure from corrupting sibling stamps.
+        given:
+        def bad  = tradeIn('PENDING_SELLER_SEND', [id: 7L, buyer: 10L, seller: 20L])
+        def good = tradeIn('PENDING_SELLER_ACCEPT', [id: 8L, buyer: 11L, seller: 21L])
+        bad.updatedAt  = System.currentTimeMillis() - (30L * 3600_000L)
+        good.updatedAt = System.currentTimeMillis() - (30L * 3600_000L)
+        tradeRepository.findSlowSellerUnwarned(_) >> [bad, good]
+        tradeRepository.save({ Trade t -> t.id == 7L }) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                'Trade', 7L)
+        }
+        tradeRepository.save({ Trade t -> t.id == 8L }) >> { Trade t -> t }
+        // No banned sellers — keeps the seller nudge live so we can assert
+        // it fires for the sibling row.
+        steamUserRepository.findById(21L) >> Optional.of(
+            new com.sboxmarket.model.SteamUser(id: 21L, banned: false))
+
+        when:
+        service.sweepSlowSellerWarning()
+
+        then: "sibling row's stamp must persist despite bad row's save throwing"
+        good.slowSellerWarnedAt != null
+        and: "sibling buyer still gets TRADE_SLOW_SELLER push"
+        1 * notificationService.push(11L, 'TRADE_SLOW_SELLER', _, _, 8L, _)
+        and: "sibling seller still gets TRADE_SELLER_NUDGE push"
+        1 * notificationService.push(21L, 'TRADE_SELLER_NUDGE', _, _, 8L, _)
+        and: "bad row's failure is swallowed in the per-row catch — sweep keeps going"
+        noExceptionThrown()
     }
 
     def "sweepSlowSellerWarning swallows per-row push exceptions"() {

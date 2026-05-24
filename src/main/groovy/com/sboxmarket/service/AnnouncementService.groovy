@@ -90,8 +90,17 @@ class AnnouncementService {
      * reality. Runs hourly with a 15-minute offset so it doesn't
      * collide with the other sweepers on container start.
      */
+    // NOT @Transactional — the per-row try/catch + repository.save() pattern
+    // below is the classic Spring rollback-only leak (wave 23 closed the same
+    // bug in best-effort fan-outs). Spring Data's save() proxy marks the
+    // SHARED outer tx as rollback-only the moment any inner save throws —
+    // even when the user's try/catch absorbs the exception — so when
+    // sweepExpired returns normally the commit throws UnexpectedRollbackException
+    // and every "successful" row in the batch ALSO rolls back. The method has
+    // zero cross-row invariant (it's N independent active=false flips), so the
+    // correct posture is "no outer transaction" — each save() runs in its own
+    // implicit tx and a single bad row only loses that row.
     @Scheduled(fixedDelay = 60L * 60L * 1000L, initialDelay = 15L * 60L * 1000L)
-    @Transactional
     void sweepExpired() {
         def now = System.currentTimeMillis()
         def rows

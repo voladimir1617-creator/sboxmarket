@@ -375,8 +375,18 @@ class BuyOrderService {
      *
      * Returns the count of rows flipped to CANCELLED. Per-row save
      * failures fall through to the next row — best-effort.
+     *
+     * NOT @Transactional — the per-row try/catch + repository.save() pattern
+     * is the same Spring rollback-only leak wave 23 closed for fan-outs.
+     * Spring Data's save() proxy marks the SHARED outer tx as rollback-only
+     * the moment one inner save throws — the user's catch absorbs the throw
+     * but the tx is already poisoned, so on method return the commit throws
+     * UnexpectedRollbackException and every "successfully" cancelled row in
+     * the batch is rolled back too. Zero cross-row invariant here — each
+     * cancel is independent. Drop the outer tx so each save() runs in its
+     * own implicit tx and a single bad row only loses that row, matching
+     * the docstring's "Per-row save failures fall through" promise.
      */
-    @Transactional
     int cancelAllForUser(Long buyerUserId) {
         if (buyerUserId == null) return 0
         def active = buyOrderRepository.findByBuyer(buyerUserId)

@@ -1122,8 +1122,20 @@ class TradeService {
      *
      * Runs daily at offset to avoid contending with the other sweepers.
      */
+    // Deliberately NOT @Transactional on the outer sweep. Mirrors the
+    // fix BidService.sweepExpired adopted (batch 800): a per-row
+    // `tradeRepository.save(trade)` that throws (e.g. an
+    // OptimisticLockingFailureException from a concurrent
+    // tradeRepository write touching the same row) would mark the
+    // SHARED outer tx rollback-only — the per-row try/catch below
+    // swallows the exception, but every reviewNudgeSentAt stamp the
+    // sweep had already applied to SIBLING rows then silently reverts
+    // on commit. Result: the next 24h tick re-finds those rows and
+    // re-fires REVIEW_REMINDER pushes to buyers we already nudged — a
+    // duplicate-notification leak the partial-index dedup was meant to
+    // prevent. With the outer tx removed each per-row save commits in
+    // its own auto-commit, so one bad row never poisons sibling stamps.
     @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L, initialDelay = 30L * 60L * 1000L)
-    @Transactional
     void sweepReviewNudge() {
         // 48-hour threshold — gives a buyer two days after the trade
         // verifies before pinging again, but soon enough that the
@@ -1165,8 +1177,17 @@ class TradeService {
         }
     }
 
+    // Deliberately NOT @Transactional — same per-batch poisoning
+    // concern as sweepReviewNudge above. One per-row
+    // `tradeRepository.save(trade)` that throws (concurrent
+    // postMessage / dispute / sellerMarkSent mutating the same trade
+    // → optimistic-lock failure) would mark the shared outer tx
+    // rollback-only; the slowSellerWarnedAt stamp on every previously
+    // processed sibling row would silently revert at commit time, and
+    // the next hourly tick would re-fire TRADE_SLOW_SELLER +
+    // TRADE_SELLER_NUDGE pushes to every buyer/seller in the batch.
+    // Per-row auto-commit isolates the failure.
     @Scheduled(fixedDelay = 60L * 60L * 1000L, initialDelay = 5L * 60L * 1000L)
-    @Transactional
     void sweepSlowSellerWarning() {
         // 24-hour silence threshold — half of the seller-response
         // auto-cancel window so the buyer always gets >=1 ping before
