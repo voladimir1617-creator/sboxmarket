@@ -12,6 +12,11 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -29,6 +34,40 @@ class ListingService {
     @Autowired(required = false) com.sboxmarket.repository.WatchlistItemRepository watchlistItemRepository
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) NotificationService notificationService
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /**
+     * Run {@code work} after the caller's transaction commits — or
+     * immediately (with swallow) when there is no active transaction
+     * (unit tests). Mirrors the canonical pattern in AuditService /
+     * PriceHistoryService / NotificationService / SellService.
+     *
+     * Why this exists for tryMatch: a join-the-caller-tx call to
+     * buyOrderService.tryMatch can mark this save/createListing tx
+     * rollback-only via purchaseService.buy's inner save throws —
+     * UnexpectedRollbackException at commit then nukes the listing
+     * INSERT silently while the HTTP response says 200. Same fix as
+     * SellService.relist (4f55f92). REQUIRES_NEW alone won't work
+     * because buy() reads the fresh listing by id and READ_COMMITTED
+     * blinds a sibling tx to the uncommitted INSERT.
+     */
+    private void deferOrRun(Closure work) {
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    try {
+                        def tt = new TransactionTemplate(transactionManager)
+                        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                        tt.executeWithoutResult { work() }
+                    } catch (Exception e) {
+                        log.warn("Deferred best-effort work failed: ${e.message}")
+                    }
+                }
+            })
+        } else {
+            try { work() } catch (Exception e) { log.warn("Inline best-effort work failed: ${e.message}") }
+        }
+    }
 
     /** Cap on user-submitted reports per hour — stops a single user from mass-flagging
      *  every listing on the platform to burn down admin moderation cycles. */
@@ -194,7 +233,12 @@ class ListingService {
     Listing save(Listing listing) {
         def saved = listingRepository.save(listing)
         updateItemFloorPrice(listing.item.id)
-        try { buyOrderService.tryMatch(saved) } catch (Exception ignore) {}
+        // Deferred so a tryMatch → buy() failure can't rollback-poison
+        // THIS save's tx. Same rationale as SellService.relist (4f55f92):
+        // the per-row catch absorbs the throw but Spring Data's save proxy
+        // has already marked the shared tx rollback-only; at commit
+        // UnexpectedRollbackException then nukes the listing INSERT.
+        deferOrRun { buyOrderService.tryMatch(saved) }
         saved
     }
 
@@ -452,7 +496,13 @@ class ListingService {
     Listing createListing(Listing listing) {
         def saved = listingRepository.save(listing)
         updateItemFloorPrice(listing.item.id)
-        try { buyOrderService.tryMatch(saved) } catch (Exception e) { log.warn("buy-order match: ${e.message}") }
+        // Deferred — same rationale as save() above and SellService.relist
+        // (4f55f92). tryMatch's inner buy() reads the listing by id; under
+        // READ_COMMITTED a sibling REQUIRES_NEW tx wouldn't see this
+        // uncommitted INSERT, so we have to defer until afterCommit when
+        // the row is durably visible and a buy() failure rolls back only
+        // its own inner tx.
+        deferOrRun { buyOrderService.tryMatch(saved) }
         // Fan out NEW_LISTING_FROM_SELLER to every follower. Without this,
         // Steam-inventory listings via /api/steam/list silently bypassed
         // the follower notification path that SellService.relist already
