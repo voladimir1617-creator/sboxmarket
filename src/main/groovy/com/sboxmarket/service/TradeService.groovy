@@ -331,7 +331,7 @@ class TradeService {
             def itemDecor = t.itemId == null ? null : itemDecorById[t.itemId]
             tradeToMap(t, cp?.tradeUrl, cp?.displayName, cp?.steamId64, cp?.avatarUrl,
                 cpRating,
-                unreadCounts[t.id] ?: 0L, lastMessages[t.id], itemDecor)
+                unreadCounts[t.id] ?: 0L, lastMessages[t.id], itemDecor, userId)
         }
     }
 
@@ -341,19 +341,28 @@ class TradeService {
                            Map counterpartyRatingSummary = null,
                            long unreadCount = 0L,
                            com.sboxmarket.model.TradeMessage lastMessage = null,
-                           Map itemDecor = null) {
+                           Map itemDecor = null,
+                           Long viewerUserId = null) {
         // Truncated last-message preview — collapsed-row inline preview
         // (batch 283). 80-char cap matches the TRADE_MESSAGE notification
         // body so a notification + the inline preview read identically.
         Map preview = null
         if (lastMessage != null) {
             def body = lastMessage.body ?: ''
+            // `fromMe` reflects "was this message sent by the viewer of
+            // the list?". The old expression collapsed to a tautology
+            // (`senderUserId == (buyerUserId == senderUserId ? buyerUserId
+            // : sellerUserId)`) that always evaluated `true` regardless of
+            // who actually sent the message, because the viewer's id was
+            // never threaded through. Compare directly against the viewer
+            // now; null `viewerUserId` (legacy single-arg callers) falls
+            // back to `false` so callers without viewer context don't
+            // falsely claim ownership.
             preview = [
                 body:         body.length() > 80 ? body.substring(0, 77) + '…' : body,
                 senderUserId: lastMessage.senderUserId,
                 createdAt:    lastMessage.createdAt,
-                fromMe:       lastMessage.senderUserId == (t.buyerUserId == lastMessage.senderUserId
-                    ? t.buyerUserId : t.sellerUserId)
+                fromMe:       viewerUserId != null && lastMessage.senderUserId == viewerUserId
             ]
         }
         [
