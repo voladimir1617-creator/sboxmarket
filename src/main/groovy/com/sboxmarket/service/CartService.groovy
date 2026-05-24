@@ -42,7 +42,25 @@ class CartService {
             throw new com.sboxmarket.exception.BadRequestException('CART_FULL',
                 "Cart is capped at ${MAX_PER_USER} items. Remove some before adding more.")
         }
-        repository.save(new CartItem(userId: userId, listingId: listingId))
+        // existsByUserAndListing + save is a non-atomic read-modify-write.
+        // The same user tapping Add-to-cart from two devices (or
+        // double-clicking the button) fires two concurrent requests that
+        // both observe exists=false and both INSERT; the V31
+        // `uq_cart_items_user_listing` UNIQUE constraint then rejects the
+        // loser with a DataIntegrityViolationException, which bubbles to
+        // the slower client as a 500 even though the row was successfully
+        // added by the winning request. Treat the violation as a benign
+        // no-op — idempotent semantics are preserved without leaking a
+        // 500 on a hot double-click. IDENTITY id generation forces the
+        // INSERT at save() time, so the violation surfaces synchronously
+        // where we can catch it (not at commit). Mirrors
+        // WatchlistService.add and LoadoutService.toggleFavorite.
+        try {
+            repository.save(new CartItem(userId: userId, listingId: listingId))
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            log.debug("Cart add race for user=${userId} listing=${listingId} — already in cart, treating as no-op")
+            return false
+        }
         true
     }
 
