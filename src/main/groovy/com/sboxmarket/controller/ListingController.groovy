@@ -1274,8 +1274,20 @@ class ListingController {
     @PostMapping("/check-active")
     ResponseEntity<List<Map>> checkActive(@RequestBody Map body) {
         def raw = (body?.ids instanceof List) ? body.ids : []
+        // Coerce each id defensively. A non-numeric string ({"ids":["abc"]}),
+        // a boolean, or any other JSON value that Jackson maps to a non-numeric
+        // Object used to bubble out of the bare `(it as Long)` cast as a
+        // GroovyCastException — caught only by the catch-all handler and
+        // surfaced as a 500 INTERNAL_ERROR on what is really a malformed-body
+        // client mistake. Silently drop bad tokens so the freshness probe
+        // degrades to a partial response (matches the bulkMerge / bulkCounts
+        // family — WatchlistController#bulkMerge, BuyOrderController#countBulk,
+        // ListingController#salesVelocity all use the same try/catch pattern).
         def ids = raw.take(50)
-            .collect { it == null ? null : (it as Long) }
+            .collect {
+                if (it == null) return null
+                try { Long.valueOf(it.toString()) } catch (Exception ignored) { null }
+            }
             .findAll { it != null }
             .unique()
         if (ids.isEmpty()) return ResponseEntity.ok([])
