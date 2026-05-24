@@ -17,6 +17,7 @@ import com.sboxmarket.repository.WalletRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -117,7 +118,16 @@ class CsrService {
 
         def matches = users.take(20).collect { u ->
             def wallet = walletRepository.findByUsername("steam_${u.steamId64}")
-            def tx = wallet ? transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id).take(10) : []
+            // PageRequest(0, 10) at the DB boundary instead of fetching every
+            // tx row and `.take(10)`-ing in memory. The CSR search renders up
+            // to 20 user cards, each of which previously hydrated that user's
+            // ENTIRE transaction history just to display the top 10 — for a
+            // heavy-trading wallet that's thousands of rows × 20 cards per
+            // search, an O(N×20) memory + GC burst on every CSR lookup.
+            // The paginated overload (line 17 of TransactionRepository) has
+            // existed since the wave-38 pagination pass; this call site never
+            // got migrated.
+            def tx = wallet ? transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.id, PageRequest.of(0, 10)) : []
             // Chargeback context (batch 469). Active count = currently
             // DISPUTED deposits (drives the user's withdrawal hold);
             // lifetime count = every DISPUTED tx ever including cleared
