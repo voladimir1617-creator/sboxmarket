@@ -7297,7 +7297,7 @@ export function App() {
         ),
         h('div', { className: 'csfloat-home-sales-row' },
           recentSales.slice(0, 6).map((s, i) => h('a', {
-            key: i,
+            key: s.listing && s.listing.id != null ? ('rs-' + s.listing.id) : ('rs-i-' + i),
             className: 'csfloat-home-sales-card',
             href: s.listing.item.id ? ('/item/' + s.listing.item.id) : '#',
             onClick: s.listing.item.id ? ((e) => { e.preventDefault(); navigate('/item/' + s.listing.item.id); }) : undefined
