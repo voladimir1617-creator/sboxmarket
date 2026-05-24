@@ -229,19 +229,47 @@ class SteamAuthController {
      * page load. Cosmetic but ugly — anon /me is the expected case for
      * any unauthenticated session, not an error. Return 200 with an
      * explicit signed-out shape so the browser stops complaining.
+     *
+     * `Cache-Control: no-store` is critical: without it a browser (or any
+     * intermediate proxy / CDN) is free to cache the response and serve
+     * it across auth-state transitions. Two real-world breakages this
+     * prevents — (1) an anon visitor's cached `{signedIn:false}` keeps
+     * the SPA's header rendering "Sign in" for several minutes AFTER the
+     * user actually completes a login round-trip, and (2) a user who
+     * logs out (or hits `/logout-all` on another device) sees their
+     * stale signed-in identity rehydrated on the next page load until
+     * the cache entry ages out. `private` keeps shared caches from ever
+     * holding user-identifying responses; `must-revalidate` + `max-age=0`
+     * close the bfcache / back-forward stale-while-revalidate gap on
+     * Safari. The Pragma header is the HTTP/1.0 belt-and-braces twin for
+     * any legacy proxy in front of the app.
      */
     @GetMapping("/me")
     ResponseEntity me(HttpServletRequest req) {
         def userId = req.session.getAttribute(SESSION_USER_ID) as Long
         if (userId == null) {
-            return ResponseEntity.ok([signedIn: false] as Map)
+            return noStore(ResponseEntity.ok([signedIn: false] as Map))
         }
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) {
             req.session.invalidate()
-            return ResponseEntity.ok([signedIn: false] as Map)
+            return noStore(ResponseEntity.ok([signedIn: false] as Map))
         }
-        ResponseEntity.ok(user)
+        noStore(ResponseEntity.ok(user))
+    }
+
+    /** Stamp the standard never-cache header set onto a response. Returns
+     *  a NEW ResponseEntity (Spring's builder is immutable) carrying the
+     *  same status + body. Pulled out as a helper so every /me return
+     *  path uses the same belt-and-braces directive without copy-paste
+     *  drift — and so a future endpoint that handles auth identity can
+     *  reuse it. See the /me javadoc for the rationale on each token. */
+    private static <T> ResponseEntity<T> noStore(ResponseEntity<T> r) {
+        ResponseEntity.status(r.statusCode)
+            .header('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0')
+            .header('Pragma', 'no-cache')
+            .header('Expires', '0')
+            .body(r.body)
     }
 
     @PostMapping("/logout")
