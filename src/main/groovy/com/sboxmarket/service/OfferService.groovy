@@ -923,8 +923,22 @@ class OfferService {
      * refund bookkeeping to worry about (unlike auction bids). Seller
      * notifications go out per-row so stalls see the queue drain
      * cleanly.
+     *
+     * NOT @Transactional — same Spring rollback-only leak the wave 23 +
+     * commit 443f910 wave closed for sibling fan-outs (AnnouncementService
+     * .sweepExpired, BuyOrderService.cancelAllForUser, TradeService.sweep
+     * ReviewNudge / sweepSlowSellerWarning). Spring Data's save() proxy
+     * marks the SHARED outer tx as rollback-only the moment one inner save
+     * throws — the per-row catch absorbs the throw but the tx is already
+     * poisoned, so on method return the commit throws
+     * UnexpectedRollbackException and every "successfully" cancelled offer
+     * in the batch is rolled back too. Zero cross-row invariant here —
+     * each offer cancel is independent (no shared escrow, no shared
+     * inventory row). Drop the outer tx so each save() runs in its own
+     * implicit tx and a single bad offer only loses itself, matching the
+     * docstring's "a per-row push failure doesn't abort the batch"
+     * promise.
      */
-    @Transactional
     int cancelAllForUser(Long buyerUserId) {
         if (buyerUserId == null) return 0
         // Batch 1030 — indexed PENDING-only fetch instead of pulling every

@@ -1369,6 +1369,48 @@ class OfferServiceSpec extends Specification {
         b.status == 'CANCELLED'
     }
 
+    def "cancelAllForUser isolates per-row save failures — one bad offer never poisons a sibling flip + push"() {
+        // Bug bar: the outer cancelAllForUser used to be @Transactional. A
+        // mid-batch offerRepository.save() failure on offer #1 (e.g. an
+        // OptimisticLockingFailureException because a concurrent
+        // counter-offer or seller-accept landed on the same row) marked
+        // the SHARED outer tx rollback-only — the per-row try/catch
+        // swallowed the throw, but on method return the commit threw
+        // UnexpectedRollbackException and EVERY "successfully" cancelled
+        // sibling offer (and its seller push, if it had already fired)
+        // silently rolled back. Buyer sees `n=1` returned from the API
+        // but reloads the Offers tab and ALL N offers are still PENDING.
+        // Per-row auto-commit must isolate the bad row from sibling work.
+        // Mirrors the BuyOrderService.cancelAllForUser fix from 443f910.
+        given:
+        def a = new Offer(id: 1L, buyerUserId: 10L, sellerUserId: 50L,
+            itemName: 'Hat', amount: new BigDecimal("5"), status: 'PENDING')
+        def b = new Offer(id: 2L, buyerUserId: 10L, sellerUserId: 51L,
+            itemName: 'Boots', amount: new BigDecimal("8"), status: 'PENDING')
+        offerRepository.findPendingByBuyer(10L) >> [a, b]
+        // Row #1 save blows up (concurrent counter-offer → optimistic
+        // lock). Row #2 save succeeds. Without per-row isolation the
+        // sibling flip + push would silently revert under an outer
+        // @Transactional commit.
+        offerRepository.save({ Offer o -> o.id == 1L }) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                'Offer', 1L)
+        }
+        offerRepository.save({ Offer o -> o.id == 2L }) >> { Offer o -> o }
+
+        when:
+        int n = service.cancelAllForUser(10L)
+
+        then: "only the surviving row counts toward n"
+        n == 1
+        and: "sibling row's flip persists — not rolled back by the bad save"
+        b.status == 'CANCELLED'
+        and: "sibling row's seller push still fires — sweep didn't abort"
+        1 * notificationService.push(51L, 'OFFER_REJECTED', _, _, 2L, '/offers')
+        and: "no exception bubbles out — bad row was swallowed in the per-row catch"
+        noExceptionThrown()
+    }
+
     def "outgoingWithExpiry mirrors the incoming decoration shape"() {
         given:
         service.autoDeclineDays = 5L

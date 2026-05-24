@@ -57,9 +57,17 @@ class ItemService {
             items = items.findAll { it.rarity == rarity }
         }
 
-        // price filter
-        if (minPrice != null) items = items.findAll { it.lowestPrice >= minPrice }
-        if (maxPrice != null) items = items.findAll { it.lowestPrice <= maxPrice }
+        // price filter — items with null lowestPrice are NEVER in the
+        // band by definition (price isn't known). Without the explicit
+        // null check, Groovy's `null >= bd` calls null.compareTo(bd)
+        // which NPEs and 500s the entire search — a brand-new item
+        // before SteamMarketPriceService populates its lowestPrice (or
+        // any catalogue row created via SCMM sync where buyNowPrice
+        // came back blank) would crash every minPrice/maxPrice query.
+        // Treat null as "exclude" so unpriced items are silently
+        // dropped from a banded search, never throw.
+        if (minPrice != null) items = items.findAll { it.lowestPrice != null && it.lowestPrice >= minPrice }
+        if (maxPrice != null) items = items.findAll { it.lowestPrice != null && it.lowestPrice <= maxPrice }
 
         // sort — classic Groovy switch on a mutable copy so we never touch a
         // repository-backed list (same reliability fix applied to ListingService)
