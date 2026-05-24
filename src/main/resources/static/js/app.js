@@ -3333,15 +3333,17 @@ export function App() {
   useEffect(() => {
     const q = (searchInput || '').trim();
     if (q.length < 2) { setSuggest([]); return; }
+    let alive = true;
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/items?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
-        if (!r.ok) return;
+        if (!alive || !r.ok) return;
         const items = await r.json();
+        if (!alive) return;
         setSuggest(Array.isArray(items) ? items.slice(0, 8) : []);
       } catch (_) {}
     }, 180);
-    return () => clearTimeout(t);
+    return () => { alive = false; clearTimeout(t); };
   }, [searchInput]);
   useEffect(() => {
     const onDoc = (e) => {
