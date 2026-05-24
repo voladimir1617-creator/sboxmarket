@@ -151,14 +151,24 @@ const KIND_ICONS = {
 // `force=true` bypasses the sb_sounds mute so the Settings preview
 // can always play — the setting is about incoming-notification dings,
 // not a manual audition.
-export function playNotifyDing(opts) {
+export async function playNotifyDing(opts) {
   const force = opts === true || (opts && opts.force === true);
   try {
     if (!force && localStorage.getItem('sb_sounds') === 'false') return { ok: false, reason: 'muted' };
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return { ok: false, reason: 'no-audio-api' };
     const ctx = (playNotifyDing._ctx = playNotifyDing._ctx || new Ctx());
-    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
+    // AudioContext.resume() returns a Promise — the previous fire-and-
+    // forget call returned synchronously and immediately checked state,
+    // which is still 'suspended' for a microtask or two after resume.
+    // That made the Settings "Send test notification" button report
+    // "audio-blocked" the FIRST time it was clicked even though the
+    // click itself is a valid user gesture that resumes the context.
+    // Awaiting the resume promise lets the state settle before the
+    // gate below decides whether to proceed.
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch (_) {}
+    }
     // Detect autoplay-blocked audio: when the user hasn't interacted with the
     // tab yet, AudioContext stays suspended and ping() emits silence. Codex
     // 17:28Z asked for visible feedback when audio can't actually play; this
@@ -289,6 +299,26 @@ export function NotificationBell({ me }) {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [me, loadCount, loadFull, open]);
+
+  // Listen for sb_mute_kinds changes (dispatched synthetically by the
+  // Settings modal's mute-toggle, or by another tab via the native
+  // storage event). Without this, muting a category from Settings
+  // doesn't repaint the bell badge or the dropdown rows until the next
+  // 25s poll lands, so wallet/trade rows the user just muted stay
+  // visible. Fires a full reload so the muted-aware visibleUnread is
+  // re-derived from the latest server payload.
+  useEffect(() => {
+    if (!me) return;
+    const onStorage = (e) => {
+      if (e.key !== 'sb_mute_kinds') return;
+      // Honour the same hidden-tab guard the poll uses so a backgrounded
+      // tab doesn't fire a fetch just because another tab changed mutes.
+      if (document.hidden) return;
+      if (open) loadFull(); else loadCount();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [me, open, loadFull, loadCount]);
 
   // Mirror unread count into the browser tab title so users glancing at a
   // background tab see "(3) SkinBox …" when something needs attention.

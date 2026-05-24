@@ -3020,7 +3020,18 @@ export function SettingsModal({ onClose, me }) {
     const next = new Set(muted);
     if (next.has(cat)) next.delete(cat); else next.add(cat);
     setMutedState(next);
-    try { localStorage.setItem('sb_mute_kinds', JSON.stringify([...next])); } catch (_) {}
+    try {
+      const serialised = JSON.stringify([...next]);
+      localStorage.setItem('sb_mute_kinds', serialised);
+      // Dispatch a synthetic storage event so the nav bell + any other
+      // consumer of sb_mute_kinds repaints immediately instead of waiting
+      // for the 25s poll. Without this a user who mutes "Wallet" still
+      // sees wallet notifications in the bell dropdown and the badge
+      // count until the next poll lands.
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sb_mute_kinds', newValue: serialised
+      }));
+    } catch (_) {}
   };
   const [reduceMotion, setRM]   = useState(localStorage.getItem('sb_reduce_motion') === '1');
   const [highContrast, setHC]   = useState(localStorage.getItem('sb_contrast') === '1');
@@ -3044,9 +3055,19 @@ export function SettingsModal({ onClose, me }) {
 
   useEffect(() => {
     localStorage.setItem('sb_currency', currency);
-    // Fire a storage event so other tabs update immediately; the fmt() helper
-    // reads localStorage on every call so the next render already shows the
-    // new currency in THIS tab.
+    // Same-tab storage events don't fire automatically — without this
+    // synthetic dispatch the footer "All prices in …" copy and the
+    // NavPicker currency-aware re-renders (app.js:3758) only update on
+    // the next render cycle / tab focus. Match the pattern used by the
+    // NavPicker (app.js:5423) and the sb_privacy effect below.
+    try {
+      if (typeof window !== 'undefined' && window.SBOX_CURRENCY !== undefined) {
+        window.SBOX_CURRENCY = currency;
+      }
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'sb_currency', newValue: currency
+      }));
+    } catch (_) {}
   }, [currency]);
   useEffect(() => { localStorage.setItem('sb_notifs', notifs); }, [notifs]);
   useEffect(() => { localStorage.setItem('sb_sounds', sounds); }, [sounds]);
@@ -3170,7 +3191,11 @@ export function SettingsModal({ onClose, me }) {
           onClick: async () => {
             try {
               const { playNotifyDing } = await import('./nav-widgets.js');
-              const res = playNotifyDing({ force: true });
+              // playNotifyDing is now async — it awaits AudioContext.resume()
+              // before checking state, so a first-click in a fresh tab that
+              // resumes the context now actually plays the ding instead of
+              // reporting audio-blocked.
+              const res = await playNotifyDing({ force: true });
               if (res && res.ok) {
                 setSoundTestStatus({ kind: 'ok', text: 'Test ding played.' });
               } else if (res && res.reason === 'audio-blocked') {
