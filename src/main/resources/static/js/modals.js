@@ -3839,7 +3839,7 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 // Email-notification toggle row. Lazy-loads the PUT helper so this
 // file doesn't gain a new top-level dependency; state is local, with
 // the server value seeded from ProfileService.buildProfile.
-function EmailPrefToggle({ initial }) {
+function EmailPrefToggle({ initial, onChange }) {
   const [on, setOn] = useState(initial !== false);
   const [busy, setBusy] = useState(false);
   const toggle = async () => {
@@ -3847,12 +3847,19 @@ function EmailPrefToggle({ initial }) {
     setBusy(true);
     const next = !on;
     setOn(next);  // optimistic
+    // Notify parent so the gated EmailBucketMutes section shows/hides
+    // without waiting for a profile refetch. Pre-fix the parent read
+    // its stale `profile.user.emailNotificationsEnabled` snapshot so
+    // flipping the master toggle never revealed the per-bucket panel
+    // (and never hid it after a turn-off).
+    try { onChange && onChange(next); } catch (_) {}
     try {
       const { setEmailNotifications } = await import('./api.js');
       const res = await setEmailNotifications(next);
       if (res && (res.error || res.code)) {
         toast(res.message || res.error || 'Could not update email notifications', 'err');
         setOn(!next);  // revert
+        try { onChange && onChange(!next); } catch (_) {}
       }
     } finally { setBusy(false); }
   };
@@ -4344,6 +4351,15 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
   const [emailDraft, setEmailDraft]     = useState('');
   const [emailToken, setEmailToken]     = useState('');
   const [emailResult, setEmailResult]   = useState(null);
+  // Live mirror of the global email-notifications switch so the gated
+  // EmailBucketMutes panel shows/hides the instant the toggle flips,
+  // not on the next profile refetch. Seeded from the loaded profile;
+  // re-syncs whenever the profile prop changes (re-sync, refresh).
+  const [emailsOn, setEmailsOn] = useState(
+    profile?.user?.emailNotificationsEnabled !== false);
+  useEffect(() => {
+    setEmailsOn(profile?.user?.emailNotificationsEnabled !== false);
+  }, [profile?.user?.emailNotificationsEnabled]);
 
   const [enrolling, setEnrolling]   = useState(false);
   const [twofaSecret, setTwofaSecret] = useState('');
@@ -5197,16 +5213,22 @@ function ProfilePersonalTab({ me, profile, syncing, onSync, transactions, refres
     // loaded profile; click optimistically and commits via PUT. The
     // per-bucket mutes underneath let a user keep trade emails but
     // silence watchlist alerts (etc) — layered on top of the global
-    // toggle, only consulted when emails are globally ON.
+    // toggle, only consulted when emails are globally ON. The gate
+    // uses the live `emailsOn` mirror so flipping the master toggle
+    // shows/hides the bucket panel immediately, instead of waiting for
+    // a profile refetch (which only fires on re-sync from Steam).
     h('div', { className: 'profile-row' },
       h('div', { className: 'profile-row-label' }, 'Email notifications'),
       h('div', { className: 'profile-row-value', style: { flexDirection: 'column', alignItems: 'stretch', gap: 10 } },
-        h(EmailPrefToggle, { initial: profile?.user?.emailNotificationsEnabled !== false }),
+        h(EmailPrefToggle, {
+          initial: profile?.user?.emailNotificationsEnabled !== false,
+          onChange: (v) => setEmailsOn(!!v)
+        }),
         h('div', { style: { fontSize: 11, color: 'var(--text-muted)' } },
           'Security + account-state emails (verification, withdrawal, ban) always send regardless of the settings below.'),
         // Only render the granular mutes when the global switch is ON —
         // the buckets are meaningless when *every* email is suppressed.
-        profile?.user?.emailNotificationsEnabled !== false && h(EmailBucketMutes, null)
+        emailsOn && h(EmailBucketMutes, null)
       )
     ),
 

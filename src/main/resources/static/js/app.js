@@ -3011,7 +3011,7 @@ export function App() {
       },
       wallet: { deposit: 'Deposit', withdraw: 'Withdraw', history: 'History' },
       watchlist: { all: 'All Items', drops: 'Price Drops' },
-      mystall: { active: 'Active Listings', sold: 'Sold' },
+      mystall: { active: 'Active Listings', sold: 'Sold', analytics: 'Analytics' },
       offers: { incoming: 'Incoming', outgoing: 'Outgoing' }
     };
     const tabKey = route.params && route.params.tab;
