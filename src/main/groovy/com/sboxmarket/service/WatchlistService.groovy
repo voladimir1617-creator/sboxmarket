@@ -45,7 +45,24 @@ class WatchlistService {
             throw new com.sboxmarket.exception.BadRequestException('WATCHLIST_FULL',
                 "Watchlist is capped at ${MAX_PER_USER} items. Remove some before adding more.")
         }
-        repository.save(new WatchlistItem(userId: userId, itemId: itemId))
+        // existsByUserAndItem + save is a non-atomic read-modify-write.
+        // The same user toggling the star from two devices (or
+        // double-clicking the button) fires two concurrent requests that
+        // both observe exists=false and both INSERT; the
+        // `uq_watchlist_items_user_item` UNIQUE constraint (V30) then
+        // rejects the loser with a DataIntegrityViolationException. Treat
+        // that as a benign no-op — the row already exists from the
+        // winning request, so idempotent semantics are preserved without
+        // bubbling a 500 to the slower client. IDENTITY id generation
+        // forces the INSERT at save() time, so the violation surfaces
+        // synchronously where we can catch it (not at commit). Mirrors
+        // LoadoutService.toggleFavorite and ReviewService.toggleHelpful.
+        try {
+            repository.save(new WatchlistItem(userId: userId, itemId: itemId))
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            log.debug("Watchlist toggle race for user=${userId} item=${itemId} — already starred, treating as no-op")
+            return false
+        }
         true
     }
 
