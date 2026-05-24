@@ -46,12 +46,36 @@ class SteamInventoryService {
      *  endpoint. A 5-minute TTL on the negative entry stops follow-up
      *  fetches and serves an empty list straight from memory. The TTL is
      *  longer than the positive cache because rate-limit windows on the
-     *  Steam community endpoint are typically multi-minute. */
+     *  Steam community endpoint are typically multi-minute.
+     *
+     *  Bounded at the same soft cap as the positive cache so a sustained
+     *  rate-limit storm against many distinct users can't grow this map
+     *  without bound. Previously had no cap at all — if Steam IP-banned
+     *  us for an hour while a 100k-user platform was running, the map
+     *  could accumulate 100k entries before any of them expired. */
     private static final long NEG_CACHE_TTL_MS = 300_000L
+    private static final int  NEG_CACHE_MAX = 5000
     private final java.util.concurrent.ConcurrentHashMap<String, Long> negativeCache = new java.util.concurrent.ConcurrentHashMap<>()
 
     /** Test-friendly clear hook. Production code should never call this. */
     void clearCache() { inventoryCache.clear(); negativeCache.clear() }
+
+    /** Record a negative-cache entry with bounded eviction. Same pattern as
+     *  the positive cache's soft cap — when the map fills, drop one entry
+     *  before inserting the new one so sustained 429 storms across many
+     *  distinct users can't grow this map without bound. The dropped key
+     *  comes from `keys().nextElement()` (ConcurrentHashMap enumeration
+     *  order is unspecified — not strictly FIFO, but deterministic enough
+     *  to bound size, which is the only invariant that matters here). */
+    private void recordNegative(String steamId64, long untilMs) {
+        if (negativeCache.size() >= NEG_CACHE_MAX) {
+            try {
+                def first = negativeCache.keys().nextElement()
+                if (first != null) negativeCache.remove(first)
+            } catch (NoSuchElementException ignored) { /* raced to empty */ }
+        }
+        negativeCache.put(steamId64, untilMs)
+    }
 
     /** When did the upstream block us last (negative cache)? Returns the
      *  unix-ms timestamp at which the block expires, or null if not blocked.
@@ -107,9 +131,20 @@ class SteamInventoryService {
         // GET /api/steam/inventory, POST /api/steam/list and /list-bulk all
         // call fetchInventory without a try/catch, so an escape here 500s a
         // user-facing endpoint instead of degrading to an empty inventory.
-        HttpURLConnection conn
+        // Drain the response into local variables and release the socket
+        // BEFORE branching on status — otherwise an early `return []` from
+        // a 403/429/non-200 path skips `conn.disconnect()` and the socket
+        // sits in the keep-alive pool half-read until the JVM GC's the
+        // wrapper, slowly leaking sockets on a long-lived container under
+        // sustained rate-limit pressure. The outer service callers were
+        // already paying the disconnect cost for the happy path (the JVM
+        // does it implicitly when the input stream is fully consumed)
+        // but the error paths had no such drain. Snapshot Retry-After
+        // here too while the conn is still open.
+        HttpURLConnection conn = null
         int status
         String body
+        String retryAfterHeader = null
         try {
             conn = (HttpURLConnection) new URL(url).openConnection()
             conn.setRequestProperty('User-Agent', 'SkinBox/1.0 (+https://skinbox.market)')
@@ -118,9 +153,12 @@ class SteamInventoryService {
             conn.readTimeout    = 10_000
             status = conn.responseCode
             body   = status < 300 ? conn.inputStream.getText('UTF-8') : (conn.errorStream?.getText('UTF-8') ?: '')
+            if (status == 429) retryAfterHeader = conn.getHeaderField('Retry-After')
         } catch (Exception e) {
             log.warn("Steam inventory fetch for $steamId64 threw: ${e.message}")
             return []
+        } finally {
+            try { conn?.disconnect() } catch (Exception ignored) {}
         }
 
         if (status == 403) {
@@ -128,7 +166,7 @@ class SteamInventoryService {
             // Cache the private-inventory verdict so a frustrated user
             // hammering Refresh doesn't fire one outbound call per click.
             // Same TTL as 429 since both are "back off" signals.
-            negativeCache.put(steamId64, now + NEG_CACHE_TTL_MS)
+            recordNegative(steamId64, now + NEG_CACHE_TTL_MS)
             return []
         }
         if (status == 429) {
@@ -136,16 +174,18 @@ class SteamInventoryService {
             // Honour Steam's Retry-After when present (rare on the
             // community endpoint, but documented for the partner API
             // and cheap to read). Falls back to our default 5-minute
-            // backoff when missing or unparseable.
+            // backoff when missing or unparseable. Reads the snapshot
+            // taken above — the connection has already been released
+            // by the finally block, so we can't call .getHeaderField
+            // on it any more.
             long backoffMs = NEG_CACHE_TTL_MS
             try {
-                def retryAfter = conn.getHeaderField('Retry-After')
-                if (retryAfter) {
-                    long sec = Long.parseLong(retryAfter.trim())
+                if (retryAfterHeader) {
+                    long sec = Long.parseLong(retryAfterHeader.trim())
                     if (sec > 0 && sec <= 3600) backoffMs = sec * 1000L
                 }
             } catch (Exception ignored) { /* fall through to default */ }
-            negativeCache.put(steamId64, now + backoffMs)
+            recordNegative(steamId64, now + backoffMs)
             return []
         }
         if (status != 200 || !body) {
@@ -202,11 +242,19 @@ class SteamInventoryService {
             ]
         }
         log.info("Fetched ${out.size()} s&box inventory items for $steamId64 (icons: ${out.count { it.iconUrl }}/${out.size()})")
-        // Cache the result. FIFO eviction at the soft cap so a long-
-        // running container doesn't accumulate unbounded entries.
+        // Cache the result. Bounded soft-cap eviction at CACHE_MAX so a
+        // long-running container doesn't accumulate unbounded entries.
+        // ConcurrentHashMap.keys() enumeration order is unspecified (not
+        // strictly FIFO) but bounding the size is the only invariant that
+        // matters here. NoSuchElementException is possible if the map raced
+        // to empty between the size check and the iterator pull — swallow
+        // it because the put below will still respect the cap on the next
+        // entry.
         if (inventoryCache.size() >= CACHE_MAX) {
-            def first = inventoryCache.keys().nextElement()
-            if (first != null) inventoryCache.remove(first)
+            try {
+                def first = inventoryCache.keys().nextElement()
+                if (first != null) inventoryCache.remove(first)
+            } catch (NoSuchElementException ignored) { /* raced to empty */ }
         }
         inventoryCache.put(steamId64, [at: System.currentTimeMillis(), items: out] as Map)
         out

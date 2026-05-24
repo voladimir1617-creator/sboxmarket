@@ -89,9 +89,17 @@ class SteamSyncService {
         // wipe their pool to zero in the UI for the next 5 minutes.
         def inv = steamInventoryService.fetchInventory(user.steamId64)
         def blocked = steamInventoryService.blockedUntilMs(user.steamId64) != null
-        def before = user.steamInventorySize ?: 0
         def now = inv.size()
+        // Read `before` from the freshly re-fetched row, NOT the (potentially
+        // stale) `user` argument. The sweep loads the user list at the start
+        // of the tick and can take minutes to reach this row; in that window
+        // an on-demand sync (POST /api/steam/sync) or upsertUser() above may
+        // have already bumped steamInventorySize. Comparing `now` against the
+        // tick-start snapshot would fire a phantom "N new item(s)" push that
+        // doesn't match the user's actual inventory delta — at best a noisy
+        // toast, at worst a doubled push for the same delta on the next tick.
         def fresh = steamUserRepository.findById(user.id).orElse(user)
+        def before = fresh.steamInventorySize ?: 0
         fresh.lastSyncedAt = System.currentTimeMillis()
         if (!blocked) {
             fresh.steamInventorySize = now
