@@ -495,7 +495,7 @@ A SkinBox support agent has replied to your ticket #${ticketId}${subject ? ' (' 
 ${snippet ? '> ' + snippet.take(300).readLines().join('\n> ') : '(reply contents available in the app)'}
 
 Open the ticket to read the full reply and respond:
-https://skinbox.market/support
+${publicUrl}/support
 
 — The SkinBox team
 """.stripIndent()
@@ -680,7 +680,7 @@ Common reasons:
   • Part of triage on a reported account.
 
 What to do:
-  1. Sign in fresh with Steam at skinbox.market/.
+  1. Sign in fresh with Steam at ${publicUrl}.
   2. If you have 2FA enabled, you'll need to present a fresh code as usual.
   3. If this came out of the blue, reply to this email — staff may have more context or may be mid-investigation.
 
@@ -992,11 +992,12 @@ If you believe the dispute is fraudulent or retaliatory, flag that directly in t
     void sendTradeSent(String toEmail, String displayName, String itemName,
                        String sellerName, Long tradeId) {
         if (!toEmail) return
+        def tradeRef = tradeId ? " (trade #${tradeId})" : ''
         def subject = "Steam trade offer sent · ${itemName ?: 'your purchase'}"
         def body = """\
 Hi ${displayName ?: 'there'},
 
-${sellerName ?: 'The seller'} just sent the Steam trade offer for ${itemName ?: 'your purchase'}.
+${sellerName ?: 'The seller'} just sent the Steam trade offer for ${itemName ?: 'your purchase'}${tradeRef}.
 
 Next steps:
   1. Open steamcommunity.com → Inventory → Trade Offers
@@ -1053,11 +1054,12 @@ If the seller doesn't respond within 3 days, the trade auto-cancels and you'll b
     void sendTradeOpened(String toEmail, String displayName, String itemName,
                          String buyerName, BigDecimal price, Long tradeId) {
         if (!toEmail) return
+        def tradeRef = tradeId ? " (trade #${tradeId})" : ''
         def subject = "New sale · ${itemName ?: 'your listing'}"
         def body = """\
 Hi ${displayName ?: 'there'},
 
-${buyerName ?: 'A buyer'} just bought ${itemName ?: 'your item'} for ${usd(price)}.
+${buyerName ?: 'A buyer'} just bought ${itemName ?: 'your item'} for ${usd(price)}${tradeRef}.
 
 The funds are held in escrow until you:
   1. Accept the trade
