@@ -1388,4 +1388,59 @@ class BuyOrderServiceSpec extends Specification {
         b1.status == 'EXPIRED'
         b2.status == 'EXPIRED'
     }
+
+    /**
+     * Regression for the rollback-only-leak bug class — same fix the
+     * BidService.sweepExpired (batch 800) and the two
+     * TradeService.sweepReviewNudge / sweepSlowSellerWarning sweeps
+     * adopted. The outer sweep must NOT be wrapped in @Transactional;
+     * otherwise a single per-row `buyOrderRepository.save` that throws
+     * (concurrent tryFillFromExisting / tryMatch optimistic-lock
+     * conflict, DB blip, etc) silently marks the shared outer tx
+     * rollback-only — the per-row try/catch swallows the throw but the
+     * outer commit later reverts every sibling row's EXPIRED stamp +
+     * push. Result on the next 24h tick: re-fired BUY_ORDER_EXPIRED
+     * pushes to buyers who were already notified, and idle orders that
+     * the sweep thought it had killed could surprise-fire on a future
+     * match because the EXPIRED flip never landed.
+     *
+     * This spec asserts the OUTER sweep method carries no @Transactional
+     * — that's the source-level invariant that guarantees per-row saves
+     * run in their own auto-commit and one bad row can't poison
+     * siblings.
+     */
+    def "sweepStaleBuyOrders is NOT @Transactional on the outer sweep (rollback-only-leak guard)"() {
+        expect:
+        def m = BuyOrderService.class.getDeclaredMethod('sweepStaleBuyOrders')
+        m != null
+        m.getAnnotation(org.springframework.transaction.annotation.Transactional) == null
+    }
+
+    def "sweepStaleBuyOrders does not let one row's save failure block the next row from being EXPIRED + notified"() {
+        given:
+        def b1 = new BuyOrder(id: 7L, buyerUserId: 10L, status: 'ACTIVE',
+            quantity: 1, maxPrice: new BigDecimal("10"), itemName: 'A')
+        def b2 = new BuyOrder(id: 8L, buyerUserId: 11L, status: 'ACTIVE',
+            quantity: 1, maxPrice: new BigDecimal("20"), itemName: 'B')
+        buyOrderRepository.findStaleActive(_) >> [b1, b2]
+        // First save throws (simulating an OptimisticLockingFailureException
+        // from a concurrent tryMatch hitting the same row), second succeeds.
+        buyOrderRepository.save(b1) >> { throw new RuntimeException('lock conflict') }
+        buyOrderRepository.save(b2) >> b2
+
+        when:
+        service.sweepStaleBuyOrders()
+
+        then:
+        // b2's push MUST fire even though b1's save threw — the rollback-
+        // only-leak bug would have silently dropped b2's work too once the
+        // outer tx tried to commit. With no outer @Transactional, b2's
+        // notification still goes out.
+        1 * notificationService.push(11L, 'BUY_ORDER_EXPIRED', _, _, 8L, '/profile?tab=buyorders')
+        // b1 is still marked EXPIRED in-memory (we set it before save),
+        // but its save threw so the row didn't persist — that's the failure
+        // mode this sweep documents as best-effort. The KEY invariant is
+        // that the second row still landed.
+        b2.status == 'EXPIRED'
+    }
 }

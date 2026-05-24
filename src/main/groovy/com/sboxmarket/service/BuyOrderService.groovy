@@ -637,9 +637,26 @@ class BuyOrderService {
      * Pushes a `BUY_ORDER_EXPIRED` notification so the user knows
      * what happened. Per-row try/catch so one failure doesn't poison
      * the loop.
+     *
+     * Deliberately NOT @Transactional on the outer sweep. Mirrors the
+     * fix BidService.sweepExpired adopted (batch 800) and
+     * TradeService.sweepReviewNudge / sweepSlowSellerWarning adopted:
+     * a per-row `buyOrderRepository.save(order)` that throws (e.g. an
+     * OptimisticLockingFailureException from a concurrent
+     * tryFillFromExisting / tryMatch hitting the same order, or a DB
+     * blip on a single row) would mark the SHARED outer tx
+     * rollback-only — the per-row try/catch below swallows the
+     * exception, but every `EXPIRED` flip + push the sweep had
+     * already applied to SIBLING rows then silently reverts on
+     * commit. Result: the next 24h tick re-finds those rows and
+     * re-fires BUY_ORDER_EXPIRED pushes to buyers we already pinged
+     * (and the actual EXPIRED flip never landed, so an idle order
+     * could surprise-fire on a future match anyway — the exact bug
+     * this sweep exists to prevent). With the outer tx removed each
+     * per-row save commits in its own auto-commit, so one bad row
+     * never poisons sibling flips.
      */
     @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L, initialDelay = 60L * 60L * 1000L)
-    @Transactional
     void sweepStaleBuyOrders() {
         def cutoff = System.currentTimeMillis() - IDLE_EXPIRE_MS
         def stale = buyOrderRepository.findStaleActive(cutoff)
