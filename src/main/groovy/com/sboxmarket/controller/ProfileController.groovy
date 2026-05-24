@@ -426,9 +426,23 @@ class ProfileController {
         // already owns this email — closes the multi-account vector
         // (chargeback evasion, spam ticket flood, password-reset fishing).
         // Allow when the OWNING user is the same caller (re-saving their
-        // own email triggers a new verification token). Case-insensitive
-        // match to match the lowercased-on-write contract.
-        def existing = steamUserRepository.findByEmailIgnoreCase(emailRaw) ?: []
+        // own email triggers a new verification token).
+        //
+        // V63 fix — Gmail-alias bypass. The old `findByEmailIgnoreCase`
+        // gate compared raw strings, so `victim+a@gmail.com`,
+        // `vic.tim@gmail.com`, and `victim@googlemail.com` all hashed as
+        // DISTINCT despite routing to the same Google mailbox. One Gmail
+        // account could mint unlimited SkinBox identities, defeating the
+        // entire purpose of the batch-477 gate. Compare against the
+        // canonical form via EmailNormalizer (dot-insensitive +
+        // tag-stripped + googlemail→gmail) so every alias collapses to
+        // the same key. Non-Gmail addresses canonicalise to lowercase-
+        // trim only — no risk of false-positive collisions with privacy
+        // providers that treat `+` as opaque.
+        String canonical = com.sboxmarket.util.EmailNormalizer.canonicalize(emailRaw)
+        def existing = canonical != null
+            ? (steamUserRepository.findByCanonicalEmail(canonical) ?: [])
+            : []
         def collision = existing.find { it.id != uid }
         if (collision != null) {
             throw new BadRequestException("EMAIL_TAKEN",
@@ -446,6 +460,13 @@ class ProfileController {
         String prevVerifiedEmail = (Boolean.TRUE.equals(user.emailVerified) && user.email) ? user.email : null
 
         user.email = textSanitizer.cleanShort(emailRaw)
+        // V63 — write the canonical form alongside the raw email so the
+        // partial UNIQUE index on canonical_email actually has a value to
+        // enforce against, and so the next caller's findByCanonicalEmail
+        // can see this row. canonical is null when the upstream regex
+        // would have already rejected (defence-in-depth) — leave the
+        // column null in that case rather than persisting a junk key.
+        user.canonicalEmail = canonical
         user.emailVerified = false
         user.emailVerificationToken = randomToken()
         // Batch 647 — 24h expiry on the fresh token. Narrow enough that a

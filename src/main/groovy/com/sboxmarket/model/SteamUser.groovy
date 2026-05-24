@@ -73,6 +73,26 @@ class SteamUser {
     @Column(length = 255)
     String email
 
+    /**
+     * Canonical form of {@link #email} used for uniqueness enforcement
+     * — see {@link com.sboxmarket.util.EmailNormalizer#canonicalize}.
+     * Persisted alongside the raw address so the UI can keep rendering
+     * the user's original casing (e.g. `Voladimir@gmail.com`) while the
+     * uniqueness predicate collapses every Google mailbox alias
+     * (`v.oladimir+abc@googlemail.com` etc.) onto the same key.
+     *
+     * Backfilled for legacy rows via V63__steam_user_canonical_email.sql.
+     * Computed + written by ProfileController.setEmail on every PUT.
+     * Indexed UNIQUE (partial — NULL allowed for Steam-only accounts
+     * that never set an email). The UNIQUE constraint at the DB layer
+     * is defence-in-depth behind the controller's check — TOCTOU on the
+     * uniqueness check can no longer let two concurrent /email writes
+     * for the same canonical mailbox slip past.
+     */
+    @JsonIgnore
+    @Column(name = 'canonical_email', length = 255)
+    String canonicalEmail
+
     /** Email confirmation token (one-time) — set when the user changes email,
      *  cleared when they click the confirm link. Never emitted over JSON. */
     @JsonIgnore

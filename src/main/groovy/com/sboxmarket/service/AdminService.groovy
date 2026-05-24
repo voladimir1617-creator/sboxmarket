@@ -1324,6 +1324,14 @@ class AdminService {
         user.avatarUrl = null
         user.profileUrl = null
         user.email = null
+        // V63 — clear canonical_email alongside the raw email so the
+        // deleted account no longer occupies its mailbox's slot in the
+        // partial UNIQUE index on canonical_email. Without this clear, a
+        // legitimate user whose original Gmail mailbox got swept into a
+        // deletion would be unable to reuse that same mailbox on a fresh
+        // SkinBox account ever again — the soft-deleted row would keep
+        // holding the unique slot.
+        user.canonicalEmail = null
         user.emailVerified = false
         user.emailVerificationToken = null
         user.tradeUrl = null

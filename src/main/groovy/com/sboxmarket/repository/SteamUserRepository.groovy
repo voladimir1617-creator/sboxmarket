@@ -26,6 +26,19 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     @Query("SELECT u FROM SteamUser u WHERE LOWER(u.email) = LOWER(:email)")
     List<SteamUser> findByEmailIgnoreCase(@Param('email') String email, Pageable page)
 
+    /** Canonical-email uniqueness probe (V63 — Gmail-alias bypass fix).
+     *  The case-insensitive {@link #findByEmailIgnoreCase} above is
+     *  defeated by Gmail's dot-insensitivity and `+tag` sub-addressing
+     *  (`victim+a@gmail.com`, `vic.tim@gmail.com`, `victim@googlemail.com`
+     *  all route to the same inbox). ProfileController.setEmail now
+     *  computes a canonical form via EmailNormalizer and probes that
+     *  column. The DB-level partial UNIQUE index on canonical_email is
+     *  the defence-in-depth backstop for the TOCTOU race two concurrent
+     *  /email writes for the same canonical mailbox would otherwise
+     *  exploit. */
+    @Query("SELECT u FROM SteamUser u WHERE u.canonicalEmail = :canonical")
+    List<SteamUser> findByCanonicalEmail(@Param('canonical') String canonical)
+
     /** Trade-URL partner-id collision probe (batch 478). The `partner=`
      *  query param inside a Steam trade URL derives from the account's
      *  Steam ID32 — two SkinBox accounts with the same partner id
