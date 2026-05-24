@@ -23,9 +23,9 @@ class WebConfig implements WebMvcConfigurer {
         def origins = (corsAllowedOrigins ?: '*').split(',').collect { it.trim() }.findAll { it }
 
         // ── Public read-only surfaces ────────────────────────────────
-        // These three endpoints return only catalogue/listing data that
-        // is already public. They are safe to expose to any origin
-        // (Steam community pages, the browser extension, curl from any
+        // These endpoints return only catalogue/listing data that is
+        // already public. They are safe to expose to any origin (Steam
+        // community pages, the browser extension, curl from any
         // workstation) because they require no authentication and carry
         // no session state.
         //
@@ -34,7 +34,49 @@ class WebConfig implements WebMvcConfigurer {
         // the extension running on https://steamcommunity.com can call
         // us in prod without the operator having to whitelist Steam in
         // CORS_ALLOWED_ORIGINS.
-        ['/api/listings', '/api/listings/**', '/api/items', '/api/items/**', '/api/database/**'].each { path ->
+        //
+        // IMPORTANT — do NOT use a blanket `/api/listings/**` here. The
+        // ListingController exposes mutating POST/PUT/DELETE endpoints
+        // under that prefix (`/api/listings/sell`, `/api/listings/{id}/buy`,
+        // `/api/listings/{id}` DELETE, `/api/listings/my-stall/*`, etc.)
+        // Spring's CorsRegistry resolves to the first matching mapping per
+        // path, so a `/api/listings/**` entry here would shadow the
+        // authenticated `/api/**` mapping below for those POST/PUT/DELETE
+        // calls: the preflight would only advertise `GET, OPTIONS` in
+        // `Access-Control-Allow-Methods` and the browser would block every
+        // cross-origin buy / sell / delete. Enumerate the GET-only
+        // sub-paths the extension actually needs instead.
+        // Ant-pattern matchers (no regex placeholders — CorsRegistry uses
+        // AntPathMatcher, not PathPatternParser). Each entry is a single
+        // GET-only endpoint that the extension / curl callers actually need.
+        [
+            '/api/listings',                       // catalogue list (GET only on collection)
+            '/api/listings/item/**',               // listings for a given item (floor price)
+            '/api/listings/seller/*/other',        // "more from this seller"
+            '/api/listings/stall/**',              // seller stall views
+            '/api/listings/stats',                 // catalog-wide stats
+            '/api/listings/just-listed',
+            '/api/listings/top-deals',
+            '/api/listings/top-sellers',
+            '/api/listings/ending-soon',
+            '/api/listings/recent-sales',
+            '/api/listings/most-watched',
+            '/api/listings/most-viewed',
+            '/api/listings/hottest',
+            '/api/listings/sales-velocity',
+            '/api/listings/report-reasons',
+            // NOTE: single-listing detail `GET /api/listings/{id}` is intentionally
+            // NOT in the public mapping. A bare `/api/listings/*` Ant pattern would
+            // also match the mutating `/api/listings/sell`, `/api/listings/away`,
+            // `/api/listings/check-active`, `/api/listings/inventory` sub-paths and
+            // re-introduce the very shadowing this refactor fixes. Same-origin
+            // callers and authenticated cross-origin callers (with cookies) hit
+            // the detail endpoint via the `/api/**` mapping below; the public
+            // extension only needs the item-scoped floor lookup above.
+            '/api/items',
+            '/api/items/**',
+            '/api/database/**'
+        ].each { path ->
             registry.addMapping(path)
                     .allowedMethods('GET', 'OPTIONS')
                     .allowedHeaders('*')
