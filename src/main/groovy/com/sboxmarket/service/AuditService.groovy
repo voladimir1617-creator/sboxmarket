@@ -128,10 +128,34 @@ class AuditService {
     }
 
     AuditLog log(String eventType, Long actorUserId, Long subjectUserId, Long resourceId, String summary) {
-        // Actor/subject enrichment may stay synchronous: it reads already-
-        // committed user rows, never the caller's uncommitted state.
-        def actor = actorUserId ? steamUserRepository.findById(actorUserId).orElse(null) : null
-        def subject = subjectUserId ? steamUserRepository.findById(subjectUserId).orElse(null) : null
+        // Actor/subject enrichment is a best-effort display niceness — if
+        // it throws, we still want the audit row written with a null name
+        // rather than killing the caller's transaction.
+        //
+        // The enrichment reads run on the caller's transaction (this method
+        // is non-@Transactional but Spring Data's findById is itself
+        // @Transactional and joins whatever's current). A DB-pool blip /
+        // transient timeout / NPE in a custom converter throws past us
+        // straight into the caller. Most call sites (StripeService,
+        // AdminService, TradeProtectionService.enable, …) invoke
+        // `audit.log(...)` at the end of a try block with NO inner catch,
+        // so an enrichment throw marks the SHARED transaction rollback-only
+        // and the parent's already-successful work is rolled back on commit
+        // with UnexpectedRollbackException. Exact same bug class wave 23
+        // closed for the SAVE path via deferOrRun — the enrichment reads
+        // were missed.
+        //
+        // Wrap each lookup in try/catch so a transient read failure
+        // degrades to "audit row with null name" rather than "money-path
+        // transaction silently rolled back". The PK + IP + summary still
+        // make the row identifiable from the admin UI; a missing displayName
+        // is a far smaller cost than a wallet write being undone.
+        def actor = null
+        try { actor = actorUserId ? steamUserRepository.findById(actorUserId).orElse(null) : null }
+        catch (Exception e) { log.warn("Audit actor enrichment failed for uid=${actorUserId}: ${e.message}") }
+        def subject = null
+        try { subject = subjectUserId ? steamUserRepository.findById(subjectUserId).orElse(null) : null }
+        catch (Exception e) { log.warn("Audit subject enrichment failed for uid=${subjectUserId}: ${e.message}") }
         def req = currentRequest()
         def entry = new AuditLog(
             actorUserId:   actorUserId,

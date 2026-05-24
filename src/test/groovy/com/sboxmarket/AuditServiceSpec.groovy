@@ -434,6 +434,51 @@ class AuditServiceSpec extends Specification {
         entry.userAgent == null
     }
 
+    def "log() does NOT propagate an enrichment-lookup throw — actor read failure degrades to null name"() {
+        // Regression pin for the latent rollback-only-leak in the
+        // enrichment path. AuditService.log is non-@Transactional but
+        // Spring Data's findById is itself @Transactional and joins the
+        // caller's tx. A transient DB blip / pool-exhaustion / converter
+        // NPE during the actor lookup would otherwise propagate to the
+        // caller (StripeService, AdminService, TradeProtectionService…)
+        // and — since the ~40 call sites invoke `audit.log(...)` at the
+        // end of a try with no inner catch — mark the SHARED transaction
+        // rollback-only, undoing the parent's already-successful work
+        // when commit throws UnexpectedRollbackException.
+        //
+        // After the fix, the lookup throw is caught inline, the audit
+        // row is written with a null displayName, and the caller never
+        // sees the failure. Same posture as the deferOrRun fix wave 23
+        // applied to the SAVE path.
+        given:
+        steamUserRepository.findById(7L) >> { throw new RuntimeException('DB pool exhausted') }
+        auditLogRepository.save(_) >> { args -> def a = args[0]; a.id = 1L; a }
+
+        when:
+        def entry = service.log('USER_BANNED', 7L, null, null, 'racing pool')
+
+        then:
+        noExceptionThrown()
+        entry != null
+        entry.actorUserId == 7L
+        entry.actorName == null
+        entry.eventType == 'USER_BANNED'
+    }
+
+    def "log() does NOT propagate an enrichment-lookup throw on the SUBJECT side either"() {
+        given:
+        steamUserRepository.findById(9L) >> { throw new RuntimeException('Timeout') }
+        auditLogRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def entry = service.log('USER_BANNED', null, 9L, null, 'subject throw')
+
+        then:
+        noExceptionThrown()
+        entry.subjectUserId == 9L
+        entry.subjectName == null
+    }
+
     def "log() truncates an oversized User-Agent header to 120 characters"() {
         given:
         // The user_agent column is VARCHAR(120) — match the take()
