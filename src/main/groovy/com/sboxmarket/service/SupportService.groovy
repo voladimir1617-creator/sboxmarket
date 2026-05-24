@@ -150,20 +150,32 @@ class SupportService {
         )
         ticketRepository.save(ticket)
 
+        // SupportMessage.createdAt defaults to System.currentTimeMillis() at
+        // construction time. The two messages below are built back-to-back —
+        // on a fast JVM they routinely share the same millisecond, which
+        // makes the repository's `ORDER BY m.createdAt ASC` non-deterministic
+        // and the rendered thread can flip the auto-reply ABOVE the user's
+        // own question. Stamp the messages with an explicit +1ms delta so
+        // the ordering is stable for the lifetime of the thread.
+        long userMsgCreatedAt = System.currentTimeMillis()
         messageRepository.save(new SupportMessage(
             ticketId:   ticket.id,
             author:     'USER',
             authorName: cleanName,
-            body:       cleanBody
+            body:       cleanBody,
+            createdAt:  userMsgCreatedAt
         ))
         // Synthesised first staff response so the thread isn't empty.
         // Driven by the SAME normalized category as the stored ticket so the
-        // template family always matches what the CSR sees on the row.
+        // template family always matches what the CSR sees on the row. The
+        // +1ms ensures the staff auto-reply always renders AFTER the user's
+        // question, never above it (see comment above).
         messageRepository.save(new SupportMessage(
             ticketId:   ticket.id,
             author:     'STAFF',
             authorName: 'Clara (auto)',
-            body:       autoReply(cleanCategory)
+            body:       autoReply(cleanCategory),
+            createdAt:  userMsgCreatedAt + 1L
         ))
         ticket.status = 'WAITING_USER'
         ticket.updatedAt = System.currentTimeMillis()
