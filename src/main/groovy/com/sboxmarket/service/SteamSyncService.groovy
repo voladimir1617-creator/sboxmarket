@@ -53,20 +53,25 @@ class SteamSyncService {
      *  Holding a per-user monitor while we read-modify-write the row
      *  serializes those attempts so the second one sees the updated
      *  steamInventorySize and either suppresses or correctly differs the
-     *  notification. Bounded soft-eviction at SYNC_LOCK_MAX so a 100k-user
-     *  platform can't accumulate one lock object per user forever; we don't
-     *  need a strict LRU here because the lock identity only matters for
-     *  the duration of the syncOne call. */
-     private static final int SYNC_LOCK_MAX = 5000
+     *  notification.
+     *
+     *  Lock objects accumulate one-per-user-ever-seen. At ~16 bytes per
+     *  lock + ~64 bytes of HashMap entry overhead, a million distinct
+     *  syncOne callers cost <100MB — acceptable for the lifetime of
+     *  a JVM process, and the realistic upper bound is the
+     *  registered-user count, not unbounded. The previous "bounded
+     *  soft-eviction at SYNC_LOCK_MAX" was a correctness bug: evicting
+     *  a lock from the map while Thread A held `synchronized(lockX)`
+     *  let Thread C call `lockFor(sameUserId)`, get a freshly-minted
+     *  lockY via `computeIfAbsent`, and run `doSyncOne` concurrently
+     *  with A on the same user — defeating the whole point of the
+     *  per-user serialisation (duplicate STEAM_INVENTORY pushes, stale
+     *  steamInventorySize overwrite). The eviction was guarding against
+     *  a non-problem (the memory cost) at the price of re-opening the
+     *  exact race the locks exist to close. */
      private final java.util.concurrent.ConcurrentHashMap<Long, Object> userSyncLocks = new java.util.concurrent.ConcurrentHashMap<>()
 
      private Object lockFor(Long userId) {
-         if (userSyncLocks.size() >= SYNC_LOCK_MAX) {
-             try {
-                 def first = userSyncLocks.keys().nextElement()
-                 if (first != null && first != userId) userSyncLocks.remove(first)
-             } catch (NoSuchElementException ignored) { /* raced to empty */ }
-         }
          userSyncLocks.computeIfAbsent(userId, { new Object() })
      }
 
