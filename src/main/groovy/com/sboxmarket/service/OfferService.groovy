@@ -1298,9 +1298,25 @@ class OfferService {
      *
      * Notifies the buyer so they know their offer expired; the seller
      * doesn't need a ping, the row just disappears from their queue.
+     *
+     * NOT @Transactional — sixth instance of the rollback-only leak the
+     * 443f910 / 526a5f4 / d3a3df7 / fe48e76 family closed for sibling fan-
+     * outs. Spring Data's save() proxy marks the SHARED outer tx as
+     * rollback-only the moment one inner save throws (e.g. an
+     * OptimisticLockingFailureException from a concurrent buyer cancel /
+     * seller accept landing on that offer mid-batch, or a DB blip on one
+     * row); the per-row catch absorbs the throw, sweepStaleOffers
+     * returns normally — but at commit Spring raises
+     * UnexpectedRollbackException and every prior EXPIRED stamp + queued
+     * notification + closeCounteredParent flip reverts. The next 6h tick
+     * then re-finds the same offers and re-fires duplicate
+     * OFFER_REJECTED pushes to buyers we already pinged. Zero cross-row
+     * invariant here — each offer auto-decline is independent (no
+     * shared wallet escrow, no shared inventory). Drop the outer tx so
+     * each save() runs in its own implicit tx and one bad row only
+     * loses itself.
      */
     @Scheduled(fixedDelay = 6L * 60L * 60L * 1000L, initialDelay = 10L * 60L * 1000L)
-    @Transactional
     void sweepStaleOffers() {
         def cutoff = System.currentTimeMillis() - (autoDeclineDays * 24L * 60L * 60L * 1000L)
         def stale = offerRepository.findStalePending(cutoff)
@@ -1364,9 +1380,19 @@ class OfferService {
      * poison the loop. The query already excludes offers past full life
      * (those will get the auto-decline notification on the next stale-
      * sweeper pass) so a seller can't get nudge + decline back-to-back.
+     *
+     * NOT @Transactional — same rollback-only leak as sweepStaleOffers
+     * above (six-time-fixed family). The per-row offerRepository.save
+     * inside the try/catch (both for the system-listing fast-path and
+     * the normal nudge path) would poison the SHARED outer tx the
+     * moment one save throws; the catch swallows the throw, the method
+     * returns normally, then commit raises UnexpectedRollbackException
+     * and every prior sellerNudgedAt stamp reverts → the next 3h tick
+     * re-finds the same offers and re-fires duplicate OFFER_RECEIVED
+     * nudges to sellers we already pinged. Per-save implicit tx
+     * isolates each row.
      */
     @Scheduled(fixedDelay = 3L * 60L * 60L * 1000L, initialDelay = 30L * 60L * 1000L)
-    @Transactional
     void sweepOffersDueForNudge() {
         long now = System.currentTimeMillis()
         long halfLifeMs = (autoDeclineDays * 24L * 60L * 60L * 1000L) / 2L
@@ -1389,16 +1415,36 @@ class OfferService {
             if (offer.sellerUserId == null) {
                 // System listings have no seller to nudge. Stamp the
                 // field anyway so we don't re-evaluate this row each pass.
-                offer.sellerNudgedAt = now
-                offerRepository.save(offer)
+                // Wrapped in try/catch like the seller-bound path below —
+                // without the outer @Transactional an inner save throw
+                // would otherwise propagate up to .each and abort every
+                // remaining row in the batch.
+                try {
+                    offer.sellerNudgedAt = now
+                    offerRepository.save(offer)
+                } catch (Exception e) {
+                    log.warn("Offer system-listing nudge stamp failed for id=${offer.id}: ${e.message}")
+                }
                 return
             }
             try {
                 def itemName = listingsById[offer.listingId]?.item?.name ?: 'an item'
                 def itemId = listingsById[offer.listingId]?.item?.id
                 long msLeft = (offer.updatedAt + fullLifeMs) - now
-                long hoursLeft = Math.max(1L, msLeft / (60L * 60L * 1000L))
-                long daysLeft = Math.max(1L, hoursLeft / 24L)
+                // intdiv keeps the result as a primitive long. Plain `/`
+                // in Groovy promotes long/long to BigDecimal, and
+                // Math.max(1L, <BigDecimal>) then throws "Ambiguous method
+                // overloading for method java.lang.Math#max" (no
+                // (long,BigDecimal) overload — the JVM picks between
+                // (double,double) and (float,float) and bails). That
+                // GroovyRuntimeException was silently swallowed by the
+                // outer per-row catch on every nudge attempt, so since
+                // batch 499 introduced this sweeper NO half-life nudge
+                // has ever fired and EVERY seller_nudged_at flag stayed
+                // null — the auto-decline arrived 7 days later with no
+                // warning. Explicit long arithmetic restores the path.
+                long hoursLeft = Math.max(1L, msLeft.intdiv(60L * 60L * 1000L))
+                long daysLeft = Math.max(1L, hoursLeft.intdiv(24L))
                 String windowText = hoursLeft >= 48L ? "${daysLeft} day${daysLeft == 1 ? '' : 's'}" : "${hoursLeft}h"
                 notificationService?.push(
                     offer.sellerUserId,

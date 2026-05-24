@@ -421,6 +421,78 @@ class OfferServiceSpec extends Specification {
         0 * notificationService.push(*_)
     }
 
+    def "sweepStaleOffers isolates per-row save failures — one bad offer never poisons sibling EXPIRED flips + pushes"() {
+        // Sixth instance of the rollback-only-leak family (commits 443f910,
+        // 526a5f4, d3a3df7, ebc1b45, fe48e76). Before the fix, sweepStaleOffers
+        // was @Transactional. A mid-batch offer save() that threw (e.g. an
+        // OptimisticLockingFailureException because a concurrent buyer cancel
+        // or seller accept landed on row #1) marked the SHARED outer tx as
+        // rollback-only via Spring Data's save proxy. The per-row try/catch
+        // swallowed the throw, sweepStaleOffers returned normally — but the
+        // outer @Transactional commit then raised UnexpectedRollbackException
+        // and every prior EXPIRED stamp + OFFER_REJECTED push silently
+        // reverted. The next 6h tick re-found the same offers and re-fired
+        // duplicate auto-decline notifications to buyers we'd already pinged.
+        // Per-row auto-commit (no outer @Transactional) must isolate row #1
+        // so row #2's flip + push survives.
+        given:
+        def a = pendingOffer(id: 1L, amount: new BigDecimal("20"))
+        def b = pendingOffer(id: 2L, amount: new BigDecimal("30"))
+        offerRepository.findStalePending(_) >> [a, b]
+        offerRepository.save({ Offer o -> o.id == 1L }) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                'Offer', 1L)
+        }
+        offerRepository.save({ Offer o -> o.id == 2L }) >> { Offer o -> o }
+
+        when:
+        service.sweepStaleOffers()
+
+        then: "sibling row's EXPIRED flip persists — not rolled back by the bad save"
+        b.status == 'EXPIRED'
+        and: "sibling row's buyer push still fires — sweep didn't abort"
+        1 * notificationService.push(10L, 'OFFER_REJECTED', _, _, 100L, '/offers')
+        and: "no exception bubbles out — bad row was swallowed in the per-row catch"
+        noExceptionThrown()
+    }
+
+    def "sweepOffersDueForNudge isolates per-row save failures — one bad nudge stamp never poisons sibling stamps + pings"() {
+        // Same bug class as sweepStaleOffers above — the half-life nudge sweeper
+        // ALSO carried the outer @Transactional + per-row save antipattern. A
+        // mid-batch offer save() throw (e.g. concurrent seller acceptance
+        // landing on row #1 during the nudge) marked the shared outer tx
+        // rollback-only, and on commit every prior sellerNudgedAt stamp +
+        // OFFER_RECEIVED ping reverted → the next 3h tick re-finds the same
+        // offers and re-fires duplicate nudges to sellers we'd already pinged
+        // (defeating the whole point of the sellerNudgedAt idempotency field).
+        given:
+        service.autoDeclineDays = 14L
+        // Distinct seller ids so the per-row push assertions are
+        // unambiguous (the default pendingOffer helper uses sellerUserId=99
+        // for every row, which would collapse two pushes into one
+        // cardinality bucket).
+        def a = pendingOffer(id: 1L, listing: 100L, seller: 91L, amount: new BigDecimal("20"))
+        def b = pendingOffer(id: 2L, listing: 101L, seller: 92L, amount: new BigDecimal("30"))
+        a.updatedAt = System.currentTimeMillis() - (8L * 24L * 60L * 60L * 1000L)
+        b.updatedAt = System.currentTimeMillis() - (8L * 24L * 60L * 60L * 1000L)
+        offerRepository.findPendingDueForNudge(_, _) >> [a, b]
+        offerRepository.save({ Offer o -> o.id == 1L }) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                'Offer', 1L)
+        }
+        offerRepository.save({ Offer o -> o.id == 2L }) >> { Offer o -> o }
+
+        when:
+        service.sweepOffersDueForNudge()
+
+        then: "sibling row's sellerNudgedAt stamp persists — not rolled back by the bad save"
+        b.sellerNudgedAt != null
+        and: "sibling row's seller ping still fires — sweep didn't abort"
+        1 * notificationService.push(92L, 'OFFER_RECEIVED', _, _, 101L, _)
+        and: "no exception bubbles out — bad row was swallowed in the per-row catch"
+        noExceptionThrown()
+    }
+
     def "counterOffer blocks any user from countering on a system listing (bug #53)"() {
         given:
         def original = pendingOffer(seller: null)
