@@ -114,8 +114,13 @@ class OutageObservabilityFilter extends OncePerRequestFilter {
                 return
             }
         }
-        // Inside the throttled window — count only, no stack.
+        // Inside the throttled window — count only, no stack, no log
+        // line. Emitting a per-request WARN here defeats the throttle:
+        // a 100 req/s sustained outage would still spit ~6000 lines/min
+        // ("ballooning the disk cap" — exactly what the class docstring
+        // promises NOT to do). The counter sums silently and the next
+        // window-flushing stacktrace surfaces "suppressed N since last
+        // stack", so the rate is still grep-able without the flood.
         state.suppressed.increment()
-        log.warn("OUTAGE-SIGNAL exception=${cls} path=${req.method ?: '?'} ${req.requestURI ?: '?'} (suppressed; stack throttled)")
     }
 }

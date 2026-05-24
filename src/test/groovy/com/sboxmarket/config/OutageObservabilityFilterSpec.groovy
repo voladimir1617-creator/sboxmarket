@@ -1,8 +1,13 @@
 package com.sboxmarket.config
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletRequest
 import jakarta.servlet.ServletResponse
+import org.slf4j.LoggerFactory
 import org.springframework.dao.DataAccessResourceFailureException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.mock.web.MockHttpServletRequest
@@ -160,6 +165,52 @@ class OutageObservabilityFilterSpec extends Specification {
 
         then:
         reThrown == 25
+    }
+
+    def "throttle caps log volume — a sustained burst inside one window emits AT MOST one WARN, not one per request"() {
+        // Regression for the dead per-request log.warn that defeated the
+        // throttle. The class docstring promises: "Subsequent occurrences
+        // inside the same window emit a single counter line so the log is
+        // still grep-able for the rate without ballooning to the disk
+        // cap." Pre-fix, every throttled request emitted its own
+        // OUTAGE-SIGNAL WARN — a 100 req/s outage produced ~6000 lines/min
+        // and the docstring's promise was a lie. After the fix the counter
+        // increments silently and surfaces in the NEXT window's stacktrace
+        // line (via sumThenReset).
+        given:
+        // Wire a Logback ListAppender to the filter's logger so we can
+        // assert on the WARN volume directly.
+        def logger = (Logger) LoggerFactory.getLogger(OutageObservabilityFilter)
+        def appender = new ListAppender<ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+        def resp = new MockHttpServletResponse()
+        // Fresh filter — each spec instance gets a fresh subject, but be
+        // explicit so the throttle window starts at zero.
+        def localFilter = new OutageObservabilityFilter()
+
+        when:
+        (1..50).each { i ->
+            try {
+                localFilter.doFilter(
+                    new MockHttpServletRequest('GET', "/market?i=${i}"),
+                    resp,
+                    throwingChain(newPsqlException("burst ${i}"))
+                )
+            } catch (Throwable ignored) { /* re-thrown — expected */ }
+        }
+
+        then:
+        // Exactly one WARN — the first stacktrace flush. Every subsequent
+        // throttled request increments the silent counter (next window
+        // will surface the suppressed total).
+        def warns = appender.list.findAll { it.level == Level.WARN }
+        warns.size() == 1
+        warns[0].formattedMessage.contains('OUTAGE-SIGNAL')
+        warns[0].formattedMessage.contains('PSQLException')
+
+        cleanup:
+        logger.detachAppender(appender)
     }
 
     def "two different watched exception classes are tracked independently and both re-throw"() {
