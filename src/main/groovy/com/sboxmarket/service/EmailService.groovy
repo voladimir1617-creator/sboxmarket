@@ -1391,6 +1391,42 @@ Thanks for your patience.
         return e.substring(0, 1) + '***' + e.substring(at)
     }
 
+    /** Pre-compiled regex matching anything that looks like an email
+     *  address embedded in a free-form string. Used by
+     *  {@link #scrubEmails} to redact PII from exception messages before
+     *  they hit the log. The pattern is intentionally a bit broader than
+     *  RFC 5322 so a non-conforming address quoted back by an SMTP relay
+     *  (e.g. `<Foo Bar@example.com>`) still gets caught. */
+    private static final java.util.regex.Pattern EMAIL_IN_TEXT =
+        java.util.regex.Pattern.compile(
+            /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/)
+
+    /** Strip every email-address-looking substring from a free-form
+     *  string, replacing each match with the same `x***@domain` mask
+     *  {@link #maskEmail} produces for the recipient log line.
+     *
+     *  Why this exists: when an SMTP send fails, the underlying
+     *  {@code jakarta.mail.SendFailedException} / Spring
+     *  {@code MailSendException} embeds the failing recipient(s) in
+     *  the exception message (e.g. `550 5.1.1 <user@example.com>:
+     *  Recipient address rejected`). The retry / final-failure log
+     *  lines mask the {@code to} arg via {@link #maskEmail} but the
+     *  exception message immediately undid that masking, leaking the
+     *  full address into ops logs — exactly the PII vector the
+     *  recipient-mask exists to defend against. Run the exception
+     *  message through this scrubber before logging it. */
+    private static String scrubEmails(String s) {
+        if (s == null || s.isEmpty()) return s
+        if (s.indexOf('@') < 0) return s
+        def m = EMAIL_IN_TEXT.matcher(s)
+        def sb = new StringBuffer(s.length())
+        while (m.find()) {
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(maskEmail(m.group())))
+        }
+        m.appendTail(sb)
+        return sb.toString()
+    }
+
     /** Per-process dedupe ledger (batch 1102). If a service races itself
      *  — e.g. PurchaseService fires `sendPurchaseReceipt` twice because
      *  a retry handler kicked in before the original committed, or a
@@ -1564,8 +1600,14 @@ Thanks for your patience.
                         } catch (Exception e) {
                             lastError = e
                             if (attempt < SMTP_MAX_ATTEMPTS) {
-                                log.warn("EmailService: SMTP send attempt {}/{} failed for {} — {}; retrying in {}ms",
-                                         attempt, SMTP_MAX_ATTEMPTS, maskEmail(to), e.message, backoff)
+                                // Scrub recipient PII from the exception
+                                // message before logging — Spring /
+                                // jakarta.mail embed the failing address in
+                                // the message, which would otherwise undo
+                                // the maskEmail() on the `to` arg.
+                                log.warn("EmailService: SMTP send attempt {}/{} failed for {} — {}: {}; retrying in {}ms",
+                                         attempt, SMTP_MAX_ATTEMPTS, maskEmail(to),
+                                         e.class.simpleName, scrubEmails(e.message), backoff)
                                 try { Thread.sleep(backoff) } catch (InterruptedException ie) {
                                     Thread.currentThread().interrupt()
                                     break
@@ -1581,8 +1623,17 @@ Thanks for your patience.
                     // is intentional, the caller should not be retrying a
                     // dead relay. After the TTL expires a fresh attempt
                     // will be allowed.
-                    log.error("EmailService: SMTP send FAILED for {} after {} attempts — {}",
-                              maskEmail(to), SMTP_MAX_ATTEMPTS, lastError?.message, lastError)
+                    // Recipient PII scrubbed from the exception message
+                    // and the stack-trace arg dropped entirely (the stack
+                    // includes the recipient via jakarta.mail's
+                    // SendFailedException.toString()). Class name +
+                    // scrubbed message still let ops diagnose the relay
+                    // failure without leaking customer addresses into a
+                    // logs index.
+                    log.error("EmailService: SMTP send FAILED for {} after {} attempts — {}: {}",
+                              maskEmail(to), SMTP_MAX_ATTEMPTS,
+                              lastError?.class?.simpleName,
+                              scrubEmails(lastError?.message))
                     // Never throw from the email path — a broken relay must not
                     // 500 the caller (account creation, password reset). The
                     // token is still persisted, the user can retry, and ops
