@@ -79,24 +79,29 @@ class SellerStatsController {
         }
         def ids = rows.collect { (it.sellerUserId as Long) }.findAll { it != null }
         def users = steamUserRepository.findAllById(ids).collectEntries { [(it.id): it] }
+        // Batch 1089 — bulk rating aggregate (single GROUP BY) replaces
+        // the prior N+1 loop that fanned out one `aggregateForUser` call
+        // per top-N seller. At lim=20 (the clamp ceiling) the leaderboard
+        // was burning up to 21 DB round-trips on every cache miss; one
+        // bulk query brings it back to 3 (top-sellers + users + ratings).
+        // `aggregateForUsers` returns [uid, count, avg] rows; sellers
+        // without any reviews are absent from the result (treat as null
+        // rating to match the prior "count > 0" gate).
         def ratings = [:]
-        if (reviewRepository != null) {
-            ids.each { id ->
-                try {
-                    def agg = reviewRepository.aggregateForUser(id)
-                    if (agg != null && !agg.isEmpty()) {
-                        def row = agg[0]
-                        def count = (row[0] ?: 0L) as Long
-                        if (count > 0) {
-                            def avg = row[1] != null
-                                ? (row[1] as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP)
-                                : null
-                            ratings[id] = [ average: avg, count: count ]
-                        }
+        if (reviewRepository != null && !ids.isEmpty()) {
+            try {
+                reviewRepository.aggregateForUsers(ids).each { row ->
+                    def uid = row[0] as Long
+                    def count = (row[1] ?: 0L) as Long
+                    if (count > 0) {
+                        def avg = row[2] != null
+                            ? (row[2] as BigDecimal).setScale(2, java.math.RoundingMode.HALF_UP)
+                            : null
+                        ratings[uid] = [ average: avg, count: count ]
                     }
-                } catch (Exception e) {
-                    log.debug("aggregateForUser(${id}) failed: ${e.message}")
                 }
+            } catch (Exception e) {
+                log.debug("aggregateForUsers failed: ${e.message}")
             }
         }
         def payload = rows.collect { row ->

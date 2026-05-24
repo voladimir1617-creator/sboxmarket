@@ -88,7 +88,9 @@ class SellerStatsControllerSpec extends Specification {
             new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob',
                 avatarUrl: 'https://cdn/b.jpg', banned: false)
         ]
-        1 * reviewRepository.aggregateForUser(1L) >> [([3L, new BigDecimal('4.60')] as Object[])]
+        // Batch 1089 — single bulk aggregate replaces N+1 per-seller call.
+        // Shape is [uid, count, avg] for every seller with at least one review.
+        1 * reviewRepository.aggregateForUsers([1L]) >> [([1L, 3L, new BigDecimal('4.60')] as Object[])]
 
         when:
         def resp = controller.top(7, 5)
@@ -113,7 +115,7 @@ class SellerStatsControllerSpec extends Specification {
             new com.sboxmarket.model.SteamUser(id: 2L, displayName: 'Banned', banned: true),
             new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Clean', banned: false)
         ]
-        reviewRepository.aggregateForUser(_) >> []
+        reviewRepository.aggregateForUsers(_) >> []
 
         when:
         def resp = controller.top(7, 5)
@@ -128,7 +130,7 @@ class SellerStatsControllerSpec extends Specification {
         1 * steamUserRepository.findAllById([1L]) >> [
             new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob', banned: false)
         ]
-        1 * reviewRepository.aggregateForUser(1L) >> []
+        1 * reviewRepository.aggregateForUsers([1L]) >> []
 
         when:
         def resp = controller.top(7, 5)
@@ -143,7 +145,7 @@ class SellerStatsControllerSpec extends Specification {
         1 * steamUserRepository.findAllById([1L]) >> [
             new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob', banned: false)
         ]
-        reviewRepository.aggregateForUser(_) >> []
+        reviewRepository.aggregateForUsers(_) >> []
 
         when:
         def resp = controller.top(7, 5)
@@ -173,7 +175,7 @@ class SellerStatsControllerSpec extends Specification {
         1 * steamUserRepository.findAllById(_) >> [
             new com.sboxmarket.model.SteamUser(id: 1L, displayName: 'Bob', banned: false)
         ]
-        reviewRepository.aggregateForUser(_) >> []
+        reviewRepository.aggregateForUsers(_) >> []
 
         when:
         def first  = controller.top(7, 5)
