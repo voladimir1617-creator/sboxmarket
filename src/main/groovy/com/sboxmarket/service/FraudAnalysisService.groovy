@@ -173,7 +173,18 @@ class FraudAnalysisService {
                     ip:        w.ipAddress,
                     count:     gapMin,
                     summary:   "User ${w.actorName ?: w.actorUserId} requested withdrawal ${gapMin} min after deposit — potential card-testing",
-                    createdAt: w.createdAt
+                    createdAt: w.createdAt,
+                    // Per-withdraw dedup discriminator. Without this, two
+                    // distinct deposit→withdraw cycles from the same user
+                    // whose gap minutes land in the same power-of-two
+                    // bucket (e.g. 5 min and 7 min both bucket to 8) would
+                    // collapse to the identical sweeper signature
+                    // (RAPID|userId|ip|8|) and only the FIRST cycle would
+                    // ever raise an admin alert. The withdraw row id is
+                    // unique per event yet stable across the 30-min
+                    // sweeps, so each distinct deposit→withdraw cycle
+                    // alerts exactly once — mirrors the chargeback dedup.
+                    dedupKey:  w.id
                 ]
             }
         }
@@ -346,9 +357,19 @@ class FraudAnalysisService {
     }
 
     /** Bucketize a count to a power of two — keeps the signature set
-     *  from ballooning when the same attacker's count slowly grows. */
+     *  from ballooning when the same attacker's count slowly grows.
+     *
+     *  Overflow guard: once b reaches 2^62 the next left shift would
+     *  produce Long.MIN_VALUE and then 0 (the sign bit shifts out),
+     *  spinning the `b < n` loop forever for any reasonably large n.
+     *  In practice no signal can ever generate a count that large, but
+     *  a future detector adding a quadratic count (or a corrupt audit
+     *  row with a wild long) would silently wedge the @Scheduled
+     *  sweeper thread. Saturate at 2^62 so the function is total. */
+    private static final long BUCKET_MAX = 1L << 62
     private static long bucketize(long n) {
         if (n < 1L) return 0L
+        if (n >= BUCKET_MAX) return BUCKET_MAX
         long b = 1L
         while (b < n) b <<= 1
         return b
