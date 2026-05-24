@@ -3378,7 +3378,15 @@ export function ProfileModal({ onClose, me, wallet, transactions, onRefresh, ini
 
   useEffect(() => {
     if (!me) return;
-    fetchProfile().then(setProfile);
+    // Race fix — without the `alive` flag, a stale fetchProfile() that
+    // resolves AFTER the modal closes (or after `me` flips to a different
+    // user via sign-out/sign-in) calls setProfile on an unmounted
+    // component (React warning) or — worse — overwrites the current
+    // user's profile with the previous user's data. The sibling effect
+    // below (3384) uses the same pattern.
+    let alive = true;
+    fetchProfile().then(p => { if (alive) setProfile(p); });
+    return () => { alive = false; };
   }, [me]);
 
   useEffect(() => {

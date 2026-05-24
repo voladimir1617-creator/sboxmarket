@@ -9,6 +9,7 @@ import com.sboxmarket.repository.SellerFollowRepository
 import com.sboxmarket.repository.SteamUserRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -97,7 +98,30 @@ class SellerFollowService {
             sellerUserId:   sellerUserId,
             createdAt:      System.currentTimeMillis()
         )
-        repo.save(row)
+        // findByFollowerUserIdAndSellerUserId + save is a non-atomic
+        // read-modify-write — same TOCTOU race UserBlockService.block
+        // closed in 6418f56. A user double-tapping the Follow button (or
+        // two devices firing simultaneously) both observe existing=empty
+        // and both attempt INSERT; V19's UNIQUE(follower_user_id,
+        // seller_user_id) constraint then rejects the loser with
+        // DataIntegrityViolationException. Uncaught, it bubbles to the
+        // catch-all as a 500 INTERNAL_ERROR — even though the end-state
+        // ("user 20 follows seller 5") is exactly what the user wanted.
+        // Catch the dup, treat as a benign no-op, and return the row
+        // the winning request committed via a fresh lookup.
+        try {
+            repo.save(row)
+        } catch (DataIntegrityViolationException dup) {
+            log.debug("follow race on follower=${followerUserId} seller=${sellerUserId} — already following, treating as no-op")
+            def winner = repo.findByFollowerUserIdAndSellerUserId(followerUserId, sellerUserId)
+            if (winner.isPresent()) return winner.get()
+            // Vanishingly unlikely: the winner row exists per the
+            // UNIQUE-violation we just caught but the second read couldn't
+            // find it (read-after-write replica lag? row was deleted
+            // between violation and re-read?). Surface the original
+            // throw — better than silently returning a half-built row.
+            throw dup
+        }
         // Notify the seller (batch 536). Before this, a new follow
         // was invisible until the seller happened to open their
         // stall and notice the count tick up. The ping is engagement
