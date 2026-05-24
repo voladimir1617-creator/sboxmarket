@@ -54,6 +54,13 @@
   <meta property="og:title" content="SkinBox — s&box Skin Marketplace">
   <meta property="og:description" content="Trade Workshop items and cosmetics with lower fees than Steam. Escrowed trades, Stripe payouts.">
   <meta property="og:image" content="https://skinbox.market/img/favicon-512.png">
+  <!-- og:image:width / og:image:height let Facebook + LinkedIn render the
+       preview immediately on first share instead of withholding the card
+       until they fetch + measure the image themselves. The image is the
+       512×512 square logo, so both dimensions are 512. -->
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:type" content="website">
   <!-- og:url must match <link rel="canonical"> above exactly — both point at
        the homepage. The trailing slash keeps the two in sync so Facebook /
@@ -61,7 +68,13 @@
        canonical the rest of the head (and OpenGraphController) emits. -->
   <meta property="og:url" content="https://skinbox.market/">
   <meta property="og:site_name" content="SkinBox">
-  <meta name="twitter:card" content="summary_large_image">
+  <!-- Twitter card type matches the image's aspect ratio. The favicon-512
+       source is a 512×512 square; `summary_large_image` expects a 2:1
+       landscape banner (1200×628 recommended) and will reject / letterbox
+       a square. `summary` correctly renders the square crate alongside
+       the title + description. Same treatment as changelog.html +
+       status.html which both already use `summary`. -->
+  <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="SkinBox — s&box Skin Marketplace">
   <meta name="twitter:description" content="Trade Workshop items and cosmetics with lower fees than Steam. Escrowed trades, Stripe payouts.">
   <meta name="twitter:image" content="https://skinbox.market/img/favicon-512.png">
