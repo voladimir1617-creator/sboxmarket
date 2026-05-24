@@ -88,7 +88,13 @@ class ProfileService {
         def totalDeposited = transactionRepository.sumByWalletAndType(walletId, 'DEPOSIT',  true)  ?: BigDecimal.ZERO
         def purchaseCount  = transactionRepository.countByWalletAndType(walletId, 'PURCHASE')
         def saleCount      = transactionRepository.countByWalletAndType(walletId, 'SALE')
-        def withdrawalCount = transactionRepository.countCompletedByWalletAndType(walletId, 'WITHDRAWAL')
+        // Includes BOTH the legacy `WITHDRAW` and the canonical `WITHDRAWAL`
+        // type spellings — StripeService.requestWithdraw still stamps
+        // `WITHDRAW` on new rows, so a single-type equality query (the
+        // previous `countCompletedByWalletAndType(..., 'WITHDRAWAL')`)
+        // silently always returned 0 and the Profile → Withdrawals count
+        // never moved off zero no matter how many payouts the user took.
+        def withdrawalCount = transactionRepository.countCompletedWithdrawalsByWallet(walletId)
 
         def net = (totalSold as BigDecimal) - (totalPurchased as BigDecimal)
 

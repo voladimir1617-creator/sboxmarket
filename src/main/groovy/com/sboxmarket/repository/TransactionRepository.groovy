@@ -262,4 +262,19 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     """)
     Long earliestDepositSince(@Param('walletId') Long walletId,
                                @Param('since') Long since)
+
+    /** COMPLETED withdrawal count for the wallet — drives the Profile
+     *  "Withdrawals" stat. Accepts both the canonical `WITHDRAWAL` and
+     *  the legacy `WITHDRAW` spelling that StripeService.requestWithdraw
+     *  still emits, so a user whose rows are stored under the legacy
+     *  type isn't silently shown a zero count. Same dual-name posture
+     *  the cap query (`sumWithdrawalsInWindow` / `earliestWithdrawalSince`)
+     *  uses. */
+    @Query("""
+        SELECT COUNT(t) FROM Transaction t
+        WHERE t.walletId = :walletId
+          AND t.type IN ('WITHDRAW', 'WITHDRAWAL')
+          AND t.status = 'COMPLETED'
+    """)
+    long countCompletedWithdrawalsByWallet(@Param('walletId') Long walletId)
 }
