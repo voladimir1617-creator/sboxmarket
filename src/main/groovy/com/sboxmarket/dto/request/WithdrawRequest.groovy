@@ -3,6 +3,7 @@ package com.sboxmarket.dto.request
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 
 class WithdrawRequest {
@@ -20,7 +21,11 @@ class WithdrawRequest {
     @Size(max = 255, message = "destination must be at most 255 characters")
     String destination
 
-    /** 6-digit TOTP code — required only when the user has 2FA enabled. */
-    @Size(max = 6, message = "totpCode must be 6 digits")
+    /** 6-digit TOTP code — required only when the user has 2FA enabled.
+     *  Nullable for non-2FA users; when present it must be exactly 6 digits.
+     *  The plain @Size(max=6) we had before let "1" or "" pass and only
+     *  blew up later in the TOTP verifier, which made the failure mode
+     *  noisier than it needed to be. */
+    @Pattern(regexp = '^[0-9]{6}$', message = "totpCode must be exactly 6 digits")
     String totpCode
 }
