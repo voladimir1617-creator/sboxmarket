@@ -7,6 +7,7 @@ import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.UserBlockRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -73,7 +74,26 @@ class UserBlockService {
             blockedUserId: blockedUserId,
             createdAt:     System.currentTimeMillis()
         )
-        userBlockRepository.save(block)
+        // existsBlock + save is a non-atomic read-modify-write. A user
+        // double-tapping the block button (or two devices hitting the
+        // endpoint simultaneously) fires two concurrent requests that
+        // both observe existsBlock=false and both INSERT; the
+        // `user_blocks_unique_pair` UNIQUE constraint then rejects the
+        // loser with a DataIntegrityViolationException. Treat that as a
+        // benign no-op — the block already exists from the winning
+        // request — and return the freshly-committed row. Without this
+        // catch the loser bubbles a 500 INTERNAL_ERROR even though the
+        // end-state ("user 20 is blocked") is exactly what they wanted.
+        // Mirrors LoadoutService.toggleFavorite + ReviewService.toggleHelpful
+        // which handle the same race on their respective junction tables.
+        try {
+            userBlockRepository.save(block)
+        } catch (DataIntegrityViolationException dup) {
+            log.debug("block race on blocker=${blockerUserId} blocked=${blockedUserId} — already blocked, treating as no-op")
+            def winner = userBlockRepository.findByBlocker(blockerUserId)
+                .find { it.blockedUserId == blockedUserId }
+            return winner
+        }
         log.info("User ${blockerUserId} blocked user ${blockedUserId}")
         block
     }

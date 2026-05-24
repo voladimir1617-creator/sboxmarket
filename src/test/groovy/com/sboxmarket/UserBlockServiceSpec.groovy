@@ -395,4 +395,46 @@ class UserBlockServiceSpec extends Specification {
         n == 0L
         0 * userBlockRepository.countByBlocker(_)
     }
+
+    def "block treats a UNIQUE-constraint race as a graceful no-op, not a 500"() {
+        // existsBlock() + save() is a non-atomic read-modify-write. A user
+        // double-tapping the Block button (or two devices hitting the
+        // endpoint simultaneously) fires two concurrent requests that
+        // both observe existsBlock=false and both INSERT; the
+        // `user_blocks_unique_pair` UNIQUE constraint then rejects the
+        // loser with a DataIntegrityViolationException. Before the fix
+        // that bubbled to the controller as a 500 INTERNAL_ERROR even
+        // though the end-state ("user 20 is blocked") was exactly what
+        // the user wanted. After the fix the loser swallows the
+        // constraint violation and returns the row the winning request
+        // committed. Mirrors ReviewService.toggleHelpful + LoadoutService.
+        // toggleFavorite which handle the same race on their junctions.
+        given:
+        def winner = new UserBlock(id: 42L, blockerUserId: 10L, blockedUserId: 20L,
+            createdAt: 1_700_000_000_000L)
+        userBlockRepository.existsBlock(10L, 20L) >> false
+        steamUserRepository.findById(20L) >> Optional.of(new SteamUser(id: 20L))
+        userBlockRepository.countByBlocker(10L) >> 5L
+
+        when:
+        def block = service.block(10L, 20L)
+
+        then: 'save() is attempted exactly once and throws the constraint violation'
+        1 * userBlockRepository.save({ UserBlock b ->
+            b.blockerUserId == 10L && b.blockedUserId == 20L
+        }) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException('duplicate key')
+        }
+        // The race-loser re-reads the blocker's rows to surface the row
+        // the winning request already committed.
+        1 * userBlockRepository.findByBlocker(10L) >> [winner]
+        // The constraint violation must NOT escape — the controller
+        // would translate it to a 500 otherwise.
+        noExceptionThrown()
+        // Response carries the committed (winning) row, not the
+        // unsaved local instance.
+        block.is(winner)
+        block.id == 42L
+        block.blockedUserId == 20L
+    }
 }
