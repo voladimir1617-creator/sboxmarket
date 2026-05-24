@@ -9142,9 +9142,27 @@ export function App() {
         { key: 'watchlist', href: paths.watchlist(), icon: 'bookmark_border', label: 'Watchlist', badge: watchlist.length },
         { key: 'profile',   href: paths.profile(),   icon: 'person',          label: 'Profile' }
       ];
+      // Map sub-routes onto their parent bottom-nav tab so the visible
+      // active indicator follows the user into nested pages. Without this
+      // the bar appears "unrooted" anywhere off the five named tabs:
+      // /wallet, /offers, /buy-orders, /notifications, /settings, /support,
+      // /affiliate, /me/stall all live under the Profile umbrella; /item/:id
+      // and / (home) are browsing surfaces that belong to Market. Sub-tabs
+      // of an existing tab (/profile/transactions, /watchlist/drops) already
+      // collapse to the parent name in router.js so they don't need a clause
+      // here.
+      const PROFILE_ROUTES = new Set(['profile', 'wallet', 'offers', 'buyorders',
+        'notifications', 'settings', 'support', 'affiliate', 'mystall']);
+      const MARKET_ROUTES  = new Set(['market', 'home', 'item', 'cart']);
+      const isActive = (tabKey) => {
+        if (routeName === tabKey) return true;
+        if (tabKey === 'profile') return PROFILE_ROUTES.has(routeName);
+        if (tabKey === 'market')  return MARKET_ROUTES.has(routeName);
+        return false;
+      };
       return h('nav', { className: 'csfloat-mobile-nav', 'aria-label': 'Mobile navigation' },
         tabs.map(t => {
-          const active = routeName === t.key;
+          const active = isActive(t.key);
           return h('a', {
             key: t.key,
             href: t.href,
