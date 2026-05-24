@@ -40,6 +40,36 @@ class SteamSyncService {
     @Autowired SteamInventoryService steamInventoryService
     @Autowired NotificationService notificationService
 
+    /** Per-user serialization for syncOne. Two concurrent sync attempts on
+     *  the SAME user (e.g. a user clicking "Re-sync now" from two browser
+     *  tabs, or the scheduler hitting a user at the same instant they
+     *  trigger an on-demand sync) used to race: both threads called
+     *  `findById`, both read the same `before` count, both computed
+     *  `now > before`, both pushed a STEAM_INVENTORY notification — the
+     *  user got duplicate "N new item(s)" toasts for a single real delta.
+     *  Worse, the second `save` would also overwrite the first with a
+     *  stale-from-its-perspective value of `now`.
+     *
+     *  Holding a per-user monitor while we read-modify-write the row
+     *  serializes those attempts so the second one sees the updated
+     *  steamInventorySize and either suppresses or correctly differs the
+     *  notification. Bounded soft-eviction at SYNC_LOCK_MAX so a 100k-user
+     *  platform can't accumulate one lock object per user forever; we don't
+     *  need a strict LRU here because the lock identity only matters for
+     *  the duration of the syncOne call. */
+     private static final int SYNC_LOCK_MAX = 5000
+     private final java.util.concurrent.ConcurrentHashMap<Long, Object> userSyncLocks = new java.util.concurrent.ConcurrentHashMap<>()
+
+     private Object lockFor(Long userId) {
+         if (userSyncLocks.size() >= SYNC_LOCK_MAX) {
+             try {
+                 def first = userSyncLocks.keys().nextElement()
+                 if (first != null && first != userId) userSyncLocks.remove(first)
+             } catch (NoSuchElementException ignored) { /* raced to empty */ }
+         }
+         userSyncLocks.computeIfAbsent(userId, { new Object() })
+     }
+
     @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 60_000L)
     void syncAllUsers() {
         // Only pull users who are actually stale, and cap the batch so
@@ -60,19 +90,43 @@ class SteamSyncService {
         // actually stops the walk.
         for (def user : users) {
             try {
-                syncOne(user)
-                Thread.sleep(1000L)  // 1 req/s ceiling
+                try {
+                    syncOne(user)
+                } catch (InterruptedException ie) {
+                    throw ie
+                } catch (Exception e) {
+                    log.warn("Steam sync failed for ${user.steamId64}: ${e.message}")
+                }
+                // Throttle UNCONDITIONALLY between users — the sleep used
+                // to live only on the success path, so a run of failing
+                // users (e.g. Steam IP-banning us mid-sweep, every fetch
+                // 429s and throws) would spin through the loop at full
+                // CPU speed, hammering Steam with zero rate limiting
+                // exactly when we should be slowing down the most. The
+                // 1 req/s ceiling has to bound failure throughput too.
+                Thread.sleep(1000L)
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt()
                 break
-            } catch (Exception e) {
-                log.warn("Steam sync failed for ${user.steamId64}: ${e.message}")
             }
         }
     }
 
     @Transactional
     void syncOne(SteamUser user) {
+        // Serialise concurrent attempts for the same user — see lockFor's
+        // doc for the race this closes. The lock is JVM-local: it doesn't
+        // help across multiple app instances, but the only realistic
+        // multi-thread collision in a single-instance deployment is
+        // (a) two browser tabs hitting /api/steam/sync simultaneously, or
+        // (b) the scheduler tick reaching a user at the same moment they
+        // click Re-sync. Both are intra-instance and covered here.
+        synchronized (lockFor(user.id)) {
+            doSyncOne(user)
+        }
+    }
+
+    private void doSyncOne(SteamUser user) {
         // 1) profile refresh — reuse the same code path login uses so display
         // name / avatar stays in lock-step with Steam.
         try {
@@ -99,14 +153,25 @@ class SteamSyncService {
         // doesn't match the user's actual inventory delta — at best a noisy
         // toast, at worst a doubled push for the same delta on the next tick.
         def fresh = steamUserRepository.findById(user.id).orElse(user)
-        def before = fresh.steamInventorySize ?: 0
+        // Distinguish "we have never recorded a count for this user" (null)
+        // from "the recorded count is 0" (Integer 0). The first-ever sync
+        // for a brand-new account otherwise fires a STEAM_INVENTORY toast
+        // saying "50 new item(s) ready to list" for items the user has
+        // owned since long before they signed up — landing immediately
+        // after the WELCOME push from upsertUser, doubling the
+        // sign-up-notification load and over-counting deltas. With this
+        // gate, the first successful sync silently RECORDS the baseline
+        // count; only sweep #2 onwards can fire the delta notification.
+        def priorRecorded = fresh.steamInventorySize
+        def before = priorRecorded ?: 0
+        def isBaseline = (priorRecorded == null)
         fresh.lastSyncedAt = System.currentTimeMillis()
         if (!blocked) {
             fresh.steamInventorySize = now
         }
         steamUserRepository.save(fresh)
 
-        if (!blocked && now > before) {
+        if (!blocked && !isBaseline && now > before) {
             notificationService?.push(user.id, 'STEAM_INVENTORY',
                 "New Steam inventory items",
                 "${now - before} new item(s) ready to list", null, '/sell')
