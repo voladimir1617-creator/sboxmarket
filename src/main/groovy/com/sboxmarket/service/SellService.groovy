@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
@@ -78,6 +80,73 @@ class SellService {
         def tt = new TransactionTemplate(transactionManager)
         tt.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW)
         tt.execute({ status -> work() ; null } as org.springframework.transaction.support.TransactionCallback)
+    }
+
+    /**
+     * Run {@code work} after the caller's transaction commits — or
+     * immediately when there is no active transaction. Mirrors the
+     * pattern in PurchaseService / AuditService / NotificationService /
+     * PriceHistoryService (wave 23) — same docstring lineage as those.
+     *
+     * Why this matters for the RELIST path: `buyOrderService.tryMatch`
+     * is itself `@Transactional` with default REQUIRED propagation, so
+     * when called from inside relist's own @Transactional method it
+     * JOINS the relist transaction. tryMatch then calls
+     * `purchaseService.buy`, which writes to wallet / listing / trade /
+     * transaction rows. If ANY of those repository.save() calls throws
+     * (DB blip, optimistic-lock race, dialect quirk), Spring Data's
+     * @Transactional save proxy marks the SHARED relist transaction
+     * rollback-only. The wrapping try/catch in relist absorbs the
+     * exception and the method appears to succeed — but on commit
+     * Spring throws UnexpectedRollbackException and the relist's
+     * RELISTED flip on the old row, the fresh ACTIVE listing INSERT,
+     * AND every fan-out side-effect all silently roll back while the
+     * caller's HTTP response says 200. Money-path catastrophe — the
+     * seller sees their inventory unchanged, the new listing never
+     * appears on the marketplace, and any followers / saved-search /
+     * watchlist pushes about a listing that doesn't exist have already
+     * fired. Exact same bug class as wave 60 (ebc1b45) on
+     * TradeProtectionService.
+     *
+     * A simple `@Transactional(propagation = REQUIRES_NEW)` flip on
+     * tryMatch won't work — purchaseService.buy reads the fresh listing
+     * by id, and inside a REQUIRES_NEW tx the parent's uncommitted
+     * INSERT is invisible (READ_COMMITTED isolation), so tryMatch
+     * would see no candidate listing and silently no-op every time.
+     *
+     * Deferring tryMatch to afterCommit fixes both problems at once:
+     * the relist transaction durably commits FIRST (the new listing
+     * row is visible to anything that queries it), THEN tryMatch runs
+     * in its own fresh REQUIRES_NEW tx and reads the now-committed
+     * listing. A failure inside the deferred body can only roll back
+     * the buy + buy-order-save (which is the correct scope — the
+     * relist already landed), and it can never poison the relist tx
+     * because the relist tx no longer exists.
+     */
+    private void deferOrRun(Closure work) {
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    try {
+                        def tt = new TransactionTemplate(transactionManager)
+                        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                        tt.executeWithoutResult { work() }
+                    } catch (Exception e) {
+                        log.warn("Deferred best-effort write failed: ${e.message}")
+                    }
+                }
+            })
+        } else {
+            // No active transaction (unit tests / non-transactional caller).
+            // Still swallow exceptions so a best-effort side-effect can't
+            // fail the caller — matches the inline try/catch semantic the
+            // original wrapper provided.
+            try {
+                work()
+            } catch (Exception e) {
+                log.warn("Best-effort write failed (no active tx): ${e.message}")
+            }
+        }
     }
 
     @Transactional
@@ -189,12 +258,29 @@ class SellService {
         def saved = listingRepository.save(fresh)
         log.info("User $sellerUserId relisted item ${owned.item.name} as ${resolvedType} listing ${saved.id} for \$${newPrice}")
 
-        // Try to auto-fulfil any standing buy order that matches this fresh listing.
-        // Failures here must never fail the parent transaction.
-        try {
-            buyOrderService.tryMatch(saved)
-        } catch (Exception e) {
-            log.warn("Buy-order match failed for listing ${saved.id}: ${e.message}")
+        // Try to auto-fulfil any standing buy order that matches this fresh
+        // listing — DEFERRED to afterCommit (wave 60 follow-up). Failures
+        // here must never fail the parent transaction. A plain try/catch
+        // around tryMatch is NOT enough: tryMatch is `@Transactional` and
+        // joins the relist tx, so when its inner purchaseService.buy ->
+        // wallet/listing/trade save throws and the catch swallows it,
+        // Spring has already marked the SHARED tx rollback-only and the
+        // relist commit blows up with UnexpectedRollbackException. The
+        // committed RELISTED flip + ACTIVE INSERT silently roll back
+        // while the caller's HTTP response says 200. Deferring the entire
+        // tryMatch call to afterCommit means the relist tx durably
+        // commits FIRST (the fresh listing is visible), then tryMatch
+        // runs in its own REQUIRES_NEW tx and reads the now-committed
+        // row — a buy() failure can only roll back its own inner tx, the
+        // relist is unaffected. See `deferOrRun` docstring for the full
+        // failure-mode walk-through.
+        final Listing _savedForMatch = saved
+        deferOrRun {
+            try {
+                buyOrderService.tryMatch(_savedForMatch)
+            } catch (Exception e) {
+                log.warn("Buy-order match failed for listing ${_savedForMatch.id}: ${e.message}")
+            }
         }
         // Fan out NEW_LISTING_FROM_SELLER to every user following this
         // seller. Wrapped in try/catch so one bad subscription doesn't

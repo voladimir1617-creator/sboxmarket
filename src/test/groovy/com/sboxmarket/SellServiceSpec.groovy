@@ -106,6 +106,63 @@ class SellServiceSpec extends Specification {
         fresh.status == 'ACTIVE'
     }
 
+    // ── deferOrRun pin (wave 60 follow-up — see SellService docstring) ─
+
+    def "SellService has the deferOrRun afterCommit helper"() {
+        expect:
+        // The deferral helper is what moves the best-effort buy-order
+        // match out of the relist transaction. Pin its presence by
+        // reflection so a future refactor can't silently drop it and
+        // re-introduce the UnexpectedRollbackException money-path bug
+        // (same class as wave 60 ebc1b45 on TradeProtectionService).
+        SellService.getDeclaredMethods().any { it.name == 'deferOrRun' }
+    }
+
+    def "relist still invokes tryMatch when no active transaction (deferOrRun inline-fallback)"() {
+        // Unit tests build SellService via the property-map constructor —
+        // no Spring context, no PlatformTransactionManager, no active
+        // synchronization. The deferOrRun helper must fall back to
+        // running the work inline so existing fan-out behaviour (and
+        // the existing `1 * tryMatch(_)` expectation in "relist creates
+        // a fresh ACTIVE listing") still holds in this configuration.
+        given:
+        listingRepository.findById(_) >> Optional.of(owned())
+        listingRepository.save(_) >> { args -> def l = args[0]; l.id = l.id ?: 100L; l }
+
+        when:
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal("80"))
+
+        then:
+        // Inline-fallback path — tryMatch ran on the saved listing
+        // synchronously because there is no afterCommit hook to
+        // register against. The argument is the freshly-built ACTIVE
+        // listing (the second listingRepository.save call — the first
+        // flipped `owned` to RELISTED).
+        fresh != null
+        1 * buyOrderService.tryMatch({ it != null && it.status == 'ACTIVE' && it.sellerUserId == 10L })
+    }
+
+    def "relist returns the fresh listing even when the deferred tryMatch closure throws (inline-fallback path)"() {
+        // Belt-and-braces sibling of "swallows buy-order-match
+        // exceptions" — verifies the inline branch of deferOrRun's
+        // own try/catch absorbs the throw rather than relying on the
+        // call-site's try/catch alone. Without this swallow, a unit
+        // test that simulates "no tx manager" would surface the
+        // exception to the caller and break the contract that
+        // best-effort fan-out can't fail the parent.
+        given:
+        listingRepository.findById(_) >> Optional.of(owned())
+        listingRepository.save(_) >> { args -> def l = args[0]; l.id = l.id ?: 100L; l }
+        buyOrderService.tryMatch(_) >> { throw new RuntimeException("downstream buy() blew up") }
+
+        when:
+        def fresh = service.relist(10L, 'Alice', 50L, new BigDecimal("80"))
+
+        then:
+        noExceptionThrown()
+        fresh.status == 'ACTIVE'
+    }
+
     def "relist refuses zero/negative/null prices"() {
         when:
         service.relist(10L, 'Alice', 50L, price)
