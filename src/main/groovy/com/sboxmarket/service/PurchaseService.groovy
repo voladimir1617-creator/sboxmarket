@@ -16,7 +16,12 @@ import com.sboxmarket.service.security.BanGuard
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Orchestrates a purchase: verify funds, debit wallet, mark listing sold,
@@ -43,6 +48,58 @@ class PurchaseService {
     @Autowired(required = false) ItemRepository itemRepository
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) EmailService emailService
+    /** Optional so unit tests that build the service with `new
+     *  PurchaseService(...)` (no Spring context) still work — in that case
+     *  there is never an active transaction and {@link #deferOrRun} runs
+     *  the work immediately so the mocked-repo assertions still fire. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
+
+    /**
+     * Run {@code work} after the caller's transaction commits — or
+     * immediately when there is no active transaction (matches the
+     * pattern used by {@link PriceHistoryService}/{@link AuditService}).
+     *
+     * Why this matters for the BUY path: a same-transaction repository
+     * call that throws (DB blip, constraint, optimistic lock) calls
+     * {@code setRollbackOnly()} on the SHARED transaction via Spring's
+     * inner transactional proxy. The wrapping try/catch in {@link #buy}
+     * swallows the exception and the buyer sees "success", but the
+     * outer commit then blows up with UnexpectedRollbackException — the
+     * money movement, the SOLD flip, and the Trade escrow row are ALL
+     * rolled back while the buyer's UI thinks the purchase landed. By
+     * deferring the cosmetic side-effects (totalSold bump, cart scrub,
+     * CART_ITEM_SOLD fan-out) to {@code afterCommit}, they run in fresh
+     * REQUIRES_NEW transactions AFTER the money write is durably
+     * committed, so a failure in any of them can no longer poison the
+     * sale itself. (PriceHistoryService and AuditService already do
+     * this for the same reason; this closes the remaining gap.)
+     */
+    private void deferOrRun(Closure work) {
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    try {
+                        def tt = new TransactionTemplate(transactionManager)
+                        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                        tt.executeWithoutResult { work() }
+                    } catch (Exception e) {
+                        log.warn("Deferred best-effort write failed: ${e.message}")
+                    }
+                }
+            })
+        } else {
+            // No active transaction (unit tests / non-transactional caller).
+            // Still swallow exceptions so a best-effort side-effect can't
+            // fail the caller — matches the safety semantic the original
+            // inline try/catch wrappers provided. The "throw must not
+            // break the parent" contract is what every call-site relies on.
+            try {
+                work()
+            } catch (Exception e) {
+                log.warn("Best-effort write failed (no active tx): ${e.message}")
+            }
+        }
+    }
 
     @Transactional
     Map buy(Long buyerWalletId, Long buyerUserId, Long listingId) {
@@ -163,14 +220,17 @@ class PurchaseService {
 
         // Bump Item.totalSold atomically so the Database page's "Most
         // Traded" sort reflects real platform activity (not just the
-        // external SCMM subscription count). Wrapped + null-guarded so
-        // a repo hiccup never breaks the purchase.
-        try {
-            if (listing.item?.id != null) {
-                itemRepository?.incrementTotalSold(listing.item.id)
-            }
-        } catch (Exception e) {
-            log.warn("totalSold bump failed for item ${listing.item?.id}: ${e.message}")
+        // external SCMM subscription count). Deferred to afterCommit
+        // (not just try/catch) so a failing UPDATE can't mark the
+        // shared transaction rollback-only and silently kill the sale.
+        // The try/catch alone wasn't enough: Spring's transactional
+        // proxy on JpaRepository calls setRollbackOnly() BEFORE the
+        // exception escapes back here, so the swallow only hid the
+        // failure — the outer commit still threw UnexpectedRollbackException.
+        // Null-guard preserved so a missing item id is a quiet no-op.
+        final Long _itemIdForBump = listing.item?.id
+        if (_itemIdForBump != null && itemRepository != null) {
+            deferOrRun { itemRepository.incrementTotalSold(_itemIdForBump) }
         }
 
         // Record transaction on buyer side
@@ -276,37 +336,56 @@ class PurchaseService {
         // leak between buyers — until the next client-side stale check
         // happened to fire. Notifications are still gated on the bean
         // (the inner null-check below), but the scrub is unconditional.
+        //
+        // Deferred to afterCommit (not just try/catch). The cart query
+        // AND the bulk DELETE are repository calls — if either throws
+        // (DB blip, lock-wait timeout, dialect quirk), Spring's inner
+        // transactional proxy calls setRollbackOnly() on the SHARED
+        // transaction before the exception bubbles. The outer
+        // try/catch hid that, but the parent commit still threw
+        // UnexpectedRollbackException and the money write + SOLD flip
+        // + Trade escrow were ALL rolled back while the buyer thought
+        // the purchase succeeded. Running the scrub post-commit in a
+        // fresh REQUIRES_NEW transaction means a cart-side failure can
+        // now only leave a few ghost rows (the client-side stale
+        // detector picks them up) instead of silently nuking the sale.
         if (cartItemRepository != null) {
-            try {
-                def others = cartItemRepository.findOtherUsersWithListing(listingId, buyerUserId) ?: []
-                if (!others.isEmpty()) {
-                    def itemName = listing.item?.name ?: 'an item'
-                    def itemId = listing.item?.id
-                    if (notificationService != null) {
-                        others.take(50).each { uid ->
-                            try {
-                                notificationService.push(uid, 'CART_ITEM_SOLD',
-                                    "Cart item sold · ${itemName}",
-                                    "${itemName} was bought by another user. Other listings may still be available — find a similar one in the marketplace.",
-                                    listingId,
-                                    itemId != null ? "/item/${itemId}" : '/cart')
-                            } catch (Exception e) {
-                                log.warn("CART_ITEM_SOLD push failed for uid=${uid}: ${e.message}")
+            final Long _listingIdForScrub = listingId
+            final Long _buyerIdForScrub = buyerUserId
+            final String _itemNameForScrub = listing.item?.name ?: 'an item'
+            final Long _itemIdForScrub = listing.item?.id
+            final NotificationService _notifierForScrub = notificationService
+            final com.sboxmarket.repository.CartItemRepository _cartRepoForScrub = cartItemRepository
+            deferOrRun {
+                try {
+                    def others = _cartRepoForScrub.findOtherUsersWithListing(_listingIdForScrub, _buyerIdForScrub) ?: []
+                    if (!others.isEmpty()) {
+                        if (_notifierForScrub != null) {
+                            others.take(50).each { uid ->
+                                try {
+                                    _notifierForScrub.push(uid, 'CART_ITEM_SOLD',
+                                        "Cart item sold · ${_itemNameForScrub}",
+                                        "${_itemNameForScrub} was bought by another user. Other listings may still be available — find a similar one in the marketplace.",
+                                        _listingIdForScrub,
+                                        _itemIdForScrub != null ? "/item/${_itemIdForScrub}" : '/cart')
+                                } catch (Exception e) {
+                                    log.warn("CART_ITEM_SOLD push failed for uid=${uid}: ${e.message}")
+                                }
                             }
                         }
+                        // Scrub the now-sold listing from every cart so
+                        // the next /api/cart fetch doesn't show a ghost
+                        // row. Best-effort — a delete miss just leaves
+                        // the row for the client-side stale detector.
+                        try {
+                            _cartRepoForScrub.deleteAllByListing(_listingIdForScrub)
+                        } catch (Exception e) {
+                            log.warn("CART_ITEM_SOLD scrub failed for listing=${_listingIdForScrub}: ${e.message}")
+                        }
                     }
-                    // Scrub the now-sold listing from every cart so
-                    // the next /api/cart fetch doesn't show a ghost
-                    // row. Best-effort — a delete miss just leaves
-                    // the row for the client-side stale detector.
-                    try {
-                        cartItemRepository.deleteAllByListing(listingId)
-                    } catch (Exception e) {
-                        log.warn("CART_ITEM_SOLD scrub failed for listing=${listingId}: ${e.message}")
-                    }
+                } catch (Exception e) {
+                    log.warn("CART_ITEM_SOLD fan-out failed for listing=${_listingIdForScrub}: ${e.message}")
                 }
-            } catch (Exception e) {
-                log.warn("CART_ITEM_SOLD fan-out failed for listing=${listingId}: ${e.message}")
             }
         }
 
