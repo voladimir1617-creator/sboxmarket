@@ -1078,4 +1078,70 @@ class TradeProtectionServiceSpec extends Specification {
         expect:
         service.summary(null) == null
     }
+
+    // ── transaction-propagation pins (mirror of d3a3df7) ──────────────
+    //
+    // Every TradeService money-path method (release / dispute / cancel /
+    // autoCancelStaleSellerTrade / autoCancelBannedSellerTrade) is itself
+    // @Transactional and wraps these calls in a try/catch with explicit
+    // "best-effort, must not roll back the parent" comments. With default
+    // REQUIRED propagation an inner failure here would join the caller's
+    // tx and Spring's transactional proxy would mark the SHARED tx
+    // rollback-only the moment the inner exception escaped — the caller's
+    // try/catch absorbs the throw, this method returns normally, but the
+    // parent commit then throws UnexpectedRollbackException and the money
+    // movement + state flip in the parent silently roll back. Exactly the
+    // failure mode the WatchlistAlertService.sweepForItem fix (d3a3df7)
+    // closed. These pins lock in REQUIRES_NEW so a future edit can't
+    // reintroduce the rollback-only leak by dropping the propagation arg.
+    //
+    // We use reflection on the @Transactional annotation (mirrors the
+    // FraudAnalysisServiceSpec pattern) — a full Spring-proxy integration
+    // test isn't needed when the annotation alone defines the runtime
+    // behaviour. If the annotation says REQUIRES_NEW, the proxy will
+    // honour it.
+
+    def "autoClaim is @Transactional(REQUIRES_NEW) so a protection failure can't poison the caller's tx"() {
+        given:
+        def m = TradeProtectionService.getDeclaredMethod('autoClaim', Long, String)
+        def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
+
+        expect: "annotation present and propagation set to REQUIRES_NEW"
+        txn != null
+        txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRES_NEW
+    }
+
+    def "reverseClaim is @Transactional(REQUIRES_NEW) so a clawback failure can't poison TradeService.release"() {
+        given:
+        def m = TradeProtectionService.getDeclaredMethod('reverseClaim', Long, String)
+        def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
+
+        expect:
+        txn != null
+        txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRES_NEW
+    }
+
+    def "expire is @Transactional(REQUIRES_NEW) so a status-flip failure can't poison release/cancel"() {
+        given:
+        def m = TradeProtectionService.getDeclaredMethod('expire', Long)
+        def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
+
+        expect:
+        txn != null
+        txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRES_NEW
+    }
+
+    def "enable stays at default REQUIRED — it owns its own money-path tx (charged from a controller, not nested inside another money method)"() {
+        given: "enable() is the only direct entry point — called from TradeProtectionController, " +
+               "NOT from inside another @Transactional money method. Its fee-debit + transaction-save " +
+               "+ protection-save MUST commit atomically (you can't charge the buyer without creating " +
+               "the protection row). Default REQUIRED is the correct propagation for this all-or-nothing " +
+               "shape — REQUIRES_NEW would buy nothing since there's no outer tx to isolate from."
+        def m = TradeProtectionService.getDeclaredMethod('enable', Long, Long)
+        def txn = m.getAnnotation(org.springframework.transaction.annotation.Transactional)
+
+        expect:
+        txn != null
+        txn.propagation() == org.springframework.transaction.annotation.Propagation.REQUIRED
+    }
 }

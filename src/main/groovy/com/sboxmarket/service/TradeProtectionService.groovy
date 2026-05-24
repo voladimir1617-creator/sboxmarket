@@ -13,6 +13,7 @@ import com.sboxmarket.repository.WalletRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 /**
@@ -200,8 +201,27 @@ class TradeProtectionService {
      * from every trade-failure path. Best-effort by design: callers
      * invoke it inside a try/catch so a protection hiccup never rolls
      * back the underlying trade transition.
+     *
+     * REQUIRES_NEW propagation is LOAD-BEARING — every caller is a
+     * money-path @Transactional method (TradeService.dispute) that
+     * wraps this in try/catch with explicit "must not roll back the
+     * parent" intent. With default REQUIRED propagation a failing
+     * wallet.save() / transactionRepository.save() / protection.save()
+     * inside this method would JOIN the caller's tx and Spring's
+     * transactional proxy would mark the SHARED tx rollback-only the
+     * moment the inner exception escaped — the caller's try/catch
+     * absorbs the throw, autoClaim returns normally, but the parent
+     * commit then throws UnexpectedRollbackException and the
+     * DISPUTED flip + dispute audit + admin fan-out all roll back
+     * silently while the call appears to succeed. Catastrophic for a
+     * money-path call. REQUIRES_NEW gives the protection payout its
+     * own tx so a failure here can roll back ONLY the inner protection
+     * write — the dispute itself is unaffected, exactly matching the
+     * "best-effort, must not roll back the parent" contract every
+     * caller relies on. Mirrors the WatchlistAlertService.sweepForItem
+     * fix (d3a3df7).
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     TradeProtection autoClaim(Long tradeId, String reason) {
         def protection = tradeProtectionRepository.findByTradeId(tradeId)
         if (protection == null) return null
@@ -285,8 +305,20 @@ class TradeProtectionService {
      *
      * No-op when the trade is unprotected or the protection is not in
      * CLAIMED state — safe to call from the release path unconditionally.
+     *
+     * REQUIRES_NEW propagation is LOAD-BEARING — TradeService.release
+     * wraps this call in try/catch with explicit "Best-effort: a
+     * protection hiccup must not roll back the seller credit + VERIFIED
+     * transition above". With default REQUIRED propagation an inner
+     * wallet.save() failure would JOIN the release tx and Spring's
+     * proxy would mark it rollback-only — the seller credit, the
+     * VERIFIED state flip, and the auto-release email would all roll
+     * back while the call appears to succeed. REQUIRES_NEW isolates
+     * the protection clawback in its own tx so it can fail without
+     * poisoning the parent release. Mirrors the
+     * WatchlistAlertService.sweepForItem fix (d3a3df7).
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     TradeProtection reverseClaim(Long tradeId, String reason) {
         def protection = tradeProtectionRepository.findByTradeId(tradeId)
         if (protection == null) return null
@@ -357,8 +389,22 @@ class TradeProtectionService {
      *
      * No-op when the trade has no protection or the protection has
      * already left ACTIVE. Best-effort, like {@code autoClaim}.
+     *
+     * REQUIRES_NEW propagation is LOAD-BEARING — every caller
+     * (TradeService.release, TradeService.cancel,
+     * autoCancelStaleSellerTrade, autoCancelBannedSellerTrade) wraps
+     * this in try/catch with explicit "Best-effort so a protection
+     * hiccup can't roll back the refund/CANCELLED/VERIFIED transition
+     * above". With default REQUIRED propagation a failing
+     * protection.save() would JOIN the caller's tx and Spring's
+     * transactional proxy would mark it rollback-only — the parent's
+     * money movement + state flip + audit + fan-out all roll back
+     * while the call appears to succeed. REQUIRES_NEW gives the
+     * expire its own tx so a failure here can roll back ONLY the
+     * inner protection-status write, leaving the parent intact.
+     * Mirrors the WatchlistAlertService.sweepForItem fix (d3a3df7).
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     TradeProtection expire(Long tradeId) {
         def protection = tradeProtectionRepository.findByTradeId(tradeId)
         if (protection == null) return null
