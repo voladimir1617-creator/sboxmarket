@@ -110,8 +110,28 @@ class WebConfig implements WebMvcConfigurer {
 
     @Override
     void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/**")
-                .addResourceLocations("classpath:/static/")
+        // Long-cache hashed/immutable asset directories (/css, /js, /img,
+        // /fonts, favicons, manifests) — 7d browser cache + last-modified
+        // revalidation. These are bundle-style assets the SPA build either
+        // fingerprints in the filename or rebuilds on every deploy, so a
+        // stale browser cache is self-healing on next file change.
+        // Without this, every page load re-hits Tomcat for every CSS/JS
+        // request with an `If-Modified-Since` round-trip, burning a
+        // worker thread per asset per visit instead of returning a 304
+        // straight from the browser cache.
+        registry.addResourceHandler('/css/**', '/js/**', '/img/**', '/fonts/**',
+                                    '/favicon.ico', '/manifest.json', '/robots.txt',
+                                    '/opensearch.xml')
+                .addResourceLocations('classpath:/static/')
+                .setCachePeriod(60 * 60 * 24 * 7)
+        // SPA shell + HTML pages — NO browser cache. Every deploy rewrites
+        // index.html with new bundle hashes; a cached index.html would
+        // load stale JS/CSS references and 404 forever until the user
+        // hard-refreshed. setCachePeriod(0) sends `Cache-Control: no-store`
+        // so the browser always asks the server for the current shell.
+        registry.addResourceHandler('/**')
+                .addResourceLocations('classpath:/static/')
+                .setCachePeriod(0)
     }
 
     @Override
