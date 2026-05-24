@@ -9,8 +9,6 @@ import jakarta.servlet.http.Cookie
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletRequestWrapper
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.core.Ordered
-import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
@@ -36,13 +34,21 @@ import org.springframework.stereotype.Component
  * row), and the response sets an expired Set-Cookie so the browser stops
  * replaying the corrupt one.
  *
- * Runs HIGHEST_PRECEDENCE + 5 so it sits in front of Spring Session,
- * the security chain, and any controller that reads cookies. The +5 is
- * a defensive offset — leaves a tiny window for an even-earlier filter
- * (CORS, etc.) without being literally first.
+ * Runs HIGHEST_PRECEDENCE + 1 — second-from-the-front, immediately after
+ * {@link CatastrophicErrorFilter} (HIGHEST_PRECEDENCE). The +1 leaves
+ * exactly one slot for CatastrophicErrorFilter to wrap us so its outage-
+ * exception catch sees any throw from this sanitizer, but otherwise we're
+ * ahead of Spring Session (~MIN_VALUE+50), the security chain, and every
+ * business filter — anything below us reads cookies via the wrapped
+ * request and therefore sees only sanitized values.
+ *
+ * The ordering is set in {@link SessionCookieSanitizerConfig} via an
+ * explicit FilterRegistrationBean. Spring Boot's @Component-driven
+ * auto-registration is disabled by the explicit registration, so a class-
+ * level @Order annotation would be silently overridden and is omitted
+ * here to keep the source unambiguous.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 5)
 @Slf4j
 class SessionCookieSanitizerFilter implements Filter {
 
