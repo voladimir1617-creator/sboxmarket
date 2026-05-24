@@ -3,7 +3,7 @@
 //
 // Every modal follows the same pattern as ./modals.js — narrow prop surface,
 // uses InfoModal as the shell, calls into ./api.js for I/O.
-import { h, useState, useEffect, useCallback, useMemo, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol } from './utils.js';
+import { h, useState, useEffect, useCallback, useMemo, useRef, fmt, timeAgo, signInWithSteam, toast, highlightMatch, currencySymbol } from './utils.js';
 import { ItemImage, RarityBadge, MaterialIcon, Sparkline, ReasonDrawer } from './primitives.js';
 import { InfoModal, SignInNeededEmptyState } from './info-modal.js';
 import { navigate, paths } from './router.js';
@@ -116,7 +116,14 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
   const [page, setPage]       = useState(0);
   const PAGE_SIZE = 30;
 
+  // Race-condition guard — bump a monotonic request id on every load()
+  // so out-of-order responses (e.g. user types "abc" then quickly types
+  // "abcd" before the first request lands) don't overwrite a newer
+  // result with stale data. Only the latest call's response commits
+  // setData / setLoadErr / setLoading.
+  const loadReqId = useRef(0);
   const load = useCallback(async () => {
+    const reqId = ++loadReqId.current;
     setLoading(true);
     setLoadErr(false);
     try {
@@ -134,12 +141,14 @@ export function DatabaseModal({ onClose, onPickItem, me }) {
         maxPrice: parseB(maxPrice),
         limit: PAGE_SIZE, offset: page * PAGE_SIZE
       });
-      setData(res);
+      if (reqId === loadReqId.current) setData(res);
     } catch (_) {
       // Network / 5xx — flag so the render swaps the "empty catalogue"
       // copy for an error panel with a Retry that re-runs this load().
-      setLoadErr(true);
-    } finally { setLoading(false); }
+      if (reqId === loadReqId.current) setLoadErr(true);
+    } finally {
+      if (reqId === loadReqId.current) setLoading(false);
+    }
   }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice, page]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(0); }, [search, category, rarity, sort, listedOnly, minPrice, maxPrice]);
@@ -553,7 +562,11 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
 
   // Catalogue pool for the autocomplete search
   useEffect(() => {
+    // Cleanup guard — closing the BuyOrders modal mid-fetch used to
+    // call setPool on an unmounted component. Alive flag short-circuits.
+    let alive = true;
     fetchListings({}).then(listings => {
+      if (!alive) return;
       const seen = new Set();
       const items = [];
       listings.forEach(l => {
@@ -567,8 +580,9 @@ export function BuyOrdersModal({ onClose, me, wallet, preselectedItem }) {
       // the autocomplete pool permanently empty with no feedback, so
       // the picker read as "No matches." for every query. Flag it so
       // the picker shows a "couldn't load items" hint instead.
-      setPoolErr(true);
+      if (alive) setPoolErr(true);
     });
+    return () => { alive = false; };
   }, []);
 
   const filteredPool = useMemo(() => {
@@ -1097,27 +1111,42 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
     return () => { alive = false; };
   }, [loadoutId]);
 
+  // Race-condition guard — rapid tab switches (discover → mine →
+  // favorites) used to fire overlapping requests with no ordering; a
+  // slow `mine` response could overwrite a fresh `favorites` payload
+  // because both completions called setList directly. Bump a request
+  // id so only the most-recent in-flight load commits its result.
+  const listReqId = useRef(0);
   const load = useCallback(async () => {
+    const reqId = ++listReqId.current;
     setList(null);
     setListErr(false);
     try {
-      if (tab === 'discover') setList(await fetchPublicLoadouts(search));
-      else if (tab === 'mine' && me) setList(await fetchMyLoadouts());
+      let next = null;
+      if (tab === 'discover') next = await fetchPublicLoadouts(search);
+      else if (tab === 'mine' && me) next = await fetchMyLoadouts();
       else if (tab === 'favorites' && me) {
         const { fetchFavoriteLoadouts } = await import('./api.js');
-        setList(await fetchFavoriteLoadouts());
+        next = await fetchFavoriteLoadouts();
       }
+      if (reqId === listReqId.current && next !== null) setList(next);
     } catch (_) {
       // Network / 5xx — flag so the list region swaps the infinite
       // spinner for an error panel whose Retry re-runs this load().
-      setListErr(true);
+      if (reqId === listReqId.current) setListErr(true);
     }
   }, [tab, search, me]);
   useEffect(() => { load(); }, [load]);
 
   // Cache item pool for slot picker
   useEffect(() => {
+    // Cleanup guard — if the loadout modal unmounts before the listings
+    // fetch resolves (user closes the modal mid-load), calling
+    // setAllItems / setPoolErr on the unmounted component logs a React
+    // warning and wastes a render. Alive flag short-circuits both.
+    let alive = true;
     fetchListings({}).then(listings => {
+      if (!alive) return;
       const seen = new Set();
       const items = [];
       listings.forEach(l => {
@@ -1130,8 +1159,9 @@ export function LoadoutLabModal({ onClose, me, loadoutId }) {
       // Audit fix — without a .catch() a rejected listings fetch left
       // the slot picker's item pool permanently empty with no feedback.
       // Flag it so SlotPicker shows a "couldn't load items" hint.
-      setPoolErr(true);
+      if (alive) setPoolErr(true);
     });
+    return () => { alive = false; };
   }, []);
 
   const openLoadout = async (id) => {
@@ -2522,6 +2552,17 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // who didn't place the last bid. Falls back to the prop on first
   // render; once we've seen a refresh the live copy wins.
   const [live, setLive]       = useState(listing);
+  // Audit fix — `live` was seeded from `listing` only on first mount, so
+  // if the parent swapped the prop to a different auction (e.g. user
+  // navigated /item/A → /item/B without remounting the panel) the panel
+  // kept rendering A's expiresAt/currentBid until the SSE/polling cycle
+  // refreshed it ~50ms–8s later. Re-seed when the listing id changes so
+  // a prop change is reflected immediately instead of showing the wrong
+  // auction for a beat.
+  useEffect(() => {
+    setLive(listing);
+    setExtendedUntil(0);
+  }, [listing?.id]);
   // Transient "Auction extended by ~30s" banner shown when we detect a
   // positive jump in expiresAt relative to the last observed value.
   // Set to a UTC ms "show until" target; unset once the clock passes.
