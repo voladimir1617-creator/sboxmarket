@@ -1858,7 +1858,10 @@ function FollowSellerButton({ sellerId, sellerName, showToast }) {
     } finally { setBusy(false); }
   };
   if (!status) {
-    return h('button', { className: 'stall-share-btn', disabled: true }, '…');
+    // a11y: SRs hear "…" as "ellipsis" / nothing useful — name the
+    // pending state so focus on the still-mounted-but-loading button
+    // doesn't strand the user on an unlabelled control.
+    return h('button', { className: 'stall-share-btn', disabled: true, 'aria-label': 'Loading follow status' }, '…');
   }
   const cls = status.following ? 'stall-share-btn' : 'stall-share-btn';
   const style = status.following
@@ -6995,33 +6998,37 @@ export function App() {
         // complete when only a toolbar toggle is on.
         (search || category !== 'All' || rarity !== 'All' || minPrice || maxPrice || minDiscountPct > 0 ||
          listingTypeFilter !== 'ALL' || dealsOnly || newOnly || affordableOnly) &&
+          // a11y: each chip describes a REMOVAL action — without an
+          // explicit aria-label a SR user just hears "Hats, X". The
+          // ' ✕' glyph is also wrapped with aria-hidden so the same
+          // SR doesn't read it twice ("Hats, X. Remove Hats filter, X").
           h('div', { className: 'active-filters' },
-            search && h('button', { className: 'filter-chip', onClick: () => setSearch('') },
-              'search: ', h('strong', null, '"' + search + '"'), h('span', null, ' ✕')),
-            category !== 'All' && h('button', { className: 'filter-chip', onClick: () => setCategory('All') },
-              h('strong', null, category), h('span', null, ' ✕')),
-            rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All') },
-              h('strong', null, rarity), h('span', null, ' ✕')),
-            minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice('') },
-              '≥ ', currencySymbol(), h('strong', null, minPrice), h('span', null, ' ✕')),
-            maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice('') },
-              '≤ ', currencySymbol(), h('strong', null, maxPrice), h('span', null, ' ✕')),
+            search && h('button', { className: 'filter-chip', onClick: () => setSearch(''), 'aria-label': `Remove search filter "${search}"` },
+              'search: ', h('strong', null, '"' + search + '"'), h('span', { 'aria-hidden': true }, ' ✕')),
+            category !== 'All' && h('button', { className: 'filter-chip', onClick: () => setCategory('All'), 'aria-label': `Remove category filter: ${category}` },
+              h('strong', null, category), h('span', { 'aria-hidden': true }, ' ✕')),
+            rarity !== 'All' && h('button', { className: 'filter-chip', onClick: () => setRarity('All'), 'aria-label': `Remove rarity filter: ${rarity}` },
+              h('strong', null, rarity), h('span', { 'aria-hidden': true }, ' ✕')),
+            minPrice && h('button', { className: 'filter-chip', onClick: () => setMinPrice(''), 'aria-label': `Remove minimum price filter ${currencySymbol()}${minPrice}` },
+              '≥ ', currencySymbol(), h('strong', null, minPrice), h('span', { 'aria-hidden': true }, ' ✕')),
+            maxPrice && h('button', { className: 'filter-chip', onClick: () => setMaxPrice(''), 'aria-label': `Remove maximum price filter ${currencySymbol()}${maxPrice}` },
+              '≤ ', currencySymbol(), h('strong', null, maxPrice), h('span', { 'aria-hidden': true }, ' ✕')),
             // Batch 651 — removable min-discount chip.
-            minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0) },
-              '≥ ', h('strong', null, minDiscountPct + '%'), ' off', h('span', null, ' ✕')),
+            minDiscountPct > 0 && h('button', { className: 'filter-chip', onClick: () => setMinDiscountPct(0), 'aria-label': `Remove minimum discount filter: ${minDiscountPct}% off` },
+              '≥ ', h('strong', null, minDiscountPct + '%'), ' off', h('span', { 'aria-hidden': true }, ' ✕')),
             // CSFloat-1:1 — toolbar quick-filters (listing type / Deals /
             // New / Affordable) also get removable chips, so the chip row
             // is a complete picture of what's narrowing the grid and each
             // is individually clearable without hunting for its toggle.
-            listingTypeFilter !== 'ALL' && h('button', { className: 'filter-chip', onClick: () => setListingTypeFilter('ALL') },
-              h('strong', null, listingTypeFilter === 'AUCTION' ? 'Auctions only' : 'Buy-now only'), h('span', null, ' ✕')),
-            dealsOnly && h('button', { className: 'filter-chip', onClick: () => setDealsOnly(false) },
-              h('strong', null, 'Deals'), h('span', null, ' ✕')),
-            newOnly && h('button', { className: 'filter-chip', onClick: () => setNewOnly(false) },
-              h('strong', null, 'New'), h('span', null, ' ✕')),
-            affordableOnly && h('button', { className: 'filter-chip', onClick: () => setAffordableOnly(false) },
-              h('strong', null, 'Affordable'), h('span', null, ' ✕')),
-            h('button', { className: 'filter-chip clear-all', onClick: clearFilters },
+            listingTypeFilter !== 'ALL' && h('button', { className: 'filter-chip', onClick: () => setListingTypeFilter('ALL'), 'aria-label': `Remove listing-type filter: ${listingTypeFilter === 'AUCTION' ? 'Auctions only' : 'Buy-now only'}` },
+              h('strong', null, listingTypeFilter === 'AUCTION' ? 'Auctions only' : 'Buy-now only'), h('span', { 'aria-hidden': true }, ' ✕')),
+            dealsOnly && h('button', { className: 'filter-chip', onClick: () => setDealsOnly(false), 'aria-label': 'Remove Deals filter' },
+              h('strong', null, 'Deals'), h('span', { 'aria-hidden': true }, ' ✕')),
+            newOnly && h('button', { className: 'filter-chip', onClick: () => setNewOnly(false), 'aria-label': 'Remove New (last 24h) filter' },
+              h('strong', null, 'New'), h('span', { 'aria-hidden': true }, ' ✕')),
+            affordableOnly && h('button', { className: 'filter-chip', onClick: () => setAffordableOnly(false), 'aria-label': 'Remove Affordable (within wallet balance) filter' },
+              h('strong', null, 'Affordable'), h('span', { 'aria-hidden': true }, ' ✕')),
+            h('button', { className: 'filter-chip clear-all', onClick: clearFilters, 'aria-label': 'Clear all active filters' },
               h('strong', null, 'Clear all'))
           ),
         // Marketplace-at-a-glance trust strip — defined long ago at line ~1364
@@ -7983,6 +7990,10 @@ export function App() {
                   value: reviewText,
                   maxLength: 500,
                   placeholder: 'Tell buyers what the transaction was like (optional, 500 chars max)',
+                  // a11y: placeholder is NOT a label — SRs skip it once
+                  // the user starts typing. aria-label gives the textarea
+                  // a stable accessible name throughout the input cycle.
+                  'aria-label': 'Review comment (optional)',
                   onChange: (e) => setReviewText(e.target.value)
                 }),
                 h('div', { className: 'stall-review-actions' },
