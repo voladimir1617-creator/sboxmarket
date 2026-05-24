@@ -267,6 +267,13 @@ export function installAnchorInterceptor() {
     if (href.startsWith('#')) return;          // hash links left alone
     if (href.startsWith('/api/')) return;      // backend auth links go via the browser
     if (href.startsWith('/h2-console') || href.startsWith('/swagger-ui')) return;
+    // Reject any non-path scheme that slipped past the http/mailto check.
+    // Without this, `href="javascript:…"`, `tel:`, `data:`, `blob:`,
+    // `vbscript:`, `file:` etc. fall through to navigate(), which calls
+    // history.pushState() with a non-same-origin URL and throws a
+    // SecurityError that masks the original click intent. Let the
+    // browser handle every non-/ href naturally instead.
+    if (!href.startsWith('/')) return;
     // Any path that carries a file extension (/legal/terms.html,
     // /favicon.ico, /img/logo.png, /css/styles.css, downloadable PDFs,
     // etc.) needs to go through the browser to hit the real static

@@ -103,7 +103,12 @@ export const fmtCompact = (n) => {
  *                             multiple components on the same page)
  */
 export function linkifyText(text, keyPrefix = 'lnk') {
-  const src = text || '';
+  // Coerce to string so non-string inputs (number from a typed JSON
+  // payload, null after `|| ''`, etc.) don't blow up on the `.slice`
+  // calls below. `String(null) === 'null'` so guard the null/undefined
+  // case first to keep the empty-input contract.
+  if (text === null || text === undefined || text === '') return '';
+  const src = String(text);
   const re = /(https?:\/\/[^\s<>"']+)/g;
   const parts = [];
   let last = 0, match;

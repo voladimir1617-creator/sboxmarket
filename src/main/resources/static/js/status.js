@@ -73,6 +73,11 @@ function render(results) {
   const overall  = anyDown ? 'down' : anyWarn ? 'warn' : 'up';
   const headline = document.getElementById('headline');
   const sub      = document.getElementById('sub');
+  const grid     = document.getElementById('grid');
+  // Defensive: if any required slot is missing (markup refactor, embed
+  // mode, race with DOMContentLoaded), bail rather than throw on
+  // `.innerHTML` of null. The 30s interval will retry.
+  if (!headline || !sub || !grid) return;
   headline.innerHTML =
     '<span class="status-dot ' + overall + '"></span>' +
     (overall === 'up'   ? 'All systems operational' :
@@ -83,7 +88,6 @@ function render(results) {
     overall === 'warn' ? 'Some services are slower than expected — bids and buys may be queued.' :
                          'One or more services are unreachable. Trades in flight are safe — see below.';
 
-  const grid = document.getElementById('grid');
   grid.innerHTML = '';
   results.forEach(r => {
     const row = document.createElement('div');
@@ -119,13 +123,18 @@ async function renderVersion() {
     if (!el) return;
     const bits = [];
     if (data.version) bits.push('v' + data.version);
-    if (data.startupAt) {
-      const ms = Date.now() - data.startupAt;
+    // Guard: a malformed/missing startupAt (string, 0, NaN, future
+    // timestamp) used to render "uptime NaNh NaNm" or a negative
+    // uptime. Require a finite positive number that's <= now before
+    // doing the diff math, otherwise skip the uptime/started lines.
+    const startupAt = Number(data.startupAt);
+    if (Number.isFinite(startupAt) && startupAt > 0 && startupAt <= Date.now()) {
+      const ms = Date.now() - startupAt;
       const h  = Math.floor(ms / 3_600_000);
       const m  = Math.floor((ms % 3_600_000) / 60_000);
       const label = h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
       bits.push('uptime ' + label);
-      bits.push('started ' + new Date(data.startupAt).toLocaleString());
+      bits.push('started ' + new Date(startupAt).toLocaleString());
     }
     el.textContent = bits.join(' · ');
   } catch (_) { /* silent — version line stays blank */ }
