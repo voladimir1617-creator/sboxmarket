@@ -862,4 +862,72 @@ class SavedSearchServiceSpec extends Specification {
         1 * notifications.push(11L, 'LISTING_MATCH', _, _, _, _)
         0 * emails.sendSavedSearchMatch(_, _, _, _, _, _)
     }
+
+    def "upsert treats a UNIQUE-constraint race as a graceful no-op, not a 500"() {
+        // findByUserAndName() + save() is a non-atomic read-modify-write
+        // — same TOCTOU race UserBlockService.block closed in 6418f56
+        // and SellerFollowService.follow closed in c4d6596. A user
+        // double-tapping "Save preset" (or two devices firing the same
+        // payload simultaneously) fires two concurrent requests that
+        // both observe existing=null and both INSERT; V32's
+        // uq_saved_searches_user_name UNIQUE constraint then rejects
+        // the loser with a DataIntegrityViolationException. Before the
+        // fix that bubbled to the controller as a 500 INTERNAL_ERROR
+        // even though the end-state ("user has a preset named X") was
+        // exactly what the user wanted. After the fix the loser
+        // swallows the constraint violation and returns the row the
+        // winning request committed via a fresh re-read.
+        given:
+        def winner = new SavedSearch(id: 99L, userId: 10L, name: 'cheap hats',
+            category: 'Hats', sort: 'price_desc')
+        // First lookup (existence check) — null, so we fall through to insert.
+        // Second lookup (post-race re-read) — winner row the racing
+        // request already committed. Spock returns successive stub
+        // values across calls, mirroring the SellerFollowService recovery
+        // path: see test note above for parallel rationale.
+        repository.findByUserAndName(10L, 'cheap hats') >>> [null, winner]
+        repository.countByUser(10L) >> 4L
+
+        when:
+        def out = service.upsert(10L, [name: 'cheap hats', category: 'Hats'])
+
+        then: 'save() is attempted exactly once and throws the constraint violation'
+        1 * repository.save({
+            it.userId == 10L && it.name == 'cheap hats' && it.category == 'Hats'
+        }) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException('duplicate key')
+        }
+        // The constraint violation must NOT escape — the controller
+        // would translate it to a 500 otherwise.
+        noExceptionThrown()
+        // Response carries the committed (winning) row, not the
+        // unsaved local instance.
+        out.is(winner)
+        out.id == 99L
+    }
+
+    def "upsert re-raises when the post-race re-read also returns null"() {
+        // Defensive — if the UNIQUE-violation re-read can't surface the
+        // winner row (read-after-write replica lag, or the row was
+        // deleted between the violation and the re-read), the service
+        // re-throws the original DataIntegrityViolationException rather
+        // than silently returning a half-built unsaved instance to the
+        // caller. Parallel to SellerFollowService.follow's recovery
+        // behaviour from c4d6596.
+        given:
+        // Both reads return null — the existence check AND the recovery
+        // lookup. The save still throws, simulating the constraint
+        // violation having fired between the two reads.
+        repository.findByUserAndName(10L, 'lost preset') >> null
+        repository.countByUser(10L) >> 4L
+
+        when:
+        service.upsert(10L, [name: 'lost preset', category: 'Hats'])
+
+        then:
+        1 * repository.save(_) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException('duplicate key')
+        }
+        thrown(org.springframework.dao.DataIntegrityViolationException)
+    }
 }

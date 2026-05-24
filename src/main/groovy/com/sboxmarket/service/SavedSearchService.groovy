@@ -4,6 +4,7 @@ import com.sboxmarket.model.SavedSearch
 import com.sboxmarket.repository.SavedSearchRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -120,7 +121,7 @@ class SavedSearchService {
             throw new com.sboxmarket.exception.BadRequestException('SAVED_SEARCHES_FULL',
                 "You can save at most ${MAX_PER_USER} searches. Delete one before saving a new one.")
         }
-        repository.save(new SavedSearch(
+        def row = new SavedSearch(
             userId:          userId,
             name:            name,
             q:               q.take(80),
@@ -134,7 +135,33 @@ class SavedSearchService {
             newOnly:         newOnly,
             affordableOnly:  affordableOnly,
             listingType:     listingType
-        ))
+        )
+        // findByUserAndName + save is a non-atomic read-modify-write —
+        // same TOCTOU race UserBlockService.block closed in 6418f56 and
+        // SellerFollowService.follow closed in c4d6596. A user double-
+        // tapping "Save preset" (or two devices firing the same payload
+        // simultaneously) fires two concurrent requests that both
+        // observe existing=null, both fall through to INSERT, and V32's
+        // uq_saved_searches_user_name UNIQUE constraint then rejects
+        // the loser with a DataIntegrityViolationException. Uncaught,
+        // that bubbles to the catch-all as a 500 INTERNAL_ERROR — even
+        // though the end-state ("user has a preset named X") is exactly
+        // what the user wanted. Catch the dup, treat as a benign no-op,
+        // and return the row the winning request committed via a fresh
+        // lookup so the caller still sees a persisted id back.
+        try {
+            return repository.save(row)
+        } catch (DataIntegrityViolationException dup) {
+            log.debug("saved-search race on user=${userId} name=${name} — already saved, treating as no-op")
+            def winner = repository.findByUserAndName(userId, name)
+            if (winner != null) return winner
+            // Vanishingly unlikely: the winner row exists per the
+            // UNIQUE-violation we just caught but the re-read couldn't
+            // find it (read-after-write replica lag? row deleted between
+            // violation and re-read?). Surface the original throw —
+            // better than silently returning a half-built unsaved row.
+            throw dup
+        }
     }
 
     @Transactional
