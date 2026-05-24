@@ -526,4 +526,73 @@ class WatchlistAlertServiceSpec extends Specification {
         then:
         a.status == 'CANCELLED'
     }
+
+    // ── email digest dedup (EMAIL_DEDUP_WINDOW_MS) ────────────────
+    //
+    // A user with N alerts all firing in one tick must NOT receive N
+    // simultaneous price-drop emails — the inbox would be napalmed.
+    // shouldSendEmail() collapses to one email per user per 5-minute
+    // window. The in-app push still fires once per triggered item
+    // (cheap, contextual), but only the FIRST firing in the window
+    // sends an email. Two specs cover both sides of the gate.
+
+    def "sweep sends EXACTLY ONE price-drop email when two alerts for the same user fire in one tick (digest dedup)"() {
+        given: 'two ACTIVE alerts owned by the same user on different items, both triggered this tick'
+        def a1 = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        def a2 = new WatchlistAlert(id: 2L, userId: 42L, itemId: 8L,
+            targetPrice: new BigDecimal('5'),  status: 'ACTIVE')
+        repo.findTriggered() >> [
+            [a1, new BigDecimal('9.00'), 'Wizard Hat']  as Object[],
+            [a2, new BigDecimal('4.00'), 'Dragon Lore'] as Object[]
+        ]
+        repo.save(_) >> { args -> args[0] }
+        // Same user for both alerts — emailable.
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'buyer@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, displayName: 'Alice'
+        ))
+
+        when:
+        service.sweep()
+
+        then: 'each item still gets its own in-app push — those are cheap and contextual'
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, '/item/7')
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 8L, '/item/8')
+
+        and: 'but ONLY ONE email — the second send is collapsed by the 5-min dedup gate'
+        1 * emailService.sendPriceDrop('buyer@example.com', _, _, _, _, _)
+
+        and: 'both alerts still flip to FIRED — the dedup is email-only, not state'
+        a1.status == 'FIRED'
+        a2.status == 'FIRED'
+    }
+
+    def "sweep emails BOTH users when two distinct users each have an alert fire in one tick (dedup is per-user)"() {
+        given: 'two different users — dedup must not bleed across user ids'
+        def a1 = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        def a2 = new WatchlistAlert(id: 2L, userId: 43L, itemId: 8L,
+            targetPrice: new BigDecimal('5'),  status: 'ACTIVE')
+        repo.findTriggered() >> [
+            [a1, new BigDecimal('9.00'), 'Wizard Hat']  as Object[],
+            [a2, new BigDecimal('4.00'), 'Dragon Lore'] as Object[]
+        ]
+        repo.save(_) >> { args -> args[0] }
+        steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 42L, email: 'alice@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, displayName: 'Alice'
+        ))
+        steamUserRepository.findById(43L) >> Optional.of(new com.sboxmarket.model.SteamUser(
+            id: 43L, email: 'bob@example.com', emailVerified: true,
+            emailNotificationsEnabled: true, displayName: 'Bob'
+        ))
+
+        when:
+        service.sweep()
+
+        then: 'one email per user — dedup is keyed on userId, not on the (user, sweep-tick) pair'
+        1 * emailService.sendPriceDrop('alice@example.com', _, _, _, _, _)
+        1 * emailService.sendPriceDrop('bob@example.com',   _, _, _, _, _)
+    }
 }

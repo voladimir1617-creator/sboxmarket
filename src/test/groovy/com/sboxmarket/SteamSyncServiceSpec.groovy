@@ -359,4 +359,104 @@ class SteamSyncServiceSpec extends Specification {
         then: "the catch re-asserts the flag so the scheduler thread pool sees the interrupt"
         stillInterrupted
     }
+
+    // ── new-user no-spam baseline (priorRecorded == null gate) ────
+    //
+    // Brand-new accounts have steamInventorySize == null (the column
+    // is nullable Integer; no prior sync has ever written a count).
+    // Before the baseline gate, the first sync after signup would fire
+    // a STEAM_INVENTORY toast saying "N new item(s) ready to list" for
+    // every item the user has owned since long before they joined —
+    // landing immediately after the WELCOME notification from
+    // upsertUser and dramatically over-counting deltas (the "delta" is
+    // really the user's entire pre-existing inventory).
+    //
+    // Fix: when priorRecorded == null, isBaseline == true and the
+    // notification is suppressed. Only sweep #2 onwards can fire a
+    // real delta notification.
+
+    def "syncOne does NOT notify on the FIRST EVER sync — the baseline write is silent (no-spam-on-signup)"() {
+        given: 'a brand-new user whose steamInventorySize has never been written (null)'
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: null)
+        steamInventoryService.fetchInventory('111') >> [[a:1], [a:2], [a:3], [a:4], [a:5]]
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncOne(user)
+
+        then: "the count IS persisted as the silent baseline — sweep #2 will compare against this"
+        user.steamInventorySize == 5
+
+        and: "but ZERO notifications fire — we never tell the user about items they've always owned"
+        0 * notificationService.push(*_)
+    }
+
+    def "syncOne DOES notify on the SECOND sync after a baseline write — only the first is silent"() {
+        given: "the user's prior count is a real recorded value (not null), inventory grew by 2"
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 5)
+        steamInventoryService.fetchInventory('111') >> [[a:1], [a:2], [a:3], [a:4], [a:5], [a:6], [a:7]]
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncOne(user)
+
+        then: 'baseline gate only fires on null — a recorded 5 → 7 is a genuine delta'
+        1 * notificationService.push(10L, 'STEAM_INVENTORY', _, { it.contains('2') }, _, '/sell')
+        user.steamInventorySize == 7
+    }
+
+    // ── per-user lock (lockFor) — serialises two concurrent syncs ─
+    //
+    // Two browser tabs hitting POST /api/steam/sync at the same instant
+    // (or the scheduler tick reaching a user at the moment they click
+    // Re-sync) used to race: both threads read before=0 from the same
+    // tick-start snapshot, both saw now=4, both pushed STEAM_INVENTORY
+    // → user got DUPLICATE "4 new item(s)" toasts for one real delta.
+    //
+    // Fix: lockFor(userId) gives each user id a JVM-local monitor; the
+    // second concurrent syncOne blocks until the first commits, then
+    // re-reads via findById and sees before=4 from the (now-committed)
+    // first save — so its delta is 0 and no notification fires. This
+    // spec runs two real threads on the same user id.
+
+    def "two concurrent syncOne calls on the SAME user fire EXACTLY ONE notification, not two (per-user lock)"() {
+        given: 'a user whose prior count is 1 and whose Steam inventory now holds 4 — one real delta of 3'
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 1)
+
+        and: """\
+            findById always returns the live shared `user` object — that is
+            the production behaviour (one row per id) and is what makes the
+            lock-after-load semantics observable here. Without sync, both
+            threads call findById, both observe before=1 from the same row,
+            both save now=4, both push.  With the lock, the second thread
+            blocks until the first releases the monitor — then its
+            findById sees the (now-mutated) shared `user` with size 4, so
+            its delta is 0 and it suppresses the push."""
+        steamUserRepository.findById(10L) >> Optional.of(user)
+
+        and: 'save mutates the shared `user` synchronously so the second thread sees the committed size'
+        steamUserRepository.save(_) >> { args ->
+            def saved = args[0] as SteamUser
+            user.steamInventorySize = saved.steamInventorySize
+            user.lastSyncedAt = saved.lastSyncedAt
+            saved
+        }
+
+        and: 'both threads get the same 4-item inventory — same "now" snapshot for both'
+        steamInventoryService.fetchInventory('111') >> [[a:1], [a:2], [a:3], [a:4]]
+
+        when: 'two web threads (e.g. two tabs) hit syncOne for the SAME user simultaneously'
+        def t1 = Thread.start { service.syncOne(user) }
+        def t2 = Thread.start { service.syncOne(user) }
+        t1.join(5000L)
+        t2.join(5000L)
+
+        then: """\
+            EXACTLY one push fires.  The second thread blocks on the per-user
+            monitor, re-reads after the first commits (steamInventorySize is
+            now 4), and now > before is false → no duplicate toast."""
+        1 * notificationService.push(10L, 'STEAM_INVENTORY', _, _, _, '/sell')
+    }
 }

@@ -1065,4 +1065,108 @@ class WalletControllerSpec extends Specification {
         then: 'only OptimisticLockingFailureException is swallowed — real errors surface'
         thrown(IllegalStateException)
     }
+
+    // ════════════════════════════════════════════════════════════════
+    // Race-loss error mapping. Two concurrent /withdraw or /cancel
+    // requests on the same wallet race on the Wallet @Version field;
+    // Hibernate aborts the loser with OptimisticLockingFailureException
+    // and the outer @Transactional rolls back fully — so there is
+    // NEVER a double-debit or double-credit. But without the catch the
+    // loser sees a raw 500 even though their request just lost a race
+    // their other tab won. These specs pin the friendly remap:
+    //
+    //   /withdraw race-loss              → BadRequestException WITHDRAW_RACE
+    //   /withdraw/{id}/cancel race-loss  → BadRequestException CANCEL_RACE
+    //
+    // Both must surface a retryable code with a useful message — not
+    // a 500 — so the SPA can toast "try again" cleanly.
+    // ════════════════════════════════════════════════════════════════
+
+    def "withdraw() race-loss: OptimisticLockingFailureException is remapped to WITHDRAW_RACE (not a raw 500)"() {
+        given: 'a clean withdrawal that passes every gate (balance, dispute hold, cap) on its way to the Stripe call'
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('500'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumWithdrawalsSince(_, _) >> BigDecimal.ZERO
+        // The race: a concurrent /withdraw on the same wallet flipped
+        // @Version under our feet, Hibernate aborts this one. The catch
+        // in the controller must remap to WITHDRAW_RACE — anything else
+        // surfaces as a raw 500 to a user whose other tab just succeeded.
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('50'), _) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException('wallets', 500L)
+        }
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then: 'mapped to a retryable WITHDRAW_RACE — message tells the user to refresh + retry'
+        def e = thrown(BadRequestException)
+        e.code == 'WITHDRAW_RACE'
+        e.message.toLowerCase().contains('try again')
+        // The flush + re-read after the Stripe call is what surfaces the
+        // race-loss inside the catch (not at commit time, where a 500
+        // would escape). We do NOT assert on flush count — explicit
+        // belt-and-braces; production may rely on AUTO flush too.
+    }
+
+    def "withdraw() race-loss: a generic non-lock failure from requestWithdrawal is NOT swallowed as WITHDRAW_RACE"() {
+        given: 'a real downstream failure — must not be miscategorised as a race loss'
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('500'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumWithdrawalsSince(_, _) >> BigDecimal.ZERO
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('50'), _) >> {
+            throw new RuntimeException('Stripe Connect account suspended')
+        }
+
+        when:
+        controller.withdraw(req(new BigDecimal('50')), reqFor(10L))
+
+        then: 'the catch is narrow — only OptimisticLockingFailureException maps to WITHDRAW_RACE; everything else surfaces'
+        thrown(RuntimeException)
+    }
+
+    def "cancelWithdraw() race-loss: OptimisticLockingFailureException is remapped to CANCEL_RACE (not a raw 500)"() {
+        given: 'a self-cancel that races an admin reject (or a second tab) on the same tx'
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        // The cancelPendingWithdrawal call commits in its own tx and
+        // throws inside the controller's catch when the wallet @Version
+        // flip aborts. Without the catch, the user sees a raw 500 even
+        // though their cancel may already have landed via the racer.
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >> {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException('wallets', 500L)
+        }
+
+        when:
+        controller.cancelWithdraw(9L, reqFor(10L))
+
+        then: 'mapped to CANCEL_RACE so the SPA toasts "refresh and try again" — no 500'
+        def e = thrown(BadRequestException)
+        e.code == 'CANCEL_RACE'
+        e.message.toLowerCase().contains('refresh')
+    }
+
+    def "cancelWithdraw() race-loss: the catch is narrow — non-lock RuntimeException propagates (not silently swallowed)"() {
+        given: 'a non-race downstream failure — must surface, not get hidden behind CANCEL_RACE'
+        def user = verifiedUser()
+        def wallet = walletFor()
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        1 * stripeService.cancelPendingWithdrawal(500L, 9L) >> {
+            throw new RuntimeException('Stripe SDK transport error')
+        }
+
+        when:
+        controller.cancelWithdraw(9L, reqFor(10L))
+
+        then: 'only OptimisticLockingFailureException is mapped to CANCEL_RACE; transport errors surface'
+        thrown(RuntimeException)
+    }
 }
