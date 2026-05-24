@@ -25,6 +25,17 @@ import org.springframework.web.bind.annotation.RestController
  *
  * Idempotent: re-clicking the link when already unsubscribed returns
  * the same success page. No state to corrupt.
+ *
+ * Per-bucket opt-out (batch 1082, GDPR/PECR compliance): when the
+ * caller supplies an optional `?kind=<bucket>` parameter matching one
+ * of EmailService.MUTABLE_EMAIL_BUCKETS (TRADES, AUCTIONS, WATCHLIST,
+ * FOLLOWS, MATCHES), only that bucket is added to the user's
+ * `mutedEmailKinds` set — security alerts and other notification
+ * types keep delivering. Without `kind`, the legacy behaviour
+ * (global flag flip) is preserved so existing email footer URLs keep
+ * working unchanged. Future email templates that target a single
+ * bucket can append `&kind=AUCTIONS` to the URL so a user who only
+ * wants to silence outbid alerts isn't forced into all-or-nothing.
  */
 @RestController
 @RequestMapping('/api/unsubscribe')
@@ -45,15 +56,35 @@ class UnsubscribeController {
      */
     @PostMapping
     ResponseEntity<String> unsubscribePost(@RequestParam(required = false) String email,
-                                           @RequestParam(required = false, name = 't') String token) {
-        def r = unsubscribe(email, token)
+                                           @RequestParam(required = false, name = 't') String token,
+                                           @RequestParam(required = false) String kind) {
+        def r = unsubscribe(email, token, kind)
         // Mail clients expect 2xx + empty body for the one-click handshake.
         return ResponseEntity.status(r.statusCode).body('OK')
     }
 
+    /** Test-only 2-arg convenience overload. The deployed mapping is on
+     *  the 3-arg `unsubscribePost(email, token, kind)` so Spring sees a
+     *  single @PostMapping (avoids the ambiguous-mapping startup
+     *  exception that a Groovy default-value overload would trigger).
+     *  Existing UnsubscribeControllerSpec calls land here and forward
+     *  to the canonical handler with kind=null. */
+    ResponseEntity<String> unsubscribePost(String email, String token) {
+        unsubscribePost(email, token, (String) null)
+    }
+
+    /** Test-only 2-arg convenience overload (see unsubscribePost
+     *  variant above for the rationale). Forwards to the mapped
+     *  3-arg `unsubscribe(email, token, kind)` with kind=null so the
+     *  existing UnsubscribeControllerSpec keeps compiling unchanged. */
+    ResponseEntity<String> unsubscribe(String email, String token) {
+        unsubscribe(email, token, (String) null)
+    }
+
     @GetMapping(produces = MediaType.TEXT_HTML_VALUE)
     ResponseEntity<String> unsubscribe(@RequestParam(required = false) String email,
-                                       @RequestParam(required = false, name = 't') String token) {
+                                       @RequestParam(required = false, name = 't') String token,
+                                       @RequestParam(required = false) String kind) {
         def lower = (email ?: '').trim().toLowerCase()
         if (!lower || !token) {
             return page('Missing email or token — open the link from your email again.', false)
@@ -61,6 +92,19 @@ class UnsubscribeController {
         if (!emailService.verifyUnsubscribeToken(lower, token)) {
             log.warn("Unsubscribe: invalid token for email={}", lower)
             return page('That unsubscribe link has expired or is malformed. Sign in and toggle email preferences from /settings.', false)
+        }
+        // Normalize the optional per-bucket selector. Only honour values
+        // that match the canonical MUTABLE_EMAIL_BUCKETS whitelist —
+        // anything else falls through to the legacy global-flip
+        // behaviour so a malformed/unknown kind doesn't 4xx the link.
+        String bucket = null
+        if (kind != null) {
+            def candidate = kind.trim().toUpperCase()
+            if (candidate && EmailService.MUTABLE_EMAIL_BUCKETS.contains(candidate)) {
+                bucket = candidate
+            } else if (candidate) {
+                log.info("Unsubscribe: ignoring unknown kind='{}' (falling back to global opt-out)", candidate)
+            }
         }
         // Lookup is case-insensitive on email to avoid false misses from
         // address variants (Gmail treats case as insignificant).
@@ -74,19 +118,47 @@ class UnsubscribeController {
             // No user matches — still succeed idempotently so we don't
             // leak whether an email is registered (enumeration guard).
             log.info("Unsubscribe: no account matches email={} (returning success)", lower)
-            return page('Preferences saved. You\'re unsubscribed from email notifications.', true)
+            return page(bucket
+                ? "Preferences saved. You're unsubscribed from ${bucket.toLowerCase()} emails."
+                : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
         }
         // Flip the flag on every matched row (should be 1 in practice).
         users.each { u ->
             try {
-                u.emailNotificationsEnabled = false
+                if (bucket != null) {
+                    // Per-bucket opt-out: add `bucket` to the user's
+                    // mutedEmailKinds CSV without touching the global
+                    // flag. Idempotent — re-clicking the same bucket
+                    // link doesn't dupe the entry. Other buckets and
+                    // unrelated security alerts continue to deliver.
+                    def existing = (u.mutedEmailKinds ?: '').split(/,/)
+                        .collect { it?.trim() }
+                        .findAll { it }
+                        .collect { it.toUpperCase() } as Set
+                    existing.add(bucket)
+                    // Re-filter through the whitelist so a stale value
+                    // from a deprecated bucket can't survive a save.
+                    u.mutedEmailKinds = existing
+                        .findAll { EmailService.MUTABLE_EMAIL_BUCKETS.contains(it) }
+                        .toSorted()
+                        .join(',')
+                } else {
+                    u.emailNotificationsEnabled = false
+                }
                 steamUserRepository.save(u)
-                log.info("Unsubscribe: flipped emailNotificationsEnabled=false for uid={} email={}", u.id, lower)
+                if (bucket != null) {
+                    log.info("Unsubscribe: muted bucket={} for uid={} email={} (mutedEmailKinds='{}')",
+                        bucket, u.id, lower, u.mutedEmailKinds)
+                } else {
+                    log.info("Unsubscribe: flipped emailNotificationsEnabled=false for uid={} email={}", u.id, lower)
+                }
             } catch (Exception e) {
                 log.warn("Unsubscribe: save failed for uid={}: {}", u?.id, e.message)
             }
         }
-        return page('Preferences saved. You\'re unsubscribed from email notifications.', true)
+        return page(bucket
+            ? "Preferences saved. You're unsubscribed from ${bucket.toLowerCase()} emails. Other notifications continue."
+            : 'Preferences saved. You\'re unsubscribed from email notifications.', true)
     }
 
     private static ResponseEntity<String> page(String message, boolean ok) {

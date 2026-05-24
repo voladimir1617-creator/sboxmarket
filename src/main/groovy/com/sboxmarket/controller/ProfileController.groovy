@@ -73,6 +73,13 @@ class ProfileController {
     @Autowired(required = false) com.sboxmarket.repository.AuditLogRepository auditLogRepository
     @Autowired(required = false) com.sboxmarket.service.AuditService auditService
     @Autowired(required = false) com.sboxmarket.repository.ApiKeyRepository apiKeyRepository
+    // Batch 1082 — GDPR /export completeness. Support correspondence,
+    // trade chat, and audit history are first-class personal data under
+    // GDPR Article 15 (right of access). All required=false so the
+    // existing ProfileController test harness — which only wires four
+    // collaborators — stays green.
+    @Autowired(required = false) com.sboxmarket.repository.SupportTicketRepository supportTicketRepository
+    @Autowired(required = false) com.sboxmarket.repository.SupportMessageRepository supportMessageRepository
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -597,9 +604,11 @@ class ProfileController {
 
     /**
      * Self-service data export — bundles the user's profile, wallet,
-     * transactions, listings, trades, offers, buy orders, bids, reviews,
-     * and notifications into one JSON blob. Intended for GDPR /
-     * right-to-copy requests. Excludes secrets (totpSecret,
+     * transactions, listings, trades, offers, buy orders, bids, reviews
+     * (given + received), notifications, support tickets + messages,
+     * trade-chat messages, audit-log history, and notification
+     * preferences into one JSON blob. Intended for GDPR /
+     * right-to-copy requests (Article 15). Excludes secrets (totpSecret,
      * emailVerificationToken) which are already @JsonIgnore'd at the
      * entity level. Returned as a downloadable attachment.
      */
@@ -626,7 +635,14 @@ class ProfileController {
                 banReason:     user.banned ? user.banReason : null,
                 createdAt:     user.createdAt,
                 lastLoginAt:   user.lastLoginAt,
-                lastSyncedAt:  user.lastSyncedAt
+                lastSyncedAt:  user.lastSyncedAt,
+                // GDPR Article 15 — the user's own notification + deletion
+                // preferences are personal data and belong in the export
+                // bundle alongside their listings and trades.
+                stallBio:                  user.stallBio,
+                emailNotificationsEnabled: user.emailNotificationsEnabled,
+                mutedEmailKinds:           user.mutedEmailKinds,
+                deletionRequestedAt:       user.deletionRequestedAt
             ],
             wallet: wallet == null ? null : [
                 id:       wallet.id,
@@ -643,7 +659,13 @@ class ProfileController {
                     description: t.description, listingId: t.listingId,
                     stripeReference: t.stripeReference, createdAt: t.createdAt
                 ] },
-            listings: listingRepository.findActiveBySeller(uid)
+            // Batch 1082 — every listing the user has ever created, not
+            // just the currently-ACTIVE ones. A SOLD / CANCELLED listing
+            // is still data the user produced and must be available under
+            // GDPR Article 15. Capped at 5000 rows to match the
+            // transactions / trades caps elsewhere in this bundle.
+            listings: listingRepository.findAllBySeller(uid,
+                    org.springframework.data.domain.PageRequest.of(0, 5000))
                 .collect { l -> [
                     id: l.id, itemId: l.item?.id, itemName: l.item?.name,
                     price: l.price, status: l.status, listingType: l.listingType,
@@ -672,7 +694,12 @@ class ProfileController {
                 maxPrice: b.maxPrice, quantity: b.quantity, status: b.status,
                 createdAt: b.createdAt
             ] } ?: [],
-            autoBids: bidRepository?.findActiveAutoBidsForUser(uid)?.collect { b -> [
+            // Batch 1082 — full bid history (manual + auto, every status),
+            // not just the active AUTO bids the badge counter uses. A
+            // settled WON/LOST bid is still personal data and must be in
+            // the GDPR export so the user can prove how much they bid on
+            // what and when.
+            bids: bidRepository?.findByBidder(uid)?.collect { b -> [
                 id: b.id, listingId: b.listingId, amount: b.amount,
                 maxAmount: b.maxAmount, kind: b.kind, status: b.status,
                 createdAt: b.createdAt
@@ -680,6 +707,22 @@ class ProfileController {
             reviewsGiven: reviewRepository?.findByFromUserId(uid)?.collect { r -> [
                 id: r.id, toUserId: r.toUserId, rating: r.rating,
                 comment: r.comment, itemName: r.itemName, createdAt: r.createdAt
+            ] } ?: [],
+            // Batch 1082 — reviews OTHER users left ABOUT this user. The
+            // public stall page already surfaces these (same disclosure
+            // level), but a GDPR export must let the data subject see
+            // every piece of personal data held about them in one
+            // bundle — including ratings strangers have given them.
+            // Capped at 1000 rows; the same hard cap the public stall
+            // /reviews endpoint already paginates to.
+            reviewsReceived: reviewRepository?.findByToUserIdOrderByCreatedAtDesc(uid,
+                    org.springframework.data.domain.PageRequest.of(0, 1000))?.collect { r -> [
+                id:         r.id,
+                fromUserId: r.fromUserId,
+                rating:     r.rating,
+                comment:    r.comment,
+                itemName:   r.itemName,
+                createdAt:  r.createdAt
             ] } ?: [],
             notifications: notificationRepository?.findForUser(uid,
                 org.springframework.data.domain.PageRequest.of(0, 500))
@@ -734,6 +777,68 @@ class ProfileController {
                 revoked:      k.revoked,
                 createdAt:    k.createdAt,
                 lastUsedAt:   k.lastUsedAt
+            ] } ?: [],
+            // Batch 1082 — every support ticket the user opened plus the
+            // full message thread on each one. Support correspondence is
+            // first-class personal data (it can contain the user's own
+            // descriptions of payments, trade disputes, etc.) and was
+            // missing from the bundle pre-batch. Tickets capped at the
+            // ticket's natural updated-desc order; per-ticket message
+            // hydration is bounded by the ticket count.
+            supportTickets: (supportTicketRepository?.findByUser(uid) ?: []).collect { t ->
+                def msgs = (supportMessageRepository?.findByTicket(t.id) ?: []).collect { m -> [
+                    id:         m.id,
+                    author:     m.author,
+                    authorName: m.authorName,
+                    body:       m.body,
+                    createdAt:  m.createdAt
+                ] }
+                [
+                    id:        t.id,
+                    subject:   t.subject,
+                    category:  t.category,
+                    status:    t.status,
+                    createdAt: t.createdAt,
+                    updatedAt: t.updatedAt,
+                    messages:  msgs
+                ]
+            },
+            // Batch 1082 — trade-chat messages the user sent. Iterates
+            // the user's trades and pulls just the messages WHERE the
+            // sender is the caller (counterparty messages are personal
+            // data ABOUT the counterparty, not this user; they live in
+            // the counterparty's own export). Capped per-trade by the
+            // 200-row recent window already enforced by
+            // findByTradeRecent; the top-level trade list is already
+            // capped at the participant query's natural bound.
+            tradeMessages: (tradeRepository?.findByParticipant(uid) ?: []).take(2000).collectMany { t ->
+                (tradeMessageRepository?.findByTradeRecent(t.id,
+                        org.springframework.data.domain.PageRequest.of(0, 200)) ?: [])
+                    .findAll { it.senderUserId == uid }
+                    .collect { m -> [
+                        id:        m.id,
+                        tradeId:   m.tradeId,
+                        body:      m.body,
+                        createdAt: m.createdAt,
+                        readAt:    m.readAt
+                    ] }
+            },
+            // Batch 1082 — audit-log rows where the user is the SUBJECT
+            // (sign-ins, security events, withdrawals, 2FA changes, ban
+            // events, deletion-finalised marker). Same scope as the
+            // /security-activity endpoint but uncapped-by-event-type and
+            // larger page so the GDPR bundle is genuinely complete. The
+            // 1000-row cap is well above any realistic single-user
+            // lifetime audit count and matches the existing /admin/audit
+            // CSV export cap.
+            auditLog: auditLogRepository?.bySubject(uid,
+                    org.springframework.data.domain.PageRequest.of(0, 1000))?.collect { a -> [
+                id:         a.id,
+                eventType:  a.eventType,
+                summary:    a.summary,
+                ipAddress:  a.ipAddress,
+                userAgent:  a.userAgent,
+                createdAt:  a.createdAt
             ] } ?: []
         ]
         def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
