@@ -431,6 +431,63 @@ class SavedSearchServiceSpec extends Specification {
         1 * repository.save(_) >> { SavedSearch s -> s }
     }
 
+    def "bulkMerge lets an at-cap user update existing presets (headroom only applies to net-new names)"() {
+        // Regression: an at-cap user (10/10) could not sync any filter
+        // edits via bulkMerge because the headroom guard truncated the
+        // whole input including pure updates. The split must classify
+        // matching-name rows as updates and pass them through.
+        given:
+        def existing = (1..10).collect { i ->
+            new SavedSearch(id: i as Long, userId: 10L, name: "preset-${i}",
+                category: 'All', rarity: 'All', sort: 'newest')
+        }
+        repository.countByUser(10L) >> 10L
+        repository.findByUser(10L) >> existing
+        // Each upsert hits the overwrite path — findByUserAndName returns
+        // the matching row, so save() touches existing.id, not a new row.
+        existing.each { e ->
+            repository.findByUserAndName(10L, e.name) >> e
+        }
+
+        when:
+        // Same 10 names with edited filters — these are all updates.
+        service.bulkMerge(10L,
+            existing.collect { [name: it.name, sort: 'price_asc', category: 'Hats'] })
+
+        then: 'all 10 updates land even at cap — cap only blocks net-new presets'
+        10 * repository.save({ SavedSearch s -> s.id != null }) >> { SavedSearch s -> s }
+    }
+
+    def "bulkMerge mixes updates and creates correctly under partial headroom"() {
+        // User has 9/10 presets. Incoming has 2 updates (existing names)
+        // + 3 creates. Headroom = 1, so only 1 of the 3 creates fits, but
+        // BOTH updates land regardless because updates don't consume cap.
+        given:
+        def existing = [
+            new SavedSearch(id: 1L, userId: 10L, name: 'A', category: 'All', rarity: 'All'),
+            new SavedSearch(id: 2L, userId: 10L, name: 'B', category: 'All', rarity: 'All')
+        ]
+        repository.countByUser(10L) >> 9L
+        repository.findByUser(10L) >> existing
+        repository.findByUserAndName(10L, 'A') >> existing[0]
+        repository.findByUserAndName(10L, 'B') >> existing[1]
+        repository.findByUserAndName(10L, 'NEW1') >> null
+        repository.findByUserAndName(10L, 'NEW2') >> null
+        repository.findByUserAndName(10L, 'NEW3') >> null
+
+        when:
+        service.bulkMerge(10L, [
+            [name: 'A',    sort: 'price_asc'],   // update
+            [name: 'B',    sort: 'price_asc'],   // update
+            [name: 'NEW1'],                       // create (fits)
+            [name: 'NEW2'],                       // create (cap-blocked)
+            [name: 'NEW3']                        // create (cap-blocked)
+        ])
+
+        then: 'both updates + one create fire — 3 saves total'
+        3 * repository.save(_) >> { SavedSearch s -> s }
+    }
+
     // ── Matcher truth table (batch 266) ─────────────────────────────
 
     private com.sboxmarket.model.Listing listingFor(Map args = [:]) {

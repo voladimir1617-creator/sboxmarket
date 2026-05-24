@@ -163,18 +163,42 @@ class SavedSearchService {
      * preset list, server upserts each one (skipping any that put the
      * user over the cap). Returns the post-merge list so the client
      * can replace its cache atomically.
+     *
+     * Headroom only applies to NEW preset names — incoming rows whose
+     * name matches an existing preset are pure updates that overwrite
+     * the row in place and never grow the user's row count. Without
+     * this split, an at-cap user (10/10 presets) couldn't sync any
+     * filter edits from another device: `headroom = 0` would truncate
+     * every incoming row including the pure updates, silently dropping
+     * all server-side merges.
      */
     @Transactional
     List<SavedSearch> bulkMerge(Long userId, List<Map> incoming) {
         if (userId == null) return []
         def cleaned = (incoming ?: []).findAll { it != null && it.name }
         // Collapse name-duplicates within the input — last write wins.
+        // Apply the same sanitization upsert() uses on the lookup key so
+        // an incoming `<b>hats</b>` collapses to the same bucket as an
+        // existing `hats` and is classified as an update, not a create.
         def byName = [:]
-        cleaned.each { byName[(it.name as String).trim().toLowerCase()] = it }
-        def headroom = MAX_PER_USER - repository.countByUser(userId)
+        cleaned.each { byName[mergeKeyFor(it.name as String)] = it }
         def candidates = byName.values() as List
-        if (headroom < candidates.size()) candidates = candidates.take(Math.max(0, (int) headroom))
+        // Existing names normalised through the same key function so the
+        // update / create split is robust to sanitization differences.
+        def existingKeys = (repository.findByUser(userId) ?: [])
+            .collect { mergeKeyFor(it.name as String) }
+            .findAll { it } as Set
+        def updates = []
+        def creates = []
         candidates.each { row ->
+            def key = mergeKeyFor(row.name as String)
+            if (key && existingKeys.contains(key)) updates << row else creates << row
+        }
+        def headroom = MAX_PER_USER - repository.countByUser(userId)
+        if (headroom < creates.size()) creates = creates.take(Math.max(0, (int) headroom))
+        // Run updates first so an at-cap user's filter edits land even
+        // when there's zero headroom for new presets.
+        (updates + creates).each { row ->
             try {
                 upsert(userId, row as Map)
             } catch (Exception e) {
@@ -182,6 +206,18 @@ class SavedSearchService {
             }
         }
         list(userId)
+    }
+
+    /** Normalise a preset name into the merge-key form used to classify
+     *  incoming rows as updates vs creates. Mirrors the sanitization the
+     *  upsert path applies (HTML-strip → trim → 80-char cap) plus a
+     *  lowercase fold so the match is case-insensitive — same key shape
+     *  used to dedup within the incoming batch. Returns an empty string
+     *  when the input sanitises down to nothing so a junk row doesn't
+     *  collide with another junk row in the existing-keys set. */
+    private String mergeKeyFor(String raw) {
+        def cleaned = (textSanitizer.cleanShort(raw) ?: '').trim().take(80)
+        cleaned.toLowerCase()
     }
 
     private static String sanitiseEnum(String value, Set<String> whitelist, String fallback) {
