@@ -25,7 +25,7 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
      *  almost certainly represent the same human (account-stuffing).
      *  Case-insensitive LIKE on the partner fragment so minor URL
      *  variations (http vs https, trailing slash) still match. */
-    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '%')")
+    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '%') ESCAPE '\\'")
     List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId)
 
     /**
@@ -39,9 +39,9 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
      */
     @Query("""
         SELECT u FROM SteamUser u
-        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
-           OR u.steamId64 LIKE CONCAT('%', :q, '%')
-           OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%'))
+        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'
+           OR u.steamId64 LIKE CONCAT('%', :q, '%') ESCAPE '\\'
+           OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'
         ORDER BY u.createdAt DESC
     """)
     List<SteamUser> searchByNameOrSteamId(@Param('q') String query, Pageable page)
@@ -76,7 +76,7 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
      */
     @Query("""
         SELECT u.id, u.displayName, u.avatarUrl FROM SteamUser u
-        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%'))
+        WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'
           AND (u.banned IS NULL OR u.banned = false)
           AND EXISTS (SELECT 1 FROM Listing l WHERE l.sellerUserId = u.id)
         ORDER BY u.displayName ASC

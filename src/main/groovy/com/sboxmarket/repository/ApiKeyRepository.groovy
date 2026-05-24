@@ -20,7 +20,7 @@ interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
      *  label + scope + last-used timestamp, and revoke if warranted.
      *  LIKE rather than equals because log lines sometimes only
      *  capture the first 12-14 chars. Admin-only caller-side. */
-    @Query("SELECT k FROM ApiKey k WHERE k.publicPrefix LIKE CONCAT(:prefix, '%') ORDER BY k.createdAt DESC")
+    @Query("SELECT k FROM ApiKey k WHERE k.publicPrefix LIKE CONCAT(:prefix, '%') ESCAPE '\\' ORDER BY k.createdAt DESC")
     List<ApiKey> findByPublicPrefixStartsWith(@Param("prefix") String prefix)
 
     /** Non-revoked key count per user (batch 692). Powers the per-user

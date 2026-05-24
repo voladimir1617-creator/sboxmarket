@@ -41,9 +41,9 @@ interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
         SELECT t FROM SupportTicket t
         WHERE (:status = '' OR t.status = :status)
           AND (:q = '' OR
-               LOWER(t.subject)  LIKE LOWER(CONCAT('%', :q, '%')) OR
-               LOWER(t.username) LIKE LOWER(CONCAT('%', :q, '%')) OR
-               LOWER(t.category) LIKE LOWER(CONCAT('%', :q, '%')))
+               LOWER(t.subject)  LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\' OR
+               LOWER(t.username) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\' OR
+               LOWER(t.category) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\')
         ORDER BY t.updatedAt DESC
     """)
     List<SupportTicket> searchForAdmin(@Param("status") String status,

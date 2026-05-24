@@ -18,7 +18,7 @@ interface ItemRepository extends JpaRepository<Item, Long> {
 
     List<Item> findByCategoryAndRarity(String category, String rarity)
 
-    @Query("SELECT i FROM Item i WHERE LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%'))")
+    @Query("SELECT i FROM Item i WHERE LOWER(i.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\'")
     List<Item> searchByName(@Param("q") String query)
 
     /** Exact-match lookup for mapping a Steam inventory item name to our

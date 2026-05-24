@@ -21,7 +21,7 @@ interface LoadoutRepository extends JpaRepository<Loadout, Long> {
     @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' ORDER BY l.favorites DESC, l.updatedAt DESC, l.id ASC")
     List<Loadout> findPublic(Pageable page)
 
-    @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' AND LOWER(l.name) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY l.favorites DESC, l.updatedAt DESC, l.id ASC")
+    @Query("SELECT l FROM Loadout l WHERE l.visibility = 'PUBLIC' AND LOWER(l.name) LIKE LOWER(CONCAT('%', :q, '%')) ESCAPE '\\' ORDER BY l.favorites DESC, l.updatedAt DESC, l.id ASC")
     List<Loadout> searchPublic(@Param("q") String q, Pageable page)
 
     long countByOwnerUserId(Long ownerUserId)
