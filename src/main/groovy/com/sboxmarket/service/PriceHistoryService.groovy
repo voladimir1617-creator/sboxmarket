@@ -117,7 +117,16 @@ class PriceHistoryService {
         if (item?.id == null || price == null || price <= BigDecimal.ZERO) return
         // A fresh SimpleDateFormat per call — the class is not thread-safe
         // and this writer is hit concurrently by the SCMM + Steam syncs.
-        def today = new SimpleDateFormat(DAY_LABEL_PATTERN).format(new Date())
+        // Force UTC so the day-boundary is identical across deployments and
+        // any future TZ change on the container (e.g. switching from local
+        // host time to a Dockerfile-set UTC, or vice versa). Without this
+        // the dayLabel coalesce key shifts with the JVM's default timezone —
+        // a sale at 23:30 UTC labelled under one TZ would not match a sale
+        // at 00:30 UTC labelled under another, silently splitting a single
+        // logical day across two chart rows and double-counting volume.
+        def fmt = new SimpleDateFormat(DAY_LABEL_PATTERN)
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        def today = fmt.format(new Date())
         // Volume is a non-negative trade count; clamp the delta so a
         // negative value can never decrement (update) or seed a negative
         // row (insert). Treat null as zero.

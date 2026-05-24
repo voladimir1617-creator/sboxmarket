@@ -41,7 +41,14 @@ class PriceHistoryServiceSpec extends Specification {
     }
 
     private String today() {
-        new SimpleDateFormat('MMM dd, yyyy').format(new Date())
+        // Match production: PriceHistoryService formats the day label in
+        // UTC so the coalesce key is stable across deployments / JVM TZ
+        // changes. The test helper must use the same TZ or it will
+        // intermittently fail for runners more than ~12h off UTC near a
+        // day boundary.
+        def fmt = new SimpleDateFormat('MMM dd, yyyy')
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        fmt.format(new Date())
     }
 
     def "record is a no-op when item id is null"() {
@@ -167,8 +174,10 @@ class PriceHistoryServiceSpec extends Specification {
         then:
         // e.g. "Apr 01, 2026" — must carry the current calendar year so a
         // >365-day series can't collide same-day labels across years.
+        // UTC-locked year — production writes in UTC, so near year-end
+        // a non-UTC test runner would otherwise see the wrong year here.
         captured.dayLabel ==~ /[A-Z][a-z]{2} \d{2}, \d{4}/
-        captured.dayLabel.endsWith(', ' + new SimpleDateFormat('yyyy').format(new Date()))
+        captured.dayLabel.endsWith(', ' + currentUtcYear())
     }
 
     def "a same-day label from a PRIOR year does not coalesce - a new row is appended"() {
@@ -367,9 +376,19 @@ class PriceHistoryServiceSpec extends Specification {
         PriceHistoryService.getDeclaredMethods().any { it.name == 'deferOrRun' }
     }
 
+    private String currentUtcYear() {
+        def fmt = new SimpleDateFormat('yyyy')
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        fmt.format(new Date())
+    }
+
     private String priorYearSameDayLabel() {
-        def cal = Calendar.getInstance()
+        // UTC-locked like today() so the prior-year label is computed in
+        // the same TZ the production writer uses.
+        def cal = Calendar.getInstance(TimeZone.getTimeZone('UTC'))
         cal.add(Calendar.YEAR, -1)
-        new SimpleDateFormat('MMM dd, yyyy').format(cal.getTime())
+        def fmt = new SimpleDateFormat('MMM dd, yyyy')
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        fmt.format(cal.getTime())
     }
 }
