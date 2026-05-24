@@ -133,7 +133,6 @@ body::before {
 
 button, input, select, textarea { font: inherit; color: inherit; }
 button { background: none; border: 0; cursor: pointer; }
-a { color: inherit; text-decoration: none; }
 
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.025em; font-variation-settings: "opsz" 144, "SOFT" 20; }
@@ -1246,7 +1245,6 @@ html[data-card-style="min"] .card-body { padding: 10px 12px; }
   gap: 14px; align-items: center;
   border-bottom: 1px solid var(--line);
 }
-.cart-row:last-child { border-bottom: 0; }
 .cart-thumb {
   width: 56px; height: 56px; border-radius: var(--r-sm);
   background:
@@ -1378,11 +1376,6 @@ footer {
   color: var(--ink-4);
   display: flex; justify-content: space-between; align-items: center;
 }
-
-/* scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 8px; border: 2px solid var(--bg); }
-::-webkit-scrollbar-thumb:hover { background: var(--line-2); }
 
 /* ─────────────────────────────────────────────────────────────
    MOBILE — tablet & phone optimizations
@@ -1619,8 +1612,6 @@ footer {
 .mini-input:focus { border-color: var(--accent); }
 .accent { color: var(--accent); }
 .iconbtn.sm { width: 28px; height: 28px; }
-.ghost-btn.danger { color: var(--down); border-color: color-mix(in oklab, var(--down) 30%, var(--line)); }
-.ghost-btn.danger:hover { background: color-mix(in oklab, var(--down) 10%, transparent); }
 .btn.ghost.danger { color: var(--down); border-color: color-mix(in oklab, var(--down) 40%, var(--line-2)); }
 
 /* ═══════════════ DATABASE ═══════════════ */
@@ -1722,7 +1713,6 @@ footer {
   display: block;
 }
 .item-img.loading { opacity: 0; transition: opacity 180ms ease; }
-.item-img.loaded  { opacity: 1; }
 .item-poster {
   display: inline-grid; place-items: center;
   width: 100%; height: 100%;
@@ -1731,7 +1721,6 @@ footer {
   font-weight: 200;
   letter-spacing: -0.02em;
 }
-.item-poster[data-variant="thumb"] { font-size: 22px; }
 .item-poster[data-variant="hero"]  { font-size: 144px; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4)); }
 .db-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 2px; }
@@ -2816,7 +2805,6 @@ footer {
   font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--cta) 50%, transparent);
 }
-.cf-feebar-cta:hover { filter: brightness(1.08); }
 
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
@@ -3093,7 +3081,6 @@ nav.nav {
   transition: color 140ms ease, background 140ms ease;
 }
 .nav-link:hover { color: var(--ink); background: var(--bg-1); }
-.nav-link.active { color: var(--ink); }
 .nav-link.active::after {
   content: ""; position: absolute;
   left: 12px; right: 12px; bottom: -18px;
@@ -3200,7 +3187,6 @@ nav.nav {
   font-size: 11px; font-weight: 600; color: var(--ink-2);
   overflow: hidden;
 }
-.user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-chip-name {
   font-size: 13px; font-weight: 500;
   color: var(--ink); letter-spacing: -0.005em;
@@ -5093,7 +5079,6 @@ body:has(.shortcuts-backdrop) {
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
 }
-.modal-listing-row:last-child { border-bottom: 0; }
 .modal-listing-price {
   font-family: var(--mono); font-size: 14px; font-weight: 600;
   color: var(--ink); letter-spacing: -0.01em;
@@ -10698,7 +10683,6 @@ input[type="radio"] {
    icon stack at top-right of the thumbnail. Visible at all times so
    touch users can use them; lift to opacity 1 on card hover for stronger
    visual affordance. */
-.grid-thumb { position: relative; }
 .grid-cart-btn,
 .grid-star {
   position: absolute;
@@ -11126,7 +11110,6 @@ input[type="radio"] {
   font-family: 'Geist', 'Inter', system-ui, sans-serif !important;
   font-weight: 500 !important;
 }
-.nav-link.active { font-weight: 700 !important; }
 
 /* Feature strip cards (Live auctions / Fair-price offers / No Steam hold) — tighten. */
 .px-feature-strip > * h3,
@@ -11722,10 +11705,6 @@ body:has(.full-page-mode) { overflow: visible !important; }
   pointer-events: none;
   transition: background 140ms ease, color 140ms ease, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 140ms ease, opacity 200ms ease;
 }
-.csfloat-band-row-wrap:hover .csfloat-band-arrow {
-  opacity: 1;
-  pointer-events: auto;
-}
 .csfloat-band-arrow:hover {
   background: var(--bg-2);
   color: var(--ink);
@@ -11750,7 +11729,6 @@ body:has(.full-page-mode) { overflow: visible !important; }
   scroll-snap-type: x proximity;
   scroll-behavior: smooth;
 }
-.csfloat-band-row::-webkit-scrollbar { height: 6px; }
 .csfloat-band-row::-webkit-scrollbar-thumb {
   background: var(--line-2); border-radius: 3px;
 }
@@ -11876,7 +11854,6 @@ body:has(.full-page-mode) { overflow: visible !important; }
 
 /* ─── CSFloat-1:1 grid card — view count overlay (top right).
    Restrained: gray text + eye icon, no chip background. */
-.grid-thumb { position: relative; }
 .grid-views {
   position: absolute;
   top: 8px; right: 8px;
@@ -13965,10 +13942,6 @@ input[type="email"]:focus {
 }
 /* END site fade */
 
-/* CSFloat-1:1: smooth-scroll for in-page anchors. */
-html { scroll-behavior: smooth; }
-/* END smooth scroll */
-
 /* CSFloat-1:1: strict no-text-decoration on all buttons. */
 button, .btn, button.btn { text-decoration: none !important; }
 /* END button decoration */
@@ -14204,13 +14177,6 @@ button, .btn, button.btn { text-decoration: none !important; }
   background: color-mix(in oklab, var(--cta) 8%, transparent);
 }
 /* END nav icon hover ring */
-
-/* CSFloat-1:1: improved offscreen content reveal as user scrolls. */
-.csfloat-band-row {
-  scroll-padding-left: 16px;
-  scroll-padding-right: 16px;
-}
-/* END band scroll padding */
 
 /* CSFloat-1:1: typography refinement on /item title. */
 .full-page-mode .modal-name {
@@ -15225,10 +15191,6 @@ select option {
 .cart-summary > * + * { margin-top: 10px; }
 /* END cart summary spacing */
 
-/* CSFloat-1:1: better :visited link state. */
-a:visited { color: inherit; }
-/* END visited */
-
 /* CSFloat-1:1: improve search dropdown item rows. */
 .search-suggest-item {
   padding: 10px 14px;
@@ -16220,10 +16182,6 @@ details summary:hover {
   background: transparent;
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease;
-}
-.user-chip:hover {
-  background: var(--bg-2);
-  border-color: var(--line-2);
 }
 /* END user chip */
 
@@ -17248,10 +17206,6 @@ ul, ol { list-style: none; padding: 0; margin: 0; }
 }
 /* END user-select reset */
 
-/* CSFloat-1:1: improve box-sizing globally. */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
 /* END box-sizing */
 
 /* CSFloat-1:1: improve nav backdrop blur smoother on scroll. */
@@ -17303,8 +17257,6 @@ body {
 }
 /* END body bg */
 
-/* CSFloat-1:1: improve scroll smoothness. */
-html { scroll-padding-top: 80px; }
 /* END scroll padding */
 
 /* CSFloat-1:1: improve overall vertical alignment cascading. */
@@ -18545,8 +18497,6 @@ a[target="_blank"]::after {
     color-mix(in oklab, var(--down) 60%, transparent) 0%,
     var(--down) 100%);
 }
-/* Hide the prior bottom stripe so the rarity color reads only at the top. */
-.grid-card::after { display: none !important; }
 /* END rarity stripe at top */
 
 /* ─── CSFloat-1:1: hide the OFF-MARKET / STANDARD rarity chip on the card.
@@ -20200,7 +20150,6 @@ a[target="_blank"]::after {
   color: var(--ink-1);
   transition: border-color 120ms ease, background 120ms ease;
 }
-.csfloat-input::placeholder { color: var(--ink-3); }
 .csfloat-input:hover {
   background: var(--bg-2);
   border-color: var(--line-2);
@@ -20248,7 +20197,6 @@ a[target="_blank"]::after {
   transition: border-color 120ms ease, background 120ms ease;
   line-height: 1.5;
 }
-.csfloat-textarea::placeholder { color: var(--ink-3); }
 .csfloat-textarea:focus {
   outline: none;
   border-color: var(--cta);
@@ -20459,7 +20407,6 @@ a[target="_blank"]::after {
   transition: background 100ms ease;
 }
 .csfloat-table tbody tr:last-child { border-bottom: none; }
-.csfloat-table tbody tr:hover { background: var(--bg-2); }
 .csfloat-table td {
   padding: 12px 14px;
   color: var(--ink-2);
@@ -25052,9 +24999,6 @@ html { scroll-behavior: smooth; }
 @keyframes marquee-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
-}
-.csfloat-marquee:hover .csfloat-marquee-track {
-  animation-play-state: paused;
 }
 .csfloat-marquee-item {
   display: inline-flex;
@@ -47937,7 +47881,6 @@ hr.csfloat {
   align-items: center;
 }
 .csfloat-admin-row:last-child { border-bottom: none; }
-.csfloat-admin-row:hover { background: var(--bg-2); }
 .csfloat-admin-row-checkbox {
   width: 14px;
   height: 14px;
@@ -62636,7 +62579,6 @@ hr.csfloat {
   align-items: center;
 }
 .csfloat-data-row:last-child { border-bottom: none; }
-.csfloat-data-row:hover { background: var(--bg-2); }
 .csfloat-data-row-content {
   display: flex;
   flex-direction: column;
@@ -69775,8 +69717,6 @@ hr.csfloat {
   font-feature-settings: "tnum";
   margin-top: 2px;
 }
-.csfloat-stat-cell-delta.is-up { color: oklch(0.78 0.16 152); }
-.csfloat-stat-cell-delta.is-down { color: oklch(0.72 0.18 30); }
 @media (max-width: 720px) {
   .csfloat-stat-row {
     flex-wrap: wrap;
