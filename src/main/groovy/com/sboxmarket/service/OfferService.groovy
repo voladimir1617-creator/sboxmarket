@@ -580,8 +580,16 @@ class OfferService {
      *  actually persist when the buyer's wallet is short — otherwise
      *  the TX rolls back and the offer stays PENDING forever, the
      *  buyer never knows their offer couldn't close, and the seller
-     *  sees the same row keep failing every time they retry accept. */
-    @Transactional(noRollbackFor = InsufficientBalanceException)
+     *  sees the same row keep failing every time they retry accept.
+     *
+     *  Second-pass audit fix — `ListingNotAvailableException` belongs in
+     *  the same bucket. The `listing.status != 'ACTIVE'` branch below
+     *  saves `offer.status = 'EXPIRED'` THEN throws the exception, but
+     *  without `noRollbackFor` covering it the TX rolls back the save
+     *  too — leaving the offer stuck PENDING against a sold/cancelled
+     *  listing, so every subsequent seller retry hits the same dead
+     *  branch and never clears the row. */
+    @Transactional(noRollbackFor = [InsufficientBalanceException, ListingNotAvailableException])
     Map acceptOffer(Long callerUserId, Long offerId) {
         def offer = offerRepository.findById(offerId)
                 .orElseThrow { new NotFoundException("Offer", offerId) }
