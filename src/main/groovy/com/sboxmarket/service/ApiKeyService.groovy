@@ -112,14 +112,21 @@ class ApiKeyService {
     int revokeAll(Long userId) {
         def live = apiKeyRepository.findByUser(userId).findAll { !Boolean.TRUE.equals(it.revoked) }
         if (live.isEmpty()) return 0
+        live.each { k -> k.revoked = true }
+        // Persist BEFORE auditing — AuditService convention (see its class
+        // comment): "Services call audit.log AT THE END of a successful
+        // operation — never before, so failed attempts don't pollute the
+        // trail." Previously the loop wrote audit rows before saveAll, so a
+        // saveAll rollback would leave phantom API_KEY_REVOKED rows in the
+        // audit trail for keys that were never actually revoked (since
+        // AuditService persists in its own transaction context).
+        apiKeyRepository.saveAll(live)
         live.each { k ->
-            k.revoked = true
             try {
                 auditService?.log(AuditService.API_KEY_REVOKED, userId, userId, k.id,
                     "Bulk-revoked API key ${k.publicPrefix} (${k.label})")
             } catch (Exception ignore) { /* tolerated */ }
         }
-        apiKeyRepository.saveAll(live)
         live.size()
     }
 

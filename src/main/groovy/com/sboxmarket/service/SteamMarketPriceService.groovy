@@ -245,7 +245,15 @@ class SteamMarketPriceService {
      * after 429 until the 5-strikes circuit breaker fired.
      */
     Map fetchSteamPrice(String marketHashName, int consecutive429s = 0) {
-        def encoded = URLEncoder.encode(marketHashName, 'UTF-8')
+        // Spaces — and Steam item names are FULL of them ("AK-47 | Redline
+        // (Field-Tested)") — must be %20, not '+'. URLEncoder.encode uses
+        // application/x-www-form-urlencoded rules where space is '+',
+        // which most Steam endpoints tolerate but the canonical query-string
+        // form is %20. Matches the extension's encodeURIComponent path
+        // (extension/content.js line 103) so server-side and browser-side
+        // requests for the same item always produce byte-identical URLs —
+        // any future cache key keyed on URL therefore agrees.
+        def encoded = URLEncoder.encode(marketHashName, 'UTF-8').replace('+', '%20')
         def url = "https://steamcommunity.com/market/priceoverview/?country=US&currency=1&appid=${SBOX_APP_ID}&market_hash_name=${encoded}"
 
         HttpURLConnection conn = null
@@ -263,6 +271,19 @@ class SteamMarketPriceService {
                 // Capped at 8 minutes — past that we should just abort this
                 // sync via the outer circuit breaker.
                 long backoffMs = Math.min(480_000L, 30_000L * (1L << Math.min(4, consecutive429s)))
+                // Honour a Retry-After hint if Steam sent one — backing off
+                // for LESS than Steam asked just earns another 429 on the
+                // next probe (and extends the IP cooldown). Header may be
+                // a delta-seconds integer or an HTTP-date; we only act on
+                // the simple integer form (Steam never sends HTTP-date here).
+                // Bound by [our-exponential, 8min] so a hostile or buggy
+                // upstream "Retry-After: 86400" can't park the sync thread
+                // for a day.
+                def retryAfter = conn.getHeaderField('Retry-After')
+                if (retryAfter?.isInteger()) {
+                    long hinted = retryAfter.toLong() * 1000L
+                    if (hinted > backoffMs) backoffMs = Math.min(480_000L, hinted)
+                }
                 log.warn("Steam Market rate-limited (429) — backing off ${(backoffMs / 1000) as long}s (consecutive=${consecutive429s + 1})")
                 try { Thread.sleep(backoffMs) }
                 catch (InterruptedException ie) { Thread.currentThread().interrupt() }
