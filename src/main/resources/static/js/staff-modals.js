@@ -1028,17 +1028,38 @@ function AdminFraudTab() {
     } catch (e) { setError(e?.message || 'Failed to load'); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  // Guard the initial load + autoRefresh tick with an `alive` flag so
+  // closing the modal mid-fetch doesn't fire setRows/setLoading on an
+  // unmounted component (React warns + we drop the in-flight result on
+  // the floor anyway).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true); setError('');
+      try {
+        const r = await adminFraudSignals();
+        if (alive) setRows(Array.isArray(r) ? r : []);
+      } catch (e) { if (alive) setError(e?.message || 'Failed to load'); }
+      finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, []);
   // Live-refresh loop — only runs when autoRefresh is on. 60 seconds
   // balances "see new signals quickly" against "don't hammer the
   // audit-log rollup query" (it scans the last 24h window).
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = setInterval(() => {
-      if (document.visibilityState === 'visible') load();
-    }, 60_000);
-    return () => clearInterval(id);
-  }, [autoRefresh, load]);
+    let alive = true;
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const r = await adminFraudSignals();
+        if (alive) setRows(Array.isArray(r) ? r : []);
+      } catch (_) {}
+    };
+    const id = setInterval(tick, 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [autoRefresh]);
 
   const sevClass = (s) => s === 'HIGH' ? 'sev-high' : s === 'MED' ? 'sev-med' : 'sev-low';
   const visible = showReviewed ? rows : rows.filter(r => !reviewed.has(rowKey(r)));
@@ -2748,7 +2769,12 @@ function AdminUsersTab({ me }) {
                     : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid var(--border)' }, disabled: busy, onClick: () => doRevoke(u) }, '−Admin')),
                   u.banned
                     ? h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(74,222,128,0.3)', color: 'var(--green)' }, disabled: busy, onClick: () => doUnban(u) }, 'Unban')
-                    : h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, disabled: busy, onClick: () => doBan(u) }, 'Ban'),
+                    // Hide Ban on self — banning your own admin account
+                    // locks you out of the panel and bumps your session
+                    // epoch. The Force-logout button below already guards
+                    // self; Ban (a strict superset of force-logout) was
+                    // missing the same check.
+                    : (me?.id !== u.id && h('button', { className: 'btn btn-ghost', style: { padding: '5px 10px', fontSize: 11, border: '1px solid rgba(248,113,113,0.3)', color: 'var(--red)' }, disabled: busy, onClick: () => doBan(u) }, 'Ban')),
                   // Force-logout — revoke every live session without banning.
                   // Hidden on self (the admin has logout-all on their own
                   // profile) and on already-banned users (ban already
@@ -2869,18 +2895,23 @@ function AdminUsersTab({ me }) {
             title: 'Reset the user\'s two-factor authentication',
             onClick: async () => {
               const label = detailUser.displayName || ('#' + detailUser.id);
+              // Capture the target id at click time — if the admin closes
+              // the drawer or opens a different user mid-flight, the patch
+              // below would otherwise flip the wrong user's 2FA chip.
+              const targetId = detailUser.id;
               const note = window.prompt(
                 `Reset 2FA for ${label}?\n\n` +
                 `They\'ll need to re-enrol from Profile → 2FA next time they sign in. Enter an audit note (required):`);
               if (!note || !note.trim()) return;
-              const res = await adminReset2fa(detailUser.id, note.trim());
+              const res = await adminReset2fa(targetId, note.trim());
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
               // Pre-fix: the Security health-card shows `summary.twoFactorEnabled`
               // ("🔐 2FA" → "○ 2FA"). Reset flipped the server-side flag but
               // the local summary kept the old value until the drawer was
               // reopened, contradicting the toast. In-place patch keeps the
-              // card honest.
-              setDetailData(d => d && d.summary
+              // card honest. Gate the patch on detailUser.id === targetId so
+              // a drawer switch during the await doesn't leak state.
+              setDetailData(d => d && d.summary && detailUser?.id === targetId
                 ? { ...d, summary: { ...d.summary, twoFactorEnabled: false } }
                 : d);
               // Batch 944 — name the user in the toast so staff see which
@@ -2899,17 +2930,20 @@ function AdminUsersTab({ me }) {
             title: 'Freeze this wallet — refuses deposit / withdraw / purchase. Softer than a ban.',
             onClick: async () => {
               const label = detailUser.displayName || ('#' + detailUser.id);
+              // Capture target — same drawer-switch race as Reset 2FA above.
+              const targetId = detailUser.id;
               const reason = window.prompt(
                 `Freeze wallet for ${label}?\n\n` +
                 `Reason (required — shown to the user):`);
               if (!reason || !reason.trim()) return;
-              const res = await adminFreezeWallet(detailUser.id, reason.trim());
+              const res = await adminFreezeWallet(targetId, reason.trim());
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
               // Pre-fix: the Wallet health-card at the top of the drawer
               // reads `summary.walletFrozen` and stayed "Active" until the
               // drawer was reopened. Patch the local summary so the card
-              // flips to "❄ FROZEN" the moment the toast fires.
-              setDetailData(d => d && d.summary
+              // flips to "❄ FROZEN" the moment the toast fires. Skip the
+              // patch when the drawer has moved to a different user.
+              setDetailData(d => d && d.summary && detailUser?.id === targetId
                 ? { ...d, summary: { ...d.summary, walletFrozen: true, walletFrozenReason: reason.trim() } }
                 : d);
               // Batch 944 — name the user in the toast. Previously generic
@@ -2927,11 +2961,14 @@ function AdminUsersTab({ me }) {
             onClick: async () => {
               const label = detailUser.displayName || ('#' + detailUser.id);
               if (!confirm(`Unfreeze wallet for ${label}?`)) return;
-              const res = await adminUnfreezeWallet(detailUser.id);
+              // Capture target — drawer-switch race same as Freeze above.
+              const targetId = detailUser.id;
+              const res = await adminUnfreezeWallet(targetId);
               if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
               // Same in-place patch as Freeze above so the Wallet health-card
-              // flips to "Active" without a drawer reopen.
-              setDetailData(d => d && d.summary
+              // flips to "Active" without a drawer reopen. Skip the patch
+              // when the drawer has moved on to a different user.
+              setDetailData(d => d && d.summary && detailUser?.id === targetId
                 ? { ...d, summary: { ...d.summary, walletFrozen: false, walletFrozenReason: null } }
                 : d);
               toast(res.noChange
@@ -3695,7 +3732,8 @@ function CsrLookupTab() {
     try { setData(await csrLookup(q)); } finally { setBusy(false); }
   };
   const giveCredit = async (u) => {
-    const amt = prompt(`Goodwill credit for ${u.displayName || u.steamId64} (max per CSR adjustment applies):`, '5.00');
+    const label = u.displayName || u.steamId64;
+    const amt = prompt(`Goodwill credit for ${label} (max per CSR adjustment applies):`, '5.00');
     if (!amt) return;
     // Guard the parse — a non-numeric entry would otherwise post NaN to
     // the goodwill endpoint. Mirrors AdminUsersTab.doCredit.
@@ -3703,6 +3741,11 @@ function CsrLookupTab() {
     if (!Number.isFinite(value) || value <= 0) { toast('Enter a positive number', 'err'); return; }
     const note = prompt('Reason / note (required for audit):', '');
     if (!note || !note.trim()) return;
+    // Confirm before moving money — mirrors AdminUsersTab.doCredit's
+    // confirm gate. CSR goodwill is real money out the door, irreversible
+    // without an admin debit; a fat-fingered amount must be catchable
+    // before it lands in the ledger.
+    if (!confirm(`CREDIT ${fmt(value)} to ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
     const res = await csrGoodwill(u.id, value, note);
     if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
     toast(`Credited. New balance: $${res.newBalance}`, 'ok');
