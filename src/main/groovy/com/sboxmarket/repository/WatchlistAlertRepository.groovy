@@ -62,6 +62,21 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     """)
     List<Object[]> findTriggered()
 
+    /** Paged companion — when many prices drop simultaneously the
+     *  triggered set can be very large; sweepers should walk in chunks
+     *  rather than fire every alert in one tick. */
+    @Query("""
+        SELECT a, i.lowestPrice, i.name FROM WatchlistAlert a, Item i, SteamUser u
+        WHERE a.status = 'ACTIVE'
+          AND a.itemId = i.id
+          AND a.userId = u.id
+          AND (u.banned IS NULL OR u.banned = false)
+          AND i.lowestPrice IS NOT NULL
+          AND i.lowestPrice > 0
+          AND i.lowestPrice <= a.targetPrice
+    """)
+    List<Object[]> findTriggered(org.springframework.data.domain.Pageable pageable)
+
     /** Same shape as findTriggered() ([alert, lowestPrice, name]) but
      *  scoped to a single item — drives the synchronous sweep fired
      *  from SellService.relist so a fresh listing triggers pending
@@ -91,6 +106,17 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
           AND a.status = 'ACTIVE'
     """)
     List<Long> findActiveUserIdsForItem(@Param("itemId") Long itemId)
+
+    /** Paged companion — a hot item can collect thousands of watchers;
+     *  fan-out callers should cap to avoid spraying notifications in
+     *  a single tick. */
+    @Query("""
+        SELECT DISTINCT a.userId FROM WatchlistAlert a
+        WHERE a.itemId = :itemId
+          AND a.status = 'ACTIVE'
+    """)
+    List<Long> findActiveUserIdsForItem(@Param("itemId") Long itemId,
+                                        org.springframework.data.domain.Pageable pageable)
 
     /** Public social-proof: how many users currently have an ACTIVE
      *  alert on this item. Powers the "N watching" chip on item detail.

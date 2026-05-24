@@ -11,6 +11,13 @@ interface SavedSearchRepository extends JpaRepository<SavedSearch, Long> {
     @Query("SELECT s FROM SavedSearch s WHERE s.userId = :uid ORDER BY s.createdAt DESC")
     List<SavedSearch> findByUser(@Param('uid') Long userId)
 
+    /** Paged companion — bounded by the per-user save cap, but the cap
+     *  keeps the Saved Searches tab render bounded regardless of any
+     *  future cap drift. */
+    @Query("SELECT s FROM SavedSearch s WHERE s.userId = :uid ORDER BY s.createdAt DESC")
+    List<SavedSearch> findByUser(@Param('uid') Long userId,
+                                  org.springframework.data.domain.Pageable pageable)
+
     /** Per-user lookup by name — used by the upsert path so re-saving
      *  a preset under the same label overwrites the row's filter
      *  contents without producing a duplicate. */

@@ -24,6 +24,11 @@ interface AnnouncementRepository extends JpaRepository<Announcement, Long> {
     @Query("SELECT a FROM Announcement a ORDER BY a.createdAt DESC")
     List<Announcement> findAllForAdmin()
 
+    /** Paged companion — admin announcement history grows one row per
+     *  banner ever posted; cap to keep the admin UI render bounded. */
+    @Query("SELECT a FROM Announcement a ORDER BY a.createdAt DESC")
+    List<Announcement> findAllForAdmin(org.springframework.data.domain.Pageable page)
+
     /** Rows that are STILL marked active in the DB but whose expiresAt
      *  has passed (batch 582). Public `findCurrent` already filters
      *  these out at read time; the sweeper uses this to flip their

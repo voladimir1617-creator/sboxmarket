@@ -33,6 +33,11 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
     @Query("SELECT b FROM BuyOrder b WHERE b.status = 'ACTIVE' ORDER BY b.maxPrice DESC")
     List<BuyOrder> findAllActive()
 
+    /** Paged companion — the platform-wide ACTIVE buy-order set grows
+     *  with adoption; cap to keep batched scans bounded per call. */
+    @Query("SELECT b FROM BuyOrder b WHERE b.status = 'ACTIVE' ORDER BY b.maxPrice DESC")
+    List<BuyOrder> findAllActive(org.springframework.data.domain.Pageable page)
+
     /** Top-N active buy orders by maxPrice — drives the homepage "Top
      *  buy orders" rail (batch 369). Banned buyers filtered out so the
      *  social-proof signal isn't inflated by accounts that can't
@@ -156,6 +161,17 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
         ORDER BY b.updatedAt ASC
     """)
     List<BuyOrder> findStaleActive(@Param('cutoff') Long cutoff)
+
+    /** Paged companion — sweeper input; same chunked-processing pattern
+     *  as the trade/offer sweepers. */
+    @Query("""
+        SELECT b FROM BuyOrder b
+        WHERE b.status = 'ACTIVE'
+          AND b.updatedAt <= :cutoff
+        ORDER BY b.updatedAt ASC
+    """)
+    List<BuyOrder> findStaleActive(@Param('cutoff') Long cutoff,
+                                    org.springframework.data.domain.Pageable page)
 
     /** Top-N active buy orders for a specific item (batch 639). Drives
      *  the CSFloat-style "Buy Orders" table on the item detail modal:

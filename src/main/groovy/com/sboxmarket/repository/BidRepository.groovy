@@ -12,8 +12,22 @@ interface BidRepository extends JpaRepository<Bid, Long> {
     @Query("SELECT b FROM Bid b WHERE b.listingId = :id ORDER BY b.amount DESC, b.createdAt ASC")
     List<Bid> findByListing(@Param("id") Long listingId)
 
+    /** Paged companion — a hot auction can attract hundreds of bid rows
+     *  (snipe-bot territory); the bid-history UI only needs the top N.
+     *  Sort order matches the unbounded variant. */
+    @Query("SELECT b FROM Bid b WHERE b.listingId = :id ORDER BY b.amount DESC, b.createdAt ASC")
+    List<Bid> findByListing(@Param("id") Long listingId,
+                            org.springframework.data.domain.Pageable pageable)
+
     @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid ORDER BY b.createdAt DESC")
     List<Bid> findByBidder(@Param("uid") Long uid)
+
+    /** Paged companion — a power-bidder accumulates thousands of historical
+     *  bids across won/lost/cancelled auctions; the cap prevents the
+     *  Profile → Bids → All tab from hydrating the full history. */
+    @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid ORDER BY b.createdAt DESC")
+    List<Bid> findByBidder(@Param("uid") Long uid,
+                           org.springframework.data.domain.Pageable pageable)
 
     @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid AND b.kind = 'AUTO' AND b.status = 'WINNING' ORDER BY b.createdAt DESC")
     List<Bid> findActiveAutoBidsForUser(@Param("uid") Long uid)
@@ -32,6 +46,16 @@ interface BidRepository extends JpaRepository<Bid, Long> {
            "AND (b.status = 'WINNING' OR b.status = 'OUTBID') " +
            "ORDER BY b.createdAt DESC")
     List<Bid> findLiveBidsForUser(@Param("uid") Long uid)
+
+    /** Paged companion — bounded by the user's live-auction footprint
+     *  (small in practice) but a snipe-bot account can amass many live
+     *  bids simultaneously; the cap keeps the Active-Bids tab render at
+     *  O(pageSize) regardless. */
+    @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid " +
+           "AND (b.status = 'WINNING' OR b.status = 'OUTBID') " +
+           "ORDER BY b.createdAt DESC")
+    List<Bid> findLiveBidsForUser(@Param("uid") Long uid,
+                                  org.springframework.data.domain.Pageable pageable)
 
     /** Past bids — WON, LOST, CANCELLED. Drives the Profile → Bids
      *  "Past" sub-tab (batch 361) so users can review their auction

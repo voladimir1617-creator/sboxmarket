@@ -41,6 +41,12 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     @Query("SELECT o FROM Offer o WHERE o.listingId = :lid AND o.status = 'PENDING'")
     List<Offer> findPendingForListing(@Param("lid") Long listingId)
 
+    /** Paged companion — a viral listing can attract many concurrent
+     *  PENDING offers; callers that only need the top-N for display
+     *  should use this overload. */
+    @Query("SELECT o FROM Offer o WHERE o.listingId = :lid AND o.status = 'PENDING'")
+    List<Offer> findPendingForListing(@Param("lid") Long listingId, Pageable pageable)
+
     /** The caller's PENDING or COUNTERED offer on a given listing, if any.
      *  Drives the "You offered $X" chip in the ItemModal (batch 368) so a
      *  buyer revisiting a listing immediately sees their live offer state.
@@ -60,6 +66,12 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      *  `idx_offers_listing` composite index so it stays O(log N). */
     @Query("SELECT o FROM Offer o WHERE o.listingId = :lid ORDER BY o.createdAt DESC")
     List<Offer> findByListingId(@Param("lid") Long listingId)
+
+    /** Paged companion — across the full ACCEPTED/REJECTED/COUNTERED/
+     *  CANCELLED/EXPIRED history a long-running listing accumulates,
+     *  the row count grows without bound. */
+    @Query("SELECT o FROM Offer o WHERE o.listingId = :lid ORDER BY o.createdAt DESC")
+    List<Offer> findByListingId(@Param("lid") Long listingId, Pageable pageable)
 
     /** Direct children of a given offer in a counter thread — every Offer
      *  whose `parentOfferId` points at `:pid`. Drives the COUNTERED-parent
@@ -82,6 +94,12 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     @Query("SELECT o FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING' ORDER BY o.createdAt DESC")
     List<Offer> findPendingByBuyer(@Param("uid") Long buyerUserId)
 
+    /** Paged companion — bounded by the per-buyer PENDING ceiling in
+     *  normal use, but ban-cascade callers facing an adversarial buyer
+     *  who queued thousands of pending offers should iterate in batches. */
+    @Query("SELECT o FROM Offer o WHERE o.buyerUserId = :uid AND o.status = 'PENDING' ORDER BY o.createdAt DESC")
+    List<Offer> findPendingByBuyer(@Param("uid") Long buyerUserId, Pageable pageable)
+
     /** Incoming-offer count for a seller — drives the nav badge so sellers
      *  see "3 offers waiting" without opening the Offers tab. PENDING only
      *  (accepted/rejected/countered are terminal from the seller's view). */
@@ -94,6 +112,12 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
      *  "time since first created". */
     @Query("SELECT o FROM Offer o WHERE o.status = 'PENDING' AND o.updatedAt <= :cutoff")
     List<Offer> findStalePending(@Param("cutoff") Long cutoff)
+
+    /** Paged companion — on a busy platform the stale candidate set can
+     *  swell after long downtimes; batch sweeper callers should walk in
+     *  chunks rather than hydrating the full set per tick. */
+    @Query("SELECT o FROM Offer o WHERE o.status = 'PENDING' AND o.updatedAt <= :cutoff")
+    List<Offer> findStalePending(@Param("cutoff") Long cutoff, Pageable pageable)
 
     /** PENDING offers that crossed the half-life mark and haven't been
      *  nudged yet (batch 499). The sweeper pushes a one-time "your offer
@@ -114,6 +138,18 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     """)
     List<Offer> findPendingDueForNudge(@Param("halfLifeCutoff") Long halfLifeCutoff,
                                         @Param("fullLifeCutoff") Long fullLifeCutoff)
+
+    /** Paged companion — same batched-sweeper rationale as findStalePending. */
+    @Query("""
+        SELECT o FROM Offer o
+        WHERE o.status = 'PENDING'
+          AND o.sellerNudgedAt IS NULL
+          AND o.updatedAt <= :halfLifeCutoff
+          AND o.updatedAt > :fullLifeCutoff
+    """)
+    List<Offer> findPendingDueForNudge(@Param("halfLifeCutoff") Long halfLifeCutoff,
+                                        @Param("fullLifeCutoff") Long fullLifeCutoff,
+                                        Pageable pageable)
 
     /** Root buyer offers the given seller has resolved (accepted,
      *  rejected, or countered). The delta `updatedAt - createdAt` is

@@ -1,6 +1,7 @@
 package com.sboxmarket.repository
 
 import com.sboxmarket.model.ListingReport
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
@@ -13,6 +14,11 @@ interface ListingReportRepository extends JpaRepository<ListingReport, Long> {
 
     /** All reports on a listing, newest first. Powers the admin drill-down. */
     List<ListingReport> findByListingIdOrderByCreatedAtDesc(Long listingId)
+
+    /** Paged companion — a coordinated brigading attack can stack many
+     *  reports on a single listing; admin drill-down should cap rather
+     *  than hydrate the whole report log. */
+    List<ListingReport> findByListingIdOrderByCreatedAtDesc(Long listingId, Pageable pageable)
 
     /** How many reports has this reporter filed in the last window? Rate-limiting
      *  hook — a single user shouldn't be able to mass-report hundreds of listings

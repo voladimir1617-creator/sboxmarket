@@ -18,6 +18,16 @@ interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     """)
     List<UserBlock> findByBlocker(@Param('uid') Long blockerUserId)
 
+    /** Paged companion — a paranoid user can amass many block rows;
+     *  the Profile → Blocked tab should cap the hydration. */
+    @Query("""
+        SELECT b FROM UserBlock b
+        WHERE b.blockerUserId = :uid
+        ORDER BY b.createdAt DESC
+    """)
+    List<UserBlock> findByBlocker(@Param('uid') Long blockerUserId,
+                                   org.springframework.data.domain.Pageable pageable)
+
     /** Single-pair probe — drives the write-path enforcement. Used for
      *  "does seller S have buyer B on their block list?" / symmetric. */
     @Query("""
@@ -34,12 +44,25 @@ interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     @Query("SELECT b.blockerUserId FROM UserBlock b WHERE b.blockedUserId = :uid")
     List<Long> findBlockerIdsForBlocked(@Param('uid') Long blockedUserId)
 
+    /** Paged companion — a notorious account can collect many blockers;
+     *  staff tooling should cap. */
+    @Query("SELECT b.blockerUserId FROM UserBlock b WHERE b.blockedUserId = :uid")
+    List<Long> findBlockerIdsForBlocked(@Param('uid') Long blockedUserId,
+                                        org.springframework.data.domain.Pageable pageable)
+
     /** Blocked ids for a given blocker — fast one-column projection
      *  used when the caller only needs the id set, not the full rows.
      *  Drives the listing-grid filter that hides anyone the viewer has
      *  blocked. */
     @Query("SELECT b.blockedUserId FROM UserBlock b WHERE b.blockerUserId = :uid")
     List<Long> findBlockedIdsForBlocker(@Param('uid') Long blockerUserId)
+
+    /** Paged companion — the listing-grid filter does not need an
+     *  unbounded list. The cap keeps the per-request filter cost
+     *  O(pageSize). */
+    @Query("SELECT b.blockedUserId FROM UserBlock b WHERE b.blockerUserId = :uid")
+    List<Long> findBlockedIdsForBlocker(@Param('uid') Long blockerUserId,
+                                        org.springframework.data.domain.Pageable pageable)
 
     @Modifying
     @Query("""

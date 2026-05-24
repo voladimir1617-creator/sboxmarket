@@ -14,6 +14,14 @@ interface TradeMessageRepository extends JpaRepository<TradeMessage, Long> {
     @Query("SELECT m FROM TradeMessage m WHERE m.tradeId = :tid ORDER BY m.createdAt ASC")
     List<TradeMessage> findByTrade(@Param("tid") Long tradeId)
 
+    /** Paged companion to findByTrade — same ASC ordering, cap supplied
+     *  by the caller. findByTradeRecent already covers the newest-first
+     *  cap-the-tail case; this overload preserves ASC ordering for
+     *  callers that prefer it. */
+    @Query("SELECT m FROM TradeMessage m WHERE m.tradeId = :tid ORDER BY m.createdAt ASC")
+    List<TradeMessage> findByTrade(@Param("tid") Long tradeId,
+                                   org.springframework.data.domain.Pageable pageable)
+
     /** Paged newest-first — batch 1028 caps the trade-chat fetch at
      *  200 rows on every open so a thread with thousands of messages
      *  doesn't ship them all. Ordered DESC so the page returns the

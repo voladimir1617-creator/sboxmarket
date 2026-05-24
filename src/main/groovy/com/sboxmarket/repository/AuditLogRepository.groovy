@@ -34,6 +34,15 @@ interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     @Query("SELECT a FROM AuditLog a WHERE a.createdAt >= :since ORDER BY a.createdAt DESC")
     List<AuditLog> since(@Param("since") Long since)
 
+    /** Paged companion to {@link #since(Long)} — same query shape, plus a
+     *  Pageable so callers can cap the velocity-window hydration at the
+     *  500-row ceiling used elsewhere in this repository. The unbounded
+     *  variant stays on the interface for backwards compatibility with
+     *  the existing FraudAnalysisService call site; new callers should
+     *  prefer this overload. */
+    @Query("SELECT a FROM AuditLog a WHERE a.createdAt >= :since ORDER BY a.createdAt DESC")
+    List<AuditLog> since(@Param("since") Long since, Pageable page)
+
     // Date-filtered variants (batch 556) — every existing filter gets a
     // companion that applies an optional `since` lower bound. Uses
     // nullable-sentinel param (caller passes 0L for "no floor") so the

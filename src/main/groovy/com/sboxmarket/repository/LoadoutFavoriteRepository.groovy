@@ -31,6 +31,16 @@ interface LoadoutFavoriteRepository extends JpaRepository<LoadoutFavorite, Long>
     """)
     List<Long> findLoadoutIdsByUser(@Param("uid") Long userId)
 
+    /** Paged companion — a power-user can favorite hundreds of loadouts
+     *  over time; the cap keeps the Favorites tab render bounded. */
+    @Query("""
+        SELECT f.loadoutId FROM LoadoutFavorite f
+        WHERE f.userId = :uid
+        ORDER BY f.createdAt DESC
+    """)
+    List<Long> findLoadoutIdsByUser(@Param("uid") Long userId,
+                                     org.springframework.data.domain.Pageable pageable)
+
     /** Cascade-cleanup helper. Loadout rows are hard-deleted by both
      *  the owner self-delete path and the admin takedown path; without
      *  this, favorite rows pointing at the now-gone loadout linger

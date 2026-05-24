@@ -14,6 +14,13 @@ interface CartItemRepository extends JpaRepository<CartItem, Long> {
     @Query("SELECT c.listingId FROM CartItem c WHERE c.userId = :uid ORDER BY c.addedAt ASC")
     List<Long> findListingIdsByUser(@Param('uid') Long userId)
 
+    /** Paged companion — a user can hoard hundreds of items in cart
+     *  before the per-user cap kicks in; the overload keeps cart-render
+     *  costs O(pageSize) regardless. */
+    @Query("SELECT c.listingId FROM CartItem c WHERE c.userId = :uid ORDER BY c.addedAt ASC")
+    List<Long> findListingIdsByUser(@Param('uid') Long userId,
+                                     org.springframework.data.domain.Pageable pageable)
+
     /** Row-count companion for cap/headroom checks — avoids hydrating
      *  the entire id list just to call .size(). */
     @Query("SELECT COUNT(c) FROM CartItem c WHERE c.userId = :uid")
@@ -56,6 +63,16 @@ interface CartItemRepository extends JpaRepository<CartItem, Long> {
     """)
     List<Long> findOtherUsersWithListing(@Param('listingId') Long listingId,
                                           @Param('excludeUserId') Long excludeUserId)
+
+    /** Paged companion — on a hot drop the per-listing watcher set can
+     *  be very large; CART_ITEM_SOLD fan-out callers should cap. */
+    @Query("""
+        SELECT DISTINCT c.userId FROM CartItem c
+        WHERE c.listingId = :listingId AND c.userId <> :excludeUserId
+    """)
+    List<Long> findOtherUsersWithListing(@Param('listingId') Long listingId,
+                                          @Param('excludeUserId') Long excludeUserId,
+                                          org.springframework.data.domain.Pageable pageable)
 
     @Modifying
     @Query("DELETE FROM CartItem c WHERE c.listingId = :listingId")

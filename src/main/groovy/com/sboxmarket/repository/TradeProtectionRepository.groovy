@@ -23,6 +23,13 @@ interface TradeProtectionRepository extends JpaRepository<TradeProtection, Long>
     @Query("SELECT p FROM TradeProtection p WHERE p.buyerUserId = :uid ORDER BY p.createdAt DESC")
     List<TradeProtection> findByBuyer(@Param("uid") Long buyerUserId)
 
+    /** Paged companion — protection rows accumulate one per trade-with-
+     *  cover for the buyer's lifetime; cap to avoid hydrating years of
+     *  history on every "My protected trades" open. */
+    @Query("SELECT p FROM TradeProtection p WHERE p.buyerUserId = :uid ORDER BY p.createdAt DESC")
+    List<TradeProtection> findByBuyer(@Param("uid") Long buyerUserId,
+                                       org.springframework.data.domain.Pageable pageable)
+
     /** Count of protections in a given status — feeds admin stat cards
      *  ("active cover", "claims paid"). Backed by idx_trade_protections_status. */
     @Query("SELECT COUNT(p) FROM TradeProtection p WHERE p.status = :status")

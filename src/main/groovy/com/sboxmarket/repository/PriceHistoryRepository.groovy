@@ -1,6 +1,7 @@
 package com.sboxmarket.repository
 
 import com.sboxmarket.model.PriceHistory
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -13,6 +14,12 @@ interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long> {
 
     @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId ORDER BY p.recordedAt ASC")
     List<PriceHistory> findByItemIdOrdered(@Param("itemId") Long itemId)
+
+    /** Paged companion — bounded by the 400-day retention prune today,
+     *  but the cap is a defence against a regression that disables or
+     *  delays deleteOlderThan. */
+    @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId ORDER BY p.recordedAt ASC")
+    List<PriceHistory> findByItemIdOrdered(@Param("itemId") Long itemId, Pageable pageable)
 
     @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId ORDER BY p.recordedAt DESC LIMIT :days")
     List<PriceHistory> findRecentByItemId(@Param("itemId") Long itemId, @Param("days") int days)

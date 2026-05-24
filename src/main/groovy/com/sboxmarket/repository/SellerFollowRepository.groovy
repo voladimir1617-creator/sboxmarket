@@ -15,9 +15,20 @@ interface SellerFollowRepository extends JpaRepository<SellerFollow, Long> {
      *  a new listing is posted. Indexed on seller_user_id. */
     List<SellerFollow> findBySellerUserId(Long sellerUserId)
 
+    /** Paged companion — a popular seller accumulates many followers;
+     *  per-listing fan-out should batch via Pageable rather than emit
+     *  thousands of notifications in a single transaction. */
+    List<SellerFollow> findBySellerUserId(Long sellerUserId,
+                                          org.springframework.data.domain.Pageable pageable)
+
     /** Sellers a user follows, newest-first — powers the "Sellers I
      *  follow" profile tab. */
     List<SellerFollow> findByFollowerUserIdOrderByCreatedAtDesc(Long followerUserId)
+
+    /** Paged companion — bounded by PER_USER_LIMIT but the cap keeps the
+     *  Profile → Following tab render at O(pageSize) regardless. */
+    List<SellerFollow> findByFollowerUserIdOrderByCreatedAtDesc(Long followerUserId,
+                                                                org.springframework.data.domain.Pageable pageable)
 
     /** Follower count for the public stall "N followers" chip. Single
      *  indexed COUNT instead of pulling the join rows. */
@@ -35,6 +46,12 @@ interface SellerFollowRepository extends JpaRepository<SellerFollow, Long> {
      *  a single listing query, not the full join rows. */
     @Query("SELECT f.sellerUserId FROM SellerFollow f WHERE f.followerUserId = :uid")
     List<Long> findSellerIdsByFollower(@Param("uid") Long followerUserId)
+
+    /** Paged companion — bounded by PER_USER_LIMIT, but a cap keeps
+     *  the homepage rail query from JOIN-FETCHing a large IN clause. */
+    @Query("SELECT f.sellerUserId FROM SellerFollow f WHERE f.followerUserId = :uid")
+    List<Long> findSellerIdsByFollower(@Param("uid") Long followerUserId,
+                                       org.springframework.data.domain.Pageable pageable)
 
     long deleteByFollowerUserIdAndSellerUserId(Long followerUserId, Long sellerUserId)
 

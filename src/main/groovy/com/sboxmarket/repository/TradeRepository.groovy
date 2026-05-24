@@ -12,8 +12,22 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     @Query("SELECT t FROM Trade t WHERE t.buyerUserId = :uid ORDER BY t.createdAt DESC")
     List<Trade> findByBuyer(@Param("uid") Long uid)
 
+    /** Paged companion — caps a power-buyer's full trade history. Mirror
+     *  of findByParticipantPaged below; new callers should prefer this
+     *  overload over the unbounded findByBuyer. */
+    @Query("SELECT t FROM Trade t WHERE t.buyerUserId = :uid ORDER BY t.createdAt DESC")
+    List<Trade> findByBuyer(@Param("uid") Long uid,
+                            org.springframework.data.domain.Pageable pageable)
+
     @Query("SELECT t FROM Trade t WHERE t.sellerUserId = :uid ORDER BY t.createdAt DESC")
     List<Trade> findBySeller(@Param("uid") Long uid)
+
+    /** Paged companion — see findByBuyer above. A power-seller can
+     *  accumulate thousands of historical trades; the cap keeps
+     *  Profile → Sales-tab open from JOIN-FETCHing the whole history. */
+    @Query("SELECT t FROM Trade t WHERE t.sellerUserId = :uid ORDER BY t.createdAt DESC")
+    List<Trade> findBySeller(@Param("uid") Long uid,
+                             org.springframework.data.domain.Pageable pageable)
 
     @Query("SELECT t FROM Trade t WHERE (t.buyerUserId = :uid OR t.sellerUserId = :uid) ORDER BY t.createdAt DESC")
     List<Trade> findByParticipant(@Param("uid") Long uid)
@@ -47,6 +61,18 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Trade> findOpenByParticipant(@Param("uid") Long uid)
 
+    /** Paged companion — bounded by active-trade ceiling in normal use
+     *  but an adversarial account can queue many; ban-cascade callers
+     *  should batch via Pageable. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE (t.buyerUserId = :uid OR t.sellerUserId = :uid)
+          AND t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND','PENDING_BUYER_CONFIRM')
+        ORDER BY t.createdAt ASC
+    """)
+    List<Trade> findOpenByParticipant(@Param("uid") Long uid,
+                                       org.springframework.data.domain.Pageable pageable)
+
     /** Indexed COUNT companion — used by the admin delete-user / ban-user
      *  preflight instead of hydrating every open Trade row just to
      *  call .size() on the list. */
@@ -69,8 +95,30 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Trade> findVerifiedBetween(@Param("buyerId") Long buyerId, @Param("sellerId") Long sellerId)
 
+    /** Paged companion — a repeat-buyer/repeat-seller pair can accumulate
+     *  many VERIFIED trades over time. The "Leave a review" CTA only needs
+     *  to know one exists; new callers should pass `PageRequest.of(0, 1)`
+     *  or a small cap. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.buyerUserId  = :buyerId
+          AND t.sellerUserId = :sellerId
+          AND t.state        = 'VERIFIED'
+        ORDER BY t.settledAt DESC
+    """)
+    List<Trade> findVerifiedBetween(@Param("buyerId") Long buyerId,
+                                    @Param("sellerId") Long sellerId,
+                                    org.springframework.data.domain.Pageable pageable)
+
     @Query("SELECT t FROM Trade t WHERE t.state IN :states ORDER BY t.updatedAt ASC")
     List<Trade> findByStateIn(@Param("states") List<String> states)
+
+    /** Paged companion — for terminal states (VERIFIED / CANCELLED) the
+     *  trade table grows unbounded; this caps the per-call hydration so
+     *  a sweeper or admin tool doesn't pull the entire history. */
+    @Query("SELECT t FROM Trade t WHERE t.state IN :states ORDER BY t.updatedAt ASC")
+    List<Trade> findByStateIn(@Param("states") List<String> states,
+                              org.springframework.data.domain.Pageable pageable)
 
     Trade findByListingId(Long listingId)
 
@@ -84,6 +132,17 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Trade> findForAdmin(@Param("state") String state)
 
+    /** Paged companion — the admin trade queue grows unbounded as the
+     *  platform ages. New admin UI calls should pass a Pageable so the
+     *  payload stays at most a screen-worth of rows. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE (:state = '' OR t.state = :state)
+        ORDER BY t.updatedAt DESC
+    """)
+    List<Trade> findForAdmin(@Param("state") String state,
+                             org.springframework.data.domain.Pageable pageable)
+
     /** Trade-sweeper auto-release query — pulls only the
      *  PENDING_BUYER_CONFIRM trades whose updatedAt is older than the
      *  auto-release cutoff, so the scheduled job doesn't have to fetch
@@ -95,6 +154,17 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
         ORDER BY t.updatedAt ASC
     """)
     List<Trade> findPendingConfirmOlderThan(@Param("cutoff") Long cutoff)
+
+    /** Paged companion — sweeper input; batch through Pageable rather
+     *  than auto-release every eligible trade in one tick. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state = 'PENDING_BUYER_CONFIRM'
+          AND t.updatedAt <= :cutoff
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Trade> findPendingConfirmOlderThan(@Param("cutoff") Long cutoff,
+                                             org.springframework.data.domain.Pageable pageable)
 
     /** Seller-no-response sweep — stale PENDING_SELLER_ACCEPT /
      *  PENDING_SELLER_SEND trades past the response window. Without
@@ -109,6 +179,16 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Trade> findStaleSellerPending(@Param("cutoff") Long cutoff)
 
+    /** Paged companion — sweeper input; batch through Pageable. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
+          AND t.updatedAt <= :cutoff
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Trade> findStaleSellerPending(@Param("cutoff") Long cutoff,
+                                        org.springframework.data.domain.Pageable pageable)
+
     /** Trades sitting in a seller-pending state for >24h that haven't
      *  yet received a TRADE_SLOW_SELLER warning. Drives the warning
      *  sweep that pings the buyer at the 1-day mark — gives them a
@@ -122,6 +202,17 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
         ORDER BY t.updatedAt ASC
     """)
     List<Trade> findSlowSellerUnwarned(@Param("cutoff") Long cutoff)
+
+    /** Paged companion — sweeper input; batch through Pageable. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state IN ('PENDING_SELLER_ACCEPT','PENDING_SELLER_SEND')
+          AND t.updatedAt <= :cutoff
+          AND t.slowSellerWarnedAt IS NULL
+        ORDER BY t.updatedAt ASC
+    """)
+    List<Trade> findSlowSellerUnwarned(@Param("cutoff") Long cutoff,
+                                        org.springframework.data.domain.Pageable pageable)
 
     /**
      * VERIFIED trades older than the cutoff where the buyer hasn't
@@ -150,6 +241,24 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Trade> findReviewNudgeCandidates(@Param("cutoff") Long cutoff)
 
+    /** Paged companion — sweeper input; batch through Pageable so the
+     *  48h nudge job doesn't fan out thousands of pushes per tick. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state = 'VERIFIED'
+          AND t.settledAt IS NOT NULL
+          AND t.settledAt <= :cutoff
+          AND t.reviewNudgeSentAt IS NULL
+          AND t.buyerUserId IS NOT NULL
+          AND NOT EXISTS (
+              SELECT r FROM com.sboxmarket.model.Review r
+              WHERE r.tradeId = t.id AND r.fromUserId = t.buyerUserId
+          )
+        ORDER BY t.settledAt ASC
+    """)
+    List<Trade> findReviewNudgeCandidates(@Param("cutoff") Long cutoff,
+                                           org.springframework.data.domain.Pageable pageable)
+
     /**
      * Trades a buyer has settled but never reviewed — drives the Profile
      * "{N} trade(s) to review" chip + the pending-reviews list on the
@@ -175,6 +284,24 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
         ORDER BY t.settledAt DESC
     """)
     List<Trade> findUnreviewedByBuyer(@Param("uid") Long uid)
+
+    /** Paged companion — service-layer cap of 50 today; new callers
+     *  should push that cap into SQL via Pageable rather than truncate
+     *  after hydration. */
+    @Query("""
+        SELECT t FROM Trade t
+        WHERE t.state = 'VERIFIED'
+          AND t.buyerUserId = :uid
+          AND t.settledAt IS NOT NULL
+          AND t.sellerUserId IS NOT NULL
+          AND NOT EXISTS (
+              SELECT r FROM com.sboxmarket.model.Review r
+              WHERE r.tradeId = t.id AND r.fromUserId = t.buyerUserId
+          )
+        ORDER BY t.settledAt DESC
+    """)
+    List<Trade> findUnreviewedByBuyer(@Param("uid") Long uid,
+                                       org.springframework.data.domain.Pageable pageable)
 
     /** VERIFIED-trade count as a given user's role (batch 847). Drives
      *  the counterparty-reputation chip on incoming offers so a seller

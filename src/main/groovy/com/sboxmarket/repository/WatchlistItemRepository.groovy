@@ -14,6 +14,12 @@ interface WatchlistItemRepository extends JpaRepository<WatchlistItem, Long> {
     @Query("SELECT w.itemId FROM WatchlistItem w WHERE w.userId = :uid ORDER BY w.createdAt ASC")
     List<Long> findItemIdsByUser(@Param('uid') Long userId)
 
+    /** Paged companion — long-tenure users can star hundreds of items;
+     *  the cap keeps the Watchlist tab open at O(pageSize). */
+    @Query("SELECT w.itemId FROM WatchlistItem w WHERE w.userId = :uid ORDER BY w.createdAt ASC")
+    List<Long> findItemIdsByUser(@Param('uid') Long userId,
+                                  org.springframework.data.domain.Pageable pageable)
+
     /** Count-only companion for bulkMerge headroom. Avoids hydrating
      *  the full id list just to call .size() on it. */
     @Query("SELECT COUNT(w) FROM WatchlistItem w WHERE w.userId = :uid")

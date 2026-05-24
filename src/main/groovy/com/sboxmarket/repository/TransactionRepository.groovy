@@ -64,8 +64,21 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
     List<Transaction> findByTypeAndStatus(String type, String status)
 
+    /** Paged companion — Spring Data derived-name query with a Pageable
+     *  param so admin/sweeper callers can cap the hydration. The
+     *  unbounded variant stays for legacy callers. */
+    List<Transaction> findByTypeAndStatus(String type, String status, Pageable pageable)
+
     @Query("SELECT t FROM Transaction t WHERE t.type = :type AND t.status = :status ORDER BY t.createdAt DESC")
     List<Transaction> findByTypeAndStatusOrderByCreatedAtDesc(@Param('type') String type, @Param('status') String status)
+
+    /** Paged companion — see findByTypeAndStatusPaged below; this one
+     *  preserves the ORDER BY method-name semantics for callers that
+     *  rely on Spring Data's name-based query inference. */
+    @Query("SELECT t FROM Transaction t WHERE t.type = :type AND t.status = :status ORDER BY t.createdAt DESC")
+    List<Transaction> findByTypeAndStatusOrderByCreatedAtDesc(@Param('type') String type,
+                                                              @Param('status') String status,
+                                                              Pageable pageable)
 
     /** Paged variant — admin withdraw + disputed-deposit queues use
      *  this to cap the fetch at 200 rows at SQL level instead of
@@ -131,6 +144,12 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     @Query("SELECT t FROM Transaction t WHERE t.walletId = :walletId AND t.status = 'PENDING' ORDER BY t.createdAt DESC")
     List<Transaction> findPendingByWallet(@Param('walletId') Long walletId)
 
+    /** Paged companion — bounded by normal-user pending count (small)
+     *  but an attacker can queue arbitrarily many PENDING rows; the cap
+     *  guarantees the wallet-hero render stays O(pageSize) regardless. */
+    @Query("SELECT t FROM Transaction t WHERE t.walletId = :walletId AND t.status = 'PENDING' ORDER BY t.createdAt DESC")
+    List<Transaction> findPendingByWallet(@Param('walletId') Long walletId, Pageable pageable)
+
     /** Stale PENDING deposits — abandoned Stripe Checkout sessions that
      *  never converted to COMPLETED via webhook. The scheduled sweeper
      *  flips them to EXPIRED so the wallet pending-chip doesn't show
@@ -146,6 +165,22 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findStalePending(
         @Param('type')   String type,
         @Param('cutoff') Long cutoff
+    )
+
+    /** Paged companion — sweeper input; on a busy platform the stale
+     *  PENDING set can grow large if Stripe webhooks are delayed. New
+     *  sweeper callers should batch via Pageable rather than hydrate
+     *  the entire stale set in one tick. */
+    @Query("""
+        SELECT t FROM Transaction t
+         WHERE t.type = :type
+           AND t.status = 'PENDING'
+           AND t.createdAt < :cutoff
+    """)
+    List<Transaction> findStalePending(
+        @Param('type')   String type,
+        @Param('cutoff') Long cutoff,
+        Pageable pageable
     )
 
     /** Sum of withdrawal amounts the wallet has requested within a

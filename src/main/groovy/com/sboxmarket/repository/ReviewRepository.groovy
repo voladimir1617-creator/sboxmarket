@@ -12,6 +12,10 @@ interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findByFromUserId(Long fromUserId)
 
+    /** Paged companion — a long-tenure buyer can author hundreds of
+     *  reviews; callers that only need a cap should prefer this. */
+    List<Review> findByFromUserId(Long fromUserId, Pageable pageable)
+
     /** Paged author-side lookup — reviews a user has written, newest
      *  first. Used by the Profile → Reviews → Given tab so a buyer can
      *  review, edit, or delete feedback they've left about sellers. */

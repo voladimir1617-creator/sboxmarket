@@ -19,6 +19,13 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     @Query("SELECT u FROM SteamUser u WHERE LOWER(u.email) = LOWER(:email)")
     List<SteamUser> findByEmailIgnoreCase(@Param('email') String email)
 
+    /** Paged companion — bounded by the email-uniqueness invariant in
+     *  normal use; the cap is a defence against a legacy data drift
+     *  where many rows might share an email. Callers should pass
+     *  PageRequest.of(0, 2) since presence/absence is all that matters. */
+    @Query("SELECT u FROM SteamUser u WHERE LOWER(u.email) = LOWER(:email)")
+    List<SteamUser> findByEmailIgnoreCase(@Param('email') String email, Pageable page)
+
     /** Trade-URL partner-id collision probe (batch 478). The `partner=`
      *  query param inside a Steam trade URL derives from the account's
      *  Steam ID32 — two SkinBox accounts with the same partner id
@@ -27,6 +34,11 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
      *  variations (http vs https, trailing slash) still match. */
     @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '%') ESCAPE '\\'")
     List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId)
+
+    /** Paged companion — coordinated account-stuffing can produce many
+     *  matches; the cap bounds the per-call hydration. */
+    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '%') ESCAPE '\\'")
+    List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId, Pageable page)
 
     /**
      * Case-insensitive search across display name, Steam ID64, AND email.
@@ -87,6 +99,11 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     @Query("SELECT u FROM SteamUser u WHERE u.banned = true ORDER BY u.id DESC")
     List<SteamUser> findBanned()
 
+    /** Paged companion — at scale the banned set grows large; admin UI
+     *  should cap rather than hydrate every banned row in one request. */
+    @Query("SELECT u FROM SteamUser u WHERE u.banned = true ORDER BY u.id DESC")
+    List<SteamUser> findBanned(Pageable page)
+
     /** Count by role for CSR/admin dashboards — uses idx_steam_users_role. */
     @Query("SELECT COUNT(u) FROM SteamUser u WHERE u.role = :role")
     long countByRole(@Param('role') String role)
@@ -96,6 +113,12 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
      *  scan that chargeback fan-out used to fire (batch 483). */
     @Query("SELECT u FROM SteamUser u WHERE u.role = :role ORDER BY u.id ASC")
     List<SteamUser> findByRole(@Param('role') String role)
+
+    /** Paged companion — for non-ADMIN/STAFF roles the result set can
+     *  be enormous; fan-out callers should iterate via Pageable rather
+     *  than hydrate every USER row in one query. */
+    @Query("SELECT u FROM SteamUser u WHERE u.role = :role ORDER BY u.id ASC")
+    List<SteamUser> findByRole(@Param('role') String role, Pageable page)
 
     /** Count of banned users for the admin dashboard — uses the partial
      *  index `idx_steam_users_banned` landed in V9 so it stays O(K) where
@@ -131,6 +154,15 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
     """)
     List<SteamUser> findDeletionRequested()
 
+    /** Paged companion — admin deletion queue grows during incident
+     *  spikes; cap to keep the queue render at O(pageSize). */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.deletionRequestedAt IS NOT NULL
+        ORDER BY u.deletionRequestedAt ASC
+    """)
+    List<SteamUser> findDeletionRequested(Pageable page)
+
     /** Sellers whose scheduled vacation-mode return time has passed.
      *  Drives the hourly `ListingService.sweepExpiredAwayMode` job;
      *  served from the partial index landed in V33 so the cost stays
@@ -142,6 +174,15 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
           AND u.awayModeUntil <= :now
     """)
     List<SteamUser> findExpiredAwayMode(@Param('now') Long now)
+
+    /** Paged companion — sweeper input; on a busy platform the expired-
+     *  vacation set can grow if sweeps lag, so batch via Pageable. */
+    @Query("""
+        SELECT u FROM SteamUser u
+        WHERE u.awayModeUntil IS NOT NULL
+          AND u.awayModeUntil <= :now
+    """)
+    List<SteamUser> findExpiredAwayMode(@Param('now') Long now, Pageable page)
 
     /** Broadcast-notification target list (batch 566). Paginated `id ASC`
      *  scan over non-banned, non-deletion-requested users. The admin

@@ -23,6 +23,12 @@ interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
     @Query("SELECT k FROM ApiKey k WHERE k.publicPrefix LIKE CONCAT(:prefix, '%') ESCAPE '\\' ORDER BY k.createdAt DESC")
     List<ApiKey> findByPublicPrefixStartsWith(@Param("prefix") String prefix)
 
+    /** Paged companion — a short prefix matches many keys; admin triage
+     *  UI should cap the response. */
+    @Query("SELECT k FROM ApiKey k WHERE k.publicPrefix LIKE CONCAT(:prefix, '%') ESCAPE '\\' ORDER BY k.createdAt DESC")
+    List<ApiKey> findByPublicPrefixStartsWith(@Param("prefix") String prefix,
+                                              org.springframework.data.domain.Pageable pageable)
+
     /** Non-revoked key count per user (batch 692). Powers the per-user
      *  mint-ceiling check — a compromised session otherwise could
      *  burn through the RateLimitFilter bucket and still mint dozens

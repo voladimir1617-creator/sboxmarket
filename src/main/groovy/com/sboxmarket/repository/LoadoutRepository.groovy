@@ -14,6 +14,11 @@ interface LoadoutRepository extends JpaRepository<Loadout, Long> {
     @Query("SELECT l FROM Loadout l WHERE l.ownerUserId = :uid ORDER BY l.updatedAt DESC")
     List<Loadout> findByOwner(@Param("uid") Long uid)
 
+    /** Paged companion — a prolific creator can have hundreds of
+     *  loadouts; cap to keep the My Loadouts tab render bounded. */
+    @Query("SELECT l FROM Loadout l WHERE l.ownerUserId = :uid ORDER BY l.updatedAt DESC")
+    List<Loadout> findByOwner(@Param("uid") Long uid, Pageable page)
+
     // `l.id ASC` is the final, always-unique tiebreaker so the order is
     // fully deterministic — without it two loadouts with equal favorites
     // (and updatedAt) sort nondeterministically across requests, which
