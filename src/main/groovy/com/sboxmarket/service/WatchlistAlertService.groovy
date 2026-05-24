@@ -48,6 +48,56 @@ class WatchlistAlertService {
      *  so a crash mid-loop never re-pushes already-FIRED rows. */
     static final int SWEEP_BATCH_LIMIT = 1000
 
+    /** Per-user email dedup window. If a user has N alerts trigger in
+     *  the same sweep tick (or back-to-back across a sync sweep + the
+     *  scheduled tick), without this gate they'd receive N price-drop
+     *  emails simultaneously — a real-world abuse vector for a
+     *  PER_USER_LIMIT-of-50 watcher who set 50 alerts on a falling
+     *  market. We collapse the email side to at most one send per user
+     *  per 5 minutes; the in-app notification still fires once per
+     *  triggered item (cheap, contextual, what the bell-icon is for),
+     *  but the inbox doesn't get napalmed. Cross-tick state lives in
+     *  `lastEmailedAt` below — sized to the active-watcher headcount,
+     *  bounded by an LRU cap. */
+    static final long EMAIL_DEDUP_WINDOW_MS = 5L * 60_000L
+
+    /** Per-user "last price-drop email sent at" ledger backing
+     *  EMAIL_DEDUP_WINDOW_MS. LinkedHashMap-in-access-order with a
+     *  hard cap of 8192 entries — long enough to span the dedup
+     *  window for a six-figure active-watcher base (the eldest entry
+     *  is at most 5 minutes old, so eviction means it had already
+     *  fallen out of the window anyway) and bounded so a long-running
+     *  prod node doesn't leak memory across years of uptime. Wrapped
+     *  in synchronizedMap because the scheduled sweep and per-item
+     *  sweepForItem can run concurrently (the latter is called inline
+     *  from sell transactions on any web thread). */
+    private final java.util.Map<Long, Long> lastEmailedAt =
+        java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<Long, Long>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<Long, Long> e) {
+                    return size() > 8192
+                }
+            } as java.util.LinkedHashMap<Long, Long>)
+
+    /** Returns true the first time we see this user inside the dedup
+     *  window; false on a duplicate, in which case the caller drops
+     *  the email send (the in-app notification still fires regardless).
+     *  Records the timestamp on the "true" return so back-to-back calls
+     *  in the same tick collapse correctly. */
+    private boolean shouldSendEmail(Long userId) {
+        if (userId == null) return true
+        long now = System.currentTimeMillis()
+        synchronized (lastEmailedAt) {
+            Long last = lastEmailedAt.get(userId)
+            if (last != null && (now - last) < EMAIL_DEDUP_WINDOW_MS) {
+                return false
+            }
+            lastEmailedAt.put(userId, now)
+            return true
+        }
+    }
+
     @Transactional
     WatchlistAlert upsertAlert(Long userId, Long itemId, BigDecimal targetPrice) {
         if (targetPrice == null || targetPrice <= BigDecimal.ZERO) {
@@ -206,7 +256,8 @@ class WatchlistAlertService {
                     a.itemId,
                     "/item/${a.itemId}")
                 try {
-                    if (emailService != null && emailService.canSendTo(user, 'WATCHLIST')) {
+                    if (emailService != null && emailService.canSendTo(user, 'WATCHLIST')
+                            && shouldSendEmail(a.userId)) {
                         emailService.sendPriceDrop(user.email, user.displayName,
                             name, currentFloor, a.targetPrice,
                             "/item/${a.itemId}".toString())
