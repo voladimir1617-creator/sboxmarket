@@ -36,6 +36,13 @@ class SavedSearchService {
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
     @Autowired(required = false) EmailService emailService
+    // Optional — when present, the fanout skips presets whose owner has
+    // blocked the listing's seller. Symmetric with the SellerFollow fanout
+    // (a blocked seller's new listing must not ping the blocker via either
+    // a saved search OR a follow). Left optional so the existing unit
+    // spec — which doesn't wire a block service — still exercises the
+    // happy path unchanged.
+    @Autowired(required = false) UserBlockService userBlockService
 
     /**
      * Upsert a preset. If the same `(userId, name)` already exists, the
@@ -285,22 +292,68 @@ class SavedSearchService {
         try { all = repository.findCandidatesForListing(cat, rar) }
         catch (Exception e) { log.warn("saved-search scan failed: ${e.message}"); return }
         if (all == null || all.isEmpty()) return
+
+        // Bulk pre-fetch every distinct candidate owner once so the inner
+        // loop stays at O(1) per preset instead of issuing one SELECT per
+        // matching saved-search. Without this, a listing that hits 50
+        // presets fired 50 user lookups during the fanout — back when
+        // catalogue-wide presets ("All / All") were common, every new
+        // listing creation paid that tax. The bulk load is best-effort:
+        // if it returns null/empty (the unit-spec default mock does) we
+        // fall back to a per-id lookup inside the loop, so existing
+        // per-user findById stubs keep working.
+        def candidateOwnerIds = all.collect { it.userId }.findAll { it != null }.unique()
+        def usersById = [:] as Map<Long, Object>
+        if (steamUserRepository != null && !candidateOwnerIds.isEmpty()) {
+            try {
+                def bulk = steamUserRepository.findAllById(candidateOwnerIds)
+                bulk?.each { if (it?.id != null) usersById[it.id] = it }
+            } catch (Exception e) {
+                log.warn("saved-search bulk user lookup failed: ${e.message}")
+            }
+        }
+        // Bulk-fetch the listing seller's block set once too — a follower
+        // who blocked the seller must not get LISTING_MATCH pings (block
+        // trumps preset). Build a Set<Long> of "owner ids that blocked
+        // this seller" so the per-preset check is a hash hit, not a SQL
+        // round-trip. Fail-open: a block-table outage doesn't drop the
+        // fanout, it just degrades to "no block filter applied".
+        def blockedSet = [] as Set<Long>
+        if (userBlockService != null && listing.sellerUserId != null && !candidateOwnerIds.isEmpty()) {
+            candidateOwnerIds.each { ownerId ->
+                try {
+                    if (userBlockService.isBlocked(ownerId, listing.sellerUserId)) {
+                        blockedSet << (ownerId as Long)
+                    }
+                } catch (Exception e) {
+                    // Fail-open: a single owner's block-check failure shouldn't
+                    // drop their notification — the parent op already logs.
+                }
+            }
+        }
+
         int sent = 0
         for (SavedSearch preset : all) {
             if (sent >= 50) break
             if (preset.userId == null) continue
             if (preset.userId == listing.sellerUserId) continue
             if (!matches(preset, listing)) continue
-            // Single user lookup — reused for both the banned-account
-            // skip AND the email-prefs gate below, so we spend at most
-            // one query per matching preset (batch 315).
-            def user = null
-            try {
-                if (steamUserRepository != null) {
+            // Skip if the preset owner has blocked the listing's seller
+            // (parity with the SellerFollow fanout's block guard).
+            if (blockedSet.contains(preset.userId)) continue
+            // Per-preset user lookup with a fall-through: prefer the
+            // bulk-fetched row, fall back to a per-id query only when
+            // the bulk path returned nothing (e.g. the unit spec mocks
+            // `findById` per-user without stubbing `findAllById`). In
+            // production the bulk path satisfies every preset, so this
+            // is a no-op O(1) map hit.
+            def user = usersById[preset.userId]
+            if (user == null && steamUserRepository != null) {
+                try {
                     user = steamUserRepository.findById(preset.userId).orElse(null)
+                } catch (Exception e) {
+                    log.warn("saved-search user lookup failed for ${preset.userId}: ${e.message}")
                 }
-            } catch (Exception e) {
-                log.warn("saved-search user lookup failed for ${preset.userId}: ${e.message}")
             }
             // Skip banned account — ban guard blocks writes but it
             // doesn't block engagement pings. A banned buyer who'd set

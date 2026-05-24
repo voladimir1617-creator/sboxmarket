@@ -37,6 +37,15 @@ class SellerFollowService {
      *  profile tab scannable. */
     private static final int PER_USER_LIMIT = 200
 
+    /** Hard cap on the per-listing fanout. A popular seller can have
+     *  thousands of followers but a single listing-creation request
+     *  shouldn't issue an unbounded burst of pushes/emails inline.
+     *  500 covers realistic cases without letting one viral seller
+     *  block the request thread; the overflow stays in the follower
+     *  count + "From sellers you follow" rail, just doesn't get the
+     *  bell/email ping for that one listing. */
+    private static final int FANOUT_MAX = 500
+
     @Transactional
     SellerFollow follow(Long followerUserId, Long sellerUserId) {
         if (followerUserId == sellerUserId) {
@@ -46,6 +55,34 @@ class SellerFollowService {
             .orElseThrow { new NotFoundException('SteamUser', sellerUserId) }
         if (Boolean.TRUE.equals(seller.banned)) {
             throw new BadRequestException('SELLER_BANNED', 'This seller is banned')
+        }
+        // Bidirectional block guard. Either party blocking the other
+        // breaks the follow relationship — a follower who blocked the
+        // seller can't see their listings (so the engagement pings
+        // would be cruel), and a seller who blocked the follower
+        // shouldn't have to see the follower count tick up or get the
+        // SELLER_FOLLOWED ping. Symmetric with OfferService's block
+        // gate. Block service is optional — when wiring is missing the
+        // guard falls through and the existing follow flow proceeds.
+        if (userBlockService != null) {
+            try {
+                if (userBlockService.isBlocked(followerUserId, sellerUserId)) {
+                    throw new BadRequestException('BLOCKED_SELLER',
+                        "You can't follow a seller you've blocked")
+                }
+                if (userBlockService.isBlocked(sellerUserId, followerUserId)) {
+                    // Same surface response as a banned-seller — telling the
+                    // follower "this seller blocked you" leaks moderation
+                    // state; the seller has already declared they don't
+                    // want engagement from this account.
+                    throw new BadRequestException('SELLER_BANNED', 'This seller is banned')
+                }
+            } catch (BadRequestException brex) {
+                throw brex
+            } catch (Exception ignore) {
+                // Fail-open on a block-service outage — follow proceeds,
+                // mirrors the fanout-side fail-open behavior.
+            }
         }
         def existing = repo.findByFollowerUserIdAndSellerUserId(followerUserId, sellerUserId)
         if (existing.isPresent()) return existing.get()
@@ -224,12 +261,17 @@ class SellerFollowService {
             }
         }
 
-        followers.each { f ->
+        int sent = 0
+        for (f in followers) {
+            if (sent >= FANOUT_MAX) {
+                log.info("Follower fanout capped at ${FANOUT_MAX} for seller ${listing.sellerUserId} (listing ${listing.id})")
+                break
+            }
             def follower = usersById[f.followerUserId]
             // Skip banned follower accounts entirely — no push, no email.
-            if (follower != null && Boolean.TRUE.equals(follower.banned)) return
+            if (follower != null && Boolean.TRUE.equals(follower.banned)) continue
             // Skip followers who have blocked this seller (batch 345).
-            if (Boolean.TRUE.equals(blockedByFollower[f.followerUserId])) return
+            if (Boolean.TRUE.equals(blockedByFollower[f.followerUserId])) continue
 
             try {
                 notificationService?.push(f.followerUserId, 'NEW_LISTING_FROM_SELLER',
@@ -253,6 +295,7 @@ class SellerFollowService {
             } catch (Exception e) {
                 log.warn("Follower listing email failed for user ${f.followerUserId}: ${e.message}")
             }
+            sent++
         }
     }
 }
