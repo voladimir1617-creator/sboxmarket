@@ -5,6 +5,7 @@ import com.sboxmarket.model.SteamUser
 import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.service.AdminService
 import com.sboxmarket.service.SboxApiService
+import com.sboxmarket.util.InputLimits
 import groovy.util.logging.Slf4j
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Autowired
@@ -143,6 +144,11 @@ class AdminController {
                                           @RequestBody(required = false) Map body,
                                           HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Upstream cap on the free-text payout reference — service-side
+        // sanitizer truncates anyway, but rejecting megabyte payloads at
+        // the boundary keeps the JSON parser from allocating them.
+        InputLimits.requireMax(body, 'payoutRef',
+            InputLimits.SHORT_LABEL, 'PAYOUT_REF_TOO_LONG', 'payoutRef')
         ResponseEntity.ok(adminService.approveWithdrawal(uid, id, body?.payoutRef as String))
     }
 
@@ -151,6 +157,8 @@ class AdminController {
                                          @RequestBody(required = false) Map body,
                                          HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(adminService.rejectWithdrawal(uid, id, body?.reason as String))
     }
 
@@ -280,6 +288,12 @@ class AdminController {
                                   @RequestBody(required = false) Map body,
                                   HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // banReason column is 500 chars; SHORT_LABEL (200) gives staff
+        // ample room without letting a multi-MB ban-reason hit the JSON
+        // parser. Persisted on the SteamUser row + emitted in the audit
+        // trail — anything past 200 chars is operator typo or abuse.
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.SHORT_LABEL, 'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(adminService.banUser(uid, id, body?.reason as String))
     }
 
@@ -323,7 +337,12 @@ class AdminController {
         if (prefix.length() < 3) return ResponseEntity.ok([])   // too short — noise guard
         if (prefix.length() > 64) prefix = prefix.substring(0, 64)
         if (apiKeyRepository == null) return ResponseEntity.ok([])
-        def rows = apiKeyRepository.findByPublicPrefixStartsWith(prefix)
+        // Hard cap at 200 rows — the repo query has no LIMIT, and a
+        // 3-char prefix on a long-running site could match a very wide
+        // slice. Staff doing fraud triage from a single log line never
+        // needs more than a page; broader investigations should narrow
+        // the prefix or use the audit log.
+        def rows = (apiKeyRepository.findByPublicPrefixStartsWith(prefix) ?: []).take(200)
         def out = rows.collect { k ->
             [
                 id:           k.id,
@@ -369,6 +388,8 @@ class AdminController {
                                  @RequestBody(required = false) Map body,
                                  HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'note',
+            InputLimits.MEDIUM_TEXT, 'NOTE_TOO_LONG', 'note')
         ResponseEntity.ok(adminService.reset2faFor(uid, id, body?.note as String))
     }
 
@@ -376,13 +397,33 @@ class AdminController {
     @GetMapping("/users/deletion-requests")
     ResponseEntity<List<Map>> deletionRequests(HttpServletRequest req) {
         requireAdmin(req)
-        ResponseEntity.ok(adminService.listDeletionRequests())
+        // Hard cap at 500 rows. The underlying repo query has no LIMIT
+        // (V21 partial index plus oldest-first ORDER BY) — on a long-
+        // running site this could in principle return thousands of rows
+        // during a GDPR-wave incident, and hydrating the per-user wallet
+        // + open-trade joins for each one would OOM the response.
+        // Matches the audit/withdrawals/tickets page caps.
+        def rows = adminService.listDeletionRequests() ?: []
+        ResponseEntity.ok(rows.take(500))
     }
 
     /** Finalise a user's deletion request — PII scrub + ban + request cleared. */
     @PostMapping("/users/{id}/finalize-deletion")
-    ResponseEntity<Map> finalizeDeletion(@PathVariable Long id, HttpServletRequest req) {
+    ResponseEntity<Map> finalizeDeletion(@PathVariable Long id,
+                                         @RequestBody(required = false) Map body,
+                                         @RequestParam(required = false) Boolean confirm,
+                                         HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Irreversible action — scrubs display name, avatar, email, trade
+        // URL, admin notes, and 2FA secret; bans the account. Require an
+        // explicit confirmation flag so a misrouted POST (UI bug, replayed
+        // curl, double-click) can't accidentally vapourise PII. Accept
+        // either `?confirm=true` or `{"confirm": true}` in the body.
+        boolean confirmed = Boolean.TRUE.equals(confirm) || (body?.confirm as Boolean) == true
+        if (!confirmed) {
+            throw new com.sboxmarket.exception.BadRequestException("CONFIRMATION_REQUIRED",
+                'Finalising a deletion is irreversible — pass confirm=true to proceed')
+        }
         ResponseEntity.ok(adminService.finalizeDeletion(uid, id))
     }
 
@@ -390,6 +431,11 @@ class AdminController {
     @PostMapping("/test-email")
     ResponseEntity<Map> sendTestEmail(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Upstream caps so a multi-MB subject/body can't burn parser
+        // memory before the service-side truncation runs.
+        InputLimits.requireMax(body, 'to',      InputLimits.SHORT_LABEL, 'TO_TOO_LONG',      'to')
+        InputLimits.requireMax(body, 'subject', InputLimits.SHORT_LABEL, 'SUBJECT_TOO_LONG', 'subject')
+        InputLimits.requireMax(body, 'body',    InputLimits.MEDIUM_TEXT, 'BODY_TOO_LONG',    'body')
         ResponseEntity.ok(adminService.sendTestEmail(uid,
             body?.to as String, body?.subject as String, body?.body as String))
     }
@@ -402,6 +448,9 @@ class AdminController {
                                     @RequestBody Map body,
                                     HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'title', InputLimits.SHORT_LABEL, 'TITLE_TOO_LONG', 'title')
+        InputLimits.requireMax(body, 'body',  InputLimits.MEDIUM_TEXT, 'BODY_TOO_LONG',  'body')
+        InputLimits.requireMax(body, 'path',  InputLimits.SHORT_LABEL, 'PATH_TOO_LONG',  'path')
         ResponseEntity.ok(adminService.sendDirectMessage(uid, id,
             body?.title as String, body?.body as String, body?.path as String))
     }
@@ -413,6 +462,9 @@ class AdminController {
     @PostMapping("/broadcast")
     ResponseEntity<Map> broadcast(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'title', InputLimits.SHORT_LABEL, 'TITLE_TOO_LONG', 'title')
+        InputLimits.requireMax(body, 'body',  InputLimits.MEDIUM_TEXT, 'BODY_TOO_LONG',  'body')
+        InputLimits.requireMax(body, 'path',  InputLimits.SHORT_LABEL, 'PATH_TOO_LONG',  'path')
         ResponseEntity.ok(adminService.broadcastNotification(uid,
             body?.title as String, body?.body as String, body?.path as String))
     }
@@ -439,6 +491,10 @@ class AdminController {
                                    @RequestBody Map body,
                                    HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Service truncates to 4000 chars via textSanitizer; upstream cap
+        // catches multi-MB payloads before the parser allocates them.
+        InputLimits.requireMax(body, 'notes',
+            InputLimits.MEDIUM_TEXT, 'NOTES_TOO_LONG', 'notes')
         ResponseEntity.ok(adminService.writeAdminNotes(uid, id, body?.notes as String))
     }
 
@@ -534,6 +590,8 @@ class AdminController {
         catch (NumberFormatException ignored) {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_AMOUNT", "amount must be a valid number")
         }
+        InputLimits.requireMax(body, 'note',
+            InputLimits.MEDIUM_TEXT, 'NOTE_TOO_LONG', 'note')
         ResponseEntity.ok(adminService.creditWallet(uid, id, amt, body.note as String))
     }
 
@@ -544,6 +602,10 @@ class AdminController {
                                 @RequestBody Map body,
                                 HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Cap BEFORE trim so a multi-MB whitespace payload doesn't get
+        // allocated into a giant String just to compress to empty.
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         def reason = (body?.reason as String)?.trim()
         if (!reason) {
             throw new com.sboxmarket.exception.BadRequestException("REASON_REQUIRED", "Freeze reason is required")
@@ -565,6 +627,8 @@ class AdminController {
                                       @RequestBody(required = false) Map body,
                                       HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(adminService.forceCancelListing(uid, id, body?.reason as String))
     }
 
@@ -582,6 +646,8 @@ class AdminController {
                                        @RequestBody(required = false) Map body,
                                        HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'note',
+            InputLimits.MEDIUM_TEXT, 'NOTE_TOO_LONG', 'note')
         ResponseEntity.ok(adminService.dismissListingReports(uid, id, body?.note as String))
     }
 
@@ -640,6 +706,11 @@ class AdminController {
     @PostMapping("/tickets/{id}/reply")
     ResponseEntity<Map> reply(@PathVariable Long id, @RequestBody Map body, HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Mirrors the CsrController cap on the same field — support
+        // multiline sanitizer truncates to 2000 chars but we reject
+        // multi-MB payloads at the door.
+        InputLimits.requireMax(body, 'body',
+            InputLimits.LONG_TEXT, 'BODY_TOO_LONG', 'body')
         def msg = adminService.staffReply(uid, id, body.body as String)
         ResponseEntity.ok([id: msg.id, body: msg.body])
     }
@@ -742,7 +813,13 @@ class AdminController {
     @GetMapping("/fraud")
     ResponseEntity<List<Map>> fraud(HttpServletRequest req) {
         requireAdmin(req)
-        ResponseEntity.ok(fraudAnalysisService.computeSignals())
+        // Hard cap at 500 signals. computeSignals() iterates the last
+        // 24h of audit rows and emits one Map per detected signal — on
+        // a busy site (or under a coordinated fraud wave) the result
+        // could be thousands of rows. The CSV export uses 5000; the
+        // interactive JSON view should never need more than a page.
+        def rows = fraudAnalysisService.computeSignals() ?: []
+        ResponseEntity.ok(rows.take(500))
     }
 
     /** Admin fraud-signal CSV export (batch 588). Rollup is computed
@@ -845,6 +922,8 @@ class AdminController {
                                      @RequestBody(required = false) Map body,
                                      HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(adminService.clearDisputeHold(uid, txId, body?.reason as String))
     }
 
@@ -858,6 +937,8 @@ class AdminController {
                                      @RequestBody(required = false) Map body,
                                      HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         // reviewService is @Autowired(required = false) — mirror the
         // removeLoadout guard so an unwired ReviewService returns a clean
         // error instead of NPE-ing into a 500.
@@ -878,6 +959,8 @@ class AdminController {
                                       @RequestBody(required = false) Map body,
                                       HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         if (loadoutService == null) {
             throw new com.sboxmarket.exception.BadRequestException("LOADOUT_UNAVAILABLE",
                 'Loadout service is not wired')
@@ -943,6 +1026,8 @@ class AdminController {
                                      @RequestBody(required = false) Map body,
                                      HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(adminService.forceReleaseTrade(uid, id, body?.reason as String))
     }
 
@@ -951,6 +1036,8 @@ class AdminController {
                                     @RequestBody(required = false) Map body,
                                     HttpServletRequest req) {
         def uid = requireAdmin(req)
+        InputLimits.requireMax(body, 'reason',
+            InputLimits.MEDIUM_TEXT, 'REASON_TOO_LONG', 'reason')
         ResponseEntity.ok(adminService.forceCancelTrade(uid, id, body?.reason as String))
     }
 
@@ -1001,8 +1088,19 @@ class AdminController {
     }
 
     @PostMapping("/simulate/clear")
-    ResponseEntity<Map> clearSimulated(HttpServletRequest req) {
+    ResponseEntity<Map> clearSimulated(@RequestBody(required = false) Map body,
+                                       @RequestParam(required = false) Boolean confirm,
+                                       HttpServletRequest req) {
         def uid = requireAdmin(req)
+        // Bulk-delete of every simulated listing — destructive enough
+        // that a misrouted POST (UI double-click, replay) shouldn't be
+        // able to wipe the QA fixtures without an explicit confirmation
+        // flag. Accept either `?confirm=true` or `{"confirm": true}`.
+        boolean confirmed = Boolean.TRUE.equals(confirm) || (body?.confirm as Boolean) == true
+        if (!confirmed) {
+            throw new com.sboxmarket.exception.BadRequestException("CONFIRMATION_REQUIRED",
+                'Clearing simulated listings deletes them in bulk — pass confirm=true to proceed')
+        }
         ResponseEntity.ok(adminSimulatorService.clearSimulated(uid))
     }
 
@@ -1016,9 +1114,16 @@ class AdminController {
 
     @PostMapping("/sync-scmm")
     ResponseEntity<Map> syncScmm(HttpServletRequest req) {
-        requireAdmin(req)
+        def adminUid = requireAdmin(req)
         try {
             def result = sboxApiService.syncFromScmm()
+            // Audit the manual sync trigger — SboxApiService doesn't write
+            // an audit row (it's also called by scheduled jobs that run
+            // un-attributed). At the controller layer we have the acting
+            // admin and the outcome counts, so the forensic record can
+            // answer "who ran a manual sync and what did it produce".
+            auditService?.log('ADMIN_SYNC_SCMM', adminUid, null, null,
+                "Manual SCMM sync: created=${result?.created ?: 0} updated=${result?.updated ?: 0}")
             ResponseEntity.ok(result)
         } catch (Exception e) {
             log.error("SCMM sync failed", e)
@@ -1036,7 +1141,7 @@ class AdminController {
 
     @PostMapping("/sync-prices")
     ResponseEntity<Map> syncPrices(HttpServletRequest req) {
-        requireAdmin(req)
+        def adminUid = requireAdmin(req)
         if (steamMarketPriceService == null) {
             return ResponseEntity.status(503).body([error: 'Price sync service not available'])
         }
@@ -1048,6 +1153,13 @@ class AdminController {
                 try { steamMarketPriceService.syncPricesFromSteam() }
                 catch (Exception e) { log.error("Manual Steam price sync failed", e) }
             } as Runnable, 'manual-price-sync').start()
+            // Audit the trigger BEFORE the worker thread (which may run
+            // for ~11 min and can't carry the request-scoped IP/UA into
+            // the audit context). Service runs un-attributed when the
+            // scheduled job fires it — at the controller we always have
+            // the acting admin.
+            auditService?.log('ADMIN_SYNC_PRICES', adminUid, null, null,
+                'Manual Steam Market price sync triggered')
             ResponseEntity.ok([started: true, message: 'Price sync started in background; check logs for progress.'])
         } catch (Exception e) {
             log.error("Failed to launch manual price sync", e)
