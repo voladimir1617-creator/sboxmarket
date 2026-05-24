@@ -12,7 +12,7 @@ package com.sboxmarket.util
  * a smell to warrant a shared home; this util holds the single source
  * of truth.
  *
- * Kept in sync with the frontend's `router.js` ALLOWED_CATEGORIES /
+ * Kept in sync with the frontend's `app.js` ALLOWED_CATEGORIES /
  * ALLOWED_RARITIES and the `SavedSearchService` whitelists. If you
  * add a new category or rarity, update all three sites.
  */

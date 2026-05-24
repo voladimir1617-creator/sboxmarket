@@ -511,6 +511,16 @@ class WalletController {
         // Require a real logged-in user before touching Stripe.
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to confirm a deposit")
+        // Upstream length cap on the session id. Stripe Checkout Session
+        // ids are <=66 chars in practice (e.g. cs_test_a1B2…); rejecting
+        // pathological lengths here keeps a hostile client from forcing
+        // StripeService to allocate / log / round-trip a megabyte string
+        // just to fail. SHORT_LABEL (200) leaves ~3x headroom over the
+        // longest id Stripe currently emits. Stable code so the SPA can
+        // branch deterministically.
+        com.sboxmarket.util.InputLimits.requireMax(
+            sessionId, com.sboxmarket.util.InputLimits.SHORT_LABEL,
+            "INVALID_SESSION_ID", "sessionId")
         // Resolve the wallet id BEFORE completeDeposit so we can re-read
         // the row by primary key afterwards (see the post-credit re-read
         // below). currentWallet() also lazily creates the wallet row for
