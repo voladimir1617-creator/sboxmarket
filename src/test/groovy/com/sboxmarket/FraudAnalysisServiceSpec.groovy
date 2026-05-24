@@ -986,4 +986,84 @@ class FraudAnalysisServiceSpec extends Specification {
         !signals.isEmpty()
         signals.every { it.severity in ['HIGH', 'MED', 'LOW'] }
     }
+
+    // ── bucketize (dedupe-signature stability) ────────────────────────
+    //
+    // The sweeper's dedup signature is (type, userId, ip, power-of-two
+    // bucket of count, dedupKey). bucketize is the function that rounds
+    // count → nearest power of two. The behaviour is load-bearing in two
+    // ways: (a) signatures stay stable as a slowly-growing attacker count
+    // (10→11→12) keeps hashing the same; (b) genuine escalations
+    // (10→16→17) cross a bucket boundary and re-fire. Behaviour-level
+    // coverage already exists in the sweep specs above — these specs
+    // directly pin the boundary values.
+
+    /** Invoke the private static `bucketize(long)` via reflection.
+     *  Pattern mirrors AuditService.clientIp + SeedService.initialsFor. */
+    private static long invokeBucketize(long n) {
+        def m = com.sboxmarket.service.FraudAnalysisService.getDeclaredMethod('bucketize', long)
+        m.accessible = true
+        m.invoke(null, n) as long
+    }
+
+    def "bucketize returns 0 for non-positive counts"() {
+        // Defensive lower bound — a malformed signal with count<=0 must
+        // not break the dedup hash (returning 1 for both 0 and -5 would
+        // collapse them into the same bucket as a real 1-count signal).
+        expect:
+        invokeBucketize(0L)  == 0L
+        invokeBucketize(-1L) == 0L
+        invokeBucketize(-1000L) == 0L
+    }
+
+    def "bucketize rounds UP to the next power of two"() {
+        // The "bucket" is the smallest power of two that's >= n. A count
+        // of 10 falls in bucket 16; a count of 5 in bucket 8.
+        expect:
+        invokeBucketize(n as long) == bucket as long
+
+        where:
+        n  | bucket
+        1  | 1
+        2  | 2
+        3  | 4
+        4  | 4
+        5  | 8
+        7  | 8
+        8  | 8
+        9  | 16
+        10 | 16
+        12 | 16
+        16 | 16
+        17 | 32
+        20 | 32
+        32 | 32
+        33 | 64
+        100 | 128
+    }
+
+    def "bucketize collapses 10..16 into one signature but escalates to 32 at 17"() {
+        // This is the production invariant the sweep specs rely on for
+        // the "grows within bucket = no re-fire" / "jumps a bucket = re-fire"
+        // behaviour. Pin it directly so a future tweak can't drift the
+        // boundary.
+        expect:
+        invokeBucketize(10L) == 16L
+        invokeBucketize(16L) == 16L
+        invokeBucketize(17L) == 32L
+    }
+
+    def "bucketize handles a very large count without overflow"() {
+        // Defensive — a single audit-row count can't realistically reach
+        // 1B but the helper must still produce a finite power-of-two
+        // bucket instead of looping forever or overflowing to negative.
+        when:
+        long b = invokeBucketize(1_000_000_000L)
+
+        then:
+        noExceptionThrown()
+        b > 0L
+        // 2^30 = 1_073_741_824 > 1_000_000_000 > 2^29 = 536_870_912
+        b == 1_073_741_824L
+    }
 }

@@ -400,6 +400,91 @@ class SeedServiceSpec extends Specification {
         }
     }
 
+    // ── seller-avatar initials helper (initialsFor) ──────────────────
+    //
+    // The avatar tokens drive the visual "crowd of sellers" effect on
+    // the home grid — every seed seller's listing carries a 2-letter
+    // initials chip rendered next to their handle. The helper has
+    // documented behaviour (CamelCase → 2 caps; plain lowercase → first
+    // two letters uppercased) that's load-bearing for the UI parity
+    // with the rest of the avatar system.
+
+    /** Invoke the private static `initialsFor(String)` via reflection
+     *  so the helper can be exercised without going through a full seed
+     *  cycle. Mirrors the AuditService.clientIp pattern. */
+    private static String invokeInitialsFor(String handle) {
+        def m = com.sboxmarket.service.SeedService.getDeclaredMethod('initialsFor', String)
+        m.accessible = true
+        m.invoke(null, handle) as String
+    }
+
+    def "initialsFor returns two capital letters for a CamelCase handle"() {
+        // The 10 SEED_SELLERS handles ('VaultRunner', 'NeonArc',
+        // 'CrateDigger', etc.) are all CamelCase, so this is the
+        // dominant case in production.
+        expect:
+        invokeInitialsFor('VaultRunner') == 'VR'
+        invokeInitialsFor('NeonArc')     == 'NA'
+        invokeInitialsFor('CrateDigger') == 'CD'
+        invokeInitialsFor('TradeHaven')  == 'TH'
+    }
+
+    def "initialsFor uppercases the first two letters of a plain-lowercase handle"() {
+        // Fallback path — a non-CamelCase handle still produces a
+        // 2-char uppercase token rather than rendering blank.
+        expect:
+        invokeInitialsFor('frame')   == 'FR'
+        invokeInitialsFor('alice')   == 'AL'
+    }
+
+    def "initialsFor returns the '??' placeholder for null or empty input"() {
+        // Defensive default so the avatar chip never renders blank
+        // even if some upstream caller hands it a missing handle.
+        expect:
+        invokeInitialsFor(null) == '??'
+        invokeInitialsFor('')   == '??'
+    }
+
+    def "initialsFor takes the FIRST TWO caps when a handle has more than two"() {
+        // A handle like 'XYZ' / 'AAABBB' has many caps — the helper
+        // only ever returns a 2-char token (the avatar chip is fixed
+        // width).
+        expect:
+        invokeInitialsFor('ABC')          == 'AB'
+        invokeInitialsFor('XYZ123')       == 'XY'
+    }
+
+    def "every seeded listing carries a 2-character non-empty sellerAvatar token"() {
+        // End-to-end check that the seed pipeline actually plumbs the
+        // avatar token onto each Listing row. This is the user-visible
+        // property — the home grid renders the chip from this field.
+        given:
+        walletRepository.count() >> 1L
+        itemRepository.count() >> 4L
+        def items = (1L..4L).collect { id ->
+            new Item(id: id, name: "Item${id}", category: 'Hats', rarity: 'Standard',
+                     lowestPrice: new BigDecimal("3.00"), steamPrice: new BigDecimal("3.60"))
+        }
+        itemRepository.findAll() >> items
+        itemRepository.save(_) >> { Item it -> it }
+        listingRepository.count() >> 0L
+        listingRepository.countAllSold() >> 6L
+        loadoutRepository.findAll() >> []
+        List<Listing> saved = []
+        listingRepository.save(_) >> { Listing l -> l.id = (saved.size() + 1L); saved << l; l }
+
+        when:
+        service.seed()
+
+        then: "every Listing row has a sellerAvatar that is exactly 2 chars and all-uppercase"
+        saved.size() > 0
+        saved.every {
+            it.sellerAvatar != null &&
+            it.sellerAvatar.length() == 2 &&
+            it.sellerAvatar == it.sellerAvatar.toUpperCase()
+        }
+    }
+
     // ── helpers ──────────────────────────────────────────────────────
 
     /** Round-robins ids across the 7 chip categories so a 14-item
