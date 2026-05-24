@@ -3,6 +3,7 @@ package com.sboxmarket.service
 import com.sboxmarket.model.Item
 import com.sboxmarket.repository.ItemRepository
 import com.sboxmarket.repository.ListingRepository
+import com.sboxmarket.repository.PriceHistoryRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -34,6 +35,12 @@ import org.springframework.stereotype.Service
  *
  * Gated by `app.price-refresh.enabled` (default true) so ops can flip
  * it off via env var without a redeploy if it ever misbehaves.
+ *
+ * Also hosts a daily TTL prune of `price_history` (see
+ * {@link #pruneOldPriceHistory}). Co-located here rather than in its
+ * own service because both sweeps share the same kill-switch + scheduler
+ * pool and the concern is the same: keep the price-display pipeline's
+ * supporting data lean.
  */
 @Service
 @Slf4j
@@ -47,9 +54,20 @@ class ListingFloorRefreshService {
 
     @Autowired ItemRepository itemRepository
     @Autowired ListingRepository listingRepository
+    @Autowired PriceHistoryRepository priceHistoryRepository
 
     @Value('${app.price-refresh.enabled:true}')
     boolean enabled
+
+    /** Retention window for `price_history` rows. The sparkline chart's
+     *  widest range hydrates 400 days; anything older is dead weight on
+     *  disk + index. Matches ItemService.getPriceHistory's 400-day cutoff. */
+    static final long PRICE_HISTORY_RETENTION_MS = 400L * 24L * 60L * 60L * 1000L
+
+    /** Daily cadence + 5min initial delay so the retention sweep doesn't
+     *  collide with the floor sweep at boot. */
+    static final long RETENTION_INTERVAL_MS = 24L * 60L * 60L * 1000L
+    static final long RETENTION_INITIAL_DELAY_MS = 5L * 60L * 1000L
 
     /** Last-run telemetry — same shape as SteamMarketPriceService so
      *  the admin Health tab + the frontend "prices updated Xs ago"
@@ -68,40 +86,90 @@ class ListingFloorRefreshService {
         long started = System.currentTimeMillis()
         lastRunStartedAt = started
 
-        def items = itemRepository.findAll()
         int changed = 0, checked = 0
 
-        for (Item item : items) {
-            checked++
-            try {
-                BigDecimal floor = listingRepository.minPriceForItem(item.id)
-                BigDecimal newPrice = floor ?: BigDecimal.ZERO
-                boolean newIsListed = (floor != null && floor > BigDecimal.ZERO)
+        try {
+            // The outer findAll() is intentionally inside the try: a
+            // transient DB hiccup here used to throw past the
+            // `lastRunFinishedAt = …` line below, leaving the freshness
+            // telemetry stuck in "started but never finished" state — the
+            // admin Health tab and frontend chip would then render an
+            // ever-growing "sweep running for X minutes" until the JVM
+            // restarted, even though the next scheduled tick recovered
+            // fine. Catching at this level keeps telemetry honest:
+            // checked/changed reflect what we got done before the throw,
+            // finishedAt always advances, and the NEXT @Scheduled tick
+            // gets a clean slate.
+            def items = itemRepository.findAll()
 
-                BigDecimal oldPrice = item.lowestPrice ?: BigDecimal.ZERO
-                boolean    oldIsListed = item.isListed ?: false
+            for (Item item : items) {
+                checked++
+                try {
+                    BigDecimal floor = listingRepository.minPriceForItem(item.id)
+                    BigDecimal newPrice = floor ?: BigDecimal.ZERO
+                    boolean newIsListed = (floor != null && floor > BigDecimal.ZERO)
 
-                // Only write when something actually changed — saves a row
-                // version bump + audit entry on the steady-state case
-                // where the floor is already correct (which is the common
-                // case once the system is settled).
-                if (newPrice.compareTo(oldPrice) != 0 || newIsListed != oldIsListed) {
-                    item.lowestPrice = newPrice
-                    item.isListed    = newIsListed
-                    itemRepository.save(item)
-                    changed++
+                    BigDecimal oldPrice = item.lowestPrice ?: BigDecimal.ZERO
+                    boolean    oldIsListed = item.isListed ?: false
+
+                    // Only write when something actually changed — saves a
+                    // row version bump + audit entry on the steady-state
+                    // case where the floor is already correct (which is
+                    // the common case once the system is settled).
+                    if (newPrice.compareTo(oldPrice) != 0 || newIsListed != oldIsListed) {
+                        item.lowestPrice = newPrice
+                        item.isListed    = newIsListed
+                        itemRepository.save(item)
+                        changed++
+                    }
+                } catch (Exception e) {
+                    log.debug("Floor refresh failed for item ${item?.id}: ${e.message}")
                 }
-            } catch (Exception e) {
-                log.debug("Floor refresh failed for item ${item?.id}: ${e.message}")
             }
+        } catch (Exception e) {
+            log.warn("Floor refresh aborted at top level — checked=${checked} before throw: ${e.message}")
+        } finally {
+            lastRunFinishedAt = System.currentTimeMillis()
+            lastRunChecked   = checked
+            lastRunChanged   = changed
+            long elapsed = lastRunFinishedAt - started
+            log.info("Listing-floor refresh — checked=${checked} changed=${changed} in ${elapsed}ms")
         }
+    }
 
-        lastRunFinishedAt = System.currentTimeMillis()
-        lastRunChecked   = checked
-        lastRunChanged   = changed
-
-        long elapsed = lastRunFinishedAt - started
-        log.info("Listing-floor refresh — checked=${checked} changed=${changed} in ${elapsed}ms")
+    /**
+     * Daily retention sweep for `price_history`. Until this existed there
+     * was no TTL on PriceHistory rows: the write path appended forever
+     * while the read path (`ItemService.getPriceHistory`, the sparkline
+     * chart) only ever asked for the last 400 days. Rows older than the
+     * window accumulated linearly with deployment age × sync cadence ×
+     * catalogue size, bloating the table and its index for zero UI
+     * benefit. A daily prune holds the table to a known steady-state
+     * size.
+     *
+     * Cadence is 24h (not 60s like the floor sweep) because a) the
+     * gain is recovered the next day if a sweep fails, b) a DELETE
+     * across a wide cutoff is heavier than a MIN aggregate.
+     *
+     * Gated by the same `app.price-refresh.enabled` switch as the floor
+     * sweep so ops have a single kill-switch covering all background
+     * reconciliation on this service.
+     */
+    @Scheduled(fixedDelay = RETENTION_INTERVAL_MS, initialDelay = RETENTION_INITIAL_DELAY_MS)
+    void pruneOldPriceHistory() {
+        if (!enabled) return
+        long cutoff = System.currentTimeMillis() - PRICE_HISTORY_RETENTION_MS
+        try {
+            int deleted = priceHistoryRepository.deleteOlderThan(cutoff)
+            if (deleted > 0) {
+                log.info("Price-history retention — pruned ${deleted} rows older than 400d")
+            }
+        } catch (Exception e) {
+            // Best-effort: a failed prune is recoverable on the next tick;
+            // it must never propagate and tear down the scheduler thread
+            // (which would also kill the floor sweep on the shared pool).
+            log.warn("Price-history retention prune failed: ${e.message}")
+        }
     }
 
     /** Snapshot of the most recent reconciliation pass. Same shape as
