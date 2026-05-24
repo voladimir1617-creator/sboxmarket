@@ -2331,6 +2331,18 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
     });
     return () => cancelAnimationFrame(id);
   }, []);
+  // Track the success-toast → onSubmitted handoff timer so we can cancel
+  // it on unmount. Pre-fix, if a user closed the drawer (or navigated
+  // away) inside the 1.5s "Report received" delay, the timeout still
+  // fired onSubmitted on an unmounted drawer — re-opening the parent's
+  // ReportTarget state from a stale callback and stomping focus.
+  const submittedTimerRef = useRef(null);
+  useEffect(() => () => {
+    if (submittedTimerRef.current) {
+      clearTimeout(submittedTimerRef.current);
+      submittedTimerRef.current = null;
+    }
+  }, []);
   const submit = async () => {
     if (!reason) { setErr('Pick a reason first'); return; }
     setErr(''); setBusy(true);
@@ -2341,7 +2353,10 @@ function ReportListingDrawer({ listing, reasons, onCancel, onSubmitted }) {
         return;
       }
       setDone(res.thanks || 'Report received. Thanks — an admin will review it.');
-      setTimeout(() => onSubmitted(), 1500);
+      submittedTimerRef.current = setTimeout(() => {
+        submittedTimerRef.current = null;
+        onSubmitted();
+      }, 1500);
     } catch (e) {
       setErr('Something went wrong. Try again.');
     } finally { setBusy(false); }
@@ -2444,12 +2459,16 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
   // Try to surface an auto-paste suggestion from the clipboard if it
   // already holds a Steam trade-offer URL — the user just pasted it
   // into the Steam window, so it's likely still there. Silent fallback
-  // if clipboard permission is denied.
+  // if clipboard permission is denied. `alive` flag prevents a setUrl
+  // call after the drawer was dismissed while the clipboard read was
+  // still pending (would warn about setState on unmounted component).
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) return;
+    let alive = true;
     navigator.clipboard.readText().then(t => {
-      if (t && URL_RE.test(t.trim())) setUrl(t.trim());
+      if (alive && t && URL_RE.test(t.trim())) setUrl(t.trim());
     }).catch(() => { /* denied — silent */ });
+    return () => { alive = false; };
   }, []);
   const submit = async () => {
     if (!valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
@@ -9702,7 +9721,22 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     } catch (_) { /* silent — chip just hides */ }
   };
 
+  // Reset every form field that's NOT auto-seeded by start* below, so a
+  // user who picks item A, configures it (auction 72h, $50 Buy-Now,
+  // 10% auto-accept, "quick sale" note), hits Back, then picks item B
+  // doesn't see stale options bleed across. Without this, `sellType`,
+  // `sellDurationHours`, `sellBuyNow`, `sellAutoPct`, `sellDescription`
+  // all persisted to the new pick — easy to miss-list with the wrong
+  // options. `price` + `error` are still reseeded per-pick below.
+  const resetSellFormFields = () => {
+    setSellType('BUY_NOW');
+    setSellDurationHours('24');
+    setSellBuyNow('');
+    setSellAutoPct('');
+    setSellDescription('');
+  };
   const startPickSteam = (si) => {
+    resetSellFormFields();
     setPicking({ kind: 'steam', item: si });
     setPrice(parseFloat(si.suggestedPrice || 0).toFixed(2));
     setError('');
@@ -9717,6 +9751,7 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
     loadCompeting(itemId);
   };
   const startPickInternal = (l) => {
+    resetSellFormFields();
     setPicking({ kind: 'internal', item: l.item, listingId: l.id });
     setPrice(parseFloat(l.item.lowestPrice).toFixed(2));
     setError('');
