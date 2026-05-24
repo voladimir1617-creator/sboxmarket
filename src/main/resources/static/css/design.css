@@ -26475,10 +26475,6 @@ html { scroll-behavior: smooth; }
   text-align: left;
   transition: background 80ms ease, color 80ms ease;
 }
-.csfloat-menu-item:hover {
-  background: var(--bg-2);
-  color: var(--ink-1);
-}
 .csfloat-menu-item-icon {
   flex: 0 0 16px;
   width: 16px;
@@ -32261,9 +32257,6 @@ h6.csfloat, .csfloat-h6 {
 .csfloat-ticker-item-arrow {
   color: var(--ink-4);
 }
-.csfloat-ticker:hover .csfloat-ticker-tape {
-  animation-play-state: paused;
-}
 
 /* CSFloat-1:1: skeleton loading text bars. */
 .csfloat-skel-text {
@@ -37343,12 +37336,6 @@ hr.csfloat {
   cursor: grab;
   user-select: none;
   transition: color 120ms ease;
-}
-.csfloat-drag-handle:hover {
-  color: var(--ink-2);
-}
-.csfloat-drag-handle:active {
-  cursor: grabbing;
 }
 .csfloat-drag-handle::before {
   content: "⋮⋮";
