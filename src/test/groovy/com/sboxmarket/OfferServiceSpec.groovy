@@ -500,6 +500,36 @@ class OfferServiceSpec extends Specification {
             1L, '/offers')
     }
 
+    def "acceptOffer flips offer to EXPIRED when the listing went SOLD between offer + accept"() {
+        // Regression for the second-pass noRollbackFor entry on acceptOffer
+        // (ListingNotAvailableException). Without it, the `offer.status =
+        // 'EXPIRED'` save above the throw gets rolled back by Spring's
+        // transactional proxy — the offer stays stuck PENDING against a
+        // dead listing, so every subsequent seller retry hits the same
+        // dead branch and never clears the row. This spec pins the
+        // contract: the EXPIRED save must reach the repository even
+        // though the method exits via ListingNotAvailableException.
+        given:
+        def offer   = pendingOffer(amount: new BigDecimal("40"))
+        // Listing flipped to SOLD via direct Buy-Now after the offer
+        // landed but before the seller clicked Accept.
+        def listing = activeListing(status: 'SOLD')
+        offerRepository.findById(1L) >> Optional.of(offer)
+        listingRepository.findById(100L) >> Optional.of(listing)
+
+        when:
+        service.acceptOffer(99L, 1L)
+
+        then:
+        thrown(ListingNotAvailableException)
+        // The EXPIRED transition must persist despite the throw — exactly
+        // what the `noRollbackFor = [..., ListingNotAvailableException]`
+        // annotation buys us. Without it, the offer is silently stuck
+        // PENDING forever.
+        1 * offerRepository.save({ Offer o -> o.status == 'EXPIRED' })
+        0 * purchaseService.buy(*_)
+    }
+
     def "acceptOffer expires other pending offers on the same listing after a successful sale"() {
         given:
         def offer   = pendingOffer(amount: new BigDecimal("40"))

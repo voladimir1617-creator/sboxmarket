@@ -1132,6 +1132,70 @@ class TradeServiceSpec extends Specification {
         1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
     }
 
+    def "sweepPendingConfirm banned-seller branch expires the trade protection (no double payout)"() {
+        // Regression for the protection-expire call inside
+        // autoCancelBannedSellerTrade. The banned-seller branch refunds
+        // the buyer via refundBuyer(); without expire(), an ACTIVE
+        // protection on the cancelled trade would still be claimable
+        // and the buyer could double-dip — once from the escrow refund
+        // here, once from a later claim against the same protection.
+        // The release() branch already expires via its own path, so
+        // this guard only matters for the banned-seller fork.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def stale = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L])
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findPendingConfirmOlderThan(_) >> [stale]
+        banGuard.isBanned(20L) >> true
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+
+        when:
+        service.sweepPendingConfirm()
+
+        then:
+        // Refund landed and trade closed — confirms we took the banned
+        // branch, not the release branch.
+        stale.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal("50.00")
+        // Critical: the protection cover is expired so it can't be
+        // claimed against a now-cancelled trade.
+        1 * tradeProtectionService.expire(1L)
+    }
+
+    def "sweepPendingConfirm keeps releasing healthy trades when the banned-seller branch throws (per-trade isolation)"() {
+        // Regression for the per-trade transaction isolation added to
+        // the banned-seller path. The outer sweep loops with an
+        // unannotated `each`; the banned branch runs through the
+        // @Transactional helper. A failure on the banned trade's
+        // wallet write or protection expire must not abort the rest
+        // of the batch — the healthy sibling trade still auto-releases.
+        given:
+        def bannedStale  = tradeIn('PENDING_BUYER_CONFIRM', [id: 1L, seller: 20L])
+        def healthyStale = tradeIn('PENDING_BUYER_CONFIRM', [id: 2L, seller: 30L, sellerWallet: 700L])
+        def healthySellerWallet = new Wallet(id: 700L, balance: new BigDecimal("0"))
+        tradeRepository.findPendingConfirmOlderThan(_) >> [bannedStale, healthyStale]
+        banGuard.isBanned(20L) >> true
+        banGuard.isBanned(30L) >> false
+        // Banned trade's refund lookup blows up — must not poison the loop.
+        walletRepository.findById(500L) >> { throw new RuntimeException("wallet DB blip") }
+        walletRepository.findById(700L) >> Optional.of(healthySellerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+
+        when:
+        service.sweepPendingConfirm()
+
+        then:
+        // Healthy trade still settled as VERIFIED via the release path
+        // — the banned-trade failure was contained.
+        healthyStale.state == 'VERIFIED'
+        noExceptionThrown()
+    }
+
     // ── sweepPendingConfirm (auto-release) ────────────────────────
 
     def "sweepPendingConfirm is a no-op when the repository returns empty"() {

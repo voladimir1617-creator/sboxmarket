@@ -991,6 +991,46 @@ class PurchaseServiceSpec extends Specification {
         1 * cartRepo.deleteAllByListing(5L)
     }
 
+    def "buy still completes when the cart-holders LOOKUP throws (deferOrRun safety)"() {
+        // Regression for the deferOrRun wrapper around the CART_ITEM_SOLD
+        // fan-out. The motivating comment on PurchaseService.deferOrRun
+        // explains the failure mode: the cart query / bulk DELETE are
+        // repository calls — if either throws (DB blip, lock-wait
+        // timeout, dialect quirk), Spring's inner @Transactional proxy
+        // calls setRollbackOnly() on the SHARED transaction. The old
+        // try/catch hid the exception but the outer commit still
+        // bombed with UnexpectedRollbackException, rolling back the
+        // money write + SOLD flip + Trade escrow while the buyer's UI
+        // claimed success. Deferring the scrub to afterCommit (or
+        // running it in a fresh REQUIRES_NEW under no-tx callers, as
+        // here) keeps a cart-side failure from poisoning the sale.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
+        def item = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        // The cart-holders query itself blows up — the deferOrRun
+        // wrapper must catch this so the buy still returns success.
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> { throw new RuntimeException("cart DB down") }
+
+        when:
+        def result = service.buy(1L, 999L, 5L)
+
+        then: "money path stands — buyer was charged, listing flipped, no exception escapes"
+        noExceptionThrown()
+        result.newBalance == new BigDecimal("50.00")
+        listing.status == 'SOLD'
+        1 * txRepo.save({ Transaction tx -> tx.type == 'PURCHASE' })
+        // No fan-out happened because the lookup blew up first.
+        0 * notifier.push(_, 'CART_ITEM_SOLD', _, _, _, _)
+    }
+
     // ── No escrow Trade for a system listing ──────────────────────
 
     def "buy does NOT open a Trade for a system listing (sellerUserId == null)"() {

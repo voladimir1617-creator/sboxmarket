@@ -1429,4 +1429,62 @@ class ListingServiceSpec extends Specification {
         // The repo's own list is still in its original order.
         original*.id == [1L, 2L]
     }
+
+    // ── discountRatio: divide() with explicit scale (regression) ──
+    //
+    // Regression guard for the BigDecimal divide-scale fix on
+    // ListingService.discountRatio. The OLD code used the bare `/`
+    // operator which calls BigDecimal.divide(BigDecimal) with no scale —
+    // that throws ArithmeticException ("Non-terminating decimal
+    // expansion") on any quotient that doesn't terminate in base 10
+    // (1/3, 1/7, 2/3 …). A single listing whose (steam - price) / steam
+    // hits one of those would crash the entire `sort=discount` request
+    // for every visitor on the homepage. The fix passes an explicit
+    // scale + RoundingMode so the quotient is always representable.
+
+    def "sort=discount survives a non-terminating quotient (steamPrice=3, price=1 → 2/3 = 0.666…)"() {
+        given:
+        // (3 - 1) / 3 = 0.666... — the canonical bare-divide trap. With
+        // the old `/`, this row crashed ArithmeticException and took
+        // the whole getActiveListings call down. Pair with one terminator-
+        // safe row to prove the sort still orders correctly.
+        def nonTerm = listingFor(id: 1L,
+            item: itemWithSteamPrice(1L, new BigDecimal('3.00')),
+            price: new BigDecimal('1.00'))
+        def safe = listingFor(id: 2L,
+            item: itemWithSteamPrice(2L, new BigDecimal('10.00')),
+            price: new BigDecimal('9.00'))   // 10% off — terminating
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [safe, nonTerm]
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        // 66% off outranks 10% off — the non-terminating-quotient row
+        // wins the deeper-discount slot.
+        result*.id == [1L, 2L]
+    }
+
+    def "sort=discount handles 1/7-style ratios without ArithmeticException"() {
+        given:
+        // (7 - 6) / 7 = 0.142857... — non-terminating in base 10.
+        // Two more flavours of non-terminating quotients to widen the net.
+        def a = listingFor(id: 1L,
+            item: itemWithSteamPrice(1L, new BigDecimal('7.00')),
+            price: new BigDecimal('6.00'))
+        def b = listingFor(id: 2L,
+            item: itemWithSteamPrice(2L, new BigDecimal('9.00')),
+            price: new BigDecimal('8.00'))  // 1/9 = 0.111... non-terminating
+        listingRepository.findActivePublic('', '', '', '', null, null) >> [a, b]
+
+        when:
+        def result = service.getActiveListings('discount', null, null, null, null, null, null)
+
+        then:
+        noExceptionThrown()
+        result.size() == 2
+        // 1/7 ≈ 14.3% > 1/9 ≈ 11.1% — `a` wins.
+        result*.id == [1L, 2L]
+    }
 }
