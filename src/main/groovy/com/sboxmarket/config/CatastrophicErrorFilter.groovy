@@ -92,15 +92,36 @@ class CatastrophicErrorFilter implements Filter {
                 log.error("CATASTROPHIC-ERROR (response already committed, cannot rewrite) path=${httpReq.requestURI}", t)
                 throw t
             }
-            try { httpRes.resetBuffer() } catch (Exception ignore) { /* not committed but resetBuffer threw — proceed */ }
-            httpRes.setStatus(500)
-            String accept = httpReq.getHeader('Accept') ?: ''
-            String path = httpReq.requestURI ?: '/'
+            try { httpRes.resetBuffer() } catch (Throwable ignore) { /* not committed but resetBuffer threw — proceed */ }
+            // Pre-read everything we need OFF the request before we touch the
+            // response. A pathological request wrapper that throws from
+            // `getHeader` / `getRequestURI` would otherwise short-circuit the
+            // entire catch block and re-raise into the container — the exact
+            // outage this filter exists to prevent. Default to safe values.
+            String accept = ''
+            String path = '/'
+            try { accept = httpReq.getHeader('Accept') ?: '' } catch (Throwable ignore) { /* keep default */ }
+            try { path = httpReq.requestURI ?: '/' } catch (Throwable ignore) { /* keep default */ }
+            try { httpRes.setStatus(500) } catch (Throwable ignore) { /* keep going — body matters more than status */ }
             log.error("CATASTROPHIC-ERROR exception=${t.class.name} path=${path} — serving static panel (session-bypass)", t)
-            if (path.startsWith('/api/') || accept.contains('application/json')) {
-                writeJson(httpRes)
-            } else {
-                writeHtml(httpRes)
+            // Panel write is the LAST line of defence. If even THIS throws
+            // (writer + stream both refused, IOException on a dead socket,
+            // a wrapper that bombs on setContentType), there is no further
+            // recovery available — log it and swallow so the filter itself
+            // does NOT bubble into Tomcat's raw stub page, which is the
+            // exact failure mode the filter exists to prevent.
+            try {
+                if (path.startsWith('/api/') || accept.contains('application/json')) {
+                    writeJson(httpRes)
+                } else {
+                    writeHtml(httpRes)
+                }
+            } catch (Throwable panelWriteFailed) {
+                log.error("CATASTROPHIC-ERROR panel-write itself failed path=${path} — original cause was ${t.class.name}", panelWriteFailed)
+                // Deliberately swallow — re-throwing here defeats the
+                // last-resort guarantee. The client gets whatever the
+                // container falls back to (likely a dropped connection),
+                // but the server stays up and other requests continue.
             }
         }
     }
@@ -152,16 +173,32 @@ class CatastrophicErrorFilter implements Filter {
      * either way.
      */
     private static void writeBody(HttpServletResponse res, String body) {
+        // Two failure modes to survive:
+        //  (1) getWriter() throws IllegalStateException because something
+        //      downstream already called getOutputStream() (Servlet contract
+        //      makes them mutually exclusive). We then fall through to the
+        //      stream branch.
+        //  (2) The actual write/flush throws IOException — usually a client
+        //      that disconnected mid-render. There's no further recovery
+        //      possible (we can't write a "sorry we failed" message to a
+        //      socket that's already gone), so we fall through to the
+        //      stream branch as a second attempt; if that ALSO fails we
+        //      let the caller's outer try/catch swallow it.
         try {
             res.writer.write(body)
             res.writer.flush()
+            return
         } catch (IllegalStateException streamAlreadyTaken) {
-            // getWriter() refused — getOutputStream() was already selected
-            // downstream. Write raw UTF-8 bytes through the stream instead.
-            def out = res.outputStream
-            out.write(body.getBytes(StandardCharsets.UTF_8))
-            out.flush()
+            // Writer refused — output stream was already selected downstream.
+            // Fall through to the stream branch.
+        } catch (IOException writerIoFailed) {
+            // Writer accepted but the socket-level write blew up. Try the
+            // stream as a Hail Mary in case the writer's internal state was
+            // poisoned; if it fails too, the caller will log and swallow.
         }
+        def out = res.outputStream
+        out.write(body.getBytes(StandardCharsets.UTF_8))
+        out.flush()
     }
 
     /** Self-contained HTML — no external CSS, no font fetches, nothing
