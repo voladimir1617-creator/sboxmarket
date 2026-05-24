@@ -206,8 +206,14 @@ class OpenGraphController {
         sb.append('{"@context":"https://schema.org","@type":"Product"')
         sb.append(',"name":"').append(jsonEscape(item.name ?: 'Item')).append('"')
         sb.append(',"url":"').append(jsonEscape(url)).append('"')
-        if (item.imageUrl) {
-            sb.append(',"image":"').append(jsonEscape(item.imageUrl)).append('"')
+        // Google requires `image` on Product — emit the resolved absolute URL
+        // (caller has already fallen back to the brand logo when the item
+        // has no imageUrl), never the raw `item.imageUrl` which could be
+        // null or a relative path. Without this, Search Console flagged
+        // out-of-stock items as "Missing field 'image'" structured-data
+        // errors.
+        if (image) {
+            sb.append(',"image":"').append(jsonEscape(image)).append('"')
         }
         if (item.category) {
             sb.append(',"category":"').append(jsonEscape(item.category)).append('"')
@@ -312,8 +318,13 @@ class OpenGraphController {
         sb.append('{"@context":"https://schema.org","@type":"Store"')
         sb.append(',"name":"').append(jsonEscape((user.displayName ?: 'Seller') + "'s Stall")).append('"')
         sb.append(',"url":"').append(jsonEscape(url)).append('"')
-        if (user.avatarUrl) {
-            sb.append(',"image":"').append(jsonEscape(user.avatarUrl)).append('"')
+        // Google requires `image` on Store/LocalBusiness — emit the resolved
+        // absolute URL (caller has already fallen back to the brand logo
+        // when the seller has no avatar). Previously the field was dropped
+        // when `user.avatarUrl` was null, which surfaced as "Missing field
+        // 'image'" rich-result warnings on avatarless stalls.
+        if (image) {
+            sb.append(',"image":"').append(jsonEscape(image)).append('"')
         }
         sb.append(',"brand":{"@type":"Brand","name":"SkinBox"}')
         sb.append('}')
