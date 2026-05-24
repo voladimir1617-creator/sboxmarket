@@ -365,6 +365,41 @@ class StripeServiceSpec extends Specification {
         result.newBalance == new BigDecimal("100.00")
     }
 
+    def "cancelPendingWithdrawal bumps tx.updatedAt to the cancellation moment"() {
+        // Regression pin for the "stale updatedAt on self-cancel" bug. Every
+        // OTHER Transaction status mutation in StripeService + AdminService
+        // bumps updatedAt next to the status flip; cancelPendingWithdrawal
+        // was the outlier and left the CANCELLED row carrying its original
+        // PENDING-creation timestamp. Wallet-history "recently updated"
+        // ordering and audit-window queries filtered by updatedAt then
+        // silently missed the cancel event.
+        given:
+        def originalCreatedAt = 1_700_000_000_000L   // wall-clock back in 2023
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("60.00"))
+        def tx = new Transaction(
+            id: 9L, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',
+            amount: new BigDecimal("40.00"), description: 'Withdrawal request',
+            createdAt: originalCreatedAt, updatedAt: originalCreatedAt)
+        transactionRepository.findById(9L) >> Optional.of(tx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction t -> t }
+        def before = System.currentTimeMillis()
+
+        when:
+        service.cancelPendingWithdrawal(500L, 9L)
+        def after = System.currentTimeMillis()
+
+        then:
+        tx.status == 'CANCELLED'
+        // createdAt must NOT move — that's the original-request marker.
+        tx.createdAt == originalCreatedAt
+        // updatedAt must move to "now"-ish, NOT stay at originalCreatedAt.
+        tx.updatedAt != originalCreatedAt
+        tx.updatedAt >= before
+        tx.updatedAt <= after
+    }
+
     def "cancelPendingWithdrawal refuses a tx the wallet does not own — 403 Forbidden"() {
         given:
         def tx = new Transaction(id: 9L, walletId: 999L /* different wallet */,

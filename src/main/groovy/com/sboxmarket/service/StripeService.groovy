@@ -429,6 +429,16 @@ class StripeService {
         walletRepository.save(wallet)
         tx.status = 'CANCELLED'
         tx.description = ((tx.description ?: '') + ' · cancelled by user').take(500)
+        // Bump updatedAt to the cancellation moment. Every OTHER tx-status
+        // mutation site in this file (handleChargebackClosed:1031,
+        // markCheckoutCompleted:1203, markCheckoutExpired:1256) and in
+        // AdminService (clearDisputeHold:317, approveWithdrawal:541,
+        // rejectWithdrawal:585) bumps updatedAt next to the status flip;
+        // omitting it here left the CANCELLED row carrying its original
+        // PENDING-creation timestamp, so wallet-history "recently
+        // updated" views and audit-window queries (filtered by
+        // updatedAt) silently missed the cancel event.
+        tx.updatedAt = System.currentTimeMillis()
         transactionRepository.save(tx)
         try {
             auditService?.log(AuditService.WITHDRAW_SELF_CANCELLED, null, null, tx.id,
