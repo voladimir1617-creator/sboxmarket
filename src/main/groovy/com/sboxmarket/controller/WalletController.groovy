@@ -466,14 +466,42 @@ class WalletController {
             steamUserRepository.save(user)
         }
 
-        def tx = stripeService.requestWithdrawal(wallet.id, body.amount, body.destination ?: "")
-        def reloaded = walletRepository.findById(wallet.id)
-                .orElseThrow { new NotFoundException("Wallet", wallet.id) }
-        ResponseEntity.ok([
-            transactionId: tx.id,
-            status       : tx.status,
-            newBalance   : reloaded.balance
-        ])
+        // Concurrent-withdraw race-loss guard. Two simultaneous /withdraw
+        // requests for the same wallet (two tabs hitting submit at once, a
+        // double-tap from a flaky network, a malicious double-submit) both
+        // pass the balance / cap / freeze gates above against the same wallet
+        // snapshot, then race on the Wallet @Version inside
+        // requestWithdrawal's debit-and-save. Hibernate aborts the loser
+        // with ObjectOptimisticLockingFailureException — the loser's
+        // outer @Transactional rolls back fully (no debit, no PENDING row),
+        // so there is NEVER a double-debit. But without this catch, the
+        // user sees a raw 500 even though nothing went wrong on their end:
+        // their other request DID succeed and they just need to try this
+        // one again. Translate to a clean retryable code so the SPA can
+        // toast "try again" instead of "internal error". Mirrors the
+        // confirmDeposit race-loss handling pattern.
+        try {
+            def tx = stripeService.requestWithdrawal(wallet.id, body.amount, body.destination ?: "")
+            // Force flush BEFORE the method returns so the Wallet @Version
+            // check fires inside this catch — not at outer-tx commit time
+            // (after the method has returned), where a 500 would escape
+            // the controller. Spring's flush-mode-AUTO does flush before
+            // the findById below, so this is belt-and-braces; explicit is
+            // safer since AUTO behaviour can vary across Hibernate
+            // versions and entity-type queries.
+            walletRepository.flush()
+            def reloaded = walletRepository.findById(wallet.id)
+                    .orElseThrow { new NotFoundException("Wallet", wallet.id) }
+            return ResponseEntity.ok([
+                transactionId: tx.id,
+                status       : tx.status,
+                newBalance   : reloaded.balance
+            ])
+        } catch (org.springframework.dao.OptimisticLockingFailureException raceLost) {
+            log.info("withdraw lost wallet @Version race for wallet ${wallet.id} — concurrent withdraw committed first")
+            throw new com.sboxmarket.exception.BadRequestException("WITHDRAW_RACE",
+                "Another withdrawal request was processed at the same time. Refresh your balance and try again.")
+        }
     }
 
     /** Self-cancel a PENDING withdrawal. Credits the wallet back and
@@ -486,6 +514,13 @@ class WalletController {
         def wallet = currentWallet(req)
         if (wallet == null) throw new UnauthorizedException("Sign in to cancel a withdrawal")
         try {
+            // cancelWithdraw is NOT @Transactional — cancelPendingWithdrawal
+            // opens its own tx and commits before returning, so any Wallet
+            // @Version race (vs an admin reject, or a duplicate self-cancel
+            // tab) surfaces as OptimisticLockingFailureException FROM the
+            // call below, inside this catch. No outer-tx commit-time escape
+            // hatch to worry about here (unlike /withdraw, which IS
+            // @Transactional and needs an explicit flush).
             def result = stripeService.cancelPendingWithdrawal(wallet.id, id)
             ResponseEntity.ok(result)
         } catch (IllegalStateException e) {
@@ -494,6 +529,18 @@ class WalletController {
         } catch (IllegalArgumentException e) {
             // the tx exists but is not a withdrawal.
             throw new com.sboxmarket.exception.BadRequestException("INVALID_TX", e.message)
+        } catch (org.springframework.dao.OptimisticLockingFailureException raceLost) {
+            // Cancel races admin-side reject (or another tab's cancel) on the
+            // same tx. cancelPendingWithdrawal does wallet.balance += refund
+            // then saves; the loser's Wallet @Version flip aborts. No
+            // double-credit (the rollback wipes the entire transaction), but
+            // a raw 500 confuses the user since their cancel may already have
+            // landed via the other path. Re-read the wallet — if the tx is
+            // already CANCELLED/REJECTED, the user's intent succeeded; either
+            // way, surface a clean retryable code rather than 500.
+            log.info("cancelWithdraw lost @Version race for wallet ${wallet.id} tx ${id} — concurrent state change won")
+            throw new com.sboxmarket.exception.BadRequestException("CANCEL_RACE",
+                "Withdrawal state changed during cancel. Refresh and try again — your cancel may already have been processed.")
         }
         // A missing tx (NotFoundException -> 404) and a cross-wallet attempt
         // (ForbiddenException -> 403) are now thrown directly by
