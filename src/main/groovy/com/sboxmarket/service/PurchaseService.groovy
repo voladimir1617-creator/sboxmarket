@@ -257,20 +257,32 @@ class PurchaseService {
             } catch (Exception e) {
                 log.warn("Purchase-receipt email failed for buyer ${buyerUserId}: ${e.message}")
             }
-            // Cart-item-sold fan-out (batch 503). When a popular drop
-            // sells, every OTHER user who had the listing queued in
-            // their cart sees a stale-grey row next time they open the
-            // cart — and never knew until then. This pings them so
-            // they can re-shop the item before the price moves.
-            // Capped at CART_FANOUT_CAP so a hot listing doesn't fan
-            // out to every cart on the platform; the cap is high
-            // enough (50) to cover every realistic case.
-            if (cartItemRepository != null) {
-                try {
-                    def others = cartItemRepository.findOtherUsersWithListing(listingId, buyerUserId) ?: []
-                    if (!others.isEmpty()) {
-                        def itemName = listing.item?.name ?: 'an item'
-                        def itemId = listing.item?.id
+        }
+
+        // Cart-item-sold fan-out (batch 503). When a popular drop
+        // sells, every OTHER user who had the listing queued in
+        // their cart sees a stale-grey row next time they open the
+        // cart — and never knew until then. This pings them so
+        // they can re-shop the item before the price moves.
+        // Capped at CART_FANOUT_CAP so a hot listing doesn't fan
+        // out to every cart on the platform; the cap is high
+        // enough (50) to cover every realistic case.
+        //
+        // Hoisted OUT of the `notificationService != null` block above:
+        // the cart-row SCRUB has to happen on every successful sale,
+        // not just the ones where the notification bean happens to be
+        // wired in. Without this, a misconfigured / disabled notifier
+        // left ghost cart rows on every sold listing — silent data
+        // leak between buyers — until the next client-side stale check
+        // happened to fire. Notifications are still gated on the bean
+        // (the inner null-check below), but the scrub is unconditional.
+        if (cartItemRepository != null) {
+            try {
+                def others = cartItemRepository.findOtherUsersWithListing(listingId, buyerUserId) ?: []
+                if (!others.isEmpty()) {
+                    def itemName = listing.item?.name ?: 'an item'
+                    def itemId = listing.item?.id
+                    if (notificationService != null) {
                         others.take(50).each { uid ->
                             try {
                                 notificationService.push(uid, 'CART_ITEM_SOLD',
@@ -282,19 +294,19 @@ class PurchaseService {
                                 log.warn("CART_ITEM_SOLD push failed for uid=${uid}: ${e.message}")
                             }
                         }
-                        // Scrub the now-sold listing from every cart so
-                        // the next /api/cart fetch doesn't show a ghost
-                        // row. Best-effort — a delete miss just leaves
-                        // the row for the client-side stale detector.
-                        try {
-                            cartItemRepository.deleteAllByListing(listingId)
-                        } catch (Exception e) {
-                            log.warn("CART_ITEM_SOLD scrub failed for listing=${listingId}: ${e.message}")
-                        }
                     }
-                } catch (Exception e) {
-                    log.warn("CART_ITEM_SOLD fan-out failed for listing=${listingId}: ${e.message}")
+                    // Scrub the now-sold listing from every cart so
+                    // the next /api/cart fetch doesn't show a ghost
+                    // row. Best-effort — a delete miss just leaves
+                    // the row for the client-side stale detector.
+                    try {
+                        cartItemRepository.deleteAllByListing(listingId)
+                    } catch (Exception e) {
+                        log.warn("CART_ITEM_SOLD scrub failed for listing=${listingId}: ${e.message}")
+                    }
                 }
+            } catch (Exception e) {
+                log.warn("CART_ITEM_SOLD fan-out failed for listing=${listingId}: ${e.message}")
             }
         }
 

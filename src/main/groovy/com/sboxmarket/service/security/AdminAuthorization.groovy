@@ -18,6 +18,16 @@ class AdminAuthorization {
     @Autowired SteamUserRepository steamUserRepository
 
     void requireAdmin(Long userId) {
+        // Null guard mirrors `isAdmin` — a `null` userId reaching this
+        // method (e.g. an unauthenticated controller path) used to fall
+        // into Spring Data's `findById(null)`, which throws an
+        // `IllegalArgumentException` and surfaces as an opaque 500 instead
+        // of the friendly 403 the controller layer maps `ForbiddenException`
+        // onto. Reject up-front so the auth failure mode is consistent
+        // regardless of whether the caller went through `isAdmin` first.
+        if (userId == null) {
+            throw new ForbiddenException("Admin privileges required")
+        }
         def user = steamUserRepository.findById(userId)
                 .orElseThrow { new ForbiddenException("Unknown user") }
         if (user.role != 'ADMIN') {
