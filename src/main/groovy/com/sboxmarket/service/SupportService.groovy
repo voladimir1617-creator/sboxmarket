@@ -362,7 +362,18 @@ class SupportService {
      */
     @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L,
                initialDelay = 45L * 60L * 1000L)
-    @Transactional
+    // Deliberately NOT @Transactional at the sweep level — same bug
+    // class as the OfferService.sweepStaleOffers / BuyOrderService.
+    // sweepStaleBuyOrders / WatchlistAlertService.sweep fixes (batch
+    // 311). With an outer transaction wrapping the per-row work, a
+    // single row's ticketRepository.save() failure (optimistic-lock
+    // collision, constraint violation, etc.) marks the SHARED
+    // transaction rollback-only — the per-iteration try/catch
+    // swallows the exception, the loop continues "successfully", and
+    // then EVERY ticket close so far gets rolled back at commit time
+    // with UnexpectedRollbackException. Without the outer wrapper,
+    // SimpleJpaRepository.save() runs in its own auto-tx, so the
+    // try/catch genuinely isolates per-row failures.
     void sweepStaleWaitingUser() {
         if (autoResolveWaitingUserDays <= 0L) return
         def cutoff = System.currentTimeMillis() - (autoResolveWaitingUserDays * 24L * 60L * 60L * 1000L)
