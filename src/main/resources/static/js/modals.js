@@ -6559,6 +6559,21 @@ function ProfileTradesTab({ me, privacy }) {
     setReviewErr('');
     setReviewDone(false);
   };
+  // Track the success-toast → closeReview handoff timer so we can cancel
+  // it on unmount / re-open. Pre-fix, the bare `setTimeout(closeReview,
+  // 900)` in submitReview leaked: if the user navigated away (back/
+  // forward, opened a different modal, re-opened a different trade's
+  // review) inside the 900ms window, the stale timer still fired
+  // closeReview later — clearing the freshly-opened reviewTrade and
+  // closing the new modal out from under the reviewer. Mirrors the
+  // submittedTimerRef pattern used by the Report modal above.
+  const reviewCloseTimerRef = useRef(null);
+  useEffect(() => () => {
+    if (reviewCloseTimerRef.current) {
+      clearTimeout(reviewCloseTimerRef.current);
+      reviewCloseTimerRef.current = null;
+    }
+  }, []);
   // Batch 829 / Batch 1167 — Escape + focus management for the review
   // modal. The dialogClose callback is stable (refs hold the latest
   // busy / close fn) so useDialogA11y only mounts/unmounts when the
@@ -6607,7 +6622,11 @@ function ProfileTradesTab({ me, privacy }) {
         ? `${stars} review posted for @${sellerName}.`
         : `${stars} review posted.`,
         'ok');
-      setTimeout(closeReview, 900);
+      if (reviewCloseTimerRef.current) clearTimeout(reviewCloseTimerRef.current);
+      reviewCloseTimerRef.current = setTimeout(() => {
+        reviewCloseTimerRef.current = null;
+        closeReview();
+      }, 900);
     } finally { setReviewBusy(false); }
   };
 

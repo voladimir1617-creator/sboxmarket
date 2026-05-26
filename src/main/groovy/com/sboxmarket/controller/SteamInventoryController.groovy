@@ -40,6 +40,16 @@ class SteamInventoryController {
     @Autowired ItemRepository itemRepository
     @Autowired ListingService listingService
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
+    // SellService.relist gates list-creation behind banGuard, but
+    // /api/steam/list + /api/steam/list-bulk bypass SellService and
+    // call listingService.createListing() directly — so without an
+    // explicit guard here a banned user could keep listing from their
+    // Steam inventory. Required=false so older test wiring that only
+    // injects the six collaborators above still constructs cleanly;
+    // the guard short-circuits to a no-op when the bean is absent
+    // (mirrors the same posture every other optional collaborator on
+    // this controller uses).
+    @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
 
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
@@ -174,6 +184,10 @@ class SteamInventoryController {
     @PostMapping("/list")
     ResponseEntity<Map> listFromSteam(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
+        // Symmetric with SellService.relist's banGuard — see the
+        // collaborator field comment for why the check has to live here
+        // rather than being inherited from a service call.
+        banGuard?.assertNotBanned(uid)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
         def assetId = body?.assetId?.toString()
         def priceRaw = body?.price
@@ -359,6 +373,10 @@ class SteamInventoryController {
     @PostMapping("/list-bulk")
     ResponseEntity<Map> listBulkFromSteam(@RequestBody Map body, HttpServletRequest req) {
         def uid = requireUser(req)
+        // Symmetric with /list above. Gate fans into createListing()
+        // up front so a banned user can't slip 20 new listings through
+        // the bulk path in a single call.
+        banGuard?.assertNotBanned(uid)
         def user = steamUserRepository.findById(uid).orElseThrow { new UnauthorizedException("Unknown user") }
 
         def raw = body?.assetIds

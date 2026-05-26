@@ -1653,6 +1653,18 @@ class AdminService {
             throw new BadRequestException("NOTE_REQUIRED",
                 "Admin adjustments require a note for the audit trail")
         }
+        // Sanitize + length-cap before persisting — note ends up in
+        // Transaction.description (user-visible in wallet history) AND
+        // in the push-notification body. Every other admin reason field
+        // (freezeWallet, banUser, forceCancelListing, etc.) runs through
+        // textSanitizer.medium(); this path was the only one writing raw
+        // operator input into a user-facing record. Uncapped raw text
+        // also let a 10MB paste crash the row insert.
+        def cleanNote = textSanitizer?.medium(note) ?: note.take(1000)
+        if (cleanNote == null || cleanNote.trim().isEmpty()) {
+            throw new BadRequestException("NOTE_REQUIRED",
+                "Admin adjustments require a note for the audit trail")
+        }
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
         if (wallet == null) throw new NotFoundException("Wallet", targetUserId)
@@ -1669,16 +1681,16 @@ class AdminService {
             amount:          amount.abs(),
             currency:        wallet.currency,
             stripeReference: 'admin',
-            description:     "Admin adjustment: " + (note ?: 'no note')
+            description:     "Admin adjustment: " + cleanNote
         ))
 
         notificationService?.push(targetUserId,
             amount > BigDecimal.ZERO ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT',
             "Wallet adjusted by staff · ${amount > 0 ? '+' : ''}\$${amount.toPlainString()}",
-            note ?: '', null, '/wallet')
+            cleanNote, null, '/wallet')
 
         auditService?.log(AuditService.ADMIN_CREDIT, adminUserId, targetUserId, wallet.id,
-            "Adjusted wallet ${wallet.username} by \$${amount}: ${note ?: '(no note)'}")
+            "Adjusted wallet ${wallet.username} by \$${amount}: ${cleanNote}")
         log.info("Admin ${adminUserId} adjusted wallet ${wallet.id} by \$${amount}")
         [walletId: wallet.id, newBalance: wallet.balance]
     }

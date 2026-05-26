@@ -1130,6 +1130,34 @@ class AdminServiceSpec extends Specification {
         note << [null, '', '   ']
     }
 
+    def "creditWallet sanitizes the note before persisting it into Transaction.description (bug #231)"() {
+        // Note ends up in Transaction.description (rendered on user's
+        // wallet-history page) AND in the push-notification body. Raw
+        // operator input here is an XSS / HTML-injection vector and a
+        // length DoS — every other admin reason field runs through
+        // textSanitizer.medium(); creditWallet was the holdout.
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222')
+        def wallet = new Wallet(id: 500L, username: 'steam_222', balance: new BigDecimal("10"), currency: 'USD')
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_222') >> wallet
+        Transaction saved = null
+        transactionRepository.save(_) >> { args -> saved = args[0]; saved }
+        // Per-test sanitizer that returns a recognizable wrapped value,
+        // so we can prove the raw operator input was routed through it.
+        TextSanitizer scrubbing = Mock()
+        scrubbing.medium(_) >> { String s -> '[clean] ' + (s ?: '') }
+        service.textSanitizer = scrubbing
+
+        when:
+        service.creditWallet(1L, 20L, new BigDecimal("50"), '<script>alert(1)</script>')
+
+        then:
+        saved.description == 'Admin adjustment: [clean] <script>alert(1)</script>'
+        1 * notificationService.push(20L, 'ADMIN_CREDIT', _ as String,
+                '[clean] <script>alert(1)</script>', _, '/wallet')
+    }
+
     // ── Reported-listings moderation loop ─────────────────────────
 
     def "forceCancelListing notifies every distinct reporter that their report was actioned"() {

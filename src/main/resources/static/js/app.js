@@ -5018,10 +5018,24 @@ export function App() {
 
   // toast
   const [toast, setToast] = useState(null);
-  const showToast = (text, kind = 'ok') => {
+  // Single shared dismiss timer — prior code scheduled a fresh setTimeout on
+  // every showToast/inline setToast call without clearing the previous one,
+  // so toast B (fired 1s after A) would get wiped by A's stale 4.5s timer
+  // ~3.5s into its own lifetime. Refs survive re-renders so we can cancel.
+  const toastTimerRef = useRef(null);
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); toastTimerRef.current = null; }
+    setToast(null);
+  }, []);
+  const showToast = useCallback((text, kind = 'ok') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ text, kind });
-    setTimeout(() => setToast(null), 4500);
-  };
+    const lifetime = kind === 'err' ? 9000 : kind === 'warn' ? 7000 : 4500;
+    toastTimerRef.current = setTimeout(() => { toastTimerRef.current = null; setToast(null); }, lifetime);
+  }, []);
+  // Unmount cleanup — without this a route teardown or hot-reload leaves
+  // the timer dangling and the next mount's setToast can race against it.
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
 
   // V61 ship #47 — global `sb:toast` event bus. Any nested component
   // that doesn't have direct access to `setToast` can dispatch
@@ -9220,7 +9234,11 @@ export function App() {
         // for errors so they interrupt, polite otherwise.
         role: 'status',
         'aria-live': isErr ? 'assertive' : 'polite',
-        'aria-atomic': 'true'
+        'aria-atomic': 'true',
+        // Click-to-dismiss — matches utils.js DOM toast. Cancels the
+        // lifetime timer so it can't fire after the user already cleared it.
+        onClick: dismissToast,
+        style: { cursor: 'pointer' }
       },
         h('div', { className: 'sale-toast-thumb', style: { background: bg, color: fg } }, glyph),
         h('div', { className: 'sale-toast-text' },
