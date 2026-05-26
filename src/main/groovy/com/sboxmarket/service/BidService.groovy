@@ -721,6 +721,15 @@ class BidService {
         listing.currentBidderId   = buyerUserId
         listing.currentBidderName = buyerName ?: ("Buyer_" + buyerUserId)
         listing.expiresAt         = System.currentTimeMillis()
+        // Bump bidCount alongside the fresh Bid row we save below. placeBid
+        // increments the counter on every persisted bid (lines 298 / 404 /
+        // 453); the Buy-Now path was missing the equivalent bump, so the
+        // bid_rows count for the listing went N → N+1 while the
+        // denormalised `bidCount` stayed at N. Every reader of bidCount
+        // (cards/modals badges, /mystall CSV export, AuctionBidPlacedEvent
+        // SSE fan-out, "Most Traded" aggregates) was off-by-one for the
+        // rest of the listing's life.
+        listing.bidCount          = (listing.bidCount ?: 0) + 1
 
         // Persist a Bid row at the buy-now price so the buyer's history
         // records the real settlement amount. Two bugs this closes:

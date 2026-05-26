@@ -398,9 +398,17 @@ class ItemController {
      *      cancels, sales, new listings, off-path drift).
      *   2. SteamMarketPriceService — pulls Steam Community Market
      *      prices every 30 min for unlisted items (rate-limited).
-     *  The chip shows the more recent of the two so a user can tell
-     *  the system is alive. Cheap (in-memory snapshot read), public,
-     *  short-cache so the chip stays accurate. */
+     *
+     *  Bug fix: previously reported `lastUpdatedAt = max(floor, steam)`
+     *  which silently MASKED a wedged floor sweep — Steam pings every
+     *  30 min, so the moment the floor scheduler thread died the chip
+     *  still went green on Steam's tick even though `lowestPrice` was
+     *  drifting on every cancel/sale. The dominant signal is the floor
+     *  sweep; if it's overdue past its own interval × 3 (180s), the
+     *  chip is lying. We now compute and surface a server-side `stale`
+     *  flag so the frontend can render amber regardless of which
+     *  source most-recently fired. `lastUpdatedAt` stays max() so the
+     *  "Just now" timestamp render keeps working; `stale` is the gate. */
     @GetMapping("/price-refresh-status")
     ResponseEntity<Map> priceRefreshStatus() {
         Map floor = null
@@ -411,14 +419,28 @@ class ItemController {
         long floorAt = (floor?.finishedAt ?: 0L) as long
         long steamAt = (steam?.finishedAt ?: 0L) as long
         long lastAt  = Math.max(floorAt, steamAt)
+        long now     = System.currentTimeMillis()
+
+        // The floor sweep is the dominant signal (every 60s, covers all
+        // listing mutations). If it's enabled, present, and either has
+        // never reported OR is overdue past 3× its scheduled interval,
+        // the freshness chip MUST surface stale — even when Steam just
+        // ticked. 3× cadence is generous enough to absorb GC pauses and
+        // a slow DB round-trip without flapping, tight enough that a
+        // truly wedged scheduler shows within ~3 min.
+        boolean floorEnabled = (floor?.enabled != null) ? (floor.enabled as boolean) : true
+        long floorInterval = (floor?.intervalMs ?: 0L) as long
+        boolean floorStale = floor != null && floorEnabled && floorInterval > 0 && (
+                floorAt == 0L || (now - floorAt) > (floorInterval * 3L))
 
         ResponseEntity.ok()
             .header('Cache-Control', 'public, max-age=10')
             .body([
                 lastUpdatedAt: lastAt,
+                stale:         floorStale,
                 floor:         floor,
                 steam:         steam,
-                serverNow:     System.currentTimeMillis()
+                serverNow:     now
             ] as Map)
     }
 }
