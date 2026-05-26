@@ -518,7 +518,15 @@ class AdminService {
     Map approveWithdrawal(Long adminUserId, Long txId, String payoutRef) {
         requireAdmin(adminUserId)
         def tx = transactionRepository.findById(txId).orElseThrow { new NotFoundException("Transaction", txId) }
-        if (tx.type != 'WITHDRAW') throw new BadRequestException("NOT_WITHDRAWAL", "Transaction is not a withdrawal")
+        // Accept both spellings — legacy rows persisted as 'WITHDRAWAL' (the
+        // canonical form recognised everywhere else: cap query, cancel path,
+        // wallet hero) would otherwise be UN-approvable through the queue,
+        // stranding the funds in PENDING with the wallet already debited and
+        // no admin escape valve (only the user could self-cancel). Mirrors
+        // the dual-type filter in TransactionRepository.sumWithdrawalsSince
+        // and StripeService.cancelPendingWithdrawal.
+        def txType = (tx.type ?: '').toUpperCase()
+        if (txType != 'WITHDRAW' && txType != 'WITHDRAWAL') throw new BadRequestException("NOT_WITHDRAWAL", "Transaction is not a withdrawal")
         if (tx.status != 'PENDING') throw new BadRequestException("NOT_PENDING", "Withdrawal is not pending (status=${tx.status})")
         // Active-chargeback gate (batch 468). Even with admin override
         // privilege, refuse to approve a withdrawal while the wallet has
@@ -571,7 +579,12 @@ class AdminService {
     Map rejectWithdrawal(Long adminUserId, Long txId, String reason) {
         requireAdmin(adminUserId)
         def tx = transactionRepository.findById(txId).orElseThrow { new NotFoundException("Transaction", txId) }
-        if (tx.type != 'WITHDRAW') throw new BadRequestException("NOT_WITHDRAWAL", "Transaction is not a withdrawal")
+        // Dual-spelling tolerance — see approveWithdrawal. Without it, a
+        // PENDING row with type='WITHDRAWAL' could not be rejected either,
+        // so the wallet stayed debited forever (the rejection path is the
+        // only way for staff to refund a problematic withdrawal request).
+        def txType = (tx.type ?: '').toUpperCase()
+        if (txType != 'WITHDRAW' && txType != 'WITHDRAWAL') throw new BadRequestException("NOT_WITHDRAWAL", "Transaction is not a withdrawal")
         if (tx.status != 'PENDING') throw new BadRequestException("NOT_PENDING", "Withdrawal is not pending")
 
         // Refund the wallet — withdrawal was debited optimistically on request

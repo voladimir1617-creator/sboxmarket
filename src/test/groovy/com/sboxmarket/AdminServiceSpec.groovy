@@ -790,6 +790,43 @@ class AdminServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    def "approveWithdrawal accepts canonical 'WITHDRAWAL' spelling too"() {
+        given: 'a legacy PENDING row stored with the canonical WITHDRAWAL spelling'
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAWAL', status: 'PENDING',
+                                  amount: new BigDecimal("25"))
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        walletRepository.findById(500L) >> Optional.of(new Wallet(id: 500L, username: 'steam_111'))
+        steamUserRepository.findBySteamId64('111') >> null
+
+        when:
+        def result = service.approveWithdrawal(1L, 1L, 'PAYOUT-REF-Y')
+
+        then: 'admin can approve — funds get released instead of being stranded'
+        1 * adminAuthorization.requireAdmin(1L)
+        tx.status == 'COMPLETED'
+        result.status == 'COMPLETED'
+    }
+
+    def "rejectWithdrawal accepts canonical 'WITHDRAWAL' spelling too"() {
+        given: 'a legacy PENDING row stored with the canonical WITHDRAWAL spelling'
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAWAL', status: 'PENDING',
+                                  amount: new BigDecimal("25"))
+        def wallet = new Wallet(id: 500L, username: 'steam_111', balance: BigDecimal.ZERO)
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        transactionRepository.save(_) >> { args -> args[0] }
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { args -> args[0] }
+
+        when:
+        def result = service.rejectWithdrawal(1L, 1L, 'bad payout details')
+
+        then: 'admin can reject and the wallet gets refunded — the row would otherwise be unreachable'
+        wallet.balance == new BigDecimal("25")
+        tx.status == 'FAILED'
+        result.refunded == new BigDecimal("25")
+    }
+
     def "rejectWithdrawal marks FAILED and refunds the wallet"() {
         given:
         def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW', status: 'PENDING',

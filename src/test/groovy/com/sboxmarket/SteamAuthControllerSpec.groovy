@@ -169,10 +169,57 @@ class SteamAuthControllerSpec extends Specification {
 
     def "me() returns the SteamUser body when session is valid"() {
         given:
-        def user = new SteamUser(id: 100L, displayName: 'alice')
-        1 * req.session >> ses
+        def user = new SteamUser(id: 100L, displayName: 'alice', sessionEpoch: 0L)
+        // Three reads: uid, then epoch (live==stashed→pass), and no invalidate.
+        2 * req.session >> ses
         1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
         1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * ses.getAttribute(SteamAuthController.SESSION_EPOCH) >> 0L
+
+        when:
+        def r = controller.me(req)
+
+        then:
+        r.statusCode.value() == 200
+        r.body.is(user)
+    }
+
+    // ── /me enforces logout-all (sessionEpoch) ────────────────────
+    //
+    // SessionEpochFilter SKIPS /api/auth/steam/me to avoid
+    // chicken-and-egg issues. Without an inline check, a session
+    // killed by `/logout-all` on another device kept getting its
+    // full identity back from /me forever (or until the SPA happened
+    // to hit a non-skipped endpoint), leaving the abandoned device's
+    // navbar rendering as "signed in" indefinitely. This pins the
+    // fix: /me must compare stashed epoch vs live epoch and report
+    // signed-out on mismatch, the same shape SessionEpochFilter uses.
+    def "me() reports signedIn=false when the live sessionEpoch is ahead of the stashed one (logout-all from another device)"() {
+        given: 'a session stashed at epoch 5, but the user has since hit /logout-all elsewhere'
+        def user = new SteamUser(id: 100L, displayName: 'alice', sessionEpoch: 1_700_000_000_000L)
+        // Three reads of req.session: uid, epoch, invalidate.
+        3 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * ses.getAttribute(SteamAuthController.SESSION_EPOCH) >> 5L
+        1 * ses.invalidate()
+
+        when:
+        def r = controller.me(req)
+
+        then: 'the stale session is torn down and /me reports signed-out'
+        r.statusCode.value() == 200
+        r.body == [signedIn: false]
+    }
+
+    def "me() returns the user body when stashed sessionEpoch matches the live value"() {
+        given: 'a session whose epoch is current'
+        def user = new SteamUser(id: 100L, displayName: 'alice', sessionEpoch: 42L)
+        3 * req.session >> ses
+        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
+        1 * steamUserRepository.findById(100L) >> Optional.of(user)
+        1 * ses.getAttribute(SteamAuthController.SESSION_EPOCH) >> 42L
+        0 * ses.invalidate()
 
         when:
         def r = controller.me(req)

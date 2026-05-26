@@ -49,9 +49,16 @@ class TextSanitizer {
         //    data: matcher now covers every executable MIME (svg, html,
         //    xml, javascript-pseudo) instead of just text/html — a raw
         //    `data:image/svg+xml` URL can contain an inline <script>.
+        //    Also covers every RFC 4329 / WHATWG-accepted JS alias
+        //    (text/javascript, text/ecmascript, application/x-javascript,
+        //    application/ecmascript) plus text/xml — all functionally
+        //    identical to application/javascript / application/xml in
+        //    every shipping browser, so an attacker crafting
+        //    `data:text/javascript,alert(1)` would otherwise survive a
+        //    strip that only flagged the canonical MIMEs.
         s = s.replaceAll(/(?i)javascript:/, '')
         s = s.replaceAll(/(?i)vbscript:/, '')
-        s = s.replaceAll(/(?i)data:(text\/html|image\/svg|application\/(xhtml|xml|javascript))/, '')
+        s = s.replaceAll(/(?i)data:(text\/(html|javascript|ecmascript|xml)|image\/svg|application\/(xhtml|xml|javascript|x-javascript|ecmascript))/, '')
         s = s.replaceAll(/(?i)on[a-z]+\s*=/, '')  // onerror=, onclick=, etc.
 
         // 3) Normalise numeric HTML entities that could re-encode tags.

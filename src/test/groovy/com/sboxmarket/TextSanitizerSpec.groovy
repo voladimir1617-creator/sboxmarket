@@ -49,6 +49,31 @@ class TextSanitizerSpec extends Specification {
         sanitizer.clean('data:text/html,<b>bad</b>') == ',bad'
     }
 
+    @Unroll
+    def "strips every executable data: MIME alias — #input"() {
+        // application/javascript was originally the only "JS data: URL"
+        // explicitly stripped. Every other RFC 4329 / WHATWG-accepted
+        // alias (text/javascript, application/x-javascript,
+        // application/ecmascript, text/ecmascript) decodes the same way
+        // in every shipping browser, so an attacker crafting
+        // `data:text/javascript,alert(1)` would otherwise survive the
+        // strip even though the executable payload is identical. Same
+        // story for text/xml — RCDATA-equivalent to application/xml +
+        // application/xhtml that ARE already in the list. Pin every
+        // alias so adding a new strip doesn't quietly regress the others.
+        expect:
+        !sanitizer.clean(input).toLowerCase().contains('data:')
+
+        where:
+        input << [
+            'click data:text/javascript,alert(1)',
+            'click data:application/x-javascript,alert(1)',
+            'click DATA:Application/ECMAScript,alert(1)',
+            'click data:text/ecmascript,alert(1)',
+            'click data:text/xml,<x/>'
+        ]
+    }
+
     def "strips on* event attribute patterns"() {
         expect:
         sanitizer.clean('hello onerror=alert(1) world') == 'hello alert(1) world'

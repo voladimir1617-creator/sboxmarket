@@ -255,6 +255,22 @@ class SteamAuthController {
             req.session.invalidate()
             return noStore(ResponseEntity.ok([signedIn: false] as Map))
         }
+        // Enforce the "log out everywhere" invariant on /me itself.
+        // SessionEpochFilter SKIPS /api/auth/steam/me to avoid chicken-
+        // and-egg issues — but without an inline check here, a session
+        // that was killed via POST /logout-all on another device keeps
+        // returning its full identity from /me indefinitely (until the
+        // SPA hits a non-skipped endpoint), leaving the navbar rendered
+        // as "signed in" on the abandoned device. Compare the stashed
+        // login-time epoch to the live one, and on mismatch invalidate
+        // the cookie + report signed-out — same shape SessionEpochFilter
+        // uses elsewhere so the kill switch is end-to-end consistent.
+        def stashedEpoch = req.session.getAttribute(SESSION_EPOCH) as Long
+        Long liveEpoch = user.sessionEpoch
+        if (liveEpoch != null && (stashedEpoch ?: 0L) < liveEpoch) {
+            try { req.session.invalidate() } catch (Exception ignore) {}
+            return noStore(ResponseEntity.ok([signedIn: false] as Map))
+        }
         noStore(ResponseEntity.ok(user))
     }
 

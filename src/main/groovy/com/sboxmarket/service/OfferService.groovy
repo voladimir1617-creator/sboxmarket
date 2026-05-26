@@ -237,32 +237,15 @@ class OfferService {
         // manual) and the seller isn't banned. Failures fall back to
         // the regular PENDING state so the buyer doesn't lose their
         // offer.
-        boolean willAutoAccept = false
-        if (listing.maxDiscount != null
-                && listing.maxDiscount > BigDecimal.ZERO
-                && listing.sellerUserId != null) {
-            def threshold = (listing.price - (listing.price * listing.maxDiscount))
-                .setScale(2, BigDecimal.ROUND_HALF_UP)
-            if (amount >= threshold) {
-                willAutoAccept = true
-                try {
-                    banGuard.assertNotBanned(listing.sellerUserId)
-                    acceptOffer(listing.sellerUserId, saved.id)
-                    // Reload to return the ACCEPTED snapshot.
-                    return offerRepository.findById(saved.id).orElse(saved)
-                } catch (Exception e) {
-                    willAutoAccept = false
-                    log.warn("Auto-accept failed for offer ${saved.id}: ${e.message} — leaving in PENDING")
-                }
-            }
-        }
+        def autoAccepted = tryAutoAccept(listing, saved, amount)
+        if (autoAccepted != null) return autoAccepted
         // Seller notification + email — only fires for PENDING offers
         // (auto-accept uses the purchase flow's own seller-notify +
         // receipt path, so duplicating here would double-ring the bell).
         // System listings (sellerUserId null) have no counterparty to
         // notify. Best-effort: any failure here is logged and does not
         // roll back the offer save.
-        if (!willAutoAccept && listing.sellerUserId != null) {
+        if (listing.sellerUserId != null) {
             def preview = amount != null ? "\$${amount.toPlainString()}" : ''
             def askPart = listing.price != null ? " (asking \$${listing.price.toPlainString()})" : ''
             notificationService?.safePush(
@@ -287,6 +270,44 @@ class OfferService {
             }
         }
         saved
+    }
+
+    /**
+     * Shared auto-accept gate (batch follow-up).
+     *
+     * Returns the ACCEPTED offer snapshot when the listing's maxDiscount
+     * threshold is met and the auto-accept purchase succeeds; returns
+     * null in every other case (no threshold set, amount below
+     * threshold, system listing, or any failure during accept) so the
+     * caller falls through to the PENDING + seller-notification path.
+     *
+     * Previously this lived inline in makeOffer only — buyerRaise saved
+     * the raised offer as PENDING and waited for manual seller action
+     * even when the raise amount crossed the seller's auto-accept
+     * threshold. That contradicted the seller's stated intent
+     * (maxDiscount = "auto-accept offers >= threshold") and slowed
+     * conversions: a buyer who initially offered $30 on a $50 ask with
+     * maxDiscount=0.10 (threshold $45) and then raised to $46 sat
+     * waiting for seller action that should have been bypassed.
+     */
+    private Offer tryAutoAccept(Listing listing, Offer saved, BigDecimal amount) {
+        if (listing?.maxDiscount == null
+                || listing.maxDiscount <= BigDecimal.ZERO
+                || listing.sellerUserId == null) {
+            return null
+        }
+        def threshold = (listing.price - (listing.price * listing.maxDiscount))
+            .setScale(2, BigDecimal.ROUND_HALF_UP)
+        if (amount < threshold) return null
+        try {
+            banGuard.assertNotBanned(listing.sellerUserId)
+            acceptOffer(listing.sellerUserId, saved.id)
+            // Reload to return the ACCEPTED snapshot.
+            return offerRepository.findById(saved.id).orElse(saved)
+        } catch (Exception e) {
+            log.warn("Auto-accept failed for offer ${saved.id}: ${e.message} — leaving in PENDING")
+            return null
+        }
     }
 
     /**
@@ -383,6 +404,16 @@ class OfferService {
             message      : cleanMessage
         )
         def saved = offerRepository.save(raised)
+        // Auto-accept the raise if it crosses listing.maxDiscount.
+        // Mirrors the makeOffer auto-accept path so a buyer who raises
+        // past the seller's auto-accept threshold gets the same instant
+        // purchase a fresh offer at that amount would get. Without
+        // this, the seller's stated intent ("auto-accept >= threshold")
+        // was honoured for initial offers but ignored for raises —
+        // converting buyers had to wait for manual seller action
+        // anyway, defeating the feature.
+        def autoAccepted = tryAutoAccept(listing, saved, amount)
+        if (autoAccepted != null) return autoAccepted
         if (original.sellerUserId != null) {
             try {
                 notificationService?.push(

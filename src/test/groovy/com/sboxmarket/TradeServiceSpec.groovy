@@ -1361,6 +1361,90 @@ class TradeServiceSpec extends Specification {
         0 * tradeRepository.save(_)
     }
 
+    def "sweep helpers run each per-trade body in its own REQUIRES_NEW transaction (self-invocation isolation)"() {
+        // Regression: the per-trade @Transactional helpers
+        // (autoCancelStaleSellerTrade, autoCancelBannedSellerTrade, and
+        // release-from-sweep) were called via `this.helper(...)` from the
+        // outer @Scheduled sweeps. Spring's CGLIB proxy is bypassed on
+        // self-invocation, so the @Transactional annotation was a no-op:
+        // a refundBuyer wallet save that committed in its own auto-commit
+        // tx followed by a transitionTo failure (optimistic-lock from a
+        // concurrent dispute) left the buyer credited but the trade still
+        // PENDING_SELLER_*; the next sweep tick re-found and DOUBLE-REFUNDED.
+        //
+        // Fix wraps each per-trade call in runInIsolatedTx, which spins a
+        // fresh REQUIRES_NEW TransactionTemplate when a PlatformTransactionManager
+        // is wired. This spec injects a mock manager and asserts the sweep
+        // opens exactly one transaction per candidate trade — the broken
+        // (pre-fix) code never touched the manager at all.
+        given:
+        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager)
+        def localSvc = new com.sboxmarket.service.TradeService(
+            tradeRepository       : tradeRepository,
+            walletRepository      : walletRepository,
+            transactionRepository : transactionRepository,
+            listingRepository     : listingRepository,
+            notificationService   : notificationService,
+            banGuard              : banGuard,
+            adminAuthorization    : adminAuthorization,
+            steamUserRepository   : steamUserRepository,
+            textSanitizer         : textSanitizer,
+            emailService          : emailService,
+            transactionManager    : txManager,
+            autoReleaseDays       : 8L,
+            sellerResponseDays    : 3L
+        )
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"))
+        def t1 = tradeIn('PENDING_SELLER_ACCEPT', [id: 71L])
+        def t2 = tradeIn('PENDING_SELLER_SEND',   [id: 72L])
+        tradeRepository.findStaleSellerPending(_) >> [t1, t2]
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        textSanitizer.medium(_) >> { String s -> s ?: '' }
+        // Real TransactionStatus is fine — we just need the manager to be
+        // invoked. The TransactionTemplate calls getTransaction → commit.
+        def txStatus = Mock(org.springframework.transaction.TransactionStatus)
+
+        when:
+        localSvc.sweepStaleSellerResponse()
+
+        then: "the sweep opens a fresh REQUIRES_NEW transaction per candidate"
+        2 * txManager.getTransaction({ org.springframework.transaction.TransactionDefinition def_ ->
+            def_.propagationBehavior == org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        }) >> txStatus
+        2 * txManager.commit(txStatus)
+        and: "both trades still transition to CANCELLED through the wrapped body"
+        t1.state == 'CANCELLED'
+        t2.state == 'CANCELLED'
+    }
+
+    def "sweep helpers fall back to inline execution when no PlatformTransactionManager is wired (unit-test path)"() {
+        // The Spock unit tests in this file build TradeService via the
+        // property-map constructor — no Spring context, no
+        // PlatformTransactionManager, no active synchronization. The
+        // runInIsolatedTx helper must fall back to running the work
+        // inline so the existing sweep specs (which all rely on real
+        // state mutation reaching the test's mocked repositories)
+        // continue to pass. Without this fallback, every sweep test
+        // becomes a no-op the moment we introduce the helper.
+        given:
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"))
+        def stale = tradeIn('PENDING_SELLER_ACCEPT', [id: 99L])
+        tradeRepository.findStaleSellerPending(_) >> [stale]
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        tradeRepository.save(_) >> { Trade t -> t }
+        walletRepository.save(_) >> { Wallet w -> w }
+        textSanitizer.medium(_) >> { String s -> s ?: '' }
+
+        when:
+        service.sweepStaleSellerResponse()
+
+        then: "state mutation still reaches the test's mocked repositories"
+        stale.state == 'CANCELLED'
+        buyerWallet.balance == new BigDecimal("50.00")
+    }
+
     // ── expiresAt decoration (Visual Manual §29) ──────────────────
 
     def "listForUserWithCounterparty decorates PENDING_SELLER_ACCEPT with expiresAt = updatedAt + sellerResponseDays"() {

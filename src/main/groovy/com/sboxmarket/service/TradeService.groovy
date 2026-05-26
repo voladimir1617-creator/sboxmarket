@@ -15,7 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Escrow state machine for Steam-style trades. Wraps the four legal
@@ -75,6 +78,21 @@ class TradeService {
     // old TradeService ↔ AdminService cycle that forced @Lazy injection.
     @Autowired BanGuard banGuard
     @Autowired AdminAuthorization adminAuthorization
+    // PlatformTransactionManager for per-trade isolated transactions in
+    // the scheduled sweepers. The sweeps loop over candidate trades and
+    // self-invoke the per-trade helpers (release, autoCancelStaleSellerTrade,
+    // autoCancelBannedSellerTrade) — Spring's CGLIB proxy is BYPASSED on
+    // self-invocation, so the @Transactional annotation on those helpers
+    // is a no-op when entered via the sweeps. Without a real per-trade tx,
+    // a refundBuyer wallet save that succeeds followed by a transitionTo
+    // save that fails (concurrent dispute → optimistic-lock) leaves the
+    // buyer credited but the trade still in PENDING_SELLER_* — the next
+    // 30-min sweep tick re-finds it and refunds AGAIN. Mirrors the
+    // BidService.runInIsolatedTx pattern (commit on settle isolation).
+    // Required = false so unit-test contexts that build TradeService via
+    // the property-map constructor (no Spring context) still wire — the
+    // helper falls back to inline execution when the manager is null.
+    @Autowired(required = false) PlatformTransactionManager transactionManager
     // Optional — the Trade Protection add-on. When a trade carries a
     // protection record, the dispute / timeout-loss paths auto-claim it
     // (full item-price refund to the buyer, no support ticket) and the
@@ -1064,6 +1082,41 @@ class TradeService {
     // ── Scheduled sweeper ────────────────────────────────────────────
 
     /**
+     * Run {@code work} in a fresh REQUIRES_NEW transaction when a
+     * PlatformTransactionManager is wired (production), otherwise run
+     * it inline (Spock unit tests that build TradeService via the
+     * property-map constructor without a Spring context).
+     *
+     * Used by the per-trade sweep helpers (release, autoCancelStaleSellerTrade,
+     * autoCancelBannedSellerTrade) so a failing refundBuyer / wallet save /
+     * transitionTo for ONE trade can't leave the row in a half-applied
+     * state that the NEXT sweep tick would re-process — concretely, a
+     * concurrent dispute on a stale-seller trade can cause the in-memory
+     * Trade to fail optimistic-lock on transitionTo, AFTER refundBuyer has
+     * already credited the buyer wallet. Without a real transaction the
+     * wallet credit is committed in its own auto-commit tx and the next
+     * sweep tick refunds the buyer a SECOND time. With this helper each
+     * per-trade run is atomic — the refundBuyer rolls back with the
+     * transitionTo failure, so the next sweep re-attempts cleanly.
+     *
+     * Mirrors BidService.runInIsolatedTx — the same self-invocation
+     * gotcha that motivated batch 800's auction-settle isolation. The
+     * @Transactional annotations on the protected helpers below were
+     * dead code because every caller is `this.helper(...)` from the
+     * outer @Scheduled sweep, which bypasses Spring's CGLIB proxy.
+     */
+    private void runInIsolatedTx(Closure work) {
+        if (transactionManager == null) {
+            work()
+            return
+        }
+        def tt = new TransactionTemplate(transactionManager)
+        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        tt.executeWithoutResult { work() }
+    }
+
+
+    /**
      * Runs every 15 minutes. Any trade still sitting in PENDING_BUYER_CONFIRM
      * after `autoReleaseDays` gets auto-released to the seller. Buyers have
      * that window to click Confirm Receipt or open a dispute; after that we
@@ -1092,7 +1145,16 @@ class TradeService {
         log.info("Trade sweeper (seller): ${candidates.size()} stale seller-pending trades found, auto-cancelling")
         candidates.each { trade ->
             try {
-                autoCancelStaleSellerTrade(trade)
+                // runInIsolatedTx so the per-trade @Transactional actually
+                // takes effect — `this.autoCancelStaleSellerTrade(trade)`
+                // is a self-invocation that bypasses Spring's CGLIB proxy,
+                // so the annotation alone was a no-op (mirrors the
+                // BidService.sweepExpired fix in batch 800). Without a
+                // real tx, a refundBuyer wallet credit followed by a
+                // transitionTo optimistic-lock failure left the buyer
+                // credited but the trade still PENDING_SELLER_* — the
+                // next sweep tick re-found it and DOUBLE-REFUNDED.
+                runInIsolatedTx { autoCancelStaleSellerTrade(trade) }
             } catch (Exception e) {
                 log.warn("Seller-response sweeper failed on ${trade.id}: ${e.message}")
             }
@@ -1253,11 +1315,18 @@ class TradeService {
         }
     }
 
-    /** Per-trade transaction for the seller-timeout sweep. Marked
-     *  protected so Spring's proxy still wraps the call in a tx when
-     *  invoked via `this` inside the sweeper loop above — each refund
-     *  + state transition is atomic, so one failure mid-loop doesn't
-     *  half-cancel a trade. */
+    /** Per-trade body for the seller-timeout sweep. Invoked from
+     *  sweepStaleSellerResponse via runInIsolatedTx, which provides
+     *  the REQUIRES_NEW transaction that the @Transactional annotation
+     *  on this protected method previously promised but never delivered
+     *  (Spring's CGLIB proxy is bypassed on self-invocation, so the
+     *  annotation alone was a no-op). With the per-trade tx in place,
+     *  the refundBuyer + returnListingToSeller + CANCELLED transition
+     *  are atomic — a transitionTo failure (e.g., optimistic-lock from
+     *  a concurrent dispute) rolls back the buyer wallet credit, so the
+     *  next sweep tick cannot DOUBLE-REFUND. The @Transactional stays
+     *  for any future external caller that would actually go through
+     *  the proxy. */
     @Transactional
     protected void autoCancelStaleSellerTrade(Trade trade) {
         refundBuyer(trade)
@@ -1406,22 +1475,30 @@ class TradeService {
                 // of releasing funds to a sanctioned account.
                 if (trade.sellerUserId != null && banGuard.isBanned(trade.sellerUserId)) {
                     log.info("Trade #{} seller is banned — auto-cancelling with buyer refund instead of release", trade.id)
-                    // Routed through a @Transactional helper so the
-                    // refundBuyer wallet write + listing return +
-                    // CANCELLED state flip + protection-expire all
-                    // commit (or roll back) atomically. Without the
-                    // wrapper these wallet.save() / listing.save() /
-                    // trade.save() calls each ran in their own short
-                    // auto-commit tx, leaving the buyer credited but
-                    // the trade still PENDING_BUYER_CONFIRM on a crash
-                    // mid-loop — a re-sweep next tick would refund a
-                    // second time.
-                    autoCancelBannedSellerTrade(trade)
+                    // runInIsolatedTx so the per-trade @Transactional on
+                    // autoCancelBannedSellerTrade actually takes effect —
+                    // self-invocation bypasses Spring's CGLIB proxy, so
+                    // the annotation alone was a no-op. Without a real
+                    // tx, the refundBuyer + returnListingToSeller saves
+                    // committed in their own auto-commit transactions
+                    // even when the trailing transitionTo failed (e.g.,
+                    // optimistic-lock from a concurrent dispute), leaving
+                    // the buyer credited but the trade still
+                    // PENDING_BUYER_CONFIRM — the next sweep tick
+                    // re-found it and DOUBLE-REFUNDED.
+                    runInIsolatedTx { autoCancelBannedSellerTrade(trade) }
                 } else {
                     // autoRelease=true fires the buyer-side email
                     // (batch 601) — the 8-day-silent buyer probably
                     // isn't checking the bell.
-                    release(trade, true)
+                    // runInIsolatedTx so the @Transactional on
+                    // release() actually engages — without it,
+                    // transitionTo's trade.save (committing VERIFIED)
+                    // and the seller wallet credit each ran in their
+                    // own auto-commit, so a crash between them left
+                    // the trade VERIFIED but the seller uncredited
+                    // (or vice versa on the very next attempt).
+                    runInIsolatedTx { release(trade, true) }
                     auditService?.log(AuditService.TRADE_AUTO_RELEASED, null, null, trade.id,
                         "Auto-released after ${autoReleaseDays}d no-confirm window")
                 }
@@ -1431,14 +1508,16 @@ class TradeService {
         }
     }
 
-    /** Per-trade transaction for the banned-seller branch of the
-     *  auto-release sweep. Mirrors {@link #autoCancelStaleSellerTrade} —
-     *  wraps the buyer refund + listing return + CANCELLED transition
-     *  in one atomic unit so a crash midway can never double-refund the
-     *  buyer on the next sweep tick. Protected so Spring's CGLIB proxy
-     *  still applies @Transactional when the public sweeper invokes it
-     *  externally (this/self-invocation note: the sweep itself is
-     *  unannotated, so the call CROSSES the proxy boundary). */
+    /** Per-trade body for the banned-seller branch of the auto-release
+     *  sweep. Invoked from sweepPendingConfirm via runInIsolatedTx, which
+     *  provides the REQUIRES_NEW transaction this needs. The @Transactional
+     *  annotation alone was previously dead code: the sweep loop calls
+     *  `this.autoCancelBannedSellerTrade(trade)`, and Spring's CGLIB proxy
+     *  is bypassed on self-invocation — see the runInIsolatedTx docstring.
+     *  With the per-trade tx in place, the refundBuyer + returnListingToSeller +
+     *  CANCELLED transition are atomic, so a transitionTo failure
+     *  (optimistic-lock) cannot leave the buyer credited while the trade
+     *  stays in PENDING_BUYER_CONFIRM for the next tick to refund again. */
     @Transactional
     protected void autoCancelBannedSellerTrade(Trade trade) {
         refundBuyer(trade)

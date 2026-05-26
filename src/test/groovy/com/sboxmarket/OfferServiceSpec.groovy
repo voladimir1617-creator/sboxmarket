@@ -69,7 +69,8 @@ class OfferServiceSpec extends Specification {
             item:         item,
             price:        args.price ?: new BigDecimal("50.00"),
             sellerUserId: args.seller ?: 99L,
-            status:       args.status ?: 'ACTIVE'
+            status:       args.status ?: 'ACTIVE',
+            maxDiscount:  args.maxDiscount
         )
     }
 
@@ -414,6 +415,50 @@ class OfferServiceSpec extends Specification {
 
         then:
         1 * notificationService.push(99L, 'OFFER_RECEIVED', _, _, _, '/offers')
+    }
+
+    def "buyerRaise auto-accepts when the raise crosses listing.maxDiscount"() {
+        // Regression: makeOffer honoured listing.maxDiscount (auto-accept
+        // any offer >= price * (1 - maxDiscount)), but buyerRaise did
+        // not — a raise that crossed the threshold sat PENDING waiting
+        // for manual seller action, contradicting the seller's stated
+        // intent. Fix: tryAutoAccept is now called on both code paths.
+        given:
+        def original = pendingOffer(amount: new BigDecimal("30"))
+        // Threshold = 50 - 50*0.10 = 45.00. Raise of $46 crosses it.
+        def listing = activeListing(price: new BigDecimal("50"),
+                                    maxDiscount: new BigDecimal("0.10"))
+        // The raise stores a fresh PENDING row via save; we capture it
+        // so acceptOffer (called from tryAutoAccept) finds it on its
+        // own findById(2L) lookup. Same instance also satisfies the
+        // post-purchase reload at the end of tryAutoAccept.
+        Offer raisedRow = null
+        offerRepository.save(_) >> { Offer o ->
+            o.id = o.id ?: 2L
+            if (o.parentOfferId != null) raisedRow = o
+            o
+        }
+        offerRepository.findById(1L) >> Optional.of(original)
+        offerRepository.findById(2L) >> { Optional.ofNullable(raisedRow) }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        // acceptOffer wiring — buyer wallet must cover the raise.
+        def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice')
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_7656117') >> new Wallet(
+            id: 500L, username: 'steam_7656117',
+            balance: new BigDecimal('100.00'))
+
+        when:
+        def raised = service.buyerRaise(10L, 1L, new BigDecimal("46"))
+
+        then:
+        // Auto-accept path fired — the raise row was flipped to
+        // ACCEPTED by acceptOffer, and the OFFER_RECEIVED ping is
+        // suppressed (the purchase flow does its own seller
+        // notification + receipt).
+        raised.status == 'ACCEPTED'
+        0 * notificationService.push(_, 'OFFER_RECEIVED', _, _, _, _)
+        1 * purchaseService.buy(500L, 10L, 100L)
     }
 
     // ── sweepStaleOffers ──────────────────────────────────────────
