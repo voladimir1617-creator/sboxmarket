@@ -915,4 +915,50 @@ class StripeServiceSpec extends Specification {
         and: 'a null id short-circuits to null'
         service.findDepositByPaymentIntent(null) == null
     }
+
+    // ── createDepositSession idempotency (regression) ─────────────────
+    //
+    // The idempotency key bucket inside createDepositSession is
+    // (walletId:amountCents:minute). When the user double-clicks Deposit
+    // inside the same wall-clock minute, Stripe's idempotency contract
+    // returns the SAME Session.id on the second call. Pre-fix, we then
+    // blindly wrote a SECOND PENDING Transaction row carrying the same
+    // stripeReference — the column has no unique constraint, so it
+    // landed. completeDeposit's `findByStripeReference(sessionId)` then
+    // resolves only ONE of those rows; the other stays PENDING forever
+    // (ghost "Deposit pending · $X" chip on the wallet hero AND keeps
+    // counting toward the 24h deposit cap, blocking legitimate retries).
+    // Fix: short-circuit and return the existing PENDING row when one
+    // already maps to this Session.id.
+    def "createDepositSession reuses the existing PENDING row when Stripe replays the same Session id (idempotency)"() {
+        given: 'live mode so the Stripe-idempotency path is exercised'
+        service.secretKey = 'sk_live_dedupe_test'
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        // Daily cap not relevant — no prior deposits.
+        transactionRepository.sumDepositsSince(_, _) >> BigDecimal.ZERO
+
+        and: 'Stripe returns the SAME Session.id on the (idempotent) replay'
+        def fakeSession = [id: 'cs_live_idem_42', url: 'https://stripe/co/cs_live_idem_42']
+        GroovySpy(com.stripe.model.checkout.Session, global: true)
+        com.stripe.model.checkout.Session.create(_, _) >> fakeSession
+
+        and: 'first call wrote the PENDING row; the dedupe check now finds it'
+        def existingPending = new Transaction(
+            id: 7L, walletId: 500L, type: 'DEPOSIT', status: 'PENDING',
+            amount: new BigDecimal('25.00'), currency: 'USD',
+            stripeReference: 'cs_live_idem_42'
+        )
+        transactionRepository.findByStripeReference('cs_live_idem_42') >> existingPending
+
+        when: 'the user double-clicks and a second createDepositSession fires'
+        def result = service.createDepositSession(500L, new BigDecimal('25.00'))
+
+        then: 'returns the EXISTING tx id — never writes a second PENDING row with the same stripeReference'
+        result.transactionId == 7L
+        result.sessionId == 'cs_live_idem_42'
+        result.live == true
+        // No new Transaction.save — pre-fix this was 1 (the duplicate PENDING).
+        0 * transactionRepository.save(_)
+    }
 }
