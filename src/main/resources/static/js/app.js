@@ -3771,7 +3771,13 @@ export function App() {
   const [cart, setCart] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_cart') || '[]'); } catch { return []; }
   });
-  useEffect(() => { localStorage.setItem('sb_cart', JSON.stringify(cart)); }, [cart]);
+  // try/catch the persist write — QuotaExceededError (storage full,
+  // Safari private mode) used to bubble out of the effect and crash
+  // the App render. Cart still works in-memory; user just loses the
+  // cross-reload persistence.
+  useEffect(() => {
+    try { localStorage.setItem('sb_cart', JSON.stringify(cart)); } catch (_) {}
+  }, [cart]);
   // Cross-tab cart sync — the browser fires a 'storage' event in every
   // tab EXCEPT the one that wrote the change, so this listener keeps
   // tabs B/C up-to-date when tab A adds or removes a row. Otherwise
@@ -4099,7 +4105,13 @@ export function App() {
   const [watchlist, setWatchlist]       = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_watchlist') || '[]'); } catch { return []; }
   });
-  useEffect(() => { localStorage.setItem('sb_watchlist', JSON.stringify(watchlist)); }, [watchlist]);
+  // Same QuotaExceededError guard as the cart persist effect — without
+  // this a full localStorage throws out of the effect and crashes the
+  // App render. Star state stays in-memory + syncs to the server on
+  // sign-in via the bridge below.
+  useEffect(() => {
+    try { localStorage.setItem('sb_watchlist', JSON.stringify(watchlist)); } catch (_) {}
+  }, [watchlist]);
   // One-shot bridge on first sign-in after batch 262: POST whatever the
   // anon localStorage had → /api/watchlist/bulk so the user keeps every
   // star they made before signing in. Server returns the merged set;

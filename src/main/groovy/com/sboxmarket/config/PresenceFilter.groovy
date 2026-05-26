@@ -26,15 +26,22 @@ import java.util.concurrent.ConcurrentHashMap
  * Container restart wipes the map — the worst case is one extra UPDATE
  * per active user immediately after restart, then the throttle resumes.
  *
- * Ordered after SessionEpochFilter (4) so a revoked session doesn't get
- * a phantom presence bump on its way to a 401. Skipped for the Steam
- * auth endpoints + Stripe webhook, same reasoning as SessionEpochFilter.
+ * Ordered LAST among the business filters (after SessionEpochFilter at 4
+ * AND after RateLimitFilter at 5) so a revoked session doesn't get a
+ * phantom presence bump on its way to a 401, AND a rate-limited request
+ * (returning 429 from RateLimitFilter without continuing the chain)
+ * doesn't trigger a `last_seen_at` UPDATE for the throttled user. With
+ * a colliding @Order(5) on both filters the chain position was non-
+ * deterministic and PresenceFilter could win the race, causing the
+ * exact phantom-presence bug the comment above warns about. Skipped
+ * for the Steam auth endpoints + Stripe webhook, same reasoning as
+ * SessionEpochFilter.
  *
  * Designed to be silent on failure — a DB blip during the throttled
  * write must not 5xx the user's actual page load.
  */
 @Component
-@Order(5)
+@Order(6)
 @Slf4j
 class PresenceFilter extends OncePerRequestFilter {
 
