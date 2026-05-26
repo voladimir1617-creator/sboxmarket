@@ -1600,6 +1600,99 @@ class BidServiceSpec extends Specification {
         listing.buyerUserId == 99L
     }
 
+    def "settle refuses to debit a winner whose wallet was frozen between bid and settle"() {
+        // Bug: the bid-time freeze gate (line 215) claimed PurchaseService.buy
+        // would catch a freeze that landed AFTER the bid. But settle()
+        // does its OWN wallet debit and never routes through buy() — so
+        // a wallet frozen mid-auction (admin freeze, fraud hold,
+        // wallet.frozen flipped to true by AdminService.freezeWallet)
+        // was silently debited at settle time, opening a trade the
+        // seller is then expected to honor with no recourse. Settle
+        // must mirror the bid-time freeze gate: no-sale, item back to
+        // seller, ping both parties.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        def winnerBid = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')
+        def loserBid = new Bid(id: 2L, listingId: 100L, bidderUserId: 20L,
+            amount: new BigDecimal("45"), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [winnerBid, loserBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'winner', banned: false))
+        // Winner has plenty of balance, but the wallet was frozen by
+        // staff after the bid was placed.
+        def frozenWallet = new com.sboxmarket.model.Wallet(
+            id: 500L, username: 'steam_winner',
+            balance: new BigDecimal("500"),
+            frozen: true, frozenReason: 'fraud hold'
+        )
+        walletRepository.findByUsername('steam_winner') >> frozenWallet
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        // Item returned to the seller — NOT sold to the frozen winner.
+        listing.status == 'SOLD'
+        listing.buyerUserId == 99L
+        // Frozen wallet was NEVER debited (the bug previously would
+        // have debited it: balance 500 - 50 = 450).
+        frozenWallet.balance == new BigDecimal("500")
+        // Every live bid is closed out — no stale Active-Bids rows.
+        winnerBid.status == 'LOST'
+        loserBid.status == 'LOST'
+        // No PURCHASE transaction was written against the frozen wallet.
+        0 * transactionRepository.save(_)
+        // No trade was opened.
+        0 * walletRepository.save({ com.sboxmarket.model.Wallet w -> w.id == 500L })
+    }
+
+    def "settle refuses to debit a winner with an active deposit dispute hold"() {
+        // Companion to the frozen-wallet settle gate. A buyer with an
+        // active DISPUTED deposit must not have their wallet debited
+        // for an auction win — same chargeback-via-purchase exploit
+        // the bid-time dispute-hold gate (batch 511) blocks. Settle
+        // re-checks because the dispute may land between bid and settle.
+        given:
+        def now = System.currentTimeMillis()
+        def listing = auctionListing(
+            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
+            seller: 99L, expiresAt: now - 1000L
+        )
+        listingRepository.findExpiredAuctions(_) >> [listing]
+        def winnerBid = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
+            amount: new BigDecimal("50"), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [winnerBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'winner', banned: false))
+        def wallet = new com.sboxmarket.model.Wallet(
+            id: 500L, username: 'steam_winner',
+            balance: new BigDecimal("500")
+        )
+        walletRepository.findByUsername('steam_winner') >> wallet
+        // Dispute landed after the bid was placed.
+        transactionRepository.countActiveDisputedDeposits(500L) >> 1L
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+
+        when:
+        service.sweepExpired()
+
+        then:
+        listing.status == 'SOLD'
+        listing.buyerUserId == 99L
+        wallet.balance == new BigDecimal("500")
+        winnerBid.status == 'LOST'
+        0 * transactionRepository.save(_)
+    }
+
     def "sweepEndingSoon filters banned users out of the recipient set (batch 320)"() {
         given:
         def listing = auctionListing(id: 100L, currentBid: new BigDecimal("15"),

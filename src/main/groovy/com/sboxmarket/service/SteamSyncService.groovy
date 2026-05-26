@@ -170,8 +170,17 @@ class SteamSyncService {
         def priorRecorded = fresh.steamInventorySize
         def before = priorRecorded ?: 0
         def isBaseline = (priorRecorded == null)
-        fresh.lastSyncedAt = System.currentTimeMillis()
+        // ONLY bump lastSyncedAt on a real successful fetch. Bumping it on
+        // a blocked fetch (rate-limit / private inventory) used to push the
+        // user out of `findStaleForSync`'s cutoff window for the full 24h
+        // STALE_AFTER_MS — defeating the rolling-staleness model. Steam
+        // typically blocks us for ~5 minutes; the very next 20-minute tick
+        // SHOULD re-attempt this user once the block has lifted. With the
+        // unconditional bump, a single transient 429 silently downgraded the
+        // user to one sync attempt every 24h, exactly contrary to the
+        // doSyncOne comment above ("until we get a real successful fetch").
         if (!blocked) {
+            fresh.lastSyncedAt = System.currentTimeMillis()
             fresh.steamInventorySize = now
         }
         steamUserRepository.save(fresh)

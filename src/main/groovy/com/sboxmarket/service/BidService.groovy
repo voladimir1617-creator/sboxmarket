@@ -209,9 +209,12 @@ class BidService {
             if (bidderWallet != null) {
                 // Wallet freeze gate (batch 510). Rejects at bid time so
                 // a frozen bidder doesn't win an auction they can't pay
-                // for — settle would fail on the WALLET_FROZEN check in
-                // PurchaseService.buy, orphaning the auction with no winner
-                // and wasting the seller's time.
+                // for. Bid-time is the FIRST line of defence — settle()
+                // also re-checks frozen/disputed at settle-time as a
+                // belt-and-braces second pass, since the freeze may land
+                // between bid-time and settle-time. (Settle does its own
+                // wallet debit and never calls PurchaseService.buy, so
+                // the buy-path freeze gate doesn't apply to auction wins.)
                 if (Boolean.TRUE.equals(bidderWallet.frozen)) {
                     throw new BadRequestException("WALLET_FROZEN",
                         "Your wallet is frozen by staff" +
@@ -1047,6 +1050,56 @@ class BidService {
             return
         }
         def wallet = walletRepository.findByUsername("steam_${winnerUser.steamId64}")
+        // Wallet-frozen / dispute-hold settle-time gate (companion to the
+        // bid-time freeze gate at line 215, which assumed "settle would
+        // fail on the WALLET_FROZEN check in PurchaseService.buy" — but
+        // settle does its OWN direct wallet debit below and never calls
+        // PurchaseService.buy, so the bid-time gate was the only barrier.
+        // A wallet frozen AFTER the bid landed (admin freeze, fraud
+        // hold, chargeback-derived dispute hold) would otherwise be
+        // silently debited here, opening a trade the seller is then
+        // expected to honor. Treat it as a no-sale: return the item to
+        // the seller and ping both parties, same shape as the
+        // can't-afford branch immediately below.
+        boolean frozen = wallet != null && Boolean.TRUE.equals(wallet.frozen)
+        boolean disputed = false
+        if (wallet != null && transactionRepository != null) {
+            try {
+                disputed = transactionRepository.countActiveDisputedDeposits(wallet.id) > 0L
+            } catch (Exception ignore) { /* never block settle on the count probe */ }
+        }
+        if (frozen || disputed) {
+            listing.status = 'SOLD'
+            listing.buyerUserId = listing.sellerUserId
+            listing.soldAt = System.currentTimeMillis()
+            listingRepository.save(listing)
+            closeOutLiveBids(listing.id)
+            String winnerReason = frozen
+                ? "Auction lost — wallet frozen"
+                : "Auction lost — deposit dispute on file"
+            try {
+                notificationService.push(winnerId, 'AUCTION_LOST',
+                    winnerReason, listing.item?.name, listing.id,
+                    listing.item?.id != null ? "/item/${listing.item.id}" : null)
+            } catch (Exception e) {
+                log.warn("AUCTION_LOST (frozen/disputed) push to winner failed: ${e.message}")
+            }
+            if (listing.sellerUserId != null) {
+                String sellerBody = frozen
+                    ? "The top bidder's wallet was frozen by staff before settlement. The item is back in your inventory."
+                    : "The top bidder has an unresolved deposit dispute. The item is back in your inventory."
+                try {
+                    notificationService.push(listing.sellerUserId, 'AUCTION_EXPIRED_NO_BIDS',
+                        "Auction winner couldn't pay · ${listing.item?.name ?: 'your auction'}",
+                        sellerBody,
+                        listing.id, '/sell')
+                } catch (Exception e) {
+                    log.warn("AUCTION_EXPIRED_NO_BIDS (frozen/disputed) push to seller failed: ${e.message}")
+                }
+                fireAuctionExpiredEmail(listing, sellerBody)
+            }
+            return
+        }
         if (wallet == null || wallet.balance < listing.currentBid) {
             // Winner can't afford — return the item to the seller, ping
             // both parties. Bid-time solvency check (BidService.placeBid)

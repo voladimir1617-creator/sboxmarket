@@ -43,14 +43,19 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
      *  query param inside a Steam trade URL derives from the account's
      *  Steam ID32 — two SkinBox accounts with the same partner id
      *  almost certainly represent the same human (account-stuffing).
-     *  Case-insensitive LIKE on the partner fragment so minor URL
-     *  variations (http vs https, trailing slash) still match. */
-    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '%') ESCAPE '\\'")
+     *  Anchored with the trailing `&token=` separator so a prefix match
+     *  doesn't false-collide — without the `&token=` anchor, a probe
+     *  for partner id `12345` would also match a stored `partner=123456`
+     *  via the bare `%partner=12345%` substring, locking legitimate users
+     *  out with a spurious TRADE_URL_TAKEN. The TRADE_URL_RE in
+     *  ProfileController guarantees `partner=\d+&token=` is the only
+     *  shape that ever persists. */
+    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '&token=%') ESCAPE '\\'")
     List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId)
 
     /** Paged companion — coordinated account-stuffing can produce many
      *  matches; the cap bounds the per-call hydration. */
-    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '%') ESCAPE '\\'")
+    @Query("SELECT u FROM SteamUser u WHERE u.tradeUrl LIKE CONCAT('%partner=', :partnerId, '&token=%') ESCAPE '\\'")
     List<SteamUser> findByTradeUrlPartnerId(@Param('partnerId') String partnerId, Pageable page)
 
     /**
