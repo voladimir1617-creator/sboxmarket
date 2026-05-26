@@ -508,4 +508,40 @@ class AdminControllerSpec extends Specification {
         1 * sim.simulateListings(100L, 1) >> [created: 1]
         0 * sim.simulateListings(100L, 20)
     }
+
+    // ── /users/{id}/transactions.csv — amount=0 round-trip ──────────
+    //
+    // Regression: `r.amount ?: ''` in the row builder treats
+    // `BigDecimal.ZERO` as falsy (Groovy truthiness on Numbers — same
+    // class as ccfe0b5 / 4e1a0d4 / 0d15de2 / 4cc7288 / 8224a9b), so a
+    // $0 comp / promo / refund-to-zero transaction silently rendered
+    // as a BLANK cell in the fraud-reconciliation CSV. Staff filtering
+    // "amount > 0" in Excel saw the row as "no value" and missed the
+    // zero-dollar reversal that's a real (sometimes the ONLY) signal
+    // for chargeback-pattern triage. Same trap on id/buyerUserId etc.
+    def "userTransactionsCsv() renders amount=0 as '0' instead of blanking the cell"() {
+        given:
+        adminSession(100L)
+        def row = [id: 42L, type: 'REFUND', status: 'COMPLETED',
+                   amount: BigDecimal.ZERO, currency: 'USD',
+                   description: 'Zero-dollar reversal',
+                   stripeReference: 're_abc',
+                   createdAt: 1_700_000_000_000L,
+                   updatedAt: 1_700_000_000_000L]
+        1 * adminService.listTransactionsFor(100L, 7L) >> [row]
+
+        when:
+        def resp = controller.userTransactionsCsv(7L, req)
+        def lines = resp.body.toString().split('\n')
+        def dataRow = lines[1]
+        def cells = dataRow.split(',', -1)  // -1 keeps trailing empty cells
+
+        then: 'amount column (index 3) shows "0" not "" — fraud filters depend on it'
+        cells[0] == '42'
+        cells[3] == '0'
+        // And the row-id similarly: id=0 would still round-trip, even
+        // though SteamUser auto-ids never realistically hit 0 — the
+        // defuse is uniform across every numeric column.
+        cells[3] != ''
+    }
 }

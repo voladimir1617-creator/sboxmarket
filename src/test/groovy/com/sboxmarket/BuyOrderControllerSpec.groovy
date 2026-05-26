@@ -193,6 +193,28 @@ class BuyOrderControllerSpec extends Specification {
         seenLim == 8
     }
 
+    def "topActive() with limit=0 honours the explicit-0 request (clamped to 1, NOT the 8 default)"() {
+        // Regression — `?limit=0` previously hit Groovy's Elvis-on-zero
+        // (`limit ?: 8` treats Integer 0 as falsy and substitutes the
+        // default), so the caller asking for "as few as possible" was
+        // silently handed 8 rows. Now: explicit null-check, so 0 flows
+        // through and gets the controller's documented `Math.max(_, 1)`
+        // floor (= 1 row), matching every sibling endpoint touched by
+        // the 75678e1 / 0d15de2 / ccfe0b5 / 4e1a0d4 / 8224a9b family.
+        given:
+        int seenLim = -1
+        1 * buyOrderService.listTopActive(_) >> { args ->
+            seenLim = args[0]
+            []
+        }
+
+        when:
+        controller.topActive(0)
+
+        then:
+        seenLim == 1
+    }
+
     def "countForItem() returns {itemId, count, bestBid} — best null when zero"() {
         given:
         1 * buyOrderService.countActiveForItem(42L) >> 0L

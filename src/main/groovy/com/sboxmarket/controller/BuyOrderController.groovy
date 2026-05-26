@@ -82,7 +82,11 @@ class BuyOrderController {
      *  to [1, 20] rows. */
     @GetMapping("/top")
     ResponseEntity<List<Map>> topActive(@RequestParam(required = false) Integer limit) {
-        int lim = Math.min(Math.max(limit ?: 8, 1), 20)
+        // Explicit null-check, not Elvis — `?limit=0` is a legitimate
+        // "return zero rows" request; `?: 8` treats 0 as falsy and
+        // silently substitutes 8. Same Elvis-on-zero bug class as
+        // 75678e1 / 0d15de2 / ccfe0b5 / 4e1a0d4 / 8224a9b.
+        int lim = Math.min(Math.max(limit != null ? limit : 8, 1), 20)
         def rows = buyOrderService.listTopActive(lim)
         // Batch 759 — 60s public cache. Top-of-book shifts slowly
         // (needs a new higher-maxPrice buy order or a cancellation),
