@@ -201,6 +201,40 @@ class StripeServiceSpec extends Specification {
         tx.status == 'PENDING'
     }
 
+    def "requestWithdrawal audit row carries the wallet owner as actor AND subject"() {
+        // Pre-fix the audit row was logged with actorUserId=null AND
+        // subjectUserId=null — even though this is a self-initiated
+        // money-out movement and the wallet owner is right there at
+        // `wallet.username = steam_<id>`. The null subjectUserId meant
+        // ProfileController /security-activity (which filters
+        // auditLogRepository.bySubject on subjectUserId = uid) NEVER
+        // returned the row, so a user whose session was hijacked to
+        // initiate withdrawals could not see those withdrawals in their
+        // own security history feed even though WITHDRAW_REQUESTED is
+        // explicitly white-listed there — the exact fraud-detection
+        // scenario the feed exists to expose. Same null/null bug pattern
+        // sibling cancelPendingWithdrawal (line 519) already fixed; this
+        // is the matching outlier on the request path.
+        given:
+        def steamUserRepository = Mock(SteamUserRepository)
+        def audit = Mock(AuditService)
+        service.steamUserRepository = steamUserRepository
+        service.auditService = audit
+        def owner = new SteamUser(id: 888L, steamId64: '76561198000000099')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('100.00'),
+            username: 'steam_76561198000000099')
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction t -> t.id = 17L; t }
+        steamUserRepository.findBySteamId64('76561198000000099') >> owner
+
+        when:
+        service.requestWithdrawal(500L, new BigDecimal('40'), 'acct_external')
+
+        then: 'audit log carries the owner as BOTH actor and subject — visible to /security-activity'
+        1 * audit.log(AuditService.WITHDRAW_REQUESTED, 888L, 888L, 17L, _)
+    }
+
     // ── refundDeposit ─────────────────────────────────────────────
 
     def "refundDeposit debits the wallet and records a REFUND tx (dev mode)"() {

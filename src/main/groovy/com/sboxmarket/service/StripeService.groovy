@@ -543,8 +543,26 @@ class StripeService {
         )
         transactionRepository.save(tx)
 
+        // Resolve the wallet owner so the requested-withdraw audit row
+        // carries them as BOTH actor AND subject — pre-fix this logged
+        // null/null, which meant the row was invisible to
+        // ProfileController's /security-activity feed (filters via
+        // auditLogRepository.bySubject on subjectUserId = uid).
+        // WITHDRAW_REQUESTED is explicitly white-listed on that feed,
+        // so a user who initiated a money-out movement had no record of
+        // it in their own security history — exactly the surface the
+        // feed exists to expose (session-hijack-driven withdraws).
+        // Same null/null bug pattern this file already fixed for
+        // refundDeposit (line 373) and cancelPendingWithdrawal (line 498).
+        Long ownerUserId = null
         try {
-            auditService?.log(AuditService.WITHDRAW_REQUESTED, null, null, tx.id,
+            def uname = wallet.username ?: ''
+            if (uname.startsWith('steam_')) {
+                ownerUserId = steamUserRepository?.findBySteamId64(uname.substring('steam_'.length()))?.id
+            }
+        } catch (Exception ignore) {}
+        try {
+            auditService?.log(AuditService.WITHDRAW_REQUESTED, ownerUserId, ownerUserId, tx.id,
                 "Withdrawal \$${amount} requested from wallet ${wallet.username} → ${destinationRef}")
         } catch (Exception ignore) {}
         log.info("Withdrawal \$${amount} from wallet $walletId → ${tx.status}")
