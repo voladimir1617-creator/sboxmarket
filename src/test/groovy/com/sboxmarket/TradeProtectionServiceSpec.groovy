@@ -572,6 +572,7 @@ class TradeProtectionServiceSpec extends Specification {
             itemName: 'Wizard Hat', listingId: 100L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('5.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -614,6 +615,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -634,6 +636,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -650,6 +653,7 @@ class TradeProtectionServiceSpec extends Specification {
     def "autoClaim is a no-op returning null when the trade has no protection"() {
         given:
         tradeProtectionRepository.findByTradeId(1L) >> null
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> null
 
         when:
         def result = service.autoClaim(1L, 'whatever')
@@ -667,6 +671,7 @@ class TradeProtectionServiceSpec extends Specification {
         def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
             status: status, coverageAmount: new BigDecimal('50.00'))
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
 
         when:
         def result = service.autoClaim(1L, 'double fire')
@@ -688,6 +693,7 @@ class TradeProtectionServiceSpec extends Specification {
             status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
         def trade = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L)
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.empty()
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
@@ -709,6 +715,7 @@ class TradeProtectionServiceSpec extends Specification {
             status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
         def trade = tradeIn('CANCELLED', buyer: 10L, buyerWallet: null)
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
 
@@ -727,6 +734,7 @@ class TradeProtectionServiceSpec extends Specification {
         def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
             status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.empty()
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
 
@@ -746,6 +754,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L, itemName: 'Wizard Hat')
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -766,6 +775,7 @@ class TradeProtectionServiceSpec extends Specification {
             status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
         def trade = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L, itemName: 'Wizard Hat')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.empty()
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
@@ -787,6 +797,7 @@ class TradeProtectionServiceSpec extends Specification {
             status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
         def trade = tradeIn('CANCELLED', buyer: 10L, buyerWallet: null, itemName: 'Wizard Hat')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
 
@@ -807,6 +818,7 @@ class TradeProtectionServiceSpec extends Specification {
         def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
             status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.empty()
         tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
 
@@ -833,6 +845,7 @@ class TradeProtectionServiceSpec extends Specification {
             price: new BigDecimal('5.00'))   // deliberately != coverageAmount
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -856,6 +869,7 @@ class TradeProtectionServiceSpec extends Specification {
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('5.00'),
             currency: 'USD', frozen: true)
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -878,6 +892,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'EUR')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -898,6 +913,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -927,6 +943,7 @@ class TradeProtectionServiceSpec extends Specification {
         def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L)
         def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
         tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
         tradeRepository.findById(1L) >> Optional.of(trade)
         walletRepository.findById(500L) >> Optional.of(wallet)
         walletRepository.save(_) >> { Wallet w -> w }
@@ -938,6 +955,148 @@ class TradeProtectionServiceSpec extends Specification {
 
         then: "exactly one transaction, already COMPLETED"
         1 * transactionRepository.save({ Transaction tx -> tx.status == 'COMPLETED' })
+    }
+
+    def "autoClaim reads the protection row under a pessimistic write lock (cancel-race fix)"() {
+        // Reproducer for the cancel × dispute double-payout race
+        // (batch 661). The seller-timeout sweeper running
+        // autoCancelStaleSellerTrade can fire at the exact instant a buyer
+        // hits Dispute on a protected trade: both paths credit the buyer
+        // wallet for the SAME trade unless autoClaim and cancel serialise
+        // on the protection row.
+        //
+        // Pre-fix flow:
+        //   T1 (dispute → autoClaim REQUIRES_NEW) — findByTradeId (unlocked)
+        //     reads ACTIVE, credits wallet +price, commits CLAIMED.
+        //   T2 (cancel) — findForTrade (unlocked) reads ACTIVE *before* T1's
+        //     commit lands, runs refundBuyer +price.
+        //   Net: buyer credited twice for one trade.
+        //
+        // Post-fix: autoClaim's read goes through findByTradeIdForUpdate, and
+        // cancel's read goes through lockAndExpireIfActiveOrReportClaimed
+        // (also locked). Whoever acquires the row lock first runs to commit;
+        // the other observes the resolved state on its locked re-read and
+        // either skips refund (cancel) or skips payout (autoClaim).
+        given: "an ACTIVE protection ready to be claimed"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        def trade  = tradeIn('DISPUTED', buyer: 10L, buyerWallet: 500L)
+        def wallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        // ONLY the locked finder is stubbed — the unlocked findByTradeId
+        // returns null. If autoClaim ever reads through findByTradeId again
+        // it will short-circuit to "no protection" and the credit + payout
+        // assertions below will fail — making the regression load-bearing.
+        tradeProtectionRepository.findByTradeId(1L) >> null
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> null
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        def result = service.autoClaim(1L, 'Seller fault')
+
+        then: "autoClaim uses the locked read — the claim still pays out"
+        1 * tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
+        // ...and never the unlocked read (the racy old path).
+        0 * tradeProtectionRepository.findByTradeId(1L)
+
+        and: "the wallet was credited and the protection flipped to CLAIMED"
+        wallet.balance == new BigDecimal('50.00')
+        result.status == TradeProtection.CLAIMED
+    }
+
+    // ── lockAndExpireIfActiveOrReportClaimed ───────────────────────
+    //
+    // The cancel-path arbiter that closes the double-payout race
+    // between cancel.refundBuyer and a concurrent autoClaim. Runs in
+    // the caller's transaction (REQUIRED) so the pessimistic row lock
+    // it acquires spans cancel.refundBuyer + transitionTo, blocking a
+    // contending autoClaim until cancel commits. autoClaim's locked
+    // re-read then observes the consumed state and bails.
+
+    def "lockAndExpireIfActiveOrReportClaimed returns true on a CLAIMED protection (cancel must skip refund)"() {
+        given: "autoClaim already paid the buyer; cancel arrives next"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.CLAIMED, coverageAmount: new BigDecimal('50.00'))
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
+
+        when:
+        def alreadyPaid = service.lockAndExpireIfActiveOrReportClaimed(1L)
+
+        then: "true → caller skips its escrow refund"
+        alreadyPaid == true
+
+        and: "no state mutation — the row stays CLAIMED"
+        protection.status == TradeProtection.CLAIMED
+        0 * tradeProtectionRepository.save(_)
+    }
+
+    def "lockAndExpireIfActiveOrReportClaimed flips ACTIVE → EXPIRED inline and returns false (cancel will refund)"() {
+        given: "cancel arrives first; cover is still ACTIVE"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        def alreadyPaid = service.lockAndExpireIfActiveOrReportClaimed(1L)
+
+        then: "false → caller will refund the buyer from escrow"
+        alreadyPaid == false
+
+        and: "the cover is consumed INLINE (in the caller's tx, under the lock) " +
+             "so a concurrent autoClaim re-read sees status != ACTIVE and bails"
+        protection.status == TradeProtection.EXPIRED
+        protection.resolvedAt != null
+        protection.updatedAt == protection.resolvedAt
+        1 * tradeProtectionRepository.save(protection)
+
+        and: "no wallet movement — consumption is a state flip, the fee stays revenue"
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+    }
+
+    def "lockAndExpireIfActiveOrReportClaimed returns false (and does nothing) when the trade has no protection"() {
+        given: "the overwhelming-majority case — unprotected trade"
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> null
+
+        when:
+        def alreadyPaid = service.lockAndExpireIfActiveOrReportClaimed(1L)
+
+        then: "false → cancel runs its ordinary refundBuyer for unprotected trades"
+        alreadyPaid == false
+        0 * tradeProtectionRepository.save(_)
+    }
+
+    def "lockAndExpireIfActiveOrReportClaimed returns false (and does nothing) when the protection is already EXPIRED"() {
+        // A trade that completed normally (release → expire) and somehow
+        // re-enters cancel — should not mis-report as CLAIMED, and must
+        // not try to re-flip an already-EXPIRED row.
+        given:
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.EXPIRED, coverageAmount: new BigDecimal('50.00'))
+        tradeProtectionRepository.findByTradeIdForUpdate(1L) >> protection
+
+        when:
+        def alreadyPaid = service.lockAndExpireIfActiveOrReportClaimed(1L)
+
+        then:
+        alreadyPaid == false
+        protection.status == TradeProtection.EXPIRED
+        0 * tradeProtectionRepository.save(_)
+    }
+
+    def "lockAndExpireIfActiveOrReportClaimed returns false (and does nothing) for a null tradeId"() {
+        when:
+        def result = service.lockAndExpireIfActiveOrReportClaimed(null)
+
+        then:
+        result == false
+        0 * tradeProtectionRepository.findByTradeIdForUpdate(_)
+        0 * tradeProtectionRepository.save(_)
     }
 
     // ── expire ────────────────────────────────────────────────────

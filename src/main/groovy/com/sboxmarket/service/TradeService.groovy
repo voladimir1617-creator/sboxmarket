@@ -932,22 +932,34 @@ class TradeService {
         // price TWICE for a single escrowed sale: once by the protection
         // claim, once by this cancel refund. Escrow only ever held the
         // price once, so the platform would eat the second payout.
-        // When the protection is already CLAIMED the buyer is whole —
-        // skip the escrow refund and just close the trade out. Falls
-        // back to refundBuyer() for every unprotected / unclaimed trade,
-        // which is the overwhelming majority. Best-effort lookup: a
-        // protection-service hiccup must not block the cancel, so on any
-        // error we conservatively fall through to refundBuyer() — a
-        // missed skip is recoverable (staff claw-back), a missed refund
-        // on a genuinely unrefunded buyer is not.
+        //
+        // The pre-fix `findForTrade(t.id)` was an UNLOCKED read. It races
+        // with a concurrent dispute → autoClaim (REQUIRES_NEW): cancel
+        // could see status=ACTIVE while autoClaim's commit was still in
+        // flight, refundBuyer would credit the wallet, then autoClaim's
+        // commit would land a SECOND credit for the same trade.
+        // Reproducible against the seller-timeout sweeper (every 30 min)
+        // firing on a stale trade at the exact instant the buyer files
+        // their dispute — both run concurrently, both credit the buyer.
+        //
+        // lockAndExpireIfActiveOrReportClaimed runs in cancel's outer tx
+        // and acquires a pessimistic write lock on the protection row.
+        // CLAIMED → returns true → we skip refund. ACTIVE → flipped to
+        // EXPIRED inline (under the lock) → returns false → we refund;
+        // a concurrent autoClaim then blocks on the lock, re-reads after
+        // cancel commits, sees EXPIRED on its locked re-read and bails
+        // via its existing idempotency gate. Null protection → returns
+        // false, ordinary refund. Best-effort: a protection-service
+        // hiccup must not block the cancel, so on any error we
+        // conservatively fall through to refundBuyer() — a missed skip
+        // is recoverable (staff claw-back), a missed refund on a
+        // genuinely unrefunded buyer is not.
         boolean alreadyPaidByProtection = false
         try {
-            def protection = tradeProtectionService?.findForTrade(t.id)
             alreadyPaidByProtection =
-                protection != null &&
-                protection.status == com.sboxmarket.model.TradeProtection.CLAIMED
+                tradeProtectionService?.lockAndExpireIfActiveOrReportClaimed(t.id) ?: false
         } catch (Exception e) {
-            log.warn("Protection lookup failed for cancelling trade ${t.id} — " +
+            log.warn("Protection lock/check failed for cancelling trade ${t.id} — " +
                 "falling through to escrow refund: ${e.message}")
         }
         if (alreadyPaidByProtection) {

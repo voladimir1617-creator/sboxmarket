@@ -2292,7 +2292,13 @@ class AdminService {
             throw new BadRequestException("UNSUPPORTED", "Trade system not available")
         }
         def cancelled = tradeService.cancel(adminUserId, tradeId, "Admin: ${reason ?: '(no reason)'}")
-        auditService?.log(AuditService.TRADE_FORCE_CANCELLED, adminUserId, cancelled.buyerUserId, cancelled.id,
+        // Audit subject = SELLER, mirroring TRADE_FORCE_RELEASED (which subjects
+        // the seller — the side losing the goods). Force-cancel is the CSR
+        // remedy when the seller didn't deliver / is suspected of fraud, so the
+        // forensic record must attach the row to the seller. Tagging the buyer
+        // (the victim being made whole) buried genuine seller-misconduct trails
+        // under the wrong account's audit filter.
+        auditService?.log(AuditService.TRADE_FORCE_CANCELLED, adminUserId, cancelled.sellerUserId, cancelled.id,
             "Force-cancelled: ${reason ?: '(no reason)'}")
         [id: cancelled.id, state: cancelled.state]
     }

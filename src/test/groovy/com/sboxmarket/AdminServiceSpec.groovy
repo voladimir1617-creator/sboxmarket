@@ -1917,10 +1917,16 @@ class AdminServiceSpec extends Specification {
         0 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_RELEASED, *_)
     }
 
-    def "forceCancelTrade delegates to cancel and writes a TRADE_FORCE_CANCELLED audit row"() {
+    def "forceCancelTrade delegates to cancel and writes a TRADE_FORCE_CANCELLED audit row subjected to the SELLER"() {
+        // Regression guard: the audit subject must be the seller (the party
+        // losing the goods / typically the misbehaving side a force-cancel
+        // is intervening against), not the buyer (the victim being refunded).
+        // Mirrors TRADE_FORCE_RELEASED in TradeService which also subjects the
+        // seller. The pre-fix behaviour subjected the buyer, burying real
+        // seller-misconduct trails on the wrong account's audit filter.
         given:
         tradeService.cancel(1L, 9L, _ as String) >> new com.sboxmarket.model.Trade(
-            id: 9L, state: 'CANCELLED', buyerUserId: 66L)
+            id: 9L, state: 'CANCELLED', buyerUserId: 66L, sellerUserId: 77L)
 
         when:
         def res = service.forceCancelTrade(1L, 9L, 'stuck escrow')
@@ -1928,6 +1934,8 @@ class AdminServiceSpec extends Specification {
         then:
         res.state == 'CANCELLED'
         1 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_CANCELLED,
+            1L, 77L, 9L, _ as String)
+        0 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_CANCELLED,
             1L, 66L, 9L, _ as String)
     }
 

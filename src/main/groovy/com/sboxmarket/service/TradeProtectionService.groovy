@@ -223,10 +223,24 @@ class TradeProtectionService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     TradeProtection autoClaim(Long tradeId, String reason) {
-        def protection = tradeProtectionRepository.findByTradeId(tradeId)
+        // Pessimistic-locked read so a concurrent cancel-path read-then-flip
+        // (see lockAndExpireIfActiveOrReportClaimed) and any sibling autoClaim
+        // serialise on the row. Without the lock, the cancel's unlocked
+        // alreadyPaidByProtection check could read status=ACTIVE while
+        // autoClaim's REQUIRES_NEW commit was still in flight, then both
+        // cancel.refundBuyer AND the autoClaim payout would credit the buyer
+        // wallet for the SAME trade — double payout. The lock pins the
+        // happens-before so cancel either sees CLAIMED (and skips refund)
+        // or autoClaim sees the EXPIRED marker cancel laid down under its
+        // own lock.
+        def protection = tradeProtectionRepository.findByTradeIdForUpdate(tradeId)
         if (protection == null) return null
         if (protection.status != TradeProtection.ACTIVE) {
-            // Already claimed or expired — idempotent no-op.
+            // Already claimed or expired — idempotent no-op. The EXPIRED
+            // branch also covers the case where a concurrent cancel ran
+            // first under the lock and consumed the cover via
+            // lockAndExpireIfActiveOrReportClaimed: autoClaim must not pay
+            // out because cancel already refunded the buyer.
             return protection
         }
         def trade = tradeRepository.findById(tradeId).orElse(null)
@@ -431,6 +445,57 @@ class TradeProtectionService {
         tradeProtectionRepository.save(protection)
         log.info("Trade #{} protection EXPIRED — trade completed normally, fee kept", tradeId)
         protection
+    }
+
+    /**
+     * Cancel-path arbiter — runs inside the CALLER'S transaction (default
+     * REQUIRED) so the pessimistic row lock acquired here is held until
+     * the caller's tx commits. Atomic "decide refund vs skip, and consume
+     * the cover" for {@link com.sboxmarket.service.TradeService#cancel}.
+     *
+     * Returns {@code true} when the protection was already CLAIMED at lock-
+     * acquisition time — autoClaim has already paid the buyer, so cancel
+     * MUST skip refundBuyer to avoid a double payout.
+     *
+     * Returns {@code false} (and atomically flips ACTIVE → EXPIRED inside
+     * the caller's tx) when the cover was still ACTIVE — cancel will refund
+     * the buyer from escrow, so the cover must be consumed here under the
+     * lock to prevent a concurrent {@link #autoClaim} from re-paying the
+     * same trade after cancel commits. Without the inline flip, autoClaim
+     * would BLOCK on the row lock waiting for cancel to commit, then
+     * re-read status=ACTIVE and pay out — a second buyer credit for the
+     * same cancellation. The inline EXPIRED flip means autoClaim's locked
+     * re-read sees status != ACTIVE and bails (its existing idempotency
+     * gate).
+     *
+     * Returns {@code false} for an unprotected trade or a non-ACTIVE / non-
+     * CLAIMED protection — cancel proceeds with its ordinary refund path.
+     *
+     * REQUIRED (not REQUIRES_NEW) propagation is LOAD-BEARING — the lock
+     * must outlive this call and span the caller's refundBuyer +
+     * transitionTo so a concurrent autoClaim cannot squeeze in between
+     * "consume cover" and "refund buyer".
+     */
+    @Transactional
+    boolean lockAndExpireIfActiveOrReportClaimed(Long tradeId) {
+        if (tradeId == null) return false
+        def protection = tradeProtectionRepository.findByTradeIdForUpdate(tradeId)
+        if (protection == null) return false
+        if (protection.status == TradeProtection.CLAIMED) {
+            // autoClaim already paid — caller skips its own refund.
+            return true
+        }
+        if (protection.status == TradeProtection.ACTIVE) {
+            // Cover still live — cancel will refund from escrow, so consume
+            // the cover here under the lock so a concurrent autoClaim sees
+            // EXPIRED on its locked re-read and bails.
+            protection.status     = TradeProtection.EXPIRED
+            protection.resolvedAt = System.currentTimeMillis()
+            protection.updatedAt  = protection.resolvedAt
+            tradeProtectionRepository.save(protection)
+            log.info("Trade #{} protection EXPIRED inline during cancel — cover consumed under lock, fee kept", tradeId)
+        }
+        return false
     }
 
     // ── Payload helper ───────────────────────────────────────────────

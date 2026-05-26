@@ -47,8 +47,20 @@ interface TradeMessageRepository extends JpaRepository<TradeMessage, Long> {
      * indicator on the sender's side (V37 / batch 280). Returns the
      * number of rows updated so the service can decide whether to
      * re-fetch the thread (it always does — cheap).
+     *
+     * `clearAutomatically = true` / `flushAutomatically = true` so the
+     * re-fetch that fires immediately after this UPDATE in the same
+     * `listMessages` transaction doesn't resurrect stale `readAt = null`
+     * rows from the L1 persistence cache (bulk DML bypasses dirty
+     * tracking). Without it, the just-marked-read messages would render
+     * as still-unread in the response payload the very same request
+     * that flipped them — and the "✓✓ read" indicator would lag by one
+     * full poll cycle. flushAutomatically pushes any pending writes
+     * (e.g. a counterparty's just-posted message in the same tx) to
+     * the DB before the UPDATE evaluates its WHERE so no row escapes
+     * the readAt-IS-NULL filter spuriously.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
         UPDATE TradeMessage m
         SET    m.readAt = :now

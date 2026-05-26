@@ -74,7 +74,16 @@ class AuctionEventBus {
                 return emitter
             }
             list.add(emitter)
-            if (subs.get(listingId).is(list)) break
+            // Null-safe identity compare: if heartbeat()'s empty-list
+            // pruner evicted `list` between our computeIfAbsent and our
+            // add, subs.get returns null and Groovy's null.is(list)
+            // NPEs out of subscribe(), bubbling a 500 to the SSE client
+            // AND leaking `emitter` (no onCompletion/onError ever
+            // fires — only the 10-minute wall-clock cap reaps it).
+            // Pull the current mapping once and compare via ==/`is` on
+            // a non-null path.
+            def current = subs.get(listingId)
+            if (current != null && current.is(list)) break
             // Lost a race with a reaper that evicted `list`; undo and retry.
             list.remove(emitter)
         }

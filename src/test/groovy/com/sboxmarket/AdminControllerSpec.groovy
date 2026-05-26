@@ -509,6 +509,26 @@ class AdminControllerSpec extends Specification {
         0 * sim.simulateListings(100L, 20)
     }
 
+    // Regression: controller used to clamp count to 200, but the service
+    // throws BadRequestException("INVALID_COUNT") for anything > 100. An
+    // admin asking for 150 sailed through the controller's clamp and then
+    // crashed downstream with a confusing "count must be between 1 and 100"
+    // error. The controller must mirror the service contract.
+    def "simulateListings() clamps oversized count to 100, not 200, so the service accepts it"() {
+        given:
+        def sim = Mock(com.sboxmarket.service.AdminSimulatorService)
+        controller.adminSimulatorService = sim
+        adminSession(100L)
+
+        when:
+        controller.simulateListings([count: 150], req)
+
+        then: 'count > 100 is clamped to the service-contract max of 100, not 200'
+        1 * sim.simulateListings(100L, 100) >> [created: 100]
+        0 * sim.simulateListings(100L, 150)
+        0 * sim.simulateListings(100L, 200)
+    }
+
     // ── /users/{id}/transactions.csv — amount=0 round-trip ──────────
     //
     // Regression: `r.amount ?: ''` in the row builder treats

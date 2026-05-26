@@ -14,6 +14,7 @@ import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.StripeService
+import com.sboxmarket.service.TextSanitizer
 import com.sboxmarket.service.TotpService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
@@ -35,6 +36,7 @@ class WalletControllerSpec extends Specification {
     SteamUserRepository   steamUserRepository   = Mock()
     StripeService         stripeService         = Mock()
     TotpService           totpService           = Mock()
+    TextSanitizer         textSanitizer         = new TextSanitizer()  // real impl — pinning sanitization behaviour
 
     @Subject
     WalletController controller = new WalletController(
@@ -43,6 +45,7 @@ class WalletControllerSpec extends Specification {
         steamUserRepository:   steamUserRepository,
         stripeService:         stripeService,
         totpService:           totpService,
+        textSanitizer:         textSanitizer,
         dailyWithdrawalCap:    new BigDecimal('5000')
     )
 
@@ -155,6 +158,37 @@ class WalletControllerSpec extends Specification {
         // Cap query never fires — balance check short-circuits.
         0 * transactionRepository.sumWithdrawalsSince(_, _)
         0 * stripeService.requestWithdrawal(*_)
+    }
+
+    def "withdraw sanitizes the user-supplied destination BEFORE handing it to StripeService (no log/HTML injection into Transaction.stripeReference)"() {
+        // Regression: body.destination → tx.stripeReference was written raw,
+        // surviving into the audit-log summary ("Withdrawal $X requested
+        // … → ${destinationRef}"), the GDPR /export JSON, and the
+        // user-facing approval notification body ("Reference:
+        // ${tx.stripeReference}"). A destination like
+        // "acct_x\r\n[INFO] forged log line\r\n<script>x</script>" would
+        // forge audit lines + persist an HTML payload echoed back to the
+        // wallet owner. Every sibling free-text field (stallBio, trade
+        // dispute reason, offer message) routes through TextSanitizer
+        // at ingest; destination must too.
+        given:
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('1000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.sumWithdrawalsSince(500L, _) >> BigDecimal.ZERO
+        def hostile = "acct_x\r\n[INFO] forged log line<script>alert(1)</script>"
+
+        when:
+        controller.withdraw(req(new BigDecimal('50'), hostile), reqFor(10L))
+
+        then: 'StripeService is handed a sanitized string — no CR/LF, no <script>, no <…> tags'
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('50'), { String passed ->
+            !passed.contains('\r') && !passed.contains('\n') &&
+            !passed.contains('<') && !passed.contains('>') &&
+            !passed.toLowerCase().contains('script')
+        }) >> new Transaction(id: 99L, status: 'PENDING')
     }
 
     def "withdraw bypasses the cap check entirely when dailyWithdrawalCap is null (ops disable)"() {

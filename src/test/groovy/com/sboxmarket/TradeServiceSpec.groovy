@@ -905,7 +905,8 @@ class TradeServiceSpec extends Specification {
         listingRepository.findById(100L) >> Optional.of(listing)
         listingRepository.save(_) >> { Listing l -> l }
         adminAuthorization.requireAdmin(999L) >> {}
-        tradeProtectionService.findForTrade(1L) >> protectionRow('CLAIMED')
+        // Locked decision: CLAIMED → returns true → cancel skips refund.
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> true
 
         when: 'staff force-cancel the disputed (already protection-paid) trade'
         service.cancel(999L, 1L, 'CSR ruling: seller at fault')
@@ -939,7 +940,9 @@ class TradeServiceSpec extends Specification {
         transactionRepository.save(_) >> { Transaction tx -> tx }
         listingRepository.findById(100L) >> Optional.of(listing)
         listingRepository.save(_) >> { Listing l -> l }
-        tradeProtectionService.findForTrade(1L) >> protectionRow('ACTIVE')
+        // Locked decision: ACTIVE → flipped to EXPIRED inline → returns
+        // false → cancel runs its normal refundBuyer.
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> false
 
         when: 'the buyer cancels their own still-ACTIVE protected trade'
         service.cancel(10L, 1L, 'changed my mind')
@@ -954,7 +957,8 @@ class TradeServiceSpec extends Specification {
     def "cancel of an unprotected trade still refunds the buyer when the protection service is wired"() {
         // Regression guard — wiring tradeProtectionService must not
         // change behaviour for the (overwhelming majority) unprotected
-        // trades. findForTrade returns null → escrow refund runs.
+        // trades. lockAndExpireIfActiveOrReportClaimed returns false for
+        // a missing protection row → escrow refund runs.
         given:
         def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
         service.tradeProtectionService = tradeProtectionService
@@ -968,7 +972,7 @@ class TradeServiceSpec extends Specification {
         transactionRepository.save(_) >> { Transaction tx -> tx }
         listingRepository.findById(100L) >> Optional.of(listing)
         listingRepository.save(_) >> { Listing l -> l }
-        tradeProtectionService.findForTrade(1L) >> null   // unprotected
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> false  // unprotected
 
         when:
         service.cancel(10L, 1L, 'changed my mind')
@@ -997,7 +1001,7 @@ class TradeServiceSpec extends Specification {
         transactionRepository.save(_) >> { Transaction tx -> tx }
         listingRepository.findById(100L) >> Optional.of(listing)
         listingRepository.save(_) >> { Listing l -> l }
-        tradeProtectionService.findForTrade(1L) >> { throw new RuntimeException('protection db down') }
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> { throw new RuntimeException('protection db down') }
 
         when:
         service.cancel(10L, 1L, 'changed my mind')
@@ -1007,6 +1011,49 @@ class TradeServiceSpec extends Specification {
         t.state == 'CANCELLED'
         buyerWallet.balance == new BigDecimal('50.00')
         1 * transactionRepository.save({ Transaction tx -> tx.type == 'REFUND' })
+    }
+
+    def "cancel routes the protection check through the locked arbiter (cancel × autoClaim race fix)"() {
+        // Reproducer-shaped guard for the cancel × dispute double-payout
+        // race (batch 661). Pre-fix the path was:
+        //   tradeProtectionService.findForTrade(t.id)   // UNLOCKED read
+        // which could see status=ACTIVE while a concurrent autoClaim's
+        // REQUIRES_NEW commit was still in flight. Then refundBuyer
+        // credited the wallet, autoClaim committed, and the buyer was
+        // paid +price twice for one trade.
+        //
+        // Post-fix the path goes through lockAndExpireIfActiveOrReportClaimed,
+        // which acquires the pessimistic row lock in cancel's outer tx so
+        // the contending autoClaim BLOCKS — and when autoClaim eventually
+        // runs it re-reads the row under the same lock and sees the EXPIRED
+        // marker cancel laid down, so it bails via its idempotency gate.
+        //
+        // This test pins the public surface: cancel MUST consult the locked
+        // arbiter, and MUST NOT consult the unlocked findForTrade for the
+        // refund decision. A regression that re-introduces findForTrade
+        // re-opens the double-payout window.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: BigDecimal.ZERO, currency: 'USD')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L, sellerUserId: 20L)
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: 'the locked arbiter is consulted exactly once for the refund decision'
+        1 * tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> false
+
+        and: 'the racy unlocked finder is never used on the cancel path'
+        0 * tradeProtectionService.findForTrade(_)
     }
 
     def "cancel skips the escrow refund for a CLAIMED protection even on the participant (seller-cancel) path"() {
@@ -1028,7 +1075,7 @@ class TradeServiceSpec extends Specification {
         transactionRepository.save(_) >> { Transaction tx -> tx }
         listingRepository.findById(100L) >> Optional.of(listing)
         listingRepository.save(_) >> { Listing l -> l }
-        tradeProtectionService.findForTrade(1L) >> protectionRow('CLAIMED')
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> true   // CLAIMED at lock-acquire
 
         when: 'the seller cancels a trade whose protection already paid out'
         service.cancel(20L, 1L, 'seller cancels')

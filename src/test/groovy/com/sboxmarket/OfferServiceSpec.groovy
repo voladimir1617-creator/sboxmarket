@@ -674,6 +674,52 @@ class OfferServiceSpec extends Specification {
         0 * purchaseService.buy(*_)
     }
 
+    def "acceptOffer flips offer to EXPIRED when buyer got banned between offer + accept"() {
+        // P1 bug — pre-fix, if a buyer was banned after their offer
+        // landed but before the seller clicked Accept, the seller's
+        // accept would invoke purchaseService.buy which calls
+        // banGuard.assertNotBanned(buyerUserId) → ForbiddenException.
+        // Because acceptOffer's `noRollbackFor` only covered
+        // InsufficientBalanceException + ListingNotAvailableException,
+        // ForbiddenException rolled the whole tx back — the offer never
+        // stamped EXPIRED, stayed PENDING forever in the seller's
+        // incoming queue, every retry hit the same ban, and the buyer
+        // was never told their offer was lost to moderation action.
+        // Post-fix: the buyer-ban check runs upfront, EXPIRED persists,
+        // the buyer is notified, and the seller's queue drains.
+        given:
+        def offer   = pendingOffer(amount: new BigDecimal("40"))
+        def listing = activeListing()
+        def buyer   = new SteamUser(id: 10L, steamId64: '111')
+        def wallet  = new Wallet(id: 500L, balance: new BigDecimal("500"))
+        offerRepository.findById(1L) >> Optional.of(offer)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_111') >> wallet
+        // Seller is callerUserId — assertNotBanned at the top of
+        // acceptOffer isn't called (that's a makeOffer guard, not an
+        // accept guard) so banGuard.isBanned(10L) is the relevant probe.
+        banGuard.isBanned(10L) >> true
+
+        when:
+        service.acceptOffer(99L, 1L)
+
+        then:
+        thrown(ForbiddenException)
+        // The EXPIRED transition must persist despite the throw — the
+        // matching `noRollbackFor = [..., ForbiddenException]` on
+        // acceptOffer is what buys us that durability.
+        1 * offerRepository.save({ Offer o -> o.status == 'EXPIRED' })
+        // PurchaseService never runs — we caught the ban before paying.
+        0 * purchaseService.buy(*_)
+        // Buyer is pinged so they learn the offer was lost to the ban
+        // (otherwise their Offers tab just shows a silent EXPIRED row).
+        1 * notificationService.push(10L, 'OFFER_REJECTED',
+            { String title -> title.contains("couldn't close") },
+            { String body -> body.contains('restricted') },
+            1L, '/offers')
+    }
+
     def "acceptOffer expires other pending offers on the same listing after a successful sale"() {
         given:
         def offer   = pendingOffer(amount: new BigDecimal("40"))
@@ -1790,6 +1836,12 @@ class OfferServiceSpec extends Specification {
             new Offer(id: 3L, buyerUserId: 300L, amount: new BigDecimal('20'),  status: 'PENDING'),
         ]
         offerRepository.findPendingForListing(555L) >> offers
+        // Banned-recipient filter (batch 316/317): default to "everyone is
+        // active" so the price-drop fan-out reaches every uid the test
+        // builds. Without this stub the filter returns null, the
+        // activeUids.collect path NPEs into the outer catch, and zero
+        // pushes happen — which masks the actual targeting assertion.
+        notificationService.filterActiveRecipients(_) >> { args -> args[0] }
 
         when:
         // Seller dropped from $50 to $40. Buyer #1 ($45) and #2 ($40)
@@ -1820,6 +1872,9 @@ class OfferServiceSpec extends Specification {
             new Offer(id: 2L, buyerUserId: 100L, amount: new BigDecimal('50'), status: 'PENDING'),
         ]
         offerRepository.findPendingForListing(555L) >> offers
+        // Banned-recipient filter (batch 316/317): no banned buyers in
+        // this scenario, so pass every uid through.
+        notificationService.filterActiveRecipients(_) >> { args -> args[0] }
 
         when:
         service.notifyOfferHoldersOfPriceDrop(555L, new BigDecimal('60'), new BigDecimal('40'), 'Item', 1L)

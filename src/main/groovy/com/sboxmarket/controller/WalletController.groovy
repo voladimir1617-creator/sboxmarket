@@ -31,6 +31,7 @@ class WalletController {
     @Autowired SteamUserRepository steamUserRepository
     @Autowired StripeService stripeService
     @Autowired com.sboxmarket.service.TotpService totpService
+    @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
 
     /** Rolling 24-hour withdrawal cap. Sum of PENDING + COMPLETED
      *  withdrawals in any 24h window — protects against compromised
@@ -499,8 +500,23 @@ class WalletController {
         // one again. Translate to a clean retryable code so the SPA can
         // toast "try again" instead of "internal error". Mirrors the
         // confirmDeposit race-loss handling pattern.
+        // Sanitize the user-supplied destination ref BEFORE it lands in
+        // Transaction.stripeReference. The DTO @Size caps the length but
+        // leaves the value byte-for-byte: a destination like
+        // `acct_x\r\n[INFO] Admin deleted user 5` then gets concatenated
+        // verbatim into the audit-log summary
+        // (StripeService.requestWithdrawal → "Withdrawal $X requested from
+        // wallet w → ${destinationRef}") and into the user-facing
+        // notification body fired by AdminService.approveWithdrawal
+        // ("Reference: ${tx.stripeReference}"), enabling log-line
+        // forgery and HTML payload survival into the GDPR /export JSON.
+        // Same defense-in-depth every other free-text body field gets
+        // (stallBio, trade dispute reason, offer message). Empty string
+        // when nothing was supplied so the StripeService Elvis below
+        // still falls back to "manual".
+        def cleanDest = textSanitizer.cleanShort(body.destination as String) ?: ''
         try {
-            def tx = stripeService.requestWithdrawal(wallet.id, amount, body.destination ?: "")
+            def tx = stripeService.requestWithdrawal(wallet.id, amount, cleanDest)
             // Force flush BEFORE the method returns so the Wallet @Version
             // check fires inside this catch — not at outer-tx commit time
             // (after the method has returned), where a 500 would escape

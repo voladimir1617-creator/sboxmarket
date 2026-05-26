@@ -1126,7 +1126,13 @@ class AdminController {
         try { count = (body?.count != null ? body.count : 20) as int }
         catch (Exception ignored) { count = 20 }
         if (count < 1) count = 1
-        if (count > 200) count = 200
+        // Clamp to the service contract (1..100). Previously the controller
+        // permitted up to 200, so an admin asking for 150 sailed through the
+        // controller and then crashed `simulateListings` with INVALID_COUNT
+        // ("must be between 1 and 100"). The user saw a generic 400 instead
+        // of the high-water-mark seed they wanted. Mirror the service bound
+        // here so the request transparently produces the largest legal batch.
+        if (count > 100) count = 100
         ResponseEntity.ok(adminSimulatorService.simulateListings(uid, count))
     }
 
