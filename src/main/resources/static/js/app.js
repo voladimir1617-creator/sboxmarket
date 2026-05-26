@@ -1129,7 +1129,7 @@ function MostWatchedRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas
         const r = await fetch('/api/listings/most-watched?limit=8', { credentials: 'same-origin' });
         if (!alive || !r.ok) return;
         const data = await r.json();
-        setRows(Array.isArray(data) ? data : []);
+        if (alive) setRows(Array.isArray(data) ? data : []);
       } catch (_) {}
     };
     load();
@@ -1185,7 +1185,7 @@ function HottestRail({ watchlist, onToggleStar, onOpen, onAddToCart, cartHas }) 
         const r = await fetch('/api/listings/hottest?limit=8', { credentials: 'same-origin' });
         if (!alive || !r.ok) return;
         const data = await r.json();
-        setRows(Array.isArray(data) ? data : []);
+        if (alive) setRows(Array.isArray(data) ? data : []);
       } catch (_) {}
     };
     load();
