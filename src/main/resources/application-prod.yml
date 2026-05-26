@@ -184,3 +184,12 @@ steam:
   api-key:    ${STEAM_API_KEY:}
   realm:      ${STEAM_REALM}
   return-url: ${STEAM_RETURN_URL}
+
+# Email unsubscribe link HMAC secret. MUST be set in prod — the @Value
+# fallback in EmailService is a publicly-committed dev placeholder
+# (`dev-only-do-not-use-in-production-7f3a9c`). Without this override,
+# anyone reading the source can forge unsubscribe tokens for any user's
+# email address and silently mute their notifications.
+app:
+  unsubscribe:
+    secret: ${APP_UNSUBSCRIBE_SECRET}
