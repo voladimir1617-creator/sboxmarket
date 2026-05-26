@@ -107202,6 +107202,11 @@ tr:hover .csfloat-row-hover-actions,
   bottom: 0;
   width: 380px;
   max-width: 100vw;
+  /* box-sizing fix: drawer has a 1px border-left; without border-box the
+     mobile width:100vw rule overflows by 1px and triggers horizontal scroll
+     on iOS. Also honor right safe-area-inset for notched landscape. */
+  box-sizing: border-box;
+  padding-right: env(safe-area-inset-right, 0px);
   background: var(--bg-1);
   border-left: 1px solid var(--line);
   box-shadow: -16px 0 48px rgba(0, 0, 0, 0.55);
