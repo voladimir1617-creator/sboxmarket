@@ -1255,7 +1255,7 @@ class BidServiceSpec extends Specification {
         service.historyFor(100L, 10L) == []
     }
 
-    def "historyFor returns raw bids (no redaction) to the listing seller"() {
+    def "historyFor returns bidder identity to the listing seller but scrubs every competing maxAmount"() {
         given:
         def a = bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice', maxAmount: new BigDecimal("50"))
         def b = bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob')
@@ -1266,16 +1266,20 @@ class BidServiceSpec extends Specification {
         def out = service.historyFor(100L, 99L)
 
         then:
-        out == [a, b]
+        out.size() == 2
         out[0].bidderName == 'Alice'
         out[0].bidderUserId == 10L
-        out[0].maxAmount == new BigDecimal("50")
+        // Seller is not a bidder — they own zero bids, so every maxAmount
+        // is scrubbed (shill-bid protection).
+        out*.maxAmount == [null, null]
+        // Original entity untouched (detached copy is returned).
+        a.maxAmount == new BigDecimal("50")
     }
 
-    def "historyFor returns raw bids (no redaction) to any participating bidder"() {
+    def "historyFor returns bidder identity to a participating bidder but scrubs OTHER bidders' maxAmount"() {
         given:
-        def a = bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice')
-        def b = bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob')
+        def a = bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice', maxAmount: new BigDecimal("50"))
+        def b = bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob',   maxAmount: new BigDecimal("80"))
         bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [a, b]
         listingRepository.findById(100L) >> Optional.of(auctionListing(seller: 99L))
 
@@ -1283,8 +1287,14 @@ class BidServiceSpec extends Specification {
         def out = service.historyFor(100L, 20L)  // Bob viewing
 
         then:
-        out == [a, b]
+        out.size() == 2
         out[0].bidderName == 'Alice'
+        // Bob sees his own ceiling intact…
+        out[1].maxAmount == new BigDecimal("80")
+        // …but Alice's ceiling is hidden so Bob can't snipe at $50.01.
+        out[0].maxAmount == null
+        // Original Alice entity untouched.
+        a.maxAmount == new BigDecimal("50")
     }
 
     def "historyFor redacts bidder identities for anonymous viewers"() {

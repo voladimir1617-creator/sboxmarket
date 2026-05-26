@@ -555,7 +555,30 @@ class BidService {
         def listing = listingRepository.findById(listingId).orElse(null)
         def isSeller = listing != null && listing.sellerUserId != null && listing.sellerUserId == viewerUserId
         def isBidder = viewerUserId != null && all.any { it.bidderUserId == viewerUserId }
-        if (isSeller || isBidder) return all
+        if (isSeller || isBidder) {
+            // Strategic-secret leak fix: a participant (the seller, or any
+            // bidder in this auction) was previously handed the raw entity
+            // list, which serializes *every* bidder's `maxAmount` —
+            // i.e. every competing auto-bid ceiling. A rival bidder could
+            // then outbid by $0.01 over each opponent's exact cap; the
+            // seller could shill-bid up to it. Detach + null out
+            // `maxAmount` on rows the viewer doesn't own so each
+            // participant only ever sees their own auto-bid ceiling.
+            return all.collect { b ->
+                if (b.bidderUserId != null && b.bidderUserId == viewerUserId) return b
+                new Bid(
+                    id:           b.id,
+                    listingId:    b.listingId,
+                    bidderUserId: b.bidderUserId,
+                    bidderName:   b.bidderName,
+                    amount:       b.amount,
+                    maxAmount:    null,
+                    kind:         b.kind,
+                    status:       b.status,
+                    createdAt:    b.createdAt
+                )
+            }
+        }
 
         def handles = [:]
         int next = 0
