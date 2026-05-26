@@ -1138,10 +1138,11 @@ class BidServiceSpec extends Specification {
         def buyerWon = allBids.findAll { it.bidderUserId == 10L && it.status == 'WON' }
         buyerWon.size() == 1
         buyerWon[0].amount == new BigDecimal('50')
-        // The stale earlier row no longer reads WINNING — it was demoted
-        // to OUTBID by settle()'s loser branch for the buyer's own
-        // non-top rows.
-        buyerOldBid.status == 'OUTBID'
+        // The stale earlier row no longer reads WINNING — settle() marks
+        // the buyer's non-top rows as CANCELLED (a terminal status that
+        // surfaces under Past Bids; OUTBID would have left the closed
+        // auction stuck in the live-bids tab via findLiveBidsForUser).
+        buyerOldBid.status == 'CANCELLED'
     }
 
     def "buyNowAuction increments listing.bidCount for the buy-now bid row"() {
@@ -1921,10 +1922,12 @@ class BidServiceSpec extends Specification {
         then:
         // Exactly one of the winner's rows is WON — the highest-amount one.
         winnerTop.status == 'WON'
-        // The winner's other non-terminal row is resolved, NOT left WINNING.
-        winnerOld.status == 'OUTBID'
-        // No winner row lingers as WINNING on the SOLD listing.
-        [winnerTop, winnerOld].count { it.status == 'WINNING' } == 0
+        // The winner's other non-terminal row is resolved to CANCELLED
+        // (a terminal status). OUTBID would have left the row in the
+        // live-bids tab via findLiveBidsForUser on a now-SOLD listing.
+        winnerOld.status == 'CANCELLED'
+        // No winner row lingers as WINNING/OUTBID (the live-set filter).
+        [winnerTop, winnerOld].count { it.status in ['WINNING', 'OUTBID'] } == 0
         [winnerTop, winnerOld].count { it.status == 'WON' } == 1
         // The losing bidder's already-OUTBID row terminates at LOST.
         loserBid.status == 'LOST'
@@ -2015,85 +2018,4 @@ class BidServiceSpec extends Specification {
         0 * bidRepository.saveAll(_)
     }
 
-    def "settle does NOT leave the winner's older auto-bid rows in OUTBID — they stay live in Active Bids forever"() {
-        // Bug: when an auction settles for a winner who placed multiple
-        // bids (typical for auto-bid auctions — every bot re-raise saves
-        // a fresh Bid row), settle picks the single highest-amount row
-        // as WON and flips every OTHER winner row to OUTBID. But
-        // `findLiveBidsForUser` filters `status IN ('WINNING','OUTBID')`
-        // with no listing-status check, so the winner's trailing OUTBID
-        // rows on a now-SOLD listing keep showing up in Profile → Active
-        // Bids as "you're still bidding" — forever. They never appear
-        // under Past Bids either (that query wants WON/LOST/CANCELLED),
-        // so the rows are stuck in limbo on the live tab.
-        //
-        // Settle must mark the winner's NON-winning rows with a terminal
-        // status (OUTBID is non-terminal). OUTBID for the loser side is
-        // also wrong — losers get LOST, so the winner's own trailing
-        // rows should also leave the live set. The natural fit is
-        // CANCELLED: the bidder didn't lose the auction (they won), the
-        // older row was simply superseded by their own higher bid, and
-        // CANCELLED is already in the Past Bids filter set so the rows
-        // surface correctly under history.
-        given:
-        def now = System.currentTimeMillis()
-        def listing = auctionListing(
-            id: 100L, currentBid: new BigDecimal("50"), currentBidderId: 10L,
-            expiresAt: now - 1000L
-        )
-        listingRepository.findExpiredAuctions(_) >> [listing]
-        // Winner has THREE bid rows — the classic auto-bid history:
-        //   - $30 MANUAL (their original bid)
-        //   - $40 AUTO   (bot re-raise after someone outbid them)
-        //   - $50 AUTO   (final bot re-raise — the winning amount)
-        def winnerEarly = new Bid(id: 1L, listingId: 100L, bidderUserId: 10L,
-            amount: new BigDecimal("30"), kind: 'MANUAL', status: 'OUTBID',
-            createdAt: now - 5000L)
-        def winnerMid   = new Bid(id: 2L, listingId: 100L, bidderUserId: 10L,
-            amount: new BigDecimal("40"), kind: 'AUTO', status: 'OUTBID',
-            createdAt: now - 3000L)
-        def winnerTop   = new Bid(id: 3L, listingId: 100L, bidderUserId: 10L,
-            amount: new BigDecimal("50"), kind: 'AUTO', status: 'WINNING',
-            createdAt: now - 1500L)
-        def loser       = new Bid(id: 4L, listingId: 100L, bidderUserId: 20L,
-            amount: new BigDecimal("45"), kind: 'MANUAL', status: 'OUTBID',
-            createdAt: now - 2000L)
-        bidRepository.findByListing(100L) >> [winnerTop, winnerMid, loser, winnerEarly]
-        def winner = new SteamUser(id: 10L, steamId64: 'winner', displayName: 'W', banned: false)
-        steamUserRepository.findById(10L) >> Optional.of(winner)
-        def winnerWallet = new com.sboxmarket.model.Wallet(id: 500L, username: 'steam_winner', balance: new BigDecimal("500"))
-        walletRepository.findByUsername('steam_winner') >> winnerWallet
-        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
-        listingRepository.save(_) >> { Listing l -> l }
-        bidRepository.save(_) >> { Bid b -> b }
-        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
-        def seller = new SteamUser(id: 99L, steamId64: 'seller')
-        steamUserRepository.findById(99L) >> Optional.of(seller)
-        def sellerWallet = new com.sboxmarket.model.Wallet(id: 501L, username: 'steam_seller', balance: BigDecimal.ZERO)
-        walletRepository.findByUsername('steam_seller') >> sellerWallet
-
-        when:
-        service.sweepExpired()
-
-        then:
-        // Winner's top row becomes WON.
-        winnerTop.status == 'WON'
-        // Loser's row becomes LOST.
-        loser.status == 'LOST'
-        // Listing is SOLD to the winner.
-        listing.status == 'SOLD'
-        listing.buyerUserId == 10L
-        // ── The fix: winner's older rows must NOT linger in OUTBID. ──
-        // Anything still WINNING/OUTBID after settle would show up in
-        // findLiveBidsForUser → Profile → Active Bids as a stuck live
-        // bid on a SOLD listing. They must land in a terminal status
-        // (CANCELLED keeps them visible under Past Bids).
-        !(winnerEarly.status in ['WINNING', 'OUTBID'])
-        !(winnerMid.status in ['WINNING', 'OUTBID'])
-        // And they should not be branded LOST — the bidder didn't lose,
-        // they won. CANCELLED is the honest signal (their own bid was
-        // superseded by their own higher bid).
-        winnerEarly.status == 'CANCELLED'
-        winnerMid.status == 'CANCELLED'
-    }
 }

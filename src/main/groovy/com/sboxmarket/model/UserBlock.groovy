@@ -15,6 +15,14 @@ import jakarta.persistence.*
  *
  * Unique constraint on the (blocker_user_id, blocked_user_id) pair
  * (V40 migration) — re-blocking the same user is a no-op, not an error.
+ *
+ * FK + ON DELETE CASCADE on both columns to steam_users(id), added in
+ * V68. Mirrored on the entity via @JoinColumn(insertable=false,
+ * updatable=false) ManyToOne stubs so Hibernate's create-drop schema
+ * (used in the H2 test profile) reflects the same cascade behaviour
+ * the Postgres migration enforces in prod. Without these stubs the
+ * Hibernate-built H2 schema would silently lack the FK, hiding any
+ * cascade-related regression from integration tests.
  */
 @Entity
 @Table(name = "user_blocks", indexes = [
@@ -35,4 +43,21 @@ class UserBlock {
 
     @Column(name = 'created_at', nullable = false)
     Long createdAt = System.currentTimeMillis()
+
+    // FK association stubs — read-only so the scalar id columns above
+    // remain the source of truth for the service code (which deals in
+    // raw Long ids, not entity refs). Hibernate sees these and emits
+    // the foreign-key + ON DELETE CASCADE on its generated H2 schema,
+    // matching what V68 enforces on Postgres.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = 'blocker_user_id', insertable = false, updatable = false,
+                foreignKey = @ForeignKey(name = 'fk_user_blocks_blocker'))
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    SteamUser blockerRef
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = 'blocked_user_id', insertable = false, updatable = false,
+                foreignKey = @ForeignKey(name = 'fk_user_blocks_blocked'))
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    SteamUser blockedRef
 }
