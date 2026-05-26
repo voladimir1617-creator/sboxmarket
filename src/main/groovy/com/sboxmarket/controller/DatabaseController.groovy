@@ -41,8 +41,16 @@ class DatabaseController {
             @RequestParam(required = false, defaultValue = "60") Integer limit,
             @RequestParam(required = false, defaultValue = "0")  Integer offset
     ) {
-        def safeLimit  = Math.min(Math.max(limit ?: 60, 1), 500)
-        def safeOffset = Math.max(offset ?: 0, 0)
+        // Null-check rather than Elvis: `limit` / `offset` carry String
+        // defaultValues so Spring never hands us null, but `?limit=0` arrives
+        // as a real Integer 0 — and 0 is Groovy-falsy, so `limit ?: 60` would
+        // silently rewrite an explicit `?limit=0` into 60 and dump the full
+        // default page instead of clamping to the floor of 1. Mirrors the
+        // same fix in ListingController.getListings (see comment above line
+        // 91 there). The `?offset=0` Elvis fallback was benign (fallback
+        // equals floor) but kept consistent here for parity.
+        def safeLimit  = Math.min(Math.max(limit != null ? limit : 60, 1), 500)
+        def safeOffset = Math.max(offset != null ? offset : 0, 0)
         // Fall through to alias when canonical `q` is blank.
         if ((q == null || q.isBlank()) && search != null && !search.isBlank()) {
             q = search
