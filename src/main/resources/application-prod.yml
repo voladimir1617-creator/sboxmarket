@@ -148,6 +148,16 @@ logging:
   level:
     com.sboxmarket:        INFO
     org.springframework:   WARN
+    # Explicit override — default application.yml pins
+    # `org.springframework.web: INFO` so DispatcherServlet + the web tier
+    # log every request line. Spring Boot MERGES logging.level keys across
+    # profile files (it does not replace the map), so without redeclaring
+    # the child here the `org.springframework: WARN` baseline is silently
+    # overridden for the web logger only, and request URIs (including
+    # query strings with Stripe session_id / Steam OpenID nonce / CSR
+    # support-ticket tokens) end up in /var/log/skinbox/skinbox.log at
+    # INFO. Pin the child to WARN to match the parent's prod intent.
+    org.springframework.web: WARN
     org.hibernate:         WARN
   file:
     name: ${LOG_FILE:/var/log/skinbox/skinbox.log}
