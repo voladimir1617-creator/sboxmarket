@@ -116,15 +116,20 @@ class OfferService {
         buyerName = textSanitizer.cleanShort(buyerName)
         // Optional buyer note. Sanitised + capped server-side so the
         // seller's offer row never renders raw user input. Empty string
-        // collapses to null (clean DB). cleanShort already strips HTML,
-        // control chars, and runs of whitespace.
+        // collapses to null (clean DB). Length-check the RAW input first
+        // because textSanitizer.clean silently truncates to its cap —
+        // pre-fix used cleanShort (LIMIT_SHORT=80) so a 100-char note
+        // was silently chopped to 80 even though the column + docs +
+        // MESSAGE_MAX_LEN all advertise 280. Check raw length first to
+        // surface MESSAGE_TOO_LONG (better UX than silent truncation),
+        // then sanitise with the correct MESSAGE_MAX_LEN cap.
         String cleanMessage = null
         if (message != null) {
-            def trimmed = textSanitizer.cleanShort(message)
-            if (trimmed && trimmed.length() > MESSAGE_MAX_LEN) {
+            if (message.length() > MESSAGE_MAX_LEN) {
                 throw new BadRequestException("MESSAGE_TOO_LONG",
                     "Offer message must be ${MESSAGE_MAX_LEN} characters or fewer.")
             }
+            def trimmed = textSanitizer.clean(message, MESSAGE_MAX_LEN)
             if (trimmed) cleanMessage = trimmed
         }
         if (amount == null || amount <= BigDecimal.ZERO) {
@@ -302,13 +307,15 @@ class OfferService {
         }
         // Optional buyer note attached to the raise — same 280-char rule
         // as the initial makeOffer path. Empty/whitespace collapses to null.
+        // Pre-sanitize length check: see makeOffer for the cleanShort vs
+        // clean(_, MESSAGE_MAX_LEN) rationale.
         String cleanMessage = null
         if (message != null) {
-            def trimmed = textSanitizer.cleanShort(message)
-            if (trimmed && trimmed.length() > MESSAGE_MAX_LEN) {
+            if (message.length() > MESSAGE_MAX_LEN) {
                 throw new BadRequestException("MESSAGE_TOO_LONG",
                     "Offer message must be ${MESSAGE_MAX_LEN} characters or fewer.")
             }
+            def trimmed = textSanitizer.clean(message, MESSAGE_MAX_LEN)
             if (trimmed) cleanMessage = trimmed
         }
         def original = offerRepository.findById(originalOfferId)

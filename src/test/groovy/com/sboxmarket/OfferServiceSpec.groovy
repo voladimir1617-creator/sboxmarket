@@ -42,6 +42,11 @@ class OfferServiceSpec extends Specification {
     BanGuard            banGuard            = Mock()
     TextSanitizer       textSanitizer       = Mock() {
         cleanShort(_) >> { String s -> s }
+        // The message-sanitisation path on makeOffer + buyerRaise was
+        // bumped from cleanShort (80-char cap) to clean(message, 280)
+        // so a buyer note up to MESSAGE_MAX_LEN survives intact instead
+        // of getting silently chopped to 80.
+        clean(_, _) >> { String s, int n -> s }
     }
     NotificationService notificationService = Mock()
 
