@@ -356,12 +356,37 @@ class PurchaseService {
             final Long _itemIdForScrub = listing.item?.id
             final NotificationService _notifierForScrub = notificationService
             final com.sboxmarket.repository.CartItemRepository _cartRepoForScrub = cartItemRepository
+            final SteamUserRepository _userRepoForScrub = steamUserRepository
             deferOrRun {
                 try {
                     def others = _cartRepoForScrub.findOtherUsersWithListing(_listingIdForScrub, _buyerIdForScrub) ?: []
                     if (!others.isEmpty()) {
                         if (_notifierForScrub != null) {
-                            others.take(50).each { uid ->
+                            // Drop banned recipients before the push fan-out —
+                            // same bug class batch 314/315 closed for the
+                            // saved-search and seller-follow fan-outs. A user
+                            // banned after queuing the listing in their cart
+                            // can't act on a CART_ITEM_SOLD ping (banGuard
+                            // rejects re-shop attempts anyway), so the bell
+                            // entry is dead-end noise. Bulk lookup keeps it
+                            // to one query for the whole fan-out.
+                            def recipients = others.take(50) as List<Long>
+                            if (_userRepoForScrub != null && !recipients.isEmpty()) {
+                                try {
+                                    def users = _userRepoForScrub.findAllById(recipients)
+                                    if (users != null) {
+                                        def bannedIds = users
+                                            .findAll { Boolean.TRUE.equals(it.banned) }
+                                            .collect { it.id } as Set
+                                        if (!bannedIds.isEmpty()) {
+                                            recipients = recipients.findAll { !bannedIds.contains(it) }
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("CART_ITEM_SOLD banned-filter lookup failed: ${e.message}")
+                                }
+                            }
+                            recipients.each { uid ->
                                 try {
                                     _notifierForScrub.push(uid, 'CART_ITEM_SOLD',
                                         "Cart item sold · ${_itemNameForScrub}",

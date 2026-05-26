@@ -525,4 +525,63 @@ class RateLimitFilterSpec extends Specification {
         then:
         results.every { it.allowed == 20 && it.blocked == 5 }
     }
+
+    def "MAX_KEYS eviction never wipes an active bucket — only stale ones (rate-limit bypass fix)"() {
+        // The old eviction code did:
+        //     def oldest = buckets.entrySet().min { it.value.windowStart }
+        //     if (oldest) buckets.remove(oldest.key)
+        // which silently evicted whichever bucket was numerically "oldest"
+        // the moment MAX_KEYS was crossed — including a bucket whose
+        // windowStart had just been rolled forward by an active user.
+        // The very next request from that user re-created a fresh Bucket
+        // via computeIfAbsent, resetting their count to 0 and letting
+        // them bypass the rate limit they were about to trip.
+        //
+        // Repro: burn the enumeration budget on one IP (so its bucket has
+        // current count = MAX_ENUM = 40), THEN flood the map with >MAX_KEYS
+        // unique-IP keys to trigger eviction. With the old code, the
+        // victim's bucket — whose windowStart was set MILLISECONDS before
+        // the flood started — is the very `oldest` the min{} scan picks,
+        // so it gets evicted and the victim's 41st request returns 200
+        // instead of 429. The fix only evicts buckets older than the
+        // window, so the victim's still-fresh bucket survives.
+        given:
+        def victimIp = '10.99.0.1'
+
+        when: "victim burns the enum budget — their bucket is now at 40/40"
+        (1..40).each {
+            filter.doFilter(get('/api/items/1', victimIp), new MockHttpServletResponse(), chain)
+        }
+        // Sanity: 41st request from victim must 429 BEFORE any eviction.
+        def preFlood = new MockHttpServletResponse()
+        filter.doFilter(get('/api/items/1', victimIp), preFlood, chain)
+
+        and: "flood >MAX_KEYS unique IPs against the same surface to trigger eviction"
+        // MAX_KEYS = 10_000. Sending 10_050 unique-IP requests pushes
+        // the map past the threshold and triggers eviction inside the
+        // hot path. Each unique IP gets its own bucket keyed
+        // `ip:1.2.3.4|/api/items/`.
+        (1..10_050).each { i ->
+            int a = (i >>> 16) & 0xff
+            int b = (i >>> 8)  & 0xff
+            int c =  i         & 0xff
+            def floodIp = "172.${a}.${b}.${c}"
+            filter.doFilter(get('/api/items/9', floodIp), new MockHttpServletResponse(), chain)
+        }
+
+        and: "victim now sends their 42nd request"
+        def postFlood = new MockHttpServletResponse()
+        filter.doFilter(get('/api/items/1', victimIp), postFlood, chain)
+
+        then: "pre-flood 41st was 429 (rate-limited as expected)"
+        preFlood.status == 429
+
+        and: "post-flood, the victim's bucket survived eviction — they're STILL 429"
+        // With the old code (min{} + single-arg remove) the victim's
+        // bucket was the easy `oldest` (smallest windowStart relative
+        // to the just-created flood entries), so it got wiped and the
+        // 42nd request came back 200 — a 41-request bypass on top of
+        // the 40 already spent. With the fix the bucket survives.
+        postFlood.status == 429
+    }
 }

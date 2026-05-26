@@ -298,9 +298,30 @@ class RateLimitFilter extends OncePerRequestFilter {
         // Bounded eviction to keep the map from growing without limit. Cheap
         // because we only pay the cost when the map is huge *and* we're
         // already inside a rate-limit check for a guarded surface.
+        //
+        // Two-phase eviction guards against a check-then-act race:
+        //   1. The `min{}` scan + single-arg `remove(key)` evicted whatever
+        //      sat at `oldest.key` at the moment of the remove — including
+        //      a bucket whose `windowStart` had just been rolled forward by
+        //      the active user (line 292 above). The very next request
+        //      from that user re-created a fresh Bucket via
+        //      `computeIfAbsent`, resetting their count to 0 and bypassing
+        //      the rate limit they were about to trip.
+        //   2. Even single-threaded, evicting the "oldest" bucket every
+        //      MAX_KEYS+1th request silently wiped active counters for
+        //      anyone whose window happened to start earlier than the
+        //      churn — e.g. a steady poller mixed with bursty unique-IP
+        //      traffic.
+        // The fix: only evict buckets that are GENUINELY stale
+        // (windowStart older than one window), and use the conditional
+        // two-arg `remove(key, value)` so a bucket that's been re-issued
+        // since the scan stays put.
         if (buckets.size() > MAX_KEYS) {
-            def oldest = buckets.entrySet().min { it.value.windowStart }
-            if (oldest) buckets.remove(oldest.key)
+            long cutoff = now - WINDOW_MS
+            buckets.entrySet().removeIf { e ->
+                Bucket b = e.value
+                b != null && b.windowStart < cutoff
+            }
         }
 
         if (current > budget) {
