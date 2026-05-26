@@ -328,9 +328,10 @@ class AdminServiceSpec extends Specification {
 
     // ── grant / revoke admin ──────────────────────────────────────
 
-    def "grantAdmin flips role to ADMIN"() {
+    def "grantAdmin flips role to ADMIN and emails the verified target"() {
         given:
-        def target = new SteamUser(id: 20L, steamId64: '222', role: 'USER')
+        def target = new SteamUser(id: 20L, steamId64: '222', role: 'USER',
+            email: 'p@x.io', emailVerified: true, displayName: 'Pat')
         steamUserRepository.findById(20L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
 
@@ -339,11 +340,30 @@ class AdminServiceSpec extends Specification {
 
         then:
         result.role == 'ADMIN'
+        // Batch 320 — security alert on privilege grant. canSendSecurityTo
+        // gate (mocked in this spec) keeps a no-email / unverified target
+        // silent and lets the verified one through.
+        1 * emailService.sendRoleGranted('p@x.io', 'Pat', 'ADMIN')
     }
 
-    def "revokeAdmin flips role back to USER"() {
+    def "grantAdmin stays silent when target has no verified email"() {
         given:
-        def target = new SteamUser(id: 20L, steamId64: '222', role: 'ADMIN')
+        def target = new SteamUser(id: 20L, steamId64: '222', role: 'USER',
+            email: null, emailVerified: false)
+        steamUserRepository.findById(20L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.grantAdmin(1L, 20L)
+
+        then:
+        0 * emailService.sendRoleGranted(_, _, _)
+    }
+
+    def "revokeAdmin flips role back to USER and emails the verified target"() {
+        given:
+        def target = new SteamUser(id: 20L, steamId64: '222', role: 'ADMIN',
+            email: 'p@x.io', emailVerified: true, displayName: 'Pat')
         steamUserRepository.findById(20L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
 
@@ -352,6 +372,7 @@ class AdminServiceSpec extends Specification {
 
         then:
         result.role == 'USER'
+        1 * emailService.sendRoleRevoked('p@x.io', 'Pat', 'ADMIN')
     }
 
     def "revokeAdmin forbids self-revoke"() {
@@ -365,9 +386,10 @@ class AdminServiceSpec extends Specification {
 
     // ── grant / revoke CSR ────────────────────────────────────────
 
-    def "grantCsr flips USER role to CSR"() {
+    def "grantCsr flips USER role to CSR and emails the verified target"() {
         given:
-        def target = new SteamUser(id: 21L, steamId64: '333', role: 'USER')
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'USER',
+            email: 'c@x.io', emailVerified: true, displayName: 'Cam')
         steamUserRepository.findById(21L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
 
@@ -376,6 +398,7 @@ class AdminServiceSpec extends Specification {
 
         then:
         result.role == 'CSR'
+        1 * emailService.sendRoleGranted('c@x.io', 'Cam', 'CSR')
     }
 
     def "grantCsr refuses banned accounts"() {
@@ -402,9 +425,10 @@ class AdminServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
-    def "revokeCsr flips CSR back to USER"() {
+    def "revokeCsr flips CSR back to USER and emails the verified target"() {
         given:
-        def target = new SteamUser(id: 21L, steamId64: '333', role: 'CSR')
+        def target = new SteamUser(id: 21L, steamId64: '333', role: 'CSR',
+            email: 'c@x.io', emailVerified: true, displayName: 'Cam')
         steamUserRepository.findById(21L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
 
@@ -413,6 +437,7 @@ class AdminServiceSpec extends Specification {
 
         then:
         result.role == 'USER'
+        1 * emailService.sendRoleRevoked('c@x.io', 'Cam', 'CSR')
     }
 
     def "revokeCsr refuses non-CSR accounts"() {

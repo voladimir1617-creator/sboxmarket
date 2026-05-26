@@ -1041,6 +1041,63 @@ class BidServiceSpec extends Specification {
         1 * notificationService.push(7L, 'AUCTION_LOST', _, _, 100L, _)
     }
 
+    def "buyNowAuction records the WON bid at buyNowPrice, not at the buyer's stale earlier bid"() {
+        // Bug: when the buyer had an earlier (lower) bid on the auction,
+        // buyNowAuction set listing.currentBid = buyNowPrice and let
+        // settle() resolve the buyer's still-WINNING earlier row to WON.
+        // settle() only flips `status`, never `amount` — so the bid
+        // history recorded the win at $20 while the wallet was debited
+        // $50 and the trade opened at $50. A second, symmetric bug: a
+        // buyer who hits Buy Now WITHOUT ever having bid got no Bid row
+        // at all, so the win never appeared on their Profile → Past
+        // Bids tab. Fix saves a fresh WINNING row at buyNowPrice before
+        // settle() runs, so the highest-amount row settle picks for WON
+        // always carries the real settlement amount.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('20'), currentBidderId: 10L, bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        // Buyer's stale earlier bid at $20 — still WINNING before buy-now.
+        def buyerOldBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 10L,
+            bidderName: 'Alice', amount: new BigDecimal('20'), status: 'WINNING')
+        def allBids = [buyerOldBid]
+        // Capture each saved row so settle()'s fresh findByListing sees
+        // the new buy-now row alongside the prior history — mirrors what
+        // a real JPA repo would return on re-read after the save.
+        bidRepository.save(_) >> { Bid b ->
+            if (b.id == null) b.id = (long)(100 + allBids.size())
+            if (!allBids.any { it.is(b) }) allBids << b
+            b
+        }
+        bidRepository.findByListing(100L) >> { Long id -> allBids }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        // Listing settled at the buy-now price.
+        listing.currentBid == new BigDecimal('50')
+        // Exactly one of the buyer's rows reads WON, and its amount is
+        // the buy-now price — NOT the stale $20.
+        def buyerWon = allBids.findAll { it.bidderUserId == 10L && it.status == 'WON' }
+        buyerWon.size() == 1
+        buyerWon[0].amount == new BigDecimal('50')
+        // The stale earlier row no longer reads WINNING — it was demoted
+        // to OUTBID by settle()'s loser branch for the buyer's own
+        // non-top rows.
+        buyerOldBid.status == 'OUTBID'
+    }
+
     // ── cancelAutoBid ──────────────────────────────────────────────
 
     def "cancelAutoBid no-ops on a terminal (WON/LOST/CANCELLED) bid"() {
@@ -1107,7 +1164,7 @@ class BidServiceSpec extends Specification {
 
     def "historyFor returns empty list when no bids exist"() {
         given:
-        bidRepository.findByListing(100L) >> []
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> []
 
         expect:
         service.historyFor(100L, 10L) == []
@@ -1117,7 +1174,7 @@ class BidServiceSpec extends Specification {
         given:
         def a = bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice', maxAmount: new BigDecimal("50"))
         def b = bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob')
-        bidRepository.findByListing(100L) >> [a, b]
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [a, b]
         listingRepository.findById(100L) >> Optional.of(auctionListing(seller: 99L))
 
         when:
@@ -1134,7 +1191,7 @@ class BidServiceSpec extends Specification {
         given:
         def a = bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice')
         def b = bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob')
-        bidRepository.findByListing(100L) >> [a, b]
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [a, b]
         listingRepository.findById(100L) >> Optional.of(auctionListing(seller: 99L))
 
         when:
@@ -1149,7 +1206,7 @@ class BidServiceSpec extends Specification {
         given:
         def a = bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice', maxAmount: new BigDecimal("50"))
         def b = bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob')
-        bidRepository.findByListing(100L) >> [a, b]
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [a, b]
         listingRepository.findById(100L) >> Optional.of(auctionListing(seller: 99L))
 
         when:
@@ -1168,7 +1225,7 @@ class BidServiceSpec extends Specification {
 
     def "historyFor redacts bidder identities for a logged-in third party"() {
         given:
-        bidRepository.findByListing(100L) >> [
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [
             bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice'),
             bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob')
         ]
@@ -1184,7 +1241,7 @@ class BidServiceSpec extends Specification {
 
     def "historyFor gives the same handle to repeat bids from the same bidder"() {
         given:
-        bidRepository.findByListing(100L) >> [
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [
             bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice', amount: new BigDecimal("30")),
             bid(id: 2L, bidderUserId: 20L, bidderName: 'Bob',   amount: new BigDecimal("25")),
             bid(id: 3L, bidderUserId: 10L, bidderName: 'Alice', amount: new BigDecimal("20"))
@@ -1200,7 +1257,7 @@ class BidServiceSpec extends Specification {
 
     def "historyFor redacts even when the listing row has been deleted"() {
         given:
-        bidRepository.findByListing(100L) >> [bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice')]
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> [bid(id: 1L, bidderUserId: 10L, bidderName: 'Alice')]
         listingRepository.findById(100L) >> Optional.empty()
 
         when:
@@ -1210,6 +1267,24 @@ class BidServiceSpec extends Specification {
         out.size() == 1
         out[0].bidderName == 'Bidder #1'
         out[0].bidderUserId == null
+    }
+
+    def "historyFor uses the paged repository variant capped at HISTORY_PAGE_SIZE (no unbounded ship on hot auctions)"() {
+        given: 'caller hits the public unauthenticated /api/bids/listing/{id} endpoint'
+        org.springframework.data.domain.Pageable captured = null
+        bidRepository.findByListing(100L, _ as org.springframework.data.domain.Pageable) >> { Long id, org.springframework.data.domain.Pageable p ->
+            captured = p
+            []
+        }
+
+        when:
+        service.historyFor(100L, null)
+
+        then: 'the service must NOT call the unbounded variant; the page request must clamp at HISTORY_PAGE_SIZE'
+        captured != null
+        captured.pageNumber == 0
+        captured.pageSize == BidService.HISTORY_PAGE_SIZE
+        BidService.HISTORY_PAGE_SIZE == 200
     }
 
     // ── outbid email hook ─────────────────────────────────────────

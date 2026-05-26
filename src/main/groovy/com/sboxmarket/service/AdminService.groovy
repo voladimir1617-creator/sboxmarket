@@ -1025,6 +1025,21 @@ class AdminService {
             'You are now an admin',
             'You have been promoted to ADMIN on SkinBox — the Admin Panel is now available from your user menu.',
             null, '/admin')
+        // Security alert email (batch 320). Same threat model as 2FA-
+        // reset / wallet-freeze / force-logout: an attacker with a stolen
+        // staff session could otherwise silently hand ADMIN to a
+        // confederate. The in-app bell push reaches active users; an
+        // out-of-band email reaches a target who isn't on-site, so the
+        // legit account holder spots the unexpected promotion before
+        // the confederate uses the role. Verified-email gate +
+        // silent-fail wrap match the established pattern.
+        try {
+            if (emailService != null && emailService.canSendSecurityTo(user)) {
+                emailService.sendRoleGranted(user.email, user.displayName, 'ADMIN')
+            }
+        } catch (Exception e) {
+            log.warn("Role-granted email failed for user ${targetUserId}: ${e.message}")
+        }
         auditService?.log(AuditService.ADMIN_GRANTED, adminUserId, targetUserId, null,
             "Granted ADMIN to ${user.steamId64}")
         log.info("Admin ${adminUserId} granted ADMIN to ${targetUserId}")
@@ -1044,6 +1059,18 @@ class AdminService {
             'Admin role revoked',
             'Your admin privileges have been removed. You can still use SkinBox normally as a regular user.',
             null, '/profile')
+        // Security alert email (batch 320). Mirrors grantAdmin — a
+        // compromised admin session could strip another admin's role to
+        // lock them out of an investigation. Out-of-band notice lets the
+        // victim catch the unauthorised demotion before the attacker
+        // finishes their pivot.
+        try {
+            if (emailService != null && emailService.canSendSecurityTo(user)) {
+                emailService.sendRoleRevoked(user.email, user.displayName, 'ADMIN')
+            }
+        } catch (Exception e) {
+            log.warn("Role-revoked email failed for user ${targetUserId}: ${e.message}")
+        }
         auditService?.log(AuditService.ADMIN_REVOKED, adminUserId, targetUserId, null,
             "Revoked ADMIN from ${user.steamId64}")
         log.info("Admin ${adminUserId} revoked ADMIN from ${targetUserId}")
@@ -1075,6 +1102,17 @@ class AdminService {
             'You are now a customer service rep',
             'You have been granted the CSR role on SkinBox. The 🎧 Customer Service panel is now available from your user menu.',
             null, '/csr')
+        // Security alert email (batch 320). CSR can read tickets +
+        // see PII; silently handing it to a confederate is the same
+        // attack vector as silent ADMIN promotion, just lower-yield.
+        // Same non-opt-out security policy as the ADMIN twin.
+        try {
+            if (emailService != null && emailService.canSendSecurityTo(user)) {
+                emailService.sendRoleGranted(user.email, user.displayName, 'CSR')
+            }
+        } catch (Exception e) {
+            log.warn("Role-granted email failed for user ${targetUserId}: ${e.message}")
+        }
         auditService?.log(AuditService.CSR_GRANTED, adminUserId, targetUserId, null,
             "Granted CSR to ${user.steamId64}")
         log.info("Admin ${adminUserId} granted CSR to ${targetUserId}")
@@ -1564,6 +1602,15 @@ class AdminService {
             'CSR role revoked',
             'Your customer service role has been removed. You can still use SkinBox normally as a regular user.',
             null, '/profile')
+        // Security alert email (batch 320). Mirror of CSR_GRANTED —
+        // unauthorised revoke is part of the same attack pattern.
+        try {
+            if (emailService != null && emailService.canSendSecurityTo(user)) {
+                emailService.sendRoleRevoked(user.email, user.displayName, 'CSR')
+            }
+        } catch (Exception e) {
+            log.warn("Role-revoked email failed for user ${targetUserId}: ${e.message}")
+        }
         auditService?.log(AuditService.CSR_REVOKED, adminUserId, targetUserId, null,
             "Revoked CSR from ${user.steamId64}")
         log.info("Admin ${adminUserId} revoked CSR from ${targetUserId}")

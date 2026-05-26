@@ -1267,6 +1267,77 @@ support ticket — someone may have accessed your account.
         send(toEmail, subject, body)
     }
 
+    /** Privilege-grant security alert (batch 320). Fires from
+     *  AdminService.grantAdmin / grantCsr when staff hand a role to
+     *  another account. Same threat model as ban / 2FA-reset / wallet-
+     *  freeze: an attacker who phished a staff session could otherwise
+     *  silently promote a confederate to ADMIN / CSR — the victim user
+     *  (whose account just gained powers they didn't ask for) needs an
+     *  out-of-band heads-up so they can flag it before the confederate
+     *  uses the privilege. Non-opt-out — security alerts always fire.
+     *  Body spells out the role name + what to do if it wasn't expected. */
+    void sendRoleGranted(String toEmail, String displayName, String role) {
+        if (!toEmail || !role) return
+        def cleanRole = role.trim().toUpperCase()
+        def roleLabel = cleanRole == 'ADMIN' ? 'ADMIN (full moderation + financial controls)'
+                      : cleanRole == 'CSR'   ? 'CSR (customer-support panel access)'
+                      : cleanRole
+        def subject = "⚠ Security alert · ${cleanRole} role granted"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+A SkinBox administrator just granted your account the ${roleLabel} role.
+
+If you were expecting this — welcome to the team. The new tools show up
+in your user menu the next time you sign in.
+
+If this came as a surprise, your account may have been picked as part of
+an unauthorised privilege grant by a staff session that was itself
+compromised. Act now:
+  1. Sign out of every device from Profile → Personal → Sign out everywhere.
+  2. Reply to this email — staff will review the audit log and revert
+     the grant if it wasn't legitimate.
+  3. Re-enrol 2FA from Profile → Security if you haven't already.
+
+This alert cannot be disabled — security-critical events always fire.
+
+— The SkinBox security team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
+    /** Privilege-revoke security alert (batch 320). Counterpart to
+     *  sendRoleGranted — fires from AdminService.revokeAdmin / revokeCsr
+     *  when staff strip a role back to USER. Same non-opt-out policy.
+     *  Distinguishes between the two roles in the body so a CSR whose
+     *  support tools were rotated out doesn't read "ADMIN revoked" and
+     *  panic about an admin account they never had. */
+    void sendRoleRevoked(String toEmail, String displayName, String role) {
+        if (!toEmail || !role) return
+        def cleanRole = role.trim().toUpperCase()
+        def roleLabel = cleanRole == 'ADMIN' ? 'ADMIN' : cleanRole == 'CSR' ? 'CSR (customer-support)' : cleanRole
+        def subject = "⚠ Security alert · ${cleanRole} role revoked"
+        def body = """\
+Hi ${displayName ?: 'there'},
+
+A SkinBox administrator just removed the ${roleLabel} role from your
+account. You can still use SkinBox normally as a regular user — your
+listings, wallet, and trade history are untouched.
+
+If this was expected (you rotated off the team / handed your seat over),
+no action is needed.
+
+If this WASN'T expected, an unauthorised staff session may have stripped
+your privileges to lock you out of an investigation. Reply to this email
+and another admin will review the audit log.
+
+This alert cannot be disabled — security-critical events always fire.
+
+— The SkinBox security team
+""".stripIndent()
+        send(toEmail, subject, body)
+    }
+
     /** Account-reinstated notice. Fires from AdminService.unbanUser. */
     void sendAccountUnbanned(String toEmail, String displayName) {
         if (!toEmail) return

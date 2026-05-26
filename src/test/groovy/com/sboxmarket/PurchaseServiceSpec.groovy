@@ -914,8 +914,16 @@ class PurchaseServiceSpec extends Specification {
             id: 5L, item: new Item(id: 10L, name: 'Wizard Hat'),
             price: new BigDecimal("50.00"), status: 'ACTIVE',
             sellerName: 'Bob', sellerUserId: 500L)
+        // SELLER_WALLET_MISSING gate needs the seller wallet resolvable.
+        def sellerUser = new SteamUser(id: 500L, displayName: 'Bob', steamId64: '888')
+        def sellerWallet = new Wallet(id: 700L, username: 'steam_888', balance: BigDecimal.ZERO)
+        def buyerUser = new SteamUser(id: 999L,
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
         walletRepo.findById(1L) >> Optional.of(buyer)
         listingRepo.findById(5L) >> Optional.of(listing)
+        steamUserRepo.findById(999L) >> Optional.of(buyerUser)
+        steamUserRepo.findById(500L) >> Optional.of(sellerUser)
+        walletRepo.findByUsername('steam_888') >> sellerWallet
 
         when:
         service.buy(1L, 999L, 5L)

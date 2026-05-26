@@ -504,6 +504,17 @@ class BidService {
         winningRow
     }
 
+    /** Server-side cap on the public bid-history payload. A hot auction
+     *  can attract hundreds of bid rows (snipe-bot territory — the
+     *  BidRepository docs flag this directly). The unbounded variant
+     *  hydrated every row on every call to the unauthenticated
+     *  /api/bids/listing/{id} endpoint, so a power-bidder auction OR a
+     *  hostile caller hammering the endpoint forced the DB to ship the
+     *  full set repeatedly. The UI only renders the top-N anyway. 200
+     *  is generous (matches the watchlist hard cap; covers any
+     *  realistic auction's bid count) while bounding the worst-case. */
+    static final int HISTORY_PAGE_SIZE = 200
+
     /**
      * Public bid history for a listing. Same anti-enumeration pattern as
      * OfferService.thread — if the viewer is the listing seller or the
@@ -513,9 +524,14 @@ class BidService {
      * history to build up a trading profile of other users. The original
      * Hibernate-managed entities are never mutated — we return fresh
      * detached copies.
+     *
+     * Capped at HISTORY_PAGE_SIZE via the paged repository variant — the
+     * unbounded findByListing call could ship hundreds of rows per
+     * request on a hot auction, and the endpoint is unauthenticated.
      */
     List<Bid> historyFor(Long listingId, Long viewerUserId = null) {
-        def all = bidRepository.findByListing(listingId)
+        def all = bidRepository.findByListing(listingId,
+            org.springframework.data.domain.PageRequest.of(0, HISTORY_PAGE_SIZE))
         if (all.isEmpty()) return all
 
         def listing = listingRepository.findById(listingId).orElse(null)
@@ -705,6 +721,31 @@ class BidService {
         listing.currentBidderId   = buyerUserId
         listing.currentBidderName = buyerName ?: ("Buyer_" + buyerUserId)
         listing.expiresAt         = System.currentTimeMillis()
+
+        // Persist a Bid row at the buy-now price so the buyer's history
+        // records the real settlement amount. Two bugs this closes:
+        //   1) Buyer never bid: settle()'s winnersLive was empty, no WON
+        //      row was ever written — the win didn't show on the buyer's
+        //      Profile → Past Bids tab.
+        //   2) Buyer had a prior lower bid (e.g. $25 vs buy-now $50):
+        //      settle() flipped that row's `status` to WON but never
+        //      touched `amount`. The bid history then read "won at $25"
+        //      while the wallet was debited $50 and the trade opened at
+        //      $50 — a permanent reporting mismatch on the bidder side
+        //      and a $25 hole in any aggregated bid-volume metric.
+        // Saving the row here lets settle's existing
+        // `winnersLive.sort { amount desc }.first()` pick this row as WON
+        // (it's strictly higher than any prior buyer bid — buy-now is
+        // gated above on `currentBid < buyNowPrice`), with any older
+        // buyer rows correctly demoting to OUTBID.
+        bidRepository.save(new Bid(
+            listingId:     listingId,
+            bidderUserId:  buyerUserId,
+            bidderName:    listing.currentBidderName,
+            amount:        listing.buyNowPrice,
+            kind:          'MANUAL',
+            status:        'WINNING'
+        ))
 
         settle(listing)
 
