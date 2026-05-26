@@ -3746,10 +3746,18 @@ function CsrLookupTab() {
     // without an admin debit; a fat-fingered amount must be catchable
     // before it lands in the ledger.
     if (!confirm(`CREDIT ${fmt(value)} to ${label}'s wallet?\n\nThis adjusts the balance immediately and is logged in the audit trail.`)) return;
-    const res = await csrGoodwill(u.id, value, note);
-    if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
-    toast(`Credited. New balance: $${res.newBalance}`, 'ok');
-    search();
+    // Guard against double-submit — without busy, a double-clicked
+    // "+ Goodwill" button fires two csrGoodwill POSTs and double-credits
+    // the wallet (the confirm() already cleared on the first click).
+    // Mirrors AdminUsersTab.doCredit's setBusy gate.
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await csrGoodwill(u.id, value, note);
+      if (res.code || res.error) { toast(res.message || res.error, 'err'); return; }
+      toast(`Credited. New balance: $${res.newBalance}`, 'ok');
+      search();
+    } finally { setBusy(false); }
   };
   return h('div', { className: 'profile-panel' },
     h('div', { style: { display: 'flex', gap: 10, marginBottom: 14 } },
@@ -3777,7 +3785,7 @@ function CsrLookupTab() {
               h('div', { style: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 } }, 'Balance'),
               h('div', { style: { fontSize: 16, fontWeight: 800, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' } }, fmt(u.balance || 0))
             ),
-            h('button', { className: 'btn btn-accent', style: { marginLeft: 10, padding: '8px 14px' }, onClick: () => giveCredit(u) }, '+ Goodwill')
+            h('button', { className: 'btn btn-accent', style: { marginLeft: 10, padding: '8px 14px' }, disabled: busy, onClick: () => giveCredit(u) }, '+ Goodwill')
           ),
           u.banned && h('div', { style: { fontSize: 11, padding: '8px 10px', background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: 6, color: 'var(--red)', marginBottom: 8 } },
             'Ban reason: ', u.banReason || '(none)'),

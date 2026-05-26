@@ -863,7 +863,14 @@ class ProfileController {
                 createdAt:  a.createdAt
             ] } ?: []
         ]
+        // SimpleDateFormat with no timeZone uses the JVM default — the
+        // GDPR-export filename's date then drifts across midnight on
+        // non-UTC hosts (a 23:30 UTC request from a UTC-2 server gets
+        // tomorrow's date stamp, breaking sort order and confusing
+        // users who diff two exports). Pin to UTC, matching every
+        // other SDF in this controller.
         def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
+        df.timeZone = java.util.TimeZone.getTimeZone('UTC')
         ResponseEntity.ok()
             .header('Content-Disposition',
                 "attachment; filename=\"skinbox-data-${user.steamId64}-${df.format(new Date())}.json\"")
