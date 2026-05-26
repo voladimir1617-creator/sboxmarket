@@ -126,7 +126,9 @@ class BuyOrderController {
     @GetMapping("/for-item/{id}")
     ResponseEntity<List<Map>> forItem(@PathVariable Long id,
                                       @RequestParam(required = false) Integer limit) {
-        int lim = Math.min(Math.max(limit ?: 10, 1), 20)
+        // Explicit null-check, not Elvis — sibling Elvis-on-zero fix
+        // pattern (75678e1 / 655596b).
+        int lim = Math.min(Math.max(limit != null ? limit : 10, 1), 20)
         // Batch 807 — public cache. Aggregate queue data, no viewer-
         // specific fields. 60s matches the sibling /top + /count/item/*
         // endpoints so the whole buy-order read-aggregate surface caches

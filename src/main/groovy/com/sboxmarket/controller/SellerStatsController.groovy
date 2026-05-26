@@ -58,8 +58,11 @@ class SellerStatsController {
                                   @RequestParam(required = false, defaultValue = '5') Integer limit) {
         // Clamp inputs so a crafted query can't ask for every seller
         // since the Big Bang. 1-90 day window, 1-20 rows returned.
-        int win = Math.min(Math.max(days ?: 7, 1), 90)
-        int lim = Math.min(Math.max(limit ?: 5, 1), 20)
+        // Explicit null-check, not Elvis — sibling Elvis-on-zero fix
+        // pattern (75678e1 / 655596b). `?days=0` and `?limit=0` are
+        // honoured (clamp to 1) instead of silently substituting defaults.
+        int win = Math.min(Math.max(days != null ? days : 7, 1), 90)
+        int lim = Math.min(Math.max(limit != null ? limit : 5, 1), 20)
         def cached = topCache.get()
         def cacheKey = "${win}:${lim}".toString()
         if (cached != null
@@ -239,7 +242,8 @@ class SellerStatsController {
         q = q.trim().replace('\u0000', '')
         if (q.length() < 2) return cached([])   // too short — noise guard
         if (q.length() > 60) q = q.substring(0, 60)
-        int lim = Math.min(Math.max(limit ?: 10, 1), 25)
+        // Same Elvis-on-zero fix as above + sibling controllers.
+        int lim = Math.min(Math.max(limit != null ? limit : 10, 1), 25)
         def rows = steamUserRepository.searchPublicSellers(q, PageRequest.of(0, lim))
         if (rows == null || rows.isEmpty()) return cached([])
         def ids = rows.collect { (it[0] as Long) }
