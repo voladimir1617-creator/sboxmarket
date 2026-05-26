@@ -342,6 +342,63 @@ class StripeServiceSpec extends Specification {
         savedRefund.amount == new BigDecimal("100")
     }
 
+    def "refundDeposit blocks a second partial refund that would push past the original deposit total — even in dev mode (no Stripe over-refund guard)"() {
+        // Regression pin for the cumulative-refund cap (batch 658). Pre-fix,
+        // the single-call check `amount > tx.amount` let two $60 partials
+        // pass against a $100 deposit and the dev-mode branch (no `cs_`
+        // prefix → skip Stripe) would happily debit the wallet a total of
+        // $120 and write a second REFUND row. Affected legacy dev_*
+        // deposits that survived into a Stripe-keyed production deploy.
+        given:
+        def depositTx = new Transaction(
+            id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal("100.00"), currency: 'USD', stripeReference: 'dev_legacy_42'
+        )
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("200.00"))
+        transactionRepository.findById(1L) >> Optional.of(depositTx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction t -> t.id = 2L; t }
+        // First $60 refund already on file → repository reports it.
+        transactionRepository.sumRefundsByDeposit(1L) >> new BigDecimal("60.00")
+
+        when: 'admin tries a second $60 refund on the same deposit'
+        service.refundDeposit(1L, new BigDecimal("60"))
+
+        then: 'blocked — only $40 remains refundable; wallet untouched'
+        thrown(IllegalArgumentException)
+        wallet.balance == new BigDecimal("200.00")
+        // No second REFUND row written.
+        0 * transactionRepository.save({ Transaction t -> t.type == 'REFUND' })
+    }
+
+    def "refundDeposit allows the remaining balance on a second partial refund (cumulative cap)"() {
+        // Companion to the block-the-overage test: with $40 already
+        // refunded, a follow-up $60 refund must still succeed because it
+        // exactly fills the remaining refundable balance.
+        given:
+        def depositTx = new Transaction(
+            id: 1L, walletId: 500L, type: 'DEPOSIT', status: 'COMPLETED',
+            amount: new BigDecimal("100.00"), currency: 'USD', stripeReference: 'dev_legacy_42'
+        )
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal("200.00"))
+        transactionRepository.findById(1L) >> Optional.of(depositTx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        def savedRefund = null
+        transactionRepository.save(_) >> { Transaction t -> t.id = 99L; savedRefund = t; t }
+        transactionRepository.sumRefundsByDeposit(1L) >> new BigDecimal("40.00")
+
+        when:
+        def result = service.refundDeposit(1L, new BigDecimal("60"))
+
+        then:
+        noExceptionThrown()
+        wallet.balance == new BigDecimal("140.00")
+        result.newBalance == new BigDecimal("140.00")
+        savedRefund.amount == new BigDecimal("60.00")
+    }
+
     // ── cancelPendingWithdrawal ───────────────────────────────────
 
     def "cancelPendingWithdrawal credits the wallet back and flips the tx to CANCELLED"() {

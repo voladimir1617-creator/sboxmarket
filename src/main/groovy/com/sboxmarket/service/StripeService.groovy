@@ -287,6 +287,34 @@ class StripeService {
         if (amount <= BigDecimal.ZERO || amount > tx.amount) {
             throw new IllegalArgumentException("Refund amount must be between 0 and \$${tx.amount}")
         }
+        // Cumulative-refund cap (batch 658 fix). The single-call check
+        // above (`amount > tx.amount`) only blocks one oversized call —
+        // it doesn't stop two partials of $60 each against a $100 deposit
+        // from totalling $120. In live mode with a `cs_`-prefixed
+        // stripeReference, Stripe's own Refund.create call would reject
+        // the second one with `amount_too_large` and the @Transactional
+        // would roll back — so the live happy path stays safe. But two
+        // production paths sidestep that:
+        //   1) `dev_`-prefixed deposits (created when the platform ran
+        //      without Stripe keys, then later got them) skip the
+        //      Stripe call entirely (line guarded by isLive() + cs_),
+        //      so the second admin click silently double-debits the
+        //      wallet and writes a second REFUND row.
+        //   2) Any future deposit path that lands a non-`cs_` reference
+        //      (manual ops adjustment, alternate processor) inherits the
+        //      same gap.
+        // Sum prior REFUND rows for this deposit and reject up front if
+        // the new amount would push past the original.
+        def alreadyRefunded = (transactionRepository.sumRefundsByDeposit(tx.id) ?: BigDecimal.ZERO)
+            .setScale(2, java.math.RoundingMode.HALF_UP)
+        def remaining = tx.amount - alreadyRefunded
+        if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
+        if (amount > remaining) {
+            throw new IllegalArgumentException(
+                "Refund amount \$${amount} exceeds remaining refundable balance \$${remaining} on deposit #${tx.id} " +
+                "(original \$${tx.amount}, already refunded \$${alreadyRefunded})"
+            )
+        }
 
         String refundId = 'dev'
         if (isLive() && tx.stripeReference?.startsWith('cs_')) {

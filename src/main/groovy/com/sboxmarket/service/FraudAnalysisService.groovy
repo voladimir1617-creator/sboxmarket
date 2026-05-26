@@ -325,16 +325,21 @@ class FraudAnalysisService {
                 // Detectors that don't set it get a trailing `|` uniformly,
                 // so their dedup behaviour is unchanged.
                 def signature = "${sig.type}|${sig.userId ?: ''}|${sig.ip ?: ''}|${bucket}|${sig.dedupKey ?: ''}".toString()
+                // Dedup check only — DO NOT commit the signature yet.
+                // Previously the signature was added pre-fanout; if every
+                // admin push then threw (DB blip, transient bell-storage
+                // error, etc.) the signature was permanently marked seen
+                // and the next 30-min tick — and every subsequent tick
+                // for the next 1000 unique signatures of LRU lifetime —
+                // skipped re-firing, so a HIGH fraud signal could land
+                // ZERO admin bells silently. We now only stamp the
+                // signature after at least one push lands.
                 synchronized (seenSignatures) {
                     if (seenSignatures.contains(signature)) return
-                    if (seenSignatures.size() >= SEEN_SIG_CAP) {
-                        def oldest = seenSignatures.iterator().next()
-                        seenSignatures.remove(oldest)
-                    }
-                    seenSignatures.add(signature)
                 }
                 def summary = (sig.summary ?: sig.type ?: 'fraud signal').toString().take(240)
                 def refId = (sig.userId instanceof Number) ? (sig.userId as Long) : null
+                boolean anyPushed = false
                 admins.each { admin ->
                     try {
                         notificationService.push(admin.id, 'FRAUD_SIGNAL_HIGH',
@@ -342,11 +347,21 @@ class FraudAnalysisService {
                             summary,
                             refId,
                             '/admin?tab=fraud')
+                        anyPushed = true
                     } catch (Exception e) {
                         log.warn("FRAUD_SIGNAL_HIGH push failed for admin=${admin.id}: ${e.message}")
                     }
                 }
-                pushed++
+                if (anyPushed) {
+                    synchronized (seenSignatures) {
+                        if (seenSignatures.size() >= SEEN_SIG_CAP) {
+                            def oldest = seenSignatures.iterator().next()
+                            seenSignatures.remove(oldest)
+                        }
+                        seenSignatures.add(signature)
+                    }
+                    pushed++
+                }
             } catch (Exception e) {
                 log.warn("Fraud sweeper row failed: ${e.message}")
             }

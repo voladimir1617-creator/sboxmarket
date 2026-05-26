@@ -123,7 +123,46 @@ class CorrelationIdFilter extends OncePerRequestFilter {
             "xr-spatial-tracking=()"
         ))
         resp.setHeader("Cross-Origin-Opener-Policy", "same-origin")
-        resp.setHeader("Cross-Origin-Resource-Policy", "same-origin")
+        // Cross-Origin-Resource-Policy MUST agree with the CORS allowlist
+        // in WebConfig. A blanket `same-origin` here defeats the public
+        // CORS allowlist for read-only `/api/listings/*`, `/api/items/*`
+        // and `/api/database/**`: the CORS check passes (the response
+        // carries `Access-Control-Allow-Origin: *`) but the browser then
+        // honours CORP and refuses to deliver the resource to the
+        // cross-origin caller (Steam community page, the browser
+        // extension, curl from a third-party origin). Result: the public
+        // read API works in same-origin tabs but silently breaks for the
+        // exact cross-origin callers the WebConfig allowlist was built
+        // for. Emit `cross-origin` on those paths only — every other
+        // surface (the SPA shell, authenticated /api/**, static assets)
+        // keeps the locked-down `same-origin`. Keep this list in sync
+        // with WebConfig.addCorsMappings(); the wildcard prefixes catch
+        // every sub-path the CORS registry exposes.
+        boolean isPublicCorsRead = req.method != null &&
+                ('GET'.equalsIgnoreCase(req.method) || 'OPTIONS'.equalsIgnoreCase(req.method)) &&
+                req.requestURI != null && (
+                    req.requestURI == '/api/listings' ||
+                    req.requestURI.startsWith('/api/listings/item/') ||
+                    req.requestURI.startsWith('/api/listings/seller/') ||
+                    req.requestURI.startsWith('/api/listings/stall/') ||
+                    req.requestURI == '/api/listings/stats' ||
+                    req.requestURI == '/api/listings/just-listed' ||
+                    req.requestURI == '/api/listings/top-deals' ||
+                    req.requestURI == '/api/listings/top-sellers' ||
+                    req.requestURI == '/api/listings/ending-soon' ||
+                    req.requestURI == '/api/listings/recent-sales' ||
+                    req.requestURI == '/api/listings/most-watched' ||
+                    req.requestURI == '/api/listings/most-viewed' ||
+                    req.requestURI == '/api/listings/hottest' ||
+                    req.requestURI == '/api/listings/sales-velocity' ||
+                    req.requestURI == '/api/listings/report-reasons' ||
+                    req.requestURI == '/api/items' ||
+                    req.requestURI.startsWith('/api/items/') ||
+                    req.requestURI.startsWith('/api/database/') ||
+                    req.requestURI == '/api/database'
+                )
+        resp.setHeader("Cross-Origin-Resource-Policy",
+                isPublicCorsRead ? "cross-origin" : "same-origin")
         resp.setHeader("Content-Security-Policy", CSP_HEADER)
         // HSTS: emit whenever the request actually arrived over TLS, not
         // gated on the env var. The container itself listens on plain

@@ -277,4 +277,19 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
           AND t.status = 'COMPLETED'
     """)
     long countCompletedWithdrawalsByWallet(@Param('walletId') Long walletId)
+
+    /** Sum of completed REFUND rows already issued against a given deposit
+     *  (matched by "Refund of deposit #<id>" substring stamped at refund
+     *  time). Used to enforce the cumulative-refund cap in
+     *  {@code StripeService.refundDeposit} so multiple partial refunds
+     *  against the same deposit can't exceed the original amount —
+     *  critical for legacy dev-mode (dev_*) deposits and any other path
+     *  that doesn't ride Stripe's own over-refund protection. */
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+        WHERE t.type = 'REFUND'
+          AND t.status = 'COMPLETED'
+          AND t.description LIKE CONCAT('%Refund of deposit #', :depositId, '%')
+    """)
+    BigDecimal sumRefundsByDeposit(@Param('depositId') Long depositId)
 }

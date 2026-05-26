@@ -203,6 +203,66 @@ class CorrelationIdFilterSpec extends Specification {
         ]
     }
 
+    def "CORP=cross-origin on public-CORS read endpoints so the WebConfig allowlist actually works: #path"() {
+        // Regression: a blanket Cross-Origin-Resource-Policy: same-origin
+        // overruled the public CORS allowlist for /api/listings/*,
+        // /api/items/*, /api/database/** — the CORS preflight passed,
+        // Access-Control-Allow-Origin: * landed on the response, but the
+        // browser then refused to hand the body to the cross-origin
+        // caller (the Steam community extension, third-party curl) due
+        // to CORP. The WebConfig allowlist promises the extension can
+        // read these paths; this assertion pins that promise.
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Cross-Origin-Resource-Policy') == 'cross-origin'
+
+        where:
+        path << [
+            '/api/listings',
+            '/api/listings/item/123',
+            '/api/listings/seller/456/other',
+            '/api/listings/stall/789',
+            '/api/listings/stats',
+            '/api/listings/just-listed',
+            '/api/listings/top-deals',
+            '/api/items',
+            '/api/items/42',
+            '/api/database',
+            '/api/database/items'
+        ]
+    }
+
+    def "CORP stays same-origin on every non-public path so authenticated surfaces are not embedded cross-origin: #path"() {
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Cross-Origin-Resource-Policy') == 'same-origin'
+
+        where:
+        path << [
+            '/',
+            '/api/wallet',
+            '/api/auth/steam/me',
+            '/api/profile/me',
+            '/api/listings/my-stall',
+            '/api/listings/inventory',
+            '/api/listings/sell',
+            '/api/cart',
+            '/api/admin/stats'
+        ]
+    }
+
     def "filter still sets Cache-Control on a genuine SPA shell route with no OG handler"() {
         // Negative control: routes WITHOUT a dedicated OpenGraphController
         // handler still need the filter's revalidation header so a fresh

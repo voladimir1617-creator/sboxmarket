@@ -47,10 +47,18 @@ class Item {
     @Column(name = 'view_count', nullable = false)
     Long viewCount = 0L
 
-    @Column(nullable = false)
+    // Explicit precision = 19, scale = 2 matches every other money column
+    // in the project (Wallet.balance, Listing.price, Transaction.amount,
+    // Offer.amount, Trade.price, Bid.amount, BuyOrder.maxPrice,
+    // TradeProtection.feeAmount, etc.). The DB column is NUMERIC(19,2)
+    // via V1__baseline.sql so the live impact is already zero (Postgres
+    // clamps on write), but the annotation drift was a code-smell the
+    // Hibernate DDL exporter or a future `ddl-auto=update` would
+    // surface. Pinned by ItemBigDecimalPrecisionSpec.
+    @Column(nullable = false, precision = 19, scale = 2)
     BigDecimal lowestPrice = BigDecimal.ZERO
 
-    @Column
+    @Column(precision = 19, scale = 2)
     BigDecimal steamPrice  // original Steam store price (for discount % display)
 
     @Column(nullable = false)

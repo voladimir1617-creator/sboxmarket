@@ -722,6 +722,43 @@ class FraudAnalysisServiceSpec extends Specification {
         notThrown(Exception)
     }
 
+    def "sweeper retries the signature next pass when every admin push failed"() {
+        // Regression: the sweeper used to stamp the signature into
+        // seenSignatures BEFORE the admin fan-out, so if every push threw
+        // (DB blip, transient bell-storage error) the signal was permanently
+        // marked seen — admins would never be re-fired even though zero
+        // bells had landed. The fix only commits the signature once at
+        // least one push has succeeded, so a fully-failed pass leaves the
+        // signature open and the next 30-min tick retries the alert.
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        auditLogRepository.since(_) >> (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        int callCount = 0
+
+        when:
+        // Pass 1: the only admin's push throws — zero bells delivered.
+        svc.sweepAndPushFraudSignals()
+        // Pass 2: same HIGH signal — the sweeper MUST retry because pass 1
+        // delivered no bells. Pre-fix this was skipped via the seen-sig cache.
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        2 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _) >> { args ->
+            callCount++
+            if (callCount == 1) throw new RuntimeException('bell down')
+            return new Notification(id: 1L)
+        }
+        notThrown(Exception)
+    }
+
     // ── sweeper transaction semantics (regression) ────────────────
     //
     // The sweeper WRITES notification rows via notificationService.push().
