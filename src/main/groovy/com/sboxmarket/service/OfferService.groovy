@@ -424,13 +424,18 @@ class OfferService {
         }
         // Optional seller note attached to the counter ("can't go lower —
         // already 30% below median"). Same 280-char rule as makeOffer.
+        // Pre-fix used cleanShort (LIMIT_SHORT=80) which silently chopped a
+        // 100-char counter note to 80 — the length() > MESSAGE_MAX_LEN
+        // guard could then never fire, mirroring the makeOffer bug closed
+        // in 4cc7288. Check raw length first, then sanitise at the correct
+        // 280-char cap.
         String cleanMessage = null
         if (message != null) {
-            def trimmed = textSanitizer.cleanShort(message)
-            if (trimmed && trimmed.length() > MESSAGE_MAX_LEN) {
+            if (message.length() > MESSAGE_MAX_LEN) {
                 throw new BadRequestException("MESSAGE_TOO_LONG",
                     "Counter message must be ${MESSAGE_MAX_LEN} characters or fewer.")
             }
+            def trimmed = textSanitizer.clean(message, MESSAGE_MAX_LEN)
             if (trimmed) cleanMessage = trimmed
         }
         def original = offerRepository.findById(originalOfferId)
@@ -802,14 +807,17 @@ class OfferService {
         }
         // Optional seller rejection note (V45 / batch 387). Same 280-char
         // rule as the buyer's offer message. Empty/whitespace collapses to
-        // null so we never store blank strings.
+        // null so we never store blank strings. Same cleanShort vs
+        // clean(_, 280) mismatch as counterOffer / 4cc7288 — pre-sanitise
+        // length check before clean so a 100-char rejection note isn't
+        // silently chopped to 80.
         String cleanReply = null
         if (reply != null) {
-            def trimmed = textSanitizer.cleanShort(reply)
-            if (trimmed && trimmed.length() > MESSAGE_MAX_LEN) {
+            if (reply.length() > MESSAGE_MAX_LEN) {
                 throw new BadRequestException("MESSAGE_TOO_LONG",
                     "Rejection note must be ${MESSAGE_MAX_LEN} characters or fewer.")
             }
+            def trimmed = textSanitizer.clean(reply, MESSAGE_MAX_LEN)
             if (trimmed) cleanReply = trimmed
         }
         offer.status = 'REJECTED'

@@ -2623,6 +2623,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   useEffect(() => {
     if (!listing?.id) return;
     const lid = listing.id;
+    let alive = true;
     const isTerminal = () => {
       const view = live || listing;
       const terminal = view && view.status && view.status !== 'ACTIVE';
@@ -2638,6 +2639,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
         es = new window.EventSource(`/api/bids/stream/${encodeURIComponent(lid)}`);
         es.addEventListener('open', () => { sseAlive = true; });
         es.addEventListener('bid', (ev) => {
+          if (!alive) return;
           try {
             const data = JSON.parse(ev.data);
             if (!data || data.listingId !== lid) return;
@@ -2663,7 +2665,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
             });
             // Bid-history list refresh — cheap and keeps the panel rows
             // in sync with the summary tick we just applied.
-            fetchBidHistory(lid).then(setHistory).catch(() => {});
+            fetchBidHistory(lid).then(rows => { if (alive) setHistory(rows); }).catch(() => {});
           } catch (_) { /* malformed event — ignore */ }
         });
         es.addEventListener('error', () => { sseAlive = false; /* browser auto-reconnects */ });
@@ -2692,6 +2694,7 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
     document.addEventListener('visibilitychange', onVis);
 
     return () => {
+      alive = false;
       if (es) { try { es.close(); } catch (_) {} }
       clearInterval(intervalId);
       clearInterval(cadenceId);

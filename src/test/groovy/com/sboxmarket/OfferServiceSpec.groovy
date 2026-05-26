@@ -278,6 +278,28 @@ class OfferServiceSpec extends Specification {
         thrown(OfferNotPendingException)
     }
 
+    def "counterOffer preserves a 100-char message instead of silently chopping to 80 (4cc7288 sibling)"() {
+        // Pre-fix used textSanitizer.cleanShort which caps at LIMIT_SHORT=80;
+        // a 100-char message survived the length() > MESSAGE_MAX_LEN (280)
+        // guard but was silently truncated to 80. Counter must persist the
+        // full message intact (sanitiser called with 280 cap, not 80).
+        given:
+        def original = pendingOffer()
+        offerRepository.findById(1L) >> Optional.of(original)
+        listingRepository.findById(100L) >> Optional.of(activeListing())
+        offerRepository.save(_) >> { Offer o -> o }
+        String msg = 'x' * 100
+
+        when:
+        def counter = service.counterOffer(99L, 1L, new BigDecimal('40'), msg)
+
+        then:
+        1 * textSanitizer.clean(msg, 280) >> msg
+        0 * textSanitizer.cleanShort(_)
+        counter.message == msg
+        counter.message.length() == 100
+    }
+
     def "counterOffer refuses counters on a listing that's no longer ACTIVE"() {
         // Listing sold via direct Buy Now after the offer landed — the
         // seller shouldn't be able to mint a dead PENDING counter the
