@@ -933,6 +933,7 @@ class StripeServiceSpec extends Specification {
     def "createDepositSession reuses the existing PENDING row when Stripe replays the same Session id (idempotency)"() {
         given: 'live mode so the Stripe-idempotency path is exercised'
         service.secretKey = 'sk_live_dedupe_test'
+        service.dailyDepositCap = new BigDecimal('1000')   // leave plenty of headroom
         def wallet = new Wallet(id: 500L, balance: new BigDecimal("100.00"))
         walletRepository.findById(500L) >> Optional.of(wallet)
         // Daily cap not relevant — no prior deposits.
