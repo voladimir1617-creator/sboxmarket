@@ -175,7 +175,18 @@ class BidService {
         if (listing.listingType != 'AUCTION') {
             throw new BadRequestException("NOT_AUCTION", "Listing is not an auction")
         }
-        if (listing.expiresAt != null && System.currentTimeMillis() > listing.expiresAt) {
+        // Snapshot `now` ONCE for the whole placeBid call (batch fix). The
+        // entry-time expiry guard and the soft-close block below used to
+        // each take their own System.currentTimeMillis() reading. A bid
+        // that passed the guard with only a few ms of slack
+        // (`expiresAt - now1 == 2ms`) could see wall-clock advance past
+        // `expiresAt` during the wallet/solvency DB lookups between the two
+        // points — the soft-close's `timeLeft >= 0` gate then evaluated
+        // false and the auction was NOT extended for a bid that legitimately
+        // landed before close. The next sweep tick (≤30s) closed it
+        // immediately, defeating anti-snipe for that bidder.
+        long nowMs = System.currentTimeMillis()
+        if (listing.expiresAt != null && nowMs > listing.expiresAt) {
             throw new BadRequestException("EXPIRED", "Auction has ended")
         }
         if (listing.sellerUserId != null && listing.sellerUserId == bidderUserId) {
@@ -313,10 +324,14 @@ class BidService {
         // sweeper tick would close it immediately, defeating the
         // anti-sniping intent for the exact-boundary case.
         if (listing.expiresAt != null) {
-            def now = System.currentTimeMillis()
-            def timeLeft = listing.expiresAt - now
+            // Reuse the entry-guard `nowMs` snapshot — see comment on the
+            // expiry guard above. A fresh System.currentTimeMillis() here
+            // races with intervening DB work and can flip `timeLeft` negative
+            // for a bid the entry guard already accepted, silently skipping
+            // the extension.
+            def timeLeft = listing.expiresAt - nowMs
             if (timeLeft >= 0 && timeLeft <= SNIPE_WINDOW_MS) {
-                def newExpiresAt = now + SNIPE_EXTEND_MS
+                def newExpiresAt = nowMs + SNIPE_EXTEND_MS
                 if (newExpiresAt > listing.expiresAt) {
                     listing.expiresAt = newExpiresAt
                     log.info("Auction ${listingId} soft-closed — extended to +${SNIPE_EXTEND_MS}ms by bid from ${bidderUserId}")
