@@ -2579,15 +2579,31 @@ export function AuctionBidPanel({ listing, me, wallet, onPlaced }) {
   // expected" crash (Rules of Hooks).
   const [cancellingCap, setCancellingCap] = useState(false);
 
+  // Mounted guard for the two-await load() chain below. The SSE handler
+  // + 8-60s polling fallback call load() throughout the panel's life,
+  // and closing the ItemModal mid-fetch used to fire setHistory/setLive
+  // on an unmounted component (React's "state update on unmounted"
+  // warning, and the stale fetch result was wasted anyway). Ref instead
+  // of `let alive` because load is a useCallback shared across multiple
+  // call sites — we need one liveness signal that all of them honour.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const load = useCallback(async () => {
     if (!listing?.id) return;
-    setHistory(await fetchBidHistory(listing.id));
+    const hist = await fetchBidHistory(listing.id);
+    if (!mountedRef.current) return;
+    setHistory(hist);
     // Poll the listing itself — its expiresAt and currentBid both
     // change server-side without a placeBid on this tab (remote
     // bidders, sweeper). Without this the panel showed stale data
     // until the user placed their own bid.
     try {
       const fresh = await (await import('./api.js')).fetchListingById(listing.id);
+      if (!mountedRef.current) return;
       if (fresh && fresh.id === listing.id) {
         setLive(prev => {
           const prevExpires = prev?.expiresAt ?? listing.expiresAt;

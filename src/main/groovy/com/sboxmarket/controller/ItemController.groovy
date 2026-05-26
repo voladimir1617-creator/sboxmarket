@@ -62,6 +62,19 @@ class ItemController {
         if (category != null) category = category.replace('\u0000', '')
         if (rarity != null) rarity = rarity.replace('\u0000', '')
         if (q != null && q.length() > 100) q = q.substring(0, 100)
+        // Escape SQL LIKE wildcards (% _ \) so a user-typed `_` or `%`
+        // matches that character literally instead of as a wildcard —
+        // ItemRepository.searchByName's JPQL carries the matching
+        // `ESCAPE '\'` clause. Without this, `?q=100%` returned every
+        // row whose name started with `100`, and `?q=Hat_` returned
+        // every five-character name beginning with `Hat`. Brings
+        // /api/items into parity with the LIKE-escape posture already
+        // applied on /api/database (DatabaseController.escapeLike) and
+        // /api/listings (ListingController.escapeLike). Backslash first
+        // so the escapes we add aren't themselves re-escaped.
+        if (q != null && !q.isEmpty()) {
+            q = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        }
         // Batch 658 / 659 — case-insensitive enum normalisation via
         // the shared ListingEnums helper. Unknown values fall through
         // to 'All' (no filter).

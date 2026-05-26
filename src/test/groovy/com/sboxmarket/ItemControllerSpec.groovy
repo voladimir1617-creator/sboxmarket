@@ -535,4 +535,38 @@ class ItemControllerSpec extends Specification {
         then: "same CF IP → one view; the differing XFF is correctly ignored"
         itemRepository.findById(item.id).get().viewCount == 1L
     }
+
+    // ── GET /api/items?q= — SQL LIKE wildcard escaping ───────────────
+    // ItemRepository.searchByName's JPQL carries `LIKE … ESCAPE '\'` —
+    // the same posture as DatabaseController/ListingController — but
+    // ItemController used to forward the raw `q` unescaped, so a user-
+    // typed `_` or `%` matched as a wildcard instead of literally. A
+    // search for a literal underscore returned every catalogue row
+    // whose name contained ANY single character at that position;
+    // `%` returned everything. Same defence applied to /api/database
+    // (DatabaseController.escapeLike) + /api/listings (ListingController.
+    // escapeLike) — this brings /api/items into parity.
+
+    def "GET /api/items?q= treats SQL LIKE wildcards as literal characters"() {
+        given: "two items — one whose name actually contains an underscore"
+        def uniq = String.valueOf(System.nanoTime())
+        def hit  = newItem(name: "Underscore_${uniq}")
+        // A distractor whose name does NOT contain an underscore but
+        // would match if `_` were treated as a single-char wildcard.
+        // The wildcard interpretation of `Underscore_${uniq}` matches
+        // any name with `Underscore` + ANY single char + `${uniq}` —
+        // which `UnderscoreX${uniq}` satisfies but the literal form
+        // does not.
+        def miss = newItem(name: "UnderscoreX${uniq}")
+
+        when: "the search term contains a literal underscore"
+        def response = rest.getForEntity(
+            "http://localhost:$port/api/items?q=Underscore_${uniq}", List)
+
+        then: "only the row with the literal underscore matches"
+        response.statusCode == HttpStatus.OK
+        def ids = response.body*.id as Set
+        ids.contains(hit.id)
+        !ids.contains(miss.id)
+    }
 }
