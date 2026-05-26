@@ -54,6 +54,40 @@ class SteamMarketPriceService {
      *  "Steam IP-banned us mid-sync, only 7 of 80 cleared". */
     private volatile boolean lastRunAborted = false
 
+    /** Single-flight guard. The @Scheduled tick (every 30 min) runs for
+     *  ~11 min in steady state; AdminController.syncPrices spawns
+     *  syncPricesFromSteam() in a bare `new Thread(...)` on demand. If
+     *  an admin clicks "Sync prices" while the scheduled tick is mid-run
+     *  (~37% of every 30-min window), or rapid-clicks the button, two
+     *  threads execute syncPricesFromSteam() concurrently and:
+     *    • Burn through Steam's 1 req/s priceoverview ceiling — both
+     *      threads independently throttle at 8s/item, but together they
+     *      fire 2 req per 8s on the same IP. Steam's per-IP cooldown
+     *      kicks in and BOTH threads start 429-burning. The circuit
+     *      breaker (`consecutive429s`) is a per-invocation LOCAL
+     *      variable, so each thread counts only ITS OWN 429s — the
+     *      5-strike abort fires later than designed and we burn more of
+     *      Steam's cooldown budget than the breaker meant to allow.
+     *      Result: IP ban, the price feed this service exists to keep
+     *      fresh stops updating.
+     *    • Race on `itemRepository.save(item)` for the same Item
+     *      instance loaded by both threads' `itemRepository.findAll()`
+     *      — whichever commits second wins, the other thread's price
+     *      update is silently lost.
+     *    • Stomp the `lastRun*` volatile telemetry; the admin Health
+     *      tab observes garbled numbers (e.g. updated=0 while
+     *      finishedAt is fresh, because thread B's `lastRunUpdated = 0`
+     *      lands after thread A's `lastRunFinishedAt = …`).
+     *
+     *  compareAndSet(false, true) ensures only one body runs at a time.
+     *  Concurrent callers log + return immediately — no queue, because
+     *  the admin's intent ("kick off a sync NOW") is already satisfied
+     *  by the in-flight one and the next scheduled tick is at most
+     *  30 min away. `finally` always clears the flag so a throw inside
+     *  the body can't permanently lock out future ticks. */
+    private final java.util.concurrent.atomic.AtomicBoolean syncRunning =
+        new java.util.concurrent.atomic.AtomicBoolean(false)
+
     // 90-second initial delay (batch 376). Previously 10 minutes, chosen
     // to let Steam's cooldown expire if we were mid-429-burst. BUT a
     // typical deploy / CI restart / grind redeploy happens more often
@@ -72,6 +106,30 @@ class SteamMarketPriceService {
     // so partial progress is durable even if a later item fails.
     @Scheduled(fixedDelay = SYNC_INTERVAL_MS, initialDelay = 90L * 1000L)
     void syncPricesFromSteam() {
+        // Single-flight guard — see the syncRunning docstring. The
+        // fixedDelay @Scheduled already serialises THE SCHEDULER's own
+        // ticks per-method; the CAS only ever loses to a manual /
+        // admin-button-triggered invocation racing a mid-run tick.
+        // Concurrent callers return immediately so we never have two
+        // threads hammering Steam's 1 req/s ceiling.
+        if (!syncRunning.compareAndSet(false, true)) {
+            log.info("Steam Market price sync skipped — another sync already in flight")
+            return
+        }
+        try {
+            syncPricesFromSteamBody()
+        } finally {
+            // Always release — a throw inside the body must not
+            // permanently lock out future ticks.
+            syncRunning.set(false)
+        }
+    }
+
+    /** Inner body of {@link #syncPricesFromSteam} — kept package-private
+     *  so a spec can call it directly to exercise the loop without
+     *  going through the single-flight guard. Production callers MUST
+     *  go through the outer method so the guard fires. */
+    void syncPricesFromSteamBody() {
         def items = itemRepository.findAll()
         if (items.isEmpty()) return
 
