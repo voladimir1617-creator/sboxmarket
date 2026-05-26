@@ -1,5 +1,6 @@
 package com.sboxmarket.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 
 /**
@@ -49,12 +50,27 @@ class UserBlock {
     // raw Long ids, not entity refs). Hibernate sees these and emits
     // the foreign-key + ON DELETE CASCADE on its generated H2 schema,
     // matching what V68 enforces on Postgres.
+    //
+    // @JsonIgnore on both refs is load-bearing — SteamUser has half a
+    // dozen fields without their own @JsonIgnore (email, banReason,
+    // lastSyncedAt, lastLoginAt, mutedEmailKinds, deletionRequestedAt,
+    // tradeUrl) that are intentionally only safe to serialize under the
+    // controlled `/api/profile/blocks` projection where UserBlockService
+    // hand-picks (displayName, avatarUrl, blockedUserId, createdAt). If
+    // anyone ever returns a UserBlock entity directly from a controller
+    // — or `UserBlockRepository.findAll()` from an admin/debug endpoint
+    // — Jackson would walk the lazy proxy and silently emit the blocker
+    // AND blocked user's email + ban reason to the wire. Treat these
+    // refs as schema-only plumbing the way Hibernate intends: the scalar
+    // `blockerUserId` / `blockedUserId` columns are the public contract.
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = 'blocker_user_id', insertable = false, updatable = false,
                 foreignKey = @ForeignKey(name = 'fk_user_blocks_blocker'))
     @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     SteamUser blockerRef
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = 'blocked_user_id', insertable = false, updatable = false,
                 foreignKey = @ForeignKey(name = 'fk_user_blocks_blocked'))

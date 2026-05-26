@@ -185,4 +185,75 @@ class AuctionStreamControllerSpec extends Specification {
         where:
         id << [null, 0L, -5L]
     }
+
+    /**
+     * The synthetic terminal-state event for a SOLD/CANCELLED auction MUST
+     * dispatch under the SSE event name `bid`. The browser-side EventSource
+     * client (csfloat-modals.js) only registers `addEventListener('bid', …)`
+     * — a custom-named SSE event with no matching listener is silently
+     * dropped by EventSource, so a misnamed `state` event would never
+     * reach the panel and the whole "late viewers see the final result"
+     * affordance would silently break (no error, no fallback — the UI
+     * just sits on the pre-load placeholder until polling fills in).
+     *
+     * Captures the event name + the payload off a real SseEmitter so the
+     * assertion fails loudly if the SSE name is ever flipped back to
+     * `state`.
+     */
+    def "subscribe to an ended auction emits the terminal snapshot under SSE event name 'bid' (not 'state')"() {
+        given: 'a real SseEmitter that captures every SseEventBuilder sent to it'
+        def captured = []
+        def emitter = new SseEmitter(0L) {
+            @Override
+            void send(SseEmitter.SseEventBuilder builder) { captured << builder }
+        }
+        def ended = auction(id: 42L, status: 'SOLD')
+        1 * listingRepository.findById(42L) >> Optional.of(ended)
+        1 * bus.subscribe(42L) >> emitter
+
+        when:
+        controller.subscribe(42L)
+
+        then: 'exactly one terminal-state event went out from the controller'
+        captured.size() == 1
+
+        and: 'the SSE wire format carries `event:bid` so the client `bid` listener picks it up'
+        // Spring's SseEventBuilder serialises the SSE name into a leading
+        // text/plain "event:<name>\n" datum (followed by the JSON data
+        // payload and the trailing "\n\n"). We grep the concatenated wire
+        // bytes for `event:bid` and forbid `event:state` — assertion
+        // fails loudly if the SSE name is ever flipped back, regardless
+        // of how the builder packs its fields internally.
+        def wire = captured[0].build()
+                              .collect { String.valueOf(it.data) }
+                              .join('')
+        wire.contains('event:bid')
+        !wire.contains('event:state')
+
+        and: 'the payload still carries the snapshot fields + the `state` kind discriminant'
+        def payload = (Map) captured[0].build()
+                                       .collect { it.data }
+                                       .find { it instanceof Map }
+        payload.kind == 'state'
+        payload.status == 'SOLD'
+        payload.listingId == 42L
+        !payload.containsKey('currentBidderId')   // redaction parity with bus.onBid
+    }
+
+    def "subscribe to an ACTIVE auction does not send a synthetic terminal snapshot"() {
+        given: 'an ACTIVE auction (the bus already sent hello — controller adds nothing more)'
+        def captured = []
+        def emitter = new SseEmitter(0L) {
+            @Override
+            void send(SseEmitter.SseEventBuilder builder) { captured << builder }
+        }
+        1 * listingRepository.findById(42L) >> Optional.of(auction(id: 42L, status: 'ACTIVE'))
+        1 * bus.subscribe(42L) >> emitter
+
+        when:
+        controller.subscribe(42L)
+
+        then: 'the controller stays silent — no extra send on top of the bus hello'
+        captured.isEmpty()
+    }
 }

@@ -1445,6 +1445,47 @@ Thanks for your patience.
         return s.substring(0, cap - 1) + '…'
     }
 
+    /**
+     * Collapse CR/LF and the other C0 control characters out of a value
+     * before it's spliced into an SMTP header (Subject, From-name, etc).
+     *
+     * Jakarta Mail's `MimeMessage.setSubject(String)` runs the value
+     * through `encodeText` + `fold` but does NOT strip raw CR/LF —
+     * verified directly against `jakarta.mail.internet.MimeMessage`. So
+     * a user-controlled field (Steam display name, third-party item
+     * name, saved-search preset name) spliced into a subject template
+     * like `"You won — ${itemName}"` can become two SMTP headers on
+     * relays that don't pre-validate header lines: an attacker who sets
+     * their Steam display name to `"Foo\r\nBcc: attacker@evil"` smuggles
+     * a `Bcc:` header into every email we send them — silently fanning
+     * out their verification token / wallet alert / dispute reply to a
+     * third party.
+     *
+     * The scrubber collapses CR/LF/NUL/DEL/C0 to a single space (TAB is
+     * preserved — it's a valid whitespace character in long header
+     * values). Fast path returns the original string with no allocation
+     * when nothing needs scrubbing — the overwhelming-majority case.
+     * Trims trailing whitespace so we don't leak a tell-tale "Subject: …
+     *  " on a successful scrub.
+     */
+    private static String scrubHeaderLine(String s) {
+        if (s == null || s.isEmpty()) return s
+        boolean needsScrub = false
+        int len = s.length()
+        for (int i = 0; i < len; i++) {
+            char c = s.charAt(i)
+            // C0 controls are 0x00..0x1F and 0x7F; skip TAB (0x09).
+            if (c == 0x7F || (c < 0x20 && c != 0x09)) { needsScrub = true; break }
+        }
+        if (!needsScrub) return s
+        StringBuilder sb = new StringBuilder(len)
+        for (int i = 0; i < len; i++) {
+            char c = s.charAt(i)
+            sb.append((c == 0x7F || (c < 0x20 && c != 0x09)) ? (char) ' ' : c)
+        }
+        sb.toString().trim()
+    }
+
     /** Mask the local-part of an email for log output: `voladimir1617@gmail.com`
      *  → `v***@gmail.com`. Stops the audit log line from being a
      *  PII-leaking exfil target if a logs index is ever exposed (Datadog
@@ -1594,8 +1635,13 @@ Thanks for your patience.
         // Length caps applied at the boundary so every template benefits
         // without having to remember to clamp at the call site. Subject
         // first (user-visible truncation matters most), then body.
-        final String safeSubject = cap(subject, MAX_SUBJECT_CHARS)
-        final String safeBody    = cap(body,    MAX_BODY_CHARS)
+        // CR/LF/C0-control scrub runs BEFORE the cap so a hostile
+        // injection payload can't survive a truncation that lops off
+        // the trailing closer — see scrubHeaderLine's docstring for
+        // the SMTP-header-injection scenario it closes (Jakarta Mail
+        // does not strip raw control chars from setSubject).
+        final String safeSubject = cap(scrubHeaderLine(subject), MAX_SUBJECT_CHARS)
+        final String safeBody    = cap(body,                     MAX_BODY_CHARS)
         // Dedupe BEFORE we touch the executor — saves a thread-pool
         // submit + the queue slot when a caller fires the same email
         // twice. Log the suppression so ops can trace a missing email

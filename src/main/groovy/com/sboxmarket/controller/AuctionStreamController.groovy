@@ -53,15 +53,25 @@ class AuctionStreamController {
         // For an auction that has already concluded (SOLD / EXPIRED /
         // CANCELLED), no further AuctionBidPlacedEvent will ever fire —
         // so a late subscriber would sit on a stale UI until the next
-        // event that never comes. Deliver the terminal state as a
-        // `state` event right after the bus's hello so the client can
-        // render the final result immediately. Field shape mirrors the
-        // public `bid` payload (and deliberately omits currentBidderId
-        // — same redaction rationale the bus's onBid uses) so the
-        // client's bid-event handler can be reused unchanged.
+        // event that never comes. Deliver the terminal state right after
+        // the bus's hello so the client can render the final result
+        // immediately. The SSE event MUST be named `bid` (NOT `state`):
+        // the browser-side EventSource client in csfloat-modals.js only
+        // registers `addEventListener('bid', …)`, and a custom-named SSE
+        // event with no matching listener is silently dropped by the
+        // EventSource API — so an event named `state` would never reach
+        // the panel and the "late viewers see the final result"
+        // affordance would silently break (no error, no fallback, the
+        // UI just sits on its pre-load placeholder until polling fills
+        // in). Field shape mirrors the public `bid` payload (and
+        // deliberately omits currentBidderId — same redaction rationale
+        // the bus's onBid uses) so the existing bid handler ingests the
+        // snapshot unchanged. The `kind: 'state'` payload field is the
+        // discriminant a future panel revision could use to distinguish
+        // a synthetic terminal snapshot from a true post-bid event.
         if (listing.status != null && listing.status != 'ACTIVE') {
             try {
-                emitter.send(SseEmitter.event().name('state').data([
+                emitter.send(SseEmitter.event().name('bid').data([
                     listingId        : listing.id,
                     kind             : 'state',
                     currentBid       : listing.currentBid?.toPlainString(),

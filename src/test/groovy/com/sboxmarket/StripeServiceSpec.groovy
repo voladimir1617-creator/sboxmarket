@@ -590,6 +590,38 @@ class StripeServiceSpec extends Specification {
         0 * walletRepository.save(_)
     }
 
+    def "completeDeposit short-circuits on EVERY non-PENDING status — no double-credit after dispute/fail/expire/cancel"() {
+        // P1 money-hole regression. Pre-fix the guard was
+        // `tx.status == "COMPLETED" → return`, so any OTHER non-PENDING
+        // status fell through to the wallet-credit path. The DISPUTED
+        // case is the real-money exploit: user deposits → wallet
+        // credited → user files chargeback → tx flipped to DISPUTED
+        // (wallet untouched) → a duplicate /confirm-deposit fires (a
+        // re-loaded success_url tab, or any redelivery after the
+        // in-memory seenEventIds cache resets on a server restart) →
+        // old check returned false → wallet credited AGAIN. Net: user
+        // walks away with 2× the deposit while Stripe is about to claw
+        // back the original via the chargeback. Treating any non-PENDING
+        // tx as already-handled keeps the idempotent contract: a deposit
+        // leaves PENDING exactly once, and only the PENDING→COMPLETED
+        // edge credits the wallet.
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'DEPOSIT', status: badStatus,
+            amount: new BigDecimal('100.00'), currency: 'USD', stripeReference: 'dev_x')
+        transactionRepository.findByStripeReference('dev_x') >> tx
+
+        when:
+        service.completeDeposit('dev_x')
+
+        then: 'short-circuits before touching the wallet or any of the live-mode rails'
+        0 * walletRepository.findById(_)
+        0 * walletRepository.save(_)
+        0 * transactionRepository.save(_)
+
+        where:
+        badStatus << ['COMPLETED', 'DISPUTED', 'FAILED', 'EXPIRED', 'CANCELLED']
+    }
+
     def "completeDeposit throws IllegalStateException for an unknown session id (permanent — webhook ACKs 200)"() {
         given: 'no tx matches the supplied reference'
         transactionRepository.findByStripeReference('cs_ghost') >> null

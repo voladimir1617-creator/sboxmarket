@@ -1204,7 +1204,30 @@ class StripeService {
             log.warn("confirm-deposit called with unknown sessionId=${sessionId}")
             throw new IllegalStateException("Unknown deposit session")
         }
-        if (tx.status == "COMPLETED") return   // idempotent
+        // Only PENDING deposits should be credited. Pre-fix this only
+        // short-circuited on COMPLETED — every OTHER non-PENDING state
+        // (DISPUTED / FAILED / EXPIRED / CANCELLED) fell through to the
+        // wallet-credit path, which double-credits a tx that has already
+        // transitioned out of PENDING. Concrete reproducer for the
+        // DISPUTED case (the real-money hole): user deposits $100, the
+        // checkout.session.completed webhook credits the wallet and flips
+        // tx to COMPLETED, user files a chargeback, handleChargebackOpened
+        // flips tx to DISPUTED (wallet stays at $100 — we don't auto-debit
+        // on dispute-open). Then the synchronous /api/wallet/confirm-deposit
+        // path runs from a re-loaded success_url tab (or any duplicate
+        // delivery across an event-id-cache reset, e.g. a server restart):
+        // tx.status is DISPUTED, the old check `== "COMPLETED"` returned
+        // false, completeDeposit re-verified the (still paid) Stripe
+        // session, and added another $100 to the wallet — the attacker
+        // walks away with $200 in their wallet while Stripe is about to
+        // claw back the original $100 via the chargeback. Treating any
+        // non-PENDING tx as already-handled closes the gap and keeps the
+        // idempotent-replay contract: a tx leaves PENDING exactly once,
+        // and only the PENDING→COMPLETED edge credits the wallet.
+        if (tx.status != "PENDING") {
+            log.info("completeDeposit short-circuit: tx ${tx.id} already in terminal state ${tx.status} (sessionId=${sessionId})")
+            return
+        }
         if (tx.type != 'DEPOSIT') {
             log.warn("confirm-deposit called against a non-deposit tx ${tx.id}")
             throw new IllegalStateException("Transaction is not a deposit")
