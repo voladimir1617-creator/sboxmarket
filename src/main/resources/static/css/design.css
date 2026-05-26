@@ -197867,3 +197867,29 @@ html body .nav-picker-chip {
 html body nav.nav .nav-links {
   min-width: 0;
 }
+
+/* CSFLOAT-1:1 PARITY ship #12806 — FAB z-index demotion.
+   The .csfloat-fab is declared at z-index 8800 (around L23008) which sits
+   FAR above the modal stack (1000 per ship #12802). When any modal opens
+   — item detail, cart confirm, share, sign-in, etc. — the FAB punched
+   through the dim layer and floated over the modal panel, intercepting
+   clicks meant for the modal close button on small viewports. FAB is a
+   page-level CTA — it should sit above sticky bars (998) and nav (50)
+   but ALWAYS below modal-backdrop (1000) and modal-panel (1001). Also
+   hide outright while a modal is open to match csfloat's CDK behavior
+   where the page FAB is removed from the a11y tree during overlay. */
+.csfloat-fab {
+  z-index: 999 !important;
+}
+body:has(.modal-backdrop),
+body:has(.cart-confirm-backdrop),
+body:has(.shortcuts-backdrop) {
+  /* While ANY modal-tier overlay is open, hide the page FAB so it cannot
+     occlude modal content or steal pointer events from the dialog. */
+}
+body:has(.modal-backdrop) .csfloat-fab,
+body:has(.cart-confirm-backdrop) .csfloat-fab,
+body:has(.shortcuts-backdrop) .csfloat-fab {
+  display: none !important;
+}
+/* END CSFLOAT-1:1 PARITY ship #12806 */

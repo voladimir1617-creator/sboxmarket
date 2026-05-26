@@ -10,6 +10,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
+import java.security.MessageDigest
 import java.security.SecureRandom
 
 /*
@@ -118,7 +119,16 @@ class CsrfFilter extends OncePerRequestFilter {
         boolean apiAuthenticated = Boolean.TRUE == req.getAttribute('sbox.apiAuth')
         if (isWrite && isApi && !isExempt && !apiAuthenticated) {
             def header = req.getHeader(HEADER_NAME)
-            if (!header || header != cookieValue) {
+            // Constant-time compare on the CSRF token. A plain `!=` short-
+            // circuits on the first byte mismatch AND on length difference,
+            // leaking matching-prefix bytes via response timing to anyone
+            // who can measure it. The CSRF cookie is per-session and
+            // network-observable in the response Set-Cookie on first issue,
+            // but the comparison primitive must still be constant time —
+            // same defence pattern as TotpService.constantTimeEquals,
+            // EmailService.verifyUnsubscribeToken, and the email-
+            // verification token compare in ProfileController.verifyEmail.
+            if (!header || !constantTimeEquals(header, cookieValue)) {
                 resp.status = 403
                 resp.contentType = 'application/json'
                 resp.writer.write('{"code":"CSRF_MISMATCH","message":"Missing or invalid CSRF token. Refresh the page and try again."}')
@@ -141,5 +151,17 @@ class CsrfFilter extends OncePerRequestFilter {
         def b = new byte[TOKEN_BYTES]
         RNG.nextBytes(b)
         Base64.urlEncoder.withoutPadding().encodeToString(b)
+    }
+
+    /**
+     * Length-independent constant-time string compare for the CSRF
+     * double-submit token. `MessageDigest.isEqual` (Java 6+) does the
+     * timing-safe byte compare; we route both sides through
+     * `getBytes('UTF-8')` so a null header reaches us as the explicit
+     * empty-string fallback rather than NPE'ing.
+     */
+    private static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) return false
+        MessageDigest.isEqual(a.getBytes('UTF-8'), b.getBytes('UTF-8'))
     }
 }

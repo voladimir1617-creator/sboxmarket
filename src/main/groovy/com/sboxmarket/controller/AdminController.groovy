@@ -545,16 +545,24 @@ class AdminController {
         def esc = com.sboxmarket.util.CsvUtil.&safeCell   // batch 978
         def sb = new StringBuilder()
         sb.append('id,status,listingType,itemId,itemName,price,buyNowPrice,currentBid,buyerUserId,hidden,listedAt,soldAt,expiresAt\n')
+        // Same Elvis-on-zero bug class as ccfe0b5 / 4e1a0d4 / 0d15de2 /
+        // 8224a9b: Groovy's `?:` treats numeric/BigDecimal 0 as falsy.
+        // `l.currentBid ?: ''` blanks the CSV cell whenever currentBid
+        // is exactly $0.00 — staff filtering "currentBid > 0" in Excel
+        // for fraud triage silently miss zero-bid auctions and the
+        // distinction between "no bid recorded" (null) and "bid was
+        // genuinely $0" gets lost. Explicit `!= null` so 0 round-trips
+        // as "0" the way every non-zero amount does.
         rows.each { l ->
-            sb.append(l.id ?: '').append(',')
+            sb.append(l.id != null ? l.id : '').append(',')
               .append(esc(l.status)).append(',')
               .append(esc(l.listingType)).append(',')
-              .append(l.item?.id ?: '').append(',')
+              .append(l.item?.id != null ? l.item.id : '').append(',')
               .append(esc(l.item?.name)).append(',')
-              .append(l.price ?: '').append(',')
-              .append(l.buyNowPrice ?: '').append(',')
-              .append(l.currentBid ?: '').append(',')
-              .append(l.buyerUserId ?: '').append(',')
+              .append(l.price != null ? l.price : '').append(',')
+              .append(l.buyNowPrice != null ? l.buyNowPrice : '').append(',')
+              .append(l.currentBid != null ? l.currentBid : '').append(',')
+              .append(l.buyerUserId != null ? l.buyerUserId : '').append(',')
               .append(l.hidden ? 'true' : 'false').append(',')
               .append(l.listedAt ? df.format(new Date(l.listedAt)) : '').append(',')
               .append(l.soldAt ? df.format(new Date(l.soldAt)) : '').append(',')
@@ -581,11 +589,15 @@ class AdminController {
         def esc = com.sboxmarket.util.CsvUtil.&safeCell   // batch 978
         def sb = new StringBuilder()
         sb.append('id,type,status,amount,currency,description,stripeReference,createdAt,updatedAt\n')
+        // Elvis-on-zero defuse — see comment on userListingsCsv above.
+        // `r.amount ?: ''` would blank a $0 comp / promo / refund-to-zero
+        // transaction in the fraud-reconciliation CSV, silently dropping
+        // it from staff filters like "amount > 0".
         rows.each { r ->
-            sb.append(r.id ?: '').append(',')
+            sb.append(r.id != null ? r.id : '').append(',')
               .append(esc(r.type)).append(',')
               .append(esc(r.status)).append(',')
-              .append(r.amount ?: '').append(',')
+              .append(r.amount != null ? r.amount : '').append(',')
               .append(esc(r.currency)).append(',')
               .append(esc(r.description)).append(',')
               .append(esc(r.stripeReference)).append(',')

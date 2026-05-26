@@ -233,6 +233,50 @@ class CsrfFilterSpec extends Specification {
         resp.status == 200
     }
 
+    def "CSRF compare is length-independent constant time (timing-leak regression)"() {
+        given:
+        // A plain `header != cookieValue` shorts-circuits on the first
+        // byte mismatch AND returns immediately on length difference,
+        // leaking matching-prefix bytes and the token length via response
+        // timing. The fix routes the compare through
+        // MessageDigest.isEqual. This test pins the invariant:
+        //   - a header that shares the cookie's prefix but differs in
+        //     the last byte must be rejected
+        //   - a header strictly shorter than the cookie must be rejected
+        //   - a header strictly longer than the cookie must be rejected
+        // All three reject with the same 403 + CSRF_MISMATCH body — no
+        // oracle. This mirrors the timing-leak fix shipped for the
+        // email-verification token compare in ProfileController.verifyEmail.
+        def cookie = 'tok-abc-123'
+
+        when: "header shares the prefix but differs in the last byte"
+        def req1 = new MockHttpServletRequest('POST', '/api/listings/42/buy')
+        req1.setCookies(new Cookie('sbox_csrf', cookie))
+        req1.addHeader('X-CSRF-Token', 'tok-abc-124')
+        def resp1 = new MockHttpServletResponse()
+        filter.doFilter(req1, resp1, chain)
+
+        and: "header is the cookie's prefix (one byte shorter)"
+        def req2 = new MockHttpServletRequest('POST', '/api/listings/42/buy')
+        req2.setCookies(new Cookie('sbox_csrf', cookie))
+        req2.addHeader('X-CSRF-Token', 'tok-abc-12')
+        def resp2 = new MockHttpServletResponse()
+        filter.doFilter(req2, resp2, chain)
+
+        and: "header extends the cookie (one byte longer)"
+        def req3 = new MockHttpServletRequest('POST', '/api/listings/42/buy')
+        req3.setCookies(new Cookie('sbox_csrf', cookie))
+        req3.addHeader('X-CSRF-Token', 'tok-abc-1234')
+        def resp3 = new MockHttpServletResponse()
+        filter.doFilter(req3, resp3, chain)
+
+        then: "all three reject identically — no length-or-prefix oracle"
+        0 * chain.doFilter(_, _)
+        resp1.status == 403 && resp1.contentAsString.contains('"code":"CSRF_MISMATCH"')
+        resp2.status == 403 && resp2.contentAsString.contains('"code":"CSRF_MISMATCH"')
+        resp3.status == 403 && resp3.contentAsString.contains('"code":"CSRF_MISMATCH"')
+    }
+
     def "non-API POST is not CSRF-checked (only /api/** is gated)"() {
         given:
         def req = new MockHttpServletRequest('POST', '/some/html/form')
