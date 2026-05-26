@@ -288,7 +288,15 @@ class LoadoutService {
         if (loadout.ownerUserId != ownerUserId) throw new ForbiddenException("Not your loadout")
 
         def slots = loadoutSlotRepository.findByLoadout(loadoutId)
-        def remaining = budget ?: new BigDecimal("10000")
+        // Explicit null check, not Elvis — Groovy's `?:` treats
+        // `BigDecimal.ZERO` as falsy, so `budget ?: new BigDecimal("10000")`
+        // silently swapped a user-requested `$0` ceiling for the $10k
+        // catch-all and the auto-fill burned through the catalogue
+        // instead of leaving every unlocked slot empty. The controller
+        // currently rejects `<= 0` so this was only reachable from
+        // tests / future callers, but the service is a public API and
+        // must honour a literal zero ceiling.
+        def remaining = budget != null ? budget : new BigDecimal("10000")
         // Locked, already-filled slots are kept as-is — but their snapshot
         // price still counts against the budget. CSFloat's budget is the
         // TOTAL set spend; without this, a locked $90 item plus a $100

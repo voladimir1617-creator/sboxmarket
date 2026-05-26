@@ -254,6 +254,27 @@ class LoadoutServiceSpec extends Specification {
         budgetSeen == BigDecimal.ZERO
     }
 
+    def "autoGenerate honours an explicit \$0 budget (Elvis-on-zero regression)"() {
+        given: "a fresh loadout with one unlocked slot and a literal \$0 budget"
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats = new LoadoutSlot(loadoutId: 1L, slot: 'Hats', locked: false)
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats], [slotHats]]
+        BigDecimal budgetSeen = null
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> { args ->
+            budgetSeen = args[1]
+            []
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when: "the caller asks auto-fill to spend \$0"
+        service.autoGenerate(10L, 1L, BigDecimal.ZERO)
+
+        then: "the cheapest-in-budget query is asked for \$0 — NOT the \$10k Elvis default"
+        budgetSeen == BigDecimal.ZERO
+    }
+
     def "autoGenerate forbids a non-owner"() {
         given:
         loadoutRepository.findById(_) >> Optional.of(new Loadout(id: 1L, ownerUserId: 10L))
