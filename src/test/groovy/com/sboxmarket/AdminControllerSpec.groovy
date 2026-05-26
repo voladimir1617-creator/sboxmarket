@@ -488,4 +488,24 @@ class AdminControllerSpec extends Specification {
         then:  thrown(ForbiddenException)
         0 * adminService.forceLogout(*_)
     }
+
+    // ── /simulate/listings count parsing ────────────────────────────
+    //
+    // Regression: `body?.count ?: 20` treated `{count: 0}` as missing
+    // (Groovy truthiness — 0 is falsy) and substituted the 20 default,
+    // masking the user's intent. With an explicit null-check, count=0
+    // flows through the `<1 → 1` clamp like every other small value.
+    def "simulateListings() clamps count=0 to 1 instead of defaulting to 20"() {
+        given:
+        def sim = Mock(com.sboxmarket.service.AdminSimulatorService)
+        controller.adminSimulatorService = sim
+        adminSession(100L)
+
+        when:
+        controller.simulateListings([count: 0], req)
+
+        then: 'count=0 is honored as an intentional value and clamped to 1, NOT replaced with 20'
+        1 * sim.simulateListings(100L, 1) >> [created: 1]
+        0 * sim.simulateListings(100L, 20)
+    }
 }

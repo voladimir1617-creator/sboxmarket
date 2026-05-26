@@ -1080,7 +1080,11 @@ class AdminController {
                                          HttpServletRequest req) {
         def uid = requireAdmin(req)
         int count
-        try { count = (body?.count ?: 20) as int }
+        // Use explicit null-check, NOT Groovy truthiness — `body?.count ?: 20`
+        // treats an explicit `{count: 0}` as missing and substitutes the
+        // 20 default, masking the user's intent. With null-check, count=0
+        // flows through the `< 1 → 1` clamp like every other small value.
+        try { count = (body?.count != null ? body.count : 20) as int }
         catch (Exception ignored) { count = 20 }
         if (count < 1) count = 1
         if (count > 200) count = 200
