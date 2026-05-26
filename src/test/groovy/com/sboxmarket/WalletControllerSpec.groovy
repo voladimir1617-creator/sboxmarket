@@ -1169,4 +1169,60 @@ class WalletControllerSpec extends Specification {
         then: 'only OptimisticLockingFailureException is mapped to CANCEL_RACE; transport errors surface'
         thrown(RuntimeException)
     }
+
+    // ════════════════════════════════════════════════════════════════
+    // Sub-cent amount normalisation. The WithdrawRequest DTO caps
+    // magnitude (@DecimalMin 1.00 / @DecimalMax 10000.00) but not
+    // scale, so a JSON body {"amount": 1.001} reaches the controller
+    // at 3dp. StripeService.requestWithdrawal HALF_UP-rounds to 2dp
+    // immediately before debiting — so the wallet ledger is always
+    // 2dp-clean — but the controller's PRE-flight guards (balance
+    // check, 24h cap math) were running against the RAW sub-cent
+    // value. That created two user-hostile over-rejections that
+    // disagreed with what the service would actually persist:
+    //   • $1.00 balance + 1.001 → InsufficientBalance (would have
+    //     normalised to $1.00 and succeeded).
+    //   • sum=$4999.99 + 0.014 → WITHDRAW_DAILY_CAP (would have
+    //     normalised to $0.01 and landed exactly on cap, allowed).
+    // Fix: normalise body.amount ONCE at the top of withdraw() and
+    // use the normalised value for every guard AND the service call.
+    // ════════════════════════════════════════════════════════════════
+
+    def "withdraw() sub-cent amount that normalises down to fit the balance is allowed (not InsufficientBalance)"() {
+        given: 'user has exactly $1.00 and submits 1.001 (a JS rounding artefact)'
+        controller.dailyWithdrawalCap = null
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('1.00'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+
+        when: '1.001 HALF_UP-normalises to 1.00, which fits the wallet exactly'
+        def resp = controller.withdraw(req(new BigDecimal('1.001')), reqFor(10L))
+
+        then: 'pre-flight no longer over-rejects; service receives the normalised 1.00, not raw 1.001'
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('1.00'), _) >>
+            new Transaction(id: 1L, status: 'PENDING')
+        resp.statusCode.value() == 200
+    }
+
+    def "withdraw() sub-cent amount that normalises down to fit the cap is allowed (not WITHDRAW_DAILY_CAP)"() {
+        given: '$4999.99 already drawn against a $5000 cap; user submits 0.014'
+        def user = verifiedUser()
+        def wallet = walletFor(new BigDecimal('5000'))
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        walletRepository.findByUsername('steam_111') >> wallet
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        transactionRepository.sumWithdrawalsSince(500L, _) >> new BigDecimal('4999.99')
+
+        when: '0.014 HALF_UP-normalises to 0.01, so sum + amount = $5000.00 == cap (allowed under strict >)'
+        def resp = controller.withdraw(req(new BigDecimal('0.014')), reqFor(10L))
+
+        then: 'cap guard now agrees with the service: passes, and the service sees the normalised 0.01'
+        1 * stripeService.requestWithdrawal(500L, new BigDecimal('0.01'), _) >>
+            new Transaction(id: 2L, status: 'PENDING')
+        resp.statusCode.value() == 200
+    }
 }

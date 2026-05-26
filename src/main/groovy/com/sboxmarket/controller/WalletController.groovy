@@ -404,8 +404,27 @@ class WalletController {
                 "Verify your email address before requesting a withdrawal. Check Profile → Personal Info for the verify link.")
         }
 
-        if (wallet.balance < body.amount) {
-            throw new InsufficientBalanceException(body.amount, wallet.balance)
+        // Normalise to whole cents BEFORE any guard runs. The DTO
+        // @DecimalMin/@DecimalMax cap the magnitude but NOT the scale —
+        // a body like {"amount": 1.001} reaches us at 3dp. StripeService.
+        // requestWithdrawal already does this same setScale(2, HALF_UP)
+        // immediately before debiting (see comment at requestWithdrawal:
+        // 487-492), so the wallet ledger is always 2dp-clean. But all the
+        // guards below (balance check, 24h cap math) were running against
+        // the RAW sub-cent value, producing two user-hostile over-rejections:
+        //   • $1.00 balance + body.amount=1.001 → InsufficientBalance,
+        //     even though the service would have normalised to $1.00 and
+        //     succeeded cleanly.
+        //   • sum=$4999.99 + body.amount=0.014 → WITHDRAW_DAILY_CAP
+        //     ($5000.004 > $5000), even though the service would have
+        //     normalised to $0.01 → $5000.00 == cap, allowed.
+        // Normalising once here makes every guard agree with what
+        // requestWithdrawal will actually persist, and keeps the
+        // pre-flight + side-effect numbers identical.
+        BigDecimal amount = body.amount.setScale(2, java.math.RoundingMode.HALF_UP)
+
+        if (wallet.balance < amount) {
+            throw new InsufficientBalanceException(amount, wallet.balance)
         }
         // Active-chargeback gate (batch 465). When Stripe has flagged any
         // deposit on this wallet as DISPUTED, refuse new withdrawals until
@@ -429,7 +448,7 @@ class WalletController {
         if (dailyWithdrawalCap != null && dailyWithdrawalCap > BigDecimal.ZERO) {
             def since = System.currentTimeMillis() - (24L * 60L * 60L * 1000L)
             def sum = transactionRepository.sumWithdrawalsSince(wallet.id, since) ?: BigDecimal.ZERO
-            if ((sum + body.amount) > dailyWithdrawalCap) {
+            if ((sum + amount) > dailyWithdrawalCap) {
                 def remaining = dailyWithdrawalCap - sum
                 if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
                 throw new com.sboxmarket.exception.BadRequestException("WITHDRAW_DAILY_CAP",
@@ -481,7 +500,7 @@ class WalletController {
         // toast "try again" instead of "internal error". Mirrors the
         // confirmDeposit race-loss handling pattern.
         try {
-            def tx = stripeService.requestWithdrawal(wallet.id, body.amount, body.destination ?: "")
+            def tx = stripeService.requestWithdrawal(wallet.id, amount, body.destination ?: "")
             // Force flush BEFORE the method returns so the Wallet @Version
             // check fires inside this catch — not at outer-tx commit time
             // (after the method has returned), where a 500 would escape

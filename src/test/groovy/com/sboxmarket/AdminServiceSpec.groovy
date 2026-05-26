@@ -787,6 +787,34 @@ class AdminServiceSpec extends Specification {
         target.sessionEpoch != null && target.sessionEpoch > 0L
     }
 
+    // Adversarial bug hunt — recovery-code residue on GDPR delete. The
+    // PII scrub at finalizeDeletion zeroes totpSecret + lastTotpStep but
+    // (before this fix) left totpRecoveryCodes set, leaking the SHA-256
+    // hashes of a deleted user's backup codes onto a row whose docstring
+    // claims to "Scrub PII". Same invariant reset2faFor already enforces:
+    // 2FA enabled ↔ recovery codes exist. Pin all three columns to null.
+    def "finalizeDeletion also wipes orphaned recovery-code hashes — no residue"() {
+        given:
+        def target = new SteamUser(id: 60L, steamId64: '999', displayName: 'Ann',
+            email: 'ann@example.com', emailVerified: true,
+            totpSecret: 'ABCDEFGHIJKLMNOP', lastTotpStep: 123L,
+            totpRecoveryCodes: 'aaa bbb ccc ddd eee fff ggg hhh iii jjj',
+            deletionRequestedAt: 1234L)
+        steamUserRepository.findById(60L) >> Optional.of(target)
+        walletRepository.findByUsername('steam_999') >> null
+        tradeRepository.findByParticipant(60L) >> []
+        listingRepository.findActiveBySeller(60L) >> []
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.finalizeDeletion(1L, 60L)
+
+        then:
+        target.totpSecret == null
+        target.lastTotpStep == null
+        target.totpRecoveryCodes == null
+    }
+
     def "finalizeDeletion wipes watchlist alerts + cancels buy orders (batch 313 cleanup)"() {
         // The sweeper-load leak: without this cleanup, WatchlistAlert
         // and BuyOrder rows for a deleted user keep getting scanned

@@ -1409,6 +1409,19 @@ class AdminService {
         user.tradeUrl = null
         user.totpSecret = null
         user.lastTotpStep = null
+        // Wipe stored recovery-code hashes alongside the secret. The PII
+        // scrub above zeroes the user's identifying columns; leaving the
+        // hashed backup codes on a row whose totpSecret is null violates
+        // the "2FA enabled ↔ recovery codes exist" invariant that
+        // reset2faFor explicitly enforces (with the same rationale: a
+        // future code path that consumes codes without the totpSecret
+        // gate would see orphan hashes from a deleted account). The
+        // hashes are not catastrophic on their own (SHA-256 of high-
+        // entropy 12-char codes is not brute-forceable) but the docstring
+        // promises a PII scrub and recovery-code hashes are user-bound
+        // secrets — match the user-initiated /2fa/disable + reset2faFor
+        // behaviour that clears all three TOTP columns atomically.
+        user.totpRecoveryCodes = null
         user.adminNotes = (user.adminNotes ?: '') +
             "\n[DELETION finalised by admin ${adminUserId} on ${new Date()}]"
         user.banned = true
