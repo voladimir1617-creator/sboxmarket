@@ -129,6 +129,46 @@ class TradeUrlHttpSpec extends Specification {
         result.response.contentAsString.contains('INVALID_TRADE_URL')
     }
 
+    // ── Prefix-collision regression (this fix) ──────────────────
+    //
+    // Pre-fix the partner-id collision probe used `LIKE '%partner=12345%'`
+    // — which substring-matches `partner=123456&token=...`. A new user
+    // whose partner id was the literal prefix of any existing user's
+    // partner id got an undeserved TRADE_URL_TAKEN and could never link
+    // their (genuinely unique) Steam account. The repository query is
+    // now anchored with the `&token=` separator so only exact matches
+    // collide.
+    def "PUT /trade-url does NOT false-collide when one user's partner id is a prefix of another's"() {
+        given: "an existing user whose partner id is myPartnerId concatenated with extra digits"
+        long extendedPartner = Long.parseLong("${myPartnerId}9")
+        long otherSid64      = STEAMID64_BASE + extendedPartner
+        def other = steamUserRepository.save(new SteamUser(
+            steamId64:   String.valueOf(otherSid64),
+            displayName: "OtherTradeUrlSpec-${System.nanoTime()}",
+            tradeUrl:    "https://steamcommunity.com/tradeoffer/new/?partner=${extendedPartner}&token=zzzZZZ99"
+        ))
+
+        and: "the signed-in user posts their own (shorter, prefix) partner id"
+        def myUrl = "https://steamcommunity.com/tradeoffer/new/?partner=${myPartnerId}&token=abcDEF12"
+        def body  = """{"tradeUrl":"${myUrl}"}"""
+
+        when:
+        def result = mockMvc.perform(
+            MockMvcRequestBuilders.put('/api/profile/trade-url')
+                .session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        ).andReturn()
+
+        then: "the save succeeds — the prefix substring no longer false-collides"
+        result.response.status == 200
+        !result.response.contentAsString.contains('TRADE_URL_TAKEN')
+        steamUserRepository.findById(me.id).get().tradeUrl == myUrl
+
+        cleanup:
+        steamUserRepository.delete(other)
+    }
+
     def "PUT /trade-url with empty string clears the URL"() {
         given:
         me.tradeUrl = "https://steamcommunity.com/tradeoffer/new/?partner=${myPartnerId}&token=oldTok01"

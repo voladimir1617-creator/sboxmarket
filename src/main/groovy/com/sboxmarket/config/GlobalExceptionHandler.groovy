@@ -45,7 +45,16 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException)
     ResponseEntity<ErrorResponse> handleApi(ApiException ex, HttpServletRequest req) {
-        log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}")
+        // Pass `ex` as the trailing throwable so Slf4j prints the cause chain.
+        // Several ApiException subclasses (notably BadRequestException's
+        // cause-preserving ctor) wrap a JDK/JPA exception to preserve the
+        // original stack — without `, ex` here that chain was silently dropped
+        // and ops had no way to diagnose the underlying parse/lookup failure.
+        if (ex.cause != null) {
+            log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}", ex)
+        } else {
+            log.debug("Domain exception at ${req.method} ${req.requestURI}: ${ex.code} ${ex.message}")
+        }
         def message = verboseErrors ? ex.message : genericMessage(ex)
         // Batch 963 — surface structured amounts for INSUFFICIENT_BALANCE
         // so the frontend can render a precise "Top up $X" CTA instead

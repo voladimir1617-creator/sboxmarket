@@ -173,13 +173,24 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     // that would have silently leaked hidden listings if anyone wired
     // them back up.
 
-    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'ACTIVE'")
+    // Hidden listings are seller-side-only — they still count as ACTIVE
+    // for the owner's MyStall but must NOT inflate the PUBLIC liveness
+    // chips on /api/listings/stats (batch fix — caller is the homepage
+    // MarketStatsStrip, an anon-visible surface). Mirrors the
+    // hidden-exclusion clause already on findMinActivePrice /
+    // findMaxActivePrice / findActiveOrderByNewest so the strip stays
+    // self-consistent: a seller can't pad the "N listings from M sellers"
+    // chip just by flipping Hide on inventory they don't want surfaced.
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = 'ACTIVE' AND (l.hidden IS NULL OR l.hidden = false)")
     Long countActive()
 
-    /** Count of DISTINCT sellers with at least one ACTIVE listing right
-     *  now. Drives the homepage "N active sellers" trust chip (batch 1050)
-     *  so anon visitors see how many counterparties there really are. */
-    @Query("SELECT COUNT(DISTINCT l.sellerUserId) FROM Listing l WHERE l.status = 'ACTIVE' AND l.sellerUserId IS NOT NULL")
+    /** Count of DISTINCT sellers with at least one ACTIVE, non-hidden
+     *  listing right now. Drives the homepage "N active sellers" trust
+     *  chip (batch 1050) so anon visitors see how many counterparties
+     *  there really are. Hidden listings excluded for the same reason
+     *  the floor/ceiling queries exclude them — public chip should
+     *  reflect what an anon visitor can actually browse. */
+    @Query("SELECT COUNT(DISTINCT l.sellerUserId) FROM Listing l WHERE l.status = 'ACTIVE' AND l.sellerUserId IS NOT NULL AND (l.hidden IS NULL OR l.hidden = false)")
     Long countActiveSellers()
 
     /** Count of live AUCTION listings that haven't expired yet — feeds the

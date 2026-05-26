@@ -107,7 +107,7 @@ class SteamSyncServiceSpec extends Specification {
 
     def "syncOne PRESERVES the previous inventory size when Steam blocked us (rate-limit / private)"() {
         given: "a user with a known-good count whose inventory fetch comes back empty + blocked"
-        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 42)
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 42, lastSyncedAt: 1234L)
         steamInventoryService.fetchInventory('111') >> []
         // blockedUntilMs non-null == Steam 403'd/429'd us this fetch
         steamInventoryService.blockedUntilMs('111') >> (System.currentTimeMillis() + 300_000L)
@@ -119,7 +119,57 @@ class SteamSyncServiceSpec extends Specification {
 
         then: "the 42 is NOT clobbered to 0 — a single 429 must not wipe the UI pool"
         user.steamInventorySize == 42
-        user.lastSyncedAt != null
+
+        and: "lastSyncedAt is NOT bumped on a blocked fetch — see next spec for the staleness-window bug this prevents"
+        user.lastSyncedAt == 1234L
+    }
+
+    def "syncOne does NOT bump lastSyncedAt on a blocked fetch — rate-limited users must re-appear stale on the next sweep tick"() {
+        given: """\
+            A user whose previous successful sync was ~25h ago — already past
+            the 24h STALE_AFTER_MS cutoff, so they're a stale-sweep candidate.
+            We pick them up; Steam rate-limits us (blockedUntilMs returns a
+            future timestamp). The bug we're guarding against: doSyncOne used
+            to write `fresh.lastSyncedAt = now` unconditionally, including on
+            blocked fetches. Effect: the very next findStaleForSync tick would
+            NOT pick this user up again until 24h later, even though Steam
+            typically blocks for only ~5 minutes. A single transient 429
+            silently downgraded the user from one sync per 20m (intended
+            rolling retry) to one sync per 24h."""
+        long staleSince = System.currentTimeMillis() - (25L * 60L * 60L * 1000L)
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 42, lastSyncedAt: staleSince)
+        steamInventoryService.fetchInventory('111') >> []
+        steamInventoryService.blockedUntilMs('111') >> (System.currentTimeMillis() + 300_000L)
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.syncOne(user)
+
+        then: """\
+            lastSyncedAt MUST remain at its prior 25h-old value — that's how
+            the next findStaleForSync tick (20 min later) keeps picking this
+            user up to retry. Bumping to `now` would push them out of the
+            cutoff window for the full 24h STALE_AFTER_MS, contrary to the
+            doSyncOne comment ("until we get a real successful fetch")."""
+        user.lastSyncedAt == staleSince
+        user.steamInventorySize == 42
+    }
+
+    def "syncOne DOES bump lastSyncedAt on a successful (non-blocked) fetch"() {
+        given: 'a real successful sync — non-blocked, non-empty inventory'
+        def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 3, lastSyncedAt: 1L)
+        steamInventoryService.fetchInventory('111') >> [[a: 1], [a: 2], [a: 3], [a: 4]]
+        steamInventoryService.blockedUntilMs('111') >> null
+        steamUserRepository.findById(10L) >> Optional.of(user)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        long beforeCallMs = System.currentTimeMillis()
+
+        when:
+        service.syncOne(user)
+
+        then: 'success path still bumps lastSyncedAt to "now"'
+        user.lastSyncedAt >= beforeCallMs
     }
 
     def "syncOne does NOT notify on a blocked fetch even though now(0) differs from before"() {

@@ -1,5 +1,9 @@
 package com.sboxmarket
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.sboxmarket.config.GlobalExceptionHandler
 import com.sboxmarket.dto.ErrorResponse
 import com.sboxmarket.exception.BadRequestException
@@ -7,6 +11,7 @@ import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.InsufficientBalanceException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.exception.UnauthorizedException
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -351,6 +356,75 @@ class GlobalExceptionHandlerSpec extends Specification {
         !resp.body.message.contains('SQL')
         !resp.body.message.contains('wallet')
         resp.body.details == null
+    }
+
+    def "handleApi logs the wrapped cause chain when ApiException carries one"() {
+        // Regression: BadRequestException(code, msg, cause) preserves the
+        // original cause (e.g. a NumberFormatException from a parse failure)
+        // explicitly so ops can diagnose the underlying issue. The handler
+        // was logging only `ex.message` as a string and dropping `ex` from
+        // the Slf4j call — which silently discarded the cause stack-trace.
+        // This spec wires a ListAppender to the handler's logger, raises
+        // the level to DEBUG, throws an ApiException with a distinctive
+        // cause, and asserts the cause appears in the captured event's
+        // throwable chain.
+        given:
+        def logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler)
+        def originalLevel = logger.level
+        logger.level = Level.DEBUG
+        def appender = new ListAppender<ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+
+        and:
+        def rootCause = new NumberFormatException('For input string: "abc"')
+        def wrapped = new BadRequestException('INVALID_AMOUNT', 'Amount is not a number', rootCause)
+
+        when:
+        handler.handleApi(wrapped, req('/api/wallet/withdraw'))
+
+        then:
+        // Exactly one debug line for the domain exception
+        def events = appender.list.findAll { it.level == Level.DEBUG }
+        events.size() == 1
+        // The throwable chain MUST reach the cause — otherwise ops cannot
+        // trace the underlying parse failure that triggered this 400.
+        def throwable = events[0].throwableProxy
+        throwable != null
+        // Walk down to the root and confirm the NumberFormatException is there
+        def root = throwable
+        while (root.cause != null) root = root.cause
+        root.className == NumberFormatException.name
+        root.message == 'For input string: "abc"'
+
+        cleanup:
+        logger.detachAppender(appender)
+        logger.level = originalLevel
+    }
+
+    def "handleApi without a cause logs a plain debug line (no spurious throwable)"() {
+        // The cause-aware log call must NOT fire when there is no cause,
+        // otherwise every NotFound/Forbidden/Unauthorized debug line would
+        // get an artificially empty stack-trace attached and noise the logs.
+        given:
+        def logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler)
+        def originalLevel = logger.level
+        logger.level = Level.DEBUG
+        def appender = new ListAppender<ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+
+        when:
+        handler.handleApi(new NotFoundException('Listing', 42L), req())
+
+        then:
+        def events = appender.list.findAll { it.level == Level.DEBUG }
+        events.size() == 1
+        events[0].throwableProxy == null
+
+        cleanup:
+        logger.detachAppender(appender)
+        logger.level = originalLevel
     }
 
     def "handleClientState swallows a sensitive IllegalStateException message in production"() {
