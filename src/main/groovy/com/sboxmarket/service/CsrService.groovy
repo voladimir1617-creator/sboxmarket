@@ -66,6 +66,17 @@ class CsrService {
 
     /** CSR OR ADMIN — used as the default gate on every CSR endpoint. */
     void requireCsr(Long userId) {
+        // Null guard mirrors `isCsr` AND AdminAuthorization.requireAdmin. A
+        // `null` userId reaching this method (e.g. an unauthenticated
+        // controller path) used to fall into Spring Data's `findById(null)`,
+        // which throws an `IllegalArgumentException` and surfaces as an
+        // opaque 500 instead of the friendly 403 the controller layer maps
+        // `ForbiddenException` onto. Reject up-front so the auth failure
+        // mode is consistent regardless of whether the caller went through
+        // `isCsr` first. Sibling: AdminAuthorization.requireAdmin.
+        if (userId == null) {
+            throw new ForbiddenException("Customer service privileges required")
+        }
         def user = steamUserRepository.findById(userId).orElseThrow { new ForbiddenException("Unknown user") }
         if (!(user.role in ['CSR', 'ADMIN'])) {
             throw new ForbiddenException("Customer service privileges required")

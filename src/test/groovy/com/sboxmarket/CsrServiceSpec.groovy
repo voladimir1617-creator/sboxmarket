@@ -110,6 +110,15 @@ class CsrServiceSpec extends Specification {
         thrown(ForbiddenException)
     }
 
+    def "requireCsr(null) throws ForbiddenException — never falls into findById(null) → opaque 500 (sibling: AdminAuthorization.requireAdmin)"() {
+        when: "an unauthenticated controller path reaches requireCsr with no session user"
+        service.requireCsr(null)
+
+        then: "we get a clean 403, not an IllegalArgumentException from Spring Data's findById(null)"
+        thrown(ForbiddenException)
+        0 * steamUserRepository.findById(_)
+    }
+
     // ── getTicket ─────────────────────────────────────────────────
 
     def "getTicket is gated on the CSR role"() {

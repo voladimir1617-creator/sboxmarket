@@ -339,12 +339,17 @@ class SellerStatsController {
         }
         if (parsed.isEmpty()) return ResponseEntity.ok([:] as Map<Long, Long>)
         if (parsed.size() > 200) parsed = parsed.take(200)
-        Map<Long, Long> out = [:]
-        parsed.unique().each { uid ->
-            try {
-                def ms = tradeService.typicalShipMs(uid)
-                if (ms != null) out[uid] = ms
-            } catch (Exception ignored) { /* skip — missing treated as unknown */ }
+        // Bulk N+1 fix — the prior path looped `parsed.each { uid ->
+        // tradeService.typicalShipMs(uid) }`, fanning out one SQL
+        // round-trip per seller id. At the 200-id cap this endpoint —
+        // hit on every marketplace grid load — was burning up to 200
+        // queries per request. `typicalShipMsBulk` collapses all of
+        // them into a single IN-clause query and groups in memory.
+        Map<Long, Long> out
+        try {
+            out = tradeService.typicalShipMsBulk(parsed.unique())
+        } catch (Exception ignored) {
+            out = [:]
         }
         // Batch 756 — 2-minute public browser cache. Ship-time medians
         // shift slowly (one new trade per seller changes the 90-day

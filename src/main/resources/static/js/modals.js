@@ -9200,7 +9200,7 @@ function ProfileSupportTab() {
         ))
       ),
       viewing.ticket.status !== 'RESOLVED' && h('div', { style: { display: 'flex', gap: 8, marginTop: 14 } },
-        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter') submitReply(); } }),
+        h('input', { className: 'chat-input', style: { flex: 1 }, placeholder: 'Reply…', value: reply, onChange: e => setReply(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !busy && reply.trim()) submitReply(); } }),
         h('button', { className: 'btn btn-accent', disabled: busy || !reply.trim(), onClick: submitReply }, 'Send')
       )
     );

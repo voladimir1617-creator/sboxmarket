@@ -462,4 +462,25 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Long> findRecentShipMsForSeller(@Param("sellerId") Long sellerId,
                                          @Param("since") Long since)
+
+    /**
+     *  Bulk companion to {@link #findRecentShipMsForSeller}. The
+     *  per-seller variant fires one SQL query per id; the
+     *  `/api/sellers/ship-times?ids=...` endpoint accepts up to 200 ids
+     *  and previously looped over them calling the per-seller method,
+     *  giving an N+1 with N = 200 on every marketplace grid load.
+     *
+     *  Returns `[sellerUserId, sentAt - createdAt]` rows. The caller
+     *  groups by sellerUserId, sorts each bucket, and takes the median
+     *  (same logic as the single-seller path) — no rule change.
+     */
+    @Query("""
+        SELECT t.sellerUserId, (t.sentAt - t.createdAt) FROM Trade t
+        WHERE t.sellerUserId IN :sellerIds
+          AND t.state        = 'VERIFIED'
+          AND t.sentAt IS NOT NULL
+          AND t.sentAt  >= :since
+    """)
+    List<Object[]> findRecentShipMsForSellers(@Param("sellerIds") Collection<Long> sellerIds,
+                                              @Param("since") Long since)
 }

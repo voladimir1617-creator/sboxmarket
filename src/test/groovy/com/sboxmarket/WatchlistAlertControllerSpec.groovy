@@ -158,6 +158,41 @@ class WatchlistAlertControllerSpec extends Specification {
         0 * service.upsertAlert(_, _, _)
     }
 
+    /**
+     * Regression — exception-handling fix.
+     *
+     * Previously the controller did:
+     *   throw new BadRequestException('INVALID_PARAMETER', e.message)
+     * which dropped the NumberFormatException cause AND echoed the JDK
+     * exception text verbatim (e.g. `For input string: "<user-input>"`),
+     * so an attacker could reflect arbitrary strings back through the
+     * error body and ops lost the original parse frame in the log chain.
+     *
+     * Contract pinned by this test:
+     *   (1) message is a fixed safe sentence — never contains the raw
+     *       user-supplied payload, never starts with the JDK NFE prefix
+     *   (2) the original NumberFormatException is preserved as the
+     *       cause so Slf4j's `, ex` arg in GlobalExceptionHandler dumps
+     *       the full chain for ops triage
+     */
+    def "create() — INVALID_PARAMETER preserves NFE cause and never leaks raw user input"() {
+        given: authedSession(100L)
+
+        when:
+        controller.create([itemId: 'rm -rf / #pwn', targetPrice: '1.00'], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_PARAMETER'
+
+        and: 'safe message — no echo of the user-supplied token, no JDK NFE prefix'
+        !e.message.contains('rm -rf / #pwn')
+        !e.message.contains('For input string')
+
+        and: 'cause chain preserved for server-side triage'
+        e.cause instanceof NumberFormatException
+    }
+
     def "create() coerces Stringified numbers (client sends JSON numbers as strings)"() {
         given:
         def alert = new WatchlistAlert(id: 9L, userId: 100L, itemId: 42L,

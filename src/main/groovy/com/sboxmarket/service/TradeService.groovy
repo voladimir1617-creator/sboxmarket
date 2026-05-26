@@ -1330,6 +1330,52 @@ class TradeService {
             : sorted[mid] as Long
     }
 
+    /**
+     * Bulk companion to {@link #typicalShipMs} — collapses N per-seller
+     * SQL round-trips into a single IN-clause query. Drives
+     * {@code /api/sellers/ship-times?ids=...}: the controller used to
+     * loop {@code parsed.each { uid -> typicalShipMs(uid) }}, which at
+     * the 200-id cap fired up to 200 separate queries on every
+     * marketplace-grid load.
+     *
+     * Same per-seller semantics: median over verified trades in the
+     * lookback window, omitted when fewer than 3 samples (the noise
+     * floor that {@code typicalShipMs} enforces). Sellers with no
+     * qualifying trades are absent from the returned map so callers
+     * can render "unknown" the same way the per-seller path does.
+     */
+    Map<Long, Long> typicalShipMsBulk(Collection<Long> sellerUserIds, int lookbackDays = 90) {
+        Map<Long, Long> out = [:]
+        if (sellerUserIds == null || sellerUserIds.isEmpty()) return out
+        def ids = sellerUserIds.findAll { it != null }.toSet()
+        if (ids.isEmpty()) return out
+        def since = System.currentTimeMillis() - (lookbackDays * 24L * 60L * 60L * 1000L)
+        List<Object[]> rows
+        try {
+            rows = tradeRepository.findRecentShipMsForSellers(ids, since)
+        } catch (Exception e) {
+            log.debug("typicalShipMsBulk lookup failed: ${e.message}")
+            return out
+        }
+        if (rows == null || rows.isEmpty()) return out
+        Map<Long, List<Long>> bySeller = [:].withDefault { [] }
+        rows.each { row ->
+            def uid = row[0] as Long
+            def ms = row[1] as Long
+            if (uid != null && ms != null && ms >= 0L) bySeller[uid] << ms
+        }
+        bySeller.each { uid, samples ->
+            if (samples.size() < 3) return
+            def sorted = samples.sort(false)
+            def mid = sorted.size().intdiv(2)
+            def median = sorted.size() % 2 == 0
+                ? ((sorted[mid - 1] + sorted[mid]) / 2L) as Long
+                : sorted[mid] as Long
+            out[uid] = median
+        }
+        out
+    }
+
     /** Sample count backing {@link #typicalShipMs} — so the UI can render
      *  "based on N trades" for transparency. Returns 0 for an unknown or
      *  zero-volume seller. */

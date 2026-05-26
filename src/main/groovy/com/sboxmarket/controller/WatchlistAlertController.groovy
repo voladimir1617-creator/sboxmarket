@@ -59,7 +59,14 @@ class WatchlistAlertController {
             itemId = Long.parseLong(body.itemId.toString().trim())
             target = new BigDecimal(body.targetPrice.toString().trim())
         } catch (NumberFormatException e) {
-            throw new BadRequestException('INVALID_PARAMETER', e.message)
+            // Preserve the cause chain (Throwable arg) AND use a fixed
+            // safe message — never echo the JDK NumberFormatException
+            // text, which leaks the raw user-supplied string back to
+            // the client (`For input string: "<anything-they-typed>"`).
+            throw new BadRequestException(
+                'INVALID_PARAMETER',
+                'itemId and targetPrice must be valid numbers',
+                e)
         }
         ResponseEntity.ok(service.upsertAlert(uid, itemId, target))
     }
