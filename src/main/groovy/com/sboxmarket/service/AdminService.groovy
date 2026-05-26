@@ -2158,12 +2158,13 @@ class AdminService {
             throw new BadRequestException("ALREADY_SETTLED", "Trade is already settled")
         }
         def released = tradeService.adminRelease(adminUserId, tradeId, reason)
-        // Audit symmetry with forceCancelTrade (batch 333) — every admin
-        // action on a trade must carry a paper trail. Without this, staff
-        // could release funds to a seller via force-release with no record
-        // of who approved it or why — awkward if the buyer later escalates.
-        auditService?.log(AuditService.TRADE_FORCE_RELEASED, adminUserId, released.sellerUserId, released.id,
-            "Force-released: ${reason ?: '(no reason)'}")
+        // Audit row is written inside TradeService.adminRelease (line ~633)
+        // so this wrapper deliberately does NOT log a second one — a
+        // duplicate audit row used to land on every force-release, doubling
+        // the TRADE_FORCE_RELEASED count and polluting the per-actor audit
+        // filter. forceCancelTrade is symmetric: its audit row stays here
+        // because TradeService.cancel doesn't write TRADE_FORCE_CANCELLED
+        // (cancel is the shared user/admin path).
         [id: released.id, state: released.state]
     }
 

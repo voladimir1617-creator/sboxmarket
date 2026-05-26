@@ -1696,7 +1696,12 @@ class AdminServiceSpec extends Specification {
         0 * tradeService.adminRelease(*_)
     }
 
-    def "forceReleaseTrade delegates to adminRelease and writes a TRADE_FORCE_RELEASED audit row"() {
+    def "forceReleaseTrade delegates to adminRelease and does NOT write a duplicate TRADE_FORCE_RELEASED audit row"() {
+        // Regression guard: TradeService.adminRelease writes the
+        // TRADE_FORCE_RELEASED audit row itself, so AdminService.forceReleaseTrade
+        // must NOT write a second one. Before the fix this method logged
+        // its own row on top of the one TradeService already wrote,
+        // doubling every force-release in the per-actor audit filter.
         given:
         tradeRepository.findById(9L) >> Optional.of(
             new com.sboxmarket.model.Trade(id: 9L, state: 'PENDING_BUYER_CONFIRM'))
@@ -1708,8 +1713,7 @@ class AdminServiceSpec extends Specification {
 
         then:
         res.state == 'VERIFIED'
-        1 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_RELEASED,
-            1L, 77L, 9L, _ as String)
+        0 * auditService.log(com.sboxmarket.service.AuditService.TRADE_FORCE_RELEASED, *_)
     }
 
     def "forceCancelTrade delegates to cancel and writes a TRADE_FORCE_CANCELLED audit row"() {

@@ -21,8 +21,14 @@ interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long> {
     @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId ORDER BY p.recordedAt ASC")
     List<PriceHistory> findByItemIdOrdered(@Param("itemId") Long itemId, Pageable pageable)
 
-    @Query("SELECT p FROM PriceHistory p WHERE p.item.id = :itemId ORDER BY p.recordedAt DESC LIMIT :days")
-    List<PriceHistory> findRecentByItemId(@Param("itemId") Long itemId, @Param("days") int days)
+    // findRecentByItemId(itemId, days) removed: the parameter name
+    // promised a day-window filter but the body was `LIMIT :days`, a
+    // ROW count. PriceHistory can hold more than one row per day
+    // (every fresh tick before the same-day coalesce settles), so the
+    // contract was a silently truncating sparkline waiting to be
+    // wired up. Callers wanting "last N days" must use
+    // findByItemIdSince(itemId, cutoff) with a cutoff = now − N·86400_000.
+    // Pinned by PriceHistoryRepositoryContractSpec.
 
     /** ASC-ordered window for the sparkline chart — rows with
      *  `recordedAt >= :cutoff`, oldest-first so the frontend can
