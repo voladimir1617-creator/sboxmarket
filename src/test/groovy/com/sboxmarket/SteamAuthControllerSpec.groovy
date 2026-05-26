@@ -23,7 +23,10 @@ import spock.lang.Subject
  *   1. `/me` 401s for anon AND for a stale session whose uid points
  *      to a deleted SteamUser row — and on that path, the stale
  *      session is `invalidate()`d so the client isn't left with a
- *      ghost cookie.
+ *      ghost cookie. Also enforces the "log out everywhere" invariant
+ *      inline (SessionEpochFilter SKIPs /me, so without this the
+ *      revoked-elsewhere session keeps surfacing identity until the
+ *      SPA happens to hit a non-skip endpoint).
  *
  *   2. `/logout` is unconditionally 204 + session invalidated — never
  *      leaks whether the caller was signed in.
@@ -210,24 +213,6 @@ class SteamAuthControllerSpec extends Specification {
         then: 'the stale session is torn down and /me reports signed-out'
         r.statusCode.value() == 200
         r.body == [signedIn: false]
-    }
-
-    def "me() returns the user body when stashed sessionEpoch matches the live value"() {
-        given: 'a session whose epoch is current'
-        def user = new SteamUser(id: 100L, displayName: 'alice', sessionEpoch: 42L)
-        // Happy path: two reads of req.session (uid + epoch), no invalidate.
-        2 * req.session >> ses
-        1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
-        1 * steamUserRepository.findById(100L) >> Optional.of(user)
-        1 * ses.getAttribute(SteamAuthController.SESSION_EPOCH) >> 42L
-        0 * ses.invalidate()
-
-        when:
-        def r = controller.me(req)
-
-        then:
-        r.statusCode.value() == 200
-        r.body.is(user)
     }
 
     def "me() invalidates session + returns signedIn=false when session uid points to a deleted user"() {

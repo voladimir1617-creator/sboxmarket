@@ -238,6 +238,18 @@ class TradeProtectionService {
         // buyer did NOT already get their money back, see TradeService
         // wiring — auto-claim is fired only from the genuine-loss
         // paths, never the plain buyer-changed-mind cancel.)
+        //
+        // `credited` tracks whether the wallet was actually moved. The
+        // status flip to CLAIMED stays unconditional (a manual-payout
+        // warning is logged on the failure branches), but the buyer
+        // notification body MUST honour reality: telling the buyer
+        // "\$X has been refunded to your wallet" when their wallet row
+        // is missing / detached from the trade is a customer-facing lie
+        // that lands a support ticket — they check the wallet, see zero
+        // new credit, and rightfully complain. Phrase the message to
+        // match what actually happened: "credited" vs "queued for manual
+        // payout while support reconciles".
+        boolean credited = false
         def buyerWalletId = trade?.buyerWalletId
         if (buyerWalletId != null) {
             def wallet = walletRepository.findById(buyerWalletId).orElse(null)
@@ -254,6 +266,7 @@ class TradeProtectionService {
                     description:     "Trade Protection payout — ${trade?.itemName ?: ('trade #' + tradeId)}",
                     listingId:       trade?.listingId
                 ))
+                credited = true
             } else {
                 log.warn("Trade #{} protection claimed but buyer wallet {} not found — " +
                     "manual payout required for \${}", tradeId, buyerWalletId, protection.coverageAmount)
@@ -270,9 +283,12 @@ class TradeProtectionService {
         tradeProtectionRepository.save(protection)
 
         if (protection.buyerUserId != null) {
+            def body = credited
+                ? "\$${protection.coverageAmount} has been refunded to your wallet — ${protection.claimReason}."
+                : "\$${protection.coverageAmount} is owed to you and queued for manual payout by support — ${protection.claimReason}."
             notificationService?.safePush(protection.buyerUserId, 'TRADE_PROTECTION_CLAIMED',
                 "Protection paid out · ${trade?.itemName ?: 'your trade'}",
-                "\$${protection.coverageAmount} has been refunded to your wallet — ${protection.claimReason}.",
+                body,
                 tradeId, '/wallet')
         }
         auditService?.log('TRADE_PROTECTION_CLAIMED', null, protection.buyerUserId, tradeId,

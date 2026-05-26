@@ -67,17 +67,24 @@ class SteamAuthServiceErrorStreamDrainSpec extends Specification {
      * Production behaviour is untouched — the prod methods still return
      * the real Steam URLs when called.
      */
-    private SteamAuthService localService() {
-        new SteamAuthService(steamApiKey: 'test-key') {
-            @Override
-            protected String webApiUrl(String steamId64) {
-                "http://127.0.0.1:${port}/web?steamids=${steamId64}".toString()
-            }
-            @Override
-            protected String publicXmlUrl(String steamId64) {
-                "http://127.0.0.1:${port}/xml?id=${steamId64}".toString()
-            }
+    static class LocalSteamAuthService extends SteamAuthService {
+        int port
+        LocalSteamAuthService(int port) {
+            this.port = port
+            this.steamApiKey = 'test-key'
         }
+        @Override
+        protected String webApiUrl(String steamId64) {
+            "http://127.0.0.1:${port}/web?steamids=${steamId64}".toString()
+        }
+        @Override
+        protected String publicXmlUrl(String steamId64) {
+            "http://127.0.0.1:${port}/xml?id=${steamId64}".toString()
+        }
+    }
+
+    private SteamAuthService localService() {
+        new LocalSteamAuthService(port)
     }
 
     def "fetchViaWebApi drains the 4xx error stream so the keep-alive socket is reused"() {

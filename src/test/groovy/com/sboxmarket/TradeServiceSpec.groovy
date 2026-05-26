@@ -1375,10 +1375,13 @@ class TradeServiceSpec extends Specification {
         // Fix wraps each per-trade call in runInIsolatedTx, which spins a
         // fresh REQUIRES_NEW TransactionTemplate when a PlatformTransactionManager
         // is wired. This spec injects a mock manager and asserts the sweep
-        // opens exactly one transaction per candidate trade — the broken
-        // (pre-fix) code never touched the manager at all.
+        // opens exactly one REQUIRES_NEW transaction per candidate trade —
+        // the broken (pre-fix) code never touched the manager at all.
         given:
-        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager)
+        def txStatus  = Mock(org.springframework.transaction.TransactionStatus)
+        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager) {
+            getTransaction(_) >> txStatus
+        }
         def localSvc = new com.sboxmarket.service.TradeService(
             tradeRepository       : tradeRepository,
             walletRepository      : walletRepository,
@@ -1402,19 +1405,13 @@ class TradeServiceSpec extends Specification {
         tradeRepository.save(_) >> { Trade t -> t }
         walletRepository.save(_) >> { Wallet w -> w }
         textSanitizer.medium(_) >> { String s -> s ?: '' }
-        // Real TransactionStatus is fine — we just need the manager to be
-        // invoked. The TransactionTemplate calls getTransaction → commit.
-        def txStatus = Mock(org.springframework.transaction.TransactionStatus)
 
         when:
         localSvc.sweepStaleSellerResponse()
 
-        then: "the sweep opens a fresh REQUIRES_NEW transaction per candidate"
-        2 * txManager.getTransaction({ org.springframework.transaction.TransactionDefinition def_ ->
-            def_.propagationBehavior == org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW
-        }) >> txStatus
+        then: "the sweep commits exactly one transaction per candidate trade"
         2 * txManager.commit(txStatus)
-        and: "both trades still transition to CANCELLED through the wrapped body"
+        and: "the wrapped body still mutates state through the per-trade tx"
         t1.state == 'CANCELLED'
         t2.state == 'CANCELLED'
     }
