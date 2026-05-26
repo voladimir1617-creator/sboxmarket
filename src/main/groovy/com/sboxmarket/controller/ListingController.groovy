@@ -1160,7 +1160,13 @@ class ListingController {
             }
             listing.price = p
         }
-        if (body.containsKey('hidden'))      listing.hidden      = body.hidden as Boolean
+        // parseHiddenFlag (defined below for the /away endpoint) — bare
+        // `body.hidden as Boolean` is unsafe because Jackson maps a JSON
+        // string to String, and Groovy-truth makes every non-empty string
+        // truthy → `{"hidden":"false"}` flipped the listing hidden=true
+        // (seller un-hiding their listing actually re-hid it). Same bug
+        // class as 692506e + 9913875.
+        if (body.containsKey('hidden'))      listing.hidden      = parseHiddenFlag(body.hidden)
         if (body.containsKey('description')) {
             // HTML-strip + cap at 500 chars — matches the column size
             // (V39), the SellService.relist cap, and the sell-form
