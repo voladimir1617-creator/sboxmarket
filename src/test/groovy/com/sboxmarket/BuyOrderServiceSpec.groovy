@@ -897,6 +897,56 @@ class BuyOrderServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    def "update refuses edits from a buyer whose wallet was frozen AFTER the order was placed (parity with create batch 511)"() {
+        given:
+        // Order was created when the wallet was still healthy. Between
+        // creation and this edit a staff freeze landed. Without the
+        // gate, the edit succeeds and tryFillFromExisting silently
+        // fails inside the swallowed catch — invisible failure.
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("10"),
+                                     quantity: 1, originalQuantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice')
+        def wallet = new Wallet(id: 500L, username: 'steam_7656117',
+                                balance: new BigDecimal('100'),
+                                frozen: true, frozenReason: 'Staff freeze')
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_7656117') >> wallet
+
+        when:
+        service.update(10L, 7L, new BigDecimal("25"), null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+        0 * buyOrderRepository.save(_)
+    }
+
+    def "update refuses edits from a buyer with an unresolved deposit dispute (parity with create batch 511)"() {
+        given:
+        def existing = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+                                     status: 'ACTIVE', maxPrice: new BigDecimal("10"),
+                                     quantity: 1, originalQuantity: 1)
+        buyOrderRepository.findById(7L) >> Optional.of(existing)
+        def buyer = new SteamUser(id: 10L, steamId64: '7656117', displayName: 'Alice')
+        def wallet = new Wallet(id: 500L, username: 'steam_7656117',
+                                balance: new BigDecimal('100'), frozen: false)
+        steamUserRepository.findById(10L) >> Optional.of(buyer)
+        walletRepository.findByUsername('steam_7656117') >> wallet
+        def txRepo = Mock(com.sboxmarket.repository.TransactionRepository)
+        service.transactionRepository = txRepo
+        txRepo.countActiveDisputedDeposits(500L) >> 1L
+
+        when:
+        service.update(10L, 7L, new BigDecimal("25"), null)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+        0 * buyOrderRepository.save(_)
+    }
+
     // ── update re-fills against existing listings on a price RAISE ──
     // Mirrors the create()/batch-268 "standing order must fire against
     // listings already on the market" guarantee — closes the same bug
