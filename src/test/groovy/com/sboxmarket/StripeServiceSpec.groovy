@@ -2,8 +2,10 @@ package com.sboxmarket
 
 import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
+import com.sboxmarket.model.SteamUser
 import com.sboxmarket.model.Transaction
 import com.sboxmarket.model.Wallet
+import com.sboxmarket.repository.SteamUserRepository
 import com.sboxmarket.repository.TransactionRepository
 import com.sboxmarket.repository.WalletRepository
 import com.sboxmarket.service.AuditService
@@ -512,6 +514,41 @@ class StripeServiceSpec extends Specification {
         // NotFoundException (404) — a bare NoSuchElementException has no
         // GlobalExceptionHandler mapping and fell through to a 500.
         thrown(NotFoundException)
+    }
+
+    def "cancelPendingWithdrawal audit row carries the wallet owner as actor AND subject"() {
+        // Pre-fix the audit row was logged with actorUserId=null AND
+        // subjectUserId=null — even though this is a self-cancel and the
+        // wallet owner is right there at `wallet.username = steam_<id>`.
+        // The null subjectUserId meant ProfileController /security-activity
+        // (which filters auditLogRepository.bySubject on subjectUserId =
+        // uid) NEVER returned the row, so a user who cancelled their own
+        // pending withdrawal could not see the action in their own
+        // security history feed even though WITHDRAW_SELF_CANCELLED is
+        // explicitly white-listed there. Same null/null bug pattern as the
+        // refundDeposit fix at StripeService.groovy line 373.
+        given:
+        def steamUserRepository = Mock(SteamUserRepository)
+        def audit = Mock(AuditService)
+        service.steamUserRepository = steamUserRepository
+        service.auditService = audit
+        def owner = new SteamUser(id: 777L, steamId64: '76561198000000001')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('60.00'),
+            username: 'steam_76561198000000001')
+        def tx = new Transaction(id: 9L, walletId: 500L, type: 'WITHDRAW',
+            status: 'PENDING', amount: new BigDecimal('40.00'),
+            description: 'Withdrawal request')
+        transactionRepository.findById(9L) >> Optional.of(tx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction t -> t }
+        steamUserRepository.findBySteamId64('76561198000000001') >> owner
+
+        when:
+        service.cancelPendingWithdrawal(500L, 9L)
+
+        then: 'audit log carries the owner as BOTH actor and subject — visible to /security-activity'
+        1 * audit.log(AuditService.WITHDRAW_SELF_CANCELLED, 777L, 777L, 9L, _)
     }
 
     // ── completeDeposit (dev-mode-reachable branches) ─────────────────

@@ -6,7 +6,8 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Background job — walks every registered Steam user every ~20 minutes and:
@@ -39,6 +40,14 @@ class SteamSyncService {
     @Autowired SteamAuthService steamAuthService
     @Autowired SteamInventoryService steamInventoryService
     @Autowired NotificationService notificationService
+    /** Optional in unit tests (the SpringRunner-less Spock specs don't wire a
+     *  PlatformTransactionManager). When null, doSyncOne is executed inline
+     *  WITHOUT a wrapping tx — which is exactly what the legacy code did
+     *  anyway from internal call sites, and is fine for the mock-DB specs.
+     *  In production, the auto-configured JpaTransactionManager is injected
+     *  and gives us the commit-before-lock-release ordering this service
+     *  needs to keep the per-user notification de-dupe honest. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
 
     /** Per-user serialization for syncOne. Two concurrent sync attempts on
      *  the SAME user (e.g. a user clicking "Re-sync now" from two browser
@@ -117,7 +126,6 @@ class SteamSyncService {
         }
     }
 
-    @Transactional
     void syncOne(SteamUser user) {
         // Serialise concurrent attempts for the same user — see lockFor's
         // doc for the race this closes. The lock is JVM-local: it doesn't
@@ -126,8 +134,28 @@ class SteamSyncService {
         // (a) two browser tabs hitting /api/steam/sync simultaneously, or
         // (b) the scheduler tick reaching a user at the same moment they
         // click Re-sync. Both are intra-instance and covered here.
+        //
+        // CRITICAL: the transaction is opened INSIDE the lock and committed
+        // BEFORE the lock is released. The previous shape was
+        // `@Transactional` on this method with `synchronized` in the body —
+        // i.e. Spring's proxy opened the tx, the method then acquired the
+        // monitor, released it BEFORE the proxy committed, and a waiting
+        // second thread could enter the critical section while the first
+        // writer's UPDATE was still uncommitted. Two concurrent
+        // /api/steam/sync POSTs for the same user each saw `before=N`
+        // from the pre-commit row, both pushed STEAM_INVENTORY for one
+        // real delta → duplicate "M new item(s)" toasts. By owning the
+        // tx boundary here and ending it before releasing the monitor,
+        // the waiting thread\'s findById in doSyncOne reads the freshly
+        // committed row and correctly observes `before == now` → no push.
         synchronized (lockFor(user.id)) {
-            doSyncOne(user)
+            if (transactionManager != null) {
+                new TransactionTemplate(transactionManager).executeWithoutResult { doSyncOne(user) }
+            } else {
+                // Tests run without a real tx manager; the buffered-DB mocks
+                // in SteamSyncServiceSpec model commit visibility themselves.
+                doSyncOne(user)
+            }
         }
     }
 
@@ -196,8 +224,17 @@ class SteamSyncService {
      *  Drops cached state for this user before retrying so an explicit click
      *  ALWAYS hits Steam, then surfaces rate-limit / private-inventory state
      *  back to the caller so the UI can show a real reason instead of a
-     *  pretend "0 items synced" success toast. */
-    @Transactional
+     *  pretend "0 items synced" success toast.
+     *
+     *  NOTE: deliberately NOT @Transactional. The wrapping tx used to be the
+     *  source of a duplicate-notification race — see syncOne\'s comment. The
+     *  per-step operations (findById, clearCacheFor, the row save inside
+     *  syncOne) each manage their own transactional boundaries; the
+     *  per-user lock + tx-template-inside-lock in syncOne is what gives us
+     *  notification de-dupe across concurrent /api/steam/sync POSTs. A
+     *  method-level @Transactional here would reopen the same window that
+     *  was just closed (it would extend the caller\'s tx around syncOne and
+     *  delay the commit until AFTER the monitor is released). */
     Map syncNow(Long userId) {
         def user = steamUserRepository.findById(userId).orElse(null)
         if (user == null) return [ok: false, error: 'Unknown user']

@@ -468,8 +468,23 @@ class StripeService {
         // updatedAt) silently missed the cancel event.
         tx.updatedAt = System.currentTimeMillis()
         transactionRepository.save(tx)
+        // Resolve the wallet owner so the self-cancel audit row carries
+        // them as BOTH actor AND subject — pre-fix this logged null/null,
+        // which meant the row was invisible to ProfileController's
+        // /security-activity feed (filters via auditLogRepository.bySubject
+        // on subjectUserId = uid). A user who cancelled their own pending
+        // withdrawal never saw the action in their security history. Same
+        // bug pattern this file already fixed for refundDeposit at line 373;
+        // cancelPendingWithdrawal was the matching outlier.
+        Long ownerUserId = null
         try {
-            auditService?.log(AuditService.WITHDRAW_SELF_CANCELLED, null, null, tx.id,
+            def uname = wallet.username ?: ''
+            if (uname.startsWith('steam_')) {
+                ownerUserId = steamUserRepository?.findBySteamId64(uname.substring('steam_'.length()))?.id
+            }
+        } catch (Exception ignore) {}
+        try {
+            auditService?.log(AuditService.WITHDRAW_SELF_CANCELLED, ownerUserId, ownerUserId, tx.id,
                 "User cancelled pending withdrawal \$${tx.amount} from wallet ${wallet.username}")
         } catch (Exception ignore) {}
         log.info("User cancelled pending withdrawal ${tx.id} from wallet ${walletId}")
