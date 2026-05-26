@@ -2470,10 +2470,16 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
     }).catch(() => { /* denied — silent */ });
     return () => { alive = false; };
   }, []);
-  const submit = async () => {
-    if (!valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
+  const submit = async (override) => {
+    // `override` lets the "Skip for now" button reuse the same busy-flag
+    // guard (and short-circuit URL validation) without duplicating the
+    // try/finally. Without this, rapid double-clicks on Skip fired
+    // submitMarkSent twice before React tore down the drawer.
+    const value = override != null ? override : trimmed;
+    if (override == null && !valid) { setErr('That doesn\'t look like a Steam trade-offer URL.'); return; }
+    if (busy) return;
     setBusy(true);
-    try { await onSubmit(trimmed); }
+    try { await onSubmit(value); }
     finally { setBusy(false); }
   };
   return h('div', {
@@ -2537,7 +2543,7 @@ function MarkSentDrawer({ trade, onCancel, onSubmit }) {
           style: { border: '1px solid var(--border)', padding: '6px 12px', fontSize: 12,
                    marginLeft: 'auto' },
           disabled: busy,
-          onClick: () => onSubmit(''),
+          onClick: () => submit(''),
           title: 'Mark sent without attaching a URL — buyer sees the generic Steam inbox link'
         }, 'Skip for now'),
         h('button', {
