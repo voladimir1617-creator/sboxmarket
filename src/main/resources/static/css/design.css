@@ -8438,7 +8438,10 @@ textarea:focus-visible {
    above (line 141), and overriding it to `relative` here makes the top bar
    scroll off-screen on full-page-mode routes. Its own sticky declaration
    already creates a positioning context, so z-index still works. */
-.app, .layout, .main, footer, .site-footer, .cf-feebar { position: relative; z-index: 1; }
+/* .cf-feebar intentionally NOT in this list — it declares `position: fixed`
+   at line 2752 to pin to the bottom of the viewport. Adding it here would
+   demote it to in-flow `position: relative`, breaking the sticky fee bar. */
+.app, .layout, .main, footer, .site-footer { position: relative; z-index: 1; }
 .modal-backdrop, .cart-confirm-backdrop, .shortcuts-backdrop { position: fixed; z-index: 200; }
 .user-menu, .notif-dropdown, .tweaks-panel { z-index: 120; }
 nav.nav { z-index: 50; }

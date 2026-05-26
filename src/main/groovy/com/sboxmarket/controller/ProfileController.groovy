@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 
+import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
@@ -1171,7 +1172,16 @@ class ProfileController {
             throw new BadRequestException("INVALID_TOKEN",
                 "Finish or cancel two-factor setup before verifying your email.")
         }
-        if (!user.emailVerificationToken || token != user.emailVerificationToken) {
+        // Constant-time compare: a plain `!=` on a 32-hex security token
+        // leaks the matching-prefix length via response timing. An attacker
+        // with a million-RPS pipe and the 24h validity window could grind
+        // the token character-by-character (16^32 search collapses to ~16*32
+        // probes). MessageDigest.isEqual is length-independent constant time
+        // and matches the pattern TotpService uses for the same reason.
+        if (!user.emailVerificationToken
+                || !MessageDigest.isEqual(
+                    token.getBytes('UTF-8'),
+                    user.emailVerificationToken.getBytes('UTF-8'))) {
             throw new BadRequestException("INVALID_TOKEN", "Verification token does not match")
         }
         // Batch 647 — enforce the 24h expiry. Tokens minted via the 2FA

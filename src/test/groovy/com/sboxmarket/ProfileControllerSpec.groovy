@@ -143,6 +143,39 @@ class ProfileControllerSpec extends Specification {
         1 * steamUserRepository.save(user)
     }
 
+    // Adversarial bug hunt — timing-side-channel guard. The token compare
+    // must be length-independent so an attacker probing the /email/verify
+    // endpoint can't recover a 32-hex token character-by-character within
+    // its 24h validity window. Differing-length and same-length-wrong
+    // candidates must both be rejected with no observable difference
+    // (and no save).
+    def "verifyEmail rejects wrong tokens of any length without saving — constant-time guard"() {
+        given:
+        authedSession(100L)
+        def user = new SteamUser(id: 100L, steamId64: '1', email: 'a@b.com',
+            emailVerified: false, emailVerificationToken: 'deadbeefdeadbeefdeadbeefdeadbeef',
+            emailVerificationTokenExpiresAt: System.currentTimeMillis() + 60_000L)
+        steamUserRepository.findById(100L) >> Optional.of(user)
+
+        when: 'submit a token that shares a long prefix but differs at the end'
+        controller.verifyEmail([token: candidate], req)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'INVALID_TOKEN'
+        user.emailVerified == false
+        user.emailVerificationToken == 'deadbeefdeadbeefdeadbeefdeadbeef'
+        0 * steamUserRepository.save(_)
+
+        where:
+        candidate << [
+            'deadbeefdeadbeefdeadbeefdeadbeeX', // same length, last char wrong
+            'deadbeefdeadbeefdeadbeefdeadbe',   // shorter (prefix of real token)
+            'deadbeefdeadbeefdeadbeefdeadbeefXX', // longer (real token + suffix)
+            '',                                  // empty
+        ]
+    }
+
     // ── /email/resend vs. the 2FA staging slot ──────────────────────
 
     def "resendVerification refuses while a 2FA enrollment is staged"() {
