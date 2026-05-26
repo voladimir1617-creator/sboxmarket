@@ -254,6 +254,36 @@ class LoadoutServiceSpec extends Specification {
         budgetSeen == BigDecimal.ZERO
     }
 
+    def "autoGenerate subtracts locked-slot spend from the \$10k catch-all when budget is null"() {
+        // Documented contract: budget is the TOTAL set spend. When the
+        // caller passes null we fall back to the $10k catch-all ceiling
+        // — and that ceiling has to include locked-slot value, just like
+        // the explicit-budget path. Pre-fix the null branch skipped the
+        // locked-slot subtraction entirely, so a loadout with a locked
+        // $9000 item still offered the full $10k to the cheapest-item
+        // query, blowing the implicit ceiling by the locked value.
+        given:
+        def loadout = new Loadout(id: 1L, ownerUserId: 10L)
+        def slotHats   = new LoadoutSlot(loadoutId: 1L, slot: 'Hats',   locked: false)
+        def slotLocked = new LoadoutSlot(loadoutId: 1L, slot: 'Shirts', locked: true,
+            itemId: 77L, snapshotPrice: new BigDecimal("9000"))
+        loadoutRepository.findById(_) >> Optional.of(loadout)
+        loadoutSlotRepository.findByLoadout(_) >>> [[slotHats, slotLocked], [slotHats, slotLocked]]
+        BigDecimal budgetSeen = null
+        loadoutRepository.findCheapestInBudgetExcluding('Hats', _, _, _) >> { args ->
+            budgetSeen = args[1]
+            []
+        }
+        loadoutSlotRepository.save(_) >> { args -> args[0] }
+        loadoutRepository.save(_) >> { args -> args[0] }
+
+        when: "the caller passes a null budget (catch-all \$10k applies)"
+        service.autoGenerate(10L, 1L, null)
+
+        then: "only \$1000 of headroom remains after the locked \$9000 is accounted for"
+        budgetSeen == new BigDecimal("1000")
+    }
+
     def "autoGenerate honours an explicit \$0 budget (Elvis-on-zero regression)"() {
         given: "a fresh loadout with one unlocked slot and a literal \$0 budget"
         def loadout = new Loadout(id: 1L, ownerUserId: 10L)

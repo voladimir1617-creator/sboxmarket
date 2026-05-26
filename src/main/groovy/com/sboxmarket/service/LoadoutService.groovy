@@ -301,15 +301,17 @@ class LoadoutService {
         // price still counts against the budget. CSFloat's budget is the
         // TOTAL set spend; without this, a locked $90 item plus a $100
         // budget would let auto-fill spend another $100 (total $190),
-        // overshooting the ceiling the user asked for.
-        if (budget != null) {
-            slots.each { slot ->
-                if (slot.locked && slot.itemId != null) {
-                    remaining = remaining - (slot.snapshotPrice ?: BigDecimal.ZERO)
-                }
+        // overshooting the ceiling the user asked for. Runs for the
+        // null-budget case too — the $10k catch-all is just an implicit
+        // ceiling, and a locked $9000 item must consume its share of
+        // that ceiling identically, otherwise auto-fill blows past the
+        // catch-all by the locked-slot value (total $19k for a $10k cap).
+        slots.each { slot ->
+            if (slot.locked && slot.itemId != null) {
+                remaining = remaining - (slot.snapshotPrice ?: BigDecimal.ZERO)
             }
-            if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
         }
+        if (remaining < BigDecimal.ZERO) remaining = BigDecimal.ZERO
         def onePage = org.springframework.data.domain.PageRequest.of(0, 1)
 
         // Track every item id already placed so the fill never repeats one.

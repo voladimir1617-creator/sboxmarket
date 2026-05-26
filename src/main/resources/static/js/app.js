@@ -627,6 +627,172 @@ export function RatingBreakdown({ summary }) {
   );
 }
 
+// ── Nav cart popover — CSFloat-1:1 parity surface. The cart icon in the
+// nav reveals a 370×680px popover on hover (desktop) / tap (mobile) that
+// summarises the current cart: line-items with thumb, name, price, remove
+// button; subtotal row; checkout + view-cart buttons. Empty state shows the
+// canonical csfloat empty-block (circular icon tile + headline + sub).
+//
+// The .csfloat-cart-popover-container CSS chrome (ships #128940 – #128947 +
+// #129020 empty-state) has been pinned in design.css for weeks but NO JS
+// markup ever rendered it — the nav cart was a plain <a href="/cart">. This
+// component finally wires the design-system surface up so the chrome paints.
+//
+// Hover / focus opens; mouseleave with a 240ms grace closes (so the user
+// can move the cursor from the icon to the popover without it vanishing
+// underneath them); Escape and click-outside also close. The clickable nav
+// icon itself still navigates to /cart on click — popover is supplemental,
+// not a hijack of the existing route.
+function NavCartPopover({ cart, cartCount, cartTotal, privacy, removeFromCart, onOpenCart }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const closeTimer = useRef(null);
+  const total = parseFloat(cartTotal) || 0;
+  const fmtMoney = (v) => privacy ? '$•••••' : fmt(v);
+  const tip = cartCount === 0
+    ? 'Cart is empty'
+    : `Cart · ${cartCount} item${cartCount === 1 ? '' : 's'} · ${fmtMoney(total)}`;
+  // Grace window prevents flicker when moving the pointer between the icon
+  // and the popover panel (the two share no parent container at the layout
+  // level — the popover is absolutely positioned below the icon, so a fast
+  // diagonal mouse swipe would otherwise leave both hover targets at once).
+  const scheduleClose = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 240);
+  };
+  const cancelClose = () => { clearTimeout(closeTimer.current); };
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  return h('div', {
+    ref: wrapRef,
+    className: 'nav-cart-wrap',
+    style: { position: 'relative', display: 'inline-block' },
+    onMouseEnter: () => { cancelClose(); setOpen(true); },
+    onMouseLeave: scheduleClose
+  },
+    h('a', {
+      className: 'nav-icon-btn',
+      href: paths.cart(),
+      title: tip,
+      'aria-label': tip,
+      'aria-haspopup': 'dialog',
+      'aria-expanded': open,
+      onFocus: () => { cancelClose(); setOpen(true); },
+      onClick: (e) => {
+        // Modifier / middle-click → let the browser handle it as a normal
+        // anchor (new tab etc). Plain click → close popover then navigate.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        setOpen(false);
+      }
+    },
+      h(MaterialIcon, { name: 'shopping_cart', size: 20, fill: cartCount > 0, color: cartCount > 0 ? 'var(--accent)' : 'var(--text-secondary)' }),
+      cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount > 99 ? '99+' : cartCount)
+    ),
+    open && h('div', {
+      className: 'csfloat-cart-popover-container',
+      role: 'dialog',
+      'aria-label': 'Cart preview',
+      onMouseEnter: cancelClose,
+      onMouseLeave: scheduleClose,
+      // The 127-rule .csfloat-cart-popover-container chrome in design.css
+      // controls bg, border, br=12, pad=20, w=370, max-h=680 via !important —
+      // these inline styles only handle positioning (which the design CSS
+      // intentionally leaves to the consumer because csfloat uses an Angular
+      // CDK overlay pane). Anchored to the icon's right edge so the panel
+      // hugs the viewport edge cleanly at standard nav widths.
+      style: {
+        position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 1200,
+        display: 'flex', flexDirection: 'column'
+      }
+    },
+      cartCount === 0
+        ? h('div', { className: 'csfloat-cart-empty' },
+            h('div', { className: 'csfloat-cart-empty-icon' },
+              h(MaterialIcon, { name: 'shopping_cart', size: 28 })
+            ),
+            h('div', { className: 'csfloat-cart-empty-msg' }, 'Your cart is empty'),
+            h('div', { className: 'csfloat-cart-empty-sub' }, 'Browse the marketplace to add listings.'),
+            h('button', {
+              className: 'csfloat-cart-empty-cta',
+              onClick: () => { setOpen(false); navigate(paths.market()); }
+            }, 'Browse marketplace')
+          )
+        : h(React.Fragment, null,
+            h('div', {
+              className: 'content',
+              style: { flex: 1, overflowY: 'auto', minHeight: 0, marginBottom: 12 }
+            },
+              cart.slice(0, 6).map(it => h('div', { className: 'item', key: it.id },
+                h('div', { className: 'main-row' },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 } },
+                    h('div', {
+                      style: {
+                        width: 32, height: 32, flexShrink: 0, borderRadius: 4, overflow: 'hidden',
+                        background: 'rgba(255,255,255,0.04)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }
+                    }, it.item && h(ItemImage, { item: it.item, variant: 'mini' })),
+                    h('span', {
+                      style: {
+                        fontSize: 13, fontWeight: 500, color: '#fff',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                      }
+                    }, it.item?.name || 'Listing')
+                  ),
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                    h('span', { style: { fontSize: 13, fontWeight: 600, color: '#fff' } }, fmtMoney(it.price)),
+                    h('button', {
+                      className: 'remove',
+                      onClick: (e) => { e.stopPropagation(); removeFromCart(it.id); },
+                      title: 'Remove from cart',
+                      'aria-label': `Remove ${it.item?.name || 'item'} from cart`,
+                      style: {
+                        background: 'transparent', border: 0, color: 'rgba(255,255,255,0.55)',
+                        cursor: 'pointer', padding: 2, fontSize: 14, lineHeight: 1
+                      }
+                    }, '✕')
+                  )
+                )
+              )),
+              cart.length > 6 && h('div', {
+                style: { fontSize: 11, color: 'rgba(255,255,255,0.55)', padding: '6px 0 0', textAlign: 'center' }
+              }, `+${cart.length - 6} more`)
+            ),
+            h('div', { className: 'footer' },
+              h('div', {
+                style: {
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  fontSize: 13, color: '#fff', marginBottom: 4
+                }
+              },
+                h('span', { style: { color: 'rgba(255,255,255,0.65)' } }, 'Subtotal'),
+                h('strong', null, fmtMoney(total))
+              ),
+              h('button', {
+                className: 'primary',
+                onClick: () => { setOpen(false); onOpenCart(); }
+              }, 'Checkout'),
+              h('button', {
+                onClick: () => { setOpen(false); onOpenCart(); }
+              }, 'View cart')
+            )
+          )
+    )
+  );
+}
+
 // ── Nav offers badge — actionable pending-incoming count. Only signed-in
 // users see it; polls every 45s; clicking navigates to /offers.
 function NavOffersBadge() {
@@ -5455,28 +5621,10 @@ export function App() {
         /* ThemePicker removed from nav per operator: editorial design
            is locked to the mono-primary palette — near-white accent,
            blue only on CTAs + live LEDs. No palette picker needed. */
-        (() => {
-          // Cart total value surfaced in the title attribute (batch 397).
-          // A one-click hover tells the user what's in there without
-          // opening /cart — useful after bulk-adding items from the grid.
-          // `cartTotal` already uses fresh server-reported prices when
-          // available; stale local price is the fallback. The server
-          // debits exactly the item price — no buyer fee — so the
-          // tooltip shows the bare cart total to match what's charged.
-          const total = parseFloat(cartTotal) || 0;
-          const tip = cartCount === 0
-            ? 'Cart is empty'
-            : `Cart · ${cartCount} item${cartCount === 1 ? '' : 's'} · ${privacy ? '$•••••' : fmt(total)}`;
-          return h('a', {
-            className: 'nav-icon-btn',
-            href: paths.cart(),
-            title: tip,
-            'aria-label': tip
-          },
-            h(MaterialIcon, { name: 'shopping_cart', size: 20, fill: cartCount > 0, color: cartCount > 0 ? 'var(--accent)' : 'var(--text-secondary)' }),
-            cartCount > 0 && h('div', { className: 'nav-icon-badge' }, cartCount > 99 ? '99+' : cartCount)
-          );
-        })(),
+        h(NavCartPopover, {
+          cart, cartCount, cartTotal, privacy,
+          removeFromCart, onOpenCart: () => navigate(paths.cart())
+        }),
         me && wallet && (() => {
           // Low-balance indicator — quiet amber amp on the wallet button
           // when balance < $5. Pending withdrawals still surface via the
