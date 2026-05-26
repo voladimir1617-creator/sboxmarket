@@ -526,6 +526,56 @@ class RateLimitFilterSpec extends Specification {
         results.every { it.allowed == 20 && it.blocked == 5 }
     }
 
+    def "GET /api/admin/audit.csv is enumeration-guarded (batch 1068 — admin-exfil audit)"() {
+        // Pre-fix the `/api/admin` entry in GUARDED_PREFIXES only caught
+        // *write* methods because the GET branch never consults
+        // GUARDED_PREFIXES. That meant a hijacked admin session could pull
+        // the full audit log / withdrawals / users / fraud / trade CSVs at
+        // line rate — exactly the scenario the existing `/api/admin`
+        // comment claimed to prevent. The fix added `/api/admin/` to
+        // GUARDED_ENUMS so any admin GET (CSV or interactive) falls into
+        // the 40/10s MAX_ENUM bucket. Verified with a sweep of
+        // /api/admin/audit.csv (the AuditLog scan is the worst exfil
+        // surface — capped to 5000 rows per request but un-paged, so a
+        // single admin session could otherwise sweep months of history in
+        // seconds).
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when: "50 consecutive GETs to the admin audit CSV from one admin session"
+        (1..50).each {
+            def resp = new MockHttpServletResponse()
+            // Admin user signed in — per-user-id bucket key applies.
+            filter.doFilter(getAs('/api/admin/audit.csv', '203.0.113.50', 7L), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then: "first 40 pass (MAX_ENUM), next 10 return 429 — bounded exfil sweep"
+        allowed == 40
+        blocked == 10
+    }
+
+    def "GET /api/csr/users/lookup is enumeration-guarded (batch 1068 — PII walk)"() {
+        // CSR's user-lookup endpoint returns PII (email, ban status,
+        // wallet balance). A compromised CSR session walking ids must
+        // hit the same 40/10s cliff as a sweep of /api/items/{id}.
+        given:
+        int allowed = 0
+        int blocked = 0
+
+        when:
+        (1..50).each { id ->
+            def resp = new MockHttpServletResponse()
+            filter.doFilter(getAs("/api/csr/users/lookup?id=${id}", '203.0.113.51', 8L), resp, chain)
+            if (resp.status == 429) blocked++ else allowed++
+        }
+
+        then:
+        allowed == 40
+        blocked == 10
+    }
+
     def "MAX_KEYS eviction never wipes an active bucket — only stale ones (rate-limit bypass fix)"() {
         // The old eviction code did:
         //     def oldest = buckets.entrySet().min { it.value.windowStart }

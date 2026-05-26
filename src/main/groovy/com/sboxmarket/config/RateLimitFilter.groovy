@@ -193,7 +193,26 @@ class RateLimitFilter extends OncePerRequestFilter {
         // stashes a session attribute), but it's the kickoff for the
         // /return outbound call and capping it stops a script from using
         // us to spam Steam's OpenID front door at line rate. Same budget.
-        '/api/auth/steam/login'
+        '/api/auth/steam/login',
+        // Admin + CSR GET surfaces (batch 1068 — admin-exfil audit). The
+        // `/api/admin` + `/api/csr` entries in GUARDED_PREFIXES above only
+        // catch *write* methods because the GET branch never consults
+        // GUARDED_PREFIXES. That meant a hijacked admin / CSR session
+        // could pull the full audit log + every user / withdrawal /
+        // dispute / fraud / trade CSV at line rate — exactly the
+        // scenario the `/api/admin` comment claimed to prevent. AdminController
+        // alone exposes 9 unfiltered `.csv` GETs (`/audit.csv`,
+        // `/withdrawals.csv`, `/users.csv`, `/tickets.csv`, `/fraud.csv`,
+        // `/disputes.csv`, `/trades.csv`, `/users/{id}/listings.csv`,
+        // `/users/{id}/transactions.csv`), each capped to 5000 rows but
+        // un-paged — uncapped, a script can sweep a year of audit
+        // history in seconds. CsrController exposes `/users/lookup` (PII).
+        // 40/10s (MAX_ENUM) is generous for human-clicked CSV downloads
+        // and ad-hoc lookups but a hard cliff for an exfil sweep. Combined
+        // with the per-user-id bucket key, this bounds a single compromised
+        // admin session to ~14k rows per minute instead of unbounded.
+        '/api/admin/',
+        '/api/csr/'
     ]
 
     private static class Bucket {

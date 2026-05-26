@@ -1322,8 +1322,33 @@ class StripeService {
         }
         transactionRepository.save(tx)
 
+        // Resolve the wallet owner up-front so we can pass them as the
+        // audit subject AND as the notification recipient. Pre-fix the
+        // audit row was logged with (null, null, tx.id) — same shape
+        // as the WITHDRAW_REQUESTED bug closed in commit de40340 — so a
+        // user's own DEPOSIT_COMPLETE row was invisible to
+        // ProfileController /security-activity (filters via
+        // auditLogRepository.bySubject on subjectUserId = uid and
+        // explicitly white-lists DEPOSIT_COMPLETE). A user whose
+        // session was hijacked to fund the attacker's wallet via a
+        // stolen-card deposit had no record of those credits in their
+        // own security history feed — exactly the audit surface the
+        // feed exists to expose. Lookup follows the same
+        // Wallet.username → SteamUser.id chain the notification block
+        // below already used; lifted up so both the audit and the
+        // push share one round-trip and one fallback branch.
+        Long ownerUserId = null
+        if (steamUserRepository != null) {
+            try {
+                def uname = wallet.username ?: ''
+                if (uname.startsWith('steam_')) {
+                    def owner = steamUserRepository.findBySteamId64(uname.substring('steam_'.length()))
+                    ownerUserId = owner?.id
+                }
+            } catch (Exception ignore) { /* tolerant — audit/push survive a null id */ }
+        }
         try {
-            auditService?.log(AuditService.DEPOSIT_COMPLETE, null, null, tx.id,
+            auditService?.log(AuditService.DEPOSIT_COMPLETE, ownerUserId, ownerUserId, tx.id,
                 "Deposit \$${tx.amount} credited to wallet ${wallet.username} (stripe=${sessionId})")
         } catch (Exception ignore) {}
         // Notification push (batch 457) — closes the silent-success gap
@@ -1333,24 +1358,17 @@ class StripeService {
         // Wallet.username = "steam_<steamId64>" → SteamUser. Failure-
         // tolerant: a notify miss is logged and the deposit still
         // completes (the wallet balance + tx row are the source of truth).
-        if (notificationService != null && steamUserRepository != null) {
+        if (notificationService != null && ownerUserId != null) {
             // Batch 632: safePush — deposit money is already credited above;
             // a push failure must not roll back the wallet credit + audit row.
             try {
-                def uname = wallet.username ?: ''
-                if (uname.startsWith('steam_')) {
-                    def steamId = uname.substring('steam_'.length())
-                    def user = steamUserRepository.findBySteamId64(steamId)
-                    if (user != null) {
-                        notificationService.safePush(user.id, 'DEPOSIT_COMPLETE',
-                            "Deposit complete · +\$${tx.amount?.toPlainString() ?: '0.00'}",
-                            "New balance: \$${wallet.balance?.toPlainString() ?: '0.00'}",
-                            tx.id,
-                            '/wallet')
-                    }
-                }
+                notificationService.safePush(ownerUserId, 'DEPOSIT_COMPLETE',
+                    "Deposit complete · +\$${tx.amount?.toPlainString() ?: '0.00'}",
+                    "New balance: \$${wallet.balance?.toPlainString() ?: '0.00'}",
+                    tx.id,
+                    '/wallet')
             } catch (Exception e) {
-                log.warn("Deposit-complete lookup failed for tx=${tx.id}: ${e.message}")
+                log.warn("Deposit-complete push failed for tx=${tx.id}: ${e.message}")
             }
         }
         log.info("Deposit \$${tx.amount} credited to wallet ${tx.walletId} (session ${sessionId})")

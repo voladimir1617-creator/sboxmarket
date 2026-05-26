@@ -1542,7 +1542,20 @@ class TradeService {
                     // the trade VERIFIED but the seller uncredited
                     // (or vice versa on the very next attempt).
                     runInIsolatedTx { release(trade, true) }
-                    auditService?.log(AuditService.TRADE_AUTO_RELEASED, null, null, trade.id,
+                    // actor=null (the sweeper is the system, no human
+                    // acted), subject=sellerUserId (the party most
+                    // affected by the action — they got paid). Pre-fix
+                    // the subject was also null, so the row was invisible
+                    // to ProfileController /security-activity (filters
+                    // via auditLogRepository.bySubject on subjectUserId
+                    // = uid). Same null/null bug class WITHDRAW_REQUESTED
+                    // (StripeService:547) + DEPOSIT_COMPLETE (line 1326)
+                    // were closed for in commit de40340 / this commit;
+                    // TRADE_AUTO_RELEASED was the matching outlier on the
+                    // trade-sweep path. Mirrors the sibling
+                    // TRADE_AUTO_CANCELLED's actor=null, subject=
+                    // sellerUserId pattern (line 1573).
+                    auditService?.log(AuditService.TRADE_AUTO_RELEASED, null, trade.sellerUserId, trade.id,
                         "Auto-released after ${autoReleaseDays}d no-confirm window")
                 }
             } catch (Exception e) {
