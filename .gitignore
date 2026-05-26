@@ -20,6 +20,16 @@ data/
 *.trace.db
 logs/
 
+# Local dev artefacts that should never be committed. boot.log is the
+# nohup target for bootRun; gradle.properties holds machine-local Gradle
+# JVM tuning; *.output / .tmp_* are leftover agent/test artefacts. Each
+# was actively dirtying `git status` and risked being accidentally
+# included in a bulk `git add .`.
+boot.log
+gradle.properties
+*.output
+.tmp_*
+
 # Environment / secrets
 .env
 *.env
