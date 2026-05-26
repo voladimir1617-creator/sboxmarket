@@ -632,9 +632,20 @@ class ListingController {
     @PutMapping("/my-stall/bulk-adjust")
     ResponseEntity<Map> bulkAdjustStall(@RequestBody Map body, HttpServletRequest req) {
         def userId = requireUser(req)
+        // Don't fall through `?:` to '' — Groovy treats numeric 0 as
+        // falsy, so a legitimate `{"percent": 0}` (no-op bulk adjust)
+        // collapsed to empty-string → NumberFormatException → 400
+        // INVALID_PERCENT, while `{"percent": "0"}` (string) worked.
+        // Same Elvis-on-zero class as ccfe0b5 / 4e1a0d4 / 0d15de2.
+        // Explicit null check so 0 reaches BigDecimal cleanly.
+        def rawPct = body?.percent
+        if (rawPct == null) {
+            throw new com.sboxmarket.exception.BadRequestException("INVALID_PERCENT",
+                "percent is required (e.g. -5 for a 5% discount)")
+        }
         BigDecimal pct
         try {
-            pct = new BigDecimal((body?.percent ?: '').toString())
+            pct = new BigDecimal(rawPct.toString())
         } catch (NumberFormatException ignored) {
             throw new com.sboxmarket.exception.BadRequestException("INVALID_PERCENT",
                 "percent must be a number (e.g. -5 for a 5% discount)")
