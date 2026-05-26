@@ -418,6 +418,30 @@ class AdminServiceSpec extends Specification {
         1 * notificationService.safePush(22L, 'TWOFA_RESET', _, _, _, _)
     }
 
+    // Adversarial bug hunt — recovery-code residue. /2fa/disable wipes
+    // totpSecret, lastTotpStep AND totpRecoveryCodes atomically; admin
+    // reset must do the same. Leaving the hash list on a row with
+    // totpSecret == null violates the confirm2fa invariant ("2FA enabled
+    // ↔ recovery codes exist") and leaves a stale-state landmine for any
+    // future code path that learns to consume codes without the
+    // totpSecret gate. Pin all three columns to null.
+    def "reset2faFor also wipes orphaned recovery-code hashes — no residue"() {
+        given:
+        def target = new SteamUser(id: 22L, steamId64: '444', role: 'USER',
+            totpSecret: 'ABCDEF', lastTotpStep: 123L,
+            totpRecoveryCodes: 'aaa bbb ccc ddd eee fff ggg hhh iii jjj')
+        steamUserRepository.findById(22L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+
+        when:
+        service.reset2faFor(1L, 22L, 'Lost phone')
+
+        then:
+        target.totpSecret == null
+        target.lastTotpStep == null
+        target.totpRecoveryCodes == null
+    }
+
     def "reset2faFor fires a security-alert email to the user's verified address (batch 575)"() {
         given:
         def target = new SteamUser(

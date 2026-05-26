@@ -225,6 +225,13 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT COALESCE(SUM(l.price), 0) FROM Listing l WHERE l.sellerUserId = :uid AND l.status = 'ACTIVE'")
     BigDecimal sumActiveListingPriceBySeller(@Param("uid") Long uid)
 
+    /** Scalar projection of the seller's user id for a given listing —
+     *  drives the cart own-listing guard (CartService.add) without
+     *  hydrating the whole row + item graph. Returns null when the
+     *  listing doesn't exist or is a system listing (no seller). */
+    @Query("SELECT l.sellerUserId FROM Listing l WHERE l.id = :listingId")
+    Long findSellerUserIdById(@Param("listingId") Long listingId)
+
     /** Count of the seller's hidden-but-active listings. Drives the
      *  away-mode "N hidden" chip without hydrating every row to count
      *  `.hidden == true`. Includes the legacy NULL-hidden fallback

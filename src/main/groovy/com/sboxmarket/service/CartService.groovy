@@ -2,6 +2,7 @@ package com.sboxmarket.service
 
 import com.sboxmarket.model.CartItem
 import com.sboxmarket.repository.CartItemRepository
+import com.sboxmarket.repository.ListingRepository
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
@@ -32,11 +33,33 @@ class CartService {
     static final int MAX_PER_USER = 50
 
     @Autowired CartItemRepository repository
+    /** Optional so existing unit tests that build the service with `new
+     *  CartService(repository: ...)` (no listing repo wired) keep
+     *  passing — the own-listing guard becomes a no-op in that mode and
+     *  the buy-path's OWN_LISTING check remains the backstop. */
+    @Autowired(required = false) ListingRepository listingRepository
 
     @Transactional
     boolean add(Long userId, Long listingId) {
         if (userId == null || listingId == null) return false
         if (repository.existsByUserAndListing(userId, listingId)) return false
+        // Own-listing guard. Without this, a seller can pad their own cart
+        // with their own active listings up to MAX_PER_USER — every row
+        // then fails OWN_LISTING at checkout (PurchaseService.buy line
+        // 160) and the cart can't scrub the failures (only OK rows are
+        // removed in CartController.checkout), so the user gets stuck
+        // with a full-but-unbuyable cart that blocks any real add until
+        // they hand-clear each row. Rejecting at the add-path mirrors
+        // the buy-path's OWN_LISTING semantics and keeps the cart usable.
+        if (listingRepository != null) {
+            Long sellerUserId = null
+            try { sellerUserId = listingRepository.findSellerUserIdById(listingId) }
+            catch (Exception e) { log.debug("own-listing probe failed for listing=${listingId}: ${e.message}") }
+            if (sellerUserId != null && sellerUserId == userId) {
+                throw new com.sboxmarket.exception.BadRequestException('OWN_LISTING',
+                    "You can't add your own listing to your cart")
+            }
+        }
         def current = repository.findListingIdsByUser(userId)
         if (current.size() >= MAX_PER_USER) {
             throw new com.sboxmarket.exception.BadRequestException('CART_FULL',

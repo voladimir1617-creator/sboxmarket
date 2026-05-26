@@ -3,6 +3,7 @@ package com.sboxmarket
 import com.sboxmarket.exception.BadRequestException
 import com.sboxmarket.model.CartItem
 import com.sboxmarket.repository.CartItemRepository
+import com.sboxmarket.repository.ListingRepository
 import com.sboxmarket.service.CartService
 import org.springframework.dao.DataIntegrityViolationException
 import spock.lang.Specification
@@ -106,6 +107,85 @@ class CartServiceSpec extends Specification {
         // The save row is stamped with the caller's user id — never a
         // different user's — so the new row lands in the right cart.
         1 * repository.save({ it.userId == 10L && it.listingId == 500L })
+    }
+
+    // ── add: own-listing guard ───────────────────────────────────────
+
+    def "add rejects the seller's own listing with OWN_LISTING"() {
+        // Without this guard a seller can pad their own cart with their
+        // own active listings up to MAX_PER_USER; every row then fails
+        // OWN_LISTING at checkout, but the cart only scrubs successful
+        // rows, so the user gets stuck with a full-but-unbuyable cart.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> 10L        // seller IS the caller
+
+        when:
+        service2.add(10L, 777L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'OWN_LISTING'
+        // No insert and no cap probe — guard short-circuits before either.
+        0 * repository.save(_)
+        0 * repository.findListingIdsByUser(_)
+    }
+
+    def "add allows a listing the user does NOT own"() {
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> 99L        // different seller
+        repository.findListingIdsByUser(10L) >> []
+
+        when:
+        def added = service2.add(10L, 777L)
+
+        then:
+        added == true
+        1 * repository.save({ it.userId == 10L && it.listingId == 777L })
+    }
+
+    def "add tolerates system listings (sellerUserId == null) — guard is skipped"() {
+        // System / platform listings carry sellerUserId == null. The
+        // guard must not falsely reject these — `null == userId` is false
+        // anyway, but pin the contract so a future refactor can't drift.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> null
+        repository.findListingIdsByUser(10L) >> []
+
+        when:
+        def added = service2.add(10L, 777L)
+
+        then:
+        added == true
+        1 * repository.save({ it.listingId == 777L })
+    }
+
+    def "add survives a probe failure — guard logs and falls through (buy-path remains the backstop)"() {
+        // A DB blip on the seller probe must not 500 the add. The buy-path
+        // OWN_LISTING check still runs at checkout, so the worst case is
+        // one stale row the user can manually remove — not a hard failure.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.existsByUserAndListing(10L, 777L) >> false
+        listings.findSellerUserIdById(777L) >> { throw new RuntimeException('DB blip') }
+        repository.findListingIdsByUser(10L) >> []
+
+        when:
+        def added = service2.add(10L, 777L)
+
+        then:
+        added == true
+        notThrown(Exception)
+        1 * repository.save({ it.listingId == 777L })
     }
 
     // ── remove ───────────────────────────────────────────────────────

@@ -1500,6 +1500,16 @@ class AdminService {
         }
         target.totpSecret = null
         target.lastTotpStep = null
+        // Wipe stored recovery-code hashes alongside the secret. Leaving
+        // them on a row that has totpSecret == null violates the
+        // confirm2fa invariant "2FA enabled ↔ recovery codes exist" and
+        // creates a stale-state landmine: if the user later re-enrols and
+        // confirm2fa misfires (e.g. a future refactor splits secret /
+        // codes into separate writes) the row could end up with orphaned
+        // hashes someone else minted, indistinguishable from fresh ones.
+        // Matches the user-initiated /2fa/disable flow which clears all
+        // three columns atomically.
+        target.totpRecoveryCodes = null
         // Bump sessionEpoch — 2FA reset is almost always a compromise-
         // recovery action (user lost phone / account got hijacked).
         // Revoking live sessions kicks any attacker currently signed in

@@ -215,7 +215,8 @@ class SteamAuthControllerSpec extends Specification {
     def "me() returns the user body when stashed sessionEpoch matches the live value"() {
         given: 'a session whose epoch is current'
         def user = new SteamUser(id: 100L, displayName: 'alice', sessionEpoch: 42L)
-        3 * req.session >> ses
+        // Happy path: two reads of req.session (uid + epoch), no invalidate.
+        2 * req.session >> ses
         1 * ses.getAttribute(SteamAuthController.SESSION_USER_ID) >> 100L
         1 * steamUserRepository.findById(100L) >> Optional.of(user)
         1 * ses.getAttribute(SteamAuthController.SESSION_EPOCH) >> 42L

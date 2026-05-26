@@ -408,6 +408,12 @@ class SteamAuthService {
         if (status < 200 || status >= 300) {
             // Permanent client error (bad key 401/403, malformed request
             // 400, etc.). Don't retry — log and treat as "no profile".
+            // Drain the error stream first so the underlying socket can
+            // return to the keep-alive pool — Steam private-profile 403s
+            // fire on every login of a user with a non-public profile, so
+            // a never-drained error stream slow-leaks file descriptors on
+            // a long-lived container under sustained login pressure.
+            try { conn.errorStream?.getText('UTF-8') } catch (Exception ignore) {}
             log.warn("Steam Web API returned ${status} for ${steamId64} — not retrying (permanent)")
             return null
         }
@@ -444,6 +450,9 @@ class SteamAuthService {
             throw new java.io.IOException("Steam XML endpoint returned ${status}")
         }
         if (status < 200 || status >= 300) {
+            // Drain the error stream so the socket can return to the
+            // keep-alive pool — see fetchViaWebApi for the same rationale.
+            try { conn.errorStream?.getText('UTF-8') } catch (Exception ignore) {}
             log.warn("Steam XML returned ${status} for ${steamId64} — not retrying (permanent)")
             return null
         }
