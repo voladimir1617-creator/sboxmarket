@@ -229,11 +229,27 @@ class SupportService {
         if (!cleanBody || cleanBody.isEmpty()) {
             throw new BadRequestException("INVALID_BODY", "Message body is required")
         }
+        // Strictly-monotonic createdAt — same bug class as the +1ms
+        // stamp in create() (see lines 153-159). Without an explicit
+        // stamp, two rapid replies (double-click on slow network, two
+        // browser tabs racing the same submit, or a reply landing in
+        // the same ms as create()'s Clara auto-reply at userMsgCreatedAt
+        // + 1) share `System.currentTimeMillis()` and the repo's
+        // `ORDER BY m.createdAt ASC` becomes a non-deterministic
+        // tie-break — the thread render can flip the reply ABOVE the
+        // message it's answering. Stamping max(now, last+1) makes the
+        // ordering deterministic for the lifetime of the thread.
+        long now = System.currentTimeMillis()
+        long lastInThread = (messageRepository.findByTicket(ticketId) ?: [])
+            .collect { it.createdAt ?: 0L }
+            .max() ?: 0L
+        long stamp = Math.max(now, lastInThread + 1L)
         def msg = messageRepository.save(new SupportMessage(
             ticketId:   ticketId,
             author:     'USER',
             authorName: cleanName,
-            body:       cleanBody
+            body:       cleanBody,
+            createdAt:  stamp
         ))
         ticket.status = 'WAITING_STAFF'
         ticket.updatedAt = System.currentTimeMillis()

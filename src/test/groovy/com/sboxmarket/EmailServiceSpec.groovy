@@ -129,10 +129,57 @@ class EmailServiceSpec extends Specification {
         then:
         1 * mailSender.send({ MimeMessage msg -> def f = fields(msg)
             f.to ==['user@example.com'] &&
-            f.from == 'no-reply@skinbox.local' &&
+            // From: now carries the SkinBox display name + bare mailbox
+            // — see "From header includes the configured display name"
+            // spec below for the deliberate behaviour.
+            f.from == 'SkinBox <no-reply@skinbox.local>' &&
             f.subject == 'Confirm your SkinBox email' &&
             f.text.contains('abc123token') &&
             f.text.contains('https://skinbox.example')
+        })
+    }
+
+    def "From header includes the configured display name"() {
+        // Inboxes (and reputation systems at Gmail/Outlook/Yahoo) penalise
+        // bare-mailbox From: addresses — `no-reply@skinbox.local` looks like
+        // spam to humans AND scores worse than `SkinBox <no-reply@…>`.
+        // EmailService configures `fromName` from `app.email.from-name`
+        // but for ~200 batches never passed it to MimeMessageHelper.setFrom;
+        // this regression pins the display-name plumbing.
+        given:
+        def svc = newService(mailSender: mailSender, smtpHost: 'smtp.example.com')
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg ->
+            fields(msg).from == 'SkinBox <no-reply@skinbox.local>'
+        })
+    }
+
+    def "From header falls back to bare mailbox when fromName is blank"() {
+        // A deploy that intentionally clears the display name (e.g. for a
+        // throwaway dev instance or a relay that rejects RFC 5322 group
+        // addresses) must still send mail rather than NPE at setFrom.
+        given:
+        def svc = new EmailService(
+            mailSender: mailSender, smtpHost: 'smtp.example.com',
+            fromAddress: 'no-reply@skinbox.local', fromName: '',
+            replyToAddress: 'support@skinbox.market',
+            unsubscribeSecret: 'test-unsubscribe-secret',
+            publicUrl: 'http://localhost:8080')
+        mailSender.createMimeMessage() >> { new MimeMessage((jakarta.mail.Session) null) }
+        svc.init()
+
+        when:
+        svc.sendVerification('user@example.com', 'tok')
+        svc.awaitSmtpForTests()
+
+        then:
+        1 * mailSender.send({ MimeMessage msg ->
+            fields(msg).from == 'no-reply@skinbox.local'
         })
     }
 
@@ -838,7 +885,7 @@ class EmailServiceSpec extends Specification {
             // A real Reply-To header is set — and it differs from the
             // no-reply From, which is the whole point of the field.
             (msg.getHeader('Reply-To') ?: []).join(' ').contains('support@skinbox.market') &&
-            fields(msg).from == 'no-reply@skinbox.local'
+            fields(msg).from == 'SkinBox <no-reply@skinbox.local>'
         })
     }
 

@@ -1634,7 +1634,20 @@ Thanks for your patience.
                         try {
                             def mime = mailSender.createMimeMessage()
                             def helper = new org.springframework.mail.javamail.MimeMessageHelper(mime, 'UTF-8')
-                            helper.setFrom(fromAddress)
+                            // Use the configured display name when present so the
+                            // recipient's inbox shows `SkinBox <no-reply@…>` rather
+                            // than the raw `no-reply@skinbox.local` mailbox — that
+                            // bare-mailbox form looks like spam to humans AND scores
+                            // worse with Gmail/Outlook reputation systems. `fromName`
+                            // was being injected from config but never plumbed
+                            // through; setFrom(addr, personal) closes the gap. Falls
+                            // back to the bare address when fromName is blank so a
+                            // deploy that intentionally cleared it still works.
+                            if (fromName && !fromName.isBlank()) {
+                                helper.setFrom(fromAddress, fromName)
+                            } else {
+                                helper.setFrom(fromAddress)
+                            }
                             helper.setTo(to)
                             helper.setSubject(safeSubject)
                             helper.setText(finalBody, false)

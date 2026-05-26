@@ -109,6 +109,22 @@ class WatchlistAlertService {
             throw new BadRequestException('TARGET_TOO_HIGH',
                 'Target price exceeds the \$100,000 sanity cap')
         }
+        // Round-then-validate (batch 1196). The `targetPrice <= 0` guard
+        // above fires BEFORE scaling, so a value in (0, 0.005) like
+        // `"0.00001"` slipped past the guard, was rounded by
+        // `setScale(2, HALF_UP)` to `0.00`, and stored as a target of
+        // zero. The sweep query (`i.lowestPrice <= a.targetPrice AND
+        // i.lowestPrice > 0`) can never match a zero target, so the
+        // alert sat dead in the user's quota slot forever — silently
+        // never firing, while the user thought they had a sub-cent
+        // watch active. Round first, then re-check the floor at the
+        // storage scale: anything below \$0.01 fails fast with the same
+        // INVALID_TARGET code so the SPA can surface the same toast.
+        BigDecimal scaledTarget = targetPrice.setScale(2, BigDecimal.ROUND_HALF_UP)
+        if (scaledTarget <= BigDecimal.ZERO) {
+            throw new BadRequestException('INVALID_TARGET',
+                'Target price must be at least \$0.01')
+        }
         // Item must exist — otherwise the sweeper's join silently drops
         // the row forever.
         def item = itemRepository.findById(itemId)
@@ -117,7 +133,7 @@ class WatchlistAlertService {
         def existing = repo.findActiveFor(userId, itemId)
         if (existing.isPresent()) {
             def a = existing.get()
-            a.targetPrice = targetPrice.setScale(2, BigDecimal.ROUND_HALF_UP)
+            a.targetPrice = scaledTarget
             a.createdAt   = System.currentTimeMillis()
             return repo.save(a)
         }
@@ -131,7 +147,7 @@ class WatchlistAlertService {
         def alert = new WatchlistAlert(
             userId:      userId,
             itemId:      itemId,
-            targetPrice: targetPrice.setScale(2, BigDecimal.ROUND_HALF_UP),
+            targetPrice: scaledTarget,
             status:      'ACTIVE',
             createdAt:   System.currentTimeMillis()
         )

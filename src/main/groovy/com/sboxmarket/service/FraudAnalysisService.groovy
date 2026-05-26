@@ -114,7 +114,20 @@ class FraudAnalysisService {
                     count:     ips.size(),
                     ip:        ips.join(', ').take(200),
                     summary:   "User ${list[0].actorName ?: uid} acted from ${ips.size()} distinct IPs in 24h",
-                    createdAt: latest
+                    createdAt: latest,
+                    // Sweeper-signature override (batch 1015 fix). `ip` is the
+                    // joined IP-list shown in the admin UI/CSV — its content
+                    // changes every time a new IP joins the user's set, so
+                    // including it in the dedup signature breaks the bucketed
+                    // dedup the sweeper relies on: growing 6→7→8 IPs would
+                    // flip the signature on each new IP and fan out a fresh
+                    // HIGH bell to every admin even though the bucketed count
+                    // is unchanged. The (type, userId, bucketed-count) tuple
+                    // is already a sufficient discriminator for a per-user
+                    // signal — pin the signature-ip to a stable empty string
+                    // so the bucketing actually works for this detector,
+                    // matching the documented intent in seenSignatures.
+                    signatureIp: ''
                 ]
             }
         }
@@ -324,7 +337,13 @@ class FraudAnalysisService {
                 // event when userId+ip are both null — see detectChargebacks.
                 // Detectors that don't set it get a trailing `|` uniformly,
                 // so their dedup behaviour is unchanged.
-                def signature = "${sig.type}|${sig.userId ?: ''}|${sig.ip ?: ''}|${bucket}|${sig.dedupKey ?: ''}".toString()
+                // `signatureIp` lets a detector override the display `ip`
+                // for dedup purposes — needed by MULTIPLE_IPS_PER_USER whose
+                // displayed `ip` field is the joined IP list and so
+                // necessarily changes as the user's IP set grows. Detectors
+                // that don't set it fall through to `sig.ip` unchanged.
+                def sigIp = sig.containsKey('signatureIp') ? sig.signatureIp : sig.ip
+                def signature = "${sig.type}|${sig.userId ?: ''}|${sigIp ?: ''}|${bucket}|${sig.dedupKey ?: ''}".toString()
                 // Dedup check only — DO NOT commit the signature yet.
                 // Previously the signature was added pre-fanout; if every
                 // admin push then threw (DB blip, transient bell-storage

@@ -857,6 +857,69 @@ class FraudAnalysisServiceSpec extends Specification {
     // stable address and `userId` is always null, so only the bucketed
     // count varies between passes.
 
+    def "sweeper does NOT re-fire when a user's IP-set grows within the same count bucket"() {
+        // Regression for the MULTIPLE_IPS_PER_USER dedup. The displayed
+        // `ip` field on that signal is the comma-joined IP list, which
+        // changes content every time a new IP joins the user's set. Pre-fix
+        // the sweeper put that joined list into the dedup signature, so a
+        // user going 6 → 7 → 8 distinct IPs (all bucketing to 8 → still
+        // HIGH) would fan out THREE identical HIGH bells to every admin
+        // instead of one. The seenSignatures comment claims this exact
+        // case is deduped — this test pins that behaviour now that the
+        // signal stamps `signatureIp: ''` to stabilise the signature.
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        // Pass 1: 6 distinct IPs (count 6 → bucket 8, severity HIGH).
+        // Pass 2: 7 distinct IPs — same user, same bucket, attack just
+        // accreted one more IP. Must NOT re-fire the bell.
+        auditLogRepository.since(_) >>> [
+            (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) },
+            (1..7).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) },
+        ]
+
+        when:
+        svc.sweepAndPushFraudSignals()
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        1 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _)
+    }
+
+    def "sweeper re-fires for a MULTIPLE_IPS_PER_USER attack that escalates across a count bucket"() {
+        // Companion to the within-bucket test: the bucketing must still
+        // re-fire on a genuine escalation. 6 IPs (bucket 8) → 9 IPs
+        // (bucket 16) is a meaningful jump and warrants a fresh bell.
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:  auditLogRepository,
+            notificationService: notificationService,
+            steamUserRepository: steamUserRepository
+        )
+        def t = now()
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        auditLogRepository.since(_) >>> [
+            (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) },
+            (1..9).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) },
+        ]
+
+        when:
+        svc.sweepAndPushFraudSignals()
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        2 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _)
+    }
+
     def "sweeper re-fires when a shared-IP attack escalates across a count bucket"() {
         given:
         def notificationService = Mock(NotificationService)

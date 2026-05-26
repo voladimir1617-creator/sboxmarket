@@ -739,6 +739,89 @@ class TradeProtectionServiceSpec extends Specification {
         0 * transactionRepository.save(_)
     }
 
+    def "autoClaim buyer-notify body says 'refunded to your wallet' when the wallet was actually credited"() {
+        given: "the wallet exists and the credit succeeds — the happy path"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        def trade  = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L, itemName: 'Wizard Hat')
+        def wallet = new Wallet(id: 500L, balance: new BigDecimal('0.00'), currency: 'USD')
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        service.autoClaim(1L, 'Seller fault')
+
+        then: "the credited path keeps the 'refunded to your wallet' wording — accurate"
+        1 * notificationService.safePush(10L, 'TRADE_PROTECTION_CLAIMED', _,
+            { String body -> body.contains('refunded to your wallet') }, 1L, _)
+    }
+
+    def "autoClaim buyer-notify body says 'queued for manual payout' when the wallet row is missing"() {
+        given: "the trade points at a wallet id but the wallet row is gone — credit cannot happen"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        def trade = tradeIn('CANCELLED', buyer: 10L, buyerWallet: 500L, itemName: 'Wizard Hat')
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        walletRepository.findById(500L) >> Optional.empty()
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        service.autoClaim(1L, 'Seller fault')
+
+        then: "the notification must NOT lie about a credit that didn't happen"
+        1 * notificationService.safePush(10L, 'TRADE_PROTECTION_CLAIMED', _,
+            { String body ->
+                body.contains('queued for manual payout') &&
+                !body.contains('refunded to your wallet')
+            }, 1L, _)
+    }
+
+    def "autoClaim buyer-notify body says 'queued for manual payout' when the trade has no buyerWalletId"() {
+        given: "the trade row has no wallet attached at all — credit cannot happen"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        def trade = tradeIn('CANCELLED', buyer: 10L, buyerWallet: null, itemName: 'Wizard Hat')
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.of(trade)
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        service.autoClaim(1L, 'Seller fault')
+
+        then: "no wallet lookup, no credit — body must reflect that"
+        0 * walletRepository.findById(_)
+        1 * notificationService.safePush(10L, 'TRADE_PROTECTION_CLAIMED', _,
+            { String body ->
+                body.contains('queued for manual payout') &&
+                !body.contains('refunded to your wallet')
+            }, 1L, _)
+    }
+
+    def "autoClaim buyer-notify body says 'queued for manual payout' when the trade row itself is gone"() {
+        given: "the protection survives the trade — autoClaim is best-effort"
+        def protection = new TradeProtection(id: 7L, tradeId: 1L, buyerUserId: 10L,
+            status: TradeProtection.ACTIVE, coverageAmount: new BigDecimal('50.00'))
+        tradeProtectionRepository.findByTradeId(1L) >> protection
+        tradeRepository.findById(1L) >> Optional.empty()
+        tradeProtectionRepository.save(_) >> { TradeProtection p -> p }
+
+        when:
+        service.autoClaim(1L, 'Seller fault')
+
+        then: "no trade means no wallet means no credit — body must reflect that"
+        0 * walletRepository.save(_)
+        1 * notificationService.safePush(10L, 'TRADE_PROTECTION_CLAIMED', _,
+            { String body ->
+                body.contains('queued for manual payout') &&
+                !body.contains('refunded to your wallet')
+            }, 1L, _)
+    }
+
     def "autoClaim refunds the protection's frozen coverage, NOT the trade's current price"() {
         given: "coverage was locked at \$80 when protection was bought; the trade " +
                "row now (somehow) carries a different price — the payout must honour " +

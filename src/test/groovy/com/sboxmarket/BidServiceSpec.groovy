@@ -1098,6 +1098,45 @@ class BidServiceSpec extends Specification {
         buyerOldBid.status == 'OUTBID'
     }
 
+    def "buyNowAuction increments listing.bidCount for the buy-now bid row"() {
+        // Bug: buyNowAuction persists a fresh Bid row at buyNowPrice (so
+        // settle's `winnersLive.sort.first()` can pick it as WON at the
+        // real price), but never bumps `listing.bidCount`. The bid_rows
+        // count for the listing then goes from N → N+1 while the
+        // denormalised counter stays at N, leaving every consumer of
+        // `listing.bidCount` (cards/modals badges, /mystall CSV export,
+        // the AuctionBidPlacedEvent SSE payload, "Most Traded" metrics)
+        // off-by-one for the rest of the listing's life. placeBid bumps
+        // the counter on every Bid row it saves (lines 298, 404, 453);
+        // the Buy-Now path needs to mirror that for consistency.
+        given:
+        def listing = buyNowListing(buyNowPrice: new BigDecimal('50'),
+            currentBid: new BigDecimal('20'), currentBidderId: 7L, bidCount: 1)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        def loserBid = new Bid(id: 5L, listingId: 100L, bidderUserId: 7L,
+            bidderName: 'Bob', amount: new BigDecimal('20'), status: 'WINNING')
+        bidRepository.findByListing(100L) >> [loserBid]
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10', displayName: 'Alice', banned: false))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        walletRepository.save(_) >> { com.sboxmarket.model.Wallet w -> w }
+        listingRepository.save(_) >> { Listing l -> l }
+        bidRepository.save(_) >> { Bid b -> b }
+        bidRepository.saveAll(_) >> { List<Bid> bs -> bs }
+        steamUserRepository.findById(99L) >> Optional.of(new SteamUser(id: 99L, steamId64: 'seller'))
+        walletRepository.findByUsername('steam_seller') >> new com.sboxmarket.model.Wallet(
+            id: 78L, username: 'steam_seller', balance: BigDecimal.ZERO)
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        // One pre-existing rival bid + one freshly-saved buy-now bid row
+        // → bidCount must read 2, not 1.
+        listing.bidCount == 2
+    }
+
     // ── cancelAutoBid ──────────────────────────────────────────────
 
     def "cancelAutoBid no-ops on a terminal (WON/LOST/CANCELLED) bid"() {

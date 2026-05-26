@@ -459,4 +459,91 @@ class SteamSyncServiceSpec extends Specification {
             now 4), and now > before is false → no duplicate toast."""
         1 * notificationService.push(10L, 'STEAM_INVENTORY', _, _, _, '/sell')
     }
+
+    // ── per-user lock vs. transaction boundary (DUPLICATE-PUSH RACE) ──
+    //
+    // The previous spec relies on save() mutating the shared in-memory
+    // `user` object SYNCHRONOUSLY — i.e. the second thread's findById
+    // immediately sees the first thread's write. That's NOT how JPA
+    // works across two transactions: the first writer's UPDATE is only
+    // visible to other transactions AFTER its tx commits.
+    //
+    // In production, syncNow() is the `@Transactional` proxy entry
+    // point. Two concurrent /api/steam/sync POSTs each open their own
+    // tx, then internal-call syncOne() — which acquires synchronized()
+    // INSIDE the tx and releases it BEFORE the tx commits. So:
+    //   Thread A: enter tx → acquire lock → read row → save (staged) →
+    //             push notif → release lock → COMMIT (later)
+    //   Thread B: enter tx → wait on lock → acquire lock after A's
+    //             release but BEFORE A's commit → findById sees the
+    //             pre-A row (size=1) → push DUPLICATE notif
+    // The monitor scope is too narrow: it covers the read-modify-write
+    // window but not the commit. Two pushes fire for one real delta.
+    //
+    // This spec simulates real tx isolation: findById serves from a
+    // "committed snapshot" map, and save() stages into a per-thread
+    // pending buffer that only flushes to the snapshot AFTER the
+    // calling thread leaves syncOne(). With the buggy code (lock inside
+    // tx) the second thread still sees pre-commit state → 2 pushes.
+    // With the fix (lock outside tx) the second thread sees the
+    // committed size=4 → 1 push.
+
+    def "two concurrent syncOne calls fire ONE notification even when save visibility is delayed past the lock (real tx isolation)"() {
+        given: 'one shared "DB snapshot" the threads read through findById; save() only flushes after the calling thread completes (simulating tx commit AFTER syncOne returns to the @Transactional proxy)'
+        def committed = new java.util.concurrent.atomic.AtomicReference<SteamUser>(
+            new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 1))
+        // Per-thread pending save buffer; flushed to `committed` only when the
+        // calling thread releases the lock AND finishes the tx (i.e. when the
+        // outer wrapper exits — see the runner below).
+        def pending = new java.util.concurrent.ConcurrentHashMap<Long, SteamUser>()
+
+        steamUserRepository.findById(10L) >> {
+            // Each call snapshots from the committed reference, mimicking
+            // a fresh JPA session reading from the DB at SELECT time.
+            def src = committed.get()
+            def snap = new SteamUser(
+                id: src.id, steamId64: src.steamId64,
+                steamInventorySize: src.steamInventorySize,
+                lastSyncedAt: src.lastSyncedAt)
+            Optional.of(snap)
+        }
+        steamUserRepository.save(_) >> { args ->
+            // Stage the write keyed by the calling thread — the outer runner
+            // flushes it to `committed` only AFTER syncOne returns, mirroring
+            // a tx commit happening AFTER the synchronized block releases.
+            pending.put(Thread.currentThread().id, args[0] as SteamUser)
+            args[0]
+        }
+
+        and: 'both threads see a 4-item inventory — same "now" snapshot for both'
+        steamInventoryService.fetchInventory('111') >> [[a:1], [a:2], [a:3], [a:4]]
+
+        and: 'a runner that mimics the @Transactional proxy: open tx → call syncOne → commit AFTER syncOne returns'
+        def runOneAsTx = { SteamUser u ->
+            try {
+                service.syncOne(u)
+            } finally {
+                // Tx commit: flush this thread\'s staged save to the shared
+                // committed snapshot. This happens AFTER syncOne returned
+                // (i.e. AFTER the synchronized block was released), which is
+                // the exact window the buggy code leaves open.
+                def staged = pending.remove(Thread.currentThread().id)
+                if (staged != null) committed.set(staged)
+            }
+        }
+
+        when: 'two /api/steam/sync requests land at the same instant'
+        def u1 = committed.get()
+        def u2 = committed.get()
+        def t1 = Thread.start { runOneAsTx(u1) }
+        def t2 = Thread.start { runOneAsTx(u2) }
+        t1.join(5000L)
+        t2.join(5000L)
+
+        then: """\
+            Exactly ONE notification — the second thread must wait for the
+            FIRST thread\'s commit (not just its lock release) before reading
+            `before`, otherwise both observe before=1 and both push."""
+        1 * notificationService.push(10L, 'STEAM_INVENTORY', _, _, _, '/sell')
+    }
 }

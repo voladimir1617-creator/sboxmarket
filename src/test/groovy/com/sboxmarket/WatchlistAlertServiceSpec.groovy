@@ -104,6 +104,56 @@ class WatchlistAlertServiceSpec extends Specification {
         thrown(BadRequestException)
     }
 
+    /**
+     * Batch 1196 — round-then-validate regression.
+     *
+     * Prior bug: the `<= 0` floor was checked BEFORE `setScale(2,
+     * HALF_UP)`. A value like `0.00001` slipped past the >0 guard,
+     * was rounded down to `0.00`, and persisted as a zero target.
+     * The sweep query (`i.lowestPrice <= a.targetPrice AND
+     * i.lowestPrice > 0`) can never match a zero target, so the
+     * user's alert sat dormant forever in their per-user quota —
+     * silently broken, no signal to either the user or ops.
+     *
+     * Contract pinned: anything in (0, 0.005) that rounds DOWN to
+     * 0.00 must fast-fail with INVALID_TARGET so the SPA shows the
+     * same error toast as the explicit `<= 0` and `null` cases, and
+     * no save / no quota burn occurs. Boundary value `0.005` rounds
+     * UP to `0.01` (HALF_UP) and stays a legitimate target.
+     */
+    def "upsertAlert refuses sub-cent targets that round to zero (batch 1196)"() {
+        when:
+        service.upsertAlert(42L, 7L, target)
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'INVALID_TARGET'
+
+        and: 'never reaches the item lookup or the repo — fast-fails at the floor'
+        0 * itemRepository.findById(_)
+        0 * repo.save(_)
+
+        where:
+        target << [new BigDecimal('0.001'),
+                   new BigDecimal('0.004'),
+                   new BigDecimal('0.00001'),
+                   new BigDecimal('0.0049')]
+    }
+
+    def "upsertAlert accepts \$0.005 — HALF_UP rounds up to \$0.01 (boundary case)"() {
+        given:
+        itemRepository.findById(7L) >> Optional.of(itemFor())
+        repo.findActiveFor(42L, 7L) >> Optional.empty()
+        repo.countByUserIdAndStatus(42L, 'ACTIVE') >> 0L
+        repo.save(_) >> { args -> args[0].id = 100L; args[0] }
+
+        when:
+        def a = service.upsertAlert(42L, 7L, new BigDecimal('0.005'))
+
+        then: 'rounded up to the storage scale — saved as a real $0.01 target'
+        a.targetPrice == new BigDecimal('0.01')
+    }
+
     def "upsertAlert 404s for an unknown item"() {
         given:
         itemRepository.findById(999L) >> Optional.empty()
