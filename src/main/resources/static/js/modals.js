@@ -8298,7 +8298,7 @@ function ProfileOffersTab() {
                   className: 'btn btn-ghost',
                   style: { border: '1px solid var(--accent-border)', color: 'var(--accent)', padding: '5px 10px', fontSize: 11 },
                   disabled: busy,
-                  onClick: () => { setCounterFor(o.id); setCounterAmt((parseFloat(o.amount) + 1).toFixed(2)); },
+                  onClick: () => { setCounterFor(o.id); setCounterAmt(((parseFloat(o.amount) || 0) + 1).toFixed(2)); },
                   title: 'Raise your offer without waiting for the seller'
                 }, '↑ Raise'),
                 h('button', {
