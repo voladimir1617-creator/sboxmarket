@@ -163,6 +163,29 @@ class CorrelationIdFilter extends OncePerRequestFilter {
                 )
         resp.setHeader("Cross-Origin-Resource-Policy",
                 isPublicCorsRead ? "cross-origin" : "same-origin")
+        // Vary: Cookie on every /api/** response so a per-viewer cached
+        // entry (the `private, max-age=N` blocklist-filtered listing
+        // rails on ListingController + review aggregates on
+        // ReviewController) is keyed by the session cookie value. Without
+        // it, the browser's HTTP cache returns the previous user's
+        // filtered response to the next user on a shared browser within
+        // the cache window — a multi-second cross-user data leak: user A
+        // browses /api/listings/just-listed (filtered by A's blocklist),
+        // logs out, user B signs in within 30s, and B's first call
+        // returns A's blocklist view from the browser cache instead of
+        // hitting the server. RFC 7234 §4.1 keys cached responses by
+        // request URI PLUS every header listed in Vary, so adding Cookie
+        // makes the browser cache differentiate per-session. Set for the
+        // whole /api/** surface — cheap, future-proof for any new
+        // viewer-dependent endpoint, and the public read paths that emit
+        // `public, max-age=60` already self-describe as "cookie-
+        // independent" (their bodies don't read the cookie at all), so
+        // the extra Vary key is a no-op for them in practice. Matches
+        // the pattern Cloudflare's docs recommend for "Bypass Cache
+        // on Cookie".
+        if (req.requestURI != null && req.requestURI.startsWith('/api/')) {
+            resp.setHeader("Vary", "Cookie")
+        }
         resp.setHeader("Content-Security-Policy", CSP_HEADER)
         // HSTS: emit whenever the request actually arrived over TLS, not
         // gated on the env var. The container itself listens on plain

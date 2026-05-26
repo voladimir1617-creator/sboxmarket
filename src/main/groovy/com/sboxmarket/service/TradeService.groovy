@@ -829,13 +829,29 @@ class TradeService {
         // item price to their wallet without waiting on a staff
         // verdict, which is the feature's "no support ticket needed"
         // promise. autoClaim is idempotent + a no-op for unprotected
-        // trades, so this is safe to call on every dispute. Best-effort:
-        // a protection failure must not roll back the DISPUTED flip.
-        // The trade stays DISPUTED for staff to settle the seller side.
-        try {
-            tradeProtectionService?.autoClaim(t.id, 'Trade disputed by buyer')
-        } catch (Exception e) {
-            log.warn("Protection auto-claim failed for disputed trade ${t.id}: ${e.message}")
+        // trades, so this is safe to call on every BUYER-filed dispute.
+        // Best-effort: a protection failure must not roll back the
+        // DISPUTED flip. The trade stays DISPUTED for staff to settle
+        // the seller side.
+        //
+        // CRITICAL: gate on actor == buyer. A SELLER-filed dispute means
+        // the seller suspects buyer wrongdoing (e.g., buyer accepted the
+        // Steam offer then ghosted buyerConfirm to grief). Auto-paying
+        // the protection to the buyer in that case would hand a scammer
+        // the item AND a full refund — net loss to the platform equal to
+        // the entire item price, minus the 2% protection fee the buyer
+        // paid. Seller-filed disputes must wait for staff resolution and
+        // only pay out the protection if staff actually rule for the
+        // buyer (via the cancel path's alreadyPaidByProtection logic, or
+        // via a direct admin claim). See the symmetric reverseClaim
+        // logic in release() for the case where staff overturn an
+        // already-paid buyer claim.
+        if (actorUserId == t.buyerUserId) {
+            try {
+                tradeProtectionService?.autoClaim(t.id, 'Trade disputed by buyer')
+            } catch (Exception e) {
+                log.warn("Protection auto-claim failed for disputed trade ${t.id}: ${e.message}")
+            }
         }
         // Admin fan-out (batch 500). Disputes used to land silently in
         // the admin /admin?tab=trades queue — staff had to manually
@@ -1058,6 +1074,21 @@ class TradeService {
         listing.buyerUserId = t.sellerUserId
         listing.soldAt      = System.currentTimeMillis()
         listingRepository.save(listing)
+
+        // Reverse the totalSold bump that PurchaseService.buy /
+        // BidService.settleAuction applied when this trade first opened.
+        // Without this, a buy → dispute/cancel loop inflates Item.totalSold
+        // forever and pollutes the Database page's "Most Traded" sort.
+        // Same null-guard + GREATEST-clamp shape as incrementTotalSold;
+        // wrapped so a counter-update failure can't roll back the
+        // refundBuyer + return-to-seller that already ran.
+        if (itemRepository != null && listing.item?.id != null) {
+            try {
+                itemRepository.decrementTotalSold(listing.item.id)
+            } catch (Exception e) {
+                log.warn("totalSold decrement failed for item ${listing.item.id} (trade ${t.id}): ${e.message}")
+            }
+        }
     }
 
     /** Refund the buyer wallet — shared by cancel() and the sweeper's banned-seller path. */

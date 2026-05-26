@@ -281,6 +281,59 @@ class CorrelationIdFilterSpec extends Specification {
         path << ['/some-spa-route', '/leaderboard', '/deals']
     }
 
+    def "Vary: Cookie set on /api/** so a per-viewer cached response isn't served to the next user on a shared browser: #path"() {
+        // Regression: ListingController emits `Cache-Control: private,
+        // max-age=30` on blocklist-filtered rails (/just-listed,
+        // /top-deals, /ending-soon, /listings/item/{id} etc.). Without
+        // `Vary: Cookie` in the response, the browser's HTTP cache is
+        // keyed by request URI alone — so user A's blocklist-filtered
+        // rail can be replayed to user B if B signs in on the same
+        // browser within the cache window. The filter must add the Vary
+        // key on every /api/** response so the cache differentiates per
+        // session cookie value.
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Vary') == 'Cookie'
+
+        where:
+        path << [
+            '/api/listings/just-listed',          // private, max-age=30
+            '/api/listings/top-deals',            // private, max-age=60
+            '/api/listings/ending-soon',          // private, max-age=30
+            '/api/listings/item/42',              // private, max-age=15
+            '/api/wallet',                        // no-store (still wants Vary for correctness on shared caches)
+            '/api/profile/me',                    // no-store
+            '/api/reviews/user/5',                // public/private split
+            '/api/buy-orders/top',                // public read aggregate
+            '/api/items/42'                       // public catalogue
+        ]
+    }
+
+    def "Vary: Cookie NOT set on non-/api/ paths so the SPA shell + static assets can be edge-cached by URL: #path"() {
+        // SPA shell HTML and static assets are identical for every
+        // viewer — adding Vary: Cookie would fragment the edge cache
+        // per session unnecessarily and tank CDN hit-rate. Limit Vary
+        // to the API surface where it actually matters.
+        given:
+        def req = new MockHttpServletRequest('GET', path)
+        def resp = new MockHttpServletResponse()
+
+        when:
+        filter.doFilter(req, resp, chain)
+
+        then:
+        resp.getHeader('Vary') == null
+
+        where:
+        path << ['/', '/market', '/profile', '/css/design.css', '/js/main.js', '/img/favicon-512.png']
+    }
+
     def "MDC is cleared even when downstream throws"() {
         given:
         def req = new MockHttpServletRequest('GET', '/api/listings')

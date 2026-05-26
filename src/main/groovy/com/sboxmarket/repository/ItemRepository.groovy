@@ -175,6 +175,14 @@ interface ItemRepository extends JpaRepository<Item, Long> {
     @Query("UPDATE Item i SET i.totalSold = COALESCE(i.totalSold, 0) + 1 WHERE i.id = :itemId")
     int incrementTotalSold(@Param("itemId") Long itemId)
 
+    /** Race-safe reverse of incrementTotalSold — fired when a sale is
+     *  unwound (trade cancelled, dispute refunded, seller banned-out).
+     *  Clamps at zero with GREATEST so a missed-increment can't push the
+     *  counter negative and pollute "Most Traded" with bogus rows. */
+    @Modifying
+    @Query("UPDATE Item i SET i.totalSold = GREATEST(COALESCE(i.totalSold, 0) - 1, 0) WHERE i.id = :itemId")
+    int decrementTotalSold(@Param("itemId") Long itemId)
+
     /** Race-safe per-item view counter bump (batch 409). Called from
      *  the public GET /api/items/{id} path outside any ambient @Transactional
      *  scope (the controller method isn't wrapped), so this repo method

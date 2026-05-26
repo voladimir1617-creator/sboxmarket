@@ -835,6 +835,37 @@ class OfferServiceSpec extends Specification {
         originalA.status == 'CLOSED'        // its COUNTERED parent freed
     }
 
+    def "acceptOffer EXPIRING a SELLER counter on a now-dead listing closes the COUNTERED parent (P1 bug fix)"() {
+        // Race: seller counters buyer (original → COUNTERED, counter C
+        // PENDING). Before the buyer accepts C, the listing is sold via
+        // direct Buy Now (status → SOLD). The buyer's accept hits the
+        // listing-not-ACTIVE branch which flips C to EXPIRED — but
+        // pre-fix never closed C's COUNTERED parent. The original was
+        // stuck COUNTERED forever, still matched findLiveByBuyerAndListing,
+        // and the dup-guard locked the buyer out of every future offer on
+        // that listing (or any relist). Mirrors the same dangling-node bug
+        // every other terminal counter transition already handles.
+        given:
+        def original = pendingOffer(id: 1L, status: 'COUNTERED')
+        def counter  = sellerCounter(id: 5L, parent: 1L, amount: new BigDecimal("45"))
+        def sold     = activeListing(status: 'SOLD')
+        offerRepository.findById(5L) >> Optional.of(counter)
+        offerRepository.findById(1L) >> Optional.of(original)
+        listingRepository.findById(100L) >> Optional.of(sold)
+        offerRepository.save(_) >> { Offer o -> o }
+
+        when: 'the buyer accepts the counter on a now-dead listing'
+        service.acceptOffer(10L, 5L)
+
+        then:
+        thrown(ListingNotAvailableException)
+        counter.status == 'EXPIRED'
+        // Pre-fix: original sat in COUNTERED forever, locking the buyer
+        // out via the makeOffer duplicate guard. Post-fix: CLOSED frees it.
+        original.status == 'CLOSED'
+        0 * purchaseService.buy(*_)
+    }
+
     def "acceptOffer on a plain USER offer leaves the seller-accept happy path unchanged (closeCounteredParent no-op)"() {
         // Regression guard: the seller-accept happy path is unaffected by
         // the closeCounteredParent call — a root USER offer has a null
