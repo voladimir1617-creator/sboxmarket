@@ -89,7 +89,17 @@ class ApiKeyService {
         try {
             if (emailService != null && steamUserRepository != null) {
                 def user = steamUserRepository.findById(userId).orElse(null)
-                if (user?.email) {
+                // Verified-email gate (canSendSecurityTo) rather than the
+                // bare truthiness check this used to do — symmetric with
+                // the AdminService.forceLogoutUser fix (batch 318). An
+                // attacker who registered an unverified third-party
+                // address on a victim's account would otherwise receive
+                // the victim's displayName + a security-alert email
+                // ("Your API key was just minted") — PII leak + a
+                // spam-amplification channel. canSendSecurityTo is also
+                // what every other security email in the codebase uses
+                // (ban, 2FA reset, wallet freeze, force-logout).
+                if (user != null && emailService.canSendSecurityTo(user)) {
                     emailService.sendApiKeyMinted(user.email, user.displayName, key.label, key.scope, key.publicPrefix)
                 }
             }
