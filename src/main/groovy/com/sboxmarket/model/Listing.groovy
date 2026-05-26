@@ -55,6 +55,18 @@ class Listing {
     @Column(nullable = false)
     BigDecimal rarityScore = BigDecimal.ZERO  // 0-1 like float value in CSFloat
 
+    /**
+     * @deprecated Dead column kept for schema compatibility — the Steam
+     *  trade link surface moved to {@code SteamUser.tradeUrl} (profile-
+     *  level, set once per seller) and {@code Trade.tradeOfferUrl}
+     *  (per-trade, set at Mark-Sent time, batch 773). No code path
+     *  reads or writes this column in 800+ commits of history. Schema
+     *  drop is a future migration; the @JsonIgnore here removes the
+     *  always-null field from every public listing payload so we
+     *  stop wasting wire bytes on a vestigial null.
+     */
+    @JsonIgnore
+    @Deprecated
     @Column
     String tradeLink
 

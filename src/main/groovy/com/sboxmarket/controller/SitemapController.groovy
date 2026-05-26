@@ -192,11 +192,34 @@ class SitemapController {
     }
 
     /**
+     * Strict shape for an inbound Host / X-Forwarded-Host header.
+     * Accepts only hostname[:port] with hostname = label.label.label
+     * (each label = alphanum + internal hyphens) and an optional 1-5
+     * digit port. Crucially REJECTS anything containing XML/URL
+     * meta-characters — `<`, `>`, `"`, `'`, `/`, `&`, spaces, CR/LF —
+     * which would otherwise be concatenated directly into the
+     * `<loc>...</loc>` body. A request with
+     *   X-Forwarded-Host: a.com</loc><loc>https://phishing.com
+     * would have been stitched into the sitemap verbatim and (because
+     * the response is `Cache-Control: public, max-age=3600`) cached by
+     * Cloudflare for an hour, served to Googlebot, and indexed as a
+     * SkinBox URL pointing at the attacker. Reject the header outright
+     * and fall back to the trusted `publicUrl` constant rather than try
+     * to escape — the XML/URL escaping rules for `<loc>` differ in
+     * subtle ways and a deny-list invites bypass.
+     *
+     * Anchored end-to-end. ASCII only; we never serve from an IDN host.
+     */
+    private static final java.util.regex.Pattern SAFE_HOST = ~/^[A-Za-z0-9]([A-Za-z0-9\-]{0,62}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9\-]{0,62}[A-Za-z0-9])?)*(:[0-9]{1,5})?$/
+
+    /**
      * Build the canonical base URL ("https://skinbox.market") from the
      * incoming request. Honors X-Forwarded-{Proto,Host} so Cloudflare-
      * tunneled requests get https://skinbox.market even though the
      * underlying tunnel hop is plain HTTP. Falls back to the configured
-     * APP_PUBLIC_URL when no Host header is available.
+     * APP_PUBLIC_URL when no Host header is available OR when the
+     * inbound Host fails SAFE_HOST validation (host-header injection
+     * guard — see SAFE_HOST docs).
      *
      * Strips trailing slash so callers can `base + '/path'` cleanly.
      * Package-scope so spec can exercise the resolution.
@@ -208,6 +231,22 @@ class SitemapController {
         String host = req.getHeader('X-Forwarded-Host')
             ?: req.getHeader('Host')
             ?: req.serverName
+        // Host-header injection guard. The Host / X-Forwarded-Host value
+        // is attacker-controllable (Cloudflare sets a clean hostname,
+        // but a request that bypasses the WAF — or any non-prod proxy
+        // hop — can submit anything). Reject anything that isn't a
+        // bare hostname[:port], fall back to publicUrl so a malicious
+        // header can't poison the cached sitemap.xml served to Googlebot.
+        if (host && !SAFE_HOST.matcher(host).matches()) {
+            log.warn("Sitemap: rejecting malformed Host header (host-injection guard); falling back to publicUrl")
+            host = null
+        }
+        if (proto && !(proto == 'http' || proto == 'https')) {
+            // X-Forwarded-Proto is similarly attacker-controllable and
+            // gets concatenated into the scheme://host:port URL. Allow
+            // only the two real-world values; anything else falls back.
+            proto = null
+        }
         // Production-host scheme upgrade — cloudflared → nginx is plain HTTP
         // and nginx overwrites `X-Forwarded-Proto` with its own `$scheme`
         // (`http`). Sitemap entries previously leaked as `http://skinbox.market/...`
