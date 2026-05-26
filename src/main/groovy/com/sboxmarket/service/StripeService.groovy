@@ -247,6 +247,25 @@ class StripeService {
             throw new IllegalStateException("Stripe checkout session could not be created — try again", e)
         }
 
+        // Stripe-idempotent-reuse guard. The idemKey above buckets by
+        // minute, so a fast double-click (two POSTs within the same
+        // wall-clock minute) makes Stripe return the SAME Session.id on
+        // the second call rather than creating a new one. Pre-fix, we
+        // blindly wrote a second PENDING Transaction with the same
+        // stripeReference — the column has no unique constraint, so it
+        // landed. Then completeDeposit's `findByStripeReference(sessionId)`
+        // only resolves ONE of those rows; the other stays PENDING
+        // forever (ghost "Deposit pending · $X" chip on the wallet hero
+        // AND continues to count toward the 24h deposit cap, blocking
+        // legitimate retries). Reuse the existing PENDING row so the
+        // happy-path double-click is a true no-op at the ledger layer.
+        def existingForSession = transactionRepository.findByStripeReference(session.id)
+        if (existingForSession != null) {
+            log.info("Reusing existing deposit tx ${existingForSession.id} for idempotent Stripe session ${session.id} (idem=${idemKey})")
+            return [checkoutUrl: session.url, sessionId: session.id,
+                    transactionId: existingForSession.id, live: true]
+        }
+
         def tx = new Transaction(
             walletId:        walletId,
             type:            "DEPOSIT",

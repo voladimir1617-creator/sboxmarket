@@ -37,6 +37,7 @@ class TradeServiceSpec extends Specification {
     NotificationService   notificationService   = Mock()
     BanGuard              banGuard              = Mock()
     AdminAuthorization    adminAuthorization    = Mock()
+    com.sboxmarket.repository.ItemRepository itemRepository = Mock()
     com.sboxmarket.repository.SteamUserRepository steamUserRepository = Mock() {
         // Default: no banned users and no counterparty users. Tests that
         // need a specific row override with their own stub. Without this
@@ -72,6 +73,7 @@ class TradeServiceSpec extends Specification {
         steamUserRepository   : steamUserRepository,
         textSanitizer         : textSanitizer,
         emailService          : emailService,
+        itemRepository        : itemRepository,
         autoReleaseDays       : 8L,
         sellerResponseDays    : 3L
     )
@@ -488,6 +490,46 @@ class TradeServiceSpec extends Specification {
         1 * notificationService.push(502L, 'TRADE_DISPUTED', _, _, 1L, '/admin?tab=trades&filter=DISPUTED')
     }
 
+    def "dispute by BUYER fires protection auto-claim (existing behaviour)"() {
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when: 'buyer (uid 10) files the dispute'
+        service.dispute(10L, 1L, 'item never arrived')
+
+        then: 'protection auto-claim runs — buyer is made whole immediately'
+        1 * tradeProtectionService.autoClaim(1L, 'Trade disputed by buyer')
+    }
+
+    def "dispute by SELLER does NOT fire protection auto-claim (anti-fraud guard)"() {
+        // The hole this guards: a buyer enables Trade Protection (2% fee),
+        // accepts the seller's Steam offer (taking the item), then ghosts
+        // buyerConfirm. The seller files a dispute. If autoClaim fires
+        // unconditionally on every dispute, the protection pays the buyer
+        // the FULL item price — net result: buyer keeps the item AND gets
+        // a full refund, paying only the 2% protection fee. The platform
+        // eats the entire item price. Auto-claim must be gated on the
+        // BUYER being the filer; seller-filed disputes wait for staff.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+
+        when: 'seller (uid 20) files the dispute — buyer ghosted after receiving the item'
+        service.dispute(20L, 1L, 'buyer received but never confirmed')
+
+        then: 'NO auto-claim — staff must resolve a seller-filed dispute'
+        0 * tradeProtectionService.autoClaim(*_)
+        and: 'trade still flips to DISPUTED for staff queue'
+        t.state == 'DISPUTED'
+    }
+
     // ── cancel ────────────────────────────────────────────────────
 
     def "cancel refunds the buyer wallet and flips to CANCELLED"() {
@@ -518,6 +560,75 @@ class TradeServiceSpec extends Specification {
         listing.buyerUserId == 20L
         listing.status == 'SOLD'
         listing.soldAt != null
+    }
+
+    def "cancel decrements Item.totalSold so a buy → cancel loop can't inflate Most Traded"() {
+        given: "a cancellable trade whose listing carries an item"
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def item = new com.sboxmarket.model.Item(id: 77L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L,
+                                  sellerUserId: 20L, item: item)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: "the increment from the original sale is reversed"
+        1 * itemRepository.decrementTotalSold(77L)
+    }
+
+    def "cancel does not call decrementTotalSold when the listing has no item (system listing safety)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L,
+                                  sellerUserId: 20L, item: null)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: "no NPE, no decrement, cancel still completes"
+        0 * itemRepository.decrementTotalSold(_)
+        t.state == 'CANCELLED'
+    }
+
+    def "cancel still completes when the totalSold decrement throws (cosmetic, swallowed)"() {
+        given:
+        def t = tradeIn('PENDING_SELLER_SEND')
+        def buyerWallet = new Wallet(id: 500L, balance: new BigDecimal("0.00"), currency: 'USD')
+        tradeRepository.findById(1L) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade x -> x }
+        walletRepository.findById(500L) >> Optional.of(buyerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        def item = new com.sboxmarket.model.Item(id: 77L, name: 'Wizard Hat')
+        def listing = new Listing(id: 100L, status: 'SOLD', buyerUserId: 10L,
+                                  sellerUserId: 20L, item: item)
+        listingRepository.findById(100L) >> Optional.of(listing)
+        listingRepository.save(_) >> { Listing l -> l }
+        itemRepository.decrementTotalSold(_) >> { throw new RuntimeException("counter update failed") }
+
+        when:
+        service.cancel(10L, 1L, 'changed my mind')
+
+        then: "buyer is still refunded and trade still moves to CANCELLED — counter failure is cosmetic"
+        noExceptionThrown()
+        buyerWallet.balance == new BigDecimal("50.00")
+        t.state == 'CANCELLED'
     }
 
     def "cancel emails both buyer and seller (batch 573)"() {
