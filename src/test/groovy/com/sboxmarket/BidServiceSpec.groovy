@@ -465,6 +465,52 @@ class BidServiceSpec extends Specification {
         listing.expiresAt == originalExpiry
     }
 
+    def "placeBid extends expiresAt for a bid that slips past expiry between the entry-time guard and the soft-close block (clock-drift race)"() {
+        // Repro: the entry-time expiry guard (line 178) and the soft-close
+        // block (line 315) used to each take their OWN System.currentTimeMillis()
+        // snapshot. A bid accepted at the guard with a few ms of slack
+        // (e.g. `expiresAt - now == 2ms`) could see wall-clock advance past
+        // `expiresAt` during the wallet/solvency DB work in between — and
+        // then the soft-close's `timeLeft >= 0` gate evaluated false and
+        // the auction was NOT extended. The next sweep tick (≤ 30s) would
+        // close it immediately, defeating anti-snipe for the bidder who
+        // legitimately bid before close.
+        //
+        // We simulate the elapsed time by stubbing one of the calls that
+        // happens between the two snapshots (the wallet solvency lookup) to
+        // burn a few ms — enough to flip `now > expiresAt` true between the
+        // entry guard and the soft-close.
+        given:
+        def t0 = System.currentTimeMillis()
+        def listing = auctionListing(currentBid: new BigDecimal("20"),
+                                     currentBidderId: 7L,
+                                     // 5ms of slack at guard time
+                                     expiresAt: t0 + 5L)
+        listingRepository.findById(_) >> Optional.of(listing)
+        steamUserRepository.findById(10L) >> {
+            // Simulate slow DB / network work between the two
+            // System.currentTimeMillis() reads — long enough to push
+            // wall-clock past listing.expiresAt before the soft-close.
+            Thread.sleep(50L)
+            Optional.of(new SteamUser(id: 10L, steamId64: 'SID10',
+                tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=10&token=abc'))
+        }
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('1000.00')
+        )
+        bidRepository.save(_) >> { Bid b -> b }
+        listingRepository.save(_) >> { Listing l -> l }
+
+        when:
+        service.placeBid(10L, 'Alice', 100L, new BigDecimal("25"), null)
+
+        then:
+        // With the fix (single shared `now` snapshot), the bid that
+        // passed the entry guard MUST also extend. Generous lower bound
+        // to absorb clock jitter on slow CI runners.
+        listing.expiresAt >= t0 + 25_000L
+    }
+
     // ── guard rails ───────────────────────────────────────────────
 
     def "placeBid refuses a bidder whose wallet can't cover the bid (grief-guard)"() {
