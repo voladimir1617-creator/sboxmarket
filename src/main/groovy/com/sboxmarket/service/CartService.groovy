@@ -135,6 +135,34 @@ class CartService {
         // comment there.
         def existing = repository.findExistingListingIds(userId, cleaned).toSet()
         def toAdd = cleaned.findAll { !existing.contains(it) }
+        // Own-listing guard — silently drop the caller's own listings from
+        // the merge. Without this, a seller (or anyone replaying a captured
+        // POST /api/cart/bulk) can persist their own active listings into
+        // their cart, bypassing the single-add OWN_LISTING gate in `add()`.
+        // Every such row then fails OWN_LISTING at /cart/checkout, but the
+        // checkout flow only scrubs SUCCESSFUL rows (CartController.checkout
+        // line 169-173), so the user is wedged with a full-but-unbuyable
+        // cart that blocks any real add until they manually clear each row.
+        // The single-add path already documents this exact failure mode
+        // (see `add()` lines 47-53); bulkMerge was the back door. Silent
+        // drop (not throw) matches `bulkMerge`'s existing best-effort
+        // semantic: an existing row, an over-cap row, and a null id are
+        // all dropped without per-row errors, so the client's expectation
+        // is "I post a set, you persist what's legal." Optional repo wiring
+        // mirrors `add()` so unit tests built without listingRepository keep
+        // passing — the buy-path OWN_LISTING check is still the backstop.
+        if (listingRepository != null && !toAdd.isEmpty()) {
+            try {
+                def ownIds = listingRepository.findSellerUserIdsForListings(toAdd).findAll {
+                    it != null && it[1] != null && (it[1] as Long) == userId
+                }.collect { it[0] as Long }.toSet()
+                if (!ownIds.isEmpty()) {
+                    toAdd = toAdd.findAll { !ownIds.contains(it) }
+                }
+            } catch (Exception e) {
+                log.debug("bulkMerge own-listing probe failed for user=${userId}: ${e.message}")
+            }
+        }
         // Truncate at the per-user cap including pre-existing rows.
         def headroom = MAX_PER_USER - repository.countByUser(userId) as int
         if (headroom <= 0) return list(userId)

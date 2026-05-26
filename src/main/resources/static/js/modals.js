@@ -9788,7 +9788,16 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   const startPickInternal = (l) => {
     resetSellFormFields();
     setPicking({ kind: 'internal', item: l.item, listingId: l.id });
-    setPrice(parseFloat(l.item.lowestPrice).toFixed(2));
+    // Floor may be null for an item with no other live listings (first
+    // seller back on a freshly-spawned skin). parseFloat(null) is NaN
+    // and `.toFixed(2)` then yields the literal string "NaN" — which
+    // leaks into the price input's `value` AND into the `suggested`
+    // placeholder built at line ~9922, so the seller sees a "NaN" field.
+    // Mirror the Steam path's `|| 0` fallback so the field starts at
+    // "0.00" (submit's `!p || p <= 0` guard still blocks an accidental
+    // free-list).
+    const floor = parseFloat(l?.item?.lowestPrice);
+    setPrice((Number.isFinite(floor) ? floor : 0).toFixed(2));
     setError('');
     loadRecentMedian(l?.item?.id);
     loadCompeting(l?.item?.id);
@@ -9919,7 +9928,15 @@ export function SellItemsModal({ onClose, me, onRefresh }) {
   if (picking) {
     const item = picking.item;
     const isSteam = picking.kind === 'steam';
-    const suggested = isSteam ? parseFloat(item.suggestedPrice || 0).toFixed(2) : parseFloat(item.lowestPrice).toFixed(2);
+    // Same NaN guard as startPickInternal — `item.lowestPrice` is null
+    // for a never-listed item, and parseFloat(null).toFixed(2) yields
+    // the string "NaN" which would surface as the input's placeholder
+    // text. Steam path's `|| 0` is symmetric; mirror it for the
+    // internal-relist path so the placeholder reads "0.00" instead.
+    const __floor = parseFloat(item.lowestPrice);
+    const suggested = isSteam
+      ? parseFloat(item.suggestedPrice || 0).toFixed(2)
+      : (Number.isFinite(__floor) ? __floor : 0).toFixed(2);
     return h(InfoModal, { title: 'List Item for Sale', onClose },
       h('div', { style: { display: 'flex', gap: 18, marginBottom: 20 } },
         h('div', { style: { width: 120, aspectRatio: '1', borderRadius: 10, background: 'radial-gradient(ellipse at 50% 35%, rgba(30,165,255,0.14) 0%, transparent 65%), linear-gradient(180deg, #1a2236 0%, #0d1320 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 8 } },

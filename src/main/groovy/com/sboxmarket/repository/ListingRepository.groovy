@@ -243,6 +243,14 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("SELECT l.sellerUserId FROM Listing l WHERE l.id = :listingId")
     Long findSellerUserIdById(@Param("listingId") Long listingId)
 
+    /** Batch variant of {@link #findSellerUserIdById} — projects (listingId,
+     *  sellerUserId) pairs for a set of listings in a single round trip.
+     *  Drives the cart bulkMerge own-listing guard so the merge endpoint can
+     *  reject the caller's own listings without a per-row probe. System
+     *  listings (sellerUserId IS NULL) are excluded from the result. */
+    @Query("SELECT l.id, l.sellerUserId FROM Listing l WHERE l.id IN :ids AND l.sellerUserId IS NOT NULL")
+    List<Object[]> findSellerUserIdsForListings(@Param("ids") Collection<Long> ids)
+
     /** Count of the seller's hidden-but-active listings. Drives the
      *  away-mode "N hidden" chip without hydrating every row to count
      *  `.hidden == true`. Includes the legacy NULL-hidden fallback

@@ -433,6 +433,91 @@ class CartServiceSpec extends Specification {
         0 * repository.save({ it.listingId == 303L })
     }
 
+    // ── bulkMerge: own-listing guard ─────────────────────────────────
+
+    /**
+     * Regression guard for the bulkMerge own-listing back door.
+     *
+     * The single-add path (`add()`) rejects a seller adding their own
+     * listing with OWN_LISTING — without that guard a seller can fill
+     * their own cart with their own active listings up to MAX_PER_USER,
+     * every row then fails OWN_LISTING at /cart/checkout, but the
+     * checkout flow only scrubs SUCCESSFUL rows, so the user is wedged
+     * with a full-but-unbuyable cart that blocks any real add until
+     * they hand-clear every row.
+     *
+     * `bulkMerge` is the bulk variant of the same write — a /api/cart/bulk
+     * POST persists the same rows. Before this fix bulkMerge had no
+     * own-listing check, so a captured/replayed POST could wedge the
+     * cart through the bulk endpoint while the single-add endpoint
+     * rejected the same id with a clean 400. Closes the gap so both
+     * write paths enforce the same gate.
+     */
+    def "bulkMerge silently drops the caller's own listings — no save for those rows"() {
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        // Three incoming ids — 70 (own) + 71 (other seller) + 72 (system).
+        repository.findExistingListingIds(10L, [70L, 71L, 72L]) >> []
+        listings.findSellerUserIdsForListings([70L, 71L, 72L]) >> [
+            ([70L, 10L] as Object[]),     // own — caller IS the seller
+            ([71L, 99L] as Object[])      // other seller; 72 is system (NULL seller, filtered by query)
+        ]
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> [71L, 72L]
+
+        when:
+        def out = service2.bulkMerge(10L, [70L, 71L, 72L])
+
+        then:
+        // Own row never persisted; the other two land normally.
+        0 * repository.save({ it.listingId == 70L })
+        1 * repository.save({ it.listingId == 71L })
+        1 * repository.save({ it.listingId == 72L })
+        out == [71L, 72L]
+    }
+
+    def "bulkMerge own-listing probe failure falls through — guard is best-effort, buy-path remains the backstop"() {
+        // A DB blip on the seller probe must not 500 the merge — the
+        // caller is mid-sign-in and a hard failure here would block
+        // their entire first-session cart sync. The buy-path OWN_LISTING
+        // check still runs at checkout, so the worst case is one row the
+        // user can manually remove — not a hard failure.
+        given:
+        ListingRepository listings = Mock()
+        def service2 = new CartService(repository: repository, listingRepository: listings)
+        repository.findExistingListingIds(10L, [70L]) >> []
+        listings.findSellerUserIdsForListings([70L]) >> { throw new RuntimeException('DB blip') }
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> [70L]
+
+        when:
+        def out = service2.bulkMerge(10L, [70L])
+
+        then:
+        notThrown(Exception)
+        1 * repository.save({ it.listingId == 70L })
+        out == [70L]
+    }
+
+    def "bulkMerge skips the own-listing probe entirely when listingRepository isn't wired"() {
+        // The bare-construction mode used by older tests (no listingRepo)
+        // must keep working — the buy-path's OWN_LISTING check is the
+        // backstop in that wiring, matching the single-add path.
+        given:
+        repository.findExistingListingIds(10L, [70L]) >> []
+        repository.countByUser(10L) >> 0L
+        repository.findListingIdsByUser(10L) >> [70L]
+
+        when:
+        def out = service.bulkMerge(10L, [70L])
+
+        then:
+        notThrown(Exception)
+        1 * repository.save({ it.listingId == 70L })
+        out == [70L]
+    }
+
     def "bulkMerge stamps every backfilled row with the calling user's id"() {
         given:
         // Per-user scoping: every CartItem the merge persists must carry
