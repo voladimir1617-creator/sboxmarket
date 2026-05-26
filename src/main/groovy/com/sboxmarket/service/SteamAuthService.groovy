@@ -391,8 +391,15 @@ class SteamAuthService {
      *  IOException for every non-2xx — making "Steam is rate-limiting us
      *  RIGHT NOW" indistinguishable from "this Steam ID doesn't exist".
      */
+    /** Overridable in tests so we can point fetchViaWebApi at a local
+     *  HttpServer without rewriting the URL inline. Prod default is the
+     *  real Steam Web API endpoint. */
+    protected String webApiUrl(String steamId64) {
+        "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steamId64}"
+    }
+
     protected Map fetchViaWebApi(String steamId64) {
-        def apiUrl = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steamId64}"
+        def apiUrl = webApiUrl(steamId64)
         def conn = (HttpURLConnection) new URL(apiUrl).openConnection()
         conn.setRequestProperty('User-Agent', 'SkinBox/1.0')
         conn.connectTimeout = 8_000
@@ -438,8 +445,15 @@ class SteamAuthService {
      * triggered. That left first-ever-login users stuck on the
      * `Player_<digits>` placeholder forever after a single Steam blip.
      */
+    /** Overridable in tests so we can point fetchViaPublicXml at a local
+     *  HttpServer without rewriting the URL inline. Prod default is the
+     *  real Steam Community profile XML endpoint. */
+    protected String publicXmlUrl(String steamId64) {
+        "https://steamcommunity.com/profiles/${steamId64}/?xml=1"
+    }
+
     protected Map fetchViaPublicXml(String steamId64) {
-        def xmlUrl = "https://steamcommunity.com/profiles/${steamId64}/?xml=1"
+        def xmlUrl = publicXmlUrl(steamId64)
         def conn = (HttpURLConnection) new URL(xmlUrl).openConnection()
         conn.setRequestProperty('User-Agent', 'SkinBox/1.0')
         conn.connectTimeout = 8_000

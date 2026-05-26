@@ -959,8 +959,16 @@ class AdminService {
         // Batch 702 — security-alert email. Out-of-band so a compromised
         // session can't hide the forced logout. Non-fatal: an SMTP
         // outage or missing email shouldn't abort the admin action.
+        //
+        // Gated on `canSendSecurityTo` (verified email) rather than the
+        // bare `user.email` truthiness check this used to do — otherwise
+        // an attacker who registered an unverified third-party address on
+        // a victim's account would receive the victim's displayName + a
+        // staff-initiated security notice (PII leak + spam-amplification
+        // surface). Mirrors the policy applied to every other security
+        // email in this service (ban, 2FA reset, wallet freeze, etc.).
         try {
-            if (emailService != null && user.email) {
+            if (emailService != null && emailService.canSendSecurityTo(user)) {
                 emailService.sendForceLogout(user.email, user.displayName, null)
             }
         } catch (Exception e) {

@@ -265,13 +265,14 @@ class AdminServiceSpec extends Specification {
         thrown(NotFoundException)
     }
 
-    def "forceLogout emails the user when they have an address on file (batch 702)"() {
+    def "forceLogout emails the user when they have a verified address on file (batch 702)"() {
         given:
         def target = new SteamUser(id: 20L, steamId64: '222', displayName: 'Bob',
             role: 'USER', banned: false, sessionEpoch: 100L,
-            email: 'bob@example.com')
+            email: 'bob@example.com', emailVerified: true)
         steamUserRepository.findById(20L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
+        emailService.canSendSecurityTo(target) >> true
 
         when:
         service.forceLogout(1L, 20L)
@@ -286,12 +287,42 @@ class AdminServiceSpec extends Specification {
             role: 'USER', banned: false, sessionEpoch: 100L, email: null)
         steamUserRepository.findById(20L) >> Optional.of(target)
         steamUserRepository.save(_) >> { args -> args[0] }
+        emailService.canSendSecurityTo(target) >> false
 
         when:
         service.forceLogout(1L, 20L)
 
         then:
         // No email on file → nothing to send. Must not throw NPE.
+        0 * emailService.sendForceLogout(_, _, _)
+    }
+
+    def "forceLogout does NOT email an unverified third-party address (security regression)"() {
+        // Regression for the gap before the canSendSecurityTo() rollout
+        // on this path: previously `if (user.email)` was the only gate,
+        // so a user who registered a victim's email but never proved
+        // ownership would, on admin-initiated force-logout, leak the
+        // account's displayName + a "your account was force-logged-out"
+        // notice to the unrelated third party. Every other security
+        // email in AdminService already passes through
+        // `canSendSecurityTo`; this test pins force-logout to the same
+        // rule so a future refactor can't quietly regress it.
+        given:
+        def target = new SteamUser(id: 21L, steamId64: '333', displayName: 'Eve',
+            role: 'USER', banned: false, sessionEpoch: 100L,
+            email: 'victim@example.com', emailVerified: false)
+        steamUserRepository.findById(21L) >> Optional.of(target)
+        steamUserRepository.save(_) >> { args -> args[0] }
+        emailService.canSendSecurityTo(target) >> false
+
+        when:
+        service.forceLogout(1L, 21L)
+
+        then:
+        // sessionEpoch still bumped — the security action itself runs
+        // regardless of the email path.
+        target.sessionEpoch > 100L
+        // But absolutely no mail to the unverified address.
         0 * emailService.sendForceLogout(_, _, _)
     }
 

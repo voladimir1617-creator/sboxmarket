@@ -700,6 +700,20 @@ class ListingService {
      *  can recompute displayed prices. */
     @Transactional
     Map bulkAdjustPrices(Long sellerUserId, BigDecimal percent) {
+        // Defence-in-depth — the HTTP controller (ListingController#bulkAdjustStall)
+        // already validates these, but bulkAdjustPrices is a public service
+        // method, so scheduled jobs / admin scripts / future callers shouldn't
+        // be able to NPE the service with a null percent or wipe every active
+        // listing to $0.01 with an unbounded -100%. The cap mirrors the
+        // controller's ±50% — single-call ceiling, split larger changes.
+        if (percent == null) {
+            throw new BadRequestException("INVALID_PERCENT",
+                "percent is required (e.g. -5 for a 5% discount)")
+        }
+        if (percent.abs() > new BigDecimal('50')) {
+            throw new BadRequestException("PERCENT_TOO_LARGE",
+                "Single adjustment capped at ±50% — split larger changes across multiple passes")
+        }
         def active = listingRepository.findActiveBySeller(sellerUserId)
         // Explicit-scale divide — bare `/` on BigDecimal throws
         // ArithmeticException on non-terminating quotients. A scale of
