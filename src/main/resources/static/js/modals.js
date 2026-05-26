@@ -96,7 +96,9 @@ export function ItemModal({ item, listings, history, onClose, onBuy, onMakeOffer
     // not listings[0] — which may be a cheaper auction with no offers.
     if (!cheapestBuyNow) return;
     let alive = true;
-    fetchOfferThread(cheapestBuyNow.id).then(t => { if (alive) setThread(t); });
+    fetchOfferThread(cheapestBuyNow.id)
+      .then(t => { if (alive) setThread(t); })
+      .catch(() => { if (alive) setThread(null); });
     return () => { alive = false; };
   }, [cheapestBuyNow?.id]);
   useEffect(() => {
