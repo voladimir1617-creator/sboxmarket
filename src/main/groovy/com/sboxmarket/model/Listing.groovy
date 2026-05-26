@@ -145,7 +145,17 @@ class Listing {
     /** Flipped by BidService.sweepEndingSoon when an auction's 10-minute
      *  close reminder fires so the sweeper doesn't re-notify bidders +
      *  watchers on every 2-minute tick. Only meaningful for AUCTION rows;
-     *  non-auction rows stay at the default FALSE and never read it. */
+     *  non-auction rows stay at the default FALSE and never read it.
+     *
+     *  @JsonIgnore — pure internal scheduler state, no client UI reads
+     *  it. Pre-fix it leaked on every public listing response
+     *  (/just-listed, /top-deals, /most-watched, /search…) which gave a
+     *  competitor a free "has this auction's 10-min warning already fired"
+     *  signal — a small but real edge for late-snipe tooling that wants
+     *  to know whether the rush notification has primed bidders yet. The
+     *  field stays on the DB row for the sweeper; only the wire payload
+     *  loses it. */
+    @JsonIgnore
     @Column(name = "ending_soon_notified", nullable = false)
     Boolean endingSoonNotified = false
 
