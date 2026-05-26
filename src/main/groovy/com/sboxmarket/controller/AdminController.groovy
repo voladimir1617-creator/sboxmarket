@@ -660,7 +660,11 @@ class AdminController {
     ResponseEntity<List<Map>> reportedListings(@RequestParam(required = false) Integer limit,
                                                HttpServletRequest req) {
         requireAdmin(req)
-        ResponseEntity.ok(adminService.findReportedListings(limit ?: 50))
+        // Explicit null-check, not Elvis — `?limit=0` is a legitimate
+        // "return zero rows" request; `?: 50` would treat the 0 as
+        // falsy and silently substitute 50. Same Elvis-on-zero bug class
+        // as 0d15de2 / ccfe0b5 / 4e1a0d4 / 8224a9b.
+        ResponseEntity.ok(adminService.findReportedListings(limit != null ? limit : 50))
     }
 
     /** Dismiss reports without cancelling — admin reviewed and found no issue. */

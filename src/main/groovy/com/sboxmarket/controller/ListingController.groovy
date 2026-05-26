@@ -240,7 +240,11 @@ class ListingController {
     ResponseEntity<List<Listing>> otherFromSeller(@PathVariable Long sellerUserId,
                                                   @RequestParam Long excludeItemId,
                                                   @RequestParam(required = false, defaultValue = "8") Integer limit) {
-        def rows = listingService.findOtherActiveBySeller(sellerUserId, excludeItemId, limit ?: 8)
+        // Explicit null-check, not Elvis — `?limit=0` is a legitimate
+        // "no other listings please" request; `?: 8` treats 0 as falsy.
+        // Same bug class as 0d15de2 / ccfe0b5 / 4e1a0d4 / 8224a9b.
+        def rows = listingService.findOtherActiveBySeller(sellerUserId, excludeItemId,
+            limit != null ? limit : 8)
         decorateWithSellerRating(rows)
         // Batch 807 — public cache: seller's own listings don't vary by
         // the viewer (no blocklist — if the viewer has blocked this
