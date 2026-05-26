@@ -632,7 +632,7 @@ class OfferService {
      *  too — leaving the offer stuck PENDING against a sold/cancelled
      *  listing, so every subsequent seller retry hits the same dead
      *  branch and never clears the row. */
-    @Transactional(noRollbackFor = [InsufficientBalanceException, ListingNotAvailableException])
+    @Transactional(noRollbackFor = [InsufficientBalanceException, ListingNotAvailableException, ForbiddenException])
     Map acceptOffer(Long callerUserId, Long offerId) {
         def offer = offerRepository.findById(offerId)
                 .orElseThrow { new NotFoundException("Offer", offerId) }
@@ -710,6 +710,36 @@ class OfferService {
                 }
             }
             throw new InsufficientBalanceException(offer.amount, actualWallet.balance)
+        }
+
+        // Buyer-ban fail-early. The downstream PurchaseService.buy also
+        // runs banGuard.assertNotBanned(buyerUserId), but if a buyer is
+        // banned BETWEEN making the offer and the seller accepting,
+        // letting the throw bubble up from purchaseService.buy leaves
+        // the offer stuck PENDING — every seller retry hits the same
+        // ForbiddenException, the row never clears the incoming queue,
+        // and the buyer never learns their offer was lost to the ban.
+        // Mirror the insufficient-balance branch: flip to EXPIRED here,
+        // notify the buyer, close any COUNTERED parent, then throw. The
+        // matching `noRollbackFor = [..., ForbiddenException]` above
+        // pins the EXPIRED save so the seller's queue actually drains.
+        if (banGuard.isBanned(offer.buyerUserId)) {
+            offer.status = 'EXPIRED'
+            offer.updatedAt = System.currentTimeMillis()
+            offerRepository.save(offer)
+            closeCounteredParent(offer)
+            if (notificationService != null) {
+                try {
+                    notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
+                        "Offer couldn't close · ${offer.itemName ?: 'listing'}",
+                        "Your \$${offer.amount.toPlainString()} offer was accepted but couldn't process because your account is currently restricted. Contact support if you believe this is in error.",
+                        offer.id,
+                        '/offers')
+                } catch (Exception e) {
+                    log.warn("Offer-buyer-banned push failed for buyer ${offer.buyerUserId}: ${e.message}")
+                }
+            }
+            throw new ForbiddenException("Buyer's account is banned — offer can't be completed")
         }
 
         // Temporarily lower the listing price to the offer price so the existing
