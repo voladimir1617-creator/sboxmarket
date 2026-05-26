@@ -62,6 +62,15 @@ class ReviewService {
     @Transactional
     Review leaveReview(Long fromUserId, Long tradeId, Integer rating, String comment) {
         banGuard.assertNotBanned(fromUserId)
+        // Null-tradeId guard up front. Spring Data's findById(null) throws
+        // InvalidDataAccessApiUsageException → HTTP 500 (wrong shape for a
+        // malformed client request — the controller passes through whatever
+        // tradeId is in the JSON body, or null when the field is missing).
+        // Pinned by ReviewServiceSpec.
+        if (tradeId == null) {
+            throw new BadRequestException("INVALID_TRADE_ID",
+                "tradeId is required to leave a review")
+        }
         if (rating == null || rating < 1 || rating > 5) {
             throw new BadRequestException("INVALID_RATING", "Rating must be 1–5")
         }

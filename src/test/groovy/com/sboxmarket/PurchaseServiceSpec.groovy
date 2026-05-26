@@ -129,11 +129,14 @@ class PurchaseServiceSpec extends Specification {
             email: 'alice@example.com', emailVerified: true,
             emailNotificationsEnabled: true,
             tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
-        def sellerUser = new SteamUser(id: 500L, displayName: 'Bob')
+        def sellerUser = new SteamUser(id: 500L, displayName: 'Bob', steamId64: '888')
+        // Seller wallet required for P2P (SELLER_WALLET_MISSING gate).
+        def sellerWallet = new Wallet(id: 700L, username: 'steam_888', balance: BigDecimal.ZERO)
         walletRepo.findById(1L) >> Optional.of(buyer)
         listingRepo.findById(5L) >> Optional.of(listing)
         steamUserRepo.findById(999L) >> Optional.of(buyerUser)
         steamUserRepo.findById(500L) >> Optional.of(sellerUser)
+        walletRepo.findByUsername('steam_888') >> sellerWallet
 
         when:
         service.buy(1L, 999L, 5L)
@@ -167,9 +170,13 @@ class PurchaseServiceSpec extends Specification {
             email: 'alice@example.com', emailVerified: false,
             emailNotificationsEnabled: true,
             tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
+        def sellerUser = new SteamUser(id: 500L, displayName: 'Bob', steamId64: '888')
+        def sellerWallet = new Wallet(id: 700L, username: 'steam_888', balance: BigDecimal.ZERO)
         walletRepo.findById(1L) >> Optional.of(buyer)
         listingRepo.findById(5L) >> Optional.of(listing)
         steamUserRepo.findById(999L) >> Optional.of(buyerUser)
+        steamUserRepo.findById(500L) >> Optional.of(sellerUser)
+        walletRepo.findByUsername('steam_888') >> sellerWallet
 
         when:
         service.buy(1L, 999L, 5L)
@@ -346,10 +353,17 @@ class PurchaseServiceSpec extends Specification {
         0 * txRepo.save({ it.type == 'SALE' })
     }
 
-    def "buy still completes when seller has no wallet (falls through gracefully)"() {
+    def "buy fails fast with SELLER_WALLET_MISSING when seller has no wallet (no debit, no SOLD flip)"() {
+        // Regression: previously the buy "fell through gracefully" — buyer was
+        // debited, listing flipped to SOLD, Trade opened with sellerWalletId=null,
+        // and at VERIFIED-release the seller credit was silently skipped with a
+        // "Manual payout required" log line. Net effect: the platform pocketed
+        // the buyer's money until ops noticed the log. Now we reject the buy
+        // BEFORE any money or state moves, so the buyer sees a clean error.
         given:
         def buyer = new Wallet(id: 1L, balance: new BigDecimal("200.00"), currency: 'USD')
-        def seller = new SteamUser(id: 2L, steamId64: '222')
+        def seller = new SteamUser(id: 2L, steamId64: '222',
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc')
         def listing = new Listing(
             id: 5L,
             item: new Item(id: 10L, name: 'x'),
@@ -359,19 +373,26 @@ class PurchaseServiceSpec extends Specification {
         )
         walletRepo.findById(1L) >> Optional.of(buyer)
         listingRepo.findById(5L) >> Optional.of(listing)
+        // Both lookups resolve a SteamUser — for the buyer (trade-url gate)
+        // and the seller (wallet resolution). The seller wallet itself is missing.
+        steamUserRepo.findById(999L) >> Optional.of(new SteamUser(id: 999L,
+            tradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=abc'))
         steamUserRepo.findById(2L) >> Optional.of(seller)
         walletRepo.findByUsername('steam_222') >> null  // seller wallet doesn't exist
 
         when:
-        def result = service.buy(1L, 999L, 5L)
+        service.buy(1L, 999L, 5L)
 
         then:
-        // Buy completes, buyer debited, no crash
-        result.newBalance == new BigDecimal("150.00")
-        listing.status == 'SOLD'
-        // Only buyer-side transaction saved
-        1 * txRepo.save({ it.type == 'PURCHASE' })
-        0 * txRepo.save({ it.type == 'SALE' })
+        def ex = thrown(BadRequestException)
+        ex.code == 'SELLER_WALLET_MISSING'
+
+        and: "buyer balance untouched, listing untouched, no transactions written"
+        buyer.balance == new BigDecimal("200.00")
+        listing.status == 'ACTIVE'
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        0 * txRepo.save(_)
     }
 
     // ── Trade creation failure rolls back the whole buy (bug #75) ──
@@ -850,10 +871,12 @@ class PurchaseServiceSpec extends Specification {
 
     // ── Trade-URL gate edge: SteamUser row missing ────────────────
 
-    def "buy proceeds on a P2P listing when the buyer's SteamUser row is missing (trade-URL gate skipped)"() {
-        // The trade-URL gate only fires when the SteamUser is found. A
-        // missing row (steamUserRepo returns empty) skips the gate — the
-        // buy must still complete rather than NPE on buyer.tradeUrl.
+    def "buy refuses a P2P listing when the seller's SteamUser row is missing (no NPE, fail-fast)"() {
+        // The trade-URL gate skips on a missing buyer SteamUser (no NPE on
+        // buyer.tradeUrl). But a missing SELLER SteamUser means we can't
+        // resolve their wallet — so SELLER_WALLET_MISSING fires before any
+        // money moves. (Previously the buy completed and opened a Trade
+        // with sellerWalletId=null, stranding seller credit.)
         given:
         def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal("100.00"))
         def listing = new Listing(
@@ -866,12 +889,18 @@ class PurchaseServiceSpec extends Specification {
         steamUserRepo.findById(500L) >> Optional.empty()   // seller row absent
 
         when:
-        def result = service.buy(1L, 999L, 5L)
+        service.buy(1L, 999L, 5L)
 
-        then: "no NPE, no TRADE_URL_MISSING — the sale completes"
-        result.newBalance == new BigDecimal("50.00")
-        listing.status == 'SOLD'
-        1 * txRepo.save({ it.type == 'PURCHASE' })
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'SELLER_WALLET_MISSING'
+
+        and: "no NPE, no debit, no SOLD flip"
+        buyer.balance == new BigDecimal("100.00")
+        listing.status == 'ACTIVE'
+        0 * walletRepo.save(_)
+        0 * listingRepo.saveAndFlush(_)
+        0 * txRepo.save(_)
     }
 
     // ── Audit trail ───────────────────────────────────────────────

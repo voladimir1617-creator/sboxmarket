@@ -170,11 +170,32 @@ class PurchaseService {
         // to set their trade URL instead of a buy-then-stuck flow. System
         // listings (sellerUserId == null) skip this — they resolve
         // in-platform, no Steam trade needed.
+        //
+        // P2P seller-wallet resolution is hoisted up here (same gate, pre-debit)
+        // so we can FAIL the purchase if the seller has no wallet, rather than
+        // debit the buyer, flip listing→SOLD, open a Trade with
+        // sellerWalletId=null, then quietly skip the seller credit at
+        // VERIFIED release. That post-hoc path leaves the platform holding
+        // the buyer's money with no automated way to pay the seller — only
+        // a log line ("Manual payout required") that ops has to spot. Fail
+        // fast here so the buyer sees a clean error and the money never moves.
+        // System listings (sellerUserId == null) skip both checks — they
+        // resolve in-platform, no Steam trade and no seller wallet needed.
+        com.sboxmarket.model.SteamUser _resolvedSellerUser = null
+        Wallet _resolvedSellerWallet = null
         if (listing.sellerUserId != null) {
             def buyer = steamUserRepository?.findById(buyerUserId)?.orElse(null)
             if (buyer != null && !buyer.tradeUrl?.trim()) {
                 throw new BadRequestException("TRADE_URL_MISSING",
                     "Set your Steam trade URL in Profile before buying — the seller needs it to send you the item.")
+            }
+            _resolvedSellerUser = steamUserRepository?.findById(listing.sellerUserId)?.orElse(null)
+            _resolvedSellerWallet = _resolvedSellerUser ?
+                walletRepository.findByUsername("steam_${_resolvedSellerUser.steamId64}") : null
+            if (_resolvedSellerWallet == null) {
+                throw new BadRequestException("SELLER_WALLET_MISSING",
+                    "This listing can't be purchased right now — the seller's payout account isn't set up. " +
+                    "We've notified them; try again later or pick a different listing.")
             }
         }
 
@@ -259,8 +280,9 @@ class PurchaseService {
             // has no way to confirm receipt, dispute, or get a refund.
             // If this fails, the entire transaction must roll back so the
             // buyer isn't debited for a trade that doesn't exist.
-            def sellerUser = steamUserRepository?.findById(listing.sellerUserId)?.orElse(null)
-            def sellerWallet = sellerUser ? walletRepository.findByUsername("steam_${sellerUser.steamId64}") : null
+            // Wallet resolution was already done in the pre-debit gate above
+            // (SELLER_WALLET_MISSING) so we know _resolvedSellerWallet is
+            // non-null here — reuse it instead of re-querying.
             tradeService?.open(
                 listing.id,
                 listing.item?.id,
@@ -268,7 +290,7 @@ class PurchaseService {
                 buyerUserId,
                 buyerWalletId,
                 listing.sellerUserId,
-                sellerWallet?.id,
+                _resolvedSellerWallet?.id,
                 listing.price
             )
         }

@@ -214,6 +214,26 @@ class ReviewServiceSpec extends Specification {
         thrown(NotFoundException)
     }
 
+    def "leaveReview rejects a null trade id with a clean 4xx instead of bubbling a Spring 500"() {
+        // The controller passes through whatever tradeId is in the JSON body
+        // (or null when the field is missing). Spring Data's findById(null)
+        // throws InvalidDataAccessApiUsageException, which surfaces as an
+        // HTTP 500 — the wrong shape for a malformed client request. Guard
+        // up front so a missing tradeId looks the same as any other bad
+        // input (BadRequestException → 400 INVALID_TRADE_ID).
+        when:
+        service.leaveReview(10L, null, 5, 'x')
+
+        then:
+        1 * banGuard.assertNotBanned(10L)
+        def ex = thrown(BadRequestException)
+        ex.code == 'INVALID_TRADE_ID'
+        // tradeRepository is never touched — the guard short-circuits before
+        // any DB call so a null id can't ride into the JPA layer at all.
+        0 * tradeRepository.findById(_)
+        0 * reviewRepository.save(_)
+    }
+
     def "leaveReview refuses trades still in progress"() {
         given:
         tradeRepository.findById(1L) >> Optional.of(verifiedTrade(state: 'PENDING_BUYER_CONFIRM'))
