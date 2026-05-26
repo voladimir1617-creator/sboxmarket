@@ -95,6 +95,35 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     """)
     List<Object[]> findTriggeredForItem(@Param("itemId") Long itemId)
 
+    /** Paged companion to {@link #findTriggeredForItem(Long)} — a hot
+     *  item can collect tens of thousands of watchers, and the
+     *  synchronous sweep fired from SellService.relist hydrates the
+     *  ENTIRE projection list into memory on the request thread before
+     *  fan-out begins. Without a SQL LIMIT a single fresh listing on a
+     *  popular item could pull 50k+ Object[] rows into the JVM, blow
+     *  the heap on under-provisioned nodes, and block the sell tx for
+     *  the duration of the fan-out. The paged variant lets the service
+     *  cap to a sane per-tick batch (overflow rolls into the next
+     *  5-minute scheduled sweep, which already paginates via the
+     *  in-memory clamp).
+     *
+     *  Same projection + filters as the un-paged sibling so behaviour
+     *  is identical up to the row cap — callers that want the legacy
+     *  "fetch everything" semantics can keep calling the original. */
+    @Query("""
+        SELECT a, i.lowestPrice, i.name FROM WatchlistAlert a, Item i, SteamUser u
+        WHERE a.status = 'ACTIVE'
+          AND a.itemId = :itemId
+          AND a.itemId = i.id
+          AND a.userId = u.id
+          AND (u.banned IS NULL OR u.banned = false)
+          AND i.lowestPrice IS NOT NULL
+          AND i.lowestPrice > 0
+          AND i.lowestPrice <= a.targetPrice
+    """)
+    List<Object[]> findTriggeredForItem(@Param("itemId") Long itemId,
+                                         org.springframework.data.domain.Pageable pageable)
+
     long countByUserIdAndStatus(Long userId, String status)
 
     /** Distinct user ids with an ACTIVE watchlist alert on the given

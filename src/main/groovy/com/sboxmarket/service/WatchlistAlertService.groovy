@@ -228,6 +228,21 @@ class WatchlistAlertService {
         log.info("Watchlist alert sweep: fired ${fired} of ${triggered.size()} matches (eligible=${all.size()})")
     }
 
+    /** Hard cap on rows hydrated by a single {@link #sweepForItem}
+     *  call. Mirrors the per-tick `SWEEP_BATCH_LIMIT` on the periodic
+     *  sweep, but enforced AT THE SQL LIMIT (not after-the-fact in
+     *  memory) so a 10k-watcher item never pulls 10k Object[] rows
+     *  into the JVM on the request thread. Overflow rolls into the
+     *  next scheduled 5-minute sweep, whose `findTriggered()` /
+     *  `take(SWEEP_BATCH_LIMIT)` still picks up the un-fired rows
+     *  (their `status` stays ACTIVE until `fireRow` flips them).
+     *
+     *  Sized to the same 1000-row ceiling as the periodic sweep —
+     *  enough to clear the vast majority of single-item triggers in
+     *  one sync pass without making a viral item's relist block on
+     *  tens of thousands of inline pushes + emails. */
+    static final int SYNC_SWEEP_ITEM_CAP = 1000
+
     /**
      * Synchronous per-item sweep (batch 389). Called right after a fresh
      * listing lands so any pending price alerts on that item fire within
@@ -252,16 +267,38 @@ class WatchlistAlertService {
      * but the worst case is "some alerts in this sweep don't fire and
      * the next 5-min scheduled tick re-tries them" — the sell tx is
      * unaffected.
+     *
+     * Row-cap (SYNC_SWEEP_ITEM_CAP) is enforced at the SQL LIMIT level
+     * via the paged repository method. The previous shape called
+     * `findTriggeredForItem(itemId)` (un-paged) and hydrated EVERY
+     * matching row into memory on the request thread before fan-out
+     * began. PER_USER_LIMIT is 50 alerts per USER, but a single ITEM
+     * has no per-item cap on watchers — a viral drop (sticker capsule
+     * release, market-moving sale) routinely collects thousands of
+     * alerts on the same item. A fresh listing at a deep discount
+     * would then trigger every one of those rows, the synchronous
+     * sweep would load all of them into a `List<Object[]>` on the
+     * sell-request thread, run notification + email fan-out inline
+     * across the entire set, and on under-provisioned nodes either
+     * OOM the JVM or block the sell HTTP request for the full
+     * sweep duration. With the SQL-level cap the relist returns
+     * promptly; the 5-minute periodic sweep picks up the overflow
+     * rows on its next tick (they're still ACTIVE in the DB until
+     * `fireRow` flips them to FIRED).
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void sweepForItem(Long itemId) {
         if (itemId == null) return
         try {
-            def triggered = repo.findTriggeredForItem(itemId)
-            if (triggered.isEmpty()) return
+            def triggered = repo.findTriggeredForItem(itemId,
+                org.springframework.data.domain.PageRequest.of(0, SYNC_SWEEP_ITEM_CAP))
+            if (triggered == null || triggered.isEmpty()) return
             int fired = triggered.count { fireRow(it) ? 1 : 0 } as int
             if (fired > 0) {
-                log.info("Watchlist alert sync-sweep (item ${itemId}): fired ${fired} of ${triggered.size()}")
+                log.info("Watchlist alert sync-sweep (item ${itemId}): fired ${fired} of ${triggered.size()}" +
+                    (triggered.size() >= SYNC_SWEEP_ITEM_CAP
+                        ? " (capped at ${SYNC_SWEEP_ITEM_CAP}; overflow rolls to next scheduled sweep)"
+                        : ''))
             }
         } catch (Exception e) {
             log.warn("Sync watchlist sweep for item ${itemId} failed: ${e.message}")

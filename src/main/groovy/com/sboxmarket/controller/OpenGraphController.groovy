@@ -78,6 +78,30 @@ class OpenGraphController {
         if (req != null) {
             String proto = req.getHeader('X-Forwarded-Proto') ?: req.getHeader('X-Forwarded-Scheme') ?: req.scheme
             String host = req.getHeader('X-Forwarded-Host') ?: req.getHeader('Host') ?: req.serverName
+            // Host-header injection guard (sibling of SitemapController's
+            // SAFE_HOST). The Host / X-Forwarded-Host value is
+            // attacker-controllable (any request that bypasses the WAF,
+            // or a non-prod proxy hop, can supply anything). An
+            // attacker who sets `X-Forwarded-Host: phishing.com` would
+            // have the og:url + canonical land as `https://phishing.com
+            // /item/1` — Google / Discord / Twitter render the SkinBox
+            // OG card but anchor the canonical at phishing.com, which
+            // Google's canonical-consolidation honours and indexes the
+            // attacker's domain as the source-of-truth for the URL. The
+            // page-content `escape()` neuters XML-style breakouts, but
+            // a bare hostname like `phishing.com` survives escape() and
+            // lands in the URL verbatim. Strict allowlist regex —
+            // hostname[:port], ASCII only, no URL/XML metachars — and
+            // fall back to `publicUrl` when it fails. Same shape as
+            // SitemapController so behaviour is identical across the
+            // two OG surfaces.
+            if (host && !SAFE_HOST.matcher(host).matches()) {
+                log.warn("OpenGraph: rejecting malformed Host header (host-injection guard); falling back to publicUrl")
+                host = null
+            }
+            if (proto && !(proto == 'http' || proto == 'https')) {
+                proto = null
+            }
             // Production host always serves over HTTPS — Cloudflare HSTS
             // upgrades any plain-HTTP attempt before it reaches us. Honor
             // that invariant when the upstream nginx hop has stamped
@@ -92,6 +116,11 @@ class OpenGraphController {
         }
         return publicUrl.endsWith('/') ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl
     }
+
+    /** Mirror of SitemapController.SAFE_HOST — see that constant's
+     *  docstring for the host-header-injection rationale. ASCII only,
+     *  no URL/XML metachars, hostname[:port] shape. */
+    private static final java.util.regex.Pattern SAFE_HOST = ~/^[A-Za-z0-9]([A-Za-z0-9\-]{0,62}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9\-]{0,62}[A-Za-z0-9])?)*(:[0-9]{1,5})?$/
 
     // Batch 968 — register both `/item/{id}` and `/item/{id}/` so a
     // trailing-slash URL (crawler inbound link, copy-paste, old-school

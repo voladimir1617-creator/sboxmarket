@@ -496,7 +496,7 @@ class WatchlistAlertServiceSpec extends Specification {
         given:
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
-        repo.findTriggeredForItem(7L) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.findTriggeredForItem(7L, _) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
         repo.save(_) >> { args -> args[0] }
 
         when:
@@ -513,13 +513,13 @@ class WatchlistAlertServiceSpec extends Specification {
         service.sweepForItem(null)
 
         then:
-        0 * repo.findTriggeredForItem(_)
+        0 * repo.findTriggeredForItem(_, _)
         0 * notificationService.push(_, _, _, _, _, _)
     }
 
     def "sweepForItem is a no-op when the scoped query returns nothing"() {
         given:
-        repo.findTriggeredForItem(7L) >> []
+        repo.findTriggeredForItem(7L, _) >> []
 
         when:
         service.sweepForItem(7L)
@@ -531,7 +531,7 @@ class WatchlistAlertServiceSpec extends Specification {
 
     def "sweepForItem swallows a repository failure — best-effort, never rethrows"() {
         given: 'the scoped query itself blows up'
-        repo.findTriggeredForItem(7L) >> { throw new RuntimeException('db boom') }
+        repo.findTriggeredForItem(7L, _) >> { throw new RuntimeException('db boom') }
 
         when:
         service.sweepForItem(7L)
@@ -544,7 +544,7 @@ class WatchlistAlertServiceSpec extends Specification {
         given:
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
-        repo.findTriggeredForItem(7L) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.findTriggeredForItem(7L, _) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
         repo.save(_) >> { args -> args[0] }
         steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
             id: 42L, email: 'bad@example.com', emailVerified: true,
@@ -644,5 +644,61 @@ class WatchlistAlertServiceSpec extends Specification {
         then: 'one email per user — dedup is keyed on userId, not on the (user, sweep-tick) pair'
         1 * emailService.sendPriceDrop('alice@example.com', _, _, _, _, _)
         1 * emailService.sendPriceDrop('bob@example.com',   _, _, _, _, _)
+    }
+
+    // ── sync sweep row-cap (wave 108 — un-paged sweepForItem on viral item) ──
+    //
+    // Pinning spec for the OOM-on-hot-item bug: a single fresh listing on
+    // a watched item could collect tens of thousands of triggered alerts,
+    // and the synchronous per-item sweep used the UN-paged repo method
+    // (`findTriggeredForItem(itemId)`) — so every triggered row was
+    // hydrated into a single `List<Object[]>` on the sell-request thread
+    // before fan-out began. PER_USER_LIMIT caps alerts per USER (50), but
+    // there is NO per-ITEM watcher cap, so a viral item (sticker capsule
+    // release, market-moving sale) routinely sat on hundreds-to-thousands
+    // of alerts. Coupled with an inline notification + email fan-out, the
+    // hot-path either OOM'd the JVM on under-provisioned nodes or blocked
+    // the sell HTTP request for the full sweep duration.
+    //
+    // Fix shape: a paged repository overload + a SYNC_SWEEP_ITEM_CAP
+    // ceiling enforced at the SQL LIMIT level (NOT in-memory after the
+    // un-paged load). Overflow rolls into the next 5-minute scheduled
+    // sweep, which still picks up the un-fired rows (their `status`
+    // stays ACTIVE until `fireRow` flips them).
+    //
+    // Three asserts pin the contract:
+    //   1) the paged method is the one actually called (regression guard
+    //      against a future refactor reverting to the un-paged shape),
+    //   2) the page size passed in equals SYNC_SWEEP_ITEM_CAP (so a
+    //      future tuning of the constant lands here too), and
+    //   3) the un-paged single-arg method is NEVER hit on this code
+    //      path (the bug was specifically the un-paged call).
+
+    def "sweepForItem uses the paged repo overload with SYNC_SWEEP_ITEM_CAP (wave 108 OOM guard)"() {
+        given: 'a triggered alert that the sweep should fire'
+        def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
+            targetPrice: new BigDecimal('10'), status: 'ACTIVE')
+        org.springframework.data.domain.Pageable captured = null
+        repo.findTriggeredForItem(7L, _ as org.springframework.data.domain.Pageable) >> {
+            Long itemId, org.springframework.data.domain.Pageable p ->
+            captured = p
+            [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        }
+        repo.save(_) >> { args -> args[0] }
+
+        when:
+        service.sweepForItem(7L)
+
+        then: 'the paged variant was called — never the un-paged single-arg one'
+        0 * repo.findTriggeredForItem(7L)
+
+        and: 'the page size handed to the repo matches the documented cap (not unbounded, not a default 20)'
+        captured != null
+        captured.pageSize == WatchlistAlertService.SYNC_SWEEP_ITEM_CAP
+        captured.pageNumber == 0
+
+        and: 'the row that came back still fires — behaviour is unchanged for in-cap inputs'
+        a.status == 'FIRED'
+        1 * notificationService.push(42L, 'WATCHLIST_PRICE_DROP', _, _, 7L, '/item/7')
     }
 }

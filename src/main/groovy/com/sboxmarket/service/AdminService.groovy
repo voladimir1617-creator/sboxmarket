@@ -528,6 +528,32 @@ class AdminService {
         def txType = (tx.type ?: '').toUpperCase()
         if (txType != 'WITHDRAW' && txType != 'WITHDRAWAL') throw new BadRequestException("NOT_WITHDRAWAL", "Transaction is not a withdrawal")
         if (tx.status != 'PENDING') throw new BadRequestException("NOT_PENDING", "Withdrawal is not pending (status=${tx.status})")
+        // Wallet-freeze gate. freezeWallet's contract is "all money-in /
+        // money-out paths refuse" — used for regulatory holds, fraud
+        // investigations, or user-requested security lockouts. The user-
+        // initiated /api/wallet/withdraw endpoint already enforces this
+        // (WalletController:385), but the admin path was bypassing it:
+        // staff would freeze a suspicious wallet, then another admin
+        // (or the same admin on a stale queue) could click Approve on
+        // the still-PENDING row from BEFORE the freeze and release the
+        // payout — a silent bypass of the freeze, with money walking
+        // out the door of an under-investigation account. The withdraw
+        // queue already surfaces walletFrozen (listWithdrawals:509) so
+        // staff can see it; this gate makes the action match the visual.
+        // The escape hatch is rejectWithdrawal — which refunds the wallet
+        // and is the correct disposition for a frozen account anyway.
+        // Safe-navigated lookup — JpaRepository always wraps in Optional in
+        // production, but defensive `?.` guards against any future caller
+        // path or test mock that surfaces a bare null. A missing wallet is
+        // treated as "not frozen" so this gate is purely additive: it never
+        // turns a previously-OK approval into a 500 due to data shape drift.
+        def disputeWallet = walletRepository.findById(tx.walletId)?.orElse(null)
+        if (disputeWallet != null && Boolean.TRUE.equals(disputeWallet.frozen)) {
+            throw new BadRequestException("WALLET_FROZEN",
+                "Cannot approve withdrawal — wallet is frozen" +
+                    (disputeWallet.frozenReason ? ": ${disputeWallet.frozenReason}" : '') +
+                    ". Unfreeze the wallet first, or reject this withdrawal to refund the user.")
+        }
         // Active-chargeback gate (batch 468). Even with admin override
         // privilege, refuse to approve a withdrawal while the wallet has
         // an unresolved DISPUTED deposit. The reasoning:

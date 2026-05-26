@@ -247,6 +247,71 @@ class OpenGraphControllerSpec extends Specification {
         base == 'http://localhost:8082'
     }
 
+    def "resolveBaseUrl rejects malformed X-Forwarded-Host (host-injection guard) and falls back to publicUrl"() {
+        // Mirror of SitemapHostInjectionSpec for the OG surface. An
+        // attacker who sets X-Forwarded-Host to a non-bare-hostname
+        // value would (pre-fix) get that value spliced into og:url +
+        // canonical via `${proto}://${host}`. The page-content
+        // `escape()` neuters XML breakouts, but a plain `phishing.com`
+        // hostname survives escape() and lands in the URL verbatim —
+        // Google honours the canonical it sees, and the attacker's
+        // domain gets credited as the source-of-truth for SkinBox
+        // pages. Strict allowlist regex falls back to publicUrl when
+        // the inbound Host fails the bare-hostname shape.
+        given:
+        controller.publicUrl = 'https://skinbox.market'
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/item/3')
+        r.addHeader('X-Forwarded-Host', badHost)
+        r.addHeader('X-Forwarded-Proto', 'https')
+        r.scheme = 'http'
+
+        when:
+        def base = controller.resolveBaseUrl(r)
+
+        then: 'no part of the hostile header survives — base resolves to the trusted publicUrl'
+        base == 'https://skinbox.market'
+        !base.contains('<')
+        !base.contains('>')
+        !base.contains('phishing')
+        !base.contains('javascript')
+
+        where:
+        badHost << [
+            'a.com</loc><loc>https://phishing.com',
+            'phishing.com#@skinbox.market',
+            'evil.com">attacker',
+            'javascript:alert(1)',
+            'skinbox.market/extra/path',
+            'skinbox.market?evil=1',
+            '<script>alert(1)</script>',
+            'a.com\r\nX-Injected: 1',
+            '  skinbox.market'
+        ]
+    }
+
+    def "resolveBaseUrl rejects X-Forwarded-Proto values that aren't http or https"() {
+        given:
+        controller.publicUrl = 'https://skinbox.market'
+        def r = new org.springframework.mock.web.MockHttpServletRequest('GET', '/item/3')
+        r.addHeader('Host', 'localhost:8082')
+        // Attacker-controlled. Pre-fix this would land verbatim as the
+        // scheme half of `${proto}://${host}/`.
+        r.addHeader('X-Forwarded-Proto', 'javascript')
+        r.scheme = 'http'
+
+        when:
+        def base = controller.resolveBaseUrl(r)
+
+        then: 'invalid proto is nulled — the proto+host branch skips → publicUrl fallback'
+        // Per resolveBaseUrl: the falsy-coalesce picks up X-Forwarded-
+        // Proto = 'javascript', validation nulls it, the proto+host
+        // branch is skipped (proto is null), and we drop to the
+        // publicUrl fallback. The important assertion is that
+        // `javascript` never lands in the base URL.
+        base == 'https://skinbox.market'
+        !base.contains('javascript')
+    }
+
     def "JSON-LD escapes HTML-breaking characters in item names so </script> can't be smuggled in"() {
         given:
         // Adversarial item name that would otherwise close the <script>

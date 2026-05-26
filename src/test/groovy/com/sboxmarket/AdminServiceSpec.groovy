@@ -1845,6 +1845,95 @@ class AdminServiceSpec extends Specification {
         res.status == 'COMPLETED'
     }
 
+    // ── approveWithdrawal: wallet-freeze gate ───────────────────────
+    //
+    // freezeWallet's contract is "all money-in / money-out paths
+    // refuse" — used for fraud holds and user-requested security
+    // lockouts. The user-facing /api/wallet/withdraw endpoint already
+    // enforces this at the controller layer. The admin approve path
+    // didn't: staff would freeze a suspicious wallet, then another
+    // admin (or the same admin on a stale queue) could click Approve
+    // on the still-PENDING row queued BEFORE the freeze and release
+    // the payout — silently bypassing the freeze. The withdraw queue
+    // already surfaces `walletFrozen` to staff (listWithdrawals); this
+    // gate makes the action match the visual signal. The correct
+    // disposition for a frozen wallet's pending withdrawal is reject
+    // (refunds the user) or unfreeze first.
+    def "approveWithdrawal refuses when the wallet is frozen — staff lockout must not be bypassed via the approve path"() {
+        given: 'a still-PENDING withdrawal on a now-frozen wallet'
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW',
+            status: 'PENDING', amount: new BigDecimal('25.00'))
+        def wallet = new Wallet(id: 500L, username: 'steam_111',
+            balance: new BigDecimal('75.00'),
+            frozen: true,
+            frozenReason: 'fraud investigation')
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        // The dispute-hold stub stays at zero so any throw here is
+        // unambiguously from the freeze gate, not the dispute gate.
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+
+        when:
+        service.approveWithdrawal(1L, 1L, 'PAYOUT-REF-Z')
+
+        then: 'WALLET_FROZEN code surfaces with the staff reason so the operator sees why'
+        def ex = thrown(BadRequestException)
+        ex.code == 'WALLET_FROZEN'
+        ex.message.contains('fraud investigation')
+
+        and: 'the withdrawal is NOT flipped — no save, no payout reference set, no audit'
+        tx.status == 'PENDING'
+        tx.stripeReference == null
+        0 * transactionRepository.save(_)
+        0 * auditService.log(_, _, _, _, _)
+    }
+
+    def "approveWithdrawal still proceeds on a non-frozen wallet (gate is freeze-specific, not a blanket block)"() {
+        given: 'identical fixtures to the frozen test but frozen=false'
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW',
+            status: 'PENDING', amount: new BigDecimal('25.00'))
+        def wallet = new Wallet(id: 500L, username: 'steam_111',
+            balance: new BigDecimal('75.00'),
+            frozen: false)
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        walletRepository.findById(500L) >> Optional.of(wallet)
+        transactionRepository.save(_) >> { args -> args[0] }
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+        steamUserRepository.findBySteamId64('111') >> null
+
+        when:
+        def res = service.approveWithdrawal(1L, 1L, 'PAYOUT-REF-OK')
+
+        then: 'approval lands cleanly — the freeze gate did not over-block the happy path'
+        noExceptionThrown()
+        tx.status == 'COMPLETED'
+        res.status == 'COMPLETED'
+    }
+
+    def "approveWithdrawal freeze gate tolerates a missing wallet row — falls through to the rest of the flow"() {
+        // The existing approveWithdrawal happy-path test runs without an
+        // explicit wallet stub (the wallet lookup returns null on the
+        // Mock). The freeze check must therefore treat a null wallet as
+        // "not frozen" instead of NPEing — otherwise a deleted-wallet
+        // edge case would convert into a 500 mid-approval. Pin the
+        // null-safe behaviour so the lookup-vs-throw shape stays correct.
+        given:
+        def tx = new Transaction(id: 1L, walletId: 500L, type: 'WITHDRAW',
+            status: 'PENDING', amount: new BigDecimal('25'))
+        transactionRepository.findById(1L) >> Optional.of(tx)
+        // Wallet absent → freeze check defaults to "not frozen".
+        walletRepository.findById(500L) >> Optional.empty()
+        transactionRepository.save(_) >> { args -> args[0] }
+        transactionRepository.countActiveDisputedDeposits(500L) >> 0L
+
+        when:
+        service.approveWithdrawal(1L, 1L, 'PAYOUT-REF-NOWALLET')
+
+        then:
+        noExceptionThrown()
+        tx.status == 'COMPLETED'
+    }
+
     // ── grantAdmin / grantCsr: banned + self guards ─────────────────
 
     def "grantAdmin refuses to promote a banned account"() {
