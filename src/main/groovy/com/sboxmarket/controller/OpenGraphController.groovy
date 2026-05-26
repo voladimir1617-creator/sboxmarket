@@ -191,7 +191,18 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'public, max-age=300')
+            // `private` not `public` — every OG response carries the
+            // CsrfFilter's Set-Cookie header for first-load users (it
+            // mints `sbox_csrf` if no cookie is present). A shared
+            // cache like Cloudflare that captured the response would
+            // serve user A's cookie to user B on the cache hit,
+            // collapsing two visitors onto the same CSRF token and
+            // defeating per-user CSRF protection downstream. Per-user
+            // browser cache (`private`) still gets the 5-min benefit
+            // for refreshes; only the multi-tenant shared cache is
+            // excluded — and crawlers, the primary cacheable consumer
+            // here, don't carry cookies anyway.
+            .header('Cache-Control', 'private, max-age=300')
             .body(out)
     }
 
@@ -332,7 +343,18 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'public, max-age=300')
+            // `private` not `public` — every OG response carries the
+            // CsrfFilter's Set-Cookie header for first-load users (it
+            // mints `sbox_csrf` if no cookie is present). A shared
+            // cache like Cloudflare that captured the response would
+            // serve user A's cookie to user B on the cache hit,
+            // collapsing two visitors onto the same CSRF token and
+            // defeating per-user CSRF protection downstream. Per-user
+            // browser cache (`private`) still gets the 5-min benefit
+            // for refreshes; only the multi-tenant shared cache is
+            // excluded — and crawlers, the primary cacheable consumer
+            // here, don't carry cookies anyway.
+            .header('Cache-Control', 'private, max-age=300')
             .body(out)
     }
 
@@ -408,7 +430,10 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'public, max-age=3600')
+            // `private` not `public` — see itemPage's same-rationale
+            // comment. The Set-Cookie collision risk under a shared CDN
+            // cache applies to every OG-rendered route, not just /item.
+            .header('Cache-Control', 'private, max-age=3600')
             .body(out)
     }
 
@@ -462,7 +487,10 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'public, max-age=3600')
+            // `private` not `public` — see itemPage's same-rationale
+            // comment. The Set-Cookie collision risk under a shared CDN
+            // cache applies to every OG-rendered route, not just /item.
+            .header('Cache-Control', 'private, max-age=3600')
             .body(out)
     }
 
@@ -502,7 +530,10 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'public, max-age=3600')
+            // `private` not `public` — see itemPage's same-rationale
+            // comment. The Set-Cookie collision risk under a shared CDN
+            // cache applies to every OG-rendered route, not just /item.
+            .header('Cache-Control', 'private, max-age=3600')
             .body(out)
     }
 
@@ -578,7 +609,18 @@ class OpenGraphController {
 
         ResponseEntity.ok()
             .contentType(MediaType.TEXT_HTML)
-            .header('Cache-Control', 'public, max-age=300')
+            // `private` not `public` — every OG response carries the
+            // CsrfFilter's Set-Cookie header for first-load users (it
+            // mints `sbox_csrf` if no cookie is present). A shared
+            // cache like Cloudflare that captured the response would
+            // serve user A's cookie to user B on the cache hit,
+            // collapsing two visitors onto the same CSRF token and
+            // defeating per-user CSRF protection downstream. Per-user
+            // browser cache (`private`) still gets the 5-min benefit
+            // for refreshes; only the multi-tenant shared cache is
+            // excluded — and crawlers, the primary cacheable consumer
+            // here, don't carry cookies anyway.
+            .header('Cache-Control', 'private, max-age=300')
             .body(out)
     }
 
