@@ -196,9 +196,27 @@ class ItemController {
         if (!ip || !itemId) return true
         def key = ip + '|' + itemId
         long now = System.currentTimeMillis()
-        def prev = viewBumpCache.get(key)
-        if (prev != null && (now - prev) < VIEW_DEDUPE_MS) return false
-        viewBumpCache.put(key, now)
+        // Atomic "claim or refresh" via `compute` — closes the
+        // check-then-act race that defeated the 30-min dedupe under
+        // concurrent load. Pre-fix this was `get` then `put`: N parallel
+        // requests for the same (ip,item) all read `prev == null`, all
+        // wrote, all returned true, so a refresh storm / browser
+        // pre-fetch / scraper could inflate the view count by one per
+        // concurrent request and the 30-min cap only kicked in for
+        // serial replays. `compute` runs the remap function under the
+        // CHM bin lock, so exactly one racer observes "no fresh stamp"
+        // and wins; every concurrent peer sees the just-written stamp
+        // and returns false. (See ItemViewBumpRaceSpec.)
+        boolean[] bumpedRef = new boolean[1]
+        viewBumpCache.compute(key) { _, prev ->
+            if (prev != null && (now - prev) < VIEW_DEDUPE_MS) {
+                bumpedRef[0] = false
+                return prev
+            }
+            bumpedRef[0] = true
+            return now
+        }
+        if (!bumpedRef[0]) return false
         if (viewBumpCache.size() > VIEW_DEDUPE_MAX_KEYS) {
             def oldest = viewBumpCache.entrySet().min { it.value }
             if (oldest) viewBumpCache.remove(oldest.key)

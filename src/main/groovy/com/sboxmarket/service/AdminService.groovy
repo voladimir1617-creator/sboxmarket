@@ -1169,7 +1169,20 @@ class AdminService {
                 null,
                 cleanPath.isEmpty() ? null : cleanPath)
         } catch (Exception e) {
-            throw new BadRequestException('SEND_FAILED', "Message push failed: ${e.message}")
+            // Two bugs here previously:
+            //   1) `e` was dropped — the new BadRequestException carried no
+            //      chained cause, so the global handler logged the wrapper
+            //      with no root-cause trace. Use the cause-preserving 3-arg
+            //      ctor so MDC + logs keep the full chain.
+            //   2) `${e.message}` was interpolated into the user-facing
+            //      response. NotificationService failures come from JPA /
+            //      JDBC / Jackson — their messages routinely carry SQL
+            //      fragments, constraint names ("notification_pkey"), and
+            //      table names. Echoing them lets an admin probe internals.
+            //      Fixed message; root cause stays in the log line.
+            log.error("Direct message push failed for admin=${adminUserId} target=${targetUserId}: ${e.message}", e)
+            throw new BadRequestException('SEND_FAILED',
+                'Failed to deliver direct message', e)
         }
         auditService?.log('ADMIN_MESSAGE_SENT', adminUserId, targetUserId, null,
             "Message: '${cleanTitle}'")

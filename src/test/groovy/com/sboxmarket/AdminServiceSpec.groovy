@@ -1381,6 +1381,34 @@ class AdminServiceSpec extends Specification {
         res.to == 10L
     }
 
+    def "sendDirectMessage preserves the chained cause and does NOT leak the underlying error text"() {
+        // Regression: the catch-and-rethrow path previously dropped the
+        // cause AND interpolated `e.message` into the BadRequestException
+        // — JPA / JDBC exceptions carry SQL fragments, constraint names,
+        // and table names that should never leave the server. After the
+        // fix the cause chain is preserved (so GlobalExceptionHandler can
+        // log root cause) and the user-facing message is a fixed string.
+        given:
+        def target = new SteamUser(id: 10L, steamId64: '111', banned: false)
+        steamUserRepository.findById(10L) >> Optional.of(target)
+        def root = new RuntimeException(
+            'could not execute statement; constraint [notification_pkey]; SQL [insert into notification ...]')
+        notificationService.push(_, _, _, _, _, _) >> { throw root }
+
+        when:
+        service.sendDirectMessage(1L, 10L, 'Hi', 'Body', '/profile')
+
+        then:
+        def ex = thrown(BadRequestException)
+        ex.code == 'SEND_FAILED'
+        // Message is the fixed safe copy — no SQL / constraint internals
+        ex.message == 'Failed to deliver direct message'
+        !ex.message.contains('SQL')
+        !ex.message.contains('notification_pkey')
+        // Chained cause survives so ops can trace the root from logs
+        ex.cause.is(root)
+    }
+
     // ── broadcastNotification (batch 566) ───────────────────────────
 
     def "broadcastNotification requires an admin"() {

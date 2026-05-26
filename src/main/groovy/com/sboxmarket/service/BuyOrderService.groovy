@@ -440,6 +440,31 @@ class BuyOrderService {
             throw new BadRequestException("NOT_ACTIVE",
                 "Only active buy orders can be edited")
         }
+        // Wallet-frozen + dispute-hold gate (parity with create(), batch 511).
+        // Without this, a buyer frozen / disputed AFTER they placed an order
+        // can edit it (e.g. raise the cap) and the subsequent
+        // tryFillFromExisting probe attempts a purchase that PurchaseService.buy
+        // refuses inside the swallowed catch block — invisible failure, the
+        // exact bug the create-time gate exists to prevent. Symmetric guard
+        // here so a held buyer is told *why* before they bother editing.
+        def buyer = steamUserRepository?.findById(buyerUserId)?.orElse(null)
+        if (buyer != null) {
+            def buyerWallet = walletRepository.findByUsername("steam_${buyer.steamId64}")
+            if (buyerWallet != null && Boolean.TRUE.equals(buyerWallet.frozen)) {
+                throw new BadRequestException("WALLET_FROZEN",
+                    "Your wallet is frozen by staff" +
+                        (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
+                        ". Open a support ticket to resolve.")
+            }
+            if (buyerWallet != null && transactionRepository != null) {
+                long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
+                if (disputed > 0L) {
+                    throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                        "Buy orders are paused while you have ${disputed} unresolved deposit " +
+                        "dispute${disputed == 1 ? '' : 's'} on file.")
+                }
+            }
+        }
         BigDecimal priceBefore = o.maxPrice
         if (newMaxPrice != null) {
             if (newMaxPrice <= BigDecimal.ZERO) {
