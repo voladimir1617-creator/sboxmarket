@@ -143,9 +143,28 @@ class PriceHistoryService {
         // the price overwrite path stays correct either way.
         def idemKey = item.id + '|' + today + '|' + price.toPlainString() + '|' + bump
         long now = System.currentTimeMillis()
-        def prev = recentWrites.get(idemKey)
-        if (prev != null && (now - prev) < IDEMPOTENCY_WINDOW_MS) return
-        recentWrites.put(idemKey, now)
+        // Atomic claim-or-skip via `compute` — closes the check-then-act
+        // race that defeated the idempotency window under concurrent load.
+        // Pre-fix this was `get` then `put`: N parallel writers for the
+        // same (item, day, price, bump) all read `prev == null`, all
+        // wrote, all proceeded past the dedupe — and bumped the same-day
+        // volume row N times instead of once. PurchaseService's retry
+        // policy + Steam-sync overlapping polls both hit this code path
+        // concurrently, so the race was the common case under load.
+        // Mirrors the ItemController.shouldBumpView .compute() fix
+        // (batch 319). compute runs the remap fn under the CHM bin lock,
+        // so exactly one racer observes "no fresh stamp" and wins; every
+        // concurrent peer sees the just-written stamp and short-circuits.
+        boolean[] claimedRef = new boolean[1]
+        recentWrites.compute(idemKey) { _, prev ->
+            if (prev != null && (now - prev) < IDEMPOTENCY_WINDOW_MS) {
+                claimedRef[0] = false
+                return prev
+            }
+            claimedRef[0] = true
+            return now
+        }
+        if (!claimedRef[0]) return
         if (recentWrites.size() > IDEMPOTENCY_MAX_KEYS) {
             // Evict every entry older than the window — bounded scan that
             // a) keeps memory in check, b) avoids the LRU-min scan tax
