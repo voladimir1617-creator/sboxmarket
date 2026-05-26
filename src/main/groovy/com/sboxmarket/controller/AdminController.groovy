@@ -41,6 +41,29 @@ class AdminController {
         uid
     }
 
+    /**
+     * P1 SAFETY: parse a "confirm" gate from either ?confirm=true (Spring-
+     * coerced @RequestParam Boolean) OR {"confirm": ...} body value.
+     *
+     * Pre-fix used `(body?.confirm as Boolean) == true` which is UNSAFE:
+     * Groovy's `as Boolean` on a non-empty String returns true — so
+     * `{"confirm":"false"}` (Jackson maps to String "false") would set
+     * confirmed=true and fire finalizeDeletion (irreversible PII wipe +
+     * account ban) or clearSimulated (bulk delete). A misrouted UI that
+     * accidentally stringified the boolean would silently destroy data.
+     *
+     * Accept ONLY: Boolean.TRUE, or case-insensitive string "true".
+     * Everything else (Boolean.FALSE, "false", "1", "yes", any other
+     * non-empty string, null) → false. Mirrors the away-mode + follow-
+     * mute parseHiddenFlag / parseMutedFlag pattern.
+     */
+    private static boolean parseConfirmFlag(Boolean fromParam, Object fromBody) {
+        if (Boolean.TRUE.equals(fromParam)) return true
+        if (fromBody instanceof Boolean) return ((Boolean) fromBody).booleanValue()
+        if (fromBody instanceof String) return 'true'.equalsIgnoreCase((String) fromBody)
+        false
+    }
+
     // ── Dashboard ───────────────────────────────────────────────────
 
     @GetMapping("/stats")
@@ -419,7 +442,7 @@ class AdminController {
         // explicit confirmation flag so a misrouted POST (UI bug, replayed
         // curl, double-click) can't accidentally vapourise PII. Accept
         // either `?confirm=true` or `{"confirm": true}` in the body.
-        boolean confirmed = Boolean.TRUE.equals(confirm) || (body?.confirm as Boolean) == true
+        boolean confirmed = parseConfirmFlag(confirm, body?.confirm)
         if (!confirmed) {
             throw new com.sboxmarket.exception.BadRequestException("CONFIRMATION_REQUIRED",
                 'Finalising a deletion is irreversible — pass confirm=true to proceed')
@@ -1100,7 +1123,7 @@ class AdminController {
         // that a misrouted POST (UI double-click, replay) shouldn't be
         // able to wipe the QA fixtures without an explicit confirmation
         // flag. Accept either `?confirm=true` or `{"confirm": true}`.
-        boolean confirmed = Boolean.TRUE.equals(confirm) || (body?.confirm as Boolean) == true
+        boolean confirmed = parseConfirmFlag(confirm, body?.confirm)
         if (!confirmed) {
             throw new com.sboxmarket.exception.BadRequestException("CONFIRMATION_REQUIRED",
                 'Clearing simulated listings deletes them in bulk — pass confirm=true to proceed')
