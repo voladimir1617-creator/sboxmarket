@@ -753,7 +753,9 @@ class ListingService {
                         ? ((oldP - newP).divide(oldP, 2, java.math.RoundingMode.HALF_UP)
                                .multiply(new BigDecimal('100'))).intValue()
                         : 0
-                    others.take(50).each { uid ->
+                    // Drop banned recipients (batch 316/317).
+                    def recipients = notificationService.filterActiveRecipients(others.take(50) as List<Long>)
+                    recipients.each { uid ->
                         try {
                             notificationService.push(uid, 'PRICE_DROPPED',
                                 "Cart item price drop · ${itemName}",

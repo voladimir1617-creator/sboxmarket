@@ -1819,7 +1819,10 @@ class AdminService {
                 if (!others.isEmpty()) {
                     def itemName = listing.item?.name ?: 'an item'
                     def itemId = listing.item?.id
-                    others.take(50).each { uid ->
+                    // Drop banned recipients (batch 316/317) — same bug
+                    // class as the PurchaseService.buy fan-out.
+                    def recipients = notificationService.filterActiveRecipients(others.take(50) as List<Long>)
+                    recipients.each { uid ->
                         try {
                             notificationService.push(uid, 'CART_ITEM_SOLD',
                                 "Cart item removed · ${itemName}",

@@ -1227,7 +1227,11 @@ class ListingController {
                     def dropPct = oldPrice > BigDecimal.ZERO
                         ? (dropAmount.divide(oldPrice, 2, java.math.RoundingMode.HALF_UP).multiply(new BigDecimal('100'))).intValue()
                         : 0
-                    others.take(50).each { uid ->
+                    // Drop banned recipients (batch 316/317) — bell entry
+                    // on a banned account is dead-end noise; banGuard
+                    // rejects any re-shop attempt anyway.
+                    def recipients = notificationService.filterActiveRecipients(others.take(50) as List<Long>)
+                    recipients.each { uid ->
                         try {
                             notificationService.push(uid, 'PRICE_DROPPED',
                                 "Cart item price drop · ${itemName}",

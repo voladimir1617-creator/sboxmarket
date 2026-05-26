@@ -991,6 +991,45 @@ class PurchaseServiceSpec extends Specification {
         1 * cartRepo.deleteAllByListing(5L)
     }
 
+    def "buy drops BANNED recipients from the CART_ITEM_SOLD fan-out (same skip pattern as the saved-search and seller-follow fan-outs)"() {
+        // A user banned after queuing a listing in their cart can't act
+        // on a CART_ITEM_SOLD ping (banGuard rejects any re-shop), so
+        // the bell entry is dead-end noise. The sister fan-outs in
+        // SavedSearchService.notifyMatchingForListing and
+        // SellerFollowService.notifyFollowersOfNewListing already filter
+        // banned recipients; CART_ITEM_SOLD was the outlier — leaking
+        // pushes to banned accounts they could no longer use.
+        given:
+        def buyer = new Wallet(id: 1L, username: 'steam_111', balance: new BigDecimal('100.00'))
+        def item  = new Item(id: 10L, name: 'Wizard Hat')
+        def listing = new Listing(id: 5L, item: item, price: new BigDecimal('50.00'),
+                                  status: 'ACTIVE', sellerName: 'Bot')
+        def cartRepo = Mock(com.sboxmarket.repository.CartItemRepository)
+        def notifier = Mock(com.sboxmarket.service.NotificationService)
+        service.cartItemRepository = cartRepo
+        service.notificationService = notifier
+        walletRepo.findById(1L) >> Optional.of(buyer)
+        listingRepo.findById(5L) >> Optional.of(listing)
+        // Three other cart-holders, the middle one (77L) is banned.
+        cartRepo.findOtherUsersWithListing(5L, 999L) >> [42L, 77L, 88L]
+        steamUserRepo.findAllById([42L, 77L, 88L]) >> [
+            new SteamUser(id: 42L, banned: false),
+            new SteamUser(id: 77L, banned: true),
+            new SteamUser(id: 88L, banned: false)
+        ]
+
+        when:
+        service.buy(1L, 999L, 5L)
+
+        then: "only the two NON-banned recipients are pushed"
+        1 * notifier.push(42L, 'CART_ITEM_SOLD', _, _, 5L, '/item/10')
+        0 * notifier.push(77L, 'CART_ITEM_SOLD', _, _, _, _)
+        1 * notifier.push(88L, 'CART_ITEM_SOLD', _, _, 5L, '/item/10')
+        // Scrub still runs — keeping the cart row would just leave a
+        // ghost on every cart, including the banned one's.
+        1 * cartRepo.deleteAllByListing(5L)
+    }
+
     def "buy still completes when the cart-holders LOOKUP throws (deferOrRun safety)"() {
         // Regression for the deferOrRun wrapper around the CART_ITEM_SOLD
         // fan-out. The motivating comment on PurchaseService.deferOrRun

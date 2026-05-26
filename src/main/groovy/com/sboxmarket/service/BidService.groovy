@@ -637,12 +637,38 @@ class BidService {
         if (listing.sellerUserId != null && listing.sellerUserId == buyerUserId) {
             throw new ForbiddenException("You can't Buy Now your own auction")
         }
-        // Wallet solvency — settle() runs its own check too, but a clean
-        // 409 here beats the generic "auction returned to seller" settle
-        // fallback when the buyer simply doesn't have the money.
+        // Wallet solvency + integrity gates. settle() runs its own balance
+        // check as a belt-and-braces second pass, but the freeze + dispute-
+        // hold gates need to fire here — settle() does NOT re-check them,
+        // so without these guards a frozen wallet or a wallet with active
+        // chargebacks could circumvent staff freezes / dispute holds via
+        // auction Buy-Now. Mirrors the equivalent gates on placeBid
+        // (batches 510 / 511) and PurchaseService.buy (batches 509 / 511).
         def buyerUser = steamUserRepository.findById(buyerUserId).orElse(null)
         if (buyerUser != null && buyerUser.steamId64 != null) {
             def buyerWallet = walletRepository.findByUsername("steam_${buyerUser.steamId64}")
+            if (buyerWallet != null) {
+                // Wallet freeze gate. Frozen by staff (fraud / abuse /
+                // chargeback investigation) ⇒ no outflows of any kind.
+                if (Boolean.TRUE.equals(buyerWallet.frozen)) {
+                    throw new BadRequestException("WALLET_FROZEN",
+                        "Your wallet is frozen by staff" +
+                            (buyerWallet.frozenReason ? ": ${buyerWallet.frozenReason}" : '') +
+                            ". Open a support ticket to resolve.")
+                }
+                // Active-chargeback gate. We can't tell which dollars in
+                // the balance are disputed vs clean, so block every
+                // outflow path until the dispute closes — same rationale
+                // as PurchaseService.buy / placeBid / withdraw.
+                if (transactionRepository != null) {
+                    long disputed = transactionRepository.countActiveDisputedDeposits(buyerWallet.id)
+                    if (disputed > 0L) {
+                        throw new BadRequestException("PURCHASE_DISPUTE_HOLD",
+                            "Purchases are paused while you have ${disputed} unresolved deposit " +
+                            "dispute${disputed == 1 ? '' : 's'} on file.")
+                    }
+                }
+            }
             if (buyerWallet == null || buyerWallet.balance == null ||
                     buyerWallet.balance < listing.buyNowPrice) {
                 throw new BadRequestException("INSUFFICIENT_BALANCE",

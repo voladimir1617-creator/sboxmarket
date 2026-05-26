@@ -33,6 +33,46 @@ class NotificationService {
      *  runs immediately anyway. */
     @Autowired(required = false) PlatformTransactionManager transactionManager
 
+    /** Optional so unit tests with `new NotificationService(...)` keep
+     *  building. When present we use it to drop banned recipients from
+     *  multi-target fan-outs (PRICE_DROPPED to cart-holders,
+     *  CART_ITEM_SOLD to other cart-holders, AUCTION_ENDING to
+     *  watchers/bidders). Banned users can't act on the ping — banGuard
+     *  rejects every re-shop attempt — so the bell entry is dead-end
+     *  noise. PurchaseService.buy got the inline version of this filter
+     *  in batch 316; this lifts it to a shared helper so the 4 sister
+     *  fan-outs (ListingController price edit, ListingService.bulkAdjust,
+     *  OfferService.notifyOfferHoldersOfPriceDrop, AdminService.buy +
+     *  AUCTION_ENDING in BidService) share one implementation. */
+    @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+
+    /**
+     * Drop banned recipients from a fan-out list. Safe defaults: if the
+     * repo isn't wired, or the lookup fails, return the input list
+     * unchanged — matches the prior behaviour at every call site.
+     *
+     * Bulk single-query lookup (`findAllById`) so the fan-out stays O(1)
+     * round-trips instead of O(N).
+     */
+    List<Long> filterActiveRecipients(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return [] as List<Long>
+        List<Long> list = userIds.findAll { it != null } as List<Long>
+        if (list.isEmpty()) return list
+        if (steamUserRepository == null) return list
+        try {
+            def users = steamUserRepository.findAllById(list)
+            if (users == null) return list
+            Set<Long> bannedIds = users
+                .findAll { Boolean.TRUE.equals(it.banned) }
+                .collect { it.id } as Set<Long>
+            if (bannedIds.isEmpty()) return list
+            return list.findAll { !bannedIds.contains(it) } as List<Long>
+        } catch (Exception e) {
+            log.warn("filterActiveRecipients lookup failed (n=${list.size()}): ${e.message}")
+            return list
+        }
+    }
+
     /**
      * Run {@code work} after the caller's transaction commits — or
      * immediately when there is no active transaction (e.g. a unit test

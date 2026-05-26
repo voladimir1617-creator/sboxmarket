@@ -839,6 +839,61 @@ class BidServiceSpec extends Specification {
         0 * bidRepository.saveAll(_)
     }
 
+    def "buyNowAuction rejects a buyer whose wallet is frozen by staff"() {
+        // Bug: buyNowAuction only checked balance, missing the WALLET_FROZEN
+        // gate that placeBid, PurchaseService.buy, BuyOrderService, and
+        // OfferService all enforce. A frozen wallet (set by staff during
+        // investigation, e.g. fraud / chargeback / abuse) must not be able
+        // to circumvent the freeze via auction Buy-Now — money out is money
+        // out, and settle() debits the buyer's wallet for the auction price
+        // without re-checking frozen state.
+        given:
+        listingRepository.findById(100L) >> Optional.of(
+            buyNowListing(buyNowPrice: new BigDecimal('50')))
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10'))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'),
+            frozen: true, frozenReason: 'Staff freeze pending review')
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'WALLET_FROZEN'
+        // No mutations on a rejected buy-now — the auction must stay open.
+        0 * walletRepository.save(_)
+        0 * listingRepository.save(_)
+        0 * bidRepository.saveAll(_)
+    }
+
+    def "buyNowAuction rejects a buyer with an active deposit dispute"() {
+        // Same bug class as the frozen-wallet gap: placeBid + PurchaseService.buy
+        // refuse to spend funds while the user has unresolved chargebacks
+        // (we can't tell which dollars in the balance are disputed vs clean),
+        // but buyNowAuction silently allowed it. Closes the same dispute-hold
+        // bypass via Buy-Now.
+        given:
+        listingRepository.findById(100L) >> Optional.of(
+            buyNowListing(buyNowPrice: new BigDecimal('50')))
+        steamUserRepository.findById(10L) >> Optional.of(
+            new SteamUser(id: 10L, steamId64: 'SID10'))
+        walletRepository.findByUsername('steam_SID10') >> new com.sboxmarket.model.Wallet(
+            id: 77L, username: 'steam_SID10', balance: new BigDecimal('500.00'))
+        transactionRepository.countActiveDisputedDeposits(77L) >> 1L
+
+        when:
+        service.buyNowAuction(10L, 'Alice', 100L)
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'PURCHASE_DISPUTE_HOLD'
+        0 * walletRepository.save(_)
+        0 * listingRepository.save(_)
+        0 * bidRepository.saveAll(_)
+    }
+
     def "buyNowAuction settles to the buyer and flips losing bidders to LOST"() {
         // Happy path: an auction with one losing bidder gets bought out.
         // settle() must mark the listing SOLD to the buyer at buyNowPrice,

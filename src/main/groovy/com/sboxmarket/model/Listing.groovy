@@ -89,7 +89,15 @@ class Listing {
     @Column(precision = 19, scale = 2)
     BigDecimal currentBid
 
-    /** Only set for AUCTION listings — user id of the current highest bidder. */
+    /** Only set for AUCTION listings — user id of the current highest bidder.
+     *  NEVER serialized to clients: the public listing endpoints fan this
+     *  entity out to every viewer (anonymous included), and the top bidder's
+     *  real SteamUser.id would bypass the redaction BidService.historyFor
+     *  applies to third-party bid history AND the deliberate omission
+     *  AuctionEventBus.onBid uses on the SSE stream (see the NOTE comment
+     *  on that emitter). The display-name snapshot `currentBidderName`
+     *  remains exposed for the auction UI; only the user id is redacted. */
+    @JsonIgnore
     @Column
     Long currentBidderId
 

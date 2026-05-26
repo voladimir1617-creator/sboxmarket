@@ -1136,7 +1136,14 @@ class OfferService {
                 o.buyerUserId != null && o.amount != null && o.amount.compareTo(newPrice) >= 0
             }.unique { it.buyerUserId }.take(50)
             def name = itemName ?: 'an item you offered on'
-            winners.each { o ->
+            // Drop banned recipients (batch 316/317) — banned offer-holders
+            // can't act on the ping. Build uid→offer map so we can recover
+            // the matching offer after filtering.
+            Map<Long, Object> byUid = [:]
+            winners.each { o -> byUid[o.buyerUserId as Long] = o }
+            def activeUids = notificationService.filterActiveRecipients(byUid.keySet() as List<Long>)
+            def activeWinners = activeUids.collect { byUid[it] }.findAll { it != null }
+            activeWinners.each { o ->
                 try {
                     notificationService.push(o.buyerUserId as Long, 'PRICE_DROPPED',
                         "Your offer is now at or above the ask · ${name}",
