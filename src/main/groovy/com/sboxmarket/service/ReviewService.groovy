@@ -164,15 +164,32 @@ class ReviewService {
                 }
             }
         } else {
-            row = reviewRepository.save(new Review(
-                fromUserId:      fromUserId,
-                toUserId:        trade.sellerUserId,
-                tradeId:         tradeId,
-                rating:          rating,
-                comment:         cleanComment,
-                fromDisplayName: author?.displayName,
-                itemName:        trade.itemName
-            ))
+            // The findByFromUserIdAndTradeId + save sequence above is a
+            // non-atomic read-modify-write — two concurrent requests for
+            // the same (buyer, trade) can both observe `existing == null`
+            // and both attempt to INSERT. V67__reviews_unique_from_trade
+            // adds a UNIQUE (from_user_id, trade_id) constraint so the
+            // loser's INSERT now fails with DataIntegrityViolationException.
+            // Catch it and re-read the row the winner just wrote, so the
+            // loser still gets a sane 200 with the persisted review
+            // instead of a 500 from a leaked constraint violation.
+            // Mirrors the toggleHelpful() race handling further down.
+            try {
+                row = reviewRepository.save(new Review(
+                    fromUserId:      fromUserId,
+                    toUserId:        trade.sellerUserId,
+                    tradeId:         tradeId,
+                    rating:          rating,
+                    comment:         cleanComment,
+                    fromDisplayName: author?.displayName,
+                    itemName:        trade.itemName
+                ))
+            } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                log.debug("leaveReview race on buyer=${fromUserId} trade=${tradeId} — re-reading winner's row")
+                def winner = reviewRepository.findByFromUserIdAndTradeId(fromUserId, tradeId)
+                if (winner == null) throw dup // not the race we expected, re-raise
+                return winner
+            }
             log.info("Review created: from=${fromUserId} to=${trade.sellerUserId} trade=${tradeId} rating=${rating}")
             // Notify the seller of the new review. NotificationService.push
             // is itself @Transactional, so it joins this method's

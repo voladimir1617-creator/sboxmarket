@@ -231,8 +231,24 @@ class ItemController {
         }
         if (!bumpedRef[0]) return false
         if (viewBumpCache.size() > VIEW_DEDUPE_MAX_KEYS) {
+            // Atomic conditional remove (batch 1219). Pre-fix this was
+            // `viewBumpCache.remove(oldest.key)` — an unconditional
+            // single-arg remove. Under concurrent load, a different
+            // worker thread could refresh `oldest.key` (genuine new view
+            // after the 30-min window had elapsed) BETWEEN our `min`
+            // snapshot and our `remove` call. The unconditional remove
+            // then wiped the just-refreshed stamp, so the very next view
+            // for that same (ip,item) saw `prev == null` in `compute`
+            // and bumped again — defeating the 30-min dedupe contract
+            // for the unlucky evicted key. `remove(K, V)` only deletes
+            // when the value still matches our snapshot, so a refresh
+            // that beats us causes a clean skip and we leave the fresh
+            // entry alone. The cap is slightly soft (we may exit with
+            // size == VIEW_DEDUPE_MAX_KEYS + 1 if the chosen key was
+            // refreshed), but the next bump's eviction picks a
+            // different oldest and trims it; no unbounded growth.
             def oldest = viewBumpCache.entrySet().min { it.value }
-            if (oldest) viewBumpCache.remove(oldest.key)
+            if (oldest) viewBumpCache.remove(oldest.key, oldest.value)
         }
         true
     }

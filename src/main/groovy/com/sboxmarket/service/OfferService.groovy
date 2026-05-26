@@ -665,6 +665,14 @@ class OfferService {
             offer.status = 'EXPIRED'
             offer.updatedAt = System.currentTimeMillis()
             offerRepository.save(offer)
+            // P1 bug fix — if the expiring offer is a SELLER counter, its
+            // COUNTERED parent must also be closed. Every other terminal
+            // transition on a counter (reject / cancel / sweep / accept /
+            // competing-sweep) already does this; the dead-listing and
+            // insufficient-balance branches below were the only two that
+            // forgot, stranding the buyer's original in COUNTERED forever
+            // and locking them out of the dup-guard on that listing.
+            closeCounteredParent(offer)
             throw new ListingNotAvailableException(offer.listingId)
         }
 
@@ -680,6 +688,11 @@ class OfferService {
         if (actualWallet.balance < offer.amount) {
             offer.status = 'EXPIRED'
             offerRepository.save(offer)
+            // P1 bug fix — same dangling-COUNTERED-parent problem as the
+            // dead-listing branch above. A SELLER counter being closed
+            // here because the buyer's wallet drained must also free its
+            // COUNTERED parent so the dup-guard releases.
+            closeCounteredParent(offer)
             // Notify the buyer so their Offers tab doesn't show a
             // silent "EXPIRED" label with no context (batch 328). The
             // buyer's wallet balance dropped below their offer amount

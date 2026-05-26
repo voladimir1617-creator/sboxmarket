@@ -867,4 +867,40 @@ class SteamInventoryControllerSpec extends Specification {
         then: "a forged sellerUserId in the body is ignored — the seller is the session user (7)"
         1 * listingService.createListing({ it.sellerUserId == 7L }) >> { args -> args[0].tap { it.id = 8101L } }
     }
+
+    // ── ban gate: SellService.relist's banGuard does NOT cover the ─
+    //    Steam-inventory list paths because those call
+    //    listingService.createListing() directly, skipping SellService.
+    //    The controller has to apply its own guard or a banned user can
+    //    keep posting fresh inventory while suspended. Pin the contract.
+
+    def "list rejects a banned caller before touching inventory or listings"() {
+        given:
+        def banGuard = Mock(com.sboxmarket.service.security.BanGuard)
+        controller.banGuard = banGuard
+
+        when:
+        controller.listFromSteam([assetId: '1001', price: '5'], req)
+
+        then: "the guard fires for the session user before any work"
+        1 * banGuard.assertNotBanned(7L) >> { throw new com.sboxmarket.exception.ForbiddenException("Your account is banned") }
+        thrown(com.sboxmarket.exception.ForbiddenException)
+        0 * steamInventoryService.fetchInventory(_)
+        0 * listingService.createListing(_)
+    }
+
+    def "list-bulk rejects a banned caller before touching inventory or listings"() {
+        given:
+        def banGuard = Mock(com.sboxmarket.service.security.BanGuard)
+        controller.banGuard = banGuard
+
+        when:
+        controller.listBulkFromSteam([assetIds: ['1001', '2002'], price: '5'], req)
+
+        then:
+        1 * banGuard.assertNotBanned(7L) >> { throw new com.sboxmarket.exception.ForbiddenException("Your account is banned") }
+        thrown(com.sboxmarket.exception.ForbiddenException)
+        0 * steamInventoryService.fetchInventory(_)
+        0 * listingService.createListing(_)
+    }
 }

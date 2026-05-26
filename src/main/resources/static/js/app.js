@@ -3135,6 +3135,28 @@ export function App() {
   const route = useRoute();
   const routeName = route.name;
 
+  // Toast state hoisted to the top of App() — earlier in the body, effects
+  // at lines ~3986/4660+/4860 fire toasts before showToast is even declared.
+  // Pre-fix they called bare setToast({...}); setTimeout(() => setToast(null), N)
+  // each scheduling a fresh, untracked timer. With many rapid toasts the
+  // earlier timer would wipe a later one mid-life. With showToast hoisted
+  // every site funnels through one tracked timer (toastTimerRef).
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); toastTimerRef.current = null; }
+    setToast(null);
+  }, []);
+  const showToast = useCallback((text, kind = 'ok') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ text, kind });
+    const lifetime = kind === 'err' ? 9000 : kind === 'warn' ? 7000 : 4500;
+    toastTimerRef.current = setTimeout(() => { toastTimerRef.current = null; setToast(null); }, lifetime);
+  }, []);
+  // Unmount cleanup — without this a route teardown or hot-reload leaves
+  // the timer dangling and the next mount's setToast can race against it.
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
   // Set a meaningful document.title per route so browser tabs + browser
   // history actually describe the page. The NotificationBell unread
   // prefix sits on top of whatever base title we set. For item detail
@@ -3983,11 +4005,7 @@ export function App() {
       );
       if (goneIds.size === 0) return;
       setCart(c => c.filter(x => !goneIds.has(x.id)));
-      setToast({
-        text: `${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — sold before checkout`,
-        kind: 'err'
-      });
-      setTimeout(() => setToast(null), 4500);
+      showToast(`${goneIds.size} item${goneIds.size === 1 ? '' : 's'} removed — sold before checkout`, 'err');
     })();
     return () => { alive = false; };
   }, [routeName]);
@@ -4659,17 +4677,12 @@ export function App() {
         .then(r => {
           loadWallet();
           const bal = r && r.newBalance != null ? Number(r.newBalance) : null;
-          setToast({
-            text: bal != null
-              ? `Deposit complete — balance is now ${fmt(bal)}`
-              : 'Deposit complete — balance updated',
-            kind: 'ok'
-          });
-          setTimeout(() => setToast(null), 4000);
+          showToast(bal != null
+            ? `Deposit complete — balance is now ${fmt(bal)}`
+            : 'Deposit complete — balance updated', 'ok');
         })
         .catch(() => {
-          setToast({ text: 'Deposit received — balance will refresh shortly', kind: 'ok' });
-          setTimeout(() => setToast(null), 4000);
+          showToast('Deposit received — balance will refresh shortly', 'ok');
         });
       dirty = true;
     }
@@ -4678,8 +4691,7 @@ export function App() {
       // soft confirmation so they know nothing was charged and they
       // can retry. Prior behaviour silently scrubbed the URL and
       // dropped them on /, which read as "did my payment go through?"
-      setToast({ text: 'Deposit cancelled — no charge made', kind: 'warn' });
-      setTimeout(() => setToast(null), 4000);
+      showToast('Deposit cancelled — no charge made', 'warn');
       dirty = true;
     }
     if (login === 'success') {
@@ -4691,8 +4703,7 @@ export function App() {
         // hop). Functional flow (URL strip, /me load, wallet load,
         // nav avatar update) all work — the toast text is polish.
         const name = fresh?.displayName || 'Steam user';
-        setToast({ text: `Signed in as ${name}`, kind: 'ok' });
-        setTimeout(() => setToast(null), 3500);
+        showToast(`Signed in as ${name}`, 'ok');
       });
       dirty = true;
       // Return-after-login: signInWithSteam() stashed the page the
@@ -4711,8 +4722,7 @@ export function App() {
       } catch (_) { /* no sessionStorage — stay on / */ }
     }
     else if (login === 'failed') {
-      setToast({ text: 'Steam sign-in failed. Please try again.', kind: 'err' });
-      setTimeout(() => setToast(null), 4500);
+      showToast('Steam sign-in failed. Please try again.', 'err');
       dirty = true;
     }
     if (dirty) window.history.replaceState({}, '', window.location.pathname);
@@ -4859,8 +4869,7 @@ export function App() {
           // check the toggle was a dead switch.
           const saleToastsOn = localStorage.getItem('sb_notifs') !== 'false';
           if (soldCount > 0 && saleToastsOn) {
-            setToast({ text: `${soldCount} listing${soldCount === 1 ? '' : 's'} just sold`, kind: 'ok' });
-            setTimeout(() => setToast(null), 3500);
+            showToast(`${soldCount} listing${soldCount === 1 ? '' : 's'} just sold`, 'ok');
           }
           return data;
         });
@@ -5015,27 +5024,6 @@ export function App() {
   }, [routeName, route.params?.id]);
   // If the URL leaves /item/:id, clear the selection so the modal disappears.
   useEffect(() => { if (routeName !== 'item') setSelected(null); }, [routeName]);
-
-  // toast
-  const [toast, setToast] = useState(null);
-  // Single shared dismiss timer — prior code scheduled a fresh setTimeout on
-  // every showToast/inline setToast call without clearing the previous one,
-  // so toast B (fired 1s after A) would get wiped by A's stale 4.5s timer
-  // ~3.5s into its own lifetime. Refs survive re-renders so we can cancel.
-  const toastTimerRef = useRef(null);
-  const dismissToast = useCallback(() => {
-    if (toastTimerRef.current) { clearTimeout(toastTimerRef.current); toastTimerRef.current = null; }
-    setToast(null);
-  }, []);
-  const showToast = useCallback((text, kind = 'ok') => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast({ text, kind });
-    const lifetime = kind === 'err' ? 9000 : kind === 'warn' ? 7000 : 4500;
-    toastTimerRef.current = setTimeout(() => { toastTimerRef.current = null; setToast(null); }, lifetime);
-  }, []);
-  // Unmount cleanup — without this a route teardown or hot-reload leaves
-  // the timer dangling and the next mount's setToast can race against it.
-  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
 
   // V61 ship #47 — global `sb:toast` event bus. Any nested component
   // that doesn't have direct access to `setToast` can dispatch
@@ -8728,8 +8716,7 @@ export function App() {
                       // Optimistic local merge — instant UI feedback.
                       setWatchlist(w => Array.from(new Set([...w, ...movable])));
                       setCart([]);
-                      setToast({ text: `Moved ${movable.length} item${movable.length === 1 ? '' : 's'} to watchlist`, kind: 'ok' });
-                      setTimeout(() => setToast(null), 3500);
+                      showToast(`Moved ${movable.length} item${movable.length === 1 ? '' : 's'} to watchlist`, 'ok');
                       // Server persist for signed-in users via the
                       // bulk-merge endpoint — one request for N items
                       // beats N parallel POSTs, and the endpoint

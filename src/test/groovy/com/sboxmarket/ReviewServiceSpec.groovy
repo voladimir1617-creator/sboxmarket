@@ -333,6 +333,65 @@ class ReviewServiceSpec extends Specification {
         1 * reviewRepository.save(_) >> { Review r -> r.id = 100L; r }
     }
 
+    def "leaveReview collapses a concurrent double-write into the winner's row (V67 race)"() {
+        // V5__reviews originally relied on a service-layer "uniqueness is
+        // enforced here" check — a check-then-write that two concurrent
+        // POST /api/reviews calls could both pass, double-inserting a
+        // review for the same (buyer, trade) pair. V67 adds a DB-level
+        // UNIQUE (from_user_id, trade_id); the loser's INSERT now fails
+        // with DataIntegrityViolationException, which the service must
+        // turn into "return the winner's row" instead of a 500.
+        given:
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        textSanitizer.clean('great', 500) >> 'great'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        // First lookup (before save) returns null — we're the "loser" thread
+        // that thought it was creating a new row. Second lookup (after
+        // DataIntegrityViolationException) returns the winner's already-
+        // persisted row.
+        def winnerRow = new Review(id: 777L, fromUserId: 10L, toUserId: 20L,
+            tradeId: 1L, rating: 5, comment: 'great')
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >>> [null, winnerRow]
+        reviewRepository.save(_) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException(
+                "duplicate key violates uq_reviews_from_user_trade")
+        }
+
+        when:
+        def row = service.leaveReview(10L, 1L, 5, 'great')
+
+        then:
+        // The loser thread surfaces the winner's persisted row instead of
+        // bubbling a 500. No REVIEW_RECEIVED push (the winner thread
+        // already sent it on its own write).
+        noExceptionThrown()
+        row.is(winnerRow)
+        0 * notificationService.push(_, 'REVIEW_RECEIVED', _, _, _, _)
+    }
+
+    def "leaveReview re-raises a DataIntegrityViolation that isn't the dup-race we expected"() {
+        // Belt-and-braces: if save() blows up on a constraint OTHER than
+        // uq_reviews_from_user_trade (e.g. a FK violation, a future
+        // column-level CHECK), the second findByFromUserIdAndTradeId
+        // returns null and we must let the original exception escape
+        // rather than silently swallow a real bug.
+        given:
+        tradeRepository.findById(1L) >> Optional.of(verifiedTrade())
+        textSanitizer.clean('great', 500) >> 'great'
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, displayName: 'Alice'))
+        reviewRepository.findByFromUserIdAndTradeId(10L, 1L) >>> [null, null]
+        reviewRepository.save(_) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException(
+                "some other constraint")
+        }
+
+        when:
+        service.leaveReview(10L, 1L, 5, 'great')
+
+        then:
+        thrown(org.springframework.dao.DataIntegrityViolationException)
+    }
+
     def "summaryForUser returns zero count when no reviews exist"() {
         given:
         reviewRepository.aggregateForUser(20L) >> []
