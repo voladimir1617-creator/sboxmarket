@@ -1303,7 +1303,17 @@ class BidService {
         }.first()
         def winnerRowsToSave = []
         winnersLive.each { row ->
-            row.status = row.is(winnersTop) ? 'WON' : 'OUTBID'
+            // Winner's older auto-bid rows used to flip to OUTBID, but
+            // findLiveBidsForUser filters WINNING/OUTBID as the "live"
+            // set — so the winner's trailing rows haunted Profile →
+            // Active Bids on a now-SOLD listing forever. They also
+            // never surfaced under Past Bids (that query wants
+            // WON/LOST/CANCELLED). CANCELLED is the honest signal: the
+            // bidder didn't lose (they won), the older row was
+            // superseded by their own higher bid, and CANCELLED
+            // already participates in the Past Bids filter set so the
+            // history view is correct.
+            row.status = row.is(winnersTop) ? 'WON' : 'CANCELLED'
             winnerRowsToSave << row
         }
         if (!winnerRowsToSave.isEmpty()) bidRepository.saveAll(winnerRowsToSave)

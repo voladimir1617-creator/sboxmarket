@@ -539,17 +539,28 @@ class SteamSyncServiceSpec extends Specification {
     // committed size=4 → 1 push.
 
     def "two concurrent syncOne calls fire ONE notification even when save visibility is delayed past the lock (real tx isolation)"() {
-        given: 'one shared "DB snapshot" the threads read through findById; save() only flushes after the calling thread completes (simulating tx commit AFTER syncOne returns to the @Transactional proxy)'
+        given: """\
+            Reproduces the production tx-isolation race. Simulates a real
+            JPA + PlatformTransactionManager setup:
+             - `findById` snapshots from a `committed` reference, mimicking a
+               fresh JPA session reading from the DB at SELECT time.
+             - `save` stages the write into a per-thread `pending` buffer.
+             - A real `TransactionTemplate` is exercised via an injected
+               PlatformTransactionManager whose `commit()` flushes the staged
+               write to `committed`. So commit visibility happens AT THE
+               COMMIT CALL, not at the end of the synchronized block.
+            With the buggy shape (`@Transactional` on syncOne + `synchronized`
+            inside the body), Spring commits AFTER syncOne returns to the
+            proxy — i.e. AFTER the monitor is released — so a waiting second
+            thread reads pre-A state and double-pushes. With the fix
+            (TransactionTemplate INSIDE the synchronized block), commit
+            happens before lock release and the waiting thread sees A's
+            write."""
         def committed = new java.util.concurrent.atomic.AtomicReference<SteamUser>(
             new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 1))
-        // Per-thread pending save buffer; flushed to `committed` only when the
-        // calling thread releases the lock AND finishes the tx (i.e. when the
-        // outer wrapper exits — see the runner below).
         def pending = new java.util.concurrent.ConcurrentHashMap<Long, SteamUser>()
 
         steamUserRepository.findById(10L) >> {
-            // Each call snapshots from the committed reference, mimicking
-            // a fresh JPA session reading from the DB at SELECT time.
             def src = committed.get()
             def snap = new SteamUser(
                 id: src.id, steamId64: src.steamId64,
@@ -558,9 +569,6 @@ class SteamSyncServiceSpec extends Specification {
             Optional.of(snap)
         }
         steamUserRepository.save(_) >> { args ->
-            // Stage the write keyed by the calling thread — the outer runner
-            // flushes it to `committed` only AFTER syncOne returns, mirroring
-            // a tx commit happening AFTER the synchronized block releases.
             pending.put(Thread.currentThread().id, args[0] as SteamUser)
             args[0]
         }
@@ -568,32 +576,45 @@ class SteamSyncServiceSpec extends Specification {
         and: 'both threads see a 4-item inventory — same "now" snapshot for both'
         steamInventoryService.fetchInventory('111') >> [[a:1], [a:2], [a:3], [a:4]]
 
-        and: 'a runner that mimics the @Transactional proxy: open tx → call syncOne → commit AFTER syncOne returns'
-        def runOneAsTx = { SteamUser u ->
-            try {
-                service.syncOne(u)
-            } finally {
-                // Tx commit: flush this thread\'s staged save to the shared
-                // committed snapshot. This happens AFTER syncOne returned
-                // (i.e. AFTER the synchronized block was released), which is
-                // the exact window the buggy code leaves open.
+        and: """\
+            A minimal PlatformTransactionManager whose commit() flushes the
+            calling thread\'s staged save into `committed`. This is the only
+            way to model the commit-vs-lock-release ordering: the fix's
+            TransactionTemplate path actually invokes commit() inside the
+            synchronized block, so when commit flushes pending → committed,
+            a waiting thread's later findById sees the new value."""
+        def txManager = new org.springframework.transaction.PlatformTransactionManager() {
+            @Override
+            org.springframework.transaction.TransactionStatus getTransaction(
+                org.springframework.transaction.TransactionDefinition definition) {
+                new org.springframework.transaction.support.SimpleTransactionStatus()
+            }
+            @Override
+            void commit(org.springframework.transaction.TransactionStatus status) {
                 def staged = pending.remove(Thread.currentThread().id)
                 if (staged != null) committed.set(staged)
             }
+            @Override
+            void rollback(org.springframework.transaction.TransactionStatus status) {
+                pending.remove(Thread.currentThread().id)
+            }
         }
+        service.transactionManager = txManager
 
         when: 'two /api/steam/sync requests land at the same instant'
         def u1 = committed.get()
         def u2 = committed.get()
-        def t1 = Thread.start { runOneAsTx(u1) }
-        def t2 = Thread.start { runOneAsTx(u2) }
+        def t1 = Thread.start { service.syncOne(u1) }
+        def t2 = Thread.start { service.syncOne(u2) }
         t1.join(5000L)
         t2.join(5000L)
 
         then: """\
             Exactly ONE notification — the second thread must wait for the
-            FIRST thread\'s commit (not just its lock release) before reading
-            `before`, otherwise both observe before=1 and both push."""
+            first thread\'s commit (not just its lock release) before reading
+            `before`. The fix opens the tx INSIDE the synchronized block and
+            commits BEFORE releasing the monitor, so the waiting thread reads
+            the freshly committed size=4 and now > before is false."""
         1 * notificationService.push(10L, 'STEAM_INVENTORY', _, _, _, '/sell')
     }
 }
