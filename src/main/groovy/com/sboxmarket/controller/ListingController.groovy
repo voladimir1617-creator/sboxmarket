@@ -1440,7 +1440,13 @@ class ListingController {
         if (body?.hidden == null) {
             throw new com.sboxmarket.exception.BadRequestException("MISSING_FIELD", "'hidden' field is required (true or false)")
         }
-        def hidden = body.hidden as Boolean
+        // Bare `body.hidden as Boolean` is unsafe — Jackson maps
+        // `{"hidden":"false"}` to the String "false", and Groovy-truth
+        // makes EVERY non-empty string truthy, so the seller would
+        // ENTER away-mode when they meant to leave it. Mirror the
+        // SellerFollowController.parseMutedFlag pattern: accept a real
+        // Boolean OR the explicit string forms; anything else is 400.
+        def hidden = parseHiddenFlag(body.hidden)
         Long until = null
         if (body.until != null) {
             try {
@@ -1479,5 +1485,22 @@ class ListingController {
         def userId = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (userId == null) throw new UnauthorizedException()
         userId
+    }
+
+    /** Coerce a JSON `hidden` field to a real boolean. A bare
+     *  `value as Boolean` is unsafe because Jackson maps a JSON string
+     *  to `String`, and Groovy-truth makes every non-empty string
+     *  truthy — so `{"hidden":"false"}` coerces to `true`. Handle the
+     *  real `Boolean` + the string-encoded forms explicitly; anything
+     *  else is a 400. Mirrors SellerFollowController.parseMutedFlag. */
+    private static boolean parseHiddenFlag(Object raw) {
+        if (raw instanceof Boolean) return raw
+        if (raw instanceof String) {
+            def s = raw.trim().toLowerCase()
+            if (s == 'true')  return true
+            if (s == 'false') return false
+        }
+        throw new com.sboxmarket.exception.BadRequestException('INVALID_FIELD',
+            "'hidden' must be a boolean (true/false)")
     }
 }
