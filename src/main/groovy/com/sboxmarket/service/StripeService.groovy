@@ -759,6 +759,34 @@ class StripeService {
     }
 
     /**
+     * Resolve the SteamUser.id that owns a given Wallet via the
+     * `username = "steam_<steamId64>"` chain — null on any failure
+     * (non-steam wallet, missing SteamUser row, lookup error). Used
+     * by the Stripe-webhook audit + notify code paths so every
+     * money-movement audit row carries the affected user as
+     * subjectUserId — making the row visible on the user's own
+     * /security-activity feed (filters via
+     * auditLogRepository.bySubject on subjectUserId = uid).
+     *
+     * Centralised here to deduplicate the four-or-five places in
+     * this file that previously inlined the same steam_<id> → user
+     * lookup. AdminService has its own walletOwnerId helper that
+     * does an extra walletRepository round-trip; here the caller
+     * already has the Wallet in scope, so we just take it directly.
+     */
+    private Long resolveSteamOwnerId(Wallet w) {
+        if (w == null || steamUserRepository == null) return null
+        try {
+            def uname = w.username ?: ''
+            if (!uname.startsWith('steam_')) return null
+            def owner = steamUserRepository.findBySteamId64(uname.substring('steam_'.length()))
+            return owner?.id
+        } catch (Exception ignore) {
+            return null
+        }
+    }
+
+    /**
      * Reconcile a Stripe-dashboard-initiated refund (batch 498). When ops
      * clicks "Refund" in the Stripe Dashboard instead of going through our
      * /api/admin/refund endpoint, Stripe fires `refund.created` but our
@@ -837,8 +865,20 @@ class StripeService {
         )
         transactionRepository.save(refundTx)
 
+        // Resolve the wallet owner so the audit row is visible to the
+        // user's /security-activity feed (filters via
+        // auditLogRepository.bySubject on subjectUserId = uid). Pre-fix
+        // (null, null) — same shape as WITHDRAW_REQUESTED + DEPOSIT_COMPLETE
+        // + TRADE_AUTO_RELEASED, closed in commits de40340 + c13cd2c.
+        // REFUND_ISSUED is a money-out event from the user's wallet
+        // (we debit and clamp at 0) — they MUST see it on their security
+        // feed or a hostile refund (Stripe dashboard misclick, or a
+        // stolen-card refund-and-keep) would be undetectable from their
+        // side. Actor stays null because the action is Stripe-driven
+        // (no human in our app initiated it).
+        Long ownerId = resolveSteamOwnerId(wallet)
         try {
-            auditService?.log(AuditService.REFUND_ISSUED, null, null, refundTx.id,
+            auditService?.log(AuditService.REFUND_ISSUED, null, ownerId, refundTx.id,
                 "Dashboard refund \$${amount} of deposit ${depositTx.id} (stripeRef=${refundId}, wallet debit=\$${debit})")
         } catch (Exception ignored) {}
         // User-facing notification so they know money moved out of the
@@ -1002,8 +1042,26 @@ class StripeService {
             return
         }
         log.error("CHARGEBACK opened — Stripe dispute=${dispute.id} amount=\$${amount} reason=${dispute.reason} charge=${chargeId} matchedTx=${tx?.id}")
+        // Resolve the wallet owner so the audit row is visible on the
+        // user's /security-activity feed. Pre-fix (null, null) — same
+        // shape closed for sibling deposit/withdraw events in commits
+        // de40340 + c13cd2c. A chargeback is the single most important
+        // event for the user to see in their own audit feed (account
+        // compromise indicator — somebody used their stolen card to
+        // fund the wallet, now the legitimate card-holder is reversing
+        // it). Falls back to null when the tx couldn't be matched (line
+        // 1026 above — the unmatched-chargeback path still logs the
+        // alert to admins). Best-effort: a missing tx/wallet must not
+        // block the chargeback flow.
+        Long chargebackSubject = null
+        if (tx?.walletId != null) {
+            try {
+                def cbWallet = walletRepository.findById(tx.walletId).orElse(null)
+                chargebackSubject = resolveSteamOwnerId(cbWallet)
+            } catch (Exception ignore) { /* tolerant */ }
+        }
         try {
-            auditService?.log('CHARGEBACK_OPENED', null, null, tx?.id,
+            auditService?.log('CHARGEBACK_OPENED', null, chargebackSubject, tx?.id,
                 "Stripe dispute ${dispute.id} on charge ${chargeId} for \$${amount} (reason=${dispute.reason}). Admin review required.")
         } catch (Exception e) {
             log.warn("Chargeback audit-log failed: ${e.message}")
@@ -1162,8 +1220,21 @@ class StripeService {
                     log.warn("DISPUTE_CLEARED user-notify failed for tx=${tx.id}: ${e.message}")
                 }
             }
+            // Resolve the wallet owner so the user can see the auto-
+            // resolution on their /security-activity feed. Same null
+            // null fix-shape as the CHARGEBACK_OPENED edge a few lines
+            // up. The dispute-cleared event matters most when the
+            // user has been blocked from withdrawing — their feed
+            // should be the first place that signals "you're unblocked".
+            Long clearedSubject = null
+            if (tx?.walletId != null) {
+                try {
+                    def cWallet = walletRepository.findById(tx.walletId).orElse(null)
+                    clearedSubject = resolveSteamOwnerId(cWallet)
+                } catch (Exception ignore) { /* tolerant */ }
+            }
             try {
-                auditService?.log('DISPUTE_CLEARED', null, null, tx?.id,
+                auditService?.log('DISPUTE_CLEARED', null, clearedSubject, tx?.id,
                     "Stripe dispute ${dispute.id} resolved WON — hold lifted automatically")
             } catch (Exception e) { log.warn("DISPUTE_CLEARED audit failed: ${e.message}") }
             return
