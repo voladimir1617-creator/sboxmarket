@@ -262,6 +262,20 @@ class CsrService {
             .orElseThrow { new ForbiddenException("Unknown CSR") }
         def t = supportTicketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
+        // State-machine guard — mirror SupportService.reply (line 232) and
+        // CsrService.close. The user-side reply path refuses to post into a
+        // RESOLVED thread because resurrecting a closed ticket needs the
+        // explicit SupportService.reopen flow. The CSR-side reply was the
+        // lone hole: a stale CSR tab clicking "Reply" on what was already
+        // closed silently flipped the ticket back to WAITING_USER, fired a
+        // SUPPORT_REPLY bell + email at the user, and wrote a TICKET_REPLIED
+        // audit row — un-closing a ticket without going through reopen() and
+        // pinging a user about a thread they already considered done. Reject
+        // here so the close→reopen state machine is enforced from both sides.
+        if (t.status == 'RESOLVED') {
+            throw new BadRequestException("ALREADY_RESOLVED",
+                "Ticket is resolved — ask the user to reopen it from their support page before replying")
+        }
         def cleanBody = textSanitizer.body(body)
         if (!cleanBody || cleanBody.isEmpty()) {
             throw new BadRequestException("INVALID_BODY", "Reply body required")

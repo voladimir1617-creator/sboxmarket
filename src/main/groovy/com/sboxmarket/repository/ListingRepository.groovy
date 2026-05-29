@@ -2,6 +2,7 @@ package com.sboxmarket.repository
 
 import com.sboxmarket.model.Listing
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -354,6 +355,39 @@ interface ListingRepository extends JpaRepository<Listing, Long> {
           AND l.expiresAt <= :cutoff
     """)
     List<Listing> findEndingSoonUnnotified(@Param("now") Long now, @Param("cutoff") Long cutoff)
+
+    /**
+     * Atomic claim for the ending-soon nudge — flips `endingSoonNotified`
+     * from false→true ONLY if it's still false at UPDATE time. Returns the
+     * number of rows touched: 1 = this pod owns the fan-out, 0 = a sibling
+     * pod already claimed it (or the listing closed / was deleted between
+     * sweeper read and claim).
+     *
+     * Multi-pod race protection. Same shape as
+     * {@link com.sboxmarket.repository.WatchlistAlertRepository#claimForFiring}
+     * (wave 112) and {@link com.sboxmarket.repository.FraudSignalClaimRepository}
+     * (wave 120): `findEndingSoonUnnotified` is read concurrently by every pod
+     * running `BidService.sweepEndingSoon` on the same 2-minute heartbeat, and
+     * both pods would see the same `endingSoonNotified=false` row. Without an
+     * atomic claim, both pods then ran the full fan-out (bell push, email)
+     * before either pod's `notifyEndingSoon`'s `endingSoonNotified=true` save
+     * landed — so every bidder + watcher received the AUCTION_ENDING
+     * notification TWICE (and the email TWICE), making the "one reminder, not
+     * a barrage" promise on top of `notifyEndingSoon` a multi-pod lie.
+     *
+     * The fix is a conditional UPDATE: the FIRST pod's UPDATE flips false→true
+     * and returns 1, the LATE pod's UPDATE sees the row no longer matches the
+     * `=false` predicate and returns 0 — the late pod bails before any
+     * recipient lookup happens, so the fan-out fires exactly once.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Listing l
+           SET l.endingSoonNotified = true
+         WHERE l.id = :id
+           AND l.endingSoonNotified = false
+    """)
+    int claimEndingSoonNotify(@Param("id") Long id)
 
     @Query("SELECT l FROM Listing l JOIN FETCH l.item WHERE l.buyerUserId = :uid AND l.status = 'SOLD' ORDER BY l.soldAt DESC")
     List<Listing> findOwnedBy(@Param("uid") Long uid)

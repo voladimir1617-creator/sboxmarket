@@ -943,6 +943,7 @@ class BidService {
         def cutoff = now + ENDING_SOON_WINDOW_MS
         def due = listingRepository.findEndingSoonUnnotified(now, cutoff)
         if (due.isEmpty()) return
+        java.util.concurrent.atomic.AtomicInteger fired = new java.util.concurrent.atomic.AtomicInteger(0)
         for (Listing listing : due) {
             try {
                 // Per-listing REQUIRES_NEW transaction — same rationale as
@@ -952,21 +953,57 @@ class BidService {
                 // sibling auction in the batch — so every bidder would be
                 // re-pinged on the NEXT 2-minute tick. Per-row tx isolates
                 // the failure and keeps the dedup flag honest.
-                runInIsolatedTx { notifyEndingSoon(listing) }
+                runInIsolatedTx {
+                    if (notifyEndingSoon(listing)) fired.incrementAndGet()
+                }
             } catch (Exception e) {
                 log.warn("Ending-soon notify failed for listing ${listing.id}: ${e.message}")
             }
         }
-        log.info("Ending-soon fanout: notified on ${due.size()} auction${due.size() == 1 ? '' : 's'}")
+        log.info("Ending-soon fanout: scanned ${due.size()} candidate auction${due.size() == 1 ? '' : 's'}, fired ${fired.get()}")
     }
 
+    /**
+     * Notify every bidder + watcher of an auction inside the ending-soon
+     * window. Returns true iff THIS pod won the multi-pod claim race AND
+     * fired the fan-out; false if a sibling pod already claimed the
+     * listing (the claim UPDATE returned 0) or the listing has no
+     * expiresAt to nudge against.
+     *
+     * Multi-pod race protection (wave 124). Same shape as wave 112
+     * (WatchlistAlertService.claimForFiring) and wave 120
+     * (FraudAnalysisService claim-and-bail): `findEndingSoonUnnotified`
+     * is read by every pod's `sweepEndingSoon` on the same 2-minute
+     * heartbeat, and both pods see the SAME `endingSoonNotified=false`
+     * row. Without an atomic claim each pod independently runs the full
+     * fan-out (bell push + email) before either pod's
+     * `endingSoonNotified=true` save lands — so every bidder + watcher
+     * receives AUCTION_ENDING TWICE (and the email TWICE), making the
+     * "one reminder, not a barrage" promise the in-memory dedup flag
+     * was meant to guarantee a multi-pod lie.
+     *
+     * The conditional UPDATE in {@code claimEndingSoonNotify} flips
+     * false→true and returns the affected-row count: 1 = we own the
+     * fan-out, 0 = a sibling pod already claimed it and we bail before
+     * any recipient lookup or push.
+     */
     @Transactional
-    protected void notifyEndingSoon(Listing listing) {
+    protected boolean notifyEndingSoon(Listing listing) {
         // Guard a null expiresAt — the ending-soon math below subtracts
         // from it and would NPE. findEndingSoonUnnotified should only
         // return rows with a deadline, but a legacy/mis-tagged row with
         // no expiresAt would otherwise be rescanned every sweep forever.
-        if (listing == null || listing.expiresAt == null) return
+        if (listing == null || listing.expiresAt == null) return false
+        // Multi-pod claim. Bail before any recipient lookup / push if a
+        // sibling pod already won — see method-level doc above for the
+        // full rationale. Returns 0 when the listing's endingSoonNotified
+        // already flipped true (sibling pod beat us) or the listing was
+        // deleted between sweeper read and claim.
+        int claimed = listingRepository.claimEndingSoonNotify(listing.id)
+        if (claimed == 0) {
+            log.debug("Ending-soon claim lost for listing ${listing.id} — sibling pod or sweep already fired")
+            return false
+        }
         // Bidders first (they have explicit skin-in-the-game), watchers
         // second. Dedup via a Set so a user who both bid and watched is
         // only pinged once per auction.
@@ -1040,8 +1077,12 @@ class BidService {
                 }
             }
         }
-        listing.endingSoonNotified = true
-        listingRepository.save(listing)
+        // No save() needed — claimEndingSoonNotify already persisted the
+        // endingSoonNotified=true flag atomically via the UPDATE before any
+        // fan-out ran. A redundant entity save() here would dirty-flush
+        // every column on the Listing (and could collide with a concurrent
+        // placeBid extending expiresAt for the same row).
+        return true
     }
 
     @Transactional

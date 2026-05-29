@@ -214,6 +214,39 @@ class CsrServiceSpec extends Specification {
         ticket.status == 'WAITING_USER'
     }
 
+    def "reply rejects an already-RESOLVED ticket — no silent un-close via CSR reply"() {
+        // Was a real gap pre-fix: CsrService.reply had no state-machine
+        // guard, so a stale CSR tab clicking "Reply" on a closed ticket
+        // (or a hostile CSR poking the endpoint directly) would flip the
+        // ticket back to WAITING_USER, fire a SUPPORT_REPLY notification
+        // + email at the user, and write a TICKET_REPLIED audit row —
+        // un-closing the ticket without going through SupportService.reopen
+        // and pinging a user about a thread they'd already considered done.
+        // SupportService.reply (user-side, line 232) already rejects this
+        // exact case; CsrService.close (this file, ALREADY_RESOLVED test
+        // above) already rejects re-closing. CSR-side reply was the gap.
+        given:
+        def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED',
+                                       subject: 'help', updatedAt: 1000L)
+        steamUserRepository.findById(5L) >> Optional.of(new SteamUser(id: 5L, role: 'CSR', displayName: 'Clara'))
+        supportTicketRepository.findById(1L) >> Optional.of(ticket)
+
+        when:
+        service.reply(5L, 1L, 'late reply')
+
+        then:
+        def e = thrown(BadRequestException)
+        e.code == 'ALREADY_RESOLVED'
+
+        and: 'nothing is mutated — no message saved, no status flip, no notify, no email, no audit'
+        ticket.status == 'RESOLVED'
+        ticket.updatedAt == 1000L
+        0 * supportMessageRepository.save(_)
+        0 * supportTicketRepository.save(_)
+        0 * notificationService.push(*_)
+        0 * auditService.log(*_)
+    }
+
     def "reply is gated on the CSR role"() {
         given:
         steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, role: 'USER'))
