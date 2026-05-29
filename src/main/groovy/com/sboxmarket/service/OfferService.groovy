@@ -792,6 +792,44 @@ class OfferService {
             throw new ForbiddenException("Buyer's account is banned — offer can't be completed")
         }
 
+        // Seller-ban fail-early on the BUYER-ACCEPTS-COUNTER path. When a
+        // buyer accepts a SELLER-authored counter (`buyerAcceptingCounter`),
+        // the seller may have been banned between writing the counter and
+        // the buyer accepting. PurchaseService.buy only checks the BUYER's
+        // ban — letting this through debits the buyer + credits the banned
+        // seller's wallet, leaving staff to claw back the payout post-hoc.
+        // The makeOffer auto-accept path already gates on
+        // `banGuard.assertNotBanned(listing.sellerUserId)` (line 336) for
+        // the same reason; this closes the matching hole on manual buyer-
+        // accept-counter. Mirror the buyer-ban branch above: flip to
+        // EXPIRED, close any COUNTERED parent, notify the buyer, throw.
+        // Only fires on the buyer-accept-counter path — when the seller
+        // is the one calling acceptOffer, this method is unreachable for
+        // a banned seller anyway (the controller's banGuard filter rejects
+        // the request before we get here). The `noRollbackFor =
+        // [..., ForbiddenException]` above pins the EXPIRED save so the
+        // buyer's outgoing queue actually drains.
+        if (buyerAcceptingCounter
+                && offer.sellerUserId != null
+                && banGuard.isBanned(offer.sellerUserId)) {
+            offer.status = 'EXPIRED'
+            offer.updatedAt = System.currentTimeMillis()
+            offerRepository.save(offer)
+            closeCounteredParent(offer)
+            if (notificationService != null) {
+                try {
+                    notificationService.push(offer.buyerUserId, 'OFFER_REJECTED',
+                        "Counter couldn't close · ${offer.itemName ?: 'listing'}",
+                        "You accepted the seller's \$${offer.amount.toPlainString()} counter, but the seller's account is currently restricted. The offer was closed — no funds were moved.",
+                        offer.id,
+                        '/offers')
+                } catch (Exception e) {
+                    log.warn("Offer-seller-banned push failed for buyer ${offer.buyerUserId}: ${e.message}")
+                }
+            }
+            throw new ForbiddenException("Seller's account is banned — counter can't be completed")
+        }
+
         // Temporarily lower the listing price to the offer price so the existing
         // PurchaseService can run unchanged. This is internal — listing transitions
         // to SOLD immediately after.
