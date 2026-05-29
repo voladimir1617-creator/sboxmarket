@@ -16,6 +16,20 @@ class NotificationController {
 
     @Autowired NotificationService notificationService
 
+    /**
+     * Controller-side input cap for `/read-batch` and `/delete-batch`.
+     * Matches the service-side cap in NotificationService.markReadByIds
+     * / deleteReadByIds — we trim the raw collection BEFORE parsing
+     * each token into a Long so a hostile client posting a 2MB JSON
+     * array (~250k numeric ids — under BodySizeLimitFilter's 2MB cap)
+     * can't make us do 500x more Long.valueOf parses + a
+     * findAll/unique double-pass over the entire 250k list inside the
+     * service before its own `.take(500)` finally lands. We only ever
+     * use the first 500 ids regardless, so dropping the rest at the
+     * door is the cheapest correct thing to do.
+     */
+    static final int MAX_BATCH_IDS = 500
+
     private Long requireUser(HttpServletRequest req) {
         def uid = req.session.getAttribute(SteamAuthController.SESSION_USER_ID) as Long
         if (uid == null) throw new UnauthorizedException()
@@ -84,8 +98,11 @@ class NotificationController {
         if (!(raw instanceof Collection)) {
             return ResponseEntity.ok([flipped: 0])
         }
+        // Cap the raw collection BEFORE parsing — see MAX_BATCH_IDS docs.
+        // Using take() on a List slice / Iterable doesn't copy the tail;
+        // the dropped suffix is never touched by Long.valueOf at all.
         def ids = []
-        raw.each {
+        raw.take(MAX_BATCH_IDS).each {
             try { if (it != null) ids << Long.valueOf(it.toString()) }
             catch (NumberFormatException ignored) { /* drop bad token */ }
         }
@@ -113,8 +130,9 @@ class NotificationController {
         if (!(raw instanceof Collection)) {
             return ResponseEntity.ok([deleted: 0])
         }
+        // Same controller-side cap as read-batch — see MAX_BATCH_IDS.
         def ids = []
-        raw.each {
+        raw.take(MAX_BATCH_IDS).each {
             try { if (it != null) ids << Long.valueOf(it.toString()) }
             catch (NumberFormatException ignored) { /* drop bad token */ }
         }
