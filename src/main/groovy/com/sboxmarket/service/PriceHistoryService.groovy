@@ -169,6 +169,25 @@ class PriceHistoryService {
             // Evict every entry older than the window — bounded scan that
             // a) keeps memory in check, b) avoids the LRU-min scan tax
             // that ItemController's viewBumpCache takes per insert.
+            //
+            // Atomic conditional remove (mirrors the ItemController
+            // viewBumpCache fix in batch 1219). Pre-fix this was
+            // `recentWrites.entrySet().removeAll { it.value < cutoff }`,
+            // which delegates to the iterator's UNCONDITIONAL single-arg
+            // `map.remove(key)`. Under concurrent load, a different
+            // writer thread could refresh `key`'s stamp to `now` via
+            // `compute()` BETWEEN the predicate's stale-snapshot read
+            // and the iterator's remove() — wiping the just-refreshed
+            // claim. The very next record() for that same
+            // (item|day|price|bump) then saw `prev == null` in compute,
+            // claimed again, and fired a SECOND deferred write — and
+            // because the writer accumulates volume on the same-day row
+            // (`latest.volume = (latest.volume ?: 0) + bump`), the
+            // duplicate event's bump was added twice. Two-arg remove(K,V)
+            // only deletes when the snapshot value still matches, so a
+            // refresh that beats us causes a clean skip. Snapshot the
+            // entry set first (CHM weakly-consistent iterator is fine
+            // for the snapshot; the deletion itself is the atomic part).
             long cutoff = now - IDEMPOTENCY_WINDOW_MS
             recentWrites.entrySet().removeAll { it.value < cutoff }
         }
