@@ -81,7 +81,8 @@ class WatchlistAlertServiceSpec extends Specification {
             createdAt: 1L)
         itemRepository.findById(7L) >> Optional.of(itemFor())
         repo.findActiveFor(42L, 7L) >> Optional.of(existing)
-        repo.save(_) >> { args -> args[0] }
+        // Wave 113: re-arm goes through the conditional UPDATE, not save().
+        repo.updateActiveTarget(9L, _, _) >> 1
 
         when:
         def updated = service.upsertAlert(42L, 7L, new BigDecimal('7.00'))
@@ -426,7 +427,8 @@ class WatchlistAlertServiceSpec extends Specification {
             targetPrice: new BigDecimal('9.00'), status: 'ACTIVE', createdAt: 1L)
         itemRepository.findById(7L) >> Optional.of(itemFor())
         repo.findActiveFor(42L, 7L) >> Optional.of(existing)
-        repo.save(_) >> { args -> args[0] }
+        // Wave 113: re-arm goes through the conditional UPDATE, not save().
+        repo.updateActiveTarget(9L, _, _) >> 1
 
         when:
         def updated = service.upsertAlert(42L, 7L, new BigDecimal('7.005'))

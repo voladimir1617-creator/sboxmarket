@@ -191,6 +191,40 @@ interface WatchlistAlertRepository extends JpaRepository<WatchlistAlert, Long> {
     """)
     int claimForFiring(@Param("id") Long id, @Param("now") Long now)
 
+    /** Race-safe re-arm of an existing ACTIVE alert (wave 113).
+     *
+     *  Sister race to {@link #claimForFiring}: `upsertAlert` reads the
+     *  row via `findActiveFor` and then calls `repo.save(a)` to update
+     *  `targetPrice` + `createdAt`. JPA's save() writes EVERY mapped
+     *  column, including `status` — whatever value the in-memory entity
+     *  carries (loaded as 'ACTIVE'). If the scheduled sweep's
+     *  `claimForFiring` lands BETWEEN the `findActiveFor` and the save,
+     *  the DB row has flipped to FIRED — and the unconditional
+     *  `repo.save(a)` then UPDATEs `status` back to 'ACTIVE', silently
+     *  reverting the FIRED claim. The user already got the
+     *  WATCHLIST_PRICE_DROP push (sweep had committed it), but the row
+     *  is now ACTIVE again, so the NEXT sweep tick re-fires the same
+     *  alert and the user gets a duplicate "Price drop" notification +
+     *  email.
+     *
+     *  Conditional UPDATE filtering on `status = 'ACTIVE'` makes the
+     *  re-arm a no-op when the row has already FIRED / CANCELLED.
+     *  Affected-rows == 0 tells the service to fall through to the
+     *  create-new path (so the user's intent — "I want an active alert
+     *  at $X" — still lands as a brand-new ACTIVE row) without
+     *  resurrecting the spent one. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("""
+        UPDATE WatchlistAlert a
+           SET a.targetPrice = :target,
+               a.createdAt = :now
+         WHERE a.id = :id
+           AND a.status = 'ACTIVE'
+    """)
+    int updateActiveTarget(@Param("id") Long id,
+                           @Param("target") BigDecimal target,
+                           @Param("now") Long now)
+
     /** Full wipe of a user's alert rows — used by GDPR account
      *  finalization so the sweeper stops scanning orphaned alerts
      *  forever after an account is deleted. Returns the count wiped. */

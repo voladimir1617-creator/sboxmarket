@@ -130,12 +130,41 @@ class WatchlistAlertService {
         def item = itemRepository.findById(itemId)
             .orElseThrow { new NotFoundException('Item', itemId) }
 
+        // Wave 113 race-claim: the re-arm path is a CONDITIONAL UPDATE
+        // (status='ACTIVE' filter) rather than `repo.save(a)`. The
+        // previous shape loaded the row via `findActiveFor`, mutated
+        // `targetPrice` + `createdAt` on the in-memory entity, and
+        // called `repo.save(a)` — which JPA-MERGEs every mapped column
+        // including `status`. If the scheduled sweep's `claimForFiring`
+        // landed BETWEEN the `findActiveFor` and the save, the DB row
+        // had already flipped to FIRED, and the unconditional save
+        // UPDATE'd `status` back to 'ACTIVE' (because that's what the
+        // in-memory entity carried — it had been loaded before the
+        // claim). End result: the user already got one
+        // WATCHLIST_PRICE_DROP push (the sweep's claim had committed,
+        // notification + email had fired), and now the row is ACTIVE
+        // again so the NEXT sweep tick re-fires the same alert and
+        // sprays a duplicate notification + email. The
+        // `updateActiveTarget` UPDATE filters on `status = 'ACTIVE'`:
+        // affected-rows == 1 → re-arm landed cleanly; affected-rows == 0
+        // → the row has FIRED / CANCELLED out from under us, fall
+        // through to the create-new path so the user's intent ("active
+        // alert at $X") still lands as a brand-new ACTIVE row without
+        // resurrecting the spent one.
         def existing = repo.findActiveFor(userId, itemId)
         if (existing.isPresent()) {
             def a = existing.get()
-            a.targetPrice = scaledTarget
-            a.createdAt   = System.currentTimeMillis()
-            return repo.save(a)
+            long now = System.currentTimeMillis()
+            int updated = repo.updateActiveTarget(a.id, scaledTarget, now)
+            if (updated > 0) {
+                a.targetPrice = scaledTarget
+                a.createdAt   = now
+                return a
+            }
+            // Conditional UPDATE missed — the row has flipped to FIRED
+            // or CANCELLED since `findActiveFor` ran. Fall through to
+            // the create-new path so the user's intent still lands
+            // without reverting the terminal-state row.
         }
         // Quota check — only applies when creating a brand new alert, so
         // updating an existing one never hits the cap.
