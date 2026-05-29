@@ -122,27 +122,29 @@ class WebConfig implements WebMvcConfigurer {
         // CRITICAL: each '/dir/**' handler MUST point at 'classpath:/static/dir/'.
         // Spring strips the handler's literal prefix ('/css/') and resolves only
         // the '**' remainder ('design.css') against the location — so a SHARED
-        // 'classpath:/static/' location resolves '/css/design.css' to
-        // static/design.css (wrong dir) and 404s. That was the f6f7548
-        // regression: one /static/ location across /css,/js,/img,/fonts 404'd
-        // EVERY asset, leaving the SPA stuck on its skeleton. The shell itself
-        // still 200'd via the '/**' handler below, so a `curl /` smoke-test
-        // (200 OK) masked a fully-broken site. Per-directory locations keep the
-        // 7-day immutable-asset cache AND resolve correctly.
-        int week = 60 * 60 * 24 * 7
-        registry.addResourceHandler('/css/**').addResourceLocations('classpath:/static/css/').setCachePeriod(week)
-        registry.addResourceHandler('/js/**').addResourceLocations('classpath:/static/js/').setCachePeriod(week)
-        registry.addResourceHandler('/img/**').addResourceLocations('classpath:/static/img/').setCachePeriod(week)
-        registry.addResourceHandler('/fonts/**').addResourceLocations('classpath:/static/fonts/').setCachePeriod(week)
-        // Everything else — SPA shell, HTML pages, and the static-root files
-        // (favicon.ico, manifest.json, robots.txt, opensearch.xml) — NO browser
-        // cache. Every deploy rewrites index.html with new bundle references; a
-        // cached shell would load stale JS/CSS and 404 until a hard refresh.
-        // setCachePeriod(0) sends `Cache-Control: no-store`. The root files
-        // resolve correctly here because '/**' keeps their full path.
+        // 'classpath:/static/' location resolved '/css/design.css' to
+        // static/design.css (wrong dir) and 404'd EVERY css/js/img (the f6f7548
+        // regression; the SPA shell still 200'd via '/**', so `curl /` missed it).
+        //
+        // We deliberately DO NOT setCachePeriod here. CorrelationIdFilter is the
+        // single source of truth for static-asset Cache-Control — `no-cache,
+        // must-revalidate` for the non-content-hashed JS/CSS bundles (so a deploy
+        // is picked up on the next request via a cheap 304) and `public,
+        // max-age=14400` for images (PublicEndpointsHttpSpec pins both). The
+        // filter stamps its header BEFORE the handler runs, so a setCachePeriod()
+        // here would overwrite it with a bare `max-age` and ship stale bundles
+        // after every deploy — exactly what f6f7548 would have done once its
+        // 404s were fixed.
+        registry.addResourceHandler('/css/**').addResourceLocations('classpath:/static/css/')
+        registry.addResourceHandler('/js/**').addResourceLocations('classpath:/static/js/')
+        registry.addResourceHandler('/img/**').addResourceLocations('classpath:/static/img/')
+        registry.addResourceHandler('/fonts/**').addResourceLocations('classpath:/static/fonts/')
+        // Everything else — the static-root files (favicon.ico, manifest.json,
+        // robots.txt, opensearch.xml) and legal/*.html. The SPA routes (/, /market,
+        // /item/:id, …) are served by OpenGraphController (SEO shell), not here.
+        // Cache-Control is owned by the filter, so no setCachePeriod here either.
         registry.addResourceHandler('/**')
                 .addResourceLocations('classpath:/static/')
-                .setCachePeriod(0)
     }
 
     @Override
