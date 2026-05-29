@@ -4756,9 +4756,17 @@ export function App() {
     // not the hero. Forward to /market with the same query string so
     // their intent actually fires. Skip when already on /market to
     // avoid a navigate loop.
+    //
+    // 2026-05-28 — MUST replace, not push. Otherwise browser-back from
+    // /market?q=blue lands on /?q=blue, which fires this effect again,
+    // which navigates forward to /market?q=blue, and so on — the user
+    // is trapped on /market and can never back past the redirect entry
+    // to whatever came before (e.g. the prior site they were on, or an
+    // earlier in-app page). replace=true means /?q=blue never gets a
+    // history slot of its own; back skips straight past it.
     if (routeName === 'home'
         && (params.has('q') || params.has('search') || params.has('query'))) {
-      navigate('/market' + (window.location.search || ''));
+      navigate('/market' + (window.location.search || ''), true);
       return;
     }
     const urlSort = params.get('sort');

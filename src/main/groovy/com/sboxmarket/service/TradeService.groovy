@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 
 /**
@@ -1128,14 +1130,34 @@ class TradeService {
         // BidService.settleAuction applied when this trade first opened.
         // Without this, a buy → dispute/cancel loop inflates Item.totalSold
         // forever and pollutes the Database page's "Most Traded" sort.
-        // Same null-guard + GREATEST-clamp shape as incrementTotalSold;
-        // wrapped so a counter-update failure can't roll back the
-        // refundBuyer + return-to-seller that already ran.
+        // Same null-guard + GREATEST-clamp shape as incrementTotalSold.
+        //
+        // Wave 113 — deferred to afterCommit via deferOrRun. The previous
+        // try/catch wrapper swallowed the throw LOCALLY, but
+        // ItemRepository.decrementTotalSold is `@Modifying @Query` — Spring's
+        // transactional proxy ran the UPDATE inside the SHARED cancel /
+        // auto-cancel tx, so any failure (constraint, dialect quirk, lock-
+        // wait timeout) marked the tx rollback-only on the way out. The
+        // outer try/catch then absorbed the exception and the caller
+        // "succeeded", but the cancel's commit blew up with
+        // UnexpectedRollbackException — refundBuyer's wallet credit, the
+        // returnListingToSeller listing flip, the CANCELLED transition,
+        // and the buyer's TRADE_CANCELLED notification were ALL rolled
+        // back while the API returned 200. Pinned by
+        // SideEffectTransactionIsolationIntegrationSpec /
+        // "a failing totalSold decrement does NOT roll back the parent
+        // trade cancel". The counter bump is cosmetic ("Most Traded"
+        // sort) and can safely run post-commit; the refund correctness
+        // is now isolated from any catalogue-side hiccup.
         if (itemRepository != null && listing.item?.id != null) {
-            try {
-                itemRepository.decrementTotalSold(listing.item.id)
-            } catch (Exception e) {
-                log.warn("totalSold decrement failed for item ${listing.item.id} (trade ${t.id}): ${e.message}")
+            final Long _itemIdForDecrement = listing.item.id
+            final Long _tradeIdForLog = t.id
+            deferOrRun {
+                try {
+                    itemRepository.decrementTotalSold(_itemIdForDecrement)
+                } catch (Exception e) {
+                    log.warn("totalSold decrement failed for item ${_itemIdForDecrement} (trade ${_tradeIdForLog}): ${e.message}")
+                }
             }
         }
     }
@@ -1193,6 +1215,58 @@ class TradeService {
         def tt = new TransactionTemplate(transactionManager)
         tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
         tt.executeWithoutResult { work() }
+    }
+
+    /**
+     * Run {@code work} after the caller's transaction commits — or
+     * immediately when there is no active transaction (unit-test path,
+     * or a non-transactional caller). Mirrors the helper of the same
+     * name in NotificationService / AuditService / PriceHistoryService.
+     *
+     * Used for best-effort writes that LIVE INSIDE a @Transactional
+     * trade method (cancel / autoCancelStaleSellerTrade /
+     * autoCancelBannedSellerTrade) but must NEVER fail the parent.
+     * `returnListingToSeller`'s `itemRepository.decrementTotalSold` is
+     * the canonical case: the call mutates the catalogue counter for
+     * the "Most Traded" sort — cosmetic, never load-bearing for the
+     * cancel's correctness. The pre-fix try/catch swallowed the throw
+     * locally, but Spring's @Modifying @Query proxy had already marked
+     * the SHARED trade tx rollback-only on the way out — the cancel's
+     * commit then exploded with UnexpectedRollbackException and the
+     * refundBuyer wallet credit + listing return + CANCELLED transition
+     * were ALL rolled back while the buyer's HTTP response said 200.
+     * Catastrophic for a money-path call: the buyer "received" their
+     * refund (per the API), then never actually got it.
+     *
+     * Deferring to afterCommit means the deferred UPDATE runs AFTER
+     * the parent has durably committed: a failing counter bump can no
+     * longer poison the parent, and the parent's row locks are
+     * already released so the new tx extends no lock-hold window.
+     * Runs in a fresh REQUIRES_NEW transaction (load-bearing — inside
+     * afterCommit the original tx is committed with "no commit
+     * following", so a plain REQUIRED save would join a spent tx and
+     * never persist).
+     */
+    private void deferOrRun(Closure work) {
+        if (transactionManager != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override void afterCommit() {
+                    try {
+                        def tt = new TransactionTemplate(transactionManager)
+                        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+                        tt.executeWithoutResult { work() }
+                    } catch (Exception e) {
+                        log.warn("Deferred best-effort write failed: ${e.message}")
+                    }
+                }
+            })
+        } else {
+            try {
+                work()
+            } catch (Exception e) {
+                log.warn("Best-effort write failed (no active tx): ${e.message}")
+            }
+        }
     }
 
 
