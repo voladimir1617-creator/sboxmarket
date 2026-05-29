@@ -3,6 +3,7 @@ package com.sboxmarket.repository
 import com.sboxmarket.model.Offer
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -150,6 +151,59 @@ interface OfferRepository extends JpaRepository<Offer, Long> {
     List<Offer> findPendingDueForNudge(@Param("halfLifeCutoff") Long halfLifeCutoff,
                                         @Param("fullLifeCutoff") Long fullLifeCutoff,
                                         Pageable pageable)
+
+    /**
+     * Atomic claim for the stale-offer auto-decline sweep (wave 128).
+     * Flips `status` from PENDING→EXPIRED and stamps `updatedAt` ONLY if
+     * the offer is still PENDING at UPDATE time. Returns the affected-row
+     * count: 1 = this pod owns the fan-out (OFFER_REJECTED bell push +
+     * closeCounteredParent cascade), 0 = sibling pod already claimed it
+     * OR the seller/buyer flipped status (accept/reject/cancel) between
+     * sweeper read and claim — in either case the losing path bails
+     * before any notify call runs.
+     *
+     * Multi-pod race protection. Same shape as waves 124, 125, 126, 127.
+     * Without an atomic claim each pod independently fires
+     * OFFER_REJECTED bell push before either pod's save() lands — the
+     * buyer sees their offer auto-decline notification TWICE for one
+     * timeout, AND `closeCounteredParent` cascade re-runs (also safe,
+     * but wasted work). Worse: a seller / buyer late-acting on the
+     * offer between sweeper read and unconditional save would have been
+     * STOMPED — accept/reject lost, offer status flipped EXPIRED, both
+     * parties left in inconsistent state.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Offer o
+           SET o.status    = 'EXPIRED',
+               o.updatedAt = :now
+         WHERE o.id     = :id
+           AND o.status = 'PENDING'
+    """)
+    int claimAutoExpire(@Param('id') Long id, @Param('now') Long now)
+
+    /**
+     * Atomic claim for the half-life nudge sweep (wave 128). Stamps
+     * `sellerNudgedAt` ONLY if it's still NULL. Returns the affected-row
+     * count: 1 = this pod owns the OFFER_RECEIVED nudge fan-out, 0 =
+     * sibling pod already nudged OR the offer transitioned out of
+     * PENDING between sweeper read and claim.
+     *
+     * Without the atomic claim, multi-pod deploys re-fire the OFFER_RECEIVED
+     * nudge once per pod-per-row — defeating the per-offer "one nudge
+     * total" promise the `sellerNudgedAt` column was added to make. The
+     * `sellerNudgedAt IS NULL` predicate in the UPDATE makes the second
+     * pod's claim a no-op (the first pod already stamped it non-null).
+     */
+    @Modifying
+    @Query("""
+        UPDATE Offer o
+           SET o.sellerNudgedAt = :now
+         WHERE o.id              = :id
+           AND o.status          = 'PENDING'
+           AND o.sellerNudgedAt IS NULL
+    """)
+    int claimNudge(@Param('id') Long id, @Param('now') Long now)
 
     /** Root buyer offers the given seller has resolved (accepted,
      *  rejected, or countered). The delta `updatedAt - createdAt` is

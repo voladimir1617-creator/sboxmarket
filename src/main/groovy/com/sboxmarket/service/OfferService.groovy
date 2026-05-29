@@ -1480,8 +1480,27 @@ class OfferService {
                 log.warn("Stale-offer listing name lookup failed: ${e.message}")
             }
         }
+        int fired = 0
         stale.each { offer ->
             try {
+                // Multi-pod claim (wave 128). Same shape as waves 124-127.
+                // Without an atomic claim each pod independently fires
+                // OFFER_REJECTED before either pod's save() lands — buyer
+                // sees the "your offer auto-declined" push TWICE for one
+                // timeout. Worse: a seller/buyer late-acting on the offer
+                // between sweeper read and unconditional save (status
+                // PENDING → ACCEPTED / REJECTED / CANCELLED) would have
+                // been STOMPED back to EXPIRED, silently overriding their
+                // action. The conditional UPDATE flips PENDING→EXPIRED
+                // only WHERE status is still PENDING and returns 1 on
+                // win, 0 on sibling-pod-already-claimed or
+                // status-changed-out-of-band.
+                int claimed = offerRepository.claimAutoExpire(offer.id, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("Offer auto-expire claim lost for ${offer.id} — sibling pod or status change")
+                    return
+                }
+                fired++
                 // EXPIRED (not CANCELLED) because the sweeper closing a
                 // stale offer is a seller-side failure to respond. The
                 // response-rate query from batch 97 puts EXPIRED rows in
@@ -1490,9 +1509,13 @@ class OfferService {
                 // Labeling the sweeper output CANCELLED inflated every
                 // seller's response-rate stat — their no-responses were
                 // invisible to the denominator.
-                offer.status = 'EXPIRED'
-                offer.updatedAt = System.currentTimeMillis()
-                offerRepository.save(offer)
+                //
+                // No entity-save here — claimAutoExpire already persisted
+                // status=EXPIRED and updatedAt atomically. A redundant
+                // offerRepository.save(offer) would dirty-flush every
+                // column and could collide with a concurrent buyer/
+                // seller action on the same row.
+                //
                 // P1 bug fix — if the swept row is a SELLER counter, its
                 // parent is stuck in COUNTERED. Close it in the same pass
                 // so the buyer isn't permanently blocked by the dup-guard
@@ -1512,7 +1535,7 @@ class OfferService {
                 log.warn("offer auto-decline failed for id=${offer.id}: ${e.message}")
             }
         }
-        log.info("Auto-declined ${stale.size()} stale offers (> ${autoDeclineDays} days idle)")
+        log.info("Auto-declined ${fired} of ${stale.size()} candidate stale offers (rest claimed by sibling pods or status-changed)")
     }
 
     /**
@@ -1566,14 +1589,30 @@ class OfferService {
                 // would otherwise propagate up to .each and abort every
                 // remaining row in the batch.
                 try {
-                    offer.sellerNudgedAt = now
-                    offerRepository.save(offer)
+                    // System-listing claim — stamp sellerNudgedAt only if
+                    // still NULL, so the next 3h tick doesn't re-evaluate
+                    // this row. Multi-pod safe even though no notification
+                    // fires here.
+                    offerRepository.claimNudge(offer.id, now)
                 } catch (Exception e) {
                     log.warn("Offer system-listing nudge stamp failed for id=${offer.id}: ${e.message}")
                 }
                 return
             }
             try {
+                // Multi-pod claim (wave 128). Without an atomic claim each
+                // pod independently fires OFFER_RECEIVED then save() —
+                // seller receives the "your offer is expiring in N hours"
+                // nudge TWICE for ONE offer, defeating the per-offer
+                // "one nudge total" promise the sellerNudgedAt column was
+                // added to make. The conditional UPDATE stamps the column
+                // only WHERE sellerNudgedAt IS NULL and returns 1 to the
+                // winning pod / 0 to the losing pod.
+                int claimed = offerRepository.claimNudge(offer.id, now)
+                if (claimed == 0) {
+                    log.debug("Offer nudge claim lost for ${offer.id} — sibling pod or status change")
+                    return
+                }
                 def itemName = listingsById[offer.listingId]?.item?.name ?: 'an item'
                 def itemId = listingsById[offer.listingId]?.item?.id
                 long msLeft = (offer.updatedAt + fullLifeMs) - now
@@ -1600,13 +1639,16 @@ class OfferService {
                     offer.listingId,
                     itemId != null ? "/item/${itemId}" : '/offers'
                 )
-                offer.sellerNudgedAt = now
-                offerRepository.save(offer)
+                // No entity-save needed — claimNudge already stamped
+                // sellerNudgedAt atomically via the conditional UPDATE
+                // above. A redundant offerRepository.save(offer) here
+                // would dirty-flush every column and could collide with
+                // a concurrent buyer/seller action.
                 nudged++
             } catch (Exception e) {
                 log.warn("Offer half-life nudge failed for id=${offer.id}: ${e.message}")
             }
         }
-        log.info("Half-life nudge swept ${due.size()} offers; ${nudged} sellers pinged (auto-decline window=${autoDeclineDays}d)")
+        log.info("Half-life nudge swept ${due.size()} candidates; ${nudged} sellers pinged (rest claimed by sibling pods or status-changed; auto-decline window=${autoDeclineDays}d)")
     }
 }
