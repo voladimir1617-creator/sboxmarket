@@ -467,8 +467,17 @@ class LoadoutService {
      *
      * Private loadouts cannot be favorited by non-owners — same
      * enumeration defense as getWithSlots.
+     *
+     * noRollbackFor — same rollback-only leak class as waves 136-138
+     * sibling fixes (UserBlock, SellerFollow, Watchlist, Review). The
+     * catch(DIVE) recovery for the rapid double-tap UNIQUE-constraint
+     * race below runs but the @Transactional proxy has already marked
+     * the shared outer tx rollback-only on the JPA RuntimeException —
+     * the recovery's count probe + return commit nothing, and the
+     * controller's 200 is followed by UnexpectedRollbackException at
+     * commit time.
      */
-    @Transactional
+    @Transactional(noRollbackFor = [DataIntegrityViolationException])
     Map toggleFavorite(Long viewerUserId, Long loadoutId) {
         if (viewerUserId == null) throw new UnauthorizedException()
         // Banned users must not be able to bump the public `favorites`

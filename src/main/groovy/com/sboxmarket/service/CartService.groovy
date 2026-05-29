@@ -39,7 +39,18 @@ class CartService {
      *  the buy-path's OWN_LISTING check remains the backstop. */
     @Autowired(required = false) ListingRepository listingRepository
 
-    @Transactional
+    // noRollbackFor — same rollback-only leak class as waves 136
+    // (UserBlockService.block), 137 (SellerFollowService.follow), 138
+    // (ReviewService + WatchlistService). The catch(DIVE) recovery path
+    // for the rapid double-tap UNIQUE-constraint race below runs but
+    // Spring's DIVE translator already marked the SHARED outer tx
+    // rollback-only BEFORE the catch fires. The recovery's "treat as
+    // benign no-op" return commits nothing — the controller sees a 200
+    // but at commit time the worker thread's tx throws
+    // UnexpectedRollbackException. noRollbackFor on the exact exception
+    // class the catch handles tells Spring "this is the expected dup,
+    // leave the tx alive". Identical fix to wave 136-138 siblings.
+    @Transactional(noRollbackFor = [org.springframework.dao.DataIntegrityViolationException])
     boolean add(Long userId, Long listingId) {
         if (userId == null || listingId == null) return false
         if (repository.existsByUserAndListing(userId, listingId)) return false
