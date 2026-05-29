@@ -733,7 +733,16 @@ class ListingService {
             if (newPrice < new BigDecimal('0.01')) newPrice = new BigDecimal('0.01')
             if (newPrice > new BigDecimal('100000')) newPrice = new BigDecimal('100000')
             if (newPrice == l.price) { skipped++; return }
-            if (newPrice < l.price) {
+            // Suppress PRICE_DROPPED bells for HIDDEN rows: PurchaseService.buy
+            // rejects every hidden listing with ListingNotAvailableException,
+            // so pinging cart-holders to "check out before it sells" points
+            // at a row they cannot buy — a misleading bell + dead-end click.
+            // The bulk path amplifies this dramatically vs. the single-edit
+            // path because a seller bulk-adjusting from away mode is the
+            // common case: every active listing is hidden, every fan-out
+            // is wasted. Drop them from the priceDrops capture so the
+            // downstream fan-out skips them entirely.
+            if (newPrice < l.price && !Boolean.TRUE.equals(l.hidden)) {
                 priceDrops << [listingId: l.id, itemId: l.item?.id,
                                itemName: l.item?.name, oldPrice: l.price, newPrice: newPrice]
             }

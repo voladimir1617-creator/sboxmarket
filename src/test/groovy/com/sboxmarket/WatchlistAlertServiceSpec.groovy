@@ -17,15 +17,7 @@ import spock.lang.Subject
  */
 class WatchlistAlertServiceSpec extends Specification {
 
-    WatchlistAlertRepository repo                = Mock() {
-        // Wave 112: fireRow now claims ACTIVE → FIRED via a conditional
-        // UPDATE that returns the affected-row count. Default-stub it
-        // to "1 row claimed" so every legacy sweep/sweepForItem spec
-        // (which doesn't care about multi-pod contention) sees the
-        // win-the-claim path. The dedicated race-condition specs
-        // override this stub to assert the "lost the claim" branch.
-        claimForFiring(_, _) >> 1
-    }
+    WatchlistAlertRepository repo                = Mock()
     ItemRepository           itemRepository      = Mock()
     NotificationService      notificationService = Mock()
     com.sboxmarket.service.EmailService emailService = Mock() {
@@ -54,6 +46,14 @@ class WatchlistAlertServiceSpec extends Specification {
     private Item itemFor(long id = 7L) {
         new Item(id: id, name: 'Wizard Hat', lowestPrice: new BigDecimal('10.00'))
     }
+
+    /** Wave 112 baseline: fireRow's atomic ACTIVE → FIRED claim returns
+     *  the affected-row count. Per-test stub (rather than a setup()
+     *  default) because Spock 2.x picks the FIRST declared matching
+     *  stub when multiple stubs cover the same call, so a setup()
+     *  default would beat the per-test override the race specs need
+     *  for the "lost the claim" branch. Each legacy sweep/sweepForItem
+     *  test that exercises fireRow stubs the win path explicitly. */
 
     // ── upsertAlert ─────────────────────────────────────────────
 
