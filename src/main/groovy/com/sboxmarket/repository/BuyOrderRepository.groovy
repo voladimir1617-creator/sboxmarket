@@ -4,6 +4,7 @@ import com.sboxmarket.model.BuyOrder
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -172,6 +173,39 @@ interface BuyOrderRepository extends JpaRepository<BuyOrder, Long> {
     """)
     List<BuyOrder> findStaleActive(@Param('cutoff') Long cutoff,
                                     org.springframework.data.domain.Pageable page)
+
+    /**
+     * Atomic claim for the stale-buy-order auto-expire sweep (wave 125).
+     * Flips `status` from ACTIVE→EXPIRED ONLY if it's still ACTIVE at
+     * UPDATE time. Returns the number of rows touched: 1 = this pod owns
+     * the fan-out (email + bell push), 0 = a sibling pod already
+     * claimed it (or a concurrent buyer cancelled, fill happened, etc.)
+     * and we bail before any notify path runs.
+     *
+     * Multi-pod race protection. Same shape as wave 112
+     * (WatchlistAlertRepository.claimForFiring), wave 120
+     * (FraudAnalysisService cluster claim), and wave 124
+     * (ListingRepository.claimEndingSoonNotify): `findStaleActive` is
+     * read concurrently by every pod's daily sweeper on the same
+     * 24h heartbeat, and both pods would see the SAME `status=ACTIVE`
+     * row. Without an atomic claim each pod independently fires
+     * BUY_ORDER_EXPIRED email + bell push before either pod's
+     * `save()` lands — buyer receives the auto-expire reminder TWICE
+     * (email + push), making the "we waited 30 days, here's one polite
+     * reminder" the sweeper was meant to provide a multi-pod lie.
+     *
+     * Also persists `updatedAt` so the row sorts correctly under any
+     * future sweep that filters on `updatedAt <= :cutoff` again.
+     */
+    @Modifying
+    @Query("""
+        UPDATE BuyOrder b
+           SET b.status    = 'EXPIRED',
+               b.updatedAt = :now
+         WHERE b.id     = :id
+           AND b.status = 'ACTIVE'
+    """)
+    int claimExpire(@Param('id') Long id, @Param('now') Long now)
 
     /** Top-N active buy orders for a specific item (batch 639). Drives
      *  the CSFloat-style "Buy Orders" table on the item detail modal:

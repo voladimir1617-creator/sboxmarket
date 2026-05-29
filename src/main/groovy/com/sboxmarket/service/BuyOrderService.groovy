@@ -766,12 +766,29 @@ class BuyOrderService {
         def cutoff = System.currentTimeMillis() - IDLE_EXPIRE_MS
         def stale = buyOrderRepository.findStaleActive(cutoff)
         if (stale.isEmpty()) return
-        log.info("Buy-order auto-expire sweep: ${stale.size()} idle order(s) past ${IDLE_EXPIRE_MS / 86_400_000L}d")
+        log.info("Buy-order auto-expire sweep: ${stale.size()} candidate idle order(s) past ${IDLE_EXPIRE_MS / 86_400_000L}d")
+        int fired = 0
         stale.each { order ->
             try {
-                order.status = 'EXPIRED'
-                order.updatedAt = System.currentTimeMillis()
-                buyOrderRepository.save(order)
+                // Multi-pod claim (wave 125). Same shape as wave 112
+                // (WatchlistAlertService.claimForFiring), wave 120
+                // (FraudAnalysisService cluster claim), and wave 124
+                // (BidService.sweepEndingSoon). Without an atomic claim
+                // both pods running the daily sweeper would see the same
+                // ACTIVE rows, both flip status=EXPIRED, AND both fire
+                // BUY_ORDER_EXPIRED email + bell push — buyer received
+                // the auto-expire reminder TWICE. The conditional UPDATE
+                // flips ACTIVE→EXPIRED only if status is still ACTIVE at
+                // UPDATE time and returns 1 to the winning pod / 0 to the
+                // losing pod (or 0 if a concurrent buyer cancel / fill
+                // landed between sweeper read and claim). Losing pod
+                // bails before any notify or email runs.
+                int claimed = buyOrderRepository.claimExpire(order.id, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("Buy-order expire claim lost for ${order.id} — sibling pod or status change")
+                    return
+                }
+                fired++
                 // Mirror the bell to email (batch 596). A user idle for
                 // 30 days almost certainly hasn't checked the bell; the
                 // email is how they actually hear about the expire.
@@ -800,5 +817,6 @@ class BuyOrderService {
                 log.warn("Buy-order expire sweep failed on ${order.id}: ${e.message}")
             }
         }
+        log.info("Buy-order auto-expire sweep: fired ${fired} of ${stale.size()} candidates (rest claimed by sibling pods or status-changed)")
     }
 }
