@@ -32,6 +32,23 @@ interface BidRepository extends JpaRepository<Bid, Long> {
     @Query("SELECT b FROM Bid b WHERE b.bidderUserId = :uid AND b.kind = 'AUTO' AND b.status = 'WINNING' ORDER BY b.createdAt DESC")
     List<Bid> findActiveAutoBidsForUser(@Param("uid") Long uid)
 
+    /**
+     * Listing-scoped participant probe used by BidService.historyFor to
+     * decide between the participant (real identities, scrubbed max caps)
+     * and non-participant (handle-aliased) views.
+     *
+     * The redaction gate used to lean on `all.any { it.bidderUserId == uid }`
+     * over the HISTORY_PAGE_SIZE-capped page. A hot auction with > 200 bids
+     * pushes the lowest-amount rows off the page, so a legitimate bidder
+     * whose only bids were outbid and now sit below the page cutoff would
+     * be misclassified as a third party — their OWN identity gets scrubbed
+     * to "Bidder #N" in their own bid log and their own auto-cap
+     * disappears, even though they are entitled to see both. Probing the
+     * DB directly is O(1) and unaffected by the page cap.
+     */
+    @Query("SELECT COUNT(b) FROM Bid b WHERE b.listingId = :id AND b.bidderUserId = :uid")
+    long countByListingAndBidder(@Param("id") Long listingId, @Param("uid") Long uid)
+
     /** Count-only companion for the /profile hero strip. Avoids
      *  hydrating every Bid row just to call .size() on the list. */
     @Query("SELECT COUNT(b) FROM Bid b WHERE b.bidderUserId = :uid AND b.kind = 'AUTO' AND b.status = 'WINNING'")

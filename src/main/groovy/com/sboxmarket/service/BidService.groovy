@@ -591,7 +591,19 @@ class BidService {
 
         def listing = listingRepository.findById(listingId).orElse(null)
         def isSeller = listing != null && listing.sellerUserId != null && listing.sellerUserId == viewerUserId
-        def isBidder = viewerUserId != null && all.any { it.bidderUserId == viewerUserId }
+        // Probe `all` first — the page returned to the caller almost always
+        // contains every active bidder of interest, so we save a roundtrip
+        // on the typical path. The DB count fallback only fires when the
+        // viewer's bid isn't on the returned page, which means a hot
+        // auction with > HISTORY_PAGE_SIZE bids has pushed their lowest-
+        // amount rows off the cap. Without the fallback those legitimate
+        // bidders fall through to the third-party branch and have their
+        // own identities aliased to "Bidder #N" — and lose visibility of
+        // their own auto-cap — in their own bid log.
+        def isBidder = viewerUserId != null && (
+            all.any { it.bidderUserId == viewerUserId } ||
+            bidRepository.countByListingAndBidder(listingId, viewerUserId) > 0L
+        )
         if (isSeller || isBidder) {
             // Strategic-secret leak fix: a participant (the seller, or any
             // bidder in this auction) was previously handed the raw entity

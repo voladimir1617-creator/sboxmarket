@@ -32,6 +32,23 @@ class WalletController {
     @Autowired StripeService stripeService
     @Autowired com.sboxmarket.service.TotpService totpService
     @Autowired com.sboxmarket.service.TextSanitizer textSanitizer
+    // BanGuard wasn't wired here — every other state-changing surface in
+    // the app (SteamInventoryController.listFromSteam, SupportController's
+    // fraud-report endpoint, every BidService / BuyOrderService / OfferService
+    // write op) already calls `assertNotBanned` first. Per AdminService's
+    // header contract ("every state-changing endpoint in the app MUST call
+    // assertNotBanned(userId) first"), the wallet money paths were the last
+    // hole: `banUser` flips `user.banned=true` and cancels listings + offers,
+    // but it does NOT freeze the wallet (`wallet.frozen` stays false). So a
+    // banned user could still drain their wallet via /withdraw before staff
+    // applied a separate freeze — exactly the surface the bump in
+    // sessionEpoch was meant to close (banned cookies invalidated on next
+    // /api/* hit), except /api/wallet/* writes weren't enforcing the ban.
+    // Required=false so existing test wiring that constructs the controller
+    // with the six collaborators above still compiles; the `?.` short-circuit
+    // in each call site makes the guard a no-op when the bean isn't injected,
+    // mirroring the SteamInventoryController posture.
+    @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
 
     /** Rolling 24-hour withdrawal cap. Sum of PENDING + COMPLETED
      *  withdrawals in any 24h window — protects against compromised
@@ -356,6 +373,13 @@ class WalletController {
         // the demo id.
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to deposit")
+        // Ban guard — banned users can still log in (to read the ban
+        // reason + open an appeal ticket) but must not be able to push
+        // fresh money through Stripe. The deposit path was the matching
+        // hole to /withdraw below; without it a banned user could keep
+        // funding their wallet for chargeback farming or just to clutter
+        // the ledger. Throws ForbiddenException → 403.
+        banGuard?.assertNotBanned(user.id)
         def wallet = currentWallet(req)
         if (wallet == null) throw new UnauthorizedException("Sign in to deposit")
         // Wallet freeze gate (batch 509). Refuses money-in on a staff-
@@ -377,6 +401,15 @@ class WalletController {
     ResponseEntity<Map> withdraw(@Valid @RequestBody WithdrawRequest body, HttpServletRequest req) {
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to withdraw")
+        // Ban guard — the load-bearing one. banUser() does NOT freeze the
+        // wallet (`wallet.frozen` stays false), so without this gate a
+        // banned user can drain their wallet via /withdraw before staff
+        // separately freezes them. Runs BEFORE every other gate so a
+        // banned user never trips email/TOTP/cap math (and never burns
+        // their TOTP code on a doomed request — same posture batch 832's
+        // dispute-hold short-circuit established). Throws ForbiddenException
+        // → 403, distinct from the 401 a logged-out caller gets.
+        banGuard?.assertNotBanned(user.id)
         def wallet = currentWallet(req)
         if (wallet == null) throw new UnauthorizedException("Sign in to withdraw")
 
@@ -546,6 +579,13 @@ class WalletController {
     ResponseEntity<Map> cancelWithdraw(@PathVariable Long id, HttpServletRequest req) {
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to cancel a withdrawal")
+        // Ban guard — cancel is a state change (flips tx PENDING→CANCELLED
+        // and credits the wallet). Banned users must hit a 403 here even
+        // though the operation is "user-favourable" (refunding to their own
+        // wallet) — leaving cancel open while /withdraw is gated would let
+        // a banned user replay withdraw/cancel pairs to e.g. poke at
+        // race-loss codepaths or just churn the audit log.
+        banGuard?.assertNotBanned(user.id)
         def wallet = currentWallet(req)
         if (wallet == null) throw new UnauthorizedException("Sign in to cancel a withdrawal")
         try {
@@ -593,6 +633,13 @@ class WalletController {
         // Require a real logged-in user before touching Stripe.
         def user = currentUser(req)
         if (user == null) throw new UnauthorizedException("Sign in to confirm a deposit")
+        // Ban guard — mirrors /deposit. If a user was banned AFTER
+        // creating the Checkout session but BEFORE the synchronous
+        // confirm-deposit fires, we don't want their browser to drive
+        // the credit through. The webhook will still complete the
+        // deposit (it has no caller context) — the money belongs to
+        // the user — but the synchronous user-driven path must reject.
+        banGuard?.assertNotBanned(user.id)
         // Upstream length cap on the session id. Stripe Checkout Session
         // ids are <=66 chars in practice (e.g. cs_test_a1B2…); rejecting
         // pathological lengths here keeps a hostile client from forcing
