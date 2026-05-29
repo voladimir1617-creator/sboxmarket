@@ -47,7 +47,19 @@ class SellerFollowService {
      *  bell/email ping for that one listing. */
     private static final int FANOUT_MAX = 500
 
-    @Transactional
+    // noRollbackFor — same rollback-only leak as wave 136 closed for
+    // UserBlockService.block. The catch (DataIntegrityViolationException)
+    // recovery path below runs INSIDE the @Transactional, but Spring's
+    // DIVE handler marks the shared outer tx rollback-only BEFORE the
+    // catch fires. The recovery's findByFollower lookup commits nothing
+    // — the next request in the same worker thread reads inconsistent
+    // state, and at commit time the outer "successful" response is
+    // followed by an UnexpectedRollbackException. noRollbackFor on the
+    // exact exception class the catch handles tells Spring "this is a
+    // benign duplicate, leave the tx alive". Identical fix shape to
+    // wave 136 UserBlockService and the sibling SavedSearchService /
+    // WatchlistService noRollbackFor postures.
+    @Transactional(noRollbackFor = [DataIntegrityViolationException])
     SellerFollow follow(Long followerUserId, Long sellerUserId) {
         if (followerUserId == sellerUserId) {
             throw new BadRequestException('SELF_FOLLOW', "You can't follow yourself")
