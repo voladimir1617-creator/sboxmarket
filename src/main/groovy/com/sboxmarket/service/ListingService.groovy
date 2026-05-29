@@ -35,6 +35,10 @@ class ListingService {
     @Autowired(required = false) com.sboxmarket.repository.CartItemRepository cartItemRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) PlatformTransactionManager transactionManager
+    // Optional so existing unit specs that wire ListingService field-by-field
+    // (e.g. ListingServiceBulkAdjustGuardSpec) stay green without a stub.
+    // Production wiring + the new ban spec inject a real BanGuard instance.
+    @Autowired(required = false) com.sboxmarket.service.security.BanGuard banGuard
 
     /**
      * Run {@code work} after the caller's transaction commits — or
@@ -700,6 +704,17 @@ class ListingService {
      *  can recompute displayed prices. */
     @Transactional
     Map bulkAdjustPrices(Long sellerUserId, BigDecimal percent) {
+        // Ban gate — ListingController autowires no BanGuard and the
+        // PUT /my-stall/bulk-adjust handler hands the request straight to
+        // this service, so a banned seller was previously free to mass-
+        // discount every active row AND fan PRICE_DROPPED bells out to
+        // every cart-holder in the process. SellService.relist /
+        // .cancelAllActive (the sibling stall mutators) already gate
+        // themselves at the service layer with `banGuard.assertNotBanned`
+        // for exactly this reason — bulkAdjustPrices is the last seller-
+        // mutation path on this service that wasn't symmetric. Null-safe
+        // for unit specs that don't wire BanGuard.
+        banGuard?.assertNotBanned(sellerUserId)
         // Defence-in-depth — the HTTP controller (ListingController#bulkAdjustStall)
         // already validates these, but bulkAdjustPrices is a public service
         // method, so scheduled jobs / admin scripts / future callers shouldn't

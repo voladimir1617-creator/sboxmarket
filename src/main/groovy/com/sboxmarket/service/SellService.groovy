@@ -376,8 +376,34 @@ class SellService {
         // once the listing is removed from the marketplace.
         def openTrade = tradeRepository.findByListingId(listingId)
         if (openTrade != null && openTrade.state != 'VERIFIED' && openTrade.state != 'CANCELLED') {
+            // REQUIRES_NEW sub-tx via runInIsolatedTx. tradeService.cancel is
+            // @Transactional(REQUIRED) so without the wrapper it JOINS this
+            // method's outer cancelListing tx. A failing save inside cancel
+            // (versioned-Listing optimistic lock from a concurrent dispute,
+            // wallet refund hiccup, transitionTo race) marks the SHARED tx
+            // rollback-only BEFORE the throw reaches the catch below. The
+            // catch swallows the throw and cancelListing continues to the
+            // listing.status = 'SOLD' flip at the bottom — but at commit
+            // time Spring throws UnexpectedRollbackException and EVERY
+            // write in cancelListing (offer cancellations, bid cancellations,
+            // listing flip, cart fanouts) silently rolls back while the
+            // caller's HTTP response says 200. Buyer-money path catastrophe:
+            // the trade is stuck in mid-cancel state, the listing stays
+            // ACTIVE, and the cart-holders / bidders we just "notified"
+            // still see live state on a listing the seller thinks they
+            // cancelled. Same bug class as wave 60 (ebc1b45) on
+            // TradeProtectionService and the relist tryMatch deferral.
+            //
+            // runInIsolatedTx spins a REQUIRES_NEW sub-tx so the inner
+            // cancel commits or rolls back on its own — the outer cancel-
+            // Listing tx is never poisoned. The fallback path (no tx
+            // manager wired) runs inline so existing Spock unit specs
+            // that build SellService via the property-map constructor
+            // continue to exercise the trade-cancel branch.
             try {
-                tradeService.cancel(sellerUserId, openTrade.id, "Seller cancelled listing")
+                runInIsolatedTx {
+                    tradeService.cancel(sellerUserId, openTrade.id, "Seller cancelled listing")
+                }
             } catch (Exception e) {
                 log.warn("Failed to auto-cancel trade {} on listing cancel: {}", openTrade.id, e.message)
             }

@@ -1378,10 +1378,23 @@ class TradeService {
         }
         candidates.each { trade ->
             try {
-                // Flip the marker even for banned buyers so we don't
-                // keep re-scanning them every 24h.
-                trade.reviewNudgeSentAt = System.currentTimeMillis()
-                tradeRepository.save(trade)
+                // Multi-pod claim (wave 129). Without it both pods fire
+                // REVIEW_REMINDER + save() before either save lands — the
+                // 48h "leave a review" nudge fires TWICE per trade,
+                // defeating the per-trade "one nudge total" guarantee.
+                // The conditional UPDATE stamps reviewNudgeSentAt only
+                // WHERE it's still NULL and returns 1 to the winning
+                // pod / 0 to the losing pod (also 0 if a buyer reviewed
+                // out-of-band between sweeper read and claim — the
+                // findReviewNudgeCandidates filter would have excluded
+                // them next tick, but the claim closes the in-flight
+                // window). Stamps even for banned buyers so the sweep
+                // doesn't re-scan them every 24h.
+                int claimed = tradeRepository.claimReviewNudge(trade.id, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("Review-nudge claim lost for trade ${trade.id} — sibling pod or status change")
+                    return
+                }
                 if (bannedBuyers.contains(trade.buyerUserId)) return
                 notificationService?.push(trade.buyerUserId, 'REVIEW_REMINDER',
                     "How was your trade with ${trade.itemName ?: 'the seller'}?",
@@ -1429,8 +1442,19 @@ class TradeService {
         }
         candidates.each { trade ->
             try {
-                trade.slowSellerWarnedAt = System.currentTimeMillis()
-                tradeRepository.save(trade)
+                // Multi-pod claim (wave 129). Without it both pods stamp
+                // slowSellerWarnedAt + fire TRADE_SLOW_SELLER (buyer) +
+                // TRADE_SELLER_NUDGE (seller) — buyer AND seller both
+                // receive the heads-up TWICE for one trade, defeating the
+                // per-trade "one warning total" promise the partial index
+                // dedup was meant to provide. The conditional UPDATE
+                // stamps slowSellerWarnedAt only WHERE it's still NULL
+                // and returns 1 to the winning pod / 0 to the losing pod.
+                int claimed = tradeRepository.claimSlowSellerWarning(trade.id, System.currentTimeMillis())
+                if (claimed == 0) {
+                    log.debug("Slow-seller-warning claim lost for trade ${trade.id} — sibling pod or status change")
+                    return
+                }
                 def hoursIdle = Math.max(24L, (long) ((System.currentTimeMillis() - (trade.updatedAt ?: 0L)) / 3_600_000L))
                 if (!bannedBuyers.contains(trade.buyerUserId)) {
                     notificationService?.push(trade.buyerUserId, 'TRADE_SLOW_SELLER',

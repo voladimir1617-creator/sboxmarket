@@ -2,6 +2,7 @@ package com.sboxmarket.repository
 
 import com.sboxmarket.model.Trade
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -258,6 +259,47 @@ interface TradeRepository extends JpaRepository<Trade, Long> {
     """)
     List<Trade> findReviewNudgeCandidates(@Param("cutoff") Long cutoff,
                                            org.springframework.data.domain.Pageable pageable)
+
+    /**
+     * Atomic claim for the 48h-after-verification review-nudge sweep
+     * (wave 129). Stamps `reviewNudgeSentAt` ONLY if it's still NULL.
+     * Returns 1 to the winning pod / 0 to the losing pod (sibling pod
+     * already nudged, or trade went elsewhere out-of-band).
+     *
+     * Multi-pod race protection. Same shape as waves 124-128. Without
+     * an atomic claim each pod independently fires the REVIEW_REMINDER
+     * push before either pod's `save()` lands — the 48h "leave a review"
+     * nudge fires TWICE per trade, defeating the per-trade "one nudge
+     * total" guarantee the reviewNudgeSentAt column was added to make.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Trade t
+           SET t.reviewNudgeSentAt = :now
+         WHERE t.id                 = :id
+           AND t.reviewNudgeSentAt IS NULL
+    """)
+    int claimReviewNudge(@Param('id') Long id, @Param('now') Long now)
+
+    /**
+     * Atomic claim for the slow-seller warning sweep (wave 129). Stamps
+     * `slowSellerWarnedAt` ONLY if it's still NULL. Returns 1 to the
+     * winning pod / 0 to the losing pod.
+     *
+     * Without the atomic claim, the multi-pod deploy fires both
+     * TRADE_SLOW_SELLER (to the buyer) AND TRADE_SELLER_NUDGE (to the
+     * seller) once per pod-per-row — defeating the per-trade "one
+     * warning total" promise the slowSellerWarnedAt column was added to
+     * make. Buyer and seller both receive the heads-up TWICE.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Trade t
+           SET t.slowSellerWarnedAt = :now
+         WHERE t.id                  = :id
+           AND t.slowSellerWarnedAt IS NULL
+    """)
+    int claimSlowSellerWarning(@Param('id') Long id, @Param('now') Long now)
 
     /**
      * Trades a buyer has settled but never reviewed — drives the Profile
