@@ -54,6 +54,21 @@ class FraudAnalysisService {
     @Autowired AuditLogRepository auditLogRepository
     @Autowired(required = false) NotificationService notificationService
     @Autowired(required = false) com.sboxmarket.repository.SteamUserRepository steamUserRepository
+    /** Cluster-wide dedup ledger — wave-112-style multi-pod race claim
+     *  for the fraud-signal sweeper. Optional so existing unit tests
+     *  that build the service with `new FraudAnalysisService(...)` and
+     *  no Spring context continue to work; in that case the per-JVM
+     *  {@link #seenSignatures} set is the only gate (single-process
+     *  behaviour, identical to the pre-fix posture). When wired (every
+     *  prod boot wires it), it becomes the authoritative cross-pod
+     *  gate and the in-memory set is a fast-path cache.
+     *
+     *  Without this, every pod's @Scheduled tick independently re-fans
+     *  the same HIGH fraud signal because each pod's in-memory
+     *  `seenSignatures` is blind to the other pods'. Two pods = 2×
+     *  duplicate "⚠ Fraud signal" bells per admin per HIGH signal,
+     *  N pods = N×. */
+    @Autowired(required = false) com.sboxmarket.repository.FraudSignalClaimRepository fraudSignalClaimRepository
 
     /** Signatures of HIGH-severity signals we've already pushed to the
      *  admin bell (batch 507). Without this, the 30-min sweeper would
@@ -66,7 +81,12 @@ class FraudAnalysisService {
      *  on the same user doesn't look like three distinct alerts, but
      *  jumping from 8 → 16 (bucket shift) legitimately re-fires because
      *  the attack meaningfully escalated. Capped LinkedHashSet with
-     *  FIFO eviction keeps the memory bounded. */
+     *  FIFO eviction keeps the memory bounded.
+     *
+     *  Single-pod scope (per-JVM). The wave-112-style cross-pod gate is
+     *  {@link #fraudSignalClaimRepository} above; this set just
+     *  short-circuits the DB round-trip on signatures this pod has
+     *  already handled itself this lifetime. */
     private static final int SEEN_SIG_CAP = 1000
     private final java.util.LinkedHashSet<String> seenSignatures = new java.util.LinkedHashSet<>()
 
@@ -356,6 +376,40 @@ class FraudAnalysisService {
                 synchronized (seenSignatures) {
                     if (seenSignatures.contains(signature)) return
                 }
+                // Wave-112-style cross-pod claim. The per-JVM
+                // `seenSignatures` set above is blind to sibling pods,
+                // so without this gate every pod's @Scheduled tick
+                // independently fans out the same HIGH fraud signal —
+                // every admin receives 2× / 3× / N× duplicate "⚠ Fraud
+                // signal" bells. The conditional INSERT (backed by a
+                // UNIQUE constraint on `signature`) is the
+                // authoritative gate: whichever pod's INSERT lands
+                // first persists the row; the loser surfaces a
+                // DataIntegrityViolationException and bails BEFORE any
+                // notificationService.push fans out. Same shape as
+                // WatchlistAlertRepository.claimForFiring.
+                //
+                // Mirrors the seenSignatures sequencing: we check
+                // existence here as a fast path (skip if some pod has
+                // already claimed it) but the AUTHORITATIVE write
+                // happens AFTER at least one push succeeds, so a fully
+                // failed admin fan-out leaves the signature uncommitted
+                // and the next tick legitimately retries — same
+                // retry-on-failure invariant the FraudAnalysisServiceSpec
+                // "sweeper retries the signature next pass when every
+                // admin push failed" regression pins.
+                if (fraudSignalClaimRepository != null) {
+                    try {
+                        if (fraudSignalClaimRepository.existsBySignature(signature)) return
+                    } catch (Exception e) {
+                        // Lookup failed (DB blip) — fail open: fall through
+                        // and rely on the per-JVM cache + UNIQUE index to
+                        // catch a true duplicate at INSERT time. Better
+                        // to occasionally over-notify on a transient DB
+                        // hiccup than to silently swallow a HIGH bell.
+                        log.warn("Fraud sweeper claim lookup failed for ${signature}: ${e.message}")
+                    }
+                }
                 def summary = (sig.summary ?: sig.type ?: 'fraud signal').toString().take(240)
                 def refId = (sig.userId instanceof Number) ? (sig.userId as Long) : null
                 boolean anyPushed = false
@@ -379,6 +433,30 @@ class FraudAnalysisService {
                         }
                         seenSignatures.add(signature)
                     }
+                    // Persist the cluster-wide claim AFTER at least one
+                    // push has landed, mirroring the in-memory commit
+                    // ordering. A UNIQUE-constraint violation here means
+                    // a sibling pod beat us to the post-push stamp
+                    // between our existence check and this INSERT — that
+                    // pod already counts as "owner" of the signature, so
+                    // we swallow the violation and move on. Any other
+                    // DB error is logged but non-fatal (the bells
+                    // already went out — losing the dedup row only
+                    // means the next tick might re-fire the same
+                    // signal). Mirrors the watchlist sweeper's "save
+                    // failures don't block fan-out" posture.
+                    if (fraudSignalClaimRepository != null) {
+                        try {
+                            fraudSignalClaimRepository.save(
+                                new com.sboxmarket.model.FraudSignalClaim(
+                                    signature: signature,
+                                    claimedAt: System.currentTimeMillis()))
+                        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                            log.debug("Fraud sweeper signature claimed by sibling pod between check and insert: ${signature}")
+                        } catch (Exception e) {
+                            log.warn("Fraud sweeper claim insert failed for ${signature}: ${e.message}")
+                        }
+                    }
                     pushed++
                 }
             } catch (Exception e) {
@@ -387,6 +465,30 @@ class FraudAnalysisService {
         }
         if (pushed > 0) {
             log.info("Fraud sweeper pushed ${pushed} HIGH signal(s) to ${admins.size()} admin(s)")
+        }
+    }
+
+    /** Daily retention sweep for {@link FraudSignalClaim} rows. The
+     *  signature window is 24h (signals only fire on audit rows inside
+     *  the {@link #WINDOW_24H_MS} window, so a claim older than that
+     *  can never re-trip the same signature anyway). Pruning at 48h
+     *  gives a generous safety margin without letting the table grow
+     *  unbounded across years of uptime.
+     *
+     *  Runs at a 15-minute offset so it doesn't collide with the
+     *  fraud-signal sweeper itself (10-minute initialDelay) or the
+     *  notification retention sweep (30-minute offset). */
+    @Scheduled(fixedDelay = 24L * 60L * 60L * 1000L,
+               initialDelay = 15L * 60L * 1000L)
+    @Transactional
+    void sweepOldFraudSignalClaims() {
+        if (fraudSignalClaimRepository == null) return
+        try {
+            def cutoff = System.currentTimeMillis() - (2L * WINDOW_24H_MS)
+            int n = fraudSignalClaimRepository.deleteOlderThan(cutoff)
+            if (n > 0) log.info("Fraud signal claim retention sweep: deleted ${n} row(s) older than 48h")
+        } catch (Exception e) {
+            log.warn("Fraud signal claim retention sweep failed: ${e.message}")
         }
     }
 
