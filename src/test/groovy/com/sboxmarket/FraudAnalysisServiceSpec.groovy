@@ -1166,4 +1166,231 @@ class FraudAnalysisServiceSpec extends Specification {
         // 2^30 = 1_073_741_824 > 1_000_000_000 > 2^29 = 536_870_912
         b == 1_073_741_824L
     }
+
+    // ── multi-pod race claim (wave 112 parity for fraud sweeper) ──────
+    //
+    // Production hazard: `@Scheduled(fixedDelay)` only serialises ticks
+    // WITHIN one JVM. On a two-pod cluster both schedulers fire roughly
+    // together, both call `computeSignals()`, both find the same HIGH
+    // signal list. Pre-fix the dedup set (`seenSignatures`) was a
+    // per-JVM LinkedHashSet — pod A's set was blind to pod B's, so each
+    // pod independently fanned out a "⚠ Fraud signal" bell to every
+    // admin. Two pods = 2× duplicate bells per HIGH signal per admin,
+    // N pods = N×. The exact failure mode wave 112 closed for the
+    // watchlist sweeper via WatchlistAlertRepository.claimForFiring.
+    //
+    // Fix shape: a cluster-wide ledger table (`fraud_signal_claims`)
+    // with a UNIQUE(signature) constraint. The sweeper checks the
+    // ledger before fanning out; whichever pod's INSERT lands first
+    // wins, the loser bails BEFORE invoking notificationService.push.
+    //
+    // The ledger repo (`FraudSignalClaimRepository`) is autowired
+    // optional so unit tests that don't stub it still exercise the
+    // per-JVM dedup path. These specs explicitly inject a Mock to pin
+    // the wave-112 contract.
+    //
+    // Three asserts:
+    //   1) when the ledger already has the signature (sibling pod won),
+    //      the sweep does NOT push any admin bell,
+    //   2) on a fresh signature, the sweep pushes AND stamps the ledger
+    //      (so subsequent pods see the claim on their existsBy check),
+    //   3) the ledger INSERT happens AFTER at least one push lands —
+    //      a fully-failed admin fan-out must NOT stamp the ledger, so
+    //      the next tick legitimately retries (mirrors the in-memory
+    //      "retry after total fan-out failure" regression at line 725).
+
+    def "sweeper skips fan-out when the cluster ledger already has the signature (wave-112 multi-pod gate)"() {
+        given: 'a HIGH signal whose signature was already claimed by a sibling pod'
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            notificationService:          notificationService,
+            steamUserRepository:          steamUserRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+        def t = now()
+        // 6 distinct IPs → MULTIPLE_IPS_PER_USER HIGH severity.
+        auditLogRepository.since(_) >> (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        // Sibling pod claimed the signature first.
+        fraudSignalClaimRepository.existsBySignature(_) >> true
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then: 'no admin bell goes out — losing the cluster race must skip fan-out'
+        0 * notificationService.push(*_)
+        and: 'and we do NOT INSERT a duplicate claim row either (sibling already owns it)'
+        0 * fraudSignalClaimRepository.save(_)
+    }
+
+    def "sweeper pushes and stamps the cluster ledger on a fresh signature (winning pod path)"() {
+        given: 'a HIGH signal that no pod has claimed yet'
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            notificationService:          notificationService,
+            steamUserRepository:          steamUserRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+        def t = now()
+        auditLogRepository.since(_) >> (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        fraudSignalClaimRepository.existsBySignature(_) >> false
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then: 'the admin gets exactly one bell'
+        1 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _) >> new Notification(id: 1L)
+        and: 'and the cluster ledger gets one stamped claim so sibling pods skip on their next tick'
+        1 * fraudSignalClaimRepository.save({ com.sboxmarket.model.FraudSignalClaim c ->
+            c.signature != null && c.signature.startsWith('MULTIPLE_IPS_PER_USER|1|') && c.claimedAt > 0L
+        })
+    }
+
+    def "sweeper does NOT stamp the cluster ledger when every admin push fails (retry-on-failure invariant)"() {
+        // Regression: the cluster ledger MUST follow the same
+        // commit-after-push ordering as the in-memory seenSignatures.
+        // If we stamped pre-push and every push then threw, the next
+        // tick would see the ledger row and skip the retry — admins
+        // would never get the bell even though zero landed first pass.
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            notificationService:          notificationService,
+            steamUserRepository:          steamUserRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+        def t = now()
+        auditLogRepository.since(_) >> (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        fraudSignalClaimRepository.existsBySignature(_) >> false
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then: 'the only admin push throws — zero bells delivered this tick'
+        1 * notificationService.push(11L, _, _, _, _, _) >> { throw new RuntimeException('bell down') }
+        and: 'the ledger MUST stay un-stamped so the next tick can retry the alert'
+        0 * fraudSignalClaimRepository.save(_)
+        and: 'and the sweeper does not propagate the failure'
+        notThrown(Exception)
+    }
+
+    def "sweeper tolerates an existsBySignature exception by falling through to fan-out"() {
+        // Defensive: a transient DB blip on the existence check must not
+        // wedge the sweeper. Better to occasionally over-notify than to
+        // silently swallow a HIGH bell because the dedup ledger is down.
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            notificationService:          notificationService,
+            steamUserRepository:          steamUserRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+        def t = now()
+        auditLogRepository.since(_) >> (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        fraudSignalClaimRepository.existsBySignature(_) >> { throw new RuntimeException('db down') }
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then: 'the admin still gets the bell — fail open, never silently drop a HIGH'
+        1 * notificationService.push(11L, 'FRAUD_SIGNAL_HIGH', _, _, _, _) >> new Notification(id: 1L)
+        notThrown(Exception)
+    }
+
+    def "sweeper swallows a UNIQUE-violation on save (sibling pod beat us between check and insert)"() {
+        // The TOCTOU window between existsBySignature and save can let a
+        // sibling pod's claim slip in. The unique constraint is the true
+        // gate; the violation just means the sibling pod is the legitimate
+        // owner — we already pushed our bells, swallow the error and
+        // move on. Must NOT propagate up and crash the sweeper.
+        given:
+        def notificationService = Mock(NotificationService)
+        def steamUserRepository = Mock(SteamUserRepository)
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            notificationService:          notificationService,
+            steamUserRepository:          steamUserRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+        def t = now()
+        auditLogRepository.since(_) >> (1..6).collect { i -> row(actor: 1L, ip: "10.0.0.${i}", ts: t) }
+        steamUserRepository.findByRole('ADMIN') >> [new SteamUser(id: 11L, role: 'ADMIN')]
+        fraudSignalClaimRepository.existsBySignature(_) >> false
+
+        when:
+        svc.sweepAndPushFraudSignals()
+
+        then:
+        1 * notificationService.push(11L, _, _, _, _, _) >> new Notification(id: 1L)
+        1 * fraudSignalClaimRepository.save(_) >> {
+            throw new org.springframework.dao.DataIntegrityViolationException('duplicate key value violates unique constraint "idx_fraud_signal_claims_signature"')
+        }
+        notThrown(Exception)
+    }
+
+    def "retention sweep deletes claim rows older than 48h"() {
+        given: 'the ledger has aging rows the daily sweep should prune'
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+
+        when:
+        svc.sweepOldFraudSignalClaims()
+
+        then: 'we delete rows older than 48h (2× the 24h fraud window for safety)'
+        1 * fraudSignalClaimRepository.deleteOlderThan({ Long cutoff ->
+            long now = System.currentTimeMillis()
+            // 2 × 24h window = 48h. Allow ±2s slack for test scheduling jitter.
+            long expected = now - (2L * 24L * 60L * 60L * 1000L)
+            Math.abs(cutoff - expected) < 2000L
+        }) >> 7
+        notThrown(Exception)
+    }
+
+    def "retention sweep is a no-op when the ledger repo is not wired (unit-test path)"() {
+        given:
+        // Build the service with no ledger repo to match the
+        // single-process / unit-test bootstrap.
+        def svc = new FraudAnalysisService(auditLogRepository: auditLogRepository)
+
+        when:
+        svc.sweepOldFraudSignalClaims()
+
+        then:
+        notThrown(Exception)
+    }
+
+    def "retention sweep swallows a delete failure without propagating"() {
+        given: 'the DB is having a bad day'
+        def fraudSignalClaimRepository = Mock(com.sboxmarket.repository.FraudSignalClaimRepository)
+        def svc = new FraudAnalysisService(
+            auditLogRepository:           auditLogRepository,
+            fraudSignalClaimRepository:   fraudSignalClaimRepository
+        )
+        fraudSignalClaimRepository.deleteOlderThan(_) >> { throw new RuntimeException('db down') }
+
+        when:
+        svc.sweepOldFraudSignalClaims()
+
+        then: 'the @Scheduled thread must NOT die from a transient DB error'
+        notThrown(Exception)
+    }
 }
