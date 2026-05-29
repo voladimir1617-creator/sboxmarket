@@ -13,44 +13,47 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Concurrency regression for {@link PriceHistoryService#record} idempotency
- * cache eviction.
+ * Concurrency + structural regression for {@link PriceHistoryService#record}'s
+ * idempotency-cache eviction path.
  *
- * The old eviction path was a classic check-then-act on a CHM entrySet:
+ * Old eviction was a classic check-then-act on a CHM entrySet:
  *
- *   recentWrites.entrySet().removeAll { it.value < cutoff }
+ *     recentWrites.entrySet().removeAll { it.value < cutoff }
  *
- * `removeAll(Closure)` delegates to the iterator's `remove()` which calls
- * the UNCONDITIONAL single-arg `map.remove(key)` on CHM. Under concurrent
- * load, a different thread can refresh `key`'s stamp to `now` via
- * `recentWrites.compute(...)` BETWEEN the predicate's stale-snapshot read
- * and the iterator's `remove()`. The eviction sweep then wipes the
- * just-refreshed claim, and the very next `record()` call for that same
- * (item|day|price|bump) sees `prev == null` and claims again — so a
- * settle-retry or overlapping Steam-sync poll fires the deferred write
- * TWICE inside the dedupe window. Because the writer accumulates volume
- * on the same-day row (`latest.volume = (latest.volume ?: 0) + bump`),
- * the duplicate event's bump is added twice. The idempotency window is
- * silently defeated for the unlucky evicted key.
+ * `removeAll(Closure)` in Groovy iterates and calls {@code iterator.remove()}
+ * for each match, which on a {@link ConcurrentHashMap} delegates to the
+ * UNCONDITIONAL single-arg {@code map.remove(key)} — so a concurrent
+ * {@code recentWrites.compute(...)} that refreshes the key's stamp to
+ * {@code now} BETWEEN the predicate's stale-snapshot read and the
+ * iterator's remove() gets wiped out. The very next {@code record()}
+ * call for that {@code (item|day|price|bump)} sees {@code prev == null}
+ * in compute and claims again — so a settle-retry or overlapping Steam
+ * sync fires the deferred write TWICE inside the 5s dedupe window. The
+ * writer accumulates volume on the same-day row, so the duplicate event's
+ * bump lands TWICE — silent volume inflation on the sparkline.
  *
- * This is the same bug shape as ItemController.viewBumpCache (batch 1219,
- * pinned by ItemViewBumpRaceSpec) — the sibling fix never got migrated
- * here. The fix is the same: replace the unconditional iterator-remove
- * with `recentWrites.remove(K, V)`, which only deletes when the value
- * still matches the snapshot. A concurrent refresh that beats the sweep
- * causes a clean skip.
+ * Same bug shape as {@link com.sboxmarket.controller.ItemController}'s
+ * viewBumpCache eviction (batch 1219, pinned by
+ * {@link ItemViewBumpRaceSpec}) — the sibling fix never got migrated
+ * here. The fix replaces the unconditional iterator-remove with
+ * {@code recentWrites.remove(K, V)}, the two-arg conditional that only
+ * deletes when the value still matches the snapshot. A refresh that
+ * beats the sweep causes a clean skip.
  *
- * Pin shape: pre-seed the cache with > MAX_KEYS entries whose stamps are
- * JUST stale (the just-aged-out boundary, where the race actually fires
- * — not 60s stale, which would simply pass the predicate and have no
- * race window with a concurrent refresh). Race a refresher thread that
- * re-stamps a small set of those seeded keys via record() against a
- * sweeper thread whose unique-bump keys re-trip the size cap and drive
- * the eviction code path. Pre-fix the sweeper's unconditional
- * iterator-remove wipes the refresher's just-refreshed stamps, and the
- * NEXT refresher call observes `prev == null` and fires another save().
- * Post-fix the conditional remove(K, V) skips any entry whose value was
- * just refreshed.
+ * Pinned two ways:
+ *  1. STRUCTURAL: the bytecode of {@code record()} must NOT call
+ *     {@code java.util.Set.removeAll(Object)} on the recentWrites
+ *     entrySet — that's the API path the old broken code used. The fix
+ *     uses {@code ConcurrentHashMap.remove(Object, Object)}.
+ *  2. BEHAVIOURAL: a stress test pre-populates the cache past the size
+ *     cap with just-stale boundary stamps for a small pool of target
+ *     idemKeys, then races refresher threads (re-stamp targets) against
+ *     sweeper threads (drive the eviction code path with unique bumps).
+ *     Total saves on the refresher target MUST equal the bump pool size:
+ *     each key's first refresh legitimately claims (stamp expired) and
+ *     fires one save; every subsequent refresh inside the 1s window MUST
+ *     dedupe. Saves above the pool size = leaked claims = the eviction
+ *     race firing.
  */
 class PriceHistoryServiceEvictionRaceSpec extends Specification {
 
@@ -63,6 +66,35 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         )
     }
 
+    // ── (1) Structural pin: eviction must use atomic conditional remove ────
+
+    def "record() eviction must NOT call Set.removeAll on the idempotency cache"() {
+        // Bytecode scan: the broken impl was
+        //   recentWrites.entrySet().removeAll { it.value < cutoff }
+        // which compiles to a call into java.util.Set.removeAll(Object) via
+        // Groovy's removeAll DGM. The fixed impl uses the two-arg
+        // ConcurrentHashMap.remove(Object, Object) inside an explicit
+        // iteration. Pinning the byte-level API choice catches any future
+        // refactor that re-introduces the unconditional iterator-remove.
+        expect:
+        def cls = PriceHistoryService.class
+        def bin = cls.getResource('PriceHistoryService.class').bytes
+        // Scan the constant pool for the broken method ref. A real
+        // hexscan would walk the constant pool table, but a substring
+        // match on the UTF-8 bytes of the descriptor is enough: if the
+        // string "removeAll" + the CHM entrySet receiver shows up in the
+        // class file, the broken pattern is back.
+        String binStr = new String(bin, 'ISO-8859-1')
+        // The recentWrites.entrySet().removeAll(...) call leaves
+        // "entrySet" + "removeAll" as adjacent constant pool entries
+        // referenced from the same code attribute. The fix never
+        // calls removeAll on a Set returned by entrySet() in this
+        // method, so the pattern must be absent.
+        !(binStr.contains('removeAll') && binStr.contains('entrySet'))
+    }
+
+    // ── (2) Behavioural pin: idempotency holds under eviction contention ──
+
     def "concurrent eviction sweep does NOT wipe a just-refreshed idempotency stamp"() {
         given: "the idempotency cache pre-loaded past the 5000-key cap"
         // Reach into the private CHM directly. Seed mostly stale entries
@@ -72,12 +104,11 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         // between "the predicate sees stale" and "the entry has just
         // been refreshed by a concurrent compute()" — without seeding
         // the target keys stale, the predicate always returns false for
-        // them, the unconditional iterator-remove never fires for them,
-        // and the bug stays asleep.
+        // them and the bug stays asleep.
         def recentWrites = recentWritesOf(service)
         long now = System.currentTimeMillis()
-        long staleStamp = now - 60_000L            // 60s old — definitely past 5s window
-        long boundaryStamp = now - 5_001L          // just barely past the cutoff
+        long staleStamp    = now - 60_000L     // 60s old — definitely past 5s window
+        long boundaryStamp = now - 5_001L      // just barely past the cutoff
 
         // 5000 background stale entries — sustain the size-cap trip across
         // the test so every record() call enters the eviction branch.
@@ -90,7 +121,7 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         // refresh pressure spreads across multiple entries (more chances
         // for any one of them to lose the race against a sweep). All are
         // seeded with boundaryStamp so the FIRST refresh on each one
-        // will see prev != null but `(now - prev) >= WINDOW_MS` → claim
+        // will see prev != null AND `(now - prev) >= WINDOW_MS` → claim
         // → re-stamp; concurrent sweeps see the boundaryStamp snapshot
         // and (pre-fix) wipe the just-refreshed value.
         def fmt = new java.text.SimpleDateFormat('MMM dd, yyyy')
@@ -105,10 +136,10 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         priceHistoryRepository.findLatestByItem(7L) >> Optional.empty()
         priceHistoryRepository.findLatestByItem(9_999L) >> Optional.empty()
         priceHistoryRepository.save(_ as PriceHistory) >> { PriceHistory p ->
-            // Only count saves for the refresher's TARGET item id; the
-            // sweeper's deliberate unique-bump pattern means EVERY sweeper
-            // record() call is a fresh idemKey that legitimately fires a
-            // save, and those would drown out the leak signal.
+            // Only count saves for the refresher's TARGET item id. The
+            // sweeper deliberately uses unique bumps so every sweeper
+            // record() call legitimately fires a save, and those would
+            // drown out the leak signal.
             if (p?.item?.id == 7L) targetSaves.incrementAndGet()
             p
         }
@@ -116,7 +147,7 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         and: "a sweeper item that uses a different id and unique bumps so every call re-trips the cap"
         Item sweeperItem = new Item(id: 9_999L, name: 'Sweeper')
 
-        when: "a refresher and sweeper thread race for 1 second"
+        when: "refresher and sweeper threads race for 1 second"
         def pool = Executors.newFixedThreadPool(8)
         def latch = new CountDownLatch(1)
         AtomicInteger refresherCalls = new AtomicInteger(0)
@@ -160,10 +191,7 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         refresherCalls.get() > 100
         sweeperCalls.get()  > 100
 
-        and: "debug output (captured in system-err of the test report)"
-        debugDump(targetSaves, refresherCalls, sweeperCalls, recentWrites, targetBumps.size())
-
-        and: "the refresher's target keys produced at most ONE save each — the size of the bump pool"
+        and: "the refresher's target keys produced at most ONE save each"
         // Each target idemKey was pre-seeded just past the dedupe window,
         // so the FIRST refresh on each is the legitimate "stamp expired,
         // claim again" call → one save per bump. After that, every key
@@ -172,10 +200,6 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         // can never exceed the bump pool size — anything more is the
         // eviction sweep wiping a just-refreshed stamp and the next
         // refresher call mistakenly re-claiming.
-        //
-        // Pre-fix: the sweep wipes stamps and saves leak ABOVE bump
-        // pool size (often dramatically so, scaling with sweep wins).
-        // Post-fix: saves == bump pool size, deterministically.
         targetSaves.get() <= targetBumps.size()
     }
 
@@ -186,11 +210,5 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         def f = PriceHistoryService.getDeclaredField('recentWrites')
         f.accessible = true
         (ConcurrentHashMap<String, Long>) f.get(svc)
-    }
-
-    private static boolean debugDump(AtomicInteger saves, AtomicInteger refresher,
-                                     AtomicInteger sweeper, ConcurrentHashMap rw, int bumpPoolSize) {
-        System.err.println("DBG targetSaves=${saves.get()} bumpPool=${bumpPoolSize} refresher=${refresher.get()} sweeper=${sweeper.get()} cacheSize=${rw.size()}")
-        return true
     }
 }

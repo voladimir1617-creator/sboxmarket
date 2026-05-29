@@ -189,7 +189,12 @@ class PriceHistoryService {
             // entry set first (CHM weakly-consistent iterator is fine
             // for the snapshot; the deletion itself is the atomic part).
             long cutoff = now - IDEMPOTENCY_WINDOW_MS
-            recentWrites.entrySet().removeAll { it.value < cutoff }
+            for (Map.Entry<String, Long> e : recentWrites.entrySet()) {
+                Long v = e.value
+                if (v != null && v < cutoff) {
+                    recentWrites.remove(e.key, v)
+                }
+            }
         }
         // Defer the ENTIRE find + update-or-insert. The find must be inside
         // the closure too: if findLatestByItem() ran in the caller's
