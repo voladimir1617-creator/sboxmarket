@@ -391,6 +391,30 @@ class SteamMarketPriceService {
         // earlier separators as thousands (strip them). The rightmost
         // marker rule works regardless of which character convention
         // the locale uses.
+        //
+        // EXCEPT for no-decimal currencies whose values still carry
+        // thousand-separators (JPY "¥1,500" / KRW "₩1,500" / IDR
+        // "Rp1.500" / VND "₫1.500" / CLP "$1.500"). The rightmost
+        // separator there is THOUSANDS, not decimal — treating it as
+        // decimal silently divides the price by 1000. Pre-fix, a
+        // sub-$2 catalogue item on a JPY rollout would have round-
+        // tripped as ¥1,500 → 1.5 → BigDecimal("1.5"), a 1000× under-
+        // price; once persisted, every later sync would see a "trend"
+        // collapse to -99% and clamp there. The hardcoded currency=1
+        // (USD) in the fetch URL means this is latent today, but the
+        // docstring above explicitly claims JPY support and the
+        // existing spec covers "¥150" — so the moment a thousand-
+        // separator JPY value lands the price feed lies by three
+        // orders of magnitude.
+        //
+        // Rule: if the rightmost separator has EXACTLY 3 trailing
+        // digits, it is a thousands separator. Every fractional
+        // currency on Steam uses 2-digit minor units; the only way to
+        // see exactly 3 trailing digits past the rightmost separator
+        // is a thousands grouping. USD "$1,234" (no cents shown) also
+        // collapses to 1234 under this rule, which is the correct
+        // dollar amount — Steam ordinarily ships "$1,234.00" but the
+        // pure-thousands form is parsed correctly either way.
         def cleaned = raw.replaceAll(/[^\d.,]/, '')
         if (cleaned.isEmpty()) return null
         // Find the last separator (',' or '.') — that's the decimal.
@@ -405,9 +429,17 @@ class SteamMarketPriceService {
             // No separator at all — pure integer like "123".
             normalised = cleaned
         } else {
-            String intPart = cleaned.substring(0, decimalIdx).replaceAll(/[.,]/, '')
-            String fracPart = cleaned.substring(decimalIdx + 1).replaceAll(/[.,]/, '')
-            normalised = intPart + '.' + fracPart
+            int trailing = cleaned.length() - decimalIdx - 1
+            if (trailing == 3) {
+                // Rightmost separator is a THOUSANDS marker, not a
+                // decimal — JPY/KRW/IDR/VND/CLP "1,500" / "1.500" /
+                // multi-group "1,234,567". Strip every separator.
+                normalised = cleaned.replaceAll(/[.,]/, '')
+            } else {
+                String intPart = cleaned.substring(0, decimalIdx).replaceAll(/[.,]/, '')
+                String fracPart = cleaned.substring(decimalIdx + 1).replaceAll(/[.,]/, '')
+                normalised = intPart + '.' + fracPart
+            }
         }
         if (normalised.isEmpty() || normalised == '.') return null
         try {
