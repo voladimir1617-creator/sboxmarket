@@ -382,53 +382,70 @@ class PurchaseService {
             deferOrRun {
                 try {
                     def others = _cartRepoForScrub.findOtherUsersWithListing(_listingIdForScrub, _buyerIdForScrub) ?: []
-                    if (!others.isEmpty()) {
-                        if (_notifierForScrub != null) {
-                            // Drop banned recipients before the push fan-out —
-                            // same bug class batch 314/315 closed for the
-                            // saved-search and seller-follow fan-outs. A user
-                            // banned after queuing the listing in their cart
-                            // can't act on a CART_ITEM_SOLD ping (banGuard
-                            // rejects re-shop attempts anyway), so the bell
-                            // entry is dead-end noise. Bulk lookup keeps it
-                            // to one query for the whole fan-out.
-                            def recipients = others.take(50) as List<Long>
-                            if (_userRepoForScrub != null && !recipients.isEmpty()) {
-                                try {
-                                    def users = _userRepoForScrub.findAllById(recipients)
-                                    if (users != null) {
-                                        def bannedIds = users
-                                            .findAll { Boolean.TRUE.equals(it.banned) }
-                                            .collect { it.id } as Set
-                                        if (!bannedIds.isEmpty()) {
-                                            recipients = recipients.findAll { !bannedIds.contains(it) }
-                                        }
+                    if (!others.isEmpty() && _notifierForScrub != null) {
+                        // Drop banned recipients before the push fan-out —
+                        // same bug class batch 314/315 closed for the
+                        // saved-search and seller-follow fan-outs. A user
+                        // banned after queuing the listing in their cart
+                        // can't act on a CART_ITEM_SOLD ping (banGuard
+                        // rejects re-shop attempts anyway), so the bell
+                        // entry is dead-end noise. Bulk lookup keeps it
+                        // to one query for the whole fan-out.
+                        def recipients = others.take(50) as List<Long>
+                        if (_userRepoForScrub != null && !recipients.isEmpty()) {
+                            try {
+                                def users = _userRepoForScrub.findAllById(recipients)
+                                if (users != null) {
+                                    def bannedIds = users
+                                        .findAll { Boolean.TRUE.equals(it.banned) }
+                                        .collect { it.id } as Set
+                                    if (!bannedIds.isEmpty()) {
+                                        recipients = recipients.findAll { !bannedIds.contains(it) }
                                     }
-                                } catch (Exception e) {
-                                    log.warn("CART_ITEM_SOLD banned-filter lookup failed: ${e.message}")
                                 }
-                            }
-                            recipients.each { uid ->
-                                try {
-                                    _notifierForScrub.push(uid, 'CART_ITEM_SOLD',
-                                        "Cart item sold · ${_itemNameForScrub}",
-                                        "${_itemNameForScrub} was bought by another user. Other listings may still be available — find a similar one in the marketplace.",
-                                        _listingIdForScrub,
-                                        _itemIdForScrub != null ? "/item/${_itemIdForScrub}" : '/cart')
-                                } catch (Exception e) {
-                                    log.warn("CART_ITEM_SOLD push failed for uid=${uid}: ${e.message}")
-                                }
+                            } catch (Exception e) {
+                                log.warn("CART_ITEM_SOLD banned-filter lookup failed: ${e.message}")
                             }
                         }
-                        // Scrub the now-sold listing from every cart so
-                        // the next /api/cart fetch doesn't show a ghost
-                        // row. Best-effort — a delete miss just leaves
-                        // the row for the client-side stale detector.
-                        try {
-                            _cartRepoForScrub.deleteAllByListing(_listingIdForScrub)
-                        } catch (Exception e) {
-                            log.warn("CART_ITEM_SOLD scrub failed for listing=${_listingIdForScrub}: ${e.message}")
+                        recipients.each { uid ->
+                            try {
+                                _notifierForScrub.push(uid, 'CART_ITEM_SOLD',
+                                    "Cart item sold · ${_itemNameForScrub}",
+                                    "${_itemNameForScrub} was bought by another user. Other listings may still be available — find a similar one in the marketplace.",
+                                    _listingIdForScrub,
+                                    _itemIdForScrub != null ? "/item/${_itemIdForScrub}" : '/cart')
+                            } catch (Exception e) {
+                                log.warn("CART_ITEM_SOLD push failed for uid=${uid}: ${e.message}")
+                            }
                         }
+                    }
+                    // Scrub the now-sold listing from every cart so
+                    // the next /api/cart fetch doesn't show a ghost
+                    // row. Best-effort — a delete miss just leaves
+                    // the row for the client-side stale detector.
+                    //
+                    // Hoisted OUT of the `!others.isEmpty()` gate above:
+                    // the previous shape skipped the bulk delete whenever
+                    // NOBODY-else had the listing in cart, but the BUYER's
+                    // own cart row was always eligible for scrub too —
+                    // and the Buy Now / accept-offer paths (unlike cart
+                    // checkout, which scrubs per-row in CartController)
+                    // are the only ones that touch the buyer's cart at
+                    // all. Result: a buyer who queued an item, then
+                    // bought it directly from the item modal, was left
+                    // staring at a stale-grey cart row pointing at a
+                    // listing they ALREADY OWN until the 24h cart-stale
+                    // sweeper ran or the client-side stale detector hid
+                    // it on the next /api/cart fetch. Running the bulk
+                    // delete unconditionally on every successful sale
+                    // closes the gap — `deleteAllByListing` is keyed on
+                    // listing id, so it scrubs the buyer's row + every
+                    // OTHER cart row pointing at the now-SOLD listing in
+                    // one round-trip.
+                    try {
+                        _cartRepoForScrub.deleteAllByListing(_listingIdForScrub)
+                    } catch (Exception e) {
+                        log.warn("CART_ITEM_SOLD scrub failed for listing=${_listingIdForScrub}: ${e.message}")
                     }
                 } catch (Exception e) {
                     log.warn("CART_ITEM_SOLD fan-out failed for listing=${_listingIdForScrub}: ${e.message}")

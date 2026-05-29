@@ -22,10 +22,10 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * `removeAll(Closure)` delegates to the iterator's `remove()` which calls
  * the UNCONDITIONAL single-arg `map.remove(key)` on CHM. Under concurrent
- * load, a different writer thread can refresh `key`'s stamp to `now` via
+ * load, a different thread can refresh `key`'s stamp to `now` via
  * `recentWrites.compute(...)` BETWEEN the predicate's stale-snapshot read
  * and the iterator's `remove()`. The eviction sweep then wipes the
- * just-refreshed claim, and the very next `record()` call for the same
+ * just-refreshed claim, and the very next `record()` call for that same
  * (item|day|price|bump) sees `prev == null` and claims again — so a
  * settle-retry or overlapping Steam-sync poll fires the deferred write
  * TWICE inside the dedupe window. Because the writer accumulates volume
@@ -40,16 +40,17 @@ import java.util.concurrent.atomic.AtomicInteger
  * still matches the snapshot. A concurrent refresh that beats the sweep
  * causes a clean skip.
  *
- * Pin shape: the test directly stresses the eviction code path by
- * pre-loading the cache past the size cap with stale stamps, then racing
- * a "refresher" thread (which keeps a target key fresh by calling
- * `record()`) against a "sweeper" thread (which triggers eviction by
- * calling `record()` with a fresh distinct key). Pre-fix the unconditional
- * iterator-remove occasionally wipes the target key's fresh stamp during
- * the sweep and the next refresher call passes the idempotency check —
- * surfacing as the refresher's repo.save() being invoked more than once
- * per logical refresh. Post-fix the target stamp survives every sweep
- * and the repo.save() count matches the refresher's "won the claim" count.
+ * Pin shape: pre-seed the cache with > MAX_KEYS entries whose stamps are
+ * JUST stale (the just-aged-out boundary, where the race actually fires
+ * — not 60s stale, which would simply pass the predicate and have no
+ * race window with a concurrent refresh). Race a refresher thread that
+ * re-stamps a small set of those seeded keys via record() against a
+ * sweeper thread whose unique-bump keys re-trip the size cap and drive
+ * the eviction code path. Pre-fix the sweeper's unconditional
+ * iterator-remove wipes the refresher's just-refreshed stamps, and the
+ * NEXT refresher call observes `prev == null` and fires another save().
+ * Post-fix the conditional remove(K, V) skips any entry whose value was
+ * just refreshed.
  */
 class PriceHistoryServiceEvictionRaceSpec extends Specification {
 
@@ -63,94 +64,119 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
     }
 
     def "concurrent eviction sweep does NOT wipe a just-refreshed idempotency stamp"() {
-        given: "the idempotency cache pre-loaded past the 5000-key cap with STALE stamps"
-        // Reach into the private CHM and seed it with > MAX_KEYS entries
-        // whose timestamps are older than the 5s window — so any eviction
-        // sweep finds plenty of legitimate targets and the sweep loop
-        // actually runs over the seeded entries every time it triggers.
+        given: "the idempotency cache pre-loaded past the 5000-key cap"
+        // Reach into the private CHM directly. Seed mostly stale entries
+        // so the eviction sweep has plenty to remove (keeps the loop body
+        // hot under contention) AND pre-seed the refresher's TARGET keys
+        // with just-aged-out stamps. The race lives at the boundary
+        // between "the predicate sees stale" and "the entry has just
+        // been refreshed by a concurrent compute()" — without seeding
+        // the target keys stale, the predicate always returns false for
+        // them, the unconditional iterator-remove never fires for them,
+        // and the bug stays asleep.
         def recentWrites = recentWritesOf(service)
-        long stale = System.currentTimeMillis() - 60_000L  // 60s old, well outside window
-        // 5001 stale entries — first call to record() will trip the
-        // size-cap check and run the eviction sweep.
-        5_001.times { i -> recentWrites.put("stale|seed|$i", stale) }
+        long now = System.currentTimeMillis()
+        long staleStamp = now - 60_000L            // 60s old — definitely past 5s window
+        long boundaryStamp = now - 5_001L          // just barely past the cutoff
 
-        and: "a target key that the refresher thread will keep fresh"
-        // The refresher targets a single (item, day, price, bump) shape.
-        // The save() stub records how many times the deferred write
-        // actually reached the repo.
+        // 5000 background stale entries — sustain the size-cap trip across
+        // the test so every record() call enters the eviction branch.
+        5_000.times { i -> recentWrites.put("bg|seed|$i", staleStamp) }
+
+        and: "a refresher item whose target keys are pre-seeded at the just-stale boundary"
         Item targetItem = new Item(id: 7L, name: 'Target')
-        AtomicInteger saveCount = new AtomicInteger(0)
+        // Pre-compute the target idemKeys the refresher will hammer. The
+        // refresher cycles through a SMALL pool of distinct bumps so the
+        // refresh pressure spreads across multiple entries (more chances
+        // for any one of them to lose the race against a sweep). All are
+        // seeded with boundaryStamp so the FIRST refresh on each one
+        // will see prev != null but `(now - prev) >= WINDOW_MS` → claim
+        // → re-stamp; concurrent sweeps see the boundaryStamp snapshot
+        // and (pre-fix) wipe the just-refreshed value.
+        def fmt = new java.text.SimpleDateFormat('MMM dd, yyyy')
+        fmt.timeZone = TimeZone.getTimeZone('UTC')
+        String today = fmt.format(new Date())
+        List<Integer> targetBumps = (1..16).toList()
+        targetBumps.each { b ->
+            recentWrites.put("7|${today}|1.00|${b}".toString(), boundaryStamp)
+        }
+
+        AtomicInteger targetSaves = new AtomicInteger(0)
         priceHistoryRepository.findLatestByItem(7L) >> Optional.empty()
         priceHistoryRepository.findLatestByItem(9_999L) >> Optional.empty()
         priceHistoryRepository.save(_ as PriceHistory) >> { PriceHistory p ->
-            // Count only saves for the refresher's TARGET item. The
-            // sweeper deliberately writes a unique bump every iteration
-            // so each of its idemKeys is fresh and IT fires a save per
-            // call; including those in the count would drown out any
-            // leak from the refresher.
-            if (p?.item?.id == 7L) saveCount.incrementAndGet()
+            // Only count saves for the refresher's TARGET item id; the
+            // sweeper's deliberate unique-bump pattern means EVERY sweeper
+            // record() call is a fresh idemKey that legitimately fires a
+            // save, and those would drown out the leak signal.
+            if (p?.item?.id == 7L) targetSaves.incrementAndGet()
             p
         }
 
-        and: "a sweeper item that uses a different id, so its keys never collide"
-        // Each sweeper record() call uses a UNIQUE bump value, so its
-        // idemKey is fresh every iteration — every call adds a new entry
-        // and re-trips the size cap, forcing the eviction sweep to run
-        // repeatedly while the refresher is hammering the same target.
+        and: "a sweeper item that uses a different id and unique bumps so every call re-trips the cap"
         Item sweeperItem = new Item(id: 9_999L, name: 'Sweeper')
-        priceHistoryRepository.findLatestByItem(9_999L) >> Optional.empty()
 
-        when: "a refresher thread and a sweeper thread race for 500ms"
-        def pool = Executors.newFixedThreadPool(2)
+        when: "a refresher and sweeper thread race for 1 second"
+        def pool = Executors.newFixedThreadPool(8)
         def latch = new CountDownLatch(1)
         AtomicInteger refresherCalls = new AtomicInteger(0)
         AtomicInteger sweeperCalls = new AtomicInteger(0)
-        long deadline = System.currentTimeMillis() + 500L
+        long deadline = System.currentTimeMillis() + 1_000L
 
-        pool.submit {
-            latch.await()
-            // The refresher keeps hammering the SAME (item, price, bump)
-            // shape. Inside the 5s idempotency window, after the FIRST
-            // successful claim only one save() should ever happen — every
-            // subsequent call should hit the dedupe and skip the deferred
-            // write. The race-pin is: if the sweeper wipes our stamp
-            // mid-flight, the NEXT call mistakenly claims again and a
-            // second save() leaks through.
-            while (System.currentTimeMillis() < deadline) {
-                service.record(targetItem, new BigDecimal('1.00'), 1)
-                refresherCalls.incrementAndGet()
+        // Multiple refresher threads to maximise the chance of catching
+        // a sweeper mid-iteration over one of the target keys. Each
+        // refresher cycles through the bump pool so different threads
+        // refresh different keys concurrently.
+        4.times { t ->
+            pool.submit {
+                latch.await()
+                int local = t
+                while (System.currentTimeMillis() < deadline) {
+                    int b = targetBumps.get(local++ % targetBumps.size())
+                    service.record(targetItem, new BigDecimal('1.00'), b)
+                    refresherCalls.incrementAndGet()
+                }
             }
         }
-        pool.submit {
-            latch.await()
-            // The sweeper allocates a unique key each iteration so the
-            // size cap is re-tripped continuously; this drives the
-            // eviction code path under contention with the refresher.
-            int local = 0
-            while (System.currentTimeMillis() < deadline) {
-                int uniqueBump = 100_000 + local++
-                service.record(sweeperItem, new BigDecimal('2.00'), uniqueBump)
-                sweeperCalls.incrementAndGet()
+        // Multiple sweeper threads to drive the eviction sweep under
+        // contention from many angles. Each iteration uses a unique bump
+        // so its idemKey is fresh, claims always succeed, and the
+        // eviction branch fires every time.
+        4.times { t ->
+            pool.submit {
+                latch.await()
+                int local = 100_000 * (t + 1)
+                while (System.currentTimeMillis() < deadline) {
+                    service.record(sweeperItem, new BigDecimal('2.00'), local++)
+                    sweeperCalls.incrementAndGet()
+                }
             }
         }
         latch.countDown()
         pool.shutdown()
-        pool.awaitTermination(5, TimeUnit.SECONDS)
+        pool.awaitTermination(10, TimeUnit.SECONDS)
 
-        then: "the refresher made many calls and the sweeper drove many evictions"
+        then: "the threads did meaningful work"
         refresherCalls.get() > 100
         sweeperCalls.get()  > 100
 
-        and: "the deferred write fired EXACTLY ONCE for the refresher's target key"
-        // Without the fix, the sweeper's unconditional iterator-remove
-        // occasionally races and wipes the target's fresh stamp during a
-        // sweep — every subsequent refresher.record() call before the
-        // next refresh observes `prev == null`, claims, and fires another
-        // save(). The 5s window NEVER closes during this test (we only
-        // run for 500ms), so a correct implementation MUST land exactly
-        // one save() for the refresher's target — anything more is the
-        // eviction race leaking duplicate volume bumps.
-        saveCount.get() == 1
+        and: "debug output (captured in system-err of the test report)"
+        debugDump(targetSaves, refresherCalls, sweeperCalls, recentWrites, targetBumps.size())
+
+        and: "the refresher's target keys produced at most ONE save each — the size of the bump pool"
+        // Each target idemKey was pre-seeded just past the dedupe window,
+        // so the FIRST refresh on each is the legitimate "stamp expired,
+        // claim again" call → one save per bump. After that, every key
+        // is freshly stamped and inside the window, so every subsequent
+        // refresh in the test MUST be deduped. Total saves on the target
+        // can never exceed the bump pool size — anything more is the
+        // eviction sweep wiping a just-refreshed stamp and the next
+        // refresher call mistakenly re-claiming.
+        //
+        // Pre-fix: the sweep wipes stamps and saves leak ABOVE bump
+        // pool size (often dramatically so, scaling with sweep wins).
+        // Post-fix: saves == bump pool size, deterministically.
+        targetSaves.get() <= targetBumps.size()
     }
 
     /** Reach the private ConcurrentHashMap via reflection so the test
@@ -162,12 +188,9 @@ class PriceHistoryServiceEvictionRaceSpec extends Specification {
         (ConcurrentHashMap<String, Long>) f.get(svc)
     }
 
-    private static boolean debugDump(AtomicInteger saveCount, AtomicInteger refresherCalls,
-                                     AtomicInteger sweeperCalls, ConcurrentHashMap recentWrites) {
-        def fmt = new java.text.SimpleDateFormat('MMM dd, yyyy')
-        fmt.timeZone = TimeZone.getTimeZone('UTC')
-        def targetKey = "7|" + fmt.format(new Date()) + "|1.00|1"
-        System.err.println("DBG Saves=${saveCount.get()} refresher=${refresherCalls.get()} sweeper=${sweeperCalls.get()} cacheSize=${recentWrites.size()} targetPresent=${recentWrites.get(targetKey) != null}")
+    private static boolean debugDump(AtomicInteger saves, AtomicInteger refresher,
+                                     AtomicInteger sweeper, ConcurrentHashMap rw, int bumpPoolSize) {
+        System.err.println("DBG targetSaves=${saves.get()} bumpPool=${bumpPoolSize} refresher=${refresher.get()} sweeper=${sweeper.get()} cacheSize=${rw.size()}")
         return true
     }
 }
