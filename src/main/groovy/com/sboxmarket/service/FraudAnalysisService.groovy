@@ -326,8 +326,16 @@ class FraudAnalysisService {
      * actually persist. Matches `TradeService.sweepReviewNudge` /
      * `sweepSlowSellerWarning`, the other sweepers that fan out pushes.
      */
+    // noRollbackFor — multi-pod claim-and-bail at line ~467 catches
+    // DataIntegrityViolationException when the sibling pod's INSERT into
+    // fraud_signal_claims lands first. Without this hint, Spring's DIVE
+    // translator marks the outer @Transactional rollback-only and EVERY
+    // signal already pushed to admins in this sweep tick rolls back at
+    // commit time, defeating the per-pod-per-signal claim ledger that
+    // wave 120 (V70 fraud_signal_claims) was built to enforce. Same fix
+    // shape as waves 136-139.
     @Scheduled(fixedDelay = 30L * 60L * 1000L, initialDelay = 10L * 60L * 1000L)
-    @Transactional
+    @Transactional(noRollbackFor = [org.springframework.dao.DataIntegrityViolationException])
     void sweepAndPushFraudSignals() {
         if (notificationService == null || steamUserRepository == null) return
         List<Map> signals

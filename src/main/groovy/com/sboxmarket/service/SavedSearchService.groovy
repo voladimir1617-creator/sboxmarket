@@ -49,8 +49,17 @@ class SavedSearchService {
      * Upsert a preset. If the same `(userId, name)` already exists, the
      * existing row's filters are overwritten and the existing id is
      * returned — no duplicate row created. Returns the persisted entity.
+     *
+     * noRollbackFor — same systematic rollback-only leak class as waves
+     * 136-139 (UserBlock, SellerFollow, Watchlist, Review, Cart, Loadout).
+     * The catch(DIVE) recovery path further down handles the rapid
+     * double-save UNIQUE-constraint race, but Spring's DIVE translator
+     * marks the @Transactional rollback-only BEFORE the catch fires —
+     * the recovery's findByUserAndName re-read + return commit NOTHING,
+     * and the controller's 200 is followed by UnexpectedRollbackException
+     * at commit time.
      */
-    @Transactional
+    @Transactional(noRollbackFor = [DataIntegrityViolationException])
     SavedSearch upsert(Long userId, Map payload) {
         if (userId == null || payload == null) {
             throw new com.sboxmarket.exception.BadRequestException('MISSING_FIELD',
