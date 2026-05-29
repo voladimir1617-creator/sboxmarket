@@ -151,8 +151,11 @@ calling `Sentry.captureException(e)` in the catch blocks.
 
 ### 2.4 Uptime monitoring
 
-`HealthController` exposes `/actuator/health` (Spring Boot defaults).
-Point Pingdom / UptimeRobot at it. Should return `{"status":"UP"}`.
+Point Pingdom / UptimeRobot at `GET /api/health` — it returns `{"status":"UP"}`
+with a `no-store` Cache-Control. Do **NOT** use `/actuator/health` in prod: the
+actuator is disabled there (`management.server.port=-1`, see skinbox.env.example)
+so that path 404s. `/api/health` (HealthController) is the public, always-on
+liveness probe; `/api/ready` layers a DB-connectivity gate for LB readiness.
 
 ### 2.5 Database backups
 
@@ -204,9 +207,26 @@ curl -s -o /dev/null -w "%{redirect_url}\n" https://skinbox.market/api/auth/stea
 curl -s "https://skinbox.market/api/items?limit=5" | python -c "import sys,json;d=json.load(sys.stdin);print('items:',len(d.get('items',[])))"
 # Expect: items: 5  (the catalogue seed populated)
 
-# 6. Health check passes
-curl -s https://skinbox.market/actuator/health
+# 6. Health check passes (NOT /actuator/health — actuator is disabled in prod)
+curl -s https://skinbox.market/api/health
 # Expect: {"status":"UP"}
+
+# 7. STATIC ASSETS ACTUALLY SERVE — the SPA is dead without them.
+#    A 200 on `/` only proves the HTML shell + inline skeleton CSS loaded; the
+#    React bundle and stylesheet are SEPARATE requests. Regression f6f7548
+#    shipped a resource-handler misconfig that 404'd EVERY /css, /js, /img while
+#    `/` still returned 200 — so steps 1-6 all passed against a site that
+#    rendered a blank loading skeleton to every visitor for days. Never trust a
+#    `/` 200 alone; verify a real asset AND a rendered route:
+curl -s -o /dev/null -w "design.css  %{http_code}  %{content_type}\n" https://skinbox.market/css/design.css
+# Expect: design.css  200  text/css
+curl -s -o /dev/null -w "app bundle   %{http_code}\n" https://skinbox.market/js/main.js
+# Expect: app bundle   200
+#    Then open https://skinbox.market/ in a browser (or headless) and confirm
+#    the marketplace grid actually renders — NOT a bare skeleton — with the
+#    console free of 404s for /css, /js, /img. StaticAssetServingSpec pins this
+#    at the test layer; this step is its deploy-time mirror.
 ```
 
-If all six pass, you're live.
+If all seven pass — including a visually-rendered page, not just 2xx status
+codes — you're live.
