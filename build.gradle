@@ -77,6 +77,17 @@ test {
 // compiled Groovy method parameters via reflection.
 tasks.withType(GroovyCompile).configureEach {
     groovyOptions.parameters = true
+    // Fork the Groovy compiler into its own JVM with a dedicated heap.
+    // The test source set is ~190 Spock specs; compiling them all in ONE
+    // joint pass (a clean / non-incremental build, e.g. CI or after a
+    // gradle.properties bump) exhausts the in-process compiler heap and
+    // dies with `java.lang.OutOfMemoryError: Java heap space` regardless
+    // of the daemon's -Xmx (the in-process compiler doesn't reliably get
+    // the daemon's full heap under contention). Forking gives the compile
+    // a guaranteed dedicated 6g, independent of daemon state — so CI and
+    // clean local builds compile the full suite deterministically.
+    groovyOptions.fork = true
+    groovyOptions.forkOptions.memoryMaximumSize = '6g'
 }
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'

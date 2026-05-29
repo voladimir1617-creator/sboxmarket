@@ -51,3 +51,4 @@ docker-compose.override.yml
 .playwright-mcp/
 cycle*.png
 *.png
+cloudflared.log
