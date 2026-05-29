@@ -77,7 +77,19 @@ class AnnouncementService {
             .orElseThrow { new NotFoundException("Announcement", id) }
         row.active = false
         announcementRepository.save(row)
-        auditService?.log(AuditService.ANNOUNCEMENT_DEACTIVATED, adminUserId, null, id, null)
+        // Non-null summary so the admin Audit-log tab renders something
+        // meaningful instead of a blank "—". Mirrors the sibling
+        // ANNOUNCEMENT_CREATED row's "Posted <sev>: <msg snippet>"
+        // shape so the two events tell a coherent story when filtered
+        // by refId. Pre-fix the summary was hard-null and the audit
+        // table column rendered empty for every deactivation, hiding
+        // the staff member's stated rationale (now captured by a
+        // truncated copy of the original message so a CSR can grep for
+        // "PROMO" or "OUTAGE" deactivations later).
+        def sev = (row.severity ?: '').toUpperCase()
+        def msg = (row.message ?: '').take(120)
+        auditService?.log(AuditService.ANNOUNCEMENT_DEACTIVATED, adminUserId, null, id,
+            "Deactivated ${sev}: ${msg}")
         row
     }
 
