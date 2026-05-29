@@ -409,8 +409,31 @@ class BuyOrderService {
 
     @Transactional
     BuyOrder cancel(Long buyerUserId, Long orderId) {
-        def o = buyOrderRepository.findById(orderId)
+        // Authorisation pre-check on an unlocked read — we need to verify
+        // ownership BEFORE acquiring the pessimistic row lock so a stranger
+        // probing /api/buy-orders/{id} can't park on a contention-hot row
+        // (cheap DoS vector on a popular item).
+        def probe = buyOrderRepository.findById(orderId)
             .orElseThrow { new NotFoundException("BuyOrder", orderId) }
+        if (probe.buyerUserId != buyerUserId) {
+            throw new ForbiddenException("Not your buy order")
+        }
+        // Pessimistic re-load — serialise cancel against concurrent fills
+        // (tryMatch / tryFillFromExisting both acquire the same lock via
+        // findByIdForUpdate). Without this, cancel's plain-read entity races
+        // a concurrent fill: fill X-locks the row, sees ACTIVE qty=1, buys
+        // the listing, decrements to qty=0, sets status=FILLED, commits;
+        // cancel then writes status=CANCELLED on its stale snapshot,
+        // overwriting the FILLED flag. The buyer has paid and received the
+        // item, but their order shows CANCELLED in the Profile tab and CSV
+        // — the audit trail lies, and a paranoid buyer reading "CANCELLED"
+        // on a wallet debit they didn't expect rightly opens a support
+        // ticket claiming fraud. Falls back to the probe row when the lock
+        // query is unconfigured (Mock repo in unit tests).
+        def o = (orderId != null ? buyOrderRepository.findByIdForUpdate(orderId) : null) ?: probe
+        // Re-verify ownership on the locked row — defence-in-depth in the
+        // (impossible-in-practice) case the id-to-owner mapping changed
+        // between the probe read and the lock acquisition.
         if (o.buyerUserId != buyerUserId) {
             throw new ForbiddenException("Not your buy order")
         }

@@ -1457,7 +1457,14 @@ Thanks for your patience.
     private static String cap(String s, int cap) {
         if (s == null) return s
         if (s.length() <= cap) return s
-        return s.substring(0, cap - 1) + '…'
+        // Drop the high surrogate too if the cut would split a pair —
+        // Character.isHighSurrogate covers 0xD800..0xDBFF, the leading
+        // half of every supplementary-codepoint encoding.
+        int end = cap - 1
+        if (end > 0 && Character.isHighSurrogate(s.charAt(end - 1))) {
+            end--
+        }
+        return s.substring(0, end) + '…'
     }
 
     /**

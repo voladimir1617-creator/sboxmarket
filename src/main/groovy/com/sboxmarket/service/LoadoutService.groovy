@@ -471,6 +471,13 @@ class LoadoutService {
     @Transactional
     Map toggleFavorite(Long viewerUserId, Long loadoutId) {
         if (viewerUserId == null) throw new UnauthorizedException()
+        // Banned users must not be able to bump the public `favorites`
+        // counter — the Discover sort is keyed off it, so without this
+        // a banned account can boost (or, via toggle-off, suppress) any
+        // public loadout's ranking with one tap each. Mirror clone()'s
+        // ban guard which already gates loadout-mutating writes from
+        // banned accounts.
+        banGuard.assertNotBanned(viewerUserId)
         def loadout = loadoutRepository.findById(loadoutId)
             .orElseThrow { new NotFoundException("Loadout", loadoutId) }
         if (loadout.visibility == 'PRIVATE' && loadout.ownerUserId != viewerUserId) {

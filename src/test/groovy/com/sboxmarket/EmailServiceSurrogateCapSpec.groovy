@@ -82,18 +82,26 @@ class EmailServiceSurrogateCapSpec extends Specification {
         // split. sendAuctionWon's subject template is
         //   "You won · ${itemName}"
         // which is 10 chars of prefix ("You won · " — Y-o-u-SP-w-o-n-
-        // SP-·-SP). With MAX_SUBJECT_CHARS=200 the raw subject must
-        // be 201+ chars to trip the cap; the pre-fix cut was
-        // {@code substring(0, 199)} which keeps indexes 0..198. For
-        // that cut to land MID-surrogate the high half must sit at
-        // subject index 198. Item-name index = 198 - 10 = 188. Pad
-        // with 188 'A' fillers then a single 😀 (U+1F600 — high
-        // surrogate \uD83D, low \uDE00) then a tail to push the
-        // subject past the cap so truncation actually fires.
+        // SP-·-SP, where · is the single BMP codepoint U+00B7). With
+        // MAX_SUBJECT_CHARS=200 the raw subject must be 201+ chars to
+        // trip the cap; the pre-fix cut was {@code substring(0, 199)}
+        // which keeps indexes 0..198. For that cut to land MID-surrogate
+        // the high half must sit at subject index 198. Item-name index
+        // = 198 - 10 = 188. Pad with 188 'A' fillers then a single 😀
+        // (U+1F600 — high surrogate \uD83D, low \uDE00) then a tail to
+        // push the subject past the cap so truncation actually fires.
+        // The input contains ZERO '?' chars, so any '?' the recipient
+        // sees in the encoded-then-decoded subject is the unpaired-
+        // surrogate-to-replacement substitution that
+        // {@code String.getBytes("UTF-8")} performs during Jakarta
+        // Mail's RFC 2047 encode of the subject header.
         StringBuilder name = new StringBuilder()
         188.times { name.append((char) 'A') }
         name.append('😀')           // U+1F600 — surrogate pair 😀
         50.times { name.append((char) 'B') } // tail so total subject > MAX_SUBJECT_CHARS
+        // Sanity-check the input contains no '?' so its presence in the
+        // output unambiguously signals the mid-surrogate-cut bug.
+        assert !name.toString().contains('?')
 
         when:
         svc.sendAuctionWon('buyer@example.com', 'Alice', name.toString(),
@@ -103,15 +111,16 @@ class EmailServiceSurrogateCapSpec extends Specification {
         then:
         1 * mailSender.send({ MimeMessage msg ->
             def subj = msg.getSubject() ?: ''
-            // Truncation fired (cap() returned).
+            // Truncation fired (cap() appended its ellipsis).
             subj.endsWith('…') &&
-            // The fix: no unpaired surrogate survives in the cut output.
-            !hasUnpairedSurrogate(subj) &&
-            // And the UTF-8 round-trip preserves every char — i.e. no
-            // 0x3F replacement char crept in for the bad surrogate.
-            // The bare letter 'A' (0x41) is what fills the head; only
-            // a mid-surrogate cut would have produced a '?' at the tail.
-            new String(subj.getBytes('UTF-8'), 'UTF-8') == subj
+            // The fix: no '?' replacement char was substituted in for
+            // an unpaired high surrogate. Before the fix the subject
+            // contains a '?' at the cut boundary because Jakarta Mail
+            // ran the unpaired-surrogate string through
+            // String.getBytes("UTF-8") which replaces lone surrogates
+            // with the ASCII '?' (0x3F) — recipient sees a literal
+            // question mark where the cut emoji used to be.
+            !subj.contains('?')
         })
     }
 
