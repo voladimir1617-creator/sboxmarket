@@ -1493,4 +1493,208 @@ class BuyOrderServiceSpec extends Specification {
         // that the second row still landed.
         b2.status == 'EXPIRED'
     }
+
+    // ── runInIsolatedTx rollback-only-leak guard on the auto-fill path ──
+    //
+    // tryFillFromExisting and tryMatch both call PurchaseService.buy from
+    // inside a @Transactional method (create / update / ListingService's
+    // tryMatch entry). Both run in PROPAGATION_REQUIRED so the inner buy
+    // joins the SHARED outer tx. A failing buy (sniped listing → throws
+    // ListingNotAvailableException, concurrent withdraw → throws
+    // InsufficientBalanceException, versioned Wallet collision → throws
+    // OptimisticLockingFailureException — all RuntimeException subclasses)
+    // triggers Spring's inner @Transactional proxy to call
+    // setRollbackOnly() on the SHARED outer tx BEFORE the throw escapes
+    // to our try/catch. The catch swallows the throw and the loop tries
+    // the next listing — but the outer tx is already poisoned. At outer
+    // commit time Spring throws UnexpectedRollbackException and EVERY
+    // sibling "successful" fill rolls back along with the freshly-INSERTed
+    // BuyOrder from create() — the buyer's API returned 201 Created but
+    // the order doesn't exist in the DB, listings the loop "bought" are
+    // still ACTIVE, no notification ever fires.
+    //
+    // Fix: wrap each purchaseService.buy in runInIsolatedTx, which spins
+    // a fresh REQUIRES_NEW TransactionTemplate when a
+    // PlatformTransactionManager is wired. A failed buy rolls back only
+    // its own sub-tx; the outer tx is never poisoned and the loop can
+    // continue cleanly. Mirrors the TradeService.runInIsolatedTx pattern
+    // (batch 1648) and the BidService sweep fix (batch 800).
+
+    def "tryFillFromExisting wraps each purchase in a REQUIRES_NEW sub-tx (rollback-only-leak guard)"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        // Mock tx manager — assert each buy opens exactly one fresh tx
+        // via the TransactionTemplate (REQUIRES_NEW) so a sniped/over-
+        // debited buy can never mark the SHARED outer tx rollback-only.
+        def txStatus  = Mock(org.springframework.transaction.TransactionStatus)
+        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager) {
+            getTransaction(_) >> txStatus
+        }
+        service.transactionManager = txManager
+        def order = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+            maxPrice: new BigDecimal("50"), quantity: 2, status: 'ACTIVE')
+        // Two affordable listings ASC — both succeed end-to-end.
+        def l1 = listingFor(id: 100L, price: new BigDecimal("10"))
+        def l2 = listingFor(id: 101L, price: new BigDecimal("20"))
+        listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> [l1, l2]
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("1000"))
+        purchaseService.buy(200L, 10L, _) >> [success: true]
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then: "exactly one REQUIRES_NEW commit per successful buy"
+        2 * txManager.commit(txStatus)
+        and: "every buy still reaches PurchaseService through the sub-tx"
+        2 * purchaseService.buy(200L, 10L, _)
+        order.quantity == 0
+        order.status == 'FILLED'
+    }
+
+    def "tryFillFromExisting still fills later listings after a buy throws — sub-tx isolates the failure (rollback-only-leak fix)"() {
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        // Real tx manager mock: rollback fires on the failed sub-tx,
+        // commit fires on the successful one. The KEY invariant is that
+        // the outer tx is never even touched by the inner failure — the
+        // mock TX manager only sees the per-buy sub-txs.
+        def txStatus  = Mock(org.springframework.transaction.TransactionStatus)
+        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager) {
+            getTransaction(_) >> txStatus
+        }
+        service.transactionManager = txManager
+        def order = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+            maxPrice: new BigDecimal("50"), quantity: 1, status: 'ACTIVE')
+        def sniped = listingFor(id: 100L, price: new BigDecimal("10"))
+        def winner = listingFor(id: 101L, price: new BigDecimal("20"))
+        listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> [sniped, winner]
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("1000"))
+        // The first buy throws ListingNotAvailableException — a real
+        // RuntimeException Spring's default @Transactional rollback rule
+        // covers. Pre-fix, this would have poisoned the SHARED outer tx
+        // even though the catch swallowed the throw.
+        purchaseService.buy(200L, 10L, 100L) >> {
+            throw new com.sboxmarket.exception.ListingNotAvailableException(100L)
+        }
+        purchaseService.buy(200L, 10L, 101L) >> [success: true]
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then: "the failed buy's sub-tx rolls back; the winning buy's sub-tx commits"
+        1 * txManager.rollback(txStatus)
+        1 * txManager.commit(txStatus)
+        and: "the second listing still purchases and the order flips to FILLED"
+        1 * purchaseService.buy(200L, 10L, 101L)
+        1 * buyOrderRepository.save({ BuyOrder o -> o.status == 'FILLED' && o.quantity == 0 })
+        1 * notificationService.push(10L, 'BUY_ORDER_FILLED', _, _, 101L, _)
+        order.status == 'FILLED'
+        order.quantity == 0
+    }
+
+    def "tryMatch wraps the buy in a REQUIRES_NEW sub-tx so a sniped fresh listing can't poison the SHARED outer tx"() {
+        given:
+        // ListingService.tryMatch is invoked from inside the listing-create
+        // tx (also @Transactional). A buy that throws — sniped listing,
+        // concurrent withdraw, versioned-Wallet collision — would have
+        // marked the listing-create tx rollback-only pre-fix, vanishing
+        // the listing the seller just published.
+        def txStatus  = Mock(org.springframework.transaction.TransactionStatus)
+        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager) {
+            getTransaction(_) >> txStatus
+        }
+        service.transactionManager = txManager
+        def listing = listingFor(id: 100L, price: new BigDecimal("50"))
+        def order   = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 1, status: 'ACTIVE',
+                                    maxPrice: new BigDecimal("60"), itemId: 1L)
+        buyOrderRepository.findMatching(_, _, _, _, _) >> [order]
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal("100.00"))
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.tryMatch(listing)
+
+        then: "the buy ran inside its own REQUIRES_NEW commit — the listing-create tx upstream is shielded"
+        1 * txManager.commit(txStatus)
+        1 * purchaseService.buy(500L, 10L, 100L)
+        1 * buyOrderRepository.save({ BuyOrder o -> o.status == 'FILLED' })
+    }
+
+    def "tryMatch sub-tx fix: a buy throw no longer poisons the SHARED outer tx — the next candidate fills cleanly"() {
+        given:
+        def txStatus  = Mock(org.springframework.transaction.TransactionStatus)
+        def txManager = Mock(org.springframework.transaction.PlatformTransactionManager) {
+            getTransaction(_) >> txStatus
+        }
+        service.transactionManager = txManager
+        def listing = listingFor(id: 100L, price: new BigDecimal("50"))
+        def loser   = new BuyOrder(id: 1L, buyerUserId: 10L, quantity: 1, status: 'ACTIVE',
+                                    maxPrice: new BigDecimal("100"), itemId: 1L)
+        def winner  = new BuyOrder(id: 2L, buyerUserId: 20L, quantity: 1, status: 'ACTIVE',
+                                    maxPrice: new BigDecimal("100"), itemId: 1L)
+        buyOrderRepository.findMatching(_, _, _, _, _) >> [loser, winner]
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: '111'))
+        walletRepository.findByUsername('steam_111') >> new Wallet(id: 500L, balance: new BigDecimal("500.00"))
+        steamUserRepository.findById(20L) >> Optional.of(new SteamUser(id: 20L, steamId64: '222'))
+        walletRepository.findByUsername('steam_222') >> new Wallet(id: 600L, balance: new BigDecimal("500.00"))
+        // First buy throws InsufficientBalanceException (sub-class of
+        // ApiException → RuntimeException — Spring's default
+        // @Transactional rollback rule covers it). The sub-tx must roll
+        // back, the outer tx untouched, the loop continues.
+        purchaseService.buy(500L, 10L, 100L) >> {
+            throw new com.sboxmarket.exception.InsufficientBalanceException(
+                new BigDecimal("50"), new BigDecimal("0"))
+        }
+        purchaseService.buy(600L, 20L, 100L) >> [success: true]
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.tryMatch(listing)
+
+        then: "the failed buy's sub-tx rolls back; the winning buy's sub-tx commits — outer untouched"
+        1 * txManager.rollback(txStatus)
+        1 * txManager.commit(txStatus)
+        and: "winner buyer 20 fills, loser buyer 10 is skipped"
+        1 * purchaseService.buy(600L, 20L, 100L)
+        1 * buyOrderRepository.save({ BuyOrder o -> o.id == 2L && o.status == 'FILLED' })
+        0 * buyOrderRepository.save({ BuyOrder o -> o.id == 1L })
+    }
+
+    def "auto-fill sub-tx helper falls back to inline execution when no PlatformTransactionManager is wired (unit-test path)"() {
+        // Existing specs in this file build BuyOrderService via the
+        // property-map constructor — no Spring context, no
+        // PlatformTransactionManager. The runInIsolatedTx helper must
+        // fall back to inline execution so every mocked-repo assertion
+        // in the pre-existing tryFillFromExisting / tryMatch specs still
+        // fires. Without this fallback, every auto-fill test becomes a
+        // no-op the moment we introduce the wrapper.
+        given:
+        def listingRepo = Mock(com.sboxmarket.repository.ListingRepository)
+        service.listingRepository = listingRepo
+        // Deliberately do NOT wire a transactionManager — null is the
+        // inline-fallback signal.
+        service.transactionManager = null
+        def order = new BuyOrder(id: 7L, buyerUserId: 10L, itemId: 1L,
+            maxPrice: new BigDecimal("50"), quantity: 1, status: 'ACTIVE')
+        def l1 = listingFor(id: 100L, price: new BigDecimal("10"))
+        listingRepo.findMatchingForBuyOrder(1L, null, null, _, _) >> [l1]
+        steamUserRepository.findById(10L) >> Optional.of(new SteamUser(id: 10L, steamId64: 'aaa'))
+        walletRepository.findByUsername('steam_aaa') >> new Wallet(id: 200L, balance: new BigDecimal("1000"))
+        buyOrderRepository.save(_) >> { BuyOrder o -> o }
+
+        when:
+        service.tryFillFromExisting(order)
+
+        then: "state mutation still reaches the test's mocked repositories"
+        1 * purchaseService.buy(200L, 10L, 100L)
+        order.quantity == 0
+        order.status == 'FILLED'
+    }
 }

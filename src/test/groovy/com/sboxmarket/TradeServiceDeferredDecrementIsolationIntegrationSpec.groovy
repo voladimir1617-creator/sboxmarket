@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationContext
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.aop.framework.Advised
+import org.springframework.aop.support.AopUtils
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.UnexpectedRollbackException
 import org.springframework.transaction.support.TransactionTemplate
@@ -180,32 +180,37 @@ class TradeServiceDeferredDecrementIsolationIntegrationSpec extends Specificatio
         afterCommitFired.get() == 1
     }
 
-    def "CONTROL: throwing DIRECTLY inside the parent transaction DOES poison it (pre-fix shape)"() {
+    def "CONTROL: a REQUIRED-join save failure DOES poison the parent transaction"() {
         given: "a committed item the parent transaction will rename"
         def item = seedItem()
         def renamed = "renamed-deferred-control-${System.nanoTime()}"
+        // Reproduce the pre-fix shape: ItemRepository.decrementTotalSold is
+        // @Modifying @Query — when called inside the cancel tx its UPDATE
+        // joins the SHARED tx. Any execution-time failure inside the proxy
+        // marks the tx rollback-only on the way out. We model that exact
+        // observable state by using a NESTED participating tx that fails
+        // — Spring's standard rollback-only propagation to the OUTER tx
+        // is the same end-state the pre-fix decrementTotalSold reached.
+        def innerTxTemplate = new TransactionTemplate(ctx.getBean(PlatformTransactionManager))
+        innerTxTemplate.propagationBehavior =
+            org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRED
 
-        when: "inside ONE transaction: rename the item, then throw inside the tx and swallow"
-        // This reproduces the OLD behaviour — the decrementTotalSold call
-        // ran inside the cancel tx and any execution-time failure marked
-        // it rollback-only before the outer try/catch could absorb the
-        // throw. We simulate by setting setRollbackOnly directly (the
-        // observable effect of any execution-time failure inside Spring's
-        // @Modifying @Query proxy when joined to the caller's tx).
+        when: "inside ONE transaction: rename the item, then participate in a doomed nested tx and swallow"
         txTemplate.executeWithoutResult { status ->
             item.name = renamed
             itemRepository.save(item)
+            // Production-bug shape: the inner participating tx fails
+            // (Spring sees the rollback exception, marks the SHARED tx
+            // rollback-only), the outer try/catch swallows the
+            // RuntimeException locally and returns normally — exactly
+            // what the buggy returnListingToSeller try/catch did.
             try {
-                // The production try/catch swallows the local throw but
-                // the proxy has already flagged the shared tx rollback-only.
-                // Manually setting rollback-only models the same end-state
-                // the buggy decrementTotalSold path reached.
-                status.setRollbackOnly()
-                throw new RuntimeException("simulated decrementTotalSold failure")
+                innerTxTemplate.executeWithoutResult { innerStatus ->
+                    throw new RuntimeException("simulated decrementTotalSold failure")
+                }
             } catch (Exception swallowed) {
-                // Exactly what the buggy returnListingToSeller try/catch did:
-                // swallow + log, then return as if all is well — only for the
-                // commit to blow up.
+                // Swallow + return-as-if-all-is-well, then watch the
+                // outer commit blow up.
             }
         }
 
