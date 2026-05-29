@@ -101,18 +101,26 @@ class TradeServiceDeferredDecrementIsolationIntegrationSpec extends Specificatio
         ))
     }
 
-    /** Invoke TradeService's private {@code deferOrRun(Closure)} helper
-     *  via reflection on the UNWRAPPED bean (the CGLIB proxy hides the
-     *  private method and routes field access to a target where Spring
-     *  hasn't populated the {@code transactionManager} field — the proxy
-     *  delegates method calls but private fields belong to the target).
-     *  Mirrors the exact code path {@link TradeService#returnListingToSeller}
-     *  uses for the decrementTotalSold call. */
-    private void invokeDeferOrRun(Closure work) {
-        TradeService target = tradeService
-        if (tradeService instanceof Advised) {
-            target = (TradeService) ((Advised) tradeService).getTargetSource().getTarget()
+    /** Unwrap the Spring-injected bean to the raw TradeService instance.
+     *  Spring's CGLIB transactional proxy intercepts method calls but
+     *  private fields (including {@code transactionManager}) live on
+     *  the underlying target — reflecting on the proxy reads a NULL
+     *  manager and the deferOrRun helper would silently fall through
+     *  to the inline branch. {@link AopUtils} bridges both CGLIB and
+     *  JDK dynamic proxies via the same call. */
+    private TradeService unwrap(TradeService bean) {
+        if (AopUtils.isAopProxy(bean) && bean instanceof org.springframework.aop.framework.Advised) {
+            return (TradeService) ((org.springframework.aop.framework.Advised) bean).getTargetSource().getTarget()
         }
+        return bean
+    }
+
+    /** Invoke TradeService's private {@code deferOrRun(Closure)} helper
+     *  via reflection on the UNWRAPPED bean. Mirrors the exact code path
+     *  {@link TradeService#returnListingToSeller} uses for the
+     *  decrementTotalSold call. */
+    private void invokeDeferOrRun(Closure work) {
+        def target = unwrap(tradeService)
         def m = TradeService.getDeclaredMethod('deferOrRun', Closure)
         m.accessible = true
         m.invoke(target, work)
@@ -130,10 +138,7 @@ class TradeServiceDeferredDecrementIsolationIntegrationSpec extends Specificatio
 
     def "TradeService has the PlatformTransactionManager wired for the deferral path"() {
         given:
-        TradeService target = tradeService
-        if (tradeService instanceof Advised) {
-            target = (TradeService) ((Advised) tradeService).getTargetSource().getTarget()
-        }
+        def target = unwrap(tradeService)
 
         expect:
         // Without a wired manager the deferOrRun helper degrades to the
