@@ -1,7 +1,6 @@
 package com.sboxmarket
 
 import com.sboxmarket.exception.BadRequestException
-import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.SupportMessage
 import com.sboxmarket.model.SupportTicket
@@ -268,7 +267,7 @@ class SupportServiceSpec extends Specification {
         ticket.status == 'WAITING_STAFF'
     }
 
-    def "reply forbids non-owner"() {
+    def "reply 404s for non-owner (same as missing — no enumeration leak)"() {
         given:
         def ticket = new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_USER')
         ticketRepository.findById(_) >> Optional.of(ticket)
@@ -277,7 +276,7 @@ class SupportServiceSpec extends Specification {
         service.reply(99L, 'Mallory', 1L, 'haha')
 
         then:
-        thrown(ForbiddenException)
+        thrown(NotFoundException)
     }
 
     def "reply refuses on a RESOLVED ticket"() {
@@ -338,7 +337,7 @@ class SupportServiceSpec extends Specification {
         result.status == 'RESOLVED'
     }
 
-    def "resolve forbids non-owner"() {
+    def "resolve 404s for non-owner (same as missing — no enumeration leak)"() {
         given:
         ticketRepository.findById(_) >> Optional.of(new SupportTicket(id: 1L, userId: 10L, status: 'WAITING_USER'))
 
@@ -346,7 +345,7 @@ class SupportServiceSpec extends Specification {
         service.resolve(99L, 1L)
 
         then:
-        thrown(ForbiddenException)
+        thrown(NotFoundException)
     }
 
     def "resolve refuses an already-RESOLVED ticket (state-machine guard)"() {
@@ -392,7 +391,7 @@ class SupportServiceSpec extends Specification {
         result.updatedAt > 1L
     }
 
-    def "reopen forbids non-owner"() {
+    def "reopen 404s for non-owner (same as missing — no enumeration leak)"() {
         given:
         ticketRepository.findById(_) >> Optional.of(new SupportTicket(id: 1L, userId: 10L, status: 'RESOLVED'))
 
@@ -400,7 +399,7 @@ class SupportServiceSpec extends Specification {
         service.reopen(99L, 1L)
 
         then:
-        thrown(ForbiddenException)
+        thrown(NotFoundException)
         0 * ticketRepository.save(_)
     }
 
@@ -450,7 +449,7 @@ class SupportServiceSpec extends Specification {
         result.messages.size() == 1
     }
 
-    def "getTicket forbids non-owner"() {
+    def "getTicket 404s for non-owner (same as missing — no enumeration leak)"() {
         given:
         ticketRepository.findById(_) >> Optional.of(new SupportTicket(id: 1L, userId: 10L))
 
@@ -458,7 +457,7 @@ class SupportServiceSpec extends Specification {
         service.getTicket(99L, 1L)
 
         then:
-        thrown(ForbiddenException)
+        thrown(NotFoundException)
     }
 
     // ── sweepStaleWaitingUser (batch 553) ───────────────────────────

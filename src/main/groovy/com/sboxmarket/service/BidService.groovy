@@ -42,6 +42,25 @@ class BidService {
      *  in <30s to close at `now + SNIPE_EXTEND`. */
     private static final long SNIPE_WINDOW_MS = 30_000L
     private static final long SNIPE_EXTEND_MS = 30_000L
+    /**
+     * Hard cap on how many times soft-close can extend a single auction.
+     * Each extension is {@link #SNIPE_EXTEND_MS} (30s), so 20 caps total
+     * anti-snipe at ~10 minutes past the auction's original expiry —
+     * generous enough that a legitimate bidding war runs to natural
+     * exhaustion, but bounded enough that a griefer can't keep a seller's
+     * auction open indefinitely by spamming sub-cent bids.
+     *
+     * Threat model: `placeBid` checks wallet balance >= bid amount but
+     * does NOT debit. A user with $1000 balance can place 20,000 bids
+     * incrementing $0.05 each — at 30s of extension per bid that's ~7
+     * days of stalling for $0 of actual cost (unless they win, in which
+     * case they only pay the final bid amount). With even a single rival
+     * bidder absorbing the top spot occasionally to avoid winning the
+     * griefer's own auction, the listing's natural close becomes
+     * unreachable. CSFloat and eBay both cap the soft-close window for
+     * exactly this reason.
+     */
+    static final int MAX_SOFT_CLOSE_EXTENSIONS = 20
 
     @Autowired ListingRepository listingRepository
     @Autowired BidRepository bidRepository
@@ -331,10 +350,28 @@ class BidService {
             // the extension.
             def timeLeft = listing.expiresAt - nowMs
             if (timeLeft >= 0 && timeLeft <= SNIPE_WINDOW_MS) {
-                def newExpiresAt = nowMs + SNIPE_EXTEND_MS
-                if (newExpiresAt > listing.expiresAt) {
-                    listing.expiresAt = newExpiresAt
-                    log.info("Auction ${listingId} soft-closed — extended to +${SNIPE_EXTEND_MS}ms by bid from ${bidderUserId}")
+                // Hard cap on extension count. See MAX_SOFT_CLOSE_EXTENSIONS
+                // for the threat model — without this a griefer with a
+                // funded wallet can keep an auction open for days at $0
+                // actual cost by spamming sub-cent bids inside the
+                // anti-snipe window. After the cap is reached, the bid is
+                // STILL accepted (so a legit late bidder isn't silently
+                // dropped) — only the expiresAt push-out stops firing, and
+                // the next sweeper tick closes the auction normally. Null-
+                // coalesce for legacy rows added before the column existed.
+                int extensions = listing.softCloseExtensions ?: 0
+                if (extensions >= MAX_SOFT_CLOSE_EXTENSIONS) {
+                    log.info("Auction ${listingId} soft-close cap reached " +
+                        "(${extensions}/${MAX_SOFT_CLOSE_EXTENSIONS}) — bid from " +
+                        "${bidderUserId} accepted but no further extension")
+                } else {
+                    def newExpiresAt = nowMs + SNIPE_EXTEND_MS
+                    if (newExpiresAt > listing.expiresAt) {
+                        listing.expiresAt = newExpiresAt
+                        listing.softCloseExtensions = extensions + 1
+                        log.info("Auction ${listingId} soft-closed — extended to +${SNIPE_EXTEND_MS}ms by bid from ${bidderUserId} " +
+                            "(extension ${listing.softCloseExtensions}/${MAX_SOFT_CLOSE_EXTENSIONS})")
+                    }
                 }
             }
         }

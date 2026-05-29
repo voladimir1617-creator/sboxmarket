@@ -86,12 +86,12 @@ class ApiKeyServiceSpec extends Specification {
         apiKeyRepository.save(_) >> { args -> def k = args[0]; minted = k; k }
         def createResult = service.create(10L, 'bot')
         // A persisted row carries a generated id — set one so the
-        // re-read-by-id replay-safety step resolves.
+        // race-safety scalar re-check resolves.
         minted.id = 42L
-        // Rebind the mock to now return the minted key when queried by
-        // hash AND when re-loaded by id inside the auth transaction.
+        // Rebind the mock to return the minted key by hash AND report
+        // the row as live (count == 1) on the wave-110 race re-check.
         apiKeyRepository.findByTokenHash(minted.tokenHash) >> minted
-        apiKeyRepository.findById(42L) >> Optional.of(minted)
+        apiKeyRepository.countLiveById(42L) >> 1L
 
         when:
         def userId = service.authenticate(createResult.token)
@@ -131,8 +131,8 @@ class ApiKeyServiceSpec extends Specification {
         then:
         userId == null
         // A revoked key is refused at the hash-lookup stage — the
-        // re-read + lastUsedAt write must never run for it.
-        0 * apiKeyRepository.findById(_)
+        // race-safety re-check + lastUsedAt write must never run.
+        0 * apiKeyRepository.countLiveById(_)
         0 * apiKeyRepository.save(_)
     }
 
@@ -269,7 +269,7 @@ class ApiKeyServiceSpec extends Specification {
         def before = System.currentTimeMillis()
         def key = new ApiKey(id: 5L, userId: 10L, revoked: false, tokenHash: 't', lastUsedAt: null)
         apiKeyRepository.findByTokenHash(_) >> key
-        apiKeyRepository.findById(5L) >> Optional.of(key)
+        apiKeyRepository.countLiveById(5L) >> 1L
 
         when:
         def uid = service.authenticate('sbx_live_whatever')
@@ -391,6 +391,11 @@ class ApiKeyServiceSpec extends Specification {
         def user = new com.sboxmarket.model.SteamUser(id: 10L, email: 'user@example.com', displayName: 'Al')
         steamUserRepository.findById(10L) >> Optional.of(user)
         apiKeyRepository.save(_) >> { args -> args[0] }
+        // Production now gates the alert through emailService
+        // .canSendSecurityTo(user) — same matrix every other security
+        // alert (sign-in, wallet-frozen) goes through. Stub it true so
+        // the test exercises the actual `sendApiKeyMinted` send path.
+        emailService.canSendSecurityTo(_) >> true
 
         when:
         service.create(10L, 'my-bot', 'RW')
@@ -480,7 +485,7 @@ class ApiKeyServiceSpec extends Specification {
             tokenHash: '9b03a45db5b73b96cc16dfda41bf7bef90eaa59ca164f9cb1b1ec45e2c69124a'
         )
         apiKeyRepository.findByTokenHash(_) >> key
-        apiKeyRepository.findById(1L) >> Optional.of(key)
+        apiKeyRepository.countLiveById(1L) >> 1L
         apiKeyRepository.save(_) >> { args -> args[0] }
 
         when:
@@ -503,53 +508,53 @@ class ApiKeyServiceSpec extends Specification {
 
     // ── revocation race: authenticate must never resurrect a revoked key ──
 
-    def "authenticate re-reads the key by id before stamping lastUsedAt"() {
+    def "authenticate consults the scalar live-probe (not findById) before stamping lastUsedAt"() {
         given:
-        // The token hashes to a row the index still returns, but the
-        // authoritative re-read by id must drive the lastUsedAt write —
-        // never the (potentially stale) findByTokenHash result.
-        def stale = new ApiKey(id: 5L, userId: 10L, revoked: false, tokenHash: 't')
-        def fresh = new ApiKey(id: 5L, userId: 10L, revoked: false, tokenHash: 't')
-        apiKeyRepository.findByTokenHash(_) >> stale
-        apiKeyRepository.findById(5L) >> Optional.of(fresh)
+        // Wave 110 — the race-safety re-check must be a scalar DB
+        // probe, NOT a `findById` round-trip. `findById` short-circuits
+        // to Hibernate's L1 cache and returns the SAME managed entity
+        // that `findByTokenHash` already loaded — making it blind to a
+        // concurrent revoke that committed in another transaction.
+        def key = new ApiKey(id: 5L, userId: 10L, revoked: false, tokenHash: 't')
+        apiKeyRepository.findByTokenHash(_) >> key
+        apiKeyRepository.countLiveById(5L) >> 1L
 
         when:
         def uid = service.authenticate('sbx_live_whatever')
 
         then:
         uid == 10L
-        // The fresh re-read is the row that gets stamped + saved, so a
-        // detached-snapshot merge can't clobber a concurrently-flipped
-        // `revoked` flag.
-        fresh.lastUsedAt != null
-        1 * apiKeyRepository.save(fresh)
+        key.lastUsedAt != null
+        1 * apiKeyRepository.save(key)
+        // findById must NOT be the race-check vector — its L1-cache
+        // short-circuit silently un-protects the auth path against
+        // concurrent revoke.
+        0 * apiKeyRepository.findById(_)
     }
 
-    def "authenticate aborts (no save) if the key was revoked between hash lookup and re-read"() {
+    def "authenticate aborts (no save) if the key was revoked between hash lookup and re-check"() {
         given:
         // Index lookup still sees the key as live, but by the time we
-        // re-read it by id a concurrent revoke()/revokeAll() has landed.
+        // re-check, a concurrent revoke()/revokeAll() has committed.
+        // The fresh scalar probe sees zero live rows for that id and
+        // we fail closed.
         def atLookup = new ApiKey(id: 5L, userId: 10L, revoked: false, tokenHash: 't')
-        def revokedNow = new ApiKey(id: 5L, userId: 10L, revoked: true, tokenHash: 't')
         apiKeyRepository.findByTokenHash(_) >> atLookup
-        apiKeyRepository.findById(5L) >> Optional.of(revokedNow)
+        apiKeyRepository.countLiveById(5L) >> 0L
 
         when:
         def uid = service.authenticate('sbx_live_whatever')
 
         then:
-        // Must fail auth — and crucially must NOT write the key back,
-        // which (as a full-entity merge) would resurrect revoked=false.
         uid == null
         0 * apiKeyRepository.save(_)
     }
 
-    def "authenticateWithScope aborts (no save) if the key was revoked between hash lookup and re-read"() {
+    def "authenticateWithScope aborts (no save) if the key was revoked between hash lookup and re-check"() {
         given:
         def atLookup = new ApiKey(id: 9L, userId: 10L, scope: 'RW', revoked: false, tokenHash: 't')
-        def revokedNow = new ApiKey(id: 9L, userId: 10L, scope: 'RW', revoked: true, tokenHash: 't')
         apiKeyRepository.findByTokenHash(_) >> atLookup
-        apiKeyRepository.findById(9L) >> Optional.of(revokedNow)
+        apiKeyRepository.countLiveById(9L) >> 0L
 
         when:
         def ctx = service.authenticateWithScope('sbx_live_whatever')
@@ -559,11 +564,13 @@ class ApiKeyServiceSpec extends Specification {
         0 * apiKeyRepository.save(_)
     }
 
-    def "authenticate returns null if the key row is deleted between hash lookup and re-read"() {
+    def "authenticate returns null if the key row is deleted between hash lookup and re-check"() {
         given:
+        // count == 0 collapses both "row gone" and "row revoked" into
+        // the same fail-closed branch.
         def atLookup = new ApiKey(id: 5L, userId: 10L, revoked: false, tokenHash: 't')
         apiKeyRepository.findByTokenHash(_) >> atLookup
-        apiKeyRepository.findById(5L) >> Optional.empty()
+        apiKeyRepository.countLiveById(5L) >> 0L
 
         when:
         def uid = service.authenticate('sbx_live_whatever')
@@ -576,10 +583,12 @@ class ApiKeyServiceSpec extends Specification {
     def "authenticate treats a null revoked flag as live (legacy-row safety)"() {
         given:
         // revoked column is NOT NULL in the schema, but a defensive
-        // null check must not NPE or mis-classify a legacy row.
+        // null check must not NPE or mis-classify a legacy row. The
+        // countLiveById query whitelists `revoked IS NULL OR = false`
+        // so a legacy row still counts as live (count == 1).
         def key = new ApiKey(id: 5L, userId: 10L, revoked: null, tokenHash: 't')
         apiKeyRepository.findByTokenHash(_) >> key
-        apiKeyRepository.findById(5L) >> Optional.of(key)
+        apiKeyRepository.countLiveById(5L) >> 1L
         apiKeyRepository.save(_) >> { args -> args[0] }
 
         when:

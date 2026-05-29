@@ -1,7 +1,6 @@
 package com.sboxmarket.service
 
 import com.sboxmarket.exception.BadRequestException
-import com.sboxmarket.exception.ForbiddenException
 import com.sboxmarket.exception.NotFoundException
 import com.sboxmarket.model.SupportMessage
 import com.sboxmarket.model.SupportTicket
@@ -115,7 +114,15 @@ class SupportService {
     Map getTicket(Long userId, Long ticketId) {
         def t = ticketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
-        if (t.userId != userId) throw new ForbiddenException("Not your ticket")
+        // Non-owner gets the SAME 404 as a wholly missing id — never a
+        // 403 — so an authenticated attacker iterating GET /api/support/
+        // tickets/{id} can't distinguish "exists but not yours" from
+        // "doesn't exist" and thereby enumerate other users' ticket ids
+        // (IDOR enumeration leak). Mirrors the ApiKeyService.revoke
+        // pattern in this codebase. Applies to every per-ticket method
+        // below so the differential-response leak is closed across the
+        // whole surface, not just the read path.
+        if (t.userId != userId) throw new NotFoundException("SupportTicket", ticketId)
         [ticket: t, messages: messageRepository.findByTicket(ticketId)]
     }
 
@@ -219,7 +226,9 @@ class SupportService {
     SupportMessage reply(Long userId, String username, Long ticketId, String body) {
         def ticket = ticketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
-        if (ticket.userId != userId) throw new ForbiddenException("Not your ticket")
+        // Same-as-missing 404 for non-owners — see getTicket() for the
+        // enumeration rationale. Reply must NOT confirm a foreign id.
+        if (ticket.userId != userId) throw new NotFoundException("SupportTicket", ticketId)
         if (ticket.status == 'RESOLVED') {
             throw new BadRequestException("RESOLVED", "Ticket is already resolved")
         }
@@ -294,7 +303,9 @@ class SupportService {
     SupportTicket reopen(Long userId, Long ticketId) {
         def ticket = ticketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
-        if (ticket.userId != userId) throw new ForbiddenException("Not your ticket")
+        // Same-as-missing 404 for non-owners — see getTicket() for the
+        // enumeration rationale.
+        if (ticket.userId != userId) throw new NotFoundException("SupportTicket", ticketId)
         if (ticket.status != 'RESOLVED') {
             throw new BadRequestException("NOT_RESOLVED",
                 "Only resolved tickets can be reopened")
@@ -330,7 +341,9 @@ class SupportService {
     SupportTicket resolve(Long userId, Long ticketId) {
         def ticket = ticketRepository.findById(ticketId)
             .orElseThrow { new NotFoundException("SupportTicket", ticketId) }
-        if (ticket.userId != userId) throw new ForbiddenException("Not your ticket")
+        // Same-as-missing 404 for non-owners — see getTicket() for the
+        // enumeration rationale.
+        if (ticket.userId != userId) throw new NotFoundException("SupportTicket", ticketId)
         // State-machine guard — mirror reply()/reopen(). Re-resolving an
         // already-RESOLVED ticket was a silent no-op that still bumped
         // updatedAt, re-sorting the user's ticket list for no reason. Now a

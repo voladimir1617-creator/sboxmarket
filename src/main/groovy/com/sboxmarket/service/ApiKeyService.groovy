@@ -191,23 +191,35 @@ class ApiKeyService {
      * an `authenticate()` racing a `revoke()` / `revokeAll()` could flush
      * a stale `revoked=false` over a just-committed `revoked=true` and
      * silently un-revoke the key, defeating the revocation kill switch.
-     * Running inside one transaction and re-loading the row by id keeps
-     * the entity managed and lets us bail the instant we observe it is
-     * revoked — a key revoked mid-request now correctly fails auth and
-     * its `revoked` flag is never overwritten.
+     *
+     * Wave 110 — race-safety re-check is now a scalar COUNT probe
+     * (`countLiveById`) rather than `findById`. The prior `findById`
+     * re-read short-circuited to Hibernate's L1 cache: the entity
+     * loaded by `findByTokenHash` a few lines earlier was still managed
+     * in the same persistence context, so `find()` returned the SAME
+     * stale reference without issuing a DB query. A `revokeAll()` that
+     * committed between the two calls was therefore invisible to the
+     * in-flight request — auth succeeded and `lastUsedAt` was stamped
+     * against the cached `revoked=false` snapshot. A COUNT projection
+     * is not cached as a managed entity, so it always observes the
+     * committed flip and we bail before the write. It also collapses
+     * the "row deleted" and "row revoked" branches into a single
+     * fail-closed check (count == 0).
      */
     private ApiKey resolveLiveKey(String rawToken) {
         if (!rawToken || !rawToken.startsWith(PREFIX)) return null
         def hash = sha256(rawToken)
         def found = apiKeyRepository.findByTokenHash(hash)
         if (found == null || found.id == null || Boolean.TRUE.equals(found.revoked)) return null
-        // Re-load fresh inside this transaction; abort if it was revoked
-        // in the meantime so the lastUsedAt write can never resurrect it.
-        def key = apiKeyRepository.findById(found.id).orElse(null)
-        if (key == null || Boolean.TRUE.equals(key.revoked)) return null
-        key.lastUsedAt = System.currentTimeMillis()
-        apiKeyRepository.save(key)
-        key
+        // Authoritative scalar re-check against the DB — bypasses the
+        // L1 cache so a concurrent revoke that committed since
+        // `findByTokenHash` returned is observed here. count == 0
+        // means the row was either revoked or hard-deleted in the
+        // meantime; both fail closed.
+        if (apiKeyRepository.countLiveById(found.id) == 0L) return null
+        found.lastUsedAt = System.currentTimeMillis()
+        apiKeyRepository.save(found)
+        found
     }
 
     private static String randomToken(int bytes) {

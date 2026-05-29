@@ -37,4 +37,23 @@ interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
      *  always be able to revoke + reissue without hitting the wall). */
     @Query("SELECT COUNT(k) FROM ApiKey k WHERE k.userId = :uid AND (k.revoked IS NULL OR k.revoked = false)")
     long countActiveByUser(@Param("uid") Long uid)
+
+    /** Scalar "still live?" probe used by the auth path's race-safety
+     *  re-check (wave 110). The previous `findById(id)` re-read short-
+     *  circuited to Hibernate's L1 cache — the entity loaded by
+     *  `findByTokenHash` a few lines earlier is still managed in the
+     *  same persistence context, so `find()` returned the SAME stale
+     *  reference and never re-queried the DB. A concurrent
+     *  `revokeAll()` that committed between the two calls was therefore
+     *  invisible: the in-flight request still authenticated against
+     *  the cached `revoked=false` snapshot and stamped `lastUsedAt`.
+     *
+     *  A `COUNT(...)` scalar query is not cached as a managed entity
+     *  and always hits the DB, so we observe the committed flip and
+     *  bail. Returns 1 when the row exists AND is non-revoked (null
+     *  revoked degrades to live, symmetric with the rest of the auth
+     *  path), 0 when the row is revoked OR deleted — fail-closed for
+     *  both. */
+    @Query("SELECT COUNT(k) FROM ApiKey k WHERE k.id = :id AND (k.revoked IS NULL OR k.revoked = false)")
+    long countLiveById(@Param("id") Long id)
 }

@@ -171,6 +171,23 @@ class Listing {
     @Column(name = "ending_soon_notified", nullable = false)
     Boolean endingSoonNotified = false
 
+    /** Number of times soft-close anti-snipe has already pushed
+     *  {@code expiresAt} out for this auction. Capped by
+     *  {@code BidService.MAX_SOFT_CLOSE_EXTENSIONS} so a griefer
+     *  cannot keep an auction open forever by spamming bids in the
+     *  final seconds (each bid is gated by wallet balance, not
+     *  debited, so a user with $1000 could otherwise buy ~20,000
+     *  extensions = ~7 days of stalling at $0 actual cost). Nullable
+     *  in SQL so ddl-auto=update can add the column to existing
+     *  AUCTION rows without a backfill — the Groovy initializer is 0
+     *  for fresh rows; the BidService cap math coalesces null → 0
+     *  for legacy rows. Only meaningful for AUCTION listings;
+     *  non-auction rows stay at 0 forever. @JsonIgnore — internal
+     *  anti-griefing counter, no client surface reads it. */
+    @JsonIgnore
+    @Column(name = "soft_close_extensions")
+    Integer softCloseExtensions = 0
+
     /** Seller's review aggregate, attached at serialization time by
      *  ListingController. Lets the buyer see "★ 4.7 (23)" on every
      *  listing row without a per-row API call — csfloat-parity. Null
