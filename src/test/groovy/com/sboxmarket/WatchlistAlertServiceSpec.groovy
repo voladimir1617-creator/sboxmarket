@@ -242,6 +242,8 @@ class WatchlistAlertServiceSpec extends Specification {
         itemRepository.findById(7L) >> Optional.of(itemFor(7L))
         itemRepository.findById(8L) >> Optional.of(itemFor(8L))
         repo.save(_) >> { args -> args[0] }
+        // Wave 112: this pod wins the ACTIVE → FIRED race-claim.
+        repo.claimForFiring(_, _) >> 1
 
         when:
         service.sweep()
@@ -290,6 +292,8 @@ class WatchlistAlertServiceSpec extends Specification {
         ]
         itemRepository.findById(_) >> Optional.of(itemFor())
         repo.save(_) >> { args -> args[0] }
+        // Wave 112: this pod wins the ACTIVE → FIRED race-claim.
+        repo.claimForFiring(_, _) >> 1
         // First push blows up; sweep must keep going.
         notificationService.push(42L, _, _, _, _, _) >> { throw new RuntimeException('downstream boom') }
 
@@ -315,6 +319,7 @@ class WatchlistAlertServiceSpec extends Specification {
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         repo.findTriggered() >> [[a, new BigDecimal('9.00')] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         itemRepository.findById(7L) >> Optional.of(itemFor())
         repo.save(_) >> { args -> args[0] }
         steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
@@ -335,6 +340,7 @@ class WatchlistAlertServiceSpec extends Specification {
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         repo.findTriggered() >> [[a, new BigDecimal('9.00')] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         itemRepository.findById(7L) >> Optional.of(itemFor())
         repo.save(_) >> { args -> args[0] }
         // Banned user — price drop is pure noise since they can't buy.
@@ -361,6 +367,7 @@ class WatchlistAlertServiceSpec extends Specification {
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         repo.findTriggered() >> [[a, new BigDecimal('9.00')] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         itemRepository.findById(7L) >> Optional.of(itemFor())
         repo.save(_) >> { args -> args[0] }
         steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
@@ -476,6 +483,7 @@ class WatchlistAlertServiceSpec extends Specification {
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         // Production projection shape: [alert, lowestPrice, name].
         repo.findTriggered() >> [[a, new BigDecimal('9.00'), 'Dragon Lore'] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
 
         when:
@@ -494,6 +502,7 @@ class WatchlistAlertServiceSpec extends Specification {
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         // 3-col row but name is empty → fallback lookup expected.
         repo.findTriggered() >> [[a, new BigDecimal('9.00'), ''] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
 
         when:
@@ -511,6 +520,7 @@ class WatchlistAlertServiceSpec extends Specification {
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         repo.findTriggeredForItem(7L, _) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
 
         when:
@@ -559,6 +569,7 @@ class WatchlistAlertServiceSpec extends Specification {
         def a = new WatchlistAlert(id: 1L, userId: 42L, itemId: 7L,
             targetPrice: new BigDecimal('10'), status: 'ACTIVE')
         repo.findTriggeredForItem(7L, _) >> [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
         steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
             id: 42L, email: 'bad@example.com', emailVerified: true,
@@ -610,6 +621,7 @@ class WatchlistAlertServiceSpec extends Specification {
             [a1, new BigDecimal('9.00'), 'Wizard Hat']  as Object[],
             [a2, new BigDecimal('4.00'), 'Dragon Lore'] as Object[]
         ]
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
         // Same user for both alerts — emailable.
         steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
@@ -642,6 +654,7 @@ class WatchlistAlertServiceSpec extends Specification {
             [a1, new BigDecimal('9.00'), 'Wizard Hat']  as Object[],
             [a2, new BigDecimal('4.00'), 'Dragon Lore'] as Object[]
         ]
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
         steamUserRepository.findById(42L) >> Optional.of(new com.sboxmarket.model.SteamUser(
             id: 42L, email: 'alice@example.com', emailVerified: true,
@@ -698,6 +711,7 @@ class WatchlistAlertServiceSpec extends Specification {
             captured = p
             [[a, new BigDecimal('8.00'), 'Wizard Hat'] as Object[]]
         }
+        repo.claimForFiring(_, _) >> 1
         repo.save(_) >> { args -> args[0] }
 
         when:
