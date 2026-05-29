@@ -914,6 +914,22 @@ class ListingService {
      */
     @Transactional
     Map reportListing(Long listingId, Long reporterUserId, String reason, String note) {
+        // Ban gate — the /api/listings/{id}/report endpoint hands the
+        // request straight here with zero ban check at the controller
+        // (ListingController autowires no BanGuard). Symmetric with
+        // ReviewService.leaveReview / replyToReview / deleteReview /
+        // voteHelpful and with bulkAdjustPrices above (batch 138/141-143
+        // banGuard sweeps): every user-initiated write needs the actor
+        // ban-checked at the service layer because controller-level
+        // gates are routinely forgotten on new HTTP endpoints. Without
+        // this a banned user can still mass-flag every listing on the
+        // platform (the rate limit is 20/hour but they can stagger and
+        // keep going), inflate report_count + last_reported_at on
+        // innocent rows, and burn down admin moderation queue cycles
+        // even though their actions are supposed to be neutered. Runs
+        // before the listing read so a banned caller never even touches
+        // the row. Null-safe for unit specs that don't wire BanGuard.
+        banGuard?.assertNotBanned(reporterUserId)
         def listing = listingRepository.findById(listingId)
             .orElseThrow { new NotFoundException("Listing", listingId) }
         if (listing.sellerUserId != null && listing.sellerUserId == reporterUserId) {

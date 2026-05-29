@@ -367,9 +367,27 @@ class CsrService {
         // which already fires TICKET_AUTO_RESOLVED on the auto-close path —
         // the manual-close path was the gap. Failure-tolerant: the bell
         // service uses safePush so a bad push can't roll back the close.
-        notificationService?.safePush(t.userId, 'TICKET_CLOSED',
-            "Support ticket resolved · #${t.id}",
-            t.subject, t.id, '/support')
+        //
+        // Banned-owner suppression — mirrors `reply()` above (lines 293-329)
+        // and `NotificationService.filterActiveRecipients` for batch sends.
+        // A banned account is inert: it can't reopen the ticket, can't see
+        // its bell tray (the auth layer rejects the session), and shouldn't
+        // receive pings about staff activity on a frozen thread. The status
+        // flip + audit row still happen — this is a delivery suppression,
+        // not an action refusal — but the bell push to a banned target is
+        // dropped. Null-safe lookup so a transient DB blip or a stubbed-out
+        // repository can't roll back the close we already saved.
+        SteamUser owner = null
+        try {
+            def lookup = steamUserRepository.findById(t.userId)
+            owner = (lookup != null) ? lookup.orElse(null) : null
+        } catch (Exception ignored) { /* treat as unknown */ }
+        boolean ownerBanned = (owner != null && Boolean.TRUE.equals(owner.banned))
+        if (!ownerBanned) {
+            notificationService?.safePush(t.userId, 'TICKET_CLOSED',
+                "Support ticket resolved · #${t.id}",
+                t.subject, t.id, '/support')
+        }
         try {
             auditService?.log(AuditService.TICKET_CLOSED, csrUserId, t.userId, ticketId,
                 "Closed ticket #${ticketId}: ${t.subject}")
