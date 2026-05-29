@@ -1093,6 +1093,11 @@ class TradeServiceSpec extends Specification {
         // seller while leaving the buyer's claim standing would double-
         // pay the buyer (keeps the item AND the refund) — release() must
         // REVERSE the CLAIMED protection, not expire() it.
+        //
+        // Wave 110: the resolve path is now the LOCKED
+        // lockAndExpireIfActiveOrReportClaimed arbiter (the same one
+        // cancel() uses), so a concurrent autoClaim cannot squeeze a
+        // payout between this check and the seller credit.
         given:
         def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
         service.tradeProtectionService = tradeProtectionService
@@ -1104,7 +1109,12 @@ class TradeServiceSpec extends Specification {
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction tx -> tx }
         adminAuthorization.requireAdmin(999L) >> {}
-        tradeProtectionService.findForTrade(1L) >> protectionRow('CLAIMED')
+        // Locked arbiter reports CLAIMED → caller must reverseClaim.
+        // `_` arg matcher because Spock argument-matches on exact type
+        // (a Long call won't match an Integer stub) and TradeService
+        // hands the trade id in via `t.id` whose boxing depends on
+        // construction path.
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(_) >> true
 
         when: 'staff force-release the disputed (already protection-paid) trade'
         service.adminRelease(999L, 1L, 'CSR ruling: seller delivered, buyer dispute rejected')
@@ -1114,14 +1124,21 @@ class TradeServiceSpec extends Specification {
         sellerWallet.balance > BigDecimal.ZERO
 
         and: 'the CLAIMED protection is REVERSED — not expired — to reclaim the buyer payout'
-        1 * tradeProtectionService.reverseClaim(1L, _)
+        1 * tradeProtectionService.reverseClaim(_, _)
         0 * tradeProtectionService.expire(_)
     }
 
     def "release of a protected trade with ACTIVE protection still expires the cover (no regression)"() {
         // The release-path protection branch must not regress ordinary
         // completion: a buyerConfirm on a still-ACTIVE protected trade
-        // lapses the cover via expire(), never reverseClaim().
+        // lapses the cover, never reverseClaim().
+        //
+        // Wave 110: the expire happens INLINE inside
+        // lockAndExpireIfActiveOrReportClaimed (under the row lock so a
+        // concurrent autoClaim sees EXPIRED on its re-read and bails),
+        // not via a separate expire() call. Asserts neither the legacy
+        // expire() nor reverseClaim() fires — the inline path covers
+        // the ACTIVE case.
         given:
         def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
         service.tradeProtectionService = tradeProtectionService
@@ -1133,14 +1150,111 @@ class TradeServiceSpec extends Specification {
         walletRepository.save(_) >> { Wallet w -> w }
         transactionRepository.save(_) >> { Transaction tx -> tx }
         banGuard.assertNotBanned(10L) >> {}
-        tradeProtectionService.findForTrade(1L) >> protectionRow('ACTIVE')
+        // Locked arbiter consumed the ACTIVE cover inline → false.
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(_) >> false
 
         when:
         service.buyerConfirm(10L, 1L)
 
-        then: 'trade verifies and the ACTIVE cover lapses normally'
+        then: 'trade verifies and neither the post-lock expire nor reverseClaim fires'
         t.state == 'VERIFIED'
-        1 * tradeProtectionService.expire(_)
+        0 * tradeProtectionService.expire(_)
+        0 * tradeProtectionService.reverseClaim(_, _)
+    }
+
+    def "release × concurrent autoClaim race — release on a protected trade locks the protection row so a parallel dispute cannot double-pay the buyer (wave 110)"() {
+        // The wave-105 cancel × autoClaim fix sealed the SYMMETRIC race
+        // for the cancel path but left the release path open. Repro:
+        //
+        //   1. Trade in PENDING_BUYER_CONFIRM, protection ACTIVE.
+        //   2. Thread B files dispute (REQUIRES_NEW autoClaim acquires the
+        //      protection row lock, credits the buyer the full cover,
+        //      flips ACTIVE → CLAIMED, COMMITS — durable buyer payout).
+        //   3. Thread A's release runs concurrently. Pre-fix it did an
+        //      UNLOCKED `findForTrade` read. If that read saw ACTIVE (a
+        //      live race window before autoClaim's commit was visible to
+        //      Thread A), release took the `expire()` branch. expire()
+        //      then did its own unlocked read in REQUIRES_NEW — by the
+        //      time it ran, autoClaim had committed CLAIMED, so expire's
+        //      `status != ACTIVE` gate bailed silently. NO reverseClaim
+        //      ever ran. Seller credited (price - fee) + buyer keeps the
+        //      cover payout = full-item-price platform loss per race.
+        //
+        // The fix routes release's protection resolution through the
+        // SAME locked arbiter cancel uses
+        // (`lockAndExpireIfActiveOrReportClaimed`). When the arbiter
+        // reports CLAIMED (Thread B's autoClaim already paid), release
+        // calls reverseClaim to claw back. When it returns false, the
+        // ACTIVE cover was consumed inline under the lock so a
+        // concurrent autoClaim re-reads EXPIRED on its locked re-read
+        // and bails via the existing idempotency gate.
+        //
+        // This pin exercises the CLAIMED branch — the one that pre-fix
+        // silently fell through to the now-no-op `expire()` and left the
+        // platform double-paying. With the fix in place, the same
+        // arbiter return value triggers `reverseClaim` exactly once, the
+        // buyer's wallet is clawed back, and the seller's normal credit
+        // stands.
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        def sellerWallet = new Wallet(id: 600L, balance: BigDecimal.ZERO, currency: 'USD')
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        banGuard.assertNotBanned(10L) >> {}
+
+        and: 'the protection row was concurrently CLAIMED by a parallel dispute'
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> true
+
+        when: 'the buyer confirms (or the sweeper auto-releases) the trade'
+        service.buyerConfirm(10L, 1L)
+
+        then: 'the trade still verifies and the seller is still credited from escrow'
+        t.state == 'VERIFIED'
+        sellerWallet.balance > BigDecimal.ZERO
+
+        and: 'the standing CLAIMED protection payout is REVERSED — no double payout'
+        1 * tradeProtectionService.reverseClaim(1L, _)
+
+        and: 'release goes through the LOCKED arbiter, not the racy unlocked findForTrade read'
+        0 * tradeProtectionService.findForTrade(_)
+        0 * tradeProtectionService.expire(_)
+    }
+
+    def "release × concurrent autoClaim race — when the arbiter reports false (ACTIVE consumed inline), release does NOT separately expire or reverse (wave 110)"() {
+        // The false return value from lockAndExpireIfActiveOrReportClaimed
+        // means EITHER the trade was unprotected (null protection) OR the
+        // ACTIVE cover was just consumed ACTIVE → EXPIRED inline under the
+        // pessimistic row lock. Either way release() must NOT call expire()
+        // again (no-op but extra round trip) and must NOT call reverseClaim
+        // (would clobber a never-paid protection row). This pins that the
+        // wave-110 patch's false-branch is a clean no-op rather than
+        // re-falling through to the legacy expire() call (which would mask
+        // a future regression of the locked semantics).
+        given:
+        def tradeProtectionService = Mock(com.sboxmarket.service.TradeProtectionService)
+        service.tradeProtectionService = tradeProtectionService
+        def t = tradeIn('PENDING_BUYER_CONFIRM')
+        def sellerWallet = new Wallet(id: 600L, balance: BigDecimal.ZERO, currency: 'USD')
+        tradeRepository.findById(_) >> Optional.of(t)
+        tradeRepository.save(_) >> { Trade trade -> trade }
+        walletRepository.findById(600L) >> Optional.of(sellerWallet)
+        walletRepository.save(_) >> { Wallet w -> w }
+        transactionRepository.save(_) >> { Transaction tx -> tx }
+        banGuard.assertNotBanned(10L) >> {}
+        tradeProtectionService.lockAndExpireIfActiveOrReportClaimed(1L) >> false
+
+        when:
+        service.buyerConfirm(10L, 1L)
+
+        then: 'release completes normally with no follow-on protection calls'
+        t.state == 'VERIFIED'
+        sellerWallet.balance > BigDecimal.ZERO
+        0 * tradeProtectionService.expire(_)
         0 * tradeProtectionService.reverseClaim(_, _)
     }
 

@@ -757,13 +757,50 @@ class TradeService {
         // twin of cancel()'s `alreadyPaidByProtection` guard. Best-
         // effort: a protection hiccup must not roll back the seller
         // credit + VERIFIED transition above.
+        //
+        // The pre-fix unlocked `findForTrade(t.id)` raced with a concurrent
+        // dispute → autoClaim REQUIRES_NEW. Order of operations on a
+        // protected PENDING_BUYER_CONFIRM trade:
+        //   • Thread B (dispute) acquires the protection row lock via
+        //     autoClaim, credits the buyer, flips ACTIVE → CLAIMED, commits.
+        //   • Thread A (release) reads `findForTrade` UNLOCKED, but TIMING
+        //     decides whether READ_COMMITTED shows ACTIVE or CLAIMED. If
+        //     Thread A reads BEFORE autoClaim's REQUIRES_NEW commit lands,
+        //     it sees ACTIVE → falls through to `expire()`. expire() then
+        //     does its own unlocked read in REQUIRES_NEW — by the time it
+        //     runs, autoClaim has committed CLAIMED, so expire's `status !=
+        //     ACTIVE` gate bails. NO reverseClaim ever runs.
+        //   • Thread A's outer commit succeeds (or wins the optimistic-lock
+        //     race vs Thread B). Seller is credited price-fee.
+        //   • Thread B's outer commit fails @Version → DISPUTED rolls back,
+        //     but autoClaim's REQUIRES_NEW commit is durable. Buyer keeps
+        //     the protection payout.
+        //   • Net: seller paid AND buyer paid the cover. Platform eats the
+        //     full item price. Symmetric to the cancel × autoClaim race
+        //     wave 105 closed.
+        //
+        // Fix: route through `lockAndExpireIfActiveOrReportClaimed` — the
+        // same arbiter cancel() uses. It acquires the protection row's
+        // pessimistic write lock inside release's outer tx (REQUIRED
+        // propagation), atomically reports CLAIMED-or-flips-ACTIVE-to-
+        // EXPIRED, and the lock is held until release commits. A
+        // concurrent autoClaim either runs FIRST (we see CLAIMED, call
+        // reverseClaim to claw back) or BLOCKS on the lock and re-reads
+        // EXPIRED after we commit (its `status != ACTIVE` gate bails).
+        // No double payout window remains.
         try {
-            def prot = tradeProtectionService?.findForTrade(t.id)
-            if (prot != null && prot.status == com.sboxmarket.model.TradeProtection.CLAIMED) {
+            boolean alreadyClaimed = tradeProtectionService
+                    ?.lockAndExpireIfActiveOrReportClaimed(t.id) ?: false
+            if (alreadyClaimed) {
+                // autoClaim already paid the buyer the full cover — reverse
+                // the claim to claw it back, otherwise the seller credit
+                // above PLUS the standing buyer payout double-pays the buyer.
                 tradeProtectionService.reverseClaim(t.id, 'Trade released as valid')
-            } else {
-                tradeProtectionService?.expire(t.id)
             }
+            // The false branch is already handled: ACTIVE was consumed
+            // ACTIVE → EXPIRED inline under the lock by
+            // lockAndExpireIfActiveOrReportClaimed, and a null protection
+            // (unprotected trade) is a no-op there as well.
         } catch (Exception e) {
             log.warn("Protection resolve-on-release failed for trade ${t.id}: ${e.message}")
         }
