@@ -3,6 +3,7 @@ package com.sboxmarket.repository
 import com.sboxmarket.model.Transaction
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -182,6 +183,47 @@ interface TransactionRepository extends JpaRepository<Transaction, Long> {
         @Param('cutoff') Long cutoff,
         Pageable pageable
     )
+
+    /**
+     * Atomic claim for the stale-PENDING deposit auto-expire sweep (wave 126).
+     * Flips `status` from PENDING→EXPIRED and appends an audit suffix to the
+     * description ONLY if the row is still PENDING at UPDATE time. Returns
+     * the number of rows touched: 1 = this pod owns the fan-out
+     * (DEPOSIT_EXPIRED bell push), 0 = a sibling pod already claimed it OR
+     * a Stripe webhook landed concurrently and flipped the row to CONFIRMED
+     * / DISPUTED / REFUNDED — in either case the losing path bails before
+     * any notify call runs.
+     *
+     * Multi-pod race protection. Same shape as wave 112
+     * (WatchlistAlertRepository.claimForFiring), wave 120
+     * (FraudAnalysisService cluster claim), wave 124
+     * (ListingRepository.claimEndingSoonNotify), and wave 125
+     * (BuyOrderRepository.claimExpire). `findStalePending` is read
+     * concurrently by every pod's 4-hourly StripeService.sweepStalePendingDeposits,
+     * and both pods would see the SAME `status=PENDING` row. Without an
+     * atomic claim each pod independently fires the DEPOSIT_EXPIRED bell
+     * push before either pod's `saveAll` commits — user receives "your
+     * deposit was auto-expired" TWICE for one expired Stripe session.
+     *
+     * Also closes a critical OUT-OF-BAND race: if a Stripe webhook lands
+     * between the sweeper's `findStalePending` read and the row UPDATE
+     * (Stripe's eventual completion of a 48h-stale session), the
+     * conditional UPDATE will MISS the row (status != PENDING anymore)
+     * and the user keeps their credited balance — pre-fix the sweeper
+     * would have overwritten the freshly-CONFIRMED status with EXPIRED
+     * AND fired a misleading "your deposit expired" notification on top
+     * of the wallet credit.
+     */
+    @Modifying
+    @Query("""
+        UPDATE Transaction t
+           SET t.status      = 'EXPIRED',
+               t.description = CONCAT(COALESCE(t.description, ''),
+                                      ' — auto-expired after 48h without completion')
+         WHERE t.id     = :id
+           AND t.status = 'PENDING'
+    """)
+    int claimExpirePending(@Param('id') Long id)
 
     /** Sum of withdrawal amounts the wallet has requested within a
      *  rolling window — drives the daily withdrawal cap enforced at

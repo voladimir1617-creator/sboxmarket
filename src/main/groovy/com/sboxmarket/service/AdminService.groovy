@@ -1704,6 +1704,28 @@ class AdminService {
         def user = steamUserRepository.findById(targetUserId).orElseThrow { new NotFoundException("SteamUser", targetUserId) }
         def wallet = walletRepository.findByUsername("steam_${user.steamId64}")
         if (wallet == null) throw new NotFoundException("Wallet", targetUserId)
+        // Wallet-freeze gate. freezeWallet's contract (line 1736-1737 below) is
+        // "all money-in / money-out paths refuse" — used for regulatory holds,
+        // fraud investigations, or user-requested security lockouts. Every
+        // OTHER money-path on the platform enforces this — WalletController.
+        // deposit:365, WalletController.withdraw:385, AdminService.
+        // approveWithdrawal:551, CsrService.issueGoodwillCredit:406 — but
+        // creditWallet was the last hole: a compromised admin (or a second
+        // admin clicking Credit on a stale Users tab) could push money into
+        // or pull money out of a wallet staff deliberately locked, silently
+        // bypassing the freeze. The Users-tab UI already surfaces walletFrozen
+        // (line 723 above); this gate makes the action match the visual.
+        // Unfreeze first if the credit is truly intended. Mirrors the gate
+        // shape of approveWithdrawal (same WALLET_FROZEN code so the SPA
+        // renders the same banner). Applies to BOTH credit (positive amount)
+        // and debit (negative amount) — both are wallet mutations that the
+        // freeze is meant to suspend.
+        if (Boolean.TRUE.equals(wallet.frozen)) {
+            throw new BadRequestException("WALLET_FROZEN",
+                "Cannot adjust wallet — it is frozen" +
+                    (wallet.frozenReason ? ": ${wallet.frozenReason}" : '') +
+                    ". Unfreeze the wallet first, then re-issue the adjustment.")
+        }
         wallet.balance = wallet.balance + amount
         if (wallet.balance < BigDecimal.ZERO) {
             throw new BadRequestException("WOULD_GO_NEGATIVE", "Adjustment would leave wallet negative")

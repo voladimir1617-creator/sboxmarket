@@ -1536,47 +1536,68 @@ class StripeService {
      * comfortable margin. Runs every 4 hours. Idempotent — already-EXPIRED
      * rows are not returned by `findStalePending` (PENDING-only filter).
      */
+    // NOT @Transactional — wave 126 migrated this from a single shared outer
+    // tx (whole-batch saveAll inside one tx) to per-row atomic conditional
+    // UPDATEs. Two reasons:
+    //
+    //  1. Multi-pod race: `findStalePending` was read concurrently by every
+    //     pod's 4-hourly sweeper, and both pods saw the SAME `status=PENDING`
+    //     row. The old code then ran the DEPOSIT_EXPIRED bell push on BOTH
+    //     pods before either pod's `saveAll` committed — user received "your
+    //     deposit expired" TWICE for one stale Stripe session. The fix is a
+    //     per-row claimExpirePending UPDATE that flips status PENDING→EXPIRED
+    //     only WHERE status is still PENDING and returns 1 to the winning
+    //     pod / 0 to the losing pod (or 0 if a Stripe webhook landed
+    //     concurrently and completed the deposit).
+    //  2. Out-of-band Stripe-webhook race: a webhook landing between sweeper
+    //     read and the UPDATE flips the row to CONFIRMED / DISPUTED. The old
+    //     unconditional `saveAll(stale)` would have stomped that with
+    //     EXPIRED — wiping a real wallet credit's audit row AND firing a
+    //     misleading "deposit expired" notification on top of credited
+    //     balance. The conditional UPDATE skips those rows entirely.
+    //
+    // Per-row work runs in its own implicit auto-commit tx so one bad row
+    // can't poison sibling rows in the batch.
     @Scheduled(fixedDelay = 4L * 60L * 60L * 1000L, initialDelay = 5L * 60L * 1000L)
-    @Transactional
     void sweepStalePendingDeposits() {
         def cutoff = System.currentTimeMillis() - (48L * 60L * 60L * 1000L)
         def stale = transactionRepository.findStalePending('DEPOSIT', cutoff)
         if (stale.isEmpty()) return
-        stale.each { tx ->
-            tx.status = 'EXPIRED'
-            tx.description = (tx.description ?: '') +
-                ' — auto-expired after 48h without completion'
-        }
-        transactionRepository.saveAll(stale)
-        log.info("Deposit sweeper: flipped ${stale.size()} stale PENDING deposits to EXPIRED")
+        log.info("Deposit sweeper: ${stale.size()} candidate stale PENDING deposit(s); racing for claims")
 
-        // Notify each affected user so the pending chip disappearing
-        // from the Wallet hero isn't a silent event. Resolves userId
-        // via Wallet.username (= "steam_<steamId64>") → SteamUser.
-        // Failure on any one row is logged and continues — sweeper
-        // keeps moving even if one lookup fails.
-        if (notificationService == null || steamUserRepository == null) return
-        // Batch 632: safePush — sweeper is @Transactional across the whole
-        // batch save; one bad user lookup must not roll back everyone else's
-        // flip to EXPIRED. The wallet/user-lookup try/catch stays (safePush
-        // only covers the notify call, not the repository lookups).
-        stale.each { tx ->
+        int fired = 0
+        for (Transaction tx : stale) {
             try {
-                def wallet = walletRepository.findById(tx.walletId).orElse(null)
-                if (wallet == null) return
-                def uname = wallet.username ?: ''
-                if (!uname.startsWith('steam_')) return
-                def steamId = uname.substring('steam_'.length())
-                def user = steamUserRepository.findBySteamId64(steamId)
-                if (user == null) return
-                notificationService.safePush(user.id, 'DEPOSIT_EXPIRED',
-                    "Deposit expired",
-                    "Your \$${tx.amount?.toPlainString() ?: '0.00'} deposit was auto-expired after 48h without completion. If you still want to top up, start a fresh deposit.",
-                    tx.id,
-                    '/wallet')
+                // Multi-pod / out-of-band claim. See class-level comment
+                // above for the two race classes this closes.
+                int claimed = transactionRepository.claimExpirePending(tx.id)
+                if (claimed == 0) {
+                    log.debug("Deposit-expire claim lost for tx=${tx.id} — sibling pod or webhook completion")
+                    continue
+                }
+                fired++
+
+                if (notificationService == null || steamUserRepository == null) continue
+                try {
+                    def wallet = walletRepository.findById(tx.walletId).orElse(null)
+                    if (wallet == null) continue
+                    def uname = wallet.username ?: ''
+                    if (!uname.startsWith('steam_')) continue
+                    def steamId = uname.substring('steam_'.length())
+                    def user = steamUserRepository.findBySteamId64(steamId)
+                    if (user == null) continue
+                    notificationService.safePush(user.id, 'DEPOSIT_EXPIRED',
+                        "Deposit expired",
+                        "Your \$${tx.amount?.toPlainString() ?: '0.00'} deposit was auto-expired after 48h without completion. If you still want to top up, start a fresh deposit.",
+                        tx.id,
+                        '/wallet')
+                } catch (Exception e) {
+                    log.warn("Deposit-expired lookup failed for tx=${tx.id}: ${e.message}")
+                }
             } catch (Exception e) {
-                log.warn("Deposit-expired lookup failed for tx=${tx.id}: ${e.message}")
+                log.warn("Deposit sweeper failed on tx=${tx.id}: ${e.message}")
             }
         }
+        log.info("Deposit sweeper: fired ${fired} of ${stale.size()} candidates (rest claimed by sibling pods or completed by webhook)")
     }
 }

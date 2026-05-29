@@ -18,7 +18,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 /**
  * Single-responsibility: handles the OFFER lifecycle.
@@ -51,6 +54,11 @@ class OfferService {
     @Autowired(required = false) EmailService emailService
     @Autowired(required = false) com.sboxmarket.repository.TradeRepository tradeRepository
     @Autowired(required = false) ReviewService reviewService
+    /** Optional in unit specs that build OfferService directly (no Spring
+     *  context); wired in production. Used by `tryAutoAccept` to run the
+     *  self-invoked `acceptOffer` in a REQUIRES_NEW transaction — see the
+     *  comment block on `tryAutoAccept` for the full rationale. */
+    @Autowired(required = false) PlatformTransactionManager transactionManager
 
     /** Sweeper window for auto-declining idle offers. Defaults to 7 days —
      *  same as CSFloat's offer-expiry policy. Configurable so ops can
@@ -289,6 +297,31 @@ class OfferService {
      * conversions: a buyer who initially offered $30 on a $50 ask with
      * maxDiscount=0.10 (threshold $45) and then raised to $46 sat
      * waiting for seller action that should have been bypassed.
+     *
+     * Transaction-poisoning fix (this wave): both callers (`makeOffer`,
+     * `buyerRaise`) are @Transactional. Spring's @Transactional is
+     * proxy-based, so `acceptOffer(…)` invoked through `this` BYPASSES the
+     * proxy entirely — `acceptOffer`'s `@Transactional(noRollbackFor =
+     * [InsufficientBalanceException, ListingNotAvailableException,
+     * ForbiddenException])` is silently DROPPED on the self-invocation
+     * path. When the buyer's wallet drained between offer creation and
+     * the auto-accept attempt (or the listing was sold out from under
+     * them, or the seller got banned), `acceptOffer` would throw, the
+     * SHARED outer tx would be marked rollback-only, the catch below
+     * would swallow the throw, `tryAutoAccept` would return null, and
+     * the outer caller would continue all the way to method return —
+     * at which point Spring raised `UnexpectedRollbackException` on
+     * commit and EVERY write (the original offer save itself) reverted.
+     * Net effect: buyer hits "Make offer", sees an opaque 500, and the
+     * offer was never created.
+     *
+     * Wrapping the self-call in a REQUIRES_NEW programmatic transaction
+     * suspends the outer tx and runs `acceptOffer` against a fresh
+     * transaction Spring DOES manage via the proxy boundary — when it
+     * throws, only THAT inner tx rolls back; the outer tx stays clean,
+     * the catch absorbs the throw, and the offer's PENDING save in the
+     * outer tx commits as designed. Mirrors `BidService.runInIsolatedTx`
+     * which closed the same family of bugs in the auction sweepers.
      */
     private Offer tryAutoAccept(Listing listing, Offer saved, BigDecimal amount) {
         if (listing?.maxDiscount == null
@@ -301,13 +334,30 @@ class OfferService {
         if (amount < threshold) return null
         try {
             banGuard.assertNotBanned(listing.sellerUserId)
-            acceptOffer(listing.sellerUserId, saved.id)
+            runInIsolatedTx { acceptOffer(listing.sellerUserId, saved.id) }
             // Reload to return the ACCEPTED snapshot.
             return offerRepository.findById(saved.id).orElse(saved)
         } catch (Exception e) {
             log.warn("Auto-accept failed for offer ${saved.id}: ${e.message} — leaving in PENDING")
             return null
         }
+    }
+
+    /**
+     * Run {@code work} in a fresh REQUIRES_NEW transaction when a
+     * PlatformTransactionManager is wired (production), otherwise run it
+     * inline (Spock unit tests that build OfferService without a Spring
+     * context). Used by `tryAutoAccept` to escape the @Transactional
+     * self-invocation trap — see that method's doc for the rationale.
+     */
+    private void runInIsolatedTx(Closure work) {
+        if (transactionManager == null) {
+            work()
+            return
+        }
+        def tt = new TransactionTemplate(transactionManager)
+        tt.propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        tt.executeWithoutResult { work() }
     }
 
     /**
