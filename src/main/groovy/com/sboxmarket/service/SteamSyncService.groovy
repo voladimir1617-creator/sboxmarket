@@ -207,16 +207,37 @@ class SteamSyncService {
         // unconditional bump, a single transient 429 silently downgraded the
         // user to one sync attempt every 24h, exactly contrary to the
         // doSyncOne comment above ("until we get a real successful fetch").
+        long syncedAt = System.currentTimeMillis()
         if (!blocked) {
-            fresh.lastSyncedAt = System.currentTimeMillis()
+            fresh.lastSyncedAt = syncedAt
             fresh.steamInventorySize = now
         }
         steamUserRepository.save(fresh)
 
         if (!blocked && !isBaseline && now > before) {
-            notificationService?.push(user.id, 'STEAM_INVENTORY',
-                "New Steam inventory items",
-                "${now - before} new item(s) ready to list", null, '/sell')
+            // Multi-pod de-dupe (wave 131). The synchronized(lockFor(id))
+            // monitor in syncOne serialises concurrent attempts WITHIN one
+            // JVM, but it does nothing across pods: in a multi-pod deploy two
+            // pods can both run this tick (or one pod's tick races the user's
+            // on-demand POST /api/steam/sync on another pod) for the SAME
+            // user, both read the same `before`, both observe `now > before`,
+            // and both fire a STEAM_INVENTORY push for one real delta. The
+            // atomic compare-and-set below makes the count-advance the
+            // authoritative gate: the UPDATE flips steamInventorySize from
+            // the `before` this pod read to `now` ONLY while the row still
+            // holds `before`. Exactly one pod gets 1 back and pushes; the
+            // loser (0) skips the push, but the count still converges (the
+            // winner's UPDATE — and the unconditional save above — persisted
+            // `now`). Same shape as WatchlistAlertRepository.claimForFiring
+            // (112), claimEndingSoonNotify (124), claimReviewNudge (129).
+            int claimed = steamUserRepository.claimInventoryGrowth(user.id, before, now, syncedAt)
+            if (claimed == 1) {
+                notificationService?.push(user.id, 'STEAM_INVENTORY',
+                    "New Steam inventory items",
+                    "${now - before} new item(s) ready to list", null, '/sell')
+            } else {
+                log.debug("STEAM_INVENTORY claim lost for user ${user.id} (before=${before}, now=${now}) — sibling pod already fired")
+            }
         }
     }
 

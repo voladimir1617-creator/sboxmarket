@@ -31,6 +31,17 @@ class SteamSyncServiceSpec extends Specification {
         notificationService  : notificationService
     )
 
+    def setup() {
+        // Wave 131: the growth-notification path is now gated behind the
+        // multi-pod claim claimInventoryGrowth (returns 1 = this pod won the
+        // delta, 0 = a sibling pod already fired). These single-instance
+        // specs always represent the winning pod, so default the claim to 1;
+        // the dedicated SteamSyncMultiPodInventoryClaimSpec covers the
+        // losing-pod (0) case. An unstubbed Mock int method returns 0, which
+        // would otherwise suppress every "inventory grew" push below.
+        steamUserRepository.claimInventoryGrowth(_, _, _, _) >> 1
+    }
+
     def "syncOne persists the new inventory size + lastSyncedAt"() {
         given:
         def user = new SteamUser(id: 10L, steamId64: '111', steamInventorySize: 0)

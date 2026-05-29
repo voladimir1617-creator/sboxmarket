@@ -262,4 +262,51 @@ interface SteamUserRepository extends JpaRepository<SteamUser, Long> {
                             @Param('secret') String secret,
                             @Param('step') Long step,
                             @Param('codes') String codes)
+
+    /** Race-safe inventory-growth claim used by the Steam sync sweeper
+     *  (wave 131). Same multi-pod shape as {@link WatchlistAlertRepository#claimForFiring}
+     *  (wave 112), {@link TradeRepository#claimReviewNudge} (wave 129),
+     *  {@link BidService#notifyEndingSoon}'s claimEndingSoonNotify (wave 124),
+     *  and the FraudSignalClaim ledger (wave 120).
+     *
+     *  Multi-pod prod hazard: {@code SteamSyncService.syncOne} guards the
+     *  STEAM_INVENTORY "N new item(s)" push with a `synchronized(lockFor(id))`
+     *  monitor, but that lock is JVM-LOCAL. When sboxmarket runs on two or
+     *  more pods, two pods can both run the scheduled `syncAllUsers` tick for
+     *  the SAME user (or one pod's tick races the user's on-demand
+     *  POST /api/steam/sync on another pod). Both pods `findById` and read the
+     *  same `before` count, both fetch the same grown inventory, both observe
+     *  `before < now`, and — since neither holds the other's monitor — both
+     *  fire a STEAM_INVENTORY push BEFORE either's row write commits. The user
+     *  gets the "N new items" toast TWICE for one real delta.
+     *
+     *  This conditional UPDATE makes the count-advance the authoritative gate.
+     *  It flips `steamInventorySize` from the exact `before` value this pod
+     *  read up to `now` (and stamps `lastSyncedAt`) ONLY while the row still
+     *  holds `before` — i.e. no sibling pod has advanced it yet. Whichever pod
+     *  wins gets `1` back and fires the push; the loser's WHERE no longer
+     *  matches (the row already reads `now`), gets `0`, and skips the push.
+     *  The count still converges either way — the winner's UPDATE already
+     *  persisted `now`, so the loser's user sees the correct size with no
+     *  duplicate toast.
+     *
+     *  Binding on `steamInventorySize = :before` (not `< :now`) keeps the
+     *  claim a precise compare-and-set: it only fires for the delta this pod
+     *  actually computed, so two genuinely-distinct deltas observed by
+     *  staggered ticks don't collapse into one suppressed push. The
+     *  baseline-suppression (`priorRecorded == null`) and blocked-fetch
+     *  (rate-limited) paths in doSyncOne never reach this claim — only the
+     *  `!blocked && !isBaseline && now > before` growth path does. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("""
+        UPDATE SteamUser u
+           SET u.steamInventorySize = :now,
+               u.lastSyncedAt       = :syncedAt
+         WHERE u.id                 = :id
+           AND u.steamInventorySize = :before
+    """)
+    int claimInventoryGrowth(@Param('id') Long id,
+                             @Param('before') Integer before,
+                             @Param('now') Integer now,
+                             @Param('syncedAt') Long syncedAt)
 }
